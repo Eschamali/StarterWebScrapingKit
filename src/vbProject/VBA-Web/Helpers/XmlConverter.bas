@@ -191,73 +191,47 @@ Public Function SelectSingleNode(Node As Dictionary, nodeName As String) As Dict
 End Function
 
 ''
-' Helper for use with CustomXMLPart and VBA-XML.
+' Helper for use with VBA-XML.
 '
 ' Gets the value of the attribute.
 ' - Returns the value as a string if the attribute value is a non-empty string.
 ' - Returns Null if the named attribute does not have a specified value or does not exist.
 '
-' @param {Dictionary|CustomXMLNode} Node | Node to read attribute from.
+' @param {Dictionary} Node | Node to read attribute from.
 ' @param {String} Name | A string specifiying the name of the attribute to return.
 ' @return {String} Attribute value.
 ''
-Public Function GetAttribute(Node As Object, Name As String) As Variant
-    Dim xml_Attribute As Object
+Public Function GetAttribute(Node As Dictionary, Name As String) As Variant
+    Dim xml_Attribute As Dictionary
     GetAttribute = Null
-    If TypeOf Node Is CustomXMLNode Then
-        If Not Node.Attributes Is Nothing Then
-            For Each xml_Attribute In Node.Attributes
-                If xml_Attribute.BaseName = Name Then
-                    GetAttribute = xml_Attribute.Text
-                    Exit Function
-                End If
-            Next xml_Attribute
-        End If
-    ElseIf TypeOf Node Is Dictionary Then
-        If Not Node.Item("attributes") Is Nothing Then
-            For Each xml_Attribute In Node.Item("attributes")
-                If xml_Attribute.Item("name") = Name Then
-                    GetAttribute = xml_Attribute.Item("value")
-                    Exit Function
-                End If
-            Next xml_Attribute
-        End If
-    Else
-        Err.Raise 5, "GetAttribute", "'Node' must be of type {CustomXMLNode} or {Dictionary}." ' Invalid procedure call or argument
+    If Not Node.Item("attributes") Is Nothing Then
+        For Each xml_Attribute In Node.Item("attributes")
+            If xml_Attribute.Item("name") = Name Then
+                GetAttribute = xml_Attribute.Item("value")
+                Exit Function
+            End If
+        Next xml_Attribute
     End If
 End Function
 
 ''
-' Helper for use with CustomXMLPart and VBA-XML.
+' Helper for use with VBA-XML.
 '
 ' Gets the attribute node.
 '
-' @param {Dictionary|CustomXmlPart} Node | Node to search within.
+' @param {Dictionary} Node | Node to search within.
 ' @param {String} Name | A string specifiying the name of the attribute to return.
-' @return {Dictionary|CustomXmlPart} Attribute (if found), else nothing.
+' @return {Dictionary} Attribute (if found), else nothing.
 ''
-Public Function GetAttributeNode(Node As Object, Name As String) As Object
+Public Function GetAttributeNode(Node As Dictionary, Name As String) As Dictionary
     Dim xml_Attribute As Object
-    If TypeOf Node Is CustomXMLNode Then
-        If Not Node.Attributes Is Nothing Then
-            For Each xml_Attribute In Node.Attributes
-                If xml_Attribute.BaseName = Name Then
-                    Set GetAttributeNode = xml_Attribute
-                    Exit Function
-                End If
-            Next xml_Attribute
-        End If
-    ElseIf TypeOf Node Is Dictionary Then
-        If Not Node.Item("attributes") Is Nothing Then
-            For Each xml_Attribute In Node.Item("attributes")
-                If xml_Attribute.Item("name") = Name Then
-                    Set GetAttributeNode = xml_Attribute
-                    Exit Function
-                End If
-            Next xml_Attribute
-        End If
-    Else
-        Err.Raise 5, "GetAttributeNode", "'Node' must be of type {CustomXMLNode} or {Dictionary}." ' Invalid procedure call or argument
+    If Not Node.Item("attributes") Is Nothing Then
+        For Each xml_Attribute In Node.Item("attributes")
+            If xml_Attribute.Item("name") = Name Then
+                Set GetAttributeNode = xml_Attribute
+                Exit Function
+            End If
+        Next xml_Attribute
     End If
 End Function
 
