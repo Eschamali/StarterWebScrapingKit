@@ -983,6 +983,28 @@ Public Function Base64Decode(Encoded As Variant) As String
 End Function
 
 ''
+' Base64url-encode (as defined in RFC 7515) text, which uses `-` and `_` instead of `+` and `/` when compared to Base64.
+' Used when working with JWTs.
+'
+' @param {Variant} Text | Text to encode.
+' @return {String} Encoded string
+''
+Public Function Base64UrlEncode(Text As String) As String
+    Base64UrlEncode = VBA.Replace(VBA.Replace(Base64Encode(Text), "+", "-"), "/", "_")
+End Function
+
+''
+' Decode Base64url-encoded (as defined in RFC 7515) text, which uses `-` and `_` instead of `+` and `/` when compared to Base64.
+' Used when working with JWTs.
+'
+' @param {Variant} Encoded | Text to decode.
+' @return {String} Decoded string
+''
+Public Function Base64UrlDecode(Encoded As Variant) As String
+    Base64UrlDecode = Base64Decode(VBA.Replace(VBA.Replace(Encoded, "-", "+"), "_", "/"))
+End Function
+
+''
 ' Register custom converter for converting request `Body` and response `Content`.
 ' If the `ConvertCallback` or `ParseCallback` are object methods,
 ' pass in an object instance.
