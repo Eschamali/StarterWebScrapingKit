@@ -1,6 +1,6 @@
 Attribute VB_Name = "WebHelpers"
 ''
-' WebHelpers v4.2.0
+' WebHelpers v4.2.1
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-Web
 '
 ' Contains general-purpose helpers that are used throughout VBA-Web. Includes:
@@ -951,7 +951,6 @@ Public Function Base64Encode(Text As String) As String
     Base64Encode = ExecuteInShell(web_Command).Output
 #Else
     Dim web_Bytes() As Byte
-
     web_Bytes = VBA.StrConv(Text, vbFromUnicode)
     Base64Encode = web_AnsiBytesToBase64(web_Bytes)
 #End If
@@ -976,19 +975,33 @@ Public Function Base64Decode(Encoded As Variant) As String
     web_Command = "echo " & PrepareTextForShell(Encoded) & " | openssl base64 -d"
     Base64Decode = ExecuteInShell(web_Command).Output
 #Else
-    Dim web_XmlObj As Object
-    Dim web_Node As Object
-
-    Set web_XmlObj = CreateObject("MSXML2.DOMDocument")
-    Set web_Node = web_XmlObj.createElement("b64")
-
-    web_Node.DataType = "bin.base64"
-    web_Node.Text = Encoded
-    Base64Decode = VBA.StrConv(web_Node.nodeTypedValue, vbUnicode)
-
-    Set web_Node = Nothing
-    Set web_XmlObj = Nothing
+    Dim web_Crypto As WebCrypto
+    Set web_Crypto = New WebCrypto
+    Base64Decode = VBA.StrConv(web_Crypto.Decode(Encoded, edfBase64), vbUnicode)
+    Set web_Crypto = Nothing
 #End If
+End Function
+
+''
+' Base64url-encode (as defined in RFC 7515) text, which uses `-` and `_` instead of `+` and `/` when compared to Base64.
+' Used when working with JWTs.
+'
+' @param {Variant} Text | Text to encode.
+' @return {String} Encoded string
+''
+Public Function Base64UrlEncode(Text As String) As String
+    Base64UrlEncode = VBA.Replace(VBA.Replace(Base64Encode(Text), "+", "-"), "/", "_")
+End Function
+
+''
+' Decode Base64url-encoded (as defined in RFC 7515) text, which uses `-` and `_` instead of `+` and `/` when compared to Base64.
+' Used when working with JWTs.
+'
+' @param {Variant} Encoded | Text to decode.
+' @return {String} Decoded string
+''
+Public Function Base64UrlDecode(Encoded As Variant) As String
+    Base64UrlDecode = Base64Decode(VBA.Replace(VBA.Replace(Encoded, "-", "+"), "_", "/"))
 End Function
 
 ''
@@ -1982,22 +1995,13 @@ Public Function StringToAnsiBytes(web_Text As String) As Byte()
     StringToAnsiBytes = web_AnsiBytes
 End Function
 
-#If Mac Then
-#Else
+#If Not Mac Then
 Private Function web_AnsiBytesToBase64(web_Bytes() As Byte)
     ' Use XML to convert to Base64
-    Dim web_XmlObj As Object
-    Dim web_Node As Object
-
-    Set web_XmlObj = CreateObject("MSXML2.DOMDocument")
-    Set web_Node = web_XmlObj.createElement("b64")
-
-    web_Node.DataType = "bin.base64"
-    web_Node.nodeTypedValue = web_Bytes
-    web_AnsiBytesToBase64 = web_Node.Text
-
-    Set web_Node = Nothing
-    Set web_XmlObj = Nothing
+    Dim web_Crypto As WebCrypto
+    Set web_Crypto = New WebCrypto
+    web_AnsiBytesToBase64 = web_Crypto.Encode(web_Bytes, edfBase64, efNoFolding)
+    Set web_Crypto = Nothing
 End Function
 
 Private Function web_AnsiBytesToHex(web_Bytes() As Byte)
