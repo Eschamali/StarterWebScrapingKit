@@ -2053,14 +2053,21 @@ Private Sub QuickSortKeys(ByRef arrKeys() As Variant _
     Dim newLB As Long: newLB = lb
     Dim newUB As Long: newUB = ub
     Dim p As Long:     p = (lb + ub) \ 2
+    Dim pv As Variant: pv = arrKeys(p)
     '
     Do While newLB <= newUB
         Do While newLB < ub
-            If arrKeys(newLB) >= arrKeys(p) Then Exit Do
+            Select Case StrComp(arrKeys(newLB), pv)
+                Case 1: Exit Do
+                Case 0: If newLB >= p Then Exit Do
+            End Select
             newLB = newLB + 1
         Loop
         Do While newUB > lb
-            If arrKeys(p) >= arrKeys(newUB) Then Exit Do
+            Select Case StrComp(pv, arrKeys(newUB))
+                Case 1: Exit Do
+                Case 0: If p >= newUB Then Exit Do
+            End Select
             newUB = newUB - 1
         Loop
         If newLB <= newUB Then
