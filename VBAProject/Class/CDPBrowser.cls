@@ -910,7 +910,7 @@ Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Opti
 '----------------------------------------------------------------------------------
     Dim strFormattedMsg As String
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = Format(Now, "hh:mm:ss") & " | " & brID & " | " & strMsg
+    Else: strFormattedMsg = Format(Now, "hh:mm:ss") & " | " & brID & " | " & strMsg
 
     Debug.Print strFormattedMsg  'standard output to Immediate Window
     
@@ -1072,20 +1072,29 @@ Property Get html() As String
     html = jsEval("document.documentElement.innerHTML")
 End Property
 
+'***************************************************************************************************
+'* 機能　　：CDPコマンドの核となる、`method`、およびオプションの`params`を直接指定して、実行します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果のJson-Dictionary
+'* 引数　　：methodName         Network.getCookies とか、Browser.getVersion 等々
+'            params             オプションパラメーターセット。予め呼び出し側で、Json-Dictionaryとして組み立ててください
+'            EventMessages      ブラウザからのイベント情報を取得したい場合に指定します。参照渡しによりここに実行までの過去のイベントが、Json-Dictionaryとして積まれていきます。省略で、過去のイベントを破棄します
+'            dbgMsg             実行結果をイミディエイトに出すか指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・低レベル操作により、実装されてる全ての CDP－Json が実行可能です
+'            ・イベント情報も確認したい場合は第三引数に、New Dictionary 済みの変数を渡すことで、受け取ることが可能です
+'
+'* 注意事項：・エラーメッセージは、invokeError によってイミディエイトウィンドウに自動的に表示されます
+'            ・一部のイベントは、「"method": "XXXX.enable"」といった形式で事前送信(設定)する必要があります
+'---------------------------------------------------------------------------------------------------
+'* 関連URL ：・出典                     https://github.com/PerditionC/VBAChromeDevProtocol
+'            ・CDPドキュメントブック　  https://chromedevtools.github.io/devtools-protocol/tot/Brows
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：・25/12/18 - イベント情報を格納/破棄のスイッチングができる仕組みを実装
+'            ・25/04/23 - Set this to Public as it is useful
+'            ・20/03/23 - Added printMsg msgs & set to Private
+'***************************************************************************************************
 Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional EventMessages As Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
-'-----------------------------------------------------------------
-' This function enables advanced method invocation under CDP.
-' For a list of all methods available, see:
-' https://chromedevtools.github.io/devtools-protocol/tot/Browser/
-' Error message will be prompted automatically by invokeError in
-' the Immediate Window.
-' The return object is Json String that has been converted to a
-' dictionary object.
-' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
-' Updated: 28/04/23 - Set this to Public as it is useful
-'          20/03/23 - Added printMsg msgs & set to Private
-'-----------------------------------------------------------------
-
     Dim paramStr As String
     Dim results As Scripting.Dictionary
 
@@ -1236,7 +1245,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each strKey In objAllMessages.Keys
+    For Each strKey In objAllMessages.keys
        Set results = objAllMessages.Item(strKey)
        If results.Exists("params") And results.Item("method") = "Target.targetCreated" Then
             Set results_ = results.Item("params")
@@ -1250,7 +1259,7 @@ Private Function attachToSession() As Integer
         End If
     Next strKey
 2   If Not boolFound Then printMsg "Unable to find the browser session", doRaiseError:=True _
-    Else printMsg "Now attaching CDP pipes to the browser session"
+    Else: printMsg "Now attaching CDP pipes to the browser session"
     
    'Establish connection with the CDP pipes
 3   targetID = results__.Item("targetId")
