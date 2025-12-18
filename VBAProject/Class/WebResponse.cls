@@ -149,7 +149,26 @@ Public Sub CreateFromHttp(Client As WebClient, Request As WebRequest, Http As Ob
 
     Me.StatusCode = Http.Status
     Me.StatusDescription = Http.StatusText
+    
+    '「Unicode 文字のマッピングがターゲットのマルチバイトコードページにありません。」の対処
+    On Error Resume Next
+    
+    '一旦代入処理
     Me.Content = Http.ResponseText
+    If Err.Number Then
+        ' エラーが発生した場合:
+        ' デバッグ用に、エラー情報を記録
+        Debug.Print "`Http.ResponseText`の取得中にエラーが発生しました。`Http.ResponseBody`から取得してください。"
+        Debug.Print "エラー番号: " & Err.Number
+        Debug.Print "エラー内容: " & Err.Description
+        
+        ' 代わりにエラー文をセットする
+        Me.Content = "※" & Err.Description
+    End If
+
+    'エラー無視は終わり
+    On Error GoTo 0
+
     Me.Body = Http.ResponseBody
 
     web_LoadValues Http.GetAllResponseHeaders, Me.Content, Me.Body, Request
@@ -419,4 +438,3 @@ Private Sub Class_Initialize()
     Set Headers = New Collection
     Set Cookies = New Collection
 End Sub
-
