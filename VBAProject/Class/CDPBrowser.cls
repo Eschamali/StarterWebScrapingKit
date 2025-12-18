@@ -1548,9 +1548,15 @@ Private Function getBrowserPath(strBrowserType As String) As String
     On Error Resume Next
     Dim objWSHost As Object, reg As Object, strKeyPath As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
-    Set objWSHost = CreateObject("WScript.Shell")
-    strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
-    getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
+    
+    'カスタムパスがあったらそっちを優先
+    If Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID01).value = "" Then
+        Set objWSHost = CreateObject("WScript.Shell")
+        strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
+        getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
+    Else
+        getBrowserPath = Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID01).value
+    End If
 
     If Err.Number <> 0 Then printMsg Err.Description, doRaiseError:=True
 End Function
