@@ -262,12 +262,14 @@ quit:
     UpgradeToWebSocket = False
 End Function
 
-Private Sub Class_Terminate()
-    CloseHInternetHandles
-End Sub
-
-Public Sub CloseHInternetHandles()
-    If (hwebsockethandle_ <> 0) Then
+'***************************************************************************************************
+'* 機能　　：HTTP通信ハンドルの後始末を行います
+'* 引数    ：RetentionWebsockethandle   再接続用に、Websocketのハンドル値だけは残すかのフラグ値
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：適切な掃除をしないと、使わなくなったWebsocketハンドルがどんどんメモリに溜まっていくため、ご注意ください。
+'***************************************************************************************************
+Public Sub CloseHInternetHandles(RetentionWebsockethandle As Boolean)
+    If (hwebsockethandle_ <> 0 And Not (RetentionWebsockethandle)) Then
         WinHttpCloseHandle (hwebsockethandle_)
         hwebsockethandle_ = 0
     End If
@@ -289,5 +291,10 @@ Public Sub CloseHInternetHandles()
     If (result <> ERROR_SUCCESS) Then
           MsgBox "quitting with result: " & result
     End If
+End Sub
 
+
+
+Private Sub Class_Terminate()
+    CloseHInternetHandles True
 End Sub
