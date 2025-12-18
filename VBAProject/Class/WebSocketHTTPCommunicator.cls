@@ -2,13 +2,24 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "a1x1_HTTPCommunicator"
+Attribute VB_Name = "WebSocketHTTPCommunicator"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'***************************************************************************************************
+'                   Websocketの確立に必要なWindowsAPI宣言や処理を行います
+'   winhttp5.1 では、http系統特化のためここでは、WinHttp.dll を直接操作する低レベル操作を行います
+'
+'           ここをカスタマイズすることで、cookieや認証ヘッダー対応もできたりします
+'***************************************************************************************************
 Option Explicit
 
+
+
+'***************************************************************************************************
+'                           ■■■ WindowsAPI宣言と定数定義 ■■■
+'***************************************************************************************************
 Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
 Private Const ERROR_SUCCESS = 0
 Private Const ERROR_INVALID_FUNCTION = 1
@@ -127,19 +138,46 @@ Private hConnectionHandle_ As LongPtr
 Private hRequestHandle_ As LongPtr
 Private hwebsockethandle_ As LongPtr
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 公開メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：確立したwebsocketのハンドル値を取得をします
+'---------------------------------------------------------------------------------------------------
+'* Get返値 ：アクティブなwebsocketのハンドル値
+'***************************************************************************************************
 Public Property Get websockethandle() As LongPtr
     websockethandle = hwebsockethandle_
 End Property
 
-'HTTP接続
-Public Function Connect(Host As String, Path As String, port As Long) As Boolean
+'***************************************************************************************************
+'* 機能　　：通常の http-GET 接続を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功/失敗
+'* 引数    ：Host           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
+'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
+'            SecureFlag     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：最初はhttp通信を行って、200が返るか確認します
+'* 注意事項：・secureモードが正しくないと、処理に失敗します
+'            ・cookieや認証ヘッダー等は未対応です。匿名アクセス用です
+'***************************************************************************************************
+Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean) As Boolean
 
     hSessionHandle_ = WinHttpOpen(StrPtr(AGENT), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 0, 0, 0)
     If hSessionHandle_ = 0 Then GoTo quit
     hConnectionHandle_ = WinHttpConnect(hSessionHandle_, StrPtr(Host), port, 0)
     If hConnectionHandle_ = 0 Then GoTo quit
+    
+    'セキュアモードの切り替え判定
+    Dim SecureMode As Long
+    If SecureFlag Then SecureMode = WINHTTP_FLAG_SECURE Else SecureMode = 0
+
+    '適用してリクエスト
     hRequestHandle_ = WinHttpOpenRequest(hConnectionHandle_, _
-                                    StrPtr(GET_METHOD), StrPtr(Path), StrPtr(HTTP_VERSION), 0, 0, 0)
+                                    StrPtr(GET_METHOD), StrPtr(Path), StrPtr(HTTP_VERSION), 0, 0, SecureMode)
     If hRequestHandle_ = 0 Then GoTo quit
 
     Dim result As Long
@@ -152,6 +190,7 @@ Public Function Connect(Host As String, Path As String, port As Long) As Boolean
 
     If IsResponseStatus(200) = False Then GoTo quit
     
+    '一連の処理やチェックを超えたら成功とみなす
     Connect = True
 Exit Function
 quit:
@@ -159,7 +198,12 @@ quit:
     Connect = False
 End Function
 
-''Httpレスポンスのステータスコード確認
+'***************************************************************************************************
+'* 機能　　：Httpレスポンスのステータスコード確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功/失敗
+'* 引数    ：CheckStatusNumber  期待するステータスコード
+'***************************************************************************************************
 Public Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
     Dim statusCodeBuffer As Long
     Dim BufferSize As Long: BufferSize = 4
@@ -182,6 +226,11 @@ quit:
     IsResponseStatus = False
 End Function
 
+'***************************************************************************************************
+'* 機能　　：HTTP通信からWebSocket通信にUpGradeします
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功/失敗
+'***************************************************************************************************
 Public Function UpgradeToWebSocket() As Boolean
     Dim result As Long
     result = WinHttpSetOption(hRequestHandle_, _
@@ -196,11 +245,13 @@ Public Function UpgradeToWebSocket() As Boolean
     result = WinHttpReceiveResponse(hRequestHandle_, 0)
     If result = 0 Then GoTo quit
     
+    '101でアップグレード確認
     If IsResponseStatus(101) = False Then GoTo quit
 
+    'アップグレードしたハンドル値を取得します
     hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, 0)
     If hwebsockethandle_ = 0 Then GoTo quit
-    
+
 '    Debug.Print "Upgrade成功"
     UpgradeToWebSocket = True
 
