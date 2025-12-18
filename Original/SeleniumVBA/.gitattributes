@@ -1,0 +1,72 @@
+# modified from https://github.com/DecimalTurn/VBA-on-GitHub
+# read the excellent writeup there!
+
+# PowerShell (.ps1) - prevent LF normalization
+*.[pP][sS]1 -text diff linguist-language=PowerShell
+
+# VBA code (bas, cls, frm) - prevent LF normalization
+*.[bB][aA][sS] -text diff linguist-language=VBA
+*.[cC][lL][sS] -text diff linguist-language=VBA
+*.[fF][rR][mM] -text diff linguist-language=VBA
+
+# VBA UserForm (frx)
+*.[fF][rR][xX] binary
+
+# twinBASIC native class/module (twin) - prevent LF normalization
+*.[tT][wW][iI][nN] -text diff linguist-language=VBA
+
+# twinBASIC native form (tbform) - prevent LF normalization
+*.[tT][bB][fF][oO][rR][mM] -text diff linguist-language=JSON
+
+# twinBASIC resources (json, xml, js) - prevent LF normalization
+*.[jJ][sS][oO][nN] -text diff
+*.[xX][mM][lL] -text diff
+*.[jS][sS] -text diff
+
+# twinBASIC project (twinproj)
+*.[tT][wW][iI][nN][pP][rR][oO][jJ] binary
+
+# VBS - prevent LF normalization
+*.[vV][bB][sS] -text diff linguist-language=VBScript
+
+# Inno Setup (iss) - prevent LF normalization
+*.[iI][sS][sS] -text diff
+
+# INI file - prevent LF normalization
+*.[iI][nN][iI] -text diff
+              
+# Excel documents (xlam, xlsm)
+*.[xX][lL][aA][mM] binary
+*.[xX][lL][sS][mM] binary
+              
+# Access documents (accdb)
+*.[aA][cC][cC][dD][bB] binary
+
+# Word documents (rtf)
+*.[rR][tT][fF] diff=astextplain
+
+# Images (jpg, png, bmp, gif, ico)           
+*.[jJ][pP][gG] binary
+*.[pP][nN][gG] binary
+*.[bB][mM][pP] binary
+*.[gG][iI][fF] binary
+*.[iI][cC][oO] binary
+
+# Executables (exe, dll)
+*.[eE][xX][eE] binary
+*.[dD][lL][lL] binary
+
+# Other (pdf)
+*.[pP][dD][fF] diff=astextplain
+
+# Files to exclude in release source
+/dev export-ignore
+/dist export-ignore
+/src/twinBASIC/Build export-ignore
+/src/twinBASIC/no_registration export-ignore
+/src/twinBASIC/setup export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/README.md export-ignore
+
+
