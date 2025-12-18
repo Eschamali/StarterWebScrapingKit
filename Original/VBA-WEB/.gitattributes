@@ -1,0 +1,7 @@
+# CRLF -> LF by default. Ensure all Excel components have CRLF.
+* text=auto
+*.bas text eol=crlf
+*.cls text eol=crlf
+*.doccls text eol=crlf
+*.frm text eol=crlf
+*.frx text eol=crlf

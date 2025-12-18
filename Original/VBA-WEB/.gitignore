@@ -1,0 +1,6 @@
+# Ignore all Excel files.
+*.xl*
+
+# Ignore build remnants.
+build/backup/
+build/*.log
