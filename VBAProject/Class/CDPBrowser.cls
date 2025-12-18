@@ -891,7 +891,7 @@ Public Sub snapPage(Optional fileName As String = "mysnapshot", Optional targetE
 
    'Save to destination folder ----------------------------------
     Dim destnPath As String
-    destnPath = thisApp.Path & "\Saved Screens\"
+    destnPath = OneDrivePathToLocalPath(thisApp.Path, UsePrivateOneDrive) & "\Saved Screens\"
     If Dir(destnPath, vbDirectory) = "" Then MkDir (destnPath)
     fso.GetFile(filePath).Copy destnPath & fileName, True
    '-------------------------------------------------------------
@@ -914,7 +914,7 @@ Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Opti
     Debug.Print strFormattedMsg  'standard output to Immediate Window
     
     Dim logPath As String, logName As String
-    logPath = thisApp.Path & "\Logs\"
+    logPath = OneDrivePathToLocalPath(thisApp.Path, UsePrivateOneDrive) & "\Logs\"
 
     logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
     If Dir(logPath, vbDirectory) = "" Then MkDir logPath
@@ -1551,6 +1551,31 @@ Private Function getBrowserPath(strBrowserType As String) As String
     If Err.Number <> 0 Then printMsg Err.Description, doRaiseError:=True
 End Function
 
+'***************************************************************************************************
+'* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：ローカルパス
+'* 引数　　：Path   基本は、`thisworkbook.path`を指定
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：開いてるExcelがOneDriveにあると、`thisworkbook.path`がインターネット上のURLになってしまい、一部操作ができなくなる問題に対処した物となります。
+'            純ローカルなら、そのまま返します。
+'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます
+'
+'* 注意事項：SharePointの場合は、自力でコードを書く必要があります
+'***************************************************************************************************
+Private Function OneDrivePathToLocalPath(Path As String) As String
+    'http始まりじゃないなら、そのまま返して終了
+    If Left(Path, 4) <> "http" Then OneDrivePathToLocalPath = Path: Exit Function
+
+    '個人OneDriveモードなら識別番号分、ローカルパスに置き換えて結合
+    If UsePrivateOneDrive Then
+        OneDrivePathToLocalPath = Environ("OneDrive") & Mid(Path, 41)
+    
+    '個人BusinessOneDriveモードなら"Documents"以降のパスを抜き出して、ローカルパスと結合
+    Else
+        OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
+    End If
+End Function
 
 Private Sub getSessionInfo()
     '----------------------------------------------------------------------------------
