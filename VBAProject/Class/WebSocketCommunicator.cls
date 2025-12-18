@@ -115,6 +115,19 @@ quit:
 End Function
 
 '***************************************************************************************************
+'* 機能　　：既存のwebsocketのハンドル値を設定します
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：ExistingWebsockethandle    以前取得したWebsockethandle値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：以前に確立したwebsocketのハンドル値を渡すことで続きのやり取りができます。
+'* 注意事項：ErrorCode:12030 が来た場合は、もう切断状態です。「接続処理（Connect）からやり直す（再接続）」 しかありません。
+'            別プロセスを跨ぐ使用("/x excel.exe" による別プロセス起動など)はできません...
+'***************************************************************************************************
+Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
+    ExistingWebsockethandle_ = ExistingWebsockethandle
+End Property
+
+'***************************************************************************************************
 '* 機能　　：WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：message            送信プレーンテキスト
@@ -214,11 +227,16 @@ quit:
 Debug.Print "受信エラー発生。ErrorCode：" & res.result & ",Description：" & GetErrorMes.GetMessage(res.result, "winhttp")
 End Function
 
-
-
+'***************************************************************************************************
+'* 機能　　：Websocket通信を終了させます
+'***************************************************************************************************
 Public Function CloseWebSocket() As Boolean
+    '再接続のハンドル情報があったらそっちを使用する
+    Dim UseWebsockethandle As LongPtr
+    If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
+
     Dim result As Long
-    result = WinHttpWebSocketClose(Http.websockethandle, _
+    result = WinHttpWebSocketClose(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
     If result <> NO_ERROR Then GoTo quit
 
@@ -228,7 +246,7 @@ Public Function CloseWebSocket() As Boolean
     Dim Status As Integer
     Dim CloseReasonLength As Long
     
-    result = WinHttpWebSocketQueryCloseStatus(Http.websockethandle, Status, _
+    result = WinHttpWebSocketQueryCloseStatus(UseWebsockethandle, Status, _
                         CloseReasonBuffer(0), BufferSize, CloseReasonLength)
     If result <> NO_ERROR Then GoTo quit
     If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS Then GoTo quit
