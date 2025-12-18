@@ -154,56 +154,64 @@ Public Function SendMessage(message As String) As Long
     End If
 End Function
 
-'クロームからのレスポンス(JSON)受信
+'***************************************************************************************************
+'* 機能　　：WebSocketからの受信を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
+'* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
+'* 注意事項：・受信データがない状態でこれを呼び出すと、受信データが来るまで、フ　リ　ー　ズ　します。ネット切断することで、40s後前後でフリーズ回避できます。
+'            ・現時点は、プレーンテキスト受信のみ対応です
+'            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
+'***************************************************************************************************
 Public Function GetMessage() As String
+    '再接続のハンドル情報があったらそっちを使用する
+    Dim UseWebsockethandle As LongPtr
+    If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
+    
+    'ストリーミング受信準備
     Dim res As response
     InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
     Set res.collect = New Collection
 
-    Do 'レスポンス受信ループ
+    'データが尽きるまで、レスポンス受信ループ
+    Do
+        '受信処理
         res.result = WinHttpWebSocketReceive( _
-                        Http.websockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
+                        UseWebsockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
                         res.ReceiveBytes, res.Status)
+        
+        'エラーならGoToへ
         If res.result <> NO_ERROR Then GoTo quit
 
+        'メッセージを全て受信し終えたら、各パケットを結合
         If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
-            res.collect.add res.Buffer
+            '最後のパケットを追加
+            res.collect.Add res.Buffer
+            
+            '全てのパケットを結合して、プレーンテキストに変換して、返却
             GetMessage = MakeResponseMessage(res.collect)
             Exit Function
         End If
         
+        'バッファー情報の更新
         UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
+        
+        'バッファー残量判定
         If (res.BufferLength <= 0) Then
-            res.collect.add res.Buffer
+            '満たしたパケットをコレクションへ追加
+            res.collect.Add res.Buffer
+            
+            'バッファー初期化
             InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
         End If
     Loop
-    
-quit:
-Debug.Print "受信エラー発生：(戻り値)" & res.result
-GetMessage = "受信エラー発生"
-End Function
-'バッファ管理情報更新
-Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
-    CurrentPointer = CurrentPointer + ReceiveBytes
-    BufferLength = BufferLength - ReceiveBytes
-End Sub
-'バッファ初期化
-Private Sub InitializeBuffer(responseBuffer As Variant, CurrentPointer As Long, BufferLength As Long)
-    Erase responseBuffer
-    CurrentPointer = 0
-    BufferLength = UBound(responseBuffer) + 1
-End Sub
 
-'フラグメント組み立て：文字コードをANSI→UTF16へ変換：Null除去
-Private Function MakeResponseMessage(collect As Collection) As String
-    Dim ary As Variant
-    Dim message As String
-    For Each ary In collect
-        message = message & ary
-    Next
-    message = StrConv(message, vbUnicode)
-    MakeResponseMessage = Left(message, InStr(message, vbNullChar) - 1)
+
+'エラー時は、エラーメッセージを表示
+quit:
+Debug.Print "受信エラー発生。ErrorCode：" & res.result & ",Description：" & GetErrorMes.GetMessage(res.result, "winhttp")
 End Function
 
 
@@ -249,6 +257,23 @@ End Function
 '***************************************************************************************************
 '                                ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
+'* 機能　　：バッファ初期化
+'***************************************************************************************************
+Private Sub InitializeBuffer(responseBuffer As Variant, CurrentPointer As Long, BufferLength As Long)
+    Erase responseBuffer
+    CurrentPointer = 0
+    BufferLength = UBound(responseBuffer) + 1
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：バッファ管理情報更新
+'***************************************************************************************************
+Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
+    CurrentPointer = CurrentPointer + ReceiveBytes
+    BufferLength = BufferLength - ReceiveBytes
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：プレーンテキスト「文字列(String)」で送る際、UTF-8バイト配列(Byte())に変換します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：str        プレーンテキスト「文字列(String)」
@@ -273,4 +298,82 @@ Private Function StringToUtf8Bytes(ByVal str As String) As Byte()
         
         .Close
     End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：バイナリデータをプレーンテキスト「UTF-8文字列(String)」に変換します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：bytes  バイナリデータ
+'* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：当然ですが、バイナリデータが、UTF-8バイト配列になっていないと、文字化けします
+'***************************************************************************************************
+Private Function Utf8BytesToString(ByRef Bytes() As Byte) As String
+    With CreateObject("ADODB.Stream")
+        .Type = 1 ' adTypeBinary
+        .Open
+        .Write Bytes
+        
+        ' 先頭に戻ってテキストモードに変更
+        .Position = 0
+        .Type = 2 ' adTypeText
+        .Charset = "UTF-8"
+        
+        ' 文字列として読み出す
+        Utf8BytesToString = .ReadText
+        
+        .Close
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にUTF-8変換します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：collect  コレクションバイト配列
+'* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：当然ですが、各コレクションバイナリデータが、UTF-8バイト配列になっていないと、文字化けします
+'***************************************************************************************************
+Private Function MakeResponseMessage(collect As Collection) As String
+    Dim totalSize As Long
+    Dim chunk As Variant
+    Dim fullBytes() As Byte
+    Dim currentPos As Long
+    Dim i As Long
+    
+    ' 1. まず合計サイズを計算する
+    totalSize = 0
+    For Each chunk In collect
+        ' 配列のサイズを加算（UBound+1）
+        totalSize = totalSize + (UBound(chunk) + 1)
+    Next chunk
+    
+    ' 2. 巨大な配列を確保
+    ReDim fullBytes(0 To totalSize - 1)
+    
+    ' 3. バイトデータをコピーして結合       Task：バイナリデータそのものが欲しいならここで取り出す
+    currentPos = 0
+    For Each chunk In collect
+        For i = 0 To UBound(chunk)
+            fullBytes(currentPos) = chunk(i)
+            currentPos = currentPos + 1
+        Next i
+    Next chunk
+    
+    ' 4. ここでUTF-8変換！（さっきの関数を使う）
+    ' ※末尾のヌル文字(vbNullChar)除去は、UTF-8変換後にやるか、
+    '   変換前にサイズ調整するかですが、ADODBはヌル文字もそのまま変換してくれるので
+    '   変換後にReplaceかLeftで切るのが安全です。
+    
+    Dim resultStr As String
+    resultStr = Utf8BytesToString(fullBytes)
+    
+    ' 5. ヌル文字除去（もしあれば）
+    Dim nullPos As Long
+    nullPos = InStr(resultStr, vbNullChar)
+    If nullPos > 0 Then
+        MakeResponseMessage = Left(resultStr, nullPos - 1)
+    Else
+        MakeResponseMessage = resultStr
+    End If
 End Function
