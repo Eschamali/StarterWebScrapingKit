@@ -174,36 +174,33 @@ Public jsConverter As New CDPJConv
 ' Class Functions
 '===================================
  
-Public Function serialize() As String
+Public Sub serialize()
 '-------------------------------------------------------------------
 ' Create serialized Json string from the current browser instance.
 '-------------------------------------------------------------------
-    
-    Dim objSerialize As New Scripting.Dictionary
-    
-    objSerialize.Add "hStdOutRd", hStdOutRd
-    objSerialize.Add "hStdInWr", hStdInWr
-    objSerialize.Add "hCDPOutRd", hCDPOutRd
-    objSerialize.Add "hCDPInWr", hCDPInWr
-    
-    serialize = jsConverter.ConvertToJson(objSerialize)
- 
-End Function
+
+    'テーブルに、ハンドル情報を記録する
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
+        WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
+        WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
+        WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2)).value = hCDPOutRd
+        WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2)).value = hCDPInWr
+    End With
+End Sub
  
  
-Public Sub deserialize(strSerialized As String)
+Public Sub deserialize()
 '--------------------------------------------------------------------
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
- 
-    Dim objSerialize As Scripting.Dictionary
-    Set objSerialize = jsConverter.ParseJson(strSerialized)
-    
-    hStdOutRd = objSerialize.Item("hStdOutRd")
-    hStdInWr = objSerialize.Item("hStdInWr")
-    hCDPOutRd = objSerialize.Item("hCDPOutRd")
-    hCDPInWr = objSerialize.Item("hCDPInWr")
- 
+
+    'テーブルから、ハンドル情報を読み込む
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
+        hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
+        hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
+        hCDPOutRd = WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2), 0)
+        hCDPInWr = WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2), 0)
+    End With
 End Sub
  
  
@@ -294,8 +291,11 @@ Public Function init(strExec As String) As Long
     CloseHandle hCDPInRd
     
     hProcess = proc.hProcess
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
+        WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
+    End With
     init = 0
-    
+
 End Function
  
  
