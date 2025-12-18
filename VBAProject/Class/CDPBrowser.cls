@@ -1072,7 +1072,7 @@ Property Get html() As String
     html = jsEval("document.documentElement.innerHTML")
 End Property
 
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional EventMessages As Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
 '-----------------------------------------------------------------
 ' This function enables advanced method invocation under CDP.
 ' For a list of all methods available, see:
@@ -1090,7 +1090,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = core.jsConverter.ConvertToJson(params)
-    Set results = sendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
+    Set results = sendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", EventMessages)
 
    'Print error if there is
     If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
