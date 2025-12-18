@@ -221,7 +221,7 @@ Public Sub start(Optional name As String = "chrome", _
    '-------------------------------------------------------------------------------------------------------------------------------------
 End Sub
 
-Private Function serialize() As String
+Private Sub serialize()
 '------------------------------------------------------------------
 ' This method transcribes Chrome's Json message into a string.
 ' The serialized string can then be used to automate an active
@@ -229,24 +229,20 @@ Private Function serialize() As String
 ' Updated: 03/05/23 - Replace sessionID with targetID since it is
 '                     constant and stable on every CDP session
 '------------------------------------------------------------------
-        
-    Dim objSerialize As New Scripting.Dictionary
-    Dim fso As Object, f As String
 
-    objSerialize.Add "core", core.serialize()
-    objSerialize.Add "lngLastID", lngLastID
-    objSerialize.Add "targetID", targetID
+    'パイプ通信のハンドル情報も記録しておく
+    Call core.serialize
 
-    serialize = core.jsConverter.ConvertToJson(objSerialize)
-    printMsg "New serial string: " & serialize
+    'Excelの所定のワークシートに記録する
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
+        WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
+        WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2)).value = targetID
+    End With
 
-   'Write CdpSessionID to Temp folder
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    f = Environ("Temp") & "\cdpid.txt"
-    fso.CreateTextFile(f).Write serialize
-End Function
+    'printMsg "New serial string: " & serialize
+End Sub
 
-Private Function deserialize(strSerialized As String)
+Private Sub deserialize()
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -258,22 +254,24 @@ Private Function deserialize(strSerialized As String)
            
     On Error GoTo iferr
            
-    Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
     
-1   Set objSerialize = core.jsConverter.ParseJson(strSerialized)
-2   core.deserialize objSerialize.Item("core")
+    'ハンドル情報の読み込みへ移る
+1   Call core.deserialize
     
-3   lngLastID = objSerialize.Item("lngLastID")
-4   targetID = objSerialize.Item("targetID")
-5   sessionID = attachToTab(targetID)
-    Exit Function
-        
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
+2       lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
+3       targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
+
+4       sessionID = attachToTab(targetID)
+        Exit Sub
+    End With
+
 iferr: 'if deserialize fails, simply move on to starting anew
         
-    printMsg "deserialization failed at line " & Erl & " for serial string " & strSerialized
+    printMsg "deserialization failed at line " & Erl
         
-End Function
+End Sub
 
 Public Function jsEval(strString As String, Optional dbgMsg As Boolean = True) As Variant
 '------------------------------------------------------------
@@ -378,19 +376,13 @@ Public Sub quit()
 '-----------------------------------------------------------------------------------
     
     Dim results As Scripting.Dictionary
-    Dim f As File, tempFolder As Folder, fso As New FileSystemObject
     
     On Error Resume Next
     Set results = sendMessage("{""method"":""Browser.close"",""params"":{}}")
     
-    Set tempFolder = fso.GetFolder(Environ("Temp"))
-   'Clean up CdpSessionID file
-    For Each f In tempFolder.Files
-        If InStr(f, "cdpid.txt") Then
-            fso.DeleteFile f
-            Exit For
-        End If
-    Next
+    'Clean up CdpSessionID
+    Call CleanUpCdpSessionID
+
     sleep 1   'It seems without waitng a bit the browser crashes and the next time it wants ro recover from a crash
     printMsg "Browser was terminated."
     
@@ -619,9 +611,12 @@ Public Sub closeTab()
 ' active tab under focus of the automation pipe.
 '------------------------------------------------------------------
     Dim serial As String, mainID As String
-   'Get the original serialized tab ID
-    serial = getSerialString
-    mainID = core.jsConverter.ParseJson(serial).Item("targetID")
+    
+    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
+        'Get the original serialized tab ID
+        mainID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
+    End With
+
     If targetID = mainID Then printMsg "Unable to close this tab " & targetID & " as it is the main session tab", doRaiseError:=True
            
     Dim params As New Scripting.Dictionary
@@ -1196,15 +1191,14 @@ ifError:
     If Not dbgMsg Then Exit Function    'Allow the option to bypass error if intended
                   
    'Record errmsg and print helpful infos
-    Dim errorLine As Long, errorDesc As String, fso As Object
+    Dim errorLine As Long, errorDesc As String
     errorLine = Erl
     errorDesc = Err.Description
     printMsg "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
     printMsg "strMessage used by sendMessage: " & strMessage
     If InStr(Err.Description, "PeekNamedPipe") Then
         printMsg "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow."
-        Set fso = CreateObject("Scripting.FileSystemObject")
-        fso.DeleteFile Environ("Temp") & "\cdpid.txt"   'soft reset
+        Call CleanUpCdpSessionID   'soft reset
     End If
     
     Err.Raise 900, , "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
@@ -1403,12 +1397,8 @@ Private Sub cleanUpSessions()
     On Error GoTo 0
     Err.Number = 0
 
-   'Also clean up all prev CDP
-   Dim fso As Object, tempFolder As Object, fName As String
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    Set tempFolder = fso.GetFolder(Environ("Temp"))
-    fName = tempFolder & "\cdpid.txt"
-    If Dir(fName) <> "" Then fso.DeleteFile fName
+    'Also clean up all prev CDP
+    Call CleanUpCdpSessionID
 
    'Clean core params for new session
     lngLastID = 0   'To make a clean slate for new session
@@ -1479,25 +1469,43 @@ Private Function getTargetID() As String
     getTargetID = results("targetInfo").Item("targetId")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：指定のプロセスIDが生きているか判定します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True       生きてる
+'            False      お亡くなり
+'* 引数　　：PID        プロセスID
+'***************************************************************************************************
+Function IsProcessRunning(ByVal pid As Long) As Boolean
+    Dim wmi As Object
+    Dim col As Object
+    
+    ' PIDが0以下なら論外
+    If pid <= 0 Then
+        IsProcessRunning = False
+        Debug.Print "無効なプロセスIDです。新規で立ち上げます。"
+        Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID06).value = True
+        Exit Function
+    End If
 
-Private Function getSerialString() As String
-'----------------------------------------------------------------------------------
-' Check if a SessionID has already been created to determine if an automated
-' browser session is already on going. The return is a Serialized String in which
-' SessionID is a part of the serials.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-    Dim fso As Object, tempFolder As Object, fName As String
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    Set tempFolder = fso.GetFolder(Environ("Temp"))
-    fName = tempFolder & "\cdpid.txt"
-    If Dir(fName) = "" Then Exit Function
-
-   'Check if CdpSessionID is not today
-    If DateDiff("d", FileDateTime(fName), Now) > 0 Then fso.DeleteFile fName _
-    Else getSerialString = fso.OpenTextFile(fName, ForReading, True).ReadAll
+    On Error Resume Next
+    ' WMIサービスに接続
+    Set wmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+    
+    ' そのPIDを持つプロセスを探すクエリ
+    Set col = wmi.ExecQuery("Select ProcessId From Win32_Process Where ProcessId = " & pid)
+    
+    ' エラーがなくて、かつ見つかった数が0より大きければ生きている
+    If Err.Number = 0 And col.Count > 0 Then
+        IsProcessRunning = True
+        Debug.Print "既存のデバッグブラウザプロセスを見つけました。再アタッチします。"
+    Else
+        IsProcessRunning = False
+        Debug.Print "既存のデバッグブラウザプロセスが見つかりませんでした。新規で立ち上げます。"
+        Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID06).value = True
+    End If
+    On Error GoTo 0
 End Function
-
 
 Private Function newVarID() As String
 '----------------------------------------------------------------------------------
@@ -1563,6 +1571,16 @@ Private Sub getSessionInfo()
     targetID = getTargetID
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：デバッグブラウザのハンドル情報を消去します
+'***************************************************************************************************
+Private Sub CleanUpCdpSessionID()
+    With Sh99_Setting_StartBrowser
+        .ListObjects(BrowserSetting_TableID01).DataBodyRange.Columns(2).Clear
+        .ListObjects(BrowserSetting_TableID02).DataBodyRange.Columns(2).Clear
+    End With
+End Sub
+
 
 Private Sub Class_Initialize()
 '----------------------------------------------------------------------------------
@@ -1581,13 +1599,21 @@ Private Sub Class_Initialize()
    'Assign an objID for easy debug identification
     brID = "BRID" & Format(Rnd * 1000, "000")
     
-   'Check for SessionID created
-    Dim strSerialized As String: strSerialized = getSerialString
-    If strSerialized = "" Then Exit Sub
-   
+    '既存のデバッグブラウザプロセスの使用判定
+    If Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID05).value Then
+        'プロセスIDチェック関数へ
+        'Falseなら、ここで終り
+        With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
+            If Not (IsProcessRunning(WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2), 0))) Then Exit Sub
+        End With
+    Else
+        '設定側で、そもそも使用しないパターンは、ここで終り
+        Exit Sub
+    End If
+
    'Attempt to reattach and check if successful
-    deserialize strSerialized
-    
+    Call deserialize
+
     If Not isLive Then
         lngLastID = 0   'To make a clean slate for new session
         sessionID = ""  'No need to clean targetID as it will be retrieved anyway
@@ -1602,7 +1628,7 @@ Private Sub Class_Initialize()
     getSessionInfo
         
 End Sub
- 
+
 '===============================================================================================
 ' Experimental Functions
 '===============================================================================================
