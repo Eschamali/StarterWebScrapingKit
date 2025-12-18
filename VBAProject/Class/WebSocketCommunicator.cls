@@ -2,12 +2,22 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "a1_WebSocketCommunicator"
+Attribute VB_Name = "WebSocketCommunicator"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'***************************************************************************************************
+'                      Websocketとのやり取りの核となる処理です
+'   winhttp5.1 では、http系統特化のためここでは、WinHttp.dll を直接操作する低レベル操作を行います
+'***************************************************************************************************
 Option Explicit
+
+
+
+'***************************************************************************************************
+'                           ■■■ WindowsAPI宣言と定数定義 ■■■
+'***************************************************************************************************
 Private Const NO_ERROR As Long = 0
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
@@ -15,6 +25,8 @@ Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal pvBuffer As LongPtr, _
    ByVal dwBufferLength As Long _
    ) As Long
+
+'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
 Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0 'バイナリメッセージ全体か最後の部分。
 Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1 'バイナリメッセージの一部分のみ｡
 Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2 'UTF-8メッセージ全体か最後の部分。
@@ -55,7 +67,7 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByVal dwReasonLength As Long, _
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
-   
+
 ''Websocket受信に使用(自作構造体)
 Private Type response
     Buffer(4095) As Byte     '第1引数
@@ -67,20 +79,39 @@ Private Type response
     collect As Collection
 End Type
 
-Public Http As a1x1_HTTPCommunicator
+Public Http As WebSocketHTTPCommunicator
+Private GetErrorMes As New WinApiError
+Private ExistingWebsockethandle_ As LongPtr
 
 
-'websocket.create_connection(ws_url)を作成する必要ありか？
  
-Public Function Init(Path As String) As Boolean
-    Set Http = New a1x1_HTTPCommunicator
-    If Http.Connect("127.0.0.1", Path, 9222) = False Then GoTo quit
+'***************************************************************************************************
+'                                   ■■■ 公開メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：websocketのハンドル値を新規に取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：指定したURIのwebsocketのハンドル値　※失敗時は、0です
+'* 引数    ：Host           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
+'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
+'            SecureMode     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ヘルパークラスを伝って、websocketのハンドル値を取得する仕組みとなっています
+'* 注意事項：・secureモードが正しくないと、処理に失敗します
+'            ・cookieや認証ヘッダー等は未対応です。匿名アクセス用です
+'            ・既存のwebsocketのハンドル値を使う際は、次項のメソッドをご利用下さい
+'            ・引数のデフォルトOptional構成は、httpsプロトコルです
+'***************************************************************************************************
+Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True) As LongPtr
+    Set Http = New WebSocketHTTPCommunicator
+    If Http.Connect(Host, Path, port, SecureMode) = False Then GoTo quit
     If Http.UpgradeToWebSocket() = False Then GoTo quit
-    
-    Init = True
+
+    '成功したときのWebSocketハンドル値を返す
+    Init = Http.websockethandle
 Exit Function
 quit:
-    Init = False
+    Init = 0
 End Function
 
 'クロームへメッセージ送信
