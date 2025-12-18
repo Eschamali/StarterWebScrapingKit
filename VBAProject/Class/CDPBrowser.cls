@@ -36,8 +36,9 @@ Attribute VB_Exposed = False
 '================================================================================================
 Option Explicit
 
-Private Const CDPVer As String = "2.7.4"
-
+Private Const CDPVer                    As String = "2.7.4"
+Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
+Private Const UsePrivateOneDrive        As Boolean = False   '社内個人OneDriveの場合は、`True`にしてください
 '===================================
 ' Win APIs Declarations
 '===================================
@@ -59,7 +60,7 @@ Private Declare PtrSafe Function GetWindowText Lib "user32" Alias "GetWindowText
 Private Declare PtrSafe Function ShowWindow Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     ByVal nCmdShow As Long) As Boolean
-   
+
 '===================================
 ' Constants
 '===================================
@@ -159,7 +160,7 @@ Public Sub start(Optional name As String = "chrome", _
         Case Else: printMsg "Browser initiation fails: only the defined browser types can be accepted", doRaiseError:=True
     End Select
     brPath = getBrowserPath(brType)
-    strCall = """" & brPath & """ --remote-debugging-pipe --enable-automation"
+    strCall = """" & brPath & """ --" & ArgRemoteDebuggingName
    '--------------------------------------------------------------------------------------------------------------------------
 
    'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
@@ -168,7 +169,7 @@ Public Sub start(Optional name As String = "chrome", _
         If InStr(appUrl, "http") = 0 Then appUrl = "http://" & appUrl   'ie. devs can just simply input "google.com" i/o "http://google.com"
         strCall = strCall & " --app=""" & appUrl & """"
     Else
-        strCall = strCall & "--homepage ""about:blank"""
+        strCall = strCall & " --homepage ""about:blank"""
     End If
    '-------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -176,8 +177,8 @@ Public Sub start(Optional name As String = "chrome", _
    Dim addProfile As String
    If userProfile <> "Default" Then
         Select Case brType
-            Case brEdge: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\" & userProfile & """"
-            Case brChrome: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\User Data\" & userProfile & """"
+            Case brEdge: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """"
+            Case brChrome: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """"
         End Select
         strCall = strCall & addProfile
     End If
@@ -1385,11 +1386,14 @@ Private Sub cleanUpSessions()
 ' pipe error
 '------------------------------------------------------------------
 
-   'Clean up all running sessions
-   Dim p As Object
+    'Clean up all running sessions
+    Dim p As Object
     On Error Resume Next
-    For Each p In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process")
-        If p.name = brType Then
+    
+    '起動中のブラウザexe名でまず、絞る
+    For Each p In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where Name = '" & brType & "'")
+        'デバッグ用の引数があるかチェックし、その引数のブラウザだけ、落とす
+        If InStr(p.CommandLine, ArgRemoteDebuggingName) > 0 Then
             p.Terminate
         End If
         DoEvents
