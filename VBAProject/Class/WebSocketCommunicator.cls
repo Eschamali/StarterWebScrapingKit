@@ -114,23 +114,44 @@ quit:
     Init = 0
 End Function
 
-'クロームへメッセージ送信
-Public Function SendMessage(message As String) As Boolean
+'***************************************************************************************************
+'* 機能　　：WebSocketへ送信を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：message            送信プレーンテキスト
+'            ReConnectionHandle 再接続時のWebSocketハンドル値
+'
+'* 返り値  ：エラーコード   ※成功時は、0です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
+'* 注意事項：現時点は、プレーンテキスト送信のみ対応です
+'***************************************************************************************************
+Public Function SendMessage(message As String) As Long
+    '再接続のハンドル情報があったらそっちを使用する
+    Dim UseWebsockethandle As LongPtr
+    If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
-    message = StrConv(message, vbFromUnicode)
-    Dim ary() As Byte: ary = message
-    Dim messageByteSize As Long: messageByteSize = LenB(message)
-    Dim result As Long
-    result = WinHttpWebSocketSend(Http.websockethandle, _
-                        WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
-                        StrPtr(message), messageByteSize)
-    If result = NO_ERROR Then
-        SendMessage = True
-    Else
-        Debug.Print "送信エラー発生：(戻り値)" & result & ":(LastDllError)" & Err.LastDllError
-        SendMessage = False
-    End If
+    'テキストメッセージをUTF-8バイト配列に変換
+    'message = StrConv(message, vbFromUnicode)
+    Dim ary() As Byte: ary = StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     
+    '変換したバイト配列のサイズを取得
+    Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
+    
+    '求めたサイズを基に一括送信
+    Dim result As Long
+    result = WinHttpWebSocketSend(UseWebsockethandle, _
+                        WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
+                        VarPtr(ary(0)), messageByteSize)
+    
+    'エラーチェック
+    If result = NO_ERROR Then
+        '成功なら、0とする
+        SendMessage = NO_ERROR
+    Else
+        'エラーなら､エラーコードで返す
+        Debug.Print "送信エラー発生。ErrorCode：" & result & ",Description：" & GetErrorMes.GetMessage(result, "winhttp")
+        SendMessage = result
+    End If
 End Function
 
 'クロームからのレスポンス(JSON)受信
@@ -221,4 +242,35 @@ If Len(strCloseReason) > 0 Then
     Debug.Print " and reason: " & strCloseReason
 End If
 CloseWebSocket = False
+End Function
+
+
+
+'***************************************************************************************************
+'                                ■■■ ヘルパープロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：プレーンテキスト「文字列(String)」で送る際、UTF-8バイト配列(Byte())に変換します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：str        プレーンテキスト「文字列(String)」
+'* 返り値  ：UTF-8バイト配列
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ErrorCode：12152　対策
+'***************************************************************************************************
+Private Function StringToUtf8Bytes(ByVal str As String) As Byte()
+    With CreateObject("ADODB.Stream")
+        .Type = 2 ' adTypeText
+        .Charset = "UTF-8"
+        .Open
+        .WriteText str
+        
+        ' ストリームの先頭に戻ってバイト型に変更
+        .Position = 0
+        .Type = 1 ' adTypeBinary
+        
+        ' BOM（先頭3バイト）をスキップして読む
+        .Position = 3
+        StringToUtf8Bytes = .Read
+        
+        .Close
+    End With
 End Function
