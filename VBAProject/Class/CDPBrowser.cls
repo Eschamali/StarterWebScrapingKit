@@ -120,7 +120,7 @@ Private thisApp As Object               'A dymanic variable used in CDPBrowser i
 Public Sub start(Optional name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, Optional reAttach As Boolean = True, _
-    Optional userProfile As String = "Default", Optional addArgs As String)
+    Optional userProfile As String, Optional addArgs As String)
 '--------------------------------------------------------------------------------------------------------------
 ' This function initiates a new browser instance.
 ' By default, this function initializes chrome as the default choice.
@@ -175,7 +175,7 @@ Public Sub start(Optional name As String = "chrome", _
 
    'Start with a choice profile -------------------------------------------------------------------------------------------------------------
    Dim addProfile As String
-   If userProfile <> "Default" Then
+   If userProfile <> "" Then
         Select Case brType
             Case brEdge: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """"
             Case brChrome: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """"
