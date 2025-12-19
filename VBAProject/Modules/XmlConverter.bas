@@ -115,21 +115,21 @@ Public XmlOptions As xml_Options
 ' @param {Collection} Attributes | `attributes` a collection of Attribute dictionaries, as created by `CreateAttribute`.
 ' @return {Dictionary}
 ''
-Public Function CreateNode(ByVal Name As String, Optional ByVal Value As Variant = Null, Optional ChildNodes As Collection, Optional Attributes As Collection) As Dictionary
+Public Function CreateNode(ByVal Name As String, Optional ByVal value As Variant = Null, Optional ChildNodes As Collection, Optional attributes As Collection) As Dictionary
     Dim web_Node As Dictionary
     Set web_Node = New Dictionary
     
     With web_Node
-        .Add "attributes", Attributes ' Can be `Nothing` if no attributes.
+        .Add "attributes", attributes ' Can be `Nothing` if no attributes.
         If ChildNodes Is Nothing Then
             .Add "childNodes", New Collection ' Even if there are no child nodes, must be set to an empty collection.
         Else
             .Add "childNodes", ChildNodes
         End If
         On Error Resume Next
-            .Add "text", VBA.CStr(Value) ' Attempt to convert `nodeValue` to `text` using VBA. Ignore errors.
+            .Add "text", VBA.CStr(value) ' Attempt to convert `nodeValue` to `text` using VBA. Ignore errors.
         On Error GoTo 0
-        .Add "nodeValue", Value
+        .Add "nodeValue", value
         .Add "nodeName", Name
     End With
     
@@ -147,12 +147,12 @@ End Function
 ' @param {Value} Value
 ' @return {Dictionary}
 ''
-Public Function CreateAttribute(ByVal Name As String, Optional ByVal Value As String) As Dictionary
+Public Function CreateAttribute(ByVal Name As String, Optional ByVal value As String) As Dictionary
     Dim web_Attribute As Dictionary
     Set web_Attribute = New Dictionary
     
     web_Attribute.Add "name", Name
-    web_Attribute.Add "value", Value
+    web_Attribute.Add "value", value
     
     Set CreateAttribute = web_Attribute
 End Function
@@ -201,13 +201,13 @@ End Function
 ' @param {String} Name | A string specifiying the name of the attribute to return.
 ' @return {String} Attribute value.
 ''
-Public Function GetAttribute(Node As Dictionary, Name As String) As Variant
+Public Function getAttribute(Node As Dictionary, Name As String) As Variant
     Dim xml_Attribute As Dictionary
-    GetAttribute = Null
+    getAttribute = Null
     If Not Node.Item("attributes") Is Nothing Then
         For Each xml_Attribute In Node.Item("attributes")
             If xml_Attribute.Item("name") = Name Then
-                GetAttribute = xml_Attribute.Item("value")
+                getAttribute = xml_Attribute.Item("value")
                 Exit Function
             End If
         Next xml_Attribute
@@ -451,8 +451,8 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
         ' Document (CustomXMLPart)
         ElseIf VBA.TypeName(XmlValue) = "CustomXMLPart" Then
             ' CustomXMLParts apparently don't expose processing instructions, so we will need to manually check and parse these.
-            If VBA.Left$(XmlValue.XML, 2) = "<?" And VBA.InStr(XmlValue.XML, "?>") > 0 Then
-                xml_BufferAppend xml_Buffer, VBA.Mid$(XmlValue.XML, 1, VBA.InStr(XmlValue.XML, "?>") + 1), xml_BufferPosition, xml_BufferLength
+            If VBA.Left$(XmlValue.Xml, 2) = "<?" And VBA.InStr(XmlValue.Xml, "?>") > 0 Then
+                xml_BufferAppend xml_Buffer, VBA.Mid$(XmlValue.Xml, 1, VBA.InStr(XmlValue.Xml, "?>") + 1), xml_BufferPosition, xml_BufferLength
                 xml_BufferAppend xml_Buffer, vbNewLine, xml_BufferPosition, xml_BufferLength ' Always put prolog on its own line.
             End If
             ' Parse document child nodes.
@@ -485,9 +485,9 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
                 xml_BufferAppend xml_Buffer, xml_Converted, xml_BufferPosition, xml_BufferLength
                 ReDim Preserve xml_Namespaces(0 To UBound(xml_Namespaces) + 1): xml_Namespaces(UBound(xml_Namespaces)) = VBA.IIf(XmlValue.NamespaceURI = vbNullString, "vbNullString", XmlValue.NamespaceURI) ' Add to active namespaces.
             End If
-            If Not XmlValue.Attributes Is Nothing Then
-                For Each xml_Attribute In XmlValue.Attributes
-                    If VBA.TypeName(xml_Attribute) = "IXMLDOMAttribute" Then xml_Converted = " " & xml_Attribute.Name & "=""" & xml_Encode(xml_Attribute.Value, """") & """"
+            If Not XmlValue.attributes Is Nothing Then
+                For Each xml_Attribute In XmlValue.attributes
+                    If VBA.TypeName(xml_Attribute) = "IXMLDOMAttribute" Then xml_Converted = " " & xml_Attribute.Name & "=""" & xml_Encode(xml_Attribute.value, """") & """"
                     If VBA.TypeName(xml_Attribute) = "CustomXMLNode" Then xml_Converted = " " & xml_Attribute.BaseName & "=""" & xml_Encode(xml_Attribute.NodeValue, """") & """"
                     ' Check for namespaces before printing.
                     If VBA.Left$(xml_Converted, 7) = " xmlns:" Then
@@ -523,7 +523,7 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
             End If
             
             ' Add node content.
-            If VBA.TypeName(XmlValue) = "IXMLDOMElement" Then xml_ChildNodeCount = XmlValue.ChildNodes.Length
+            If VBA.TypeName(XmlValue) = "IXMLDOMElement" Then xml_ChildNodeCount = XmlValue.ChildNodes.length
             If VBA.TypeName(XmlValue) = "CustomXMLNode" Then xml_ChildNodeCount = XmlValue.ChildNodes.Count
             If xml_ChildNodeCount > 0 Then
                 ' Child node represents the node's text. treat as though it has no child nodes and just add text.
@@ -536,7 +536,7 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
                         xml_BufferAppend xml_Buffer, xml_Converted, xml_BufferPosition, xml_BufferLength
                     Case 4 ' `NODE_CDATA_SECTION` & `msoCustomXMLNodeCData`
                         ' CDATA node doesn't pass through converter, as it does not need escaping.
-                        xml_BufferAppend xml_Buffer, XmlValue.ChildNodes.Item(0).XML, xml_BufferPosition, xml_BufferLength
+                        xml_BufferAppend xml_Buffer, XmlValue.ChildNodes.Item(0).Xml, xml_BufferPosition, xml_BufferLength
                     End Select
                 Else
                     If xml_PrettyPrint Then
@@ -593,7 +593,7 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
             
             ConvertToXml = xml_BufferToString(xml_Buffer, xml_BufferPosition)
         Else
-            If Not XmlValue Is Nothing Then 
+            If Not XmlValue Is Nothing Then
                 Err.Raise 11001, "XMLConverter", "Error parsing XML:" & VBA.vbNewLine & _
                     "`" & VBA.TypeName(XmlValue) & "` is a unrecognised XML object. ConvertToXml method will need " & _
                     "to be updated to correctly convert this XML object."
@@ -1053,7 +1053,7 @@ Private Function xml_ParseNumber(xml_Text As String) As Variant
                 xml_ParseNumber = xml_Value
             Else
                 ' VBA.Val does not use regional settings, so guard for comma is not needed
-                xml_ParseNumber = VBA.Val(xml_Value)
+                xml_ParseNumber = VBA.val(xml_Value)
             End If
             Exit Function
         End If
@@ -1069,7 +1069,7 @@ Private Function xml_IsVoidNode(xml_Node As Variant) As Boolean
             xml_IsVoidNode = VBA.IsNull(xml_Node.Item("nodeValue"))
         End If
     Case "IXMLDOMElement"
-        xml_IsVoidNode = (xml_Node.ChildNodes.Length = 0 And xml_Node.Text = vbNullString)
+        xml_IsVoidNode = (xml_Node.ChildNodes.length = 0 And xml_Node.Text = vbNullString)
     Case "CustomXMLNode"
         xml_IsVoidNode = (xml_Node.ChildNodes.Count = 0 And xml_Node.Text = vbNullString)
     End Select

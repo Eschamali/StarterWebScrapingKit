@@ -240,9 +240,9 @@ Public WaitLoop As Boolean
 Public Property Get ProxyServer() As String
     ProxyServer = web_pProxyServer
 End Property
-Public Property Let ProxyServer(Value As String)
+Public Property Let ProxyServer(value As String)
     Me.EnableAutoProxy = False
-    web_pProxyServer = Value
+    web_pProxyServer = value
 End Property
 
 ' ============================================= '

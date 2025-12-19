@@ -204,7 +204,7 @@ Public Sub deserialize()
 End Sub
  
  
-Public Function init(strExec As String) As Long
+Public Function Init(strExec As String) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -224,28 +224,28 @@ Public Function init(strExec As String) As Long
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
     If result = 0 Then
-        init = -2
+        Init = -2
         Exit Function
     End If
     
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
-        init = -2
+        Init = -2
         Exit Function
     End If
     
    'Then the out pipe for the CDP Protocol
     result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)
     If result = 0 Then
-        init = -2
+        Init = -2
         Exit Function
     End If
     
    'And finally the in pipe
     result = CreatePipe(hCDPInRd, hCDPInWr, sa, 0)
     If result = 0 Then
-        init = -2
+        Init = -2
         Exit Function
     End If
     
@@ -282,7 +282,7 @@ Public Function init(strExec As String) As Long
     
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
  
-    If result = 0 Then init = -1
+    If result = 0 Then Init = -1
     
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
@@ -294,7 +294,7 @@ Public Function init(strExec As String) As Long
     With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
         WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
     End With
-    init = 0
+    Init = 0
 
 End Function
  

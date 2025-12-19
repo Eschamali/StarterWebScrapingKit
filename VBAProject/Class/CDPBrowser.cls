@@ -38,7 +38,7 @@ Option Explicit
 
 Private Const CDPVer                    As String = "2.7.4"
 Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
-Private Const UsePrivateOneDrive        As Boolean = False   '社内個人OneDriveの場合は、`True`にしてください
+Private Const UsePrivateOneDrive        As Boolean = True   '社内個人OneDriveの場合は、`True`にしてください
 '===================================
 ' Win APIs Declarations
 '===================================
@@ -117,7 +117,7 @@ Private thisApp As Object               'A dymanic variable used in CDPBrowser i
 ' PUBLIC FUNCTIONS
 '=============================================================================
 
-Public Sub start(Optional name As String = "chrome", _
+Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, Optional reAttach As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String)
@@ -154,7 +154,7 @@ Public Sub start(Optional name As String = "chrome", _
    '-------------------------------------------------------------------------------
                                    
    'Determine default browser parameters -------------------------------------------------------------------------------------
-    Select Case name
+    Select Case Name
         Case "edge": brType = brEdge
         Case "chrome": brType = brChrome
         Case Else: printMsg "Browser initiation fails: only the defined browser types can be accepted", doRaiseError:=True
@@ -194,7 +194,7 @@ Public Sub start(Optional name As String = "chrome", _
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     Set core = New CDPCore
     brCallString = strCall
-    result = core.init(brCallString)
+    result = core.Init(brCallString)
     If result <> 0 Then printMsg "Unable to initialize CDPCore", doRaiseError:=True Else printMsg "CDPCore initialized successfully"
     lngLastID = 1
    '-----------------------------------------------------------------------------------------------------------------------------------
@@ -297,7 +297,7 @@ step1:
    '----------------------------------------------------------------------------------------
         
    'Send and check result -------------------------------------------------------------------------------------------
-    Set results = sendMessage(strMessage, dbgMsg:=dbgMsg)
+    Set results = SendMessage(strMessage, dbgMsg:=dbgMsg)
     If results Is Nothing Then printMsg "Unable to contact the Browser instance!", doRaiseError:=True
     If Not results.Exists("error") Then GoTo step2
    '-----------------------------------------------------------------------------------------------------------------
@@ -363,7 +363,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
    'If not yet then do navigate
     Dim results As Scripting.Dictionary
-    Set results = sendMessage("{""method"":""Page.navigate"",""params"":{""url"":""" & strURL & """}}")
+    Set results = SendMessage("{""method"":""Page.navigate"",""params"":{""url"":""" & strURL & """}}")
     'should also add a maxTimeLimit to Wait
     wait till:=till
     getSessionInfo 'update new session info for printParams
@@ -379,7 +379,7 @@ Public Sub quit()
     Dim results As Scripting.Dictionary
     
     On Error Resume Next
-    Set results = sendMessage("{""method"":""Browser.close"",""params"":{}}")
+    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
     
     'Clean up CdpSessionID
     Call CleanUpCdpSessionID
@@ -495,7 +495,7 @@ Public Sub hide()
 End Sub
 
 
-Public Function newTab(Optional url As String, Optional newWindow As Boolean, Optional setMain As Boolean) As CDPBrowser
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean) As CDPBrowser
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -509,8 +509,8 @@ Public Function newTab(Optional url As String, Optional newWindow As Boolean, Op
 '------------------------------------------------------------------
     Dim sessionID_ As String
     Dim params As New Scripting.Dictionary
-    If url <> "" Then url = IIf(url <> "about:blank" And InStr(url, "http") = 0, "http://" & url, url)
-    params("url") = CStr(url)
+    If Url <> "" Then Url = IIf(Url <> "about:blank" And InStr(Url, "http") = 0, "http://" & Url, Url)
+    params("url") = CStr(Url)
     If newWindow Then params("newWindow") = CBool(newWindow)
 
     Dim results As Scripting.Dictionary
@@ -525,7 +525,7 @@ Public Function newTab(Optional url As String, Optional newWindow As Boolean, Op
     printMsg "newTab will now open a new CDP instance"
     Set newTab = New CDPBrowser
     newTab.id = sessionID_
-    If url <> "" Then newTab.wait
+    If Url <> "" Then newTab.wait
 
    'Set as main session tab if required
     If Not setMain Then Exit Function
@@ -536,7 +536,7 @@ Public Function newTab(Optional url As String, Optional newWindow As Boolean, Op
 End Function
 
 
-Public Function getTab(Optional tabName As String, Optional url As String, Optional setMain As Boolean, Optional doRetry As Boolean = False) As CDPBrowser
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional doRetry As Boolean = False) As CDPBrowser
 '------------------------------------------------------------------
 ' Search and find the Session ID of the tab already open based on
 ' its name or its url. tabName and url arguments can be partial. By
@@ -549,7 +549,7 @@ Public Function getTab(Optional tabName As String, Optional url As String, Optio
     Dim results As Scripting.Dictionary
     Dim tabId As String
     Dim timerStart As Single
-    Dim targets As Object, obj As Object
+    Dim targets As Object, Obj As Object
     Dim tabfound As Boolean
     Dim errMsg As String
     Dim timeStart As Long
@@ -561,18 +561,18 @@ searchit:
     Set results = invokeMethod("Target.getTargets")
     Set targets = results("targetInfos")
     
-    For Each obj In targets
-        If obj("type") = "page" Then
+    For Each Obj In targets
+        If Obj("type") = "page" Then
             Select Case True
                 Case tabName <> ""
-                    If InStr(obj("title"), tabName) Then tabfound = True Else errMsg = "with name containing """ & tabName & """"
-                Case url <> ""
-                    If InStr(obj("url"), url) Then tabfound = True Else errMsg = "with url containing """ & url & """"
+                    If InStr(Obj("title"), tabName) Then tabfound = True Else errMsg = "with name containing """ & tabName & """"
+                Case Url <> ""
+                    If InStr(Obj("url"), Url) Then tabfound = True Else errMsg = "with url containing """ & Url & """"
                 Case Else
-                    If obj("attached") = False Then tabfound = True Else errMsg = "as no new unattached tab could be found"
+                    If Obj("attached") = False Then tabfound = True Else errMsg = "as no new unattached tab could be found"
             End Select
             If tabfound Then
-                tabId = obj("targetId")
+                tabId = Obj("targetId")
                 Exit For
             End If
         End If
@@ -645,7 +645,7 @@ Public Function getElementByID(strID As String) As CDPElement
 
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.init Me, varIDs, varID, varJS, result
+    getElementByID.Init Me, varIDs, varID, varJS, result
 End Function
 
 
@@ -679,7 +679,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.init Me, varIDs, varID, varJS, result
+    getElementByXPath.Init Me, varIDs, varID, varJS, result
 End Function
 
 
@@ -714,7 +714,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     For N = 0 To length_ - 1                            'HTML index starts at zero
         varJS = varID & ".snapshotItem(" & N & ")"
         Set tElement = New CDPElement
-        tElement.init Me, varIDs, varJS_:=varJS
+        tElement.Init Me, varIDs, varJS_:=varJS
         elements.Add tElement
     Next
 
@@ -750,7 +750,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.init Me, varIDs, varID, varJS, result
+    getElementByQuery.Init Me, varIDs, varID, varJS, result
     
 End Function
 
@@ -780,7 +780,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     For N = 0 To length_ - 1                            'HTML index starts at zero
         varJS = varID & ".item(" & N & ")"
         Set tElement = New CDPElement
-        tElement.init Me, varIDs, varJS_:=varJS
+        tElement.Init Me, varIDs, varJS_:=varJS
         elements.Add tElement
     Next
     
@@ -1007,17 +1007,17 @@ End Sub
 ' PUBLIC PROPERTIES
 '=============================================================================
 
-Property Get url() As String
+Property Get Url() As String
 '------------------------------------------------------------
 ' Get the URL of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
     brURL = jsEval("document.URL", False)
-    url = brURL
+    Url = brURL
 End Property
 
 
-Property Let url(newURL As String)
+Property Let Url(newURL As String)
 '------------------------------------------------------------
 ' Get the URL of the current document/tab
 ' Added 02/03/2023
@@ -1027,16 +1027,16 @@ Property Let url(newURL As String)
 End Property
 
 
-Property Get name() As String
+Property Get Name() As String
 '------------------------------------------------------------
 ' Get the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
     brName = jsEval("document.title", False)
-    name = brName
+    Name = brName
 End Property
 
-Property Let name(newName As String)
+Property Let Name(newName As String)
 '------------------------------------------------------------
 ' Set the title of the current document/tab
 ' Added 02/03/2023
@@ -1099,7 +1099,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = core.jsConverter.ConvertToJson(params)
-    Set results = sendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", EventMessages)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", EventMessages)
 
    'Print error if there is
     If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
@@ -1113,7 +1113,7 @@ End Function
 ' PRIVATE FUNCTIONS
 '=============================================================================
 
-Private Function sendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
 '--------------------------------------------------------------
 ' Send message to CDP and check if the message is received
 ' yet by the Chromium browser.
@@ -1184,7 +1184,7 @@ Private Function sendMessage(strMessage As String, Optional objAllMessages As Sc
 18              If Not objAllMessages Is Nothing Then objAllMessages.Add CStr(objAllMessages.Count), results
 19              If results.Exists("id") Then
 20                  If results.Item("id") = lngCurrentId Then
-21                      Set sendMessage = results
+21                      Set SendMessage = results
                         Exit Function
                     End If
                 End If
@@ -1236,7 +1236,7 @@ Private Function attachToSession() As Integer
     On Error GoTo ifError
     
     Dim objAllMessages As New Scripting.Dictionary
-1   Set results = sendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", objAllMessages)
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", objAllMessages)
     printMsg "Now looking for the browser window"
     
    'Read message to confirm the requested url is found
@@ -1263,10 +1263,10 @@ Private Function attachToSession() As Integer
     
    'Establish connection with the CDP pipes
 3   targetID = results__.Item("targetId")
-4   Set results___ = sendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & results__.Item("targetId") & """,""flatten"":true}}")
+4   Set results___ = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & results__.Item("targetId") & """,""flatten"":true}}")
 5   sessionID = results___.Item("result").Item("sessionId")
-6   Set results___ = sendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-7   Set results___ = sendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
+6   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
+7   Set results___ = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
     
     printMsg "Successfully attached to Session ID " & sessionID
     Exit Function
@@ -1605,8 +1605,8 @@ Private Sub getSessionInfo()
     activate
 
    'Get infos
-    brURL = url
-    brName = name
+    brURL = Url
+    brName = Name
     brHWnd = getHandle
     brWID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
     brType = invokeMethod("Browser.getVersion").Item("product")
@@ -1635,7 +1635,7 @@ Private Sub Class_Initialize()
     
    'Determine project host type for compatibility
     Select Case True
-        Case InStr(Application.name, "Excel"): Set thisApp = ThisWorkbook
+        Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
         'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
         'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
     End Select

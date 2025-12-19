@@ -81,7 +81,7 @@ Private Type TWebRequest
     Accept As String
     AcceptEncoding As String
     ContentLength As Long
-    Id As String
+    id As String
 End Type
 
 Private This As TWebRequest
@@ -119,8 +119,8 @@ Private This As TWebRequest
 Public Property Get Resource() As String
     Resource = This.Resource
 End Property
-Public Property Let Resource(Value As String)
-    This.Resource = Value
+Public Property Let Resource(value As String)
+    This.Resource = value
 End Property
 
 ''
@@ -141,8 +141,8 @@ End Property
 Public Property Get Method() As VbWebMethod
     Method = This.Method
 End Property
-Public Property Let Method(Value As VbWebMethod)
-    This.Method = Value
+Public Property Let Method(value As VbWebMethod)
+    This.Method = value
 End Property
 
 ''
@@ -157,8 +157,8 @@ End Property
 Public Property Get Headers() As Collection
     Set Headers = This.Headers
 End Property
-Public Property Set Headers(Value As Collection)
-    Set This.Headers = Value
+Public Property Set Headers(value As Collection)
+    Set This.Headers = value
 End Property
 
 ''
@@ -173,8 +173,8 @@ End Property
 Public Property Get QuerystringParams() As Collection
     Set QuerystringParams = This.QuerystringParams
 End Property
-Public Property Set QuerystringParams(Value As Collection)
-    Set This.QuerystringParams = Value
+Public Property Set QuerystringParams(value As Collection)
+    Set This.QuerystringParams = value
 End Property
 
 ''
@@ -210,8 +210,8 @@ End Property
 Public Property Get UrlSegments() As Dictionary
     Set UrlSegments = This.UrlSegments
 End Property
-Public Property Set UrlSegments(Value As Dictionary)
-    Set This.UrlSegments = Value
+Public Property Set UrlSegments(value As Dictionary)
+    Set This.UrlSegments = value
 End Property
 
 ''
@@ -226,8 +226,8 @@ End Property
 Public Property Get Cookies() As Collection
     Set Cookies = This.Cookies
 End Property
-Public Property Set Cookies(Value As Collection)
-    Set This.Cookies = Value
+Public Property Set Cookies(value As Collection)
+    Set This.Cookies = value
 End Property
 
 ''
@@ -248,8 +248,8 @@ End Property
 Public Property Get UserAgent() As String
     UserAgent = This.UserAgent
 End Property
-Public Property Let UserAgent(Value As String)
-    This.UserAgent = Value
+Public Property Let UserAgent(value As String)
+    This.UserAgent = value
 End Property
 
 ''
@@ -272,9 +272,9 @@ End Property
 Public Property Get Format() As VbWebFormat
     Format = Me.RequestFormat
 End Property
-Public Property Let Format(Value As VbWebFormat)
-    Me.RequestFormat = Value
-    Me.ResponseFormat = Value
+Public Property Let Format(value As VbWebFormat)
+    Me.RequestFormat = value
+    Me.ResponseFormat = value
 End Property
 
 ''
@@ -301,9 +301,9 @@ End Property
 Public Property Get RequestFormat() As VbWebFormat
     RequestFormat = This.RequestFormat
 End Property
-Public Property Let RequestFormat(Value As VbWebFormat)
-    If Value <> This.RequestFormat Then
-        This.RequestFormat = Value
+Public Property Let RequestFormat(value As VbWebFormat)
+    If value <> This.RequestFormat Then
+        This.RequestFormat = value
         
         ' Clear cached converted body
         This.ConvertedBody = Empty
@@ -337,9 +337,9 @@ End Property
 Public Property Get ResponseFormat() As VbWebFormat
     ResponseFormat = This.ResponseFormat
 End Property
-Public Property Let ResponseFormat(Value As VbWebFormat)
-    If Value <> This.ResponseFormat Then
-        This.ResponseFormat = Value
+Public Property Let ResponseFormat(value As VbWebFormat)
+    If value <> This.ResponseFormat Then
+        This.ResponseFormat = value
 
         ' Clear cached converted body
         This.ConvertedBody = Empty
@@ -369,14 +369,14 @@ End Property
 Public Property Get CustomRequestFormat() As String
     CustomRequestFormat = This.CustomRequestFormat
 End Property
-Public Property Let CustomRequestFormat(Value As String)
-    If Not Value = This.CustomRequestFormat Then
-        This.CustomRequestFormat = Value
+Public Property Let CustomRequestFormat(value As String)
+    If Not value = This.CustomRequestFormat Then
+        This.CustomRequestFormat = value
 
         ' Clear cached converted body
         This.ConvertedBody = Empty
 
-        If Not Value = vbNullString Then
+        If Not value = vbNullString Then
             This.RequestFormat = VbWebFormat.vbWebFormatCustom
         End If
     End If
@@ -405,14 +405,14 @@ End Property
 Public Property Get CustomResponseFormat() As String
     CustomResponseFormat = This.CustomResponseFormat
 End Property
-Public Property Let CustomResponseFormat(Value As String)
-    If Not Value = This.CustomResponseFormat Then
-        This.CustomResponseFormat = Value
+Public Property Let CustomResponseFormat(value As String)
+    If Not value = This.CustomResponseFormat Then
+        This.CustomResponseFormat = value
 
         ' Clear cached converted body
         This.ConvertedBody = Empty
 
-        If Not Value = vbNullString Then
+        If Not value = vbNullString Then
             ResponseFormat = VbWebFormat.vbWebFormatCustom
         End If
     End If
@@ -441,8 +441,8 @@ Public Property Get ContentType() As String
         ContentType = WebHelpers.FormatToMediaType(Me.RequestFormat, Me.CustomRequestFormat)
     End If
 End Property
-Public Property Let ContentType(Value As String)
-    This.ContentType = Value
+Public Property Let ContentType(value As String)
+    This.ContentType = value
 End Property
 
 ''
@@ -468,8 +468,8 @@ Public Property Get Accept() As String
         Accept = WebHelpers.FormatToMediaType(Me.ResponseFormat, Me.CustomResponseFormat)
     End If
 End Property
-Public Property Let Accept(Value As String)
-    This.Accept = Value
+Public Property Let Accept(value As String)
+    This.Accept = value
 End Property
 
 ''
@@ -488,8 +488,8 @@ Public Property Get AcceptEncoding() As String
         AcceptEncoding = "identity"
     End If
 End Property
-Public Property Let AcceptEncoding(Value As String)
-    This.AcceptEncoding = Value
+Public Property Let AcceptEncoding(value As String)
+    This.AcceptEncoding = value
 End Property
 
 ''
@@ -515,8 +515,8 @@ Public Property Get ContentLength() As Long
         ContentLength = VBA.Len(Me.Body)
     End If
 End Property
-Public Property Let ContentLength(Value As Long)
-    This.ContentLength = Value
+Public Property Let ContentLength(value As Long)
+    This.ContentLength = value
 End Property
 
 ''
@@ -566,13 +566,13 @@ Public Property Get Body() As Variant
         End If
     End If
 End Property
-Public Property Let Body(Value As Variant)
+Public Property Let Body(value As Variant)
     This.ConvertedBody = Empty
-    This.Body = Value
+    This.Body = value
 End Property
-Public Property Set Body(Value As Variant)
+Public Property Set Body(value As Variant)
     This.ConvertedBody = Empty
-    Set This.Body = Value
+    Set This.Body = value
 End Property
 
 ''
@@ -598,7 +598,7 @@ Public Property Get FormattedResource() As String
     FormattedResource = Me.Resource
 
     ' Replace url segments
-    For Each web_Segment In Me.UrlSegments.Keys
+    For Each web_Segment In Me.UrlSegments.keys
         FormattedResource = VBA.Replace(FormattedResource, "{" & web_Segment & "}", WebHelpers.UrlEncode(Me.UrlSegments.Item(web_Segment)))
     Next web_Segment
 
@@ -629,9 +629,9 @@ End Property
 ' @property Id
 ' @type String
 ''
-Public Property Get Id() As String
-    If This.Id = vbNullString Then: This.Id = WebHelpers.CreateNonce
-    Id = This.Id
+Public Property Get id() As String
+    If This.id = vbNullString Then: This.id = WebHelpers.CreateNonce
+    id = This.id
 End Property
 
 ' ============================================= '
@@ -653,8 +653,8 @@ End Property
 ' @param {String} Key
 ' @param {Variant} Value
 ''
-Public Sub AddHeader(Key As String, Value As Variant)
-    Me.Headers.Add WebHelpers.CreateKeyValue(Key, Value)
+Public Sub AddHeader(Key As String, value As Variant)
+    Me.Headers.Add WebHelpers.CreateKeyValue(Key, value)
 End Sub
 
 ''
@@ -682,8 +682,8 @@ End Sub
 ' @param {String} Key
 ' @param {Variant} Value
 ''
-Public Sub SetHeader(Key As String, Value As Variant)
-    WebHelpers.AddOrReplaceInKeyValues Me.Headers, Key, Value
+Public Sub SetHeader(Key As String, value As Variant)
+    WebHelpers.AddOrReplaceInKeyValues Me.Headers, Key, value
 End Sub
 
 ''
@@ -715,8 +715,8 @@ End Sub
 ' @param {String} Key
 ' @param {String} Value
 ''
-Public Sub AddUrlSegment(Segment As String, Value As Variant)
-    Me.UrlSegments.Item(Segment) = Value
+Public Sub AddUrlSegment(Segment As String, value As Variant)
+    Me.UrlSegments.Item(Segment) = value
 End Sub
 
 ''
@@ -735,8 +735,8 @@ End Sub
 ' @param {String} Key
 ' @param {Variant} Value
 ''
-Public Sub AddQuerystringParam(Key As String, Value As Variant)
-    Me.QuerystringParams.Add WebHelpers.CreateKeyValue(Key, Value)
+Public Sub AddQuerystringParam(Key As String, value As Variant)
+    Me.QuerystringParams.Add WebHelpers.CreateKeyValue(Key, value)
 End Sub
 
 ''
@@ -755,10 +755,10 @@ End Sub
 ' @param {String} Key
 ' @param {Variant} Value
 ''
-Public Sub AddCookie(Key As String, Value As Variant)
+Public Sub AddCookie(Key As String, value As Variant)
     Me.Cookies.Add WebHelpers.CreateKeyValue( _
         web_EncodeCookieName(Key), _
-        WebHelpers.UrlEncode(Value, EncodingMode:=VbUrlEncodingMode.vbUrlEncodingCookie) _
+        WebHelpers.UrlEncode(value, EncodingMode:=VbUrlEncodingMode.vbUrlEncodingCookie) _
     )
 End Sub
 
@@ -786,7 +786,7 @@ End Sub
 ' @throws 11020 / 80042b0c / -2147210484 - Cannot add body parameter to non-Dictionary
 '         11021 / 80042b0d / -2147210483 - Cannot add body node to non-XML body
 ''
-Public Sub AddBodyNode(ByVal Name As String, Optional ByVal Value As Variant = Null, _
+Public Sub AddBodyNode(ByVal Name As String, Optional ByVal value As Variant = Null, _
                        Optional ByVal ParentNode As String, _
                        Optional ByVal AttributeName As String, Optional ByVal AttributeValue As String)
     Dim web_Attributes As Collection
@@ -823,7 +823,7 @@ Public Sub AddBodyNode(ByVal Name As String, Optional ByVal Value As Variant = N
             Set web_Attributes = New Collection
             web_Attributes.Add CreateAttribute(AttributeName, AttributeValue)
         End If
-        This.Body.Item("childNodes").Add CreateNode(Name, Value, , web_Attributes)
+        This.Body.Item("childNodes").Add CreateNode(Name, value, , web_Attributes)
         
         ' Clear cached converted body
         This.ConvertedBody = Empty
@@ -857,7 +857,7 @@ End Sub
 ' @param {Variant} Value
 ' @throws 11020 / 80042b0c / -2147210484 - Cannot add body parameter to non-Dictionary
 ''
-Public Sub AddBodyParameter(Key As Variant, Value As Variant)
+Public Sub AddBodyParameter(Key As Variant, value As Variant)
     If VBA.IsEmpty(This.Body) Then
         Set This.Body = New Dictionary
     ElseIf Not TypeOf This.Body Is Dictionary Then
@@ -868,10 +868,10 @@ Public Sub AddBodyParameter(Key As Variant, Value As Variant)
         Err.Raise 11020 + vbObjectError, "WebRequest.AddBodyParameter", web_ErrorDescription
     End If
 
-    If VBA.IsObject(Value) Then
-        Set This.Body.Item(Key) = Value
+    If VBA.IsObject(value) Then
+        Set This.Body.Item(Key) = value
     Else
-        This.Body.Item(Key) = Value
+        This.Body.Item(Key) = value
     End If
 
     ' Clear cached converted body

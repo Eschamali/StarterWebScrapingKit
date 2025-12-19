@@ -86,9 +86,9 @@ Attribute Http.VB_VarHelpID = -1
 Public Property Get Client() As WebClient
     Set Client = web_pClient
 End Property
-Public Property Set Client(Value As WebClient)
-    If web_pClient Is Nothing Or Value Is Nothing Then
-        Set web_pClient = Value
+Public Property Set Client(value As WebClient)
+    If web_pClient Is Nothing Or value Is Nothing Then
+        Set web_pClient = value
     Else
         ' If a Client is changed while other Requests are executing, it may introduce unexpected behavior
         ' Guard against changing Client and instead recommend creating a new AsyncWrapper per Client
@@ -233,15 +233,15 @@ Private Sub web_StartTimeoutTimer()
         web_TimeoutS = 1
     End If
 
-    WebHelpers.AsyncRequests.Add Me.Request.Id, Me
-    Application.OnTime TimeValue(DateAdd("s", web_TimeoutS, Now)), "'WebHelpers.OnTimeoutTimerExpired """ & Me.Request.Id & """'"
+    WebHelpers.AsyncRequests.Add Me.Request.id, Me
+    Application.OnTime TimeValue(DateAdd("s", web_TimeoutS, Now)), "'WebHelpers.OnTimeoutTimerExpired """ & Me.Request.id & """'"
 End Sub
 
 ' Stop timeout timer
 Private Sub web_StopTimeoutTimer()
     If Not WebHelpers.AsyncRequests Is Nothing And Not Me.Request Is Nothing Then
-        If WebHelpers.AsyncRequests.Exists(Me.Request.Id) Then
-            WebHelpers.AsyncRequests.Remove Me.Request.Id
+        If WebHelpers.AsyncRequests.Exists(Me.Request.id) Then
+            WebHelpers.AsyncRequests.Remove Me.Request.id
         End If
     End If
 End Sub

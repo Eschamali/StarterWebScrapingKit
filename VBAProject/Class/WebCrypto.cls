@@ -92,7 +92,7 @@ End Type
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
     ByVal Destination As Any, _
     ByVal Source As Any, _
-    ByVal Length As LongPtr)
+    ByVal length As LongPtr)
 
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _

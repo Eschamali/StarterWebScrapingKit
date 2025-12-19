@@ -26,11 +26,11 @@ Private main As CDPBrowser
 Private varIDs As Scripting.Dictionary
 Private varID As String
 Private varJS As String
-Private varType As String
+Private VarType As String
 Private Const printDbgMsg = True
  
  
-Public Sub init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
+Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
 '----------------------------------------------------------------------------------
 ' Initialize element object that has properties and methods useful for quickly
 ' interact with the target object in the browser. The varID name can also be used
@@ -53,7 +53,7 @@ Public Sub init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictio
     Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from CDPBrowser
     varID = varID_
     varJS = varJS_
-    varType = varType_
+    VarType = varType_
     
 End Sub
  
@@ -90,7 +90,7 @@ Property Get varResult() As String
 ' Updated: 27/04/2023
 '----------------------------------------------------------------------------------
     
-    varResult = varType
+    varResult = VarType
     
 End Property
  
@@ -290,7 +290,7 @@ Public Function isExist() As Boolean
 ' Updated: 06/06/2023
 '----------------------------------------------------------
             
-    If varType = "null" Then isExist = False Else isExist = True
+    If VarType = "null" Then isExist = False Else isExist = True
  
 End Function
 
@@ -304,12 +304,12 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30) As CDPElement
 '----------------------------------------------------------
     Dim timeStart As Single
     timeStart = Timer
-    Do While varType = "null"
+    Do While VarType = "null"
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg "onExists timeout on varJS = " & varJS
             Exit Function
         End If
-        varType = main.jsEval(varJS, False)
+        VarType = main.jsEval(varJS, False)
         main.sleep 0.1
     Loop
         
@@ -329,12 +329,12 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
 '----------------------------------------------------------
     Dim timeStart As Single
     timeStart = Timer
-    Do While varType <> "null"
+    Do While VarType <> "null"
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg "onExistsNot timeout on varJS = " & varJS
             Exit Function
         End If
-        varType = main.jsEval(varJS, False)
+        VarType = main.jsEval(varJS, False)
         main.sleep 0.1
     Loop
                 
@@ -405,7 +405,7 @@ Public Function getParent() As CDPElement
     
    'Return result
     Set getParent = New CDPElement
-    getParent.init main, varIDs, varID_, varJS_, result
+    getParent.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -426,7 +426,7 @@ Public Function getNextSibling() As CDPElement
     
    'Return result
     Set getNextSibling = New CDPElement
-    getNextSibling.init main, varIDs, varID_, varJS_, result
+    getNextSibling.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -447,7 +447,7 @@ Public Function getPrevSibling() As CDPElement
     
    'Return result
     Set getNextSibling = New CDPElement
-    getPrevSibling.init main, varIDs, varID_, varJS_, result
+    getPrevSibling.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -468,7 +468,7 @@ Public Function getFirstChild() As CDPElement
     
    'Return result
     Set getFirstChild = New CDPElement
-    getFirstChild.init main, varIDs, varID_, varJS_, result
+    getFirstChild.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -491,7 +491,7 @@ Public Function getElementByID(strID As String) As CDPElement
     
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.init main, varIDs, varID_, varJS_, result
+    getElementByID.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -522,7 +522,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.init main, varIDs, varID_, varJS_, result
+    getElementByQuery.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -553,7 +553,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     For N = 0 To length_ - 1                             'HTML index starts at zero
         varJS__ = varID_ & ".item(" & N & ")"
         Set tElement = New CDPElement
-        tElement.init main, varIDs, varJS_:=varJS__
+        tElement.Init main, varIDs, varJS_:=varJS__
         elements.Add tElement
     Next
     
@@ -600,7 +600,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.init main, varIDs, varID_, varJS_, result
+    getElementByXPath.Init main, varIDs, varID_, varJS_, result
     
 End Function
  
@@ -644,7 +644,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     For N = 0 To length_ - 1                                'HTML index starts at zero
         varJS__ = varID_ & ".snapshotItem(" & N & ")"
         Set tElement = New CDPElement
-        tElement.init main, varIDs, varJS_:=varJS__
+        tElement.Init main, varIDs, varJS_:=varJS__
         elements.Add tElement
     Next
     
@@ -681,6 +681,6 @@ Public Function getIFrame() As CDPElement
  
    'Return result
     Set getIFrame = New CDPElement
-    getIFrame.init main, varIDs, varID_, varJS_, result
+    getIFrame.Init main, varIDs, varID_, varJS_, result
     
 End Function

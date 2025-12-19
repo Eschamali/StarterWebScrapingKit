@@ -150,23 +150,23 @@ Public Sub CreateFromHttp(Client As WebClient, Request As WebRequest, Http As Ob
     Me.StatusCode = Http.Status
     Me.StatusDescription = Http.StatusText
     
-    'ã€ŒUnicode æ–‡å­—ã®ãƒãƒƒãƒ”ãƒ³ã‚°ãŒã‚¿ãƒ¼ã‚²ãƒƒãƒˆã®ãƒãƒ«ãƒãƒã‚¤ãƒˆã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã«ã‚ã‚Šã¾ã›ã‚“ã€‚ã€ã®å¯¾å‡¦
+    'uUnicode •¶š‚Ìƒ}ƒbƒsƒ“ƒO‚ªƒ^[ƒQƒbƒg‚Ìƒ}ƒ‹ƒ`ƒoƒCƒgƒR[ƒhƒy[ƒW‚É‚ ‚è‚Ü‚¹‚ñBv‚Ì‘Îˆ
     On Error Resume Next
     
-    'ä¸€æ—¦ä»£å…¥å‡¦ç†
+    'ˆê’U‘ã“üˆ—
     Me.Content = Http.ResponseText
     If Err.Number Then
-        ' ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ãŸå ´åˆ:
-        ' ãƒ‡ãƒãƒƒã‚°ç”¨ã«ã€ã‚¨ãƒ©ãƒ¼æƒ…å ±ã‚’è¨˜éŒ²
-        Debug.Print "`Http.ResponseText`ã®å–å¾—ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸã€‚`Http.ResponseBody`ã‹ã‚‰å–å¾—ã—ã¦ãã ã•ã„ã€‚"
-        Debug.Print "ã‚¨ãƒ©ãƒ¼ç•ªå·: " & Err.Number
-        Debug.Print "ã‚¨ãƒ©ãƒ¼å†…å®¹: " & Err.Description
+        ' ƒGƒ‰[‚ª”­¶‚µ‚½ê‡:
+        ' ƒfƒoƒbƒO—p‚ÉAƒGƒ‰[î•ñ‚ğ‹L˜^
+        Debug.Print "`Http.ResponseText`‚Ìæ“¾’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B`Http.ResponseBody`‚©‚çæ“¾‚µ‚Ä‚­‚¾‚³‚¢B"
+        Debug.Print "ƒGƒ‰[”Ô†: " & Err.Number
+        Debug.Print "ƒGƒ‰[“à—e: " & Err.Description
         
-        ' ä»£ã‚ã‚Šã«ã‚¨ãƒ©ãƒ¼æ–‡ã‚’ã‚»ãƒƒãƒˆã™ã‚‹
-        Me.Content = "â€»" & Err.Description
+        ' ‘ã‚í‚è‚ÉƒGƒ‰[•¶‚ğƒZƒbƒg‚·‚é
+        Me.Content = "¦" & Err.Description
     End If
 
-    'ã‚¨ãƒ©ãƒ¼ç„¡è¦–ã¯çµ‚ã‚ã‚Š
+    'ƒGƒ‰[–³‹‚ÍI‚í‚è
     On Error GoTo 0
 
     Me.Body = Http.ResponseBody
@@ -195,12 +195,12 @@ End Sub
 ' @param {String} Result
 ' @throws 11031 / 80042b17 / -2147210473 - Error creating from cURL
 ''
-Public Sub CreateFromCurl(Client As WebClient, Request As WebRequest, Result As String)
+Public Sub CreateFromCurl(Client As WebClient, Request As WebRequest, result As String)
     On Error GoTo web_ErrorHandling
 
     Dim web_Lines() As String
 
-    web_Lines = VBA.Split(Result, web_CrLf)
+    web_Lines = VBA.Split(result, web_CrLf)
 
     Me.StatusCode = web_ExtractStatusFromCurlResponse(web_Lines)
     Me.StatusDescription = web_ExtractStatusTextFromCurlResponse(web_Lines)
@@ -262,7 +262,7 @@ Public Function ExtractHeaders(ResponseHeaders As String) As Collection
             If Not web_Multiline Then
                 Set web_Header = WebHelpers.CreateKeyValue( _
                     Key:=VBA.Trim$(VBA.Mid$(web_Lines(web_i), 1, web_ColonPosition - 1)), _
-                    Value:=VBA.Trim$(VBA.Mid$(web_Lines(web_i), web_ColonPosition + 1, VBA.Len(web_Lines(web_i)))) _
+                    value:=VBA.Trim$(VBA.Mid$(web_Lines(web_i), web_ColonPosition + 1, VBA.Len(web_Lines(web_i)))) _
                 )
             Else
                 web_Header("Value") = web_Header("Value") & web_CrLf & web_Lines(web_i)
