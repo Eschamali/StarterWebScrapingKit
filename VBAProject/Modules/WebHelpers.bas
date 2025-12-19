@@ -563,7 +563,7 @@ Public Function ConvertToUrlEncoded(Obj As Variant, Optional EncodingMode As VbU
     Else
         Dim web_Key As Variant
 
-        For Each web_Key In Obj.Keys()
+        For Each web_Key In Obj.keys()
             If Len(web_Encoded) > 0 Then: web_Encoded = web_Encoded & "&"
             web_Encoded = web_Encoded & web_GetUrlEncodedKeyValue(web_Key, Obj(web_Key), EncodingMode)
         Next web_Key
@@ -617,7 +617,8 @@ Public Function ParseByFormat(Value As String, Format As VbWebFormat, _
 
     Select Case Format
     Case VbWebFormat.vbWebFormatJson
-        Set ParseByFormat = ParseJson(Value)
+        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        Set ParseByFormat = APIConverter.ParseJson(Value)
     Case VbWebFormat.vbWebFormatFormUrlEncoded
         Set ParseByFormat = ParseUrlEncoded(Value)
     Case VbWebFormat.vbWebFormatXml
@@ -679,7 +680,8 @@ Public Function ConvertToFormat(Obj As Variant, Format As VbWebFormat, Optional 
 
     Select Case Format
     Case VbWebFormat.vbWebFormatJson
-        ConvertToFormat = ConvertToJson(Obj)
+        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        ConvertToFormat = APIConverter.ConvertToJson(Obj)
     Case VbWebFormat.vbWebFormatFormUrlEncoded
         ConvertToFormat = ConvertToUrlEncoded(Obj)
     Case VbWebFormat.vbWebFormatXml
@@ -1306,7 +1308,7 @@ Public Function CloneDictionary(Original As Dictionary) As Dictionary
     Dim web_Key As Variant
 
     Set CloneDictionary = New Dictionary
-    For Each web_Key In Original.Keys
+    For Each web_Key In Original.keys
         CloneDictionary.Add VBA.CStr(web_Key), Original(web_Key)
     Next web_Key
 End Function
