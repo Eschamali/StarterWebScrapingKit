@@ -38,7 +38,7 @@ Option Explicit
 
 Private Const CDPVer                    As String = "2.7.4"
 Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
-Private Const UsePrivateOneDrive        As Boolean = True   '社内個人OneDriveの場合は、`True`にしてください
+Private Const UsePrivateOneDrive        As Boolean = True   '社内個人OneDriveの場合は、`False`にしてください
 '===================================
 ' Win APIs Declarations
 '===================================
