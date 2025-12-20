@@ -892,7 +892,7 @@ Public Sub snapPage(Optional fileName As String = "mysnapshot", Optional targetE
 
    'Save to destination folder ----------------------------------
     Dim destnPath As String
-    destnPath = OneDrivePathToLocalPath(thisApp.Path, UsePrivateOneDrive) & "\Saved Screens\"
+    destnPath = OneDrivePathToLocalPath(thisApp.Path) & "\Saved Screens\"
     If Dir(destnPath, vbDirectory) = "" Then MkDir (destnPath)
     fso.GetFile(filePath).Copy destnPath & fileName, True
    '-------------------------------------------------------------
@@ -915,7 +915,7 @@ Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Opti
     Debug.Print strFormattedMsg  'standard output to Immediate Window
     
     Dim logPath As String, logName As String
-    logPath = OneDrivePathToLocalPath(thisApp.Path, UsePrivateOneDrive) & "\Logs\"
+    logPath = OneDrivePathToLocalPath(thisApp.Path) & "\Logs\"
 
     logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
     If Dir(logPath, vbDirectory) = "" Then MkDir logPath
@@ -1578,7 +1578,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：開いてるExcelがOneDriveにあると、`thisworkbook.path`がインターネット上のURLになってしまい、一部操作ができなくなる問題に対処した物となります。
 '            純ローカルなら、そのまま返します。
-'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます
+'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます。先頭の定数で、スイッチングしてください
 '
 '* 注意事項：SharePointの場合は、自力でコードを書く必要があります
 '***************************************************************************************************
