@@ -1,3 +1,4 @@
+Attribute VB_Name = "Demo_CDP"
 '===================================================================================================
 ' Automating Chromium-Based Browsers with Chrome Dev Protocol API and VBA
 '---------------------------------------------------------------------------------------------------
@@ -22,26 +23,26 @@
 '===================================================================================================
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã«äºˆã‚è¨˜è¼‰ã—ãŸè¨­å®šã‹ã‚‰ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•ã™ã‚‹ãƒ‡ãƒ¢ã‚³ãƒ¼ãƒ‰ã§ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚É—\‚ß‹LÚ‚µ‚½İ’è‚©‚çƒuƒ‰ƒEƒU‹N“®‚·‚éƒfƒ‚ƒR[ƒh‚Å‚·
 '***************************************************************************************************
-Sub è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•()
-    'èµ·å‹•URLæŒ‡å®š
+Sub İ’èƒV[ƒg‚©‚ç‚Ì‹N“®()
+    '‹N“®URLw’è
     Const StartURL As String = "https://crocro.com/tools/item/view_browser_inf/"
 
-    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€é©ç”¨
+    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µA“K—p
     With Sh99_Setting_StartBrowser
-        'èµ·å‹•ãƒ–ãƒ©ã‚¦ã‚¶ã®è¨­å®š
-        Dim ãƒ–ãƒ©ã‚¦ã‚¶å As String
-        If .Range(BrowserSetting_RangeID04).value Then ãƒ–ãƒ©ã‚¦ã‚¶å = "chrome" Else ãƒ–ãƒ©ã‚¦ã‚¶å = "edge"
+        '‹N“®ƒuƒ‰ƒEƒU‚Ìİ’è
+        Dim ƒuƒ‰ƒEƒU–¼ As String
+        If .Range(BrowserSetting_RangeID04).value Then ƒuƒ‰ƒEƒU–¼ = "chrome" Else ƒuƒ‰ƒEƒU–¼ = "edge"
 
-        'ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•
-        Dim objBrowser As CDPBrowser : Set objBrowser = New CDPBrowser
-        objBrowser.start ãƒ–ãƒ©ã‚¦ã‚¶å, StartURL, .Range(BrowserSetting_RangeID06).value, .Range(BrowserSetting_RangeID05).value, .Range(BrowserSetting_RangeID02).value, .Range(BrowserSetting_RangeID03).value
+        'ƒuƒ‰ƒEƒU‹N“®
+        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
+        objBrowser.start ƒuƒ‰ƒEƒU–¼, StartURL, .Range(BrowserSetting_RangeID06).value, .Range(BrowserSetting_RangeID05).value, .Range(BrowserSetting_RangeID02).value, .Range(BrowserSetting_RangeID03).value
 
         Stop
-    End with
+    End With
 
-    'é–‰ã˜ã¦æ­£å¸¸çµ‚äº†ã•ã›ã¦ãŠã
+    '•Â‚¶‚Ä³íI—¹‚³‚¹‚Ä‚¨‚­
     objBrowser.quit
 End Sub
 
@@ -126,7 +127,7 @@ Sub runTabsAsOne()
     chrome.show
     
    'Automate Tabs
-    chrome.url = "google.com"   'or [chrome.navigate "google.com"]
+    chrome.Url = "google.com"   'or [chrome.navigate "google.com"]
     chrome.newTab "sg.yahoo.com"
     chrome.newTab "bing.com"
  
