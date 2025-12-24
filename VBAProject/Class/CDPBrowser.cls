@@ -1229,17 +1229,20 @@ End Function
 '            eventData      Json-Dictionry済みのブラウザからのイベントデータ
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
-'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります・
-'
-'* 注意事項：このロジックの犠牲として、全体としての"時系列"が、失われますが、これを必要とする場面は今はないと思われます
+'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
+'            時系列データ(Index値)もおまけとして残しておきます。
 '***************************************************************************************************
 Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
     ' イベント名を取得
     Dim eventMethod As String: eventMethod = eventData("method")
+
+    ' インデックスを付与(0始まり)
+    ' これにより、全体の時系列データも保持できます
+    eventData.Add "__index__", Accumulator.Count
     
-    Dim eventList As Collection
-    
+
     ' 1. このイベント名の「仕切り板」が、すでにあるか？
+    Dim eventList As Collection
     If Not Accumulator.Exists(eventMethod) Then
         ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
         Set eventList = New Collection
