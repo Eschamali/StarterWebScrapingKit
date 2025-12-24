@@ -1233,8 +1233,9 @@ End Function
 '            時系列データ(Index値)もおまけとして残しておきます。
 '***************************************************************************************************
 Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
-    ' イベント名を取得
-    Dim eventMethod As String: eventMethod = eventData("method")
+    ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
+    Dim eventMethod As String
+    If eventData.Exists("method") Then eventMethod = eventData("method") Else Exit Sub
 
     ' インデックスを付与(0始まり)
     ' これにより、全体の時系列データも保持できます
