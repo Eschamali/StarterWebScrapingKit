@@ -1169,6 +1169,7 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
    'Read message returned by browser
    '------------------------------------------------
     Dim timerStart As Double, timerOut As Long
+    Dim EventCount As Long
    
     timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
     timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
@@ -1187,7 +1188,7 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
             If seeRawSendMsgDbg Then printMsg "strRes = " & strRes                              'Only enable if needs to see every raw JS message for debugging/development
             If strRes <> "" Then
 17              Set results = core.jsConverter.ParseJson(strRes)
-18              If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results
+18              If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
 19              If results.Exists("id") Then
 20                  If results.Item("id") = lngCurrentId Then
 21                      Set SendMessage = results
@@ -1227,19 +1228,21 @@ End Function
 '* 実質返値：Accumulator
 '* 引数　　：Accumulator    これまでの格納イベント。
 '            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'            Counter        呼ばれた回数。参照渡しにより、カウントは引き継がれます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
 '            時系列データ(Index値)もおまけとして残しておきます。
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, Counter As Long)
     ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
     Dim eventMethod As String
     If eventData.Exists("method") Then eventMethod = eventData("method") Else Exit Sub
 
-    ' インデックスを付与(0始まり)
+    ' インデックスを付与(1始まり)
     ' これにより、全体の時系列データも保持できます
-    eventData.Add "__index__", Accumulator.Count
+    Counter = Counter + 1
+    eventData.Add "__index__", Counter
     
 
     ' 1. このイベント名の「仕切り板」が、すでにあるか？
