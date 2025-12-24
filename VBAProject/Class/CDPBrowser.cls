@@ -1187,7 +1187,7 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
             If seeRawSendMsgDbg Then printMsg "strRes = " & strRes                              'Only enable if needs to see every raw JS message for debugging/development
             If strRes <> "" Then
 17              Set results = core.jsConverter.ParseJson(strRes)
-18              If Not objAllMessages Is Nothing Then objAllMessages.Add CStr(objAllMessages.Count), results
+18              If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results
 19              If results.Exists("id") Then
 20                  If results.Item("id") = lngCurrentId Then
 21                      Set SendMessage = results
@@ -1221,6 +1221,37 @@ ifError:
         
 End Function
 
+'***************************************************************************************************
+'* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
+'---------------------------------------------------------------------------------------------------
+'* 実質返値：Accumulator
+'* 引数　　：Accumulator    これまでの格納イベント。
+'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
+'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります・
+'
+'* 注意事項：このロジックの犠牲として、全体としての"時系列"が、失われますが、これを必要とする場面は今はないと思われます
+'***************************************************************************************************
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+    ' イベント名を取得
+    Dim eventMethod As String: eventMethod = eventData("method")
+    
+    Dim eventList As Collection
+    
+    ' 1. このイベント名の「仕切り板」が、すでにあるか？
+    If Not Accumulator.Exists(eventMethod) Then
+        ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
+        Set eventList = New Collection
+        Accumulator.Add eventMethod, eventList
+    Else
+        ' あれば、その仕切り板の後ろにある、既存の束を取り出す
+        Set eventList = Accumulator(eventMethod)
+    End If
+    
+    ' 2. 取り出した束に、今回のイベントの詳細データを、追加する
+    eventList.Add eventData
+End Sub
 
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
@@ -1251,19 +1282,16 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each strKey In objAllMessages.keys
-       Set results = objAllMessages.Item(strKey)
-       If results.Exists("params") And results.Item("method") = "Target.targetCreated" Then
-            Set results_ = results.Item("params")
-            If results_.Exists("targetInfo") Then
-                Set results__ = results_.Item("targetInfo")
-                If results__.Item("attached") = False And results__.Item("type") = "page" Then
-                    boolFound = True
-                    Exit For
-                End If
+    For Each results In objAllMessages("Target.targetCreated")
+        Set results_ = results.Item("params")
+        If results_.Exists("targetInfo") Then
+            Set results__ = results_.Item("targetInfo")
+            If results__.Item("attached") = False And results__.Item("type") = "page" Then
+                boolFound = True
+                Exit For
             End If
         End If
-    Next strKey
+    Next
 2   If Not boolFound Then printMsg "Unable to find the browser session", doRaiseError:=True _
     Else: printMsg "Now attaching CDP pipes to the browser session"
     
