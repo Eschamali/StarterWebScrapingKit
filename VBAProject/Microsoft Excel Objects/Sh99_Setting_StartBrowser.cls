@@ -7,7 +7,40 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
+'***************************************************************************************************
+'                   CDP経由で、ブラウザ操作する際の準備関連のシートです
+'***************************************************************************************************
 Option Explicit
+
+
+
+'***************************************************************************************************
+'                      ■■■ このシートのみ定義されてるセル名称定義 ■■■
+'***************************************************************************************************
+Public Function UseRangeName(id As Long, ErrorSource As String) As String
+    Select Case id
+        Case 1: UseRangeName = "ブラウザexeパス"
+        Case 2: UseRangeName = "ユーザーデータフォルダ名"
+        Case 3: UseRangeName = "追加の起動引数一式"
+        Case 4: UseRangeName = "Chromeで使用"
+        Case 5: UseRangeName = "既存のデバッグプロセスを使用"
+        Case 6: UseRangeName = "常にブラウザを新規で起動"
+        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                      ■■■ 事実上、このシートしか使用しないテーブル名 ■■■
+'***************************************************************************************************
+Public Function UseTableName(id As Long, ErrorSource As String) As String
+    Select Case id
+        Case 1: UseTableName = "PreviousHandleInfo"
+        Case 2: UseTableName = "PreviousBrowserInfo"
+        Case Else: Err.Raise 2 + vbObjectError, ErrorSource, "渡されたテーブルIDは、定義されてません"
+    End Select
+End Function
 
 
 
@@ -24,7 +57,7 @@ Private Sub Worksheet_Change(ByVal Target As Range)
 
 
     ' --- チェック対象のセルを指定 ---
-    Dim checkCell As Range: Set checkCell = Me.Range(BrowserSetting_RangeID02)
+    Dim checkCell As Range: Set checkCell = Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change"))
 
     ' --- 変更されたセル(Target)が、チェック対象セルと重なっているか判定 ---
     ' ※これを入れないと、シート上のどのセルを変更しても処理が走ってしまう
@@ -36,12 +69,12 @@ Private Sub Worksheet_Change(ByVal Target As Range)
         ' 条件1: セルが空っぽ（空文字列）の場合
         Case ""
             MsgBox "この項目は、入力必須です。デフォルト値に戻します。", vbExclamation, "入力エラー"
-            Me.Range(BrowserSetting_RangeID02).value = DefaultValue
+            Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change")).value = DefaultValue
 
         ' 条件2: 特定の禁止文字列が入力された場合
         Case "User Data"
             MsgBox "セキュリティ対策のため、標準のデータディレクトリの指定はできません。" & vbCrLf & "詳細は下記をご覧ください。" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "デフォルト値に戻します。", vbCritical, "入力エラー"
-            Me.Range(BrowserSetting_RangeID02).value = DefaultValue
+            Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change")).value = DefaultValue
     
         ' 条件3: 排他設定
     

@@ -180,11 +180,13 @@ Public Sub serialize()
 '-------------------------------------------------------------------
 
     'テーブルに、ハンドル情報を記録する
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
-        WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
-        WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
-        WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2)).value = hCDPOutRd
-        WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2)).value = hCDPInWr
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
+            WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
+            WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
+            WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2)).value = hCDPOutRd
+            WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2)).value = hCDPInWr
+        End With
     End With
 End Sub
  
@@ -195,11 +197,13 @@ Public Sub deserialize()
 '--------------------------------------------------------------------
 
     'テーブルから、ハンドル情報を読み込む
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
-        hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
-        hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
-        hCDPOutRd = WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2), 0)
-        hCDPInWr = WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2), 0)
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
+            hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
+            hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
+            hCDPOutRd = WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2), 0)
+            hCDPInWr = WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2), 0)
+        End With
     End With
 End Sub
  
@@ -291,9 +295,14 @@ Public Function Init(strExec As String) As Long
     CloseHandle hCDPInRd
     
     hProcess = proc.hProcess
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
-        WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
+
+    'プロセスIDを残す
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(1, "CDPCore.Init")).DataBodyRange
+            WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
+        End With
     End With
+
     Init = 0
 
 End Function
@@ -372,5 +381,3 @@ Public Function writeProc(ByVal strData As String) As Long
     writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
  
 End Function
-
-

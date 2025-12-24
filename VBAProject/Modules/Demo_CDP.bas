@@ -33,11 +33,11 @@ Sub 設定シートからの起動()
     With Sh99_Setting_StartBrowser
         '起動ブラウザの設定
         Dim ブラウザ名 As String
-        If .Range(BrowserSetting_RangeID04).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
+        If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
 
         'ブラウザ起動
         Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
-        objBrowser.start ブラウザ名, StartURL, .Range(BrowserSetting_RangeID06).value, .Range(BrowserSetting_RangeID05).value, .Range(BrowserSetting_RangeID02).value, .Range(BrowserSetting_RangeID03).value
+        objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
 
         Stop
     End With

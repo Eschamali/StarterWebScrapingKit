@@ -235,9 +235,11 @@ Private Sub serialize()
     Call core.serialize
 
     'Excelの所定のワークシートに記録する
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
-        WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
-        WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2)).value = targetID
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(2, "CDPBrowser.serialize")).DataBodyRange
+            WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
+            WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2)).value = targetID
+        End With
     End With
 
     'printMsg "New serial string: " & serialize
@@ -260,12 +262,14 @@ Private Sub deserialize()
     'ハンドル情報の読み込みへ移る
 1   Call core.deserialize
     
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
-2       lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
-3       targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
-
-4       sessionID = attachToTab(targetID)
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(2, "CDPBrowser.deserialize")).DataBodyRange
+2           lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
+3           targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
+    
+4           sessionID = attachToTab(targetID)
         Exit Sub
+        End With
     End With
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -613,9 +617,11 @@ Public Sub closeTab()
 '------------------------------------------------------------------
     Dim serial As String, mainID As String
     
-    With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID02).DataBodyRange
-        'Get the original serialized tab ID
-        mainID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
+    With Sh99_Setting_StartBrowser
+        With .ListObjects(.UseTableName(2, "CDPBrowser.closeTab")).DataBodyRange
+            'Get the original serialized tab ID
+            mainID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
+        End With
     End With
 
     If targetID = mainID Then printMsg "Unable to close this tab " & targetID & " as it is the main session tab", doRaiseError:=True
@@ -1497,7 +1503,9 @@ Function IsProcessRunning(ByVal pid As Long) As Boolean
     If pid <= 0 Then
         IsProcessRunning = False
         Debug.Print "無効なプロセスIDです。新規で立ち上げます。"
-        Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID06).value = True
+        With Sh99_Setting_StartBrowser
+            .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
+        End With
         Exit Function
     End If
 
@@ -1515,7 +1523,9 @@ Function IsProcessRunning(ByVal pid As Long) As Boolean
     Else
         IsProcessRunning = False
         Debug.Print "既存のデバッグブラウザプロセスが見つかりませんでした。新規で立ち上げます。"
-        Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID06).value = True
+        With Sh99_Setting_StartBrowser
+            .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
+        End With
     End If
     On Error GoTo 0
 End Function
@@ -1559,13 +1569,15 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
     
     'カスタムパスがあったらそっちを優先
-    If Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID01).value = "" Then
-        Set objWSHost = CreateObject("WScript.Shell")
-        strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
-        getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
-    Else
-        getBrowserPath = Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID01).value
-    End If
+    With Sh99_Setting_StartBrowser
+        If .Range(.UseRangeName(1, "CDPBrowser.getBrowserPath.カスタムパス判定")).value = "" Then
+            Set objWSHost = CreateObject("WScript.Shell")
+            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
+            getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
+        Else
+            getBrowserPath = .Range(.UseRangeName(1, "CDPBrowser.getBrowserPath.カスタムパス判定")).value
+        End If
+    End With
 
     If Err.Number <> 0 Then printMsg Err.Description, doRaiseError:=True
 End Function
@@ -1620,8 +1632,8 @@ End Sub
 '***************************************************************************************************
 Private Sub CleanUpCdpSessionID()
     With Sh99_Setting_StartBrowser
-        .ListObjects(BrowserSetting_TableID01).DataBodyRange.Columns(2).Clear
-        .ListObjects(BrowserSetting_TableID02).DataBodyRange.Columns(2).Clear
+        .ListObjects(.UseTableName(1, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
+        .ListObjects(.UseTableName(2, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
     End With
 End Sub
 
@@ -1644,16 +1656,18 @@ Private Sub Class_Initialize()
     brID = "BRID" & Format(Rnd * 1000, "000")
     
     '既存のデバッグブラウザプロセスの使用判定
-    If Sh99_Setting_StartBrowser.Range(BrowserSetting_RangeID05).value Then
-        'プロセスIDチェック関数へ
-        'Falseなら、ここで終り
-        With Sh99_Setting_StartBrowser.ListObjects(BrowserSetting_TableID01).DataBodyRange
-            If Not (IsProcessRunning(WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2), 0))) Then Exit Sub
-        End With
-    Else
-        '設定側で、そもそも使用しないパターンは、ここで終り
-        Exit Sub
-    End If
+    With Sh99_Setting_StartBrowser
+        If .Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value Then
+            'プロセスIDチェック関数へ
+            'Falseなら、ここで終り
+            With .ListObjects(.UseTableName(1, "CDPBrowser.Class_Initialize")).DataBodyRange
+                If Not (IsProcessRunning(WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2), 0))) Then Exit Sub
+            End With
+        Else
+            '設定側で、そもそも使用しないパターンは、ここで終り
+            Exit Sub
+        End If
+    End With
 
    'Attempt to reattach and check if successful
     Call deserialize
