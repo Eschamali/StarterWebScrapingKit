@@ -154,7 +154,7 @@ Public Function SendMessage(message As String) As Long
 
     'テキストメッセージをUTF-8バイト配列に変換
     'message = StrConv(message, vbFromUnicode)
-    Dim ary() As Byte: ary = StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
+    Dim ary() As Byte: ary = ShSetting02_StartWebSocketAsync.StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     
     '変換したバイト配列のサイズを取得
     Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
@@ -194,7 +194,7 @@ Public Function GetMessageForSync() As String
     
     'ストリーミング受信準備
     Dim res As response
-    InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
+    ShSetting02_StartWebSocketAsync.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
     Set res.collect = New Collection                                    '結合データも初期化
 
     'データが尽きるまで、レスポンス受信ループ
@@ -213,12 +213,12 @@ Public Function GetMessageForSync() As String
             res.collect.Add res.Buffer
             
             '全てのパケットを結合して、プレーンテキストに変換して、返却
-            GetMessageForSync = MakeResponseMessage(res.collect)
+            GetMessageForSync = ShSetting02_StartWebSocketAsync.MakeResponseMessage(res.collect)
             Exit Function
         End If
         
         'バッファー情報の更新
-        UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
+        ShSetting02_StartWebSocketAsync.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
         
         'バッファー残量判定
         If (res.BufferLength <= 0) Then
@@ -226,7 +226,7 @@ Public Function GetMessageForSync() As String
             res.collect.Add res.Buffer
             
             'バッファー初期化
-            InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
+            ShSetting02_StartWebSocketAsync.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
         End If
     Loop
 
@@ -335,130 +335,4 @@ If Len(strCloseReason) > 0 Then
     Debug.Print " and reason: " & strCloseReason
 End If
 CloseWebSocket = False
-End Function
-
-
-
-'***************************************************************************************************
-'                                ■■■ ヘルパープロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：バッファ初期化
-'***************************************************************************************************
-Private Sub InitializeBuffer(responseBuffer As Variant, CurrentPointer As Long, BufferLength As Long)
-    Erase responseBuffer
-    CurrentPointer = 0
-    BufferLength = UBound(responseBuffer) + 1
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：バッファ管理情報更新
-'***************************************************************************************************
-Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
-    CurrentPointer = CurrentPointer + ReceiveBytes
-    BufferLength = BufferLength - ReceiveBytes
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：プレーンテキスト「文字列(String)」で送る際、UTF-8バイト配列(Byte())に変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：str        プレーンテキスト「文字列(String)」
-'* 返り値  ：UTF-8バイト配列
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策
-'***************************************************************************************************
-Private Function StringToUtf8Bytes(ByVal str As String) As Byte()
-    With CreateObject("ADODB.Stream")
-        .Type = 2 ' adTypeText
-        .Charset = "UTF-8"
-        .Open
-        .WriteText str
-        
-        ' ストリームの先頭に戻ってバイト型に変更
-        .Position = 0
-        .Type = 1 ' adTypeBinary
-        
-        ' BOM（先頭3バイト）をスキップして読む
-        .Position = 3
-        StringToUtf8Bytes = .Read
-        
-        .Close
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：バイナリデータをプレーンテキスト「UTF-8文字列(String)」に変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：bytes  バイナリデータ
-'* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：当然ですが、バイナリデータが、UTF-8バイト配列になっていないと、文字化けします
-'***************************************************************************************************
-Private Function Utf8BytesToString(ByRef Bytes() As Byte) As String
-    With CreateObject("ADODB.Stream")
-        .Type = 1 ' adTypeBinary
-        .Open
-        .Write Bytes
-        
-        ' 先頭に戻ってテキストモードに変更
-        .Position = 0
-        .Type = 2 ' adTypeText
-        .Charset = "UTF-8"
-        
-        ' 文字列として読み出す
-        Utf8BytesToString = .ReadText
-        
-        .Close
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にUTF-8変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：collect  コレクションバイト配列
-'* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：当然ですが、各コレクションバイナリデータが、UTF-8バイト配列になっていないと、文字化けします
-'***************************************************************************************************
-Private Function MakeResponseMessage(collect As Collection) As String
-    Dim totalSize As Long
-    Dim chunk As Variant
-    Dim fullBytes() As Byte
-    Dim currentPos As Long
-    Dim i As Long
-    
-    ' 1. まず合計サイズを計算する
-    totalSize = 0
-    For Each chunk In collect
-        ' 配列のサイズを加算（UBound+1）
-        totalSize = totalSize + (UBound(chunk) + 1)
-    Next chunk
-    
-    ' 2. 巨大な配列を確保
-    ReDim fullBytes(0 To totalSize - 1)
-    
-    ' 3. バイトデータをコピーして結合       Task：バイナリデータそのものが欲しいならここで取り出す
-    currentPos = 0
-    For Each chunk In collect
-        For i = 0 To UBound(chunk)
-            fullBytes(currentPos) = chunk(i)
-            currentPos = currentPos + 1
-        Next i
-    Next chunk
-    
-    ' 4. ここでUTF-8変換！（さっきの関数を使う）
-    ' ※末尾のヌル文字(vbNullChar)除去は、UTF-8変換後にやるか、
-    '   変換前にサイズ調整するかですが、ADODBはヌル文字もそのまま変換してくれるので
-    '   変換後にReplaceかLeftで切るのが安全です。
-    
-    Dim resultStr As String
-    resultStr = Utf8BytesToString(fullBytes)
-    
-    ' 5. ヌル文字除去（もしあれば）
-    Dim nullPos As Long
-    nullPos = InStr(resultStr, vbNullChar)
-    If nullPos > 0 Then
-        MakeResponseMessage = Left(resultStr, nullPos - 1)
-    Else
-        MakeResponseMessage = resultStr
-    End If
 End Function
