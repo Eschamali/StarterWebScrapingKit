@@ -68,16 +68,17 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
 
-''Websocket受信に使用(自作構造体)
+'Websocket受信に使用(自作構造体)
 Private Type response
-    Buffer(4095) As Byte     '第1引数
+    Buffer(4095) As Byte    '第1引数
     BufferLength As Long    '第2引数
     ReceiveBytes As Long    '第3引数
-    Status As Long              '第4引数
+    Status As Long          '第4引数
     CurrentPointer As Long  '第5引数
-    result As Long               '戻り値
+    result As Long          '戻り値
     collect As Collection
 End Type
+
 
 Public Http As WebSocketHTTPCommunicator
 Private GetErrorMes As New WinApiError
@@ -91,10 +92,11 @@ Private ExistingWebsockethandle_ As LongPtr
 '* 機能　　：websocketのハンドル値を新規に取得します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：指定したURIのwebsocketのハンドル値　※失敗時は、0です
-'* 引数    ：Host           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
-'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
-'            SecureMode     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'* 引数    ：Host               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
+'            Path               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port               http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
+'            SecureMode         http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'            CallBackProcedure  外部から呼び出す標準モジュール内のプロシージャ名(AddressOf ○○)を指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ヘルパークラスを伝って、websocketのハンドル値を取得する仕組みとなっています
 '* 注意事項：・secureモードが正しくないと、処理に失敗します
@@ -102,10 +104,17 @@ Private ExistingWebsockethandle_ As LongPtr
 '            ・既存のwebsocketのハンドル値を使う際は、次項のメソッドをご利用下さい
 '            ・引数のデフォルトOptional構成は、httpsプロトコルです
 '***************************************************************************************************
-Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True) As LongPtr
+Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True, Optional CallBackProcedure As LongPtr) As LongPtr
+    '非同期/同期の設定
+    Dim UseMode As Boolean
+    If CallBackProcedure Then UseMode = True Else UseMode = False
+    
+    '通常のHTTP接続を行う
     Set Http = New WebSocketHTTPCommunicator
-    If Http.Connect(Host, Path, port, SecureMode) = False Then GoTo quit
-    If Http.UpgradeToWebSocket() = False Then GoTo quit
+    If Http.Connect(Host, Path, port, SecureMode, UseMode) = False Then GoTo quit
+    
+    'WebSocketへの昇格処理を行う
+    If Http.UpgradeToWebSocket(CallBackProcedure) = False Then GoTo quit
 
     '成功したときのWebSocketハンドル値を返す
     Init = Http.websockethandle
@@ -168,7 +177,7 @@ Public Function SendMessage(message As String) As Long
 End Function
 
 '***************************************************************************************************
-'* 機能　　：WebSocketからの受信を行います
+'* 機能　　：WebSocketからの同期受信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
@@ -178,15 +187,15 @@ End Function
 '            ・現時点は、プレーンテキスト受信のみ対応です
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
 '***************************************************************************************************
-Public Function GetMessage() As String
+Public Function GetMessageForSync() As String
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
     'ストリーミング受信準備
     Dim res As response
-    InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
-    Set res.collect = New Collection
+    InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
+    Set res.collect = New Collection                                    '結合データも初期化
 
     'データが尽きるまで、レスポンス受信ループ
     Do
@@ -204,7 +213,7 @@ Public Function GetMessage() As String
             res.collect.Add res.Buffer
             
             '全てのパケットを結合して、プレーンテキストに変換して、返却
-            GetMessage = MakeResponseMessage(res.collect)
+            GetMessageForSync = MakeResponseMessage(res.collect)
             Exit Function
         End If
         
@@ -225,6 +234,64 @@ Public Function GetMessage() As String
 'エラー時は、エラーメッセージを表示
 quit:
 Debug.Print "受信エラー発生。ErrorCode：" & res.result & ",Description：" & GetErrorMes.GetMessage(res.result, "winhttp")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WebSocketからの受信予約を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
+'* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：非同期モードではありますが実際は、受信予約扱いです。それまでにメッセージがあれば、コールバック側でメッセージの確認が取れます
+'* 注意事項：
+'            ・現時点は、プレーンテキスト受信のみ対応です
+'***************************************************************************************************
+Public Function GetMessageForAsync() As String
+    '再接続のハンドル情報があったらそっちを使用する
+    Dim UseWebsockethandle As LongPtr
+    If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
+    
+    'ストリーミング受信準備による初期化
+    InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
+    Set G_res.collect = New Collection
+
+    'データが尽きるまで、レスポンス受信ループ
+    Do
+        '受信処理
+        G_res.result = WinHttpWebSocketReceive( _
+                        UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
+                        G_res.ReceiveBytes, G_res.Status)
+        
+        'エラーならGoToへ
+        If G_res.result <> NO_ERROR Then GoTo quit
+
+        'メッセージを全て受信し終えたら、各パケットを結合
+        If G_res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
+            '最後のパケットを追加
+            G_res.collect.Add G_res.Buffer
+            
+            '全てのパケットを結合して、プレーンテキストに変換して、返却
+            GetMessage = MakeResponseMessage(G_res.collect)
+            Exit Function
+        End If
+        
+        'バッファー情報の更新
+        UpdateBufferInfo G_res.CurrentPointer, G_res.BufferLength, G_res.ReceiveBytes
+        
+        'バッファー残量判定
+        If (G_res.BufferLength <= 0) Then
+            '満たしたパケットをコレクションへ追加
+            G_res.collect.Add G_res.Buffer
+            
+            'バッファー初期化
+            InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
+        End If
+    Loop
+
+
+'エラー時は、エラーメッセージを表示
+quit:
+Debug.Print "受信エラー発生。ErrorCode：" & G_res.result & ",Description：" & GetErrorMes.GetMessage(G_res.result, "winhttp")
 End Function
 
 '***************************************************************************************************

@@ -1,7 +1,7 @@
 Attribute VB_Name = "Demo_WebSocket"
 '***************************************************************************************************
-'                          WebSocket のデモンストレーションです
-'                   これを駆使すれば、FireFox の自動操作も可能です
+'                       WebSocket の同期処理用のデモンストレーションです
+'                       これを駆使すれば、FireFox の自動操作も可能です
 '***************************************************************************************************
 Option Explicit
 
@@ -25,12 +25,12 @@ Sub websocketdemo()
     If ResultHandleCode Then
         Debug.Print "Websocket success"
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
-        Debug.Print WebsocketObj.GetMessage
+        Debug.Print WebsocketObj.GetMessageForSync
 
         '1件分の送受信をしてみる
         '※WorksheetFunction.Unichar　は絵文字を送るときに使えます
         WebsocketObj.SendMessage "うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418)
-        Debug.Print WebsocketObj.GetMessage
+        Debug.Print WebsocketObj.GetMessageForSync
 
         '後始末
         WebsocketObj.CloseWebSocket
@@ -64,7 +64,7 @@ Sub websocketdemo2()
                   """method"":""Network.getAllCookies""," & _
                   """params"":{}}")
         
-        Debug.Print WebsocketObj.GetMessage
+        Debug.Print WebsocketObj.GetMessageForSync
         
 
         '後始末
@@ -92,5 +92,5 @@ Sub rewebsocketdemo()
                   """method"":""Browser.getVersion""," & _
                   """params"":{}}")
                 
-    Debug.Print WebsocketObj.GetMessage()
+    Debug.Print WebsocketObj.GetMessageForSync()
 End Sub
