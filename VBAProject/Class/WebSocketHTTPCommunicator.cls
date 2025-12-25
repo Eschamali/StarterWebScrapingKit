@@ -217,34 +217,6 @@ quit:
 End Function
 
 '***************************************************************************************************
-'* 機能　　：Httpレスポンスのステータスコード確認を行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：成功/失敗
-'* 引数    ：CheckStatusNumber  期待するステータスコード
-'***************************************************************************************************
-Private Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
-    Dim statusCodeBuffer As Long
-    Dim BufferSize As Long: BufferSize = 4
-    Dim result As Long
-    result = WinHttpQueryHeaders(hRequestHandle_, _
-                    (WINHTTP_QUERY_STATUS_CODE Or WINHTTP_QUERY_FLAG_NUMBER), _
-                    WINHTTP_HEADER_NAME_BY_INDEX, _
-                    statusCodeBuffer, BufferSize, WINHTTP_NO_HEADER_INDEX)
-                    
-    If result = False Then GoTo quit
-    If statusCodeBuffer <> CheckStatusNumber Then GoTo quit
-
-    IsResponseStatus = True
-    
-Exit Function
-quit:
-    If result = False Then Debug.Print result
-    If statusCodeBuffer <> CheckStatusNumber Then Debug.Print _
-        "ステータスコード:" & statusCodeBuffer & "/" & CheckStatusNumber & "以外"
-    IsResponseStatus = False
-End Function
-
-'***************************************************************************************************
 '* 機能　　：HTTP通信からWebSocket通信にUpGradeします
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功/失敗
@@ -295,6 +267,34 @@ End Function
 
 '***************************************************************************************************
 '                           ■■■ ヘルパープロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：Httpレスポンスのステータスコード確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功/失敗
+'* 引数    ：CheckStatusNumber  期待するステータスコード
+'***************************************************************************************************
+Private Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
+    Dim statusCodeBuffer As Long
+    Dim BufferSize As Long: BufferSize = 4
+    Dim result As Long
+    result = WinHttpQueryHeaders(hRequestHandle_, _
+                    (WINHTTP_QUERY_STATUS_CODE Or WINHTTP_QUERY_FLAG_NUMBER), _
+                    WINHTTP_HEADER_NAME_BY_INDEX, _
+                    statusCodeBuffer, BufferSize, WINHTTP_NO_HEADER_INDEX)
+                    
+    If result = False Then GoTo quit
+    If statusCodeBuffer <> CheckStatusNumber Then GoTo quit
+
+    IsResponseStatus = True
+    
+Exit Function
+quit:
+    If result = False Then Debug.Print result
+    If statusCodeBuffer <> CheckStatusNumber Then Debug.Print _
+        "ステータスコード:" & statusCodeBuffer & "/" & CheckStatusNumber & "以外"
+    IsResponseStatus = False
+End Function
+
 '***************************************************************************************************
 '* 機能　　：HTTP通信ハンドルの後始末を行います
 '* 引数    ：RetentionWebsockethandle   True：Websocketのハンドル値だけは残す
