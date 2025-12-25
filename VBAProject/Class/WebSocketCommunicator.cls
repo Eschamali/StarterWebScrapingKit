@@ -154,7 +154,7 @@ Public Function SendMessage(message As String) As Long
 
     'テキストメッセージをUTF-8バイト配列に変換
     'message = StrConv(message, vbFromUnicode)
-    Dim ary() As Byte: ary = ShSetting02_StartWebSocketAsync.StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
+    Dim ary() As Byte: ary = ShSetting02_StartWebSocket.StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     
     '変換したバイト配列のサイズを取得
     Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
@@ -194,7 +194,7 @@ Public Function GetMessageForSync() As String
     
     'ストリーミング受信準備
     Dim res As response
-    ShSetting02_StartWebSocketAsync.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
+    ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
     Set res.collect = New Collection                                    '結合データも初期化
 
     'データが尽きるまで、レスポンス受信ループ
@@ -213,12 +213,12 @@ Public Function GetMessageForSync() As String
             res.collect.Add res.Buffer
             
             '全てのパケットを結合して、プレーンテキストに変換して、返却
-            GetMessageForSync = ShSetting02_StartWebSocketAsync.MakeResponseMessage(res.collect)
+            GetMessageForSync = ShSetting02_StartWebSocket.MakeResponseMessage(res.collect)
             Exit Function
         End If
         
         'バッファー情報の更新
-        ShSetting02_StartWebSocketAsync.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
+        ShSetting02_StartWebSocket.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
         
         'バッファー残量判定
         If (res.BufferLength <= 0) Then
@@ -226,7 +226,7 @@ Public Function GetMessageForSync() As String
             res.collect.Add res.Buffer
             
             'バッファー初期化
-            ShSetting02_StartWebSocketAsync.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
+            ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
         End If
     Loop
 
@@ -243,8 +243,7 @@ End Function
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：非同期モードではありますが実際は、受信予約扱いです。それまでにメッセージがあれば、コールバック側でメッセージの確認が取れます
-'* 注意事項：
-'            ・現時点は、プレーンテキスト受信のみ対応です
+'* 注意事項：現時点は、プレーンテキスト受信のみ対応です
 '***************************************************************************************************
 Public Function GetMessageForAsync() As String
     '再接続のハンドル情報があったらそっちを使用する
@@ -258,9 +257,9 @@ Public Function GetMessageForAsync() As String
     'データが尽きるまで、レスポンス受信ループ
     Do
         '受信処理
-        G_res.result = WinHttpWebSocketReceive( _
-                        UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
-                        G_res.ReceiveBytes, G_res.Status)
+    G_res.result = WinHttpWebSocketReceive( _
+                    UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
+                    G_res.ReceiveBytes, G_res.Status)
         
         'エラーならGoToへ
         If G_res.result <> NO_ERROR Then GoTo quit
