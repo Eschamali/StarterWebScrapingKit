@@ -22,28 +22,71 @@ Attribute VB_Name = "Demo_CDP"
 '       https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA
 '===================================================================================================
 
-'***************************************************************************************************
-'* 機能　　：ワークシートに予め記載した設定からブラウザ起動するデモコードです
-'***************************************************************************************************
-Sub 設定シートからの起動()
-    '起動URL指定
-    Const StartURL As String = "https://crocro.com/tools/item/view_browser_inf/"
 
+
+'***************************************************************************************************
+'                               ■■■ 設定プロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、ブラウザを起動するヘルパーモジュールです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPBrowser
+'* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'***************************************************************************************************
+Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
-    With Sh99_Setting_StartBrowser
-        '起動ブラウザの設定
+    With ShSetting01_StartBrowser
+        '起動ブラウザ種類の設定
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
         Dim ブラウザ名 As String
         If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
 
         'ブラウザ起動
         Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
         objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
-
-        Stop
     End With
 
-    '閉じて正常終了させておく
-    objBrowser.quit
+    'オブジェクトを返却
+    Set 設定シートからの起動 = objBrowser
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ Demoプロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：ブラウザからのネットワークイベントを保存するデモンストレーションです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：例えば、認証用URLのNetwork.loadingFinished を検知したら、そこの requestId から `Network.getResponseBody` を実行しToken入手なんてことが可能です。(でも、Token抽出とかはNetwork.getCookies や DOMStorage.getDOMStorageItems 等が楽です。)
+'* 注意次項：ここでは、ネットワークイベントのデモですが、他のイベントも同じ操作でとらえることができます
+'***************************************************************************************************
+Sub ネットワークイベントの確認()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
+    
+    'ネットワークイベント受信を有効化する
+    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , , True)
+    
+    'URL遷移して、Msgboxで待機
+    '`iscomplete`だと内部で、イベント情報の破棄が行われるため、破棄されない`isLoading`にしておく
+    Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm", isLoading
+    MsgBox "ブラウザのURL遷移がある程度終わったら、OKを押してください", vbInformation, "イベント待機"   '愚直にmsgboxで待機
+
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
+    Dim Events As Dictionary, JsonDicObj As CDPJConv
+    
+    Set Events = New Dictionary
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge", , Events)    '存在しないコマンドなので、ブラウザに影響なし
+
+    'イベント情報をDownloadsフォルダに保存
+    '※参照渡しにより、Events にイベント情報が蓄積される
+    Set JsonDicObj = New CDPJConv
+    SaveUTF8 JsonDicObj.ConvertToJson(Events), Environ("UserProfile") & "\Downloads", "Event.json"
+
+    'ブラウザを閉じる
+    Demo_NetworkEvent.quit
 End Sub
 
 Sub runEdge()
@@ -323,4 +366,32 @@ Sub switchMain()
     chrome.getTab("about:blank").closeTab       'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
+End Sub
+
+Sub SaveUTF8(contents As String, FolderPath As String, fileName As String)
+    '空文字の場合は、違う機能で保存しておく
+    If contents = "" Then Open FolderPath & "\" & fileName For Output As #1: Close #1: Exit Sub
+    
+    Dim tmp() As Byte
+    With CreateObject("ADODB.Stream")
+        'まずは、UTF-8として書き込む
+        .Charset = "UTF-8"
+        .Open
+        .WriteText contents
+        
+        'cursor位置を先頭に
+        .Position = 0
+        
+        'バイナリ操作モードにする
+        .Type = 1
+        .Position = 3   '先頭から、3バイト分、ずらす
+        tmp = .Read     'この状態で、バイナリを読み込む
+        .Close
+
+        '再Openして、バイナリとして保存
+        .Open
+        .Write tmp
+        .SaveToFile FolderPath & "\" & fileName, 2
+        .Close
+    End With
 End Sub
