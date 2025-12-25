@@ -180,7 +180,7 @@ Public Sub serialize()
 '-------------------------------------------------------------------
 
     'テーブルに、ハンドル情報を記録する
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
             WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
             WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
@@ -197,7 +197,7 @@ Public Sub deserialize()
 '--------------------------------------------------------------------
 
     'テーブルから、ハンドル情報を読み込む
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
             hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
             hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
@@ -297,7 +297,7 @@ Public Function Init(strExec As String) As Long
     hProcess = proc.hProcess
 
     'プロセスIDを残す
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(1, "CDPCore.Init")).DataBodyRange
             WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
         End With

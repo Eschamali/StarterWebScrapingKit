@@ -235,7 +235,7 @@ Private Sub serialize()
     Call core.serialize
 
     'Excelの所定のワークシートに記録する
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(2, "CDPBrowser.serialize")).DataBodyRange
             WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
             WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2)).value = targetID
@@ -262,7 +262,7 @@ Private Sub deserialize()
     'ハンドル情報の読み込みへ移る
 1   Call core.deserialize
     
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(2, "CDPBrowser.deserialize")).DataBodyRange
 2           lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
 3           targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
@@ -617,7 +617,7 @@ Public Sub closeTab()
 '------------------------------------------------------------------
     Dim serial As String, mainID As String
     
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(2, "CDPBrowser.closeTab")).DataBodyRange
             'Get the original serialized tab ID
             mainID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
@@ -1538,7 +1538,7 @@ Function IsProcessRunning(ByVal pid As Long) As Boolean
     If pid <= 0 Then
         IsProcessRunning = False
         Debug.Print "無効なプロセスIDです。新規で立ち上げます。"
-        With Sh99_Setting_StartBrowser
+        With ShSetting01_StartBrowser
             .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
         End With
         Exit Function
@@ -1558,7 +1558,7 @@ Function IsProcessRunning(ByVal pid As Long) As Boolean
     Else
         IsProcessRunning = False
         Debug.Print "既存のデバッグブラウザプロセスが見つかりませんでした。新規で立ち上げます。"
-        With Sh99_Setting_StartBrowser
+        With ShSetting01_StartBrowser
             .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
         End With
     End If
@@ -1604,7 +1604,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
     
     'カスタムパスがあったらそっちを優先
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, "CDPBrowser.getBrowserPath.カスタムパス判定")).value = "" Then
             Set objWSHost = CreateObject("WScript.Shell")
             strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
@@ -1666,7 +1666,7 @@ End Sub
 '* 機能　　：デバッグブラウザのハンドル情報を消去します
 '***************************************************************************************************
 Private Sub CleanUpCdpSessionID()
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         .ListObjects(.UseTableName(1, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
         .ListObjects(.UseTableName(2, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
     End With
@@ -1691,7 +1691,7 @@ Private Sub Class_Initialize()
     brID = "BRID" & Format(Rnd * 1000, "000")
     
     '既存のデバッグブラウザプロセスの使用判定
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         If .Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value Then
             'プロセスIDチェック関数へ
             'Falseなら、ここで終り

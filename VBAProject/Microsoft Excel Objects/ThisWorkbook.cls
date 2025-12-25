@@ -29,7 +29,7 @@ Private Declare PtrSafe Function GetHandleInformation Lib "kernel32" (ByVal hObj
 '***************************************************************************************************
 Private Sub Workbook_Open()
     '1つでもFalseなら、クリアして処理終了
-    With Sh99_Setting_StartBrowser
+    With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(1, "ThisWorkbook.Workbook_Open")).DataBodyRange
             If Not (IsHandleValid(WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0))) Then .Columns(2).Clear: Exit Sub
             If Not (IsHandleValid(WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0))) Then .Columns(2).Clear: Exit Sub
