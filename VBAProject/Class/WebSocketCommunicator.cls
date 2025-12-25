@@ -254,39 +254,10 @@ Public Function GetMessageForAsync() As String
     InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
     Set G_res.collect = New Collection
 
-    'データが尽きるまで、レスポンス受信ループ
-    Do
-        '受信処理
+    '受信予約処理
     G_res.result = WinHttpWebSocketReceive( _
                     UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                     G_res.ReceiveBytes, G_res.Status)
-        
-        'エラーならGoToへ
-        If G_res.result <> NO_ERROR Then GoTo quit
-
-        'メッセージを全て受信し終えたら、各パケットを結合
-        If G_res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
-            '最後のパケットを追加
-            G_res.collect.Add G_res.Buffer
-            
-            '全てのパケットを結合して、プレーンテキストに変換して、返却
-            GetMessage = MakeResponseMessage(G_res.collect)
-            Exit Function
-        End If
-        
-        'バッファー情報の更新
-        UpdateBufferInfo G_res.CurrentPointer, G_res.BufferLength, G_res.ReceiveBytes
-        
-        'バッファー残量判定
-        If (G_res.BufferLength <= 0) Then
-            '満たしたパケットをコレクションへ追加
-            G_res.collect.Add G_res.Buffer
-            
-            'バッファー初期化
-            InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
-        End If
-    Loop
-
 
 'エラー時は、エラーメッセージを表示
 quit:
