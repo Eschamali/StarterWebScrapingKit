@@ -17,7 +17,7 @@ Option Explicit
 '***************************************************************************************************
 '                      ■■■ このシートのみ定義されてるセル名称定義 ■■■
 '***************************************************************************************************
-Public Function UseRangeName(id As Long, ErrorSource As String) As String
+Property Get UseRangeName(id As Long, ErrorSource As String) As String
     Select Case id
         Case 1: UseRangeName = "ブラウザexeパス"
         Case 2: UseRangeName = "ユーザーデータフォルダ名"
@@ -27,20 +27,20 @@ Public Function UseRangeName(id As Long, ErrorSource As String) As String
         Case 6: UseRangeName = "常にブラウザを新規で起動"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
-End Function
+End Property
 
 
 
 '***************************************************************************************************
 '                      ■■■ 事実上、このシートしか使用しないテーブル名 ■■■
 '***************************************************************************************************
-Public Function UseTableName(id As Long, ErrorSource As String) As String
+Property Get UseTableName(id As Long, ErrorSource As String) As String
     Select Case id
         Case 1: UseTableName = "PreviousHandleInfo"
         Case 2: UseTableName = "PreviousBrowserInfo"
         Case Else: Err.Raise 2 + vbObjectError, ErrorSource, "渡されたテーブルIDは、定義されてません"
     End Select
-End Function
+End Property
 
 
 
