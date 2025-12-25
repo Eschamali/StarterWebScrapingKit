@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'                   Websocketの確立に必要なWindowsAPI宣言や処理を行います
+'   Websocketの確立に必要なWindowsAPI宣言や処理を行います。WebSocketへのアップグレードまでは、ここのモジュールで行います
 '   winhttp5.1 では、http系統特化のためここでは、WinHttp.dll を直接操作する低レベル操作を行います
 '
 '           ここをカスタマイズすることで、cookieや認証ヘッダー対応もできたりします
@@ -128,10 +128,20 @@ Private Declare PtrSafe Function WinHttpCloseHandle Lib "WinHttp" ( _
    ByVal hRequest As LongPtr _
    ) As Long
 
+Private Declare PtrSafe Function WinHttpSetStatusCallback Lib "WinHttp" ( _
+  ByVal hWebSocket As LongPtr, _
+  ByVal lpfnInternetCallback As LongPtr, _
+  ByVal dwNotificationFlags As Long, _
+  ByVal dwReserved As LongPtr _
+   ) As Long
+
+Private Const WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS = &HFFFFFFFF
+
 
 Private Const AGENT As String = "Client"
 Private Const GET_METHOD As String = "GET"
 Private Const HTTP_VERSION  As String = "HTTP/1.1"
+
 
 Private hSessionHandle_ As LongPtr
 Private hConnectionHandle_ As LongPtr
@@ -141,7 +151,7 @@ Private hwebsockethandle_ As LongPtr
 
 
 '***************************************************************************************************
-'                                   ■■■ 公開メソッド ■■■
+'                                   ■■■ プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：確立したwebsocketのハンドル値を取得をします
 '---------------------------------------------------------------------------------------------------
@@ -151,6 +161,10 @@ Public Property Get websockethandle() As LongPtr
     websockethandle = hwebsockethandle_
 End Property
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 公開メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：通常の http-GET 接続を行います
 '---------------------------------------------------------------------------------------------------
@@ -159,14 +173,18 @@ End Property
 '            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
 '            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
 '            SecureFlag     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'            Async          Trueで､非同期として､WebSocketを利用できるように処理します｡なお､WebSocketへのアップグレードまでは､同期的な処理とします｡
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初はhttp通信を行って、200が返るか確認します
 '* 注意事項：・secureモードが正しくないと、処理に失敗します
 '            ・cookieや認証ヘッダー等は未対応です。匿名アクセス用です
 '***************************************************************************************************
-Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean) As Boolean
-
-    hSessionHandle_ = WinHttpOpen(StrPtr(AGENT), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 0, 0, 0)
+Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean, Async As Boolean) As Boolean
+    '非同期/同期の設定
+    Dim UseMode As Long
+    If Async Then UseMode = WINHTTP_FLAG_ASYNC Else UseMode = WINHTTP_FLAG_SYNC
+    
+    hSessionHandle_ = WinHttpOpen(StrPtr(AGENT), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 0, 0, UseMode)
     If hSessionHandle_ = 0 Then GoTo quit
     hConnectionHandle_ = WinHttpConnect(hSessionHandle_, StrPtr(Host), port, 0)
     If hConnectionHandle_ = 0 Then GoTo quit
@@ -204,7 +222,7 @@ End Function
 '* 返り値  ：成功/失敗
 '* 引数    ：CheckStatusNumber  期待するステータスコード
 '***************************************************************************************************
-Public Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
+Private Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
     Dim statusCodeBuffer As Long
     Dim BufferSize As Long: BufferSize = 4
     Dim result As Long
@@ -230,8 +248,9 @@ End Function
 '* 機能　　：HTTP通信からWebSocket通信にUpGradeします
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功/失敗
+'* 引数    ：CallBackProcedure  外部から呼び出す標準モジュール内のプロシージャ名(AddressOf ○○)を指定します
 '***************************************************************************************************
-Public Function UpgradeToWebSocket() As Boolean
+Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boolean
     Dim result As Long
     result = WinHttpSetOption(hRequestHandle_, _
                     WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
@@ -251,8 +270,18 @@ Public Function UpgradeToWebSocket() As Boolean
     'アップグレードしたハンドル値を取得します
     hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, 0)
     If hwebsockethandle_ = 0 Then GoTo quit
+    Debug.Print "Upgrade成功"
 
-'    Debug.Print "Upgrade成功"
+    'コールバック関数が指定されてる場合は、コールバック登録を行います
+    If CallBackProcedure Then
+        result = WinHttpSetStatusCallback(hwebsockethandle_, CallBackProcedure, _
+                WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
+        If result < 0 Then GoTo quit
+        
+        Debug.Print "コールバック　登録成功"
+    End If
+
+    '全ての関門を超えたら、成功とする
     UpgradeToWebSocket = True
 
 Exit Function
@@ -262,9 +291,13 @@ quit:
     UpgradeToWebSocket = False
 End Function
 
+
+
+'***************************************************************************************************
+'                           ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：HTTP通信ハンドルの後始末を行います
-'* 引数    ：RetentionWebsockethandle   再接続用に、Websocketのハンドル値だけは残すかのフラグ値
+'* 引数    ：RetentionWebsockethandle   True：Websocketのハンドル値だけは残す
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：適切な掃除をしないと、使わなくなったWebsocketハンドルがどんどんメモリに溜まっていくため、ご注意ください。
 '***************************************************************************************************
