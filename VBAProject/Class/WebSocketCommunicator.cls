@@ -140,12 +140,12 @@ End Property
 '* 機能　　：WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：message            送信プレーンテキスト
-'            ReConnectionHandle 再接続時のWebSocketハンドル値
 '
 '* 返り値  ：エラーコード   ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
-'* 注意事項：現時点は、プレーンテキスト送信のみ対応です
+'* 注意事項：・現時点は、プレーンテキスト送信のみ対応です
+'            ・非同期の場合は、コールバック側での確認も必要です
 '***************************************************************************************************
 Public Function SendMessage(message As String) As Long
     '再接続のハンドル情報があったらそっちを使用する
@@ -179,7 +179,6 @@ End Function
 '***************************************************************************************************
 '* 機能　　：WebSocketからの同期受信を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
@@ -239,29 +238,40 @@ End Function
 '***************************************************************************************************
 '* 機能　　：WebSocketからの受信予約を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
-'* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
+'* 返り値  ：エラーコード   ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：非同期モードではありますが実際は、受信予約扱いです。それまでにメッセージがあれば、コールバック側でメッセージの確認が取れます
-'* 注意事項：現時点は、プレーンテキスト受信のみ対応です
+'* 機能説明：・非同期モードではありますが実際は、受信予約扱いです。それまでにメッセージがあれば、コールバック側でメッセージの確認が取れます
+'            ・受信データが空でもフリーズせず、受信予約的な挙動となります
+'
+'* 注意事項：・現時点は、プレーンテキスト受信のみ対応です
+'            ・受信データが空かつ既に予約済みの場合に更にこのメソッドを呼ぶと、4317エラーが返るようです
+'            ・これを呼び出すと、全メッセージを受信するのではなく、呼び出す度に1件1件受信される仕組みです
 '***************************************************************************************************
-Public Function GetMessageForAsync() As String
+Public Function GetMessageForAsync() As Long
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
     'ストリーミング受信準備による初期化
-    InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
+    ShSetting02_StartWebSocket.InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
     Set G_res.collect = New Collection
 
     '受信予約処理
     G_res.result = WinHttpWebSocketReceive( _
                     UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                     G_res.ReceiveBytes, G_res.Status)
+                    
 
-'エラー時は、エラーメッセージを表示
-quit:
-Debug.Print "受信エラー発生。ErrorCode：" & G_res.result & ",Description：" & GetErrorMes.GetMessage(G_res.result, "winhttp")
+    'エラーチェック
+    If G_res.result = NO_ERROR Then
+        '成功なら、0とする
+        GetMessageForAsync = NO_ERROR
+        Debug.Print GetErrorMes.GetMessage(G_res.result, "winhttp")
+    Else
+        'エラーなら､エラーコードで返す
+        GetMessageForAsync = G_res.result
+        Debug.Print "受信エラー発生。ErrorCode：" & G_res.result & ",Description：" & GetErrorMes.GetMessage(G_res.result, "winhttp")
+    End If
 End Function
 
 '***************************************************************************************************
