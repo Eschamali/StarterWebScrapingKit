@@ -100,6 +100,7 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
                         '5. 一時蓄積データも初期化
                         Set G_res.collect = New Collection
                         ViewLog.LogInfo "一時Collectionキューをクリーンしました。", ErrorSource
+                        Application.OnTime Now + TimeValue("00:00:01"), "受信したのをテーブルに一気に追加"
                     
                     '　BINARY_MESSAGE_BUFFER_TYPE：Buffer には、バイナリ メッセージ全体またはその最後の部分が含まれます。
                     ElseIf G_res.Status = 0 Then
@@ -112,9 +113,15 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
 
                     End If
                 
+                    '受信予約
+                    AsyncWebsocketReciveFromWorksheet
+
                 'WRITE_COMPLETE
                 Case 1048576
                     ViewLog.LogInfo "送信できました！", ErrorSource
+                    
+                    '受信予約
+                    AsyncWebsocketReciveFromWorksheet
                     
                 'REQUEST_ERROR
                 Case 2097152
