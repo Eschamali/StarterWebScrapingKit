@@ -15,11 +15,24 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                      ■■■ コールバック関数からの受け取り変数の定義 ■■■
+'***************************************************************************************************
+Private FromCallBackTmpReceiveData As Collection
+
+
+
+'***************************************************************************************************
 '                      ■■■ このシートのみ定義されてるセル名称定義 ■■■
 '***************************************************************************************************
 Property Get UseRangeName(id As Long, ErrorSource As String) As String
     Select Case id
         Case 1: UseRangeName = "WebSocketハンドル"
+        Case 2: UseRangeName = "IsWebSocket"
+        Case 3: UseRangeName = "ホスト名"
+        Case 4: UseRangeName = "Port"
+        Case 5: UseRangeName = "セキュアモード"
+        Case 6: UseRangeName = "UriPath"
+        Case 7: UseRangeName = "送信プレーンテキスト"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Property
@@ -27,13 +40,79 @@ End Property
 
 
 '***************************************************************************************************
-'                 ■■■ 送受信処理をうまくいくためのヘルパープロシージャ ■■■
+'                   ■■■ WINHTTP_STATUS_CALLBACK - dwInternetStatus 一式 ■■■
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：Websocketとは関係ないコールバック定数は一旦、コメントアウトしています
+'---------------------------------------------------------------------------------------------------
+'* URL　　 ：https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+'***************************************************************************************************
+Property Get Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus As Long, ErrorSource As String) As String
+    Select Case dwInternetStatus
+'        Case 1: Name__WINHTTP_STATUS_CALLBACK = "RESOLVING_NAME"
+'        Case 2: Name__WINHTTP_STATUS_CALLBACK = "NAME_RESOLVED"
+'        Case 4: Name__WINHTTP_STATUS_CALLBACK = "CONNECTING_TO_SERVER"
+'        Case 8: Name__WINHTTP_STATUS_CALLBACK = "CONNECTED_TO_SERVER"
+'        Case 16: Name__WINHTTP_STATUS_CALLBACK = "SENDING_REQUEST"
+'        Case 32: Name__WINHTTP_STATUS_CALLBACK = "REQUEST_SENT"
+'        Case 64: Name__WINHTTP_STATUS_CALLBACK = "RECEIVING_RESPONSE"
+'        Case 128: Name__WINHTTP_STATUS_CALLBACK = "RESPONSE_RECEIVED"
+'        Case 256: Name__WINHTTP_STATUS_CALLBACK = "CLOSING_CONNECTION"
+'        Case 512: Name__WINHTTP_STATUS_CALLBACK = "CONNECTION_CLOSED"
+'        Case 1024: Name__WINHTTP_STATUS_CALLBACK = "HANDLE_CREATED"
+'        Case 2048: Name__WINHTTP_STATUS_CALLBACK = "HANDLE_CLOSING"
+'        Case 4096: Name__WINHTTP_STATUS_CALLBACK = "DETECTING_PROXY"
+'        Case 16384: Name__WINHTTP_STATUS_CALLBACK = "REDIRECT"
+'        Case 32768: Name__WINHTTP_STATUS_CALLBACK = "INTERMEDIATE_RESPONSE"
+'        Case 65536: Name__WINHTTP_STATUS_CALLBACK = "SECURE_FAILURE"
+'        Case 131072: Name__WINHTTP_STATUS_CALLBACK = "HEADERS_AVAILABLE"
+'        Case 262144: Name__WINHTTP_STATUS_CALLBACK = "DATA_AVAILABLE"
+        Case 524288: Name__WINHTTP_STATUS_CALLBACK = "READ_COMPLETE"
+        Case 1048576: Name__WINHTTP_STATUS_CALLBACK = "WRITE_COMPLETE"
+        Case 2097152: Name__WINHTTP_STATUS_CALLBACK = "REQUEST_ERROR"
+'        Case 4194304: Name__WINHTTP_STATUS_CALLBACK = "SENDREQUEST_COMPLETE"
+'        Case 16777216: Name__WINHTTP_STATUS_CALLBACK = "GETPRO_YFORURL_COMPLETE"
+        Case 33554432: Name__WINHTTP_STATUS_CALLBACK = "CLOSE_COMPLETE"
+'        Case 67108864: Name__WINHTTP_STATUS_CALLBACK = "SHUTDOWN_COMPLETE"
+'        Case 268435456: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_WRITE_COMPLETE"
+'        Case 536870912: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_READ_COMPLETE"
+'        Case Else: Err.Raise 3 + vbObjectError, ErrorSource, "未知の WINHTTP_CALLBACK_STATUS が来ました。" & vbCrLf & "Code：" & dwInternetStatus
+        Case Else: Name__WINHTTP_STATUS_CALLBACK = "Unknow_Code"
+    End Select
+End Property
+
+
+
+'***************************************************************************************************
+'                   ■■■ WINHTTP_WEB_SOCKET_BUFFER_TYPE - eBufferType 一式 ■■■
+'---------------------------------------------------------------------------------------------------
+'* URL　　 ：https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
+'***************************************************************************************************
+Property Get Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(TypeID As Long, ErrorSource As String) As String
+    Select Case TypeID
+        Case 0: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "BINARY_MESSAGE_BUFFER_TYPE"
+        Case 1: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "BINARY_FRAGMENT_BUFFER_TYPE"
+        Case 2: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_MESSAGE_BUFFER_TYPE"
+        Case 3: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_FRAGMENT_BUFFER_TYPE"
+        Case 4: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "CLOSE_BUFFER_TYPE"
+        Case Else: Err.Raise 4 + vbObjectError, ErrorSource, "未知の WINHTTP_WEB_SOCKET_BUFFER_TYPE が来ました。" & vbCrLf & "Code：" & TypeID
+    End Select
+End Property
+
+
+
+'***************************************************************************************************
+'                 ■■■ 受信処理を円滑に行うためのヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：バッファ初期化
 '***************************************************************************************************
 Public Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
+    '中身を消す("0"で埋め尽くす)
     Erase responseBuffer
+    
+    '書き込み位置を先頭にする
     CurrentPointer = 0
+    
+    '`responseBuffer`の確保サイズを取得します
     BufferLength = UBound(responseBuffer) + 1
 End Sub
 
@@ -41,7 +120,10 @@ End Sub
 '* 機能　　：バッファ管理情報更新
 '***************************************************************************************************
 Public Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes As Long)
+    '受信したバイト数分、書き込み位置をずらす
     CurrentPointer = CurrentPointer + ReceiveBytes
+
+    '`responseBuffer`の空きサイズを更新
     BufferLength = BufferLength - ReceiveBytes
 End Sub
 
@@ -54,6 +136,9 @@ End Sub
 '* 機能説明：ErrorCode：12152　対策
 '***************************************************************************************************
 Public Function StringToUtf8Bytes(ByVal str As String) As Byte()
+    '空文字なら即抜け
+    If str = "" Then Exit Function
+
     With CreateObject("ADODB.Stream")
         .Type = 2 ' adTypeText
         .Charset = "UTF-8"
@@ -67,7 +152,6 @@ Public Function StringToUtf8Bytes(ByVal str As String) As Byte()
         ' BOM（先頭3バイト）をスキップして読む
         .Position = 3
         StringToUtf8Bytes = .Read
-        
         .Close
     End With
 End Function
@@ -103,8 +187,6 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：collect  コレクションバイト配列
 '* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：当然ですが、各コレクションバイナリデータが、UTF-8バイト配列になっていないと、文字化けします
 '***************************************************************************************************
 Public Function MakeResponseMessage(collect As Collection) As String
     Dim totalSize As Long
