@@ -255,10 +255,6 @@ Public Function GetMessageForAsync() As Long
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
-    
-    'ストリーミング受信準備による初期化
-    ShSetting02_StartWebSocket.InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
-    Set G_res.collect = New Collection
 
     '受信予約処理
     G_res.result = WinHttpWebSocketReceive( _
