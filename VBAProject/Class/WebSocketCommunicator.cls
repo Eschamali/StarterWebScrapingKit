@@ -85,7 +85,28 @@ Private GetErrorMes As New WinApiError
 Private ExistingWebsockethandle_ As LongPtr
 
 
- 
+
+'***************************************************************************************************
+'                                 ■■■ 設定/取得メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：既存のwebsocketのハンドル値を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：このクラスオブジェクトに設定中のWebsockethandle値
+'* LET引数 ：ExistingWebsockethandle    以前取得したWebsockethandle値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：以前に確立したwebsocketのハンドル値を渡すことで続きのやり取りができます。
+'* 注意事項：ErrorCode:12030 が来た場合は、もう切断状態です。「接続処理（Connect）からやり直す（再接続）」 しかありません。
+'            別プロセスを跨ぐ使用("/x excel.exe" による別プロセス起動など)はできません...
+'***************************************************************************************************
+Public Property Get ReConnect() As LongPtr
+    ReConnect = ExistingWebsockethandle_
+End Property
+Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
+    ExistingWebsockethandle_ = ExistingWebsockethandle
+End Property
+
+
+
 '***************************************************************************************************
 '                                   ■■■ 公開メソッド ■■■
 '***************************************************************************************************
@@ -119,29 +140,17 @@ Public Function Init(Host As String, Path As String, Optional port As Long = 443
     '成功したときのWebSocketハンドル値を返す
     Init = Http.websockethandle
 Exit Function
+
+
 quit:
     Init = 0
 End Function
 
 '***************************************************************************************************
-'* 機能　　：既存のwebsocketのハンドル値を設定します
-'---------------------------------------------------------------------------------------------------
-'* LET引数 ：ExistingWebsockethandle    以前取得したWebsockethandle値
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：以前に確立したwebsocketのハンドル値を渡すことで続きのやり取りができます。
-'* 注意事項：ErrorCode:12030 が来た場合は、もう切断状態です。「接続処理（Connect）からやり直す（再接続）」 しかありません。
-'            別プロセスを跨ぐ使用("/x excel.exe" による別プロセス起動など)はできません...
-'***************************************************************************************************
-Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
-    ExistingWebsockethandle_ = ExistingWebsockethandle
-End Property
-
-'***************************************************************************************************
 '* 機能　　：WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：message            送信プレーンテキスト
-'
-'* 返り値  ：エラーコード   ※成功時は、0です
+'* 返り値  ：実行結果コード     ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
 '* 注意事項：・現時点は、プレーンテキスト送信のみ対応です
@@ -164,16 +173,10 @@ Public Function SendMessage(message As String) As Long
     result = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
                         VarPtr(ary(0)), messageByteSize)
-    
-    'エラーチェック
-    If result = NO_ERROR Then
-        '成功なら、0とする
-        SendMessage = NO_ERROR
-    Else
-        'エラーなら､エラーコードで返す
-        Debug.Print "送信エラー発生。ErrorCode：" & result & ",Description：" & GetErrorMes.GetMessage(result, "winhttp")
-        SendMessage = result
-    End If
+
+
+    '実行結果コードを返却
+    SendMessage = result
 End Function
 
 '***************************************************************************************************
@@ -197,6 +200,7 @@ Public Function GetMessageForSync() As String
     Set res.collect = New Collection                                    '結合データも初期化
 
     'データが尽きるまで、レスポンス受信ループ
+    Dim tmp
     Do
         '受信処理
         res.result = WinHttpWebSocketReceive( _
@@ -215,10 +219,10 @@ Public Function GetMessageForSync() As String
             GetMessageForSync = ShSetting02_StartWebSocket.MakeResponseMessage(res.collect)
             Exit Function
         End If
-        
+
         'バッファー情報の更新
         ShSetting02_StartWebSocket.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
-        
+ 
         'バッファー残量判定
         If (res.BufferLength <= 0) Then
             '満たしたパケットをコレクションへ追加
@@ -262,16 +266,8 @@ Public Function GetMessageForAsync() As Long
                     G_res.ReceiveBytes, G_res.Status)
                     
 
-    'エラーチェック
-    If G_res.result = NO_ERROR Then
-        '成功なら、0とする
-        GetMessageForAsync = NO_ERROR
-        Debug.Print GetErrorMes.GetMessage(G_res.result, "winhttp")
-    Else
-        'エラーなら､エラーコードで返す
-        GetMessageForAsync = G_res.result
-        Debug.Print "受信エラー発生。ErrorCode：" & G_res.result & ",Description：" & GetErrorMes.GetMessage(G_res.result, "winhttp")
-    End If
+    '実行結果コードを返却
+    GetMessageForAsync = G_res.result
 End Function
 
 '***************************************************************************************************
