@@ -92,6 +92,9 @@ Sub SendAndReceiveFromWorksheet()
 
         'テーブルに格納
         .AddReceiveBoxTable ResponseText
+
+        'Downloadsフォルダにも保存しておく
+        ShSetting02_StartWebSocket.SaveFileUTF8 ResponseText, Environ("USERPROFILE") & "\Downloads", "ResultWebSocket.txt"
     End With
 
     '終了通知
