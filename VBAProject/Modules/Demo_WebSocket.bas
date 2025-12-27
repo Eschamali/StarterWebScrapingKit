@@ -62,6 +62,8 @@ Sub SendAndReceiveFromWorksheet()
         Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
         WebsocketObj.ReConnect = .Range(.UseRangeName(1, "Demo_WebSocket.SendAndReceive")).value
 
+
+
         '送信する
         Dim ResultCode As Long
         ResultCode = WebsocketObj.SendMessage(.Range(.UseRangeName(7, "Demo_WebSocket.SendAndReceiveFromWorksheet")).value)
@@ -101,6 +103,17 @@ Sub SendAndReceiveFromWorksheet()
     MsgBox "送信処理を終え、1件のメッセージを受信しました", vbInformation, "Success"
 End Sub
 
+'***************************************************************************************************
+'* 機能　  ：ワークシート上にあるWebSocketハンドルで、破棄処理をします
+'***************************************************************************************************
+Sub CleanWebsocketHandleFromWorksheet()
+    With ShSetting02_StartWebSocket
+        '未設定の場合は即抜け
+        If .Range(.UseRangeName(1, "Demo_WebSocket.SendAndReceiveFromWorksheet")).value = "" Then MsgBox "WebSocketへの接続が出来ていません。" & vbCrLf & "送受信の前に、接続処理をして下さい・", vbCritical, "Not Ready": Exit Sub
+        
+        CleanWebsocketHandle .Range(.UseRangeName(1, "Demo_WebSocket.SendAndReceiveFromWorksheet")).value
+    End With
+End Sub
 
 
 '***************************************************************************************************
