@@ -178,14 +178,19 @@ End Function
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
 '***************************************************************************************************
 Public Function GetMessageForSync() As String
+    'ログ関連定義
+    Dim Error翻訳 As New WinApiError
+    Dim LogView As New Logger
+    Const ErrorSource As String = "WebSocketCommunicator.GetMessageForSync"
+
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
     'ストリーミング受信準備
-    Dim res As response
-    ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength   'バッファー初期化
-    Set res.collect = New Collection                                    '結合データも初期化
+    Dim res As WebSocketReceiveManage
+    ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength    'バッファー初期化
+    Set res.collect = New Collection                                                                '一時蓄積データも初期化
 
     'データが尽きるまで、レスポンス受信ループ
     Dim tmp
@@ -197,34 +202,32 @@ Public Function GetMessageForSync() As String
         
         'エラーならGoToへ
         If res.result <> NO_ERROR Then GoTo quit
-
-        'メッセージを全て受信し終えたら、各パケットを結合
-        If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
-            '最後のパケットを追加
-            res.collect.Add res.Buffer
-            
-            '全てのパケットを結合して、プレーンテキストに変換して、返却
-            GetMessageForSync = ShSetting02_StartWebSocket.MakeResponseMessage(res.collect)
-            Exit Function
-        End If
+        LogView.LogInfo Error翻訳.GetMessage(res.result, "winhttp"), ErrorSource
 
         'バッファー情報の更新
         ShSetting02_StartWebSocket.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
  
-        'バッファー残量判定
-        If (res.BufferLength <= 0) Then
-            '満たしたパケットをコレクションへ追加
-            res.collect.Add res.Buffer
+        '受信処理を託す
+        tmp = ShSetting02_StartWebSocket.CommonWinHttpWebSocketReceive(res)
+        
+        '全ての受信を終えたときの処理
+        If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
+            '完成品のプレーンテキストを返却
+            GetMessageForSync = CStr(tmp)
+
+            Exit Function
+        ElseIf res.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Then
+            '完成品のバイナリデータを返却
             
-            'バッファー初期化
-            ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
+            
+            Exit Function
         End If
     Loop
 
 
 'エラー時は、エラーメッセージを表示
 quit:
-Debug.Print "受信エラー発生。ErrorCode：" & res.result & ",Description：" & GetErrorMes.GetMessage(res.result, "winhttp")
+LogView.LogError Error翻訳.GetMessage(res.result, "winhttp"), ErrorSource, res.result
 End Function
 
 '***************************************************************************************************

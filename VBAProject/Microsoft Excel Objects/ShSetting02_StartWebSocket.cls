@@ -83,6 +83,32 @@ End Property
 
 
 '***************************************************************************************************
+'                               ■■■ 受け取り変数の制御設定 ■■■
+'***************************************************************************************************
+'* 機能　　：コールバック関数からの受信データを一旦受け取ったり、取得、追加処理を行います
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：現在の受信コレクションデータ
+'* LET引数 ：コールバック関数からの受信データ。一旦、型指定はしません。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：これを使用する前に次項の New による初期化処理が必要です。
+'***************************************************************************************************
+Property Get ReceiveBox() As Collection
+    Set ReceiveBox = FromCallBackTmpReceiveData
+End Property
+Property Let ReceiveBox(Data)
+    FromCallBackTmpReceiveData.Add Data
+End Property
+
+'***************************************************************************************************
+'* 機能　　：受信メッセージを全て削除し、初期化します
+'***************************************************************************************************
+Public Sub CleanReceiveBox()
+    Set FromCallBackTmpReceiveData = New Collection
+End Sub
+
+
+
+'***************************************************************************************************
 '                   ■■■ WINHTTP_WEB_SOCKET_BUFFER_TYPE - eBufferType 一式 ■■■
 '---------------------------------------------------------------------------------------------------
 '* URL　　 ：https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
@@ -102,6 +128,90 @@ End Property
 
 '***************************************************************************************************
 '                 ■■■ 受信処理を円滑に行うためのヘルパープロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：WinHttpWebSocketReceive の受信処理を賄います
+'---------------------------------------------------------------------------------------------------
+' *返り値  ：Param.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)が、
+'            ・0 ：完成品のバイナリデータ
+'            ・2 ：完成品のプレーンテキストデータ
+'            ・他：Empty
+'
+'* 引数    ：ユーザー定義型-WebSocketReceiveManage
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：WebSocket バッファーの種類が「WINHTTP_STATUS_CALLBACK_READ_COMPLETE」での、チャンク処理をいい感じに共通化させます
+'* 注意事項：・このヘルパープロシージャーを呼び出す前に、バッファー情報の更新を済ませること
+'            ・Param.Status が、0 or 2  の場合は、呼び出す側で、`WebSocketReceiveManage.collect`のクリーンをすること
+'***************************************************************************************************
+Public Function CommonWinHttpWebSocketReceive(ByRef Param As WebSocketReceiveManage) As Variant
+    'ログ把握用クラス
+    Dim ViewLog As New Logger
+    Const TraceName As String = "ShSetting02_StartWebSocket.CommonWinHttpWebSocketReceive"
+
+    
+    '========================= 受信ステータス値　把握用 =========================
+    ViewLog.LogDebug "------------ WebSocket 受信ステータス ------------", TraceName
+    ViewLog.LogDebug "バッファー残量 ：" & Param.BufferLength & " byte", TraceName
+    ViewLog.LogDebug "受信データ量　 ：" & Param.ReceiveBytes & " byte", TraceName
+    ViewLog.LogDebug "バッファー位置 ：" & Param.CurrentPointer & " byte", TraceName
+    ViewLog.LogDebug "WebSocketStatus：" & Param.Status, TraceName
+    ViewLog.LogDebug "---------------------------------------------------", TraceName
+    '============================================================================
+
+    
+    Select Case Param.Status
+        'BINARY_MESSAGE_BUFFER_TYPE：Buffer には、バイナリ メッセージ全体またはその最後の部分が含まれます。
+        Case 0
+            ViewLog.LogWarn "全てのバイナリデータが届きましたが、組み立てロジックはまだ未完成です...", TraceName
+
+            '2. 受信し終えたステータスなので、初期化処理
+            Me.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
+            ViewLog.LogInfo "バッファーを確保しました。", TraceName
+
+        'UTF8_MESSAGE_BUFFER_TYPE  ：Buffer には、UTF-8    メッセージ全体またはその最後の部分が含まれます。
+        Case 2
+            ViewLog.LogInfo "全てのプレーンテキストデータが届きました。", TraceName
+            
+            '1. 最後のパケットデータを追加
+            Param.collect.Add Param.Buffer
+            ViewLog.LogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
+
+            '2. 全てのパケットを結合して、プレーンテキストに変換し、返却
+            CommonWinHttpWebSocketReceive = ShSetting02_StartWebSocket.MakeResponseMessage(Param.collect)
+            ViewLog.LogInfo "パケットを全て結合し、プレーンテキストとして返却しました。", TraceName
+
+            '3. 全てを受信し終えたステータスなので、初期化処理
+            ShSetting02_StartWebSocket.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
+            ViewLog.LogInfo "バッファーを確保しました。", TraceName
+        
+        '1=BINARY_FRAGMENT_BUFFER_TYPE：Buffer にはバイナリ メッセージの一部のみが含まれます。
+        '3=UTF8_FRAGMENT_BUFFER_TYPE  ：Buffer には UTF-8   メッセージの一部のみが含まれます。
+        Case 1, 3
+            '1. バッファー残量確認
+            ViewLog.LogWarn "一部のデータを受け取りました。完全なデータの受信には再度、受信リクエストを送る必要があります。", TraceName
+            If Param.BufferLength <= 0 Then
+                ViewLog.LogInfo "バッファーを使い果たしました。", TraceName
+                
+                '2. 満たしたパケットをコレクションへ追加
+                Param.collect.Add Param.Buffer
+                ViewLog.LogInfo "満たしたバッファーを一時Collectionキューに追加しました。", TraceName
+
+                '3. バッファー初期化して、空きを確保
+                ShSetting02_StartWebSocket.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
+                ViewLog.LogInfo "バッファーを確保しました。", TraceName
+            Else
+                ViewLog.LogInfo "バッファーに空きがあるため、次の受信処理に持ち越します。", TraceName
+            End If
+        
+        'CLOSE_BUFFER_TYPE：サーバーが閉じるフレームを送信しました。
+        Case 4
+            ViewLog.LogInfo "切断リクエストが来たため、WebSocket 処理を終了します...", TraceName
+            
+            'WebSocketを閉じる
+            
+            
+    End Select
+End Function
+
 '***************************************************************************************************
 '* 機能　　：バッファ初期化
 '***************************************************************************************************
