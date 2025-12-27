@@ -182,7 +182,7 @@ Public Function CommonWinHttpWebSocketReceive(ByRef Param As WebSocketReceiveMan
             '3. 全てを受信し終えたステータスなので、初期化処理
             ShSetting02_StartWebSocket.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
             ViewLog.LogInfo "バッファーを確保しました。", TraceName
-        
+            
         '1=BINARY_FRAGMENT_BUFFER_TYPE：Buffer にはバイナリ メッセージの一部のみが含まれます。
         '3=UTF8_FRAGMENT_BUFFER_TYPE  ：Buffer には UTF-8   メッセージの一部のみが含まれます。
         Case 1, 3
@@ -341,3 +341,112 @@ Public Function MakeResponseMessage(collect As Collection) As String
         MakeResponseMessage = resultStr
     End If
 End Function
+
+
+
+'***************************************************************************************************
+'                           ■■■ 受信メッセージの処理関連 ■■■
+'***************************************************************************************************
+'* 機能　　：非同期からの完成済みプレーンテキストをテーブルにどんどん蓄積させます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：PlainTexts      テーブルに蓄積させる単一列2次元配列 or 単一変数
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・バイナリデータは入れられません
+'            ・残念ながら、コールバック関数からこれを直接呼んでテーブルに追記することはできません。クラッシュします。
+'***************************************************************************************************
+Public Sub AddReceiveBoxTable(PlainTexts As Variant)
+    '追加するデータ数を取得
+    Dim AddRows As Long
+    If IsArray(PlainTexts) Then AddRows = UBound(PlainTexts) Else AddRows = 1
+
+    With Me.ListObjects(1)
+        'テーブルのデータ部にて、有効数を取得
+        'どの列も`null`なら、`0`と返ります
+        Dim DataRows As Long: DataRows = .ListRows.Count
+        
+        'テーブル自体の確保行数を取得
+        Dim TableRows As Long: TableRows = .ListColumns(1).Range.Count
+        
+        'テーブルの真下にデータ挿入するように仕向ける
+        .ListColumns(2).Range(TableRows + 1 + (DataRows = 0)).Resize(AddRows, 1) = PlainTexts
+    End With
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：コールバック関数によって蓄積したコレクションデータを単一列2次元配列に変換し、テーブル追加への関数を呼び出します
+'***************************************************************************************************
+Public Sub AddTableReceiveDatas(Optional SaveFile As Boolean)
+    '現在のコレクションデータを取得
+    Dim NowReceive As Collection: Set NowReceive = Me.ReceiveBox
+    
+    'データなしの場合は、ここで抜ける
+    If NowReceive.Count = 0 Then Exit Sub
+
+    '単一列2次元配列を作成
+    ReDim AddArray(1 To NowReceive.Count, 1 To 1)
+    
+    'ファイル保存用の配列も作成
+    If SaveFile Then ReDim ForSaveFile(1 To NowReceive.Count)
+    
+    'コレクションを、単一列2次元配列に変換
+    Dim tmp, i As Long
+    For Each tmp In NowReceive
+        i = i + 1
+        
+        AddArray(i, 1) = tmp
+        If SaveFile Then ForSaveFile(i) = i & vbTab & tmp
+    Next
+
+    '結果を渡して、テーブルに追加
+    Me.AddReceiveBoxTable AddArray
+    If SaveFile Then Me.SaveFileUTF8 Join(ForSaveFile, vbCrLf), Environ("USERPROFILE") & "\Downloads", "ResultWebSocket.txt"
+
+    'テーブルの追加を終えたので、クリーン
+    Me.CleanReceiveBox
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ワークシート上の受信メッセージテーブルを全消去します
+'***************************************************************************************************
+Public Sub CleanReceiveBoxTable()
+    With Me.ListObjects(1)
+        If .ListRows.Count Then .DataBodyRange.Delete
+    End With
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：UTF-8(BOMなし)形式で、テキスト保存を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：writeText      書き込む文字列
+'            FolderPath     保存先のフォルダパス
+'            FileName 保存名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：常に上書き保存します
+'***************************************************************************************************
+Public Sub SaveFileUTF8(ByVal WriteText As String, ByVal FolderPath As String, ByVal fileName As String)
+    '空データの場合は、違うメソッドで書き込んで終了
+    If WriteText = "" Then Open FolderPath & "\" & fileName For Output As #1: Print #1, "": Close #1: Exit Sub
+
+    Dim tmp() As Byte 'BOM付きを外すための一時格納用
+    With CreateObject("ADODB.Stream")
+        '書き込み形式の設定
+        .Charset = "UTF-8" 'UTF-8
+        .Type = 2 'テキストモード
+        .Open '上記の設定で、ストリームを開く
+
+        'レスポンス結果を書き込む(末尾に改行コードなし)
+        .WriteText WriteText, 0
+        
+        'BOM付きを外す処理
+        .Position = 0 'ストリームの位置を0にセット
+        .Type = 1 'データの種類をバイナリデータに変更
+        .Position = 3 'ストリームの位置を3にセットして、BOMデータを飛ばす
+        tmp = .Read 'ストリームの内容を一時格納用変数に保存。先程セットした始点3から最後まで
+        .Close '一旦ストリームを閉じる（リセット）
+
+        .Open 'ストリームを開く
+        .Write tmp 'ストリームに一時格納したデータを流し込む
+        .SaveToFile FolderPath & "\" & fileName, 2 'ファイルに上書き保存
+        .Close
+    End With
+End Sub
