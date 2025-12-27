@@ -242,7 +242,7 @@ Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boo
     'アップグレードしたハンドル値を取得します
     hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, 0)
     If hwebsockethandle_ = 0 Then GoTo quit
-    Debug.Print "Upgrade成功"
+'    Debug.Print "Upgrade成功"
 
     'コールバック関数が指定されてる場合は、コールバック登録を行います
     If CallBackProcedure Then
@@ -250,7 +250,7 @@ Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boo
                 WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
         If result < 0 Then GoTo quit
         
-        Debug.Print "コールバック　登録成功"
+'        Debug.Print "コールバック　登録成功"
     End If
 
     '全ての関門を超えたら、成功とする
@@ -259,6 +259,7 @@ Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boo
 Exit Function
 quit:
     If result = 0 Then Debug.Print "Upgrade：" & result
+    If result < 0 Then Debug.Print "コールバック登録失敗。ErrorCode：" & result: CloseHWebsocketHandle
     If hwebsockethandle_ = 0 Then Debug.Print "Upgrade：" & Err.LastDllError
     UpgradeToWebSocket = False
 End Function
@@ -296,16 +297,11 @@ quit:
 End Function
 
 '***************************************************************************************************
-'* 機能　　：HTTP通信ハンドルの後始末を行います
-'* 引数    ：RetentionWebsockethandle   True：Websocketのハンドル値だけは残す
+'* 機能　　：HTTP通信ハンドル系統の後始末を行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：適切な掃除をしないと、使わなくなったWebsocketハンドルがどんどんメモリに溜まっていくため、ご注意ください。
+'* 注意事項：WebSocket も後始末する場合は、次項のプロシージャも呼び出して下さい
 '***************************************************************************************************
-Public Sub CloseHInternetHandles(RetentionWebsockethandle As Boolean)
-    If (hwebsockethandle_ <> 0 And Not (RetentionWebsockethandle)) Then
-        WinHttpCloseHandle (hwebsockethandle_)
-        hwebsockethandle_ = 0
-    End If
+Private Sub CloseHInternetHandles()
     If (hRequestHandle_ <> 0) Then
         WinHttpCloseHandle (hRequestHandle_)
         hRequestHandle_ = 0
@@ -319,6 +315,33 @@ Public Sub CloseHInternetHandles(RetentionWebsockethandle As Boolean)
         hSessionHandle_ = 0
     End If
 
+
+    Dim result As Long
+    result = Err.LastDllError
+    If (result <> ERROR_SUCCESS) Then
+          MsgBox "quitting with result: " & result
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebSocketハンドルの後始末を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：anyHandle      保存したハンドルを使用するときに指定して下さい。
+'***************************************************************************************************
+Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
+    'クラス内部で保存してるWebSocketハンドル
+    If (hwebsockethandle_ <> 0) Then
+        WinHttpCloseHandle (hwebsockethandle_)
+        hwebsockethandle_ = 0
+    End If
+
+    '引数としてのWebSocketハンドル
+    If (anyHandle <> 0) Then
+        WinHttpCloseHandle (anyHandle)
+        anyHandle = 0
+    End If
+
+
     Dim result As Long
     result = Err.LastDllError
     If (result <> ERROR_SUCCESS) Then
@@ -329,5 +352,5 @@ End Sub
 
 
 Private Sub Class_Terminate()
-    CloseHInternetHandles True
+    CloseHInternetHandles
 End Sub
