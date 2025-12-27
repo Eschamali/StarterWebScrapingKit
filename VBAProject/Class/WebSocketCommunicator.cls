@@ -68,20 +68,8 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
 
-'Websocket受信に使用(自作構造体)
-Private Type response
-    Buffer(4095) As Byte    '第1引数
-    BufferLength As Long    '第2引数
-    ReceiveBytes As Long    '第3引数
-    Status As Long          '第4引数
-    CurrentPointer As Long  '第5引数
-    result As Long          '戻り値
-    collect As Collection
-End Type
-
-
-Public Http As WebSocketHTTPCommunicator
-Private GetErrorMes As New WinApiError
+'WebSocket に関する定義
+Private Http As WebSocketHTTPCommunicator
 Private ExistingWebsockethandle_ As LongPtr
 
 
