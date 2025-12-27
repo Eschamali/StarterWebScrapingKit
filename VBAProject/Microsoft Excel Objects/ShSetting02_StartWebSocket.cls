@@ -161,9 +161,17 @@ Public Function CommonWinHttpWebSocketReceive(ByRef Param As WebSocketReceiveMan
     Select Case Param.Status
         'BINARY_MESSAGE_BUFFER_TYPE：Buffer には、バイナリ メッセージ全体またはその最後の部分が含まれます。
         Case 0
-            ViewLog.LogWarn "全てのバイナリデータが届きましたが、組み立てロジックはまだ未完成です...", TraceName
+            ViewLog.LogInfo "全てのバイナリデータが届きました。", TraceName
+            
+            '1. 最後のパケットデータを追加
+            Param.collect.Add Param.Buffer
+            ViewLog.LogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
 
-            '2. 受信し終えたステータスなので、初期化処理
+            '2. 全てのパケットを結合して、バイナリデータ配列として、返却
+            ViewLog.LogWarn "全てのバイナリデータを組み立てるロジックはまだ未完成です...", TraceName
+
+
+            '3. 受信し終えたステータスなので、初期化処理
             Me.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
             ViewLog.LogInfo "バッファーを確保しました。", TraceName
 
@@ -176,13 +184,13 @@ Public Function CommonWinHttpWebSocketReceive(ByRef Param As WebSocketReceiveMan
             ViewLog.LogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
 
             '2. 全てのパケットを結合して、プレーンテキストに変換し、返却
-            CommonWinHttpWebSocketReceive = ShSetting02_StartWebSocket.MakeResponseMessage(Param.collect)
+            CommonWinHttpWebSocketReceive = MakeResponseMessage(Param.collect)
             ViewLog.LogInfo "パケットを全て結合し、プレーンテキストとして返却しました。", TraceName
 
             '3. 全てを受信し終えたステータスなので、初期化処理
-            ShSetting02_StartWebSocket.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
+            Me.InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength  'バッファー初期化
             ViewLog.LogInfo "バッファーを確保しました。", TraceName
-            
+        
         '1=BINARY_FRAGMENT_BUFFER_TYPE：Buffer にはバイナリ メッセージの一部のみが含まれます。
         '3=UTF8_FRAGMENT_BUFFER_TYPE  ：Buffer には UTF-8   メッセージの一部のみが含まれます。
         Case 1, 3
@@ -298,7 +306,7 @@ End Function
 '* 引数    ：collect  コレクションバイト配列
 '* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
 '***************************************************************************************************
-Public Function MakeResponseMessage(collect As Collection) As String
+Private Function MakeResponseMessage(collect As Collection) As String
     Dim totalSize As Long
     Dim chunk As Variant
     Dim fullBytes() As Byte
