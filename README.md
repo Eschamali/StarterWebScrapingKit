@@ -197,6 +197,7 @@ Sub ネットワークイベントの確認()
     'URL遷移して、Msgboxで待機
     '`iscomplete`だと内部で、イベント情報の破棄が行われるため、破棄されない`isLoading`にしておく
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm", isLoading
+    MsgBox "ブラウザのURL遷移がある程度終わったら、OKを押してください", vbInformation, "イベント待機"   '愚直にmsgboxで待機
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
     Dim Events As Dictionary, JsonDicObj As CDPJConv
