@@ -144,3 +144,93 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 先述の`app`よりもネイティブなキオスクモードでの起動ができます。  
 デフォルトでは、フルスクリーン起動になるため、追加の起動引数欄で、`edge-kiosk-type=public-browsing`を加えることをおすすめします。
 
+## ブラウザ起動方法について
+
+基本的な起動のテンプレートは下記になります。  
+ワークシート：ブラウザ起動設定　で設定した内容でブラウザが起動してくれるので、特にこだわりがなければこのテンプレートコードを推奨します。  
+
+```bas
+Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        '起動ブラウザ種類の設定
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim ブラウザ名 As String
+        If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
+
+        'ブラウザ起動
+        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
+        objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
+    End With
+
+    'オブジェクトを返却
+    Set 設定シートからの起動 = objBrowser
+End Function
+
+
+Sub 冒険の始まり()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim HelloAutomationBrowser As CDPBrowser: Set HelloAutomationBrowser = 設定シートからの起動
+
+    '↓ここから、あなたのイメージをコードに落とし込む↓
+
+
+
+
+    'ブラウザを正常に閉じる
+    HelloAutomationBrowser.quit
+End Sub
+```
+
+### デモ紹介：`invokeMethod`の参照渡しを利用した、非同期イベントのキャプチャ
+
+Demo_CDP.bas内のネットワークイベントの確認プロシージャは、CDP (Chrome DevTools Protocol) の非同期イベントを、VBAで効果的にハンドリングするための、実践的なデモです。
+
+```bas
+Sub ネットワークイベントの確認()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
+    
+    'ネットワークイベント受信を有効化する
+    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable")
+    
+    'URL遷移して、Msgboxで待機
+    '`iscomplete`だと内部で、イベント情報の破棄が行われるため、破棄されない`isLoading`にしておく
+    Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm", isLoading
+
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
+    Dim Events As Dictionary, JsonDicObj As CDPJConv
+    
+    Set Events = New Dictionary
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge", , Events)    '存在しないコマンドなので、ブラウザに影響なし
+
+    'イベント情報をDownloadsフォルダに保存
+    '※参照渡しにより、Events にイベント情報が蓄積される
+    Set JsonDicObj = New CDPJConv
+    SaveUTF8 JsonDicObj.ConvertToJson(Events), Environ("UserProfile") & "\Downloads", "Event.json"
+
+    'ブラウザを閉じる
+    Demo_NetworkEvent.quit
+End Sub
+```
+
+1. **`Network.enable`:**
+    まず、ネットワーク関連のイベント購読を開始します。
+2. **`navigate`:**
+    対象のURLへ遷移させ、多数のネットワークイベントを意図的に発生させます。
+3. **`invokeMethod`（空コマンド）：**
+    `navigate`の完了を待たずに、あえて存在しないコマンド（例: `"hoge"`）を送信します。このメソッドが完了した時点で、`navigate`開始から、この`invokeMethod`の応答が返るまでの間に発生した、すべてのCDPメッセージ（非同期イベント）が、参照渡しした`Events`ディクショナリに格納されます。
+4. **結果の保存：**
+    蓄積された`Events`ディクショナリを、JSON形式でファイルに保存し、どのようなイベントがキャプチャできたかを確認できるようにしています。
+
+**応用可能性：**
+この基本的なテクニックを応用することで、VBAから、より高度なブラウザオートメーションを実装できます。
+
+* **動的な待機処理：**
+    特定の通信リクエスト（`Network.requestWillBeSent`）や、レスポンス（`Network.responseReceived`）が、イベントとして現れるまで、ループで待機する。
+* **隠されたデータの抽出：**
+    `localStorage`やCookieには保存されない、APIレスポンスのボディにのみ含まれる、一時的なトークンなどを、`Network.loadingFinished`イベントなどから抽出する。
+* **DOMイベントの監視：**
+    ネットワークだけでなく、`DOM.childNodeInserted`のようなDOMイベントを監視すれば、「JavaScriptによって、特定の要素が出現した」という、より高度な描画完了のトリガーを、待つことも可能です。
+
+CDPの公式ドキュメントを片手に、様々なイベントを購読し、その挙動を探求してみてください。
