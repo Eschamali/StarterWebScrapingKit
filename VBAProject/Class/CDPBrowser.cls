@@ -428,6 +428,10 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
         Case isInteractive: targetState = "interactive"
         Case isComplete: targetState = "complete"
     End Select
+    
+    '初期値を設定しておく
+    '　どうせ最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
+    strState = "loading"
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
