@@ -301,7 +301,7 @@ CDPが提供する、**数百にも及ぶ、ありとあらゆるコマンド**�
 * **物理的なキー入力の模倣：**
     `"DOM.focus"`で要素に魂を集中させ、`"Input.insertText"`で、神のタイプを叩き込む。
 * **ウィンドウの自在な操作：**
-    `"Browser.getWindowForTarget"`でウィンドウの魂を掴み、`"Browser.setWindowBounds"`で、その運命（サイズと位置）を、決定する。
+    `"Browser.getWindowForTarget"`でウィンドウの魂を掴み、`"Browser.setWindowBounds"`で、ウィンドウサイズと位置を、決定する。
 * **ネットワークの完全な支配：**
     前述のDemoコードの通り、`"Network.enable"`で監視の網を張り、ブラウザ内を流れる、すべての通信を、その手中に収める。
 
