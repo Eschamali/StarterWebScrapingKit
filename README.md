@@ -48,12 +48,12 @@ Functions that are added over the original:
   
 **For Demo**
 
-Open CDP Framework.xlam and look for the module named "Demo" inside there.
+Open cdp.xlam and look for the module named "demo" inside there.
 
 **For Installation**
 
-1. Download CDP Framework.xlam and open it.
-2. Copy CDPBrowser, CDPCore, CDPElement, CDPJConv classes over to your VBA project.
+1. Download cdp.xlam.
+2. You can either manually copy all the modules in cdp.xlam over to your VBA project, or simply set reference to it (early binding) or called Workbooks.Open to it and use Run("cdp.xlam!cdp").newBrowser to create a new CDP browser object.
 3. Make sure your project has Microsoft Scripting Runtime reference.
 
 **Notes**
@@ -65,5 +65,5 @@ https://github.com/longvh211/Edge-IE-Mode-Automation-with-IES-for-VBA/tree/main
 **Credits**
 
 ChrisK23 for the great original source: https://www.codeproject.com/Tips/5307593/Automate-Chrome-Edge-using-VBA\
-
 PerditionC for plenty of helpful CDP examples: https://github.com/PerditionC/VBAChromeDevProtocol
+Daniel Polak for many bug fixes and improvements.
