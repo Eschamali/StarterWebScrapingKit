@@ -86,6 +86,12 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
+Public Enum TargetgetTargetsType
+    Page
+    iFrame
+End Enum
+
+
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
@@ -245,7 +251,7 @@ Private Sub serialize()
     'printMsg "New serial string: " & serialize
 End Sub
 
-Private Sub deserialize()
+Public Sub deserialize()
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -543,17 +549,24 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     printMsg "Tab [" & brName & " | " & targetID & "] is now the main session tab for " & brID
 End Function
 
-
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional doRetry As Boolean = False) As CDPBrowser
-'------------------------------------------------------------------
-' Search and find the Session ID of the tab already open based on
-' its name or its url. tabName and url arguments can be partial. By
-' omitting both these arguments, getTab will try to attach to the
-' nearest unattached tab.
-' Update: 06/06/23 - Added doRetry argument
-'         03/05/23 - Combined the method with the getTabNew
-'------------------------------------------------------------------
-
+'***************************************************************************************************
+'* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPBrowser
+'* 引数　　：tabName    タブ名
+'            Url        URL
+'            setMain    たった今使ってる クラスモジュール - CDPBrowserに、この引数の結果に基づいて、セッションIDを置き換えます
+'            SearchType "page","iframe" といった、セッションの種類を指定します
+'            doRetry    `True`で、出現まで何回かリトライします。
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：01/08/26 - iframeへの切り替えができるように改良
+'            06/06/23 - Added doRetry argument
+'            03/05/23 - Combined the method with the getTabNew
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：tabName引数とurl引数は部分的な指定が可能です。SearchType はデフォルトは、"page"にしてます。
+'* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
+'***************************************************************************************************
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPBrowser
     Dim results As Scripting.Dictionary
     Dim tabId As String
     Dim timerStart As Single
@@ -563,6 +576,14 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim timeStart As Long
 
     If doRetry Then timerStart = Timer
+    
+    'Typeを決める
+    Dim SearchType As String
+    Select Case SearchTypeID
+        Case TargetgetTargetsType.Page: SearchType = "page"
+        Case TargetgetTargetsType.iFrame: SearchType = "iframe"
+        Case Else: Err.Raise vbObjectError + 1, "CDPBrowser.getTab", "このパラメーターは、未定義です"
+    End Select
 
 searchit:
 
@@ -570,7 +591,7 @@ searchit:
     Set targets = results("targetInfos")
     
     For Each Obj In targets
-        If Obj("type") = "page" Then
+        If Obj("type") = SearchType Then
             Select Case True
                 Case tabName <> ""
                     If InStr(Obj("title"), tabName) Then tabfound = True Else errMsg = "with name containing """ & tabName & """"
@@ -602,6 +623,11 @@ searchsound:
 
    'Return the new CDP object
     Set getTab = New CDPBrowser
+    With ShSetting01_StartBrowser
+        '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value) Then getTab.deserialize
+    End With
+
     getTab.id = sessionID_  'will also update the targetID
 
    'Set as main session tab if required
