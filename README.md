@@ -53,7 +53,7 @@ Open cdp.xlam and look for the module named "demo" inside there.
 **For Installation**
 
 1. Download cdp.xlam.
-2. You can either manually copy all the modules in cdp.xlam over to your VBA project, or simply set reference to it (early binding) or called Workbooks.Open to it and use Run("cdp.xlam!cdp").newBrowser to create a new CDP browser object.
+2. You can either manually copy all the modules in cdp.xlam over to your VBA project, or simply set reference to it (early binding) or called Workbooks.Open to it and use Run("cdp.xlam!cdp").newBrowser to create a new CDP browser object. See the cdp_binding_examples.zip package for more guidance.
 3. Make sure your project has Microsoft Scripting Runtime reference.
 
 **Notes**
