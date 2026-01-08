@@ -24,7 +24,7 @@
 * **WebSocket実装のコアロジック**
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
 * **CDP制御・パイプ通信の基盤**
-  * [Chromium-Automation-with-CDP-for-VBA](https://github.com/GCuser99/Chromium-Automation-with-CDP-for-VBA)
+  * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
 * **WinHTTP 5.1 ラッパー**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
 * **高速・高機能なJSONパーサー**
