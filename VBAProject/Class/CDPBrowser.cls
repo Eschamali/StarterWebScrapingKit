@@ -383,7 +383,7 @@ Public Sub quit()
     Dim results As Scripting.Dictionary
     
     On Error Resume Next
-    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
+    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}", , , True)
     
     'Clean up CdpSessionID
     Call CleanUpCdpSessionID
@@ -1119,18 +1119,24 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & core.jsConverter.ConvertToJson(results("result"))
 End Function
 
-'=============================================================================
-' PRIVATE FUNCTIONS
-'=============================================================================
 
-Private Function SendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
-'--------------------------------------------------------------
-' Send message to CDP and check if the message is received
-' yet by the Chromium browser.
-' Updated: 03/05/23 - Added soft-reset on peeknamepipe error
-'          22/03/23 - Added error handling for better debugging
-'--------------------------------------------------------------
-    
+
+'***************************************************************************************************
+'                              ■■■ プライベートプロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'* 引数　　：strMessage         Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'            objAllMessages     Chromium ブラウザから得たブラウザからのイベント情報格納用変数。実質返り値
+'            dbgMsg             `True`でエラー時、イミディエイトに表示させます。
+'            IgnoreError        `True`で readProcCDP 側のエラーを無視します。
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：・01/08/26 - `On Error Resume Next`を宣言しても、「クラスモジュールで中断」になってると、「Err.Raise」にひっかかる問題に対処
+'            ・03/05/23 - Added soft-reset on peeknamepipe error
+'            ・03/22/23 - Added error handling for better debugging
+'***************************************************************************************************
+Private Function SendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True, Optional IgnoreError As Boolean) As Scripting.Dictionary
     Dim intRes As Long
     Dim strRes As String
     Dim lngCurrentId As Long
@@ -1147,7 +1153,7 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
 1   If objAllMessages Is Nothing Then
         intRes = 1
         Do Until intRes < 1
-2           intRes = core.readProcCDP(strRes)
+2           intRes = core.readProcCDP(strRes, IgnoreError)
 3           If intRes > 0 Then strBuffer = strBuffer & strRes
         Loop
         
@@ -1180,7 +1186,7 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
     Do
         intRes = 1
         Do Until intRes < 1                                                                      'We read from edge and process messages until we receive a message with our ID
-12          intRes = core.readProcCDP(strRes)
+12          intRes = core.readProcCDP(strRes, IgnoreError)
 13          If intRes > 0 Then strBuffer = strBuffer & strRes
         Loop
         
