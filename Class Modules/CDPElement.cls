@@ -29,7 +29,7 @@ Private varJS As String
 Private varType As String
 Private checkExist As Boolean       'Needed for the isExist check
 Private Const printDbgMsg = True
- 
+
 Public Enum keyboardCode    'Used for .sendKey operation in the browser class and element class
 
     keyEnter = 13
@@ -39,7 +39,7 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
     keyBackspace = 8
 
 End Enum
- 
+
 Public Sub init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
 '----------------------------------------------------------------------------------
 ' Initialize element object that has properties and methods useful for quickly
@@ -58,13 +58,13 @@ Public Sub init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictio
 ' with while varJS is most useful where only its path of access is needed for now.
 ' Too many variables in the browser can cause memory leak and slow.
 '----------------------------------------------------------------------------------
-       
+
     Set main = targetObjMain        'Needed to use public methods of the active CDPBrowser
     Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from CDPBrowser
     varID = varID_
     varJS = varJS_
     varType = varType_
-    
+
 End Sub
 
 Property Get varName() As String
@@ -73,9 +73,9 @@ Property Get varName() As String
 ' directly in the browser console window if the element is assigned successfully.
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
-    
+
     varName = varID
-    
+
 End Property
 
 Property Get varPath() As String
@@ -84,9 +84,9 @@ Property Get varPath() As String
 ' directly in the browser console window if the element is assigned successfully.
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
-    
+
     varPath = varJS
-    
+
 End Property
 
 Property Get varResult() As String
@@ -96,9 +96,9 @@ Property Get varResult() As String
 ' Nothing" check as the getElement has to be returned for onExist and onExistNot.
 ' Updated: 27/04/2023
 '----------------------------------------------------------------------------------
-    
+
     varResult = varType
-    
+
 End Property
 
 Private Function getVarID() As String
@@ -107,21 +107,21 @@ Private Function getVarID() As String
 ' the element post using varJS to initially access it in the browser
 ' Updated: 26/04/2023
 '----------------------------------------------------------------------------------
-    
+
    'If varID already assigned
     getVarID = varID: If getVarID <> "" Then Exit Function
-    
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-       
+
    'Assign the new varID using varJS
     main.jsEval varID_ & " = " & varJS, printDbgMsg
-    
+
     varID = varID_  'Store the new ID to the main ID var
     getVarID = varID_
-    
+
 End Function
- 
+
 Private Function newVarID() As String
 '----------------------------------------------------------------------------------
 ' Create a unique varID for element reference with CDPElement. If the ID is not
@@ -129,31 +129,31 @@ Private Function newVarID() As String
 ' under the same ID by chance if working on a large number of elements.
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
-    
+
     Dim newID As String
-    
+
     Do: newID = "varID" & Format(Rnd * 100000, "000000")
     Loop Until Not varIDs.Exists(newID)
     varIDs.Add newID, newID
-    
+
    'Return the new varID
     newVarID = newID
-    
+
 End Function
- 
+
 '========================================================================================================
 ' ELEMENT PROPERTY INTERACTIONS
 '========================================================================================================
- 
+
 Property Get value() As String
 '----------------------------------------------------------
 ' Get the value property of the element in the HTML.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
-    
+
     If checkExist Then If Not isExist Then Exit Property
     value = main.jsEval(getVarID & ".value", printDbgMsg)
-    
+
 End Property
 
 Property Let value(strTextVal As String)
@@ -166,10 +166,10 @@ Property Let value(strTextVal As String)
 ' Updated: 28/04/23 - React fields value inputing enhancement
 '          12/12/23 - added checkExist
 '-----------------------------------------------------------------------------------------------
-                
+
     Dim e1 As String
     Dim isReact As Boolean
-    
+
    'Gracefully exit the value input if the element is found not exist under isExist
     If checkExist Then If Not isExist Then Exit Property
 
@@ -177,50 +177,73 @@ Property Let value(strTextVal As String)
     e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
     If isReact Then main.printMsg "FYI: this is a REACT field as the first method is " & e1
-                
+
    'Perform inputing using all the methods
     If Not isReact Then
         main.jsEval getVarID & ".value = """ & strTextVal & """", printDbgMsg
     Else
         main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(" & getVarID & ", '" & strTextVal & "')"
     End If
-    
+
    'Most input elements need this
     fireEvent "input", printDbg:=False
-    
+
 End Property
- 
+
 Property Get innerText() As String
 '----------------------------------------------------------
 ' Get the innerText property of the element in the HTML.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
-    
+
     If checkExist Then If Not isExist Then Exit Property
     innerText = main.jsEval(getVarID & ".innerText", printDbgMsg)
-    
+
 End Property
- 
+
 Property Let innerText(strTextVal As String)
 '----------------------------------------------------------
 ' Change the innerText property of the element in the HTML.
-' Updated: 12/12/23 - added checkExist
+' Updated: 02/03/2023
 '----------------------------------------------------------
-    
+
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".innerText = """ & strTextVal & """", printDbgMsg
-    
+    main.jsEval getVarID & ".scrollIntoView(false)", False
+
+   'Escape quotation and apostrophe
+    strTextVal = Replace(strTextVal, "'", "\'")
+    strTextVal = Replace(strTextVal, """", "\""")
+
+    main.jsEval getVarID & ".innerText = " & "'" & strTextVal & "'", printDbgMsg
+
 End Property
- 
+
 Property Get innerHTML() As String
 '----------------------------------------------------------
 ' Get the innerHTML property of the element in the HTML.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
-    
+
     If checkExist Then If Not isExist Then Exit Property
     innerHTML = main.jsEval(getVarID & ".innerHTML", printDbgMsg)
-    
+
+End Property
+
+Property Let innerHTML(strTextVal As String)
+'----------------------------------------------------------
+' Change the innerHTML property of the element.
+' Updated: 13/11/2023
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+    main.jsEval getVarID & ".scrollIntoView(false)", False
+
+   'Escape quotation and apostrophe
+    strTextVal = Replace(strTextVal, "'", "\'")
+    strTextVal = Replace(strTextVal, """", "\""")
+
+    main.jsEval getVarID & ".innerHTML = " & "'" & strTextVal & "'", printDbgMsg
+
 End Property
 
 Property Let checked(boolChecked As Boolean)
@@ -268,18 +291,18 @@ Property Get selected() As String
     selected = main.jsEval(getVarID & ".selectedOptions[0]", printDbgMsg)
 
 End Property
- 
+
 '========================================================================================================
 ' ELEMENT OBJECT INTERACTIONS
 '========================================================================================================
- 
+
 Public Function click(Optional till As ReadyState = isComplete) As Boolean
 '----------------------------------------------------------
 ' Perform a standard click on the element. Remember to
 ' perform wait if necessary for the page to be refreshed.
 ' Updated: 12/12/2023
 '----------------------------------------------------------
-   
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
@@ -301,7 +324,7 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
     click = True
 
 End Function
- 
+
 Public Function submit(Optional till As ReadyState = isComplete) As Boolean
 '----------------------------------------------------------
 ' Submit a form element. This is equivalence to sending
@@ -313,11 +336,11 @@ Public Function submit(Optional till As ReadyState = isComplete) As Boolean
 
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
     main.jsEval getVarID & ".form.submit()", printDbgMsg
     main.wait till:=till
     submit = True
-    
+
 End Function
 
 Public Function getAttribute(strAttributeName As String) As String
@@ -325,12 +348,12 @@ Public Function getAttribute(strAttributeName As String) As String
 ' Get the value of an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
     getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """)", printDbgMsg)
-    
+
 End Function
 
 Public Function setAttribute(strAttributeName As String, strValue As String)
@@ -341,12 +364,12 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
 ' the presentation consistent with the nature of the module
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
     main.jsEval getVarID & ".setAttribute(""" & strAttributeName & """, """ & strValue & """)", printDbgMsg
-    
+
 End Function
 
 Public Function setSelection(strOptionName As String)
@@ -357,7 +380,7 @@ Public Function setSelection(strOptionName As String)
 
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
     main.jsEval getVarID & ".scrollIntoView(false)", False
     Me.value = strOptionName
     fireEvent "change"
@@ -372,7 +395,7 @@ Public Function selectText()
 
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
     main.jsEval "r = document.createRange()", False
     main.jsEval "s = window.getSelection()", False
     main.jsEval "r.selectNodeContents(" & getVarID & ")"
@@ -386,12 +409,12 @@ Public Function focus()
 ' Set focus to an element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
-    
+
     If checkExist Then If Not isExist Then Exit Function
     main.jsEval getVarID & ".focus()", False
 
 End Function
- 
+
 Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete, Optional printDbg As Boolean = printDbgMsg) As Boolean
 '------------------------------------------------------------
 ' Dispatch the custom event on the element. Unlike the IE
@@ -399,20 +422,20 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
 ' not start with "on" such as "onblur" but only "blur".
 ' Updated: 12/12/2023
 '------------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-    
+
    'Auto format some common event name mistakes
     strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
-    
+
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     main.jsEval getVarID & ".dispatchEvent(new Event('" & strEventName & "', { bubbles: true, simulated: true }))", printDbg
 
    'Wait till applied
     main.wait till:=till, dbgState:=printDbg
     fireEvent = True
-    
+
 End Function
 
 Public Function sendString(textToSend As String) As Boolean
@@ -423,9 +446,9 @@ Public Function sendString(textToSend As String) As Boolean
 ' when dealing with different type of html input elements.
 ' Updated: 28/04/2023 - Created & debugged the "+" sign issue.
 '----------------------------------------------------------------
-    
+
     Dim objectId As String
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
@@ -466,9 +489,9 @@ Public Function sendClick() As Boolean
 ' element via backdoor manipulation using CDP ports and thus can
 ' bypass many complex JavaScript requirements to trigger a click.
 '----------------------------------------------------------------
-    
+
     Dim x, y As String
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
@@ -497,12 +520,12 @@ Public Function sendKey(key As keyboardCode, Optional altKey As Boolean = False)
 ' nasty field that only allows certain action to be executed with
 ' raw keyboard handling.
 '----------------------------------------------------------------
-    
+
     Dim objectId As String
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-                
+
    'Get objectId
     Dim params As New Scripting.Dictionary
     params("expression") = getVarID
@@ -542,10 +565,10 @@ Public Function clearValue() As Boolean
 '----------------------------------------------------------------
 ' Clear the value currently had by the input element
 '----------------------------------------------------------------
-    
+
     Dim e1 As String
     Dim isReact As Boolean
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
@@ -576,9 +599,9 @@ Public Function isExist() As Boolean
 ' current page being referred to by the CDP object.
 ' Updated: 06/06/2023
 '----------------------------------------------------------
-            
+
     If varType = "null" Then isExist = False Else isExist = True
-    
+
 End Function
 
 Public Function ifExist() As CDPElement
@@ -596,16 +619,16 @@ Public Function ifExist() As CDPElement
     main.printMsg "ifExist returned " & isExist & " on [" & varJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", "")
 
 End Function
- 
+
 Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement
 '----------------------------------------------------------
 ' Wait until the element applying this method comes into
 ' existance on the HTML page.
 ' Updated: 23/11/2023
 '----------------------------------------------------------
-    
+
     Dim timeStart As Single
-    
+
     timeStart = Timer
     Do While varType = "null"
         If Timer - timeStart > timeOutInSeconds Then
@@ -620,7 +643,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     main.printMsg "onExists satisfied: " & getVarID & " is now available for interaction"
 
 End Function
- 
+
 Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As Boolean
 '----------------------------------------------------------
 ' Wait until the element applying this method comes into
@@ -629,9 +652,9 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
 ' existence hence no further interactions should be needed.
 ' Updated: 23/11/2023 - make function returns True
 '----------------------------------------------------------
-    
+
     Dim timeStart As Single
-    
+
     timeStart = Timer
     Do While varType <> "null"
         If Timer - timeStart > timeOutInSeconds Then
@@ -646,17 +669,17 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     main.printMsg "onExistsNot satisfied: " & getVarID & " is no longer available for interaction"
 
 End Function
- 
+
 '========================================================================================================
 ' NODE-TREE TRAVERSAL METHODS
 '========================================================================================================
- 
+
 Public Function getParent() As CDPElement
 '----------------------------------------------------------
 ' Get the parent node of the current element.
 ' Updated: 12/12/23
 '----------------------------------------------------------
-   
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -664,27 +687,27 @@ Public Function getParent() As CDPElement
             Exit Function
         End If
     End If
-   
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".parentElement"
     result = main.jsEval(varJS_, printDbgMsg)
-    
+
    'Return result
     Set getParent = New CDPElement
     getParent.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
- 
+
 Public Function getNextSibling() As CDPElement
 '----------------------------------------------------------
 ' Get the next sibling node of the current element.
 ' Updated: 12/12/23
 '----------------------------------------------------------
-     
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -692,19 +715,19 @@ Public Function getNextSibling() As CDPElement
             Exit Function
         End If
     End If
-     
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".nextElementSibling"
     result = main.jsEval(varJS_, printDbgMsg)
-    
+
    'Return result
     Set getNextSibling = New CDPElement
     getNextSibling.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
 
 Public Function getPrevSibling() As CDPElement
@@ -712,7 +735,7 @@ Public Function getPrevSibling() As CDPElement
 ' Get the previous sibling node of the current element.
 ' Updated: 24/10/2025: Daniel Polak - fixed bug where wrong assignment led to no return result
 '----------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -720,27 +743,27 @@ Public Function getPrevSibling() As CDPElement
             Exit Function
         End If
     End If
-    
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".previousElementSibling"
     result = main.jsEval(varJS_, printDbgMsg)
-    
+
    'Return result
     Set getPrevSibling = New CDPElement
     getPrevSibling.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
- 
+
 Public Function getFirstChild() As CDPElement
 '----------------------------------------------------------
 ' Get the next sibling node of the current element.
 ' Updated: 12/12/2023
 '----------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -748,21 +771,62 @@ Public Function getFirstChild() As CDPElement
             Exit Function
         End If
     End If
-    
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".firstElementChild"
     result = main.jsEval(varJS_, printDbgMsg)
-    
+
    'Return result
     Set getFirstChild = New CDPElement
     getFirstChild.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
- 
+
+Public Function getChildren() As Collection
+'----------------------------------------------------------------------------------
+' Obtain a collection of elements which are the child of the current element.
+' This enables multiple getElementBy methods to be stringed together, ie. the varID
+' of the current element is employed instead of 'document'.
+' Updated: 10/11/2023
+'----------------------------------------------------------------------------------
+
+   'When ifExist is employed, the function should only execute if the element exists
+    If checkExist And Not isExist Then
+        Set getChildren = New Collection 'set an empty collection
+        Exit Function
+    End If
+
+   'Get a new unique varID
+    Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
+
+   'Get the object and assign to the varID in the browser
+    Dim result As String
+    result = main.jsEval(varID_ & " = " & getVarID & ".children")
+
+   'Return result
+    Dim elements As Collection
+    If result = "null" Then Exit Function Else Set elements = New Collection
+
+   'Assign IDs to each of the element in the collection
+    Dim varJS__ As String                                'Store each new member's JS access string
+    Dim length_ As Integer, n As Integer
+    Dim tElement As CDPElement
+    length_ = main.jsEval(varID_ & ".length")
+    For n = 0 To length_ - 1                             'HTML index starts at zero
+        varJS__ = varID_ & ".item(" & n & ")"
+        Set tElement = New CDPElement
+        tElement.init main, varIDs, varJS_:=varJS__
+        elements.Add tElement
+    Next
+
+    Set getChildren = elements
+
+End Function
+
 Public Function getElementByID(strID As String) As CDPElement
 '----------------------------------------------------------------------------------
 ' Obtain an element that is the child of the current element with the defined HTML
@@ -770,7 +834,7 @@ Public Function getElementByID(strID As String) As CDPElement
 ' this to work, the varID of the current element is employed instead of 'document'.
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -778,21 +842,21 @@ Public Function getElementByID(strID As String) As CDPElement
             Exit Function
         End If
     End If
-    
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the varID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".getElementById(""" & strID & """)"
     result = main.jsEval(varJS_)
-    
+
    'Return result
     Set getElementByID = New CDPElement
     getElementByID.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
- 
+
 Public Function getElementByQuery(strQuery As String) As CDPElement
 '----------------------------------------------------------------------------------
 ' Obtain an element that is the child of the current element using QuerySelector.
@@ -808,7 +872,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
 ' of an element with attribute a1 = abc
 '----------------------------------------------------------------------------------
-    
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -816,21 +880,21 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
             Exit Function
         End If
     End If
-    
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Get the object and assign to the varID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".querySelector(""" & strQuery & """)"
     result = main.jsEval(varJS_)
-    
+
    'Return result
     Set getElementByQuery = New CDPElement
     getElementByQuery.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
- 
+
 Public Function getElementsByQuery(strQuery As String) As Collection
 '----------------------------------------------------------------------------------
 ' Obtain a collection of elements which are the child of the current element using
@@ -838,7 +902,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' together, ie. the varID of the current element is employed instead of 'document'.
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
-    
+
     Dim result As String
     Dim elements As Collection
     Dim n As Long, length_ As Long
@@ -854,13 +918,13 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
-           
+
    'Get the object and assign to the varID in the browser
     result = main.jsEval(varID_ & " = " & getVarID & ".querySelectorAll(""" & strQuery & """)")
-    
+
    'Return result
     If result = "null" Then Exit Function Else Set elements = New Collection
-    
+
    'Assign IDs to each of the element in the collection
     Dim varJS__ As String                                'Store each new member's JS access string
     length_ = main.jsEval(varID_ & ".length")
@@ -870,9 +934,9 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         tElement.init main, varIDs, varJS_:=varJS__
         elements.Add tElement
     Next
-    
+
     Set getElementsByQuery = elements
-    
+
 End Function
 
 Public Function getElementByXPath(strXPath As String) As CDPElement
@@ -890,7 +954,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '---------------------------------------------------------------------------------------
-           
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -898,14 +962,14 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
             Exit Function
         End If
     End If
-           
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-           
+
    'Verify double slash syntax
    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
-           
+
    'Check if strXPath has invalid // syntax
    'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
    'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
@@ -913,18 +977,18 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
         main.printMsg "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode"
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
-           
+
    'Get the object and assign to the varID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
     result = main.jsEval(varJS_)
-    
+
    'Return result
     Set getElementByXPath = New CDPElement
     getElementByXPath.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
-  
+
 Public Function getElementsByXPath(strXPath As String) As Collection
 '----------------------------------------------------------------------------------
 ' Get a collection of elements by XPath. For further info on the particular XPath
@@ -933,12 +997,12 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 ' Note that index for accessing the collection members start at one (not zero).
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
-    
+
     Dim result As String
     Dim elements As Collection
     Dim n As Long, length_ As Long
     Dim tElement As CDPElement
-   
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -946,14 +1010,14 @@ Public Function getElementsByXPath(strXPath As String) As Collection
             Exit Function
         End If
     End If
-   
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
-        
+
    'Verify double slash syntax
    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
-           
+
    'Check if strXPath has invalid // syntax
    'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
    'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
@@ -961,13 +1025,13 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         main.printMsg "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode"
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
-           
+
    'Get the object and assign to the varID in the browser
     result = main.jsEval(varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)")
-    
+
    'Return result
     If result = "null" Then Exit Function Else Set elements = New Collection
-    
+
    'Store element members to the collection
     Dim varJS__ As String                                    'Store each new member access JS string
     length_ = main.jsEval(varID_ & ".snapshotLength")
@@ -977,9 +1041,9 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         tElement.init main, varIDs, varJS_:=varJS__
         elements.Add tElement
     Next
-    
+
     Set getElementsByXPath = elements
-    
+
 End Function
 
 Public Function getIFrame() As CDPElement
@@ -994,9 +1058,9 @@ Public Function getIFrame() As CDPElement
 ' https://www.w3schools.com/jsref/prop_frame_contentdocument.asp
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
-    
+
     Dim src As String
-   
+
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -1004,21 +1068,21 @@ Public Function getIFrame() As CDPElement
             Exit Function
         End If
     End If
-   
+
    'Get a new unique varID
     Dim varID_ As String: varID_ = newVarID
-    
+
    'Check if the iFrame is hosted on a different domain
     src = getAttribute("src")
     If InStr(src, "http") Then main.printMsg "This iFrame may not be hosted in the same domain. src=""" & src & """"
-    
+
    'Get the object and assign to the varID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".contentDocument"
     result = main.jsEval(varJS_)
- 
+
    'Return result
     Set getIFrame = New CDPElement
     getIFrame.init main, varIDs, varID_, varJS_, result
-    
+
 End Function
