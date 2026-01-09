@@ -327,7 +327,7 @@ Public Function readProcCDP(ByRef strData As String, Optional IgnoreError As Boo
     '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
     
-    '関数が失敗した場合は、0 を返すため、必要に応じて、エラーで止める
+    'API関数が失敗した場合は、0 を返すため、必要に応じて、エラーで止める
     If lngRes = 0 Then
         'エラー番号から、意味を取得
         Dim エラー内容 As String
