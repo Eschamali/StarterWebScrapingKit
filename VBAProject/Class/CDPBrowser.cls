@@ -158,6 +158,8 @@ Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs fo
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
+Private EventsData As Dictionary        'ブラウザからのイベントデータを蓄積するための変数です
+Private EventCount As Long              'ブラウザからのイベントデータが何回呼ばれたかをカウントします
 
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
@@ -1463,13 +1465,11 @@ RetrySend:
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double, timerOut As Long
-    Dim EventCount As Long
-   
-    timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
-    timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-    intRes = 1
-
+    Const timerOut As Long = 30                                                                  'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+    
+    
+    Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
+    
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim ResultSendCommand As Boolean
