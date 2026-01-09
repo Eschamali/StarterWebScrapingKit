@@ -717,6 +717,9 @@ searchit:
                 bestScore = score
                 candidateTabId = Obj("targetId")
             End If
+            
+            '最大スコアが出てるなら、捜査打ち切り
+            If bestScore = MaxScore Then Exit For
         End If
     Next
 
