@@ -1429,7 +1429,6 @@ End Function
 '* 引数　　：strMessage         Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
 '            objAllMessages     Chromium ブラウザから得たブラウザからのイベント情報格納用変数。実質返り値
 '            dbgMsg             `True`でエラー時、イミディエイトに表示させます。
-'            IgnoreError        `True`で readProcCDP 側のエラーを無視します。
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
 '            ・03/22/23 - Added error handling for better debugging
@@ -1451,11 +1450,33 @@ RetrySend:
    'Before sending a message the message-buffer is emptied
    'All messages that we have received so far cannot be an answer to the message that we will send
    'So they can be safely discarded
+    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
+    Dim ErrorDetail As New WinApiError
+    Dim strResCollection As Collection
 1   If objAllMessages Is Nothing Then
         intRes = 1
+        Set strResCollection = New Collection
+
         Do Until intRes < 1
-2           intRes = core.readProcCDP(strRes, IgnoreError)
-3           If intRes > 0 Then strBuffer = strBuffer & strRes
+2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+
+            '返り値チェック
+            If intRes > 0 Then
+                'データあり
+3               strBuffer = strBuffer & strRes
+                strResCollection.Add strRes
+            Else
+                'データなしの場合は、エラーコードチェックを行う
+                If ErrorCode_PeekNamedPipe Then
+                    'PeekNamedPipe にてエラーがあった場合
+                    printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                ElseIf ErrorCode_ReadFile Then
+                    'ReadFile にてエラーがあった場合
+                    printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                End If
+            End If
         Loop
         
         Dim lngNullCharPos As Long
@@ -1486,9 +1507,28 @@ RetrySend:
     timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
     Do
         intRes = 1
-        Do Until intRes < 1                                                                      'We read from edge and process messages until we receive a message with our ID
-12          intRes = core.readProcCDP(strRes, IgnoreError)
-13          If intRes > 0 Then strBuffer = strBuffer & strRes
+        Set strResCollection = New Collection
+
+        Do Until intRes < 1
+12          intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+
+            '返り値チェック
+            If intRes > 0 Then
+                'データあり
+13              strBuffer = strBuffer & strRes
+                strResCollection.Add strRes
+            Else
+                'データなしの場合は、エラーコードチェックを行う
+                If ErrorCode_PeekNamedPipe Then
+                    'PeekNamedPipe にてエラーがあった場合
+                    printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                ElseIf ErrorCode_ReadFile Then
+                    'ReadFile にてエラーがあった場合
+                    printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                End If
+            End If
         Loop
         
 14      lngNullCharPos = searchNull()
