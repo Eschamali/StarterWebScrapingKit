@@ -617,6 +617,10 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    'Switch attachment to the new tab
     printMsg "newTab will now open a new CDP instance"
     Set newTab = New CDPBrowser
+    With ShSetting01_StartBrowser
+        '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value) Then newTab.deserialize
+    End With
     newTab.id = sessionID_
     If Url <> "" Then newTab.wait
 
