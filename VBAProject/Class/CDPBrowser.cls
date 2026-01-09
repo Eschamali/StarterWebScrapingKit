@@ -1421,39 +1421,29 @@ RetrySend:
    'So they can be safely discarded
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
     Dim ErrorDetail As New WinApiError
-    Dim strResCollection As Collection
 1   If objAllMessages Is Nothing Then
         intRes = 1
-        Set strResCollection = New Collection
 
         Do Until intRes < 1
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
             '返り値チェック
             If intRes > 0 Then
-                'データあり
-3               strBuffer = strBuffer & strRes
-                strResCollection.Add strRes
+               'データありだが、あくまで破棄処理のため何もしない(強いていうなら、デバッグメッセージを出す)
+3               printMsg "Emptying the message buffer..."
+4               If seeRawSendMsgDbg Then printMsg "strRes = " & strRes
             Else
                 'データなしの場合は、エラーコードチェックを行う
                 If ErrorCode_PeekNamedPipe Then
                     'PeekNamedPipe にてエラーがあった場合
-                    printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+5                   printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                     Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                 ElseIf ErrorCode_ReadFile Then
                     'ReadFile にてエラーがあった場合
-                    printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+6                   printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                     Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 End If
             End If
-        Loop
-        
-        Dim lngNullCharPos As Long
-4       lngNullCharPos = searchNull()
-        
-        Do Until lngNullCharPos = 0
-5           strBuffer = Right(strBuffer, Len(strBuffer) - lngNullCharPos)                        'if necessary, add "printMsg (left(strBuffer, lngNullCharPos))" above this for debugging
-6           lngNullCharPos = searchNull()
         Loop
     End If
     
@@ -1471,6 +1461,7 @@ RetrySend:
    '------------------------------------------------
     Dim timerStart As Double, timerOut As Long
     Dim EventCount As Long
+    Dim strResCollection As Collection
    
     timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
     timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
@@ -1485,7 +1476,7 @@ RetrySend:
             If intRes > 0 Then
                 'データあり
 13              strBuffer = strBuffer & strRes
-                strResCollection.Add strRes
+                strResCollection.Add strRes         '仮で用意。※まだ計画段階
             Else
                 'データなしの場合は、エラーコードチェックを行う
                 If ErrorCode_PeekNamedPipe Then
@@ -1500,6 +1491,7 @@ RetrySend:
             End If
         Loop
         
+        Dim lngNullCharPos As Long
 14      lngNullCharPos = searchNull()
             
         Do Until lngNullCharPos = 0
