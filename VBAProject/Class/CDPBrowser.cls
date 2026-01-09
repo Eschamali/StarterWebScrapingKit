@@ -158,8 +158,8 @@ Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs fo
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private EventsData As Dictionary        'ブラウザからのイベントデータを蓄積するための変数です
-Private EventCount As Long              'ブラウザからのイベントデータが何回呼ばれたかをカウントします
+Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
+Private MessagesCount As Long           'ブラウザからのイベントデータが何回呼ばれたかをカウントします
 
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
@@ -1389,17 +1389,27 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・`Set BrowserEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
 '            ・`Set BrowserEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
-'* 注意事項：`Set BrowserEvents`を使用すると、カウントがリセットされます
 '***************************************************************************************************
 Property Get BrowserEvents() As Dictionary
-    Set BrowserEvents = EventsData
+    Set BrowserEvents = objAllMessages
 End Property
 
 Property Set BrowserEvents(ObjDic As Dictionary)
-    Set EventsData = ObjDic
-    
-    'カウントをリセット
-    EventCount = 0
+    Set objAllMessages = ObjDic
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからのイベントカウントに関するプロパティを行います
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：呼び出した時点での、ブラウザイベントカウント
+'* LET引数 ：リセットやカウントの引き継ぎをしたい場合に使用します
+'***************************************************************************************************
+Property Get BrowserEventsCount() As Long
+    BrowserEventsCount = MessagesCount
+End Property
+
+Property Let BrowserEventsCount(TakeoverCount As Long)
+    MessagesCount = TakeoverCount
 End Property
 
 
@@ -1410,15 +1420,15 @@ End Property
 '* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
-'* 引数　　：strMessage         Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            objAllMessages     Chromium ブラウザから得たブラウザからのイベント情報格納用変数。実質返り値
-'            dbgMsg             `True`でエラー時、イミディエイトに表示させます。
+'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにも格納が出来ます
+'            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Dim intRes As Long
     Dim strRes As String
     Dim lngCurrentId As Long
@@ -1436,7 +1446,7 @@ RetrySend:
    'So they can be safely discarded
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
     Dim ErrorDetail As New WinApiError
-1   If objAllMessages Is Nothing Then
+1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
 
         'データが尽きるまで、ループ受信処理を行います
         Do
@@ -1482,6 +1492,7 @@ RetrySend:
     
     
     Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
+    Dim LocalMessagesCount As Long
     
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
@@ -1532,14 +1543,15 @@ RetrySend:
 17                  Set results = core.jsConverter.ParseJson(tmp)
 
                     'イベント内容を確認するモードなら、格納しておく
-18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
+18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, MessagesCount                 'パブリック用
+19                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results, LocalMessagesCount  'プライベート用
 
                     '実行コマンド結果であるか？
-19                  If results.Exists("id") Then
+20                  If results.Exists("id") Then
                         'そのIDは、Excelに記録してるIDと一致してるか？
-20                      If results.Item("id") = lngCurrentId Then
+21                      If results.Item("id") = lngCurrentId Then
                             '結果を返して、受信ループ終了フラグを立てる
-21                          Set SendMessage = results
+22                          Set SendMessage = results
                             ResultSendCommand = True
                             printMsg "The command result was obtained from readProcCDP ! - ID:" & lngCurrentId
                         End If
@@ -1550,11 +1562,11 @@ RetrySend:
             'データなしの場合は、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-22              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+23              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-23              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+24              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
             Else
                 'データがまだ、ない
@@ -1565,7 +1577,7 @@ RetrySend:
         DoEvents
 
         '一定時間経っても来ないなら、ループから抜けます
-24      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+25      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
 
         'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
     Loop Until ResultSendCommand
@@ -1669,8 +1681,8 @@ Private Function attachToSession() As Integer
     
     On Error GoTo ifError
     
-    Dim objAllMessages As New Scripting.Dictionary
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", objAllMessages)
+    Dim EventMessageForAttachToSession As New Scripting.Dictionary
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", EventMessageForAttachToSession)
     printMsg "Now looking for the browser window"
     
    'Read message to confirm the requested url is found
@@ -1679,7 +1691,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In objAllMessages("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession("Target.targetCreated")
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
@@ -1701,7 +1713,7 @@ Private Function attachToSession() As Integer
     
     printMsg "Successfully attached to Session ID " & sessionID
     Exit Function
-    
+
 ifError:
                  
    'Record errmsg and print helpful infos
@@ -1709,7 +1721,7 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
-    printMsg "objAllMessages = " & core.jsConverter.ConvertToJson(objAllMessages)
+    printMsg "EventMessageForAttachToSession = " & core.jsConverter.ConvertToJson(objAllMessages)
     printMsg "results = " & core.jsConverter.ConvertToJson(results)
     printMsg "results_ = " & core.jsConverter.ConvertToJson(results_)
     printMsg "results__ = " & core.jsConverter.ConvertToJson(results__)

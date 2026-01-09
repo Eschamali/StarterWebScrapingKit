@@ -79,8 +79,12 @@ Sub ネットワークイベントの確認()
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
+    'イベント受信を有効化する
+    Dim Events As Dictionary: Set Events = New Dictionary
+    Set Demo_NetworkEvent.BrowserEvents = Events
+    
     'ネットワークイベント受信を有効化する
-    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , , True)
+    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
     
     'URL遷移して、Msgboxで待機
     '`iscomplete`だと内部で、イベント情報の破棄が行われるため、破棄されない`isLoading`にしておく
@@ -88,10 +92,8 @@ Sub ネットワークイベントの確認()
     MsgBox "ブラウザのURL遷移がある程度終わったら、OKを押してください", vbInformation, "イベント待機"   '愚直にmsgboxで待機
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Dim Events As Dictionary, JsonDicObj As CDPJConv
-    
-    Set Events = New Dictionary
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge", , Events)    '存在しないコマンドなので、ブラウザに影響なし
+    Dim JsonDicObj As CDPJConv
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     '※参照渡しにより、Events にイベント情報が蓄積される
