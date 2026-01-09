@@ -1281,34 +1281,25 @@ Public Sub pageEnable()
 
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：CDPコマンドの核となる、`method`、およびオプションの`params`を直接指定して、実行します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：実行結果のJson-Dictionary
-'* 引数　　：methodName         Network.getCookies とか、Browser.getVersion 等々
-'            params             オプションパラメーターセット。予め呼び出し側で、Json-Dictionaryとして組み立ててください
-'            EventMessages      ブラウザからのイベント情報を取得したい場合に指定します。参照渡しによりここに実行までの過去のイベントが、Json-Dictionaryとして積まれていきます。省略で、過去のイベントを破棄します
-'            dbgMsg             実行結果をイミディエイトに出すか指定します
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：・低レベル操作により、実装されてる全ての CDP－Json が実行可能です
-'            ・イベント情報も確認したい場合は第三引数に、New Dictionary 済みの変数を渡すことで、受け取ることが可能です
-'
-'* 注意事項：・エラーメッセージは、invokeError によってイミディエイトウィンドウに自動的に表示されます
-'            ・一部のイベントは、「"method": "XXXX.enable"」といった形式で事前送信(設定)する必要があります
-'---------------------------------------------------------------------------------------------------
-'* 関連URL ：・出典                     https://github.com/PerditionC/VBAChromeDevProtocol
-'            ・CDPドキュメントブック　  https://chromedevtools.github.io/devtools-protocol/tot/Brows
-'---------------------------------------------------------------------------------------------------
-'* 更新履歴：・25/12/18 - イベント情報を格納/破棄のスイッチングができる仕組みを実装
-'            ・25/04/23 - Set this to Public as it is useful
-'            ・20/03/23 - Added printMsg msgs & set to Private
-'***************************************************************************************************
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional EventMessages As Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+'-----------------------------------------------------------------
+' This function enables advanced method invocation under CDP.
+' For a list of all methods available, see:
+' https://chromedevtools.github.io/devtools-protocol/tot/Browser/
+' Error message will be prompted automatically by invokeError in
+' the Immediate Window.
+' The return object is Json String that has been converted to a
+' dictionary object.
+' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
+' Updated: 28/04/23 - Set this to Public as it is useful
+'          20/03/23 - Added printMsg msgs & set to Private
+'-----------------------------------------------------------------
+
     Dim paramStr As String
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = core.jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", EventMessages)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
 
    'Print error if there is
     If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
@@ -1316,6 +1307,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
     If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & core.jsConverter.ConvertToJson(results("result"))
+
 End Function
 
 
