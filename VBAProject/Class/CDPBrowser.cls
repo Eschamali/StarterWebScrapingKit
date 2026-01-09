@@ -1348,37 +1348,6 @@ Property Get html() As String
     html = jsEval("document.documentElement.innerHTML")
 End Property
 
-'***************************************************************************************************
-'* 機能　　：ログ内容をイミディエイトに表示するかの切り替えを行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：Flag   `True`で表示させます。`False`で表示させません
-'***************************************************************************************************
-Property Let ViewLogFromImmediate(Flag As Boolean)
-    doPrintDbgMsg = Flag
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ログ内容を外部ファイルに保存させるかを決めます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：FolderPath     保存先のフォルダパスを指定します。空の場合は、`ThisWorkbook.Path`が使われます。
-'            Flag           `True`で、保存させます。`False`で保存させません。
-'***************************************************************************************************
-Property Let SaveLogFile(Optional FolderPath As String, Flag As Boolean)
-    doLog = Flag
-    logPath = IIf(FolderPath = "", ThisWorkbook.Path, FolderPath)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信Jsonデータを生でイミディエイトに表示するかを設定します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：Flag   `True`で表示させます。`False`で表示させません
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：デバッグのためにブラウザから受信した生のJSONメッセージを確認する必要がある場合は、Trueに設定してください。
-'***************************************************************************************************
-Property Let ViewResJsonFromImmediate(Flag As Boolean)
-    seeRawSendMsgDbg = Flag
-End Property
-
 
 
 '***************************************************************************************************
@@ -2056,7 +2025,21 @@ Private Sub Class_Initialize()
 ' If so, automatically attempt to reattach to it.
 ' Updated: 07/06/2023
 '----------------------------------------------------------------------------------
+
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        'ログに関する設定を行う
+        doPrintDbgMsg = .Range(.UseRangeName(7, "Class_Initialize.設定シートからの起動")).value              'イミディエイトに表示させるか？
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "Class_Initialize.設定シートからの起動")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "Class_Initialize.設定シートからの起動")).value
+        If LogFolderPath <> "" Then
+            doLog = True            'ログファイルとして保存するか？
+            logPath = LogFolderPath
+        End If
+    End With
+
+
    'Determine project host type for compatibility
     Select Case True
         Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook

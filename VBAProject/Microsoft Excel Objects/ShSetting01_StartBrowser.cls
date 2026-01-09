@@ -25,6 +25,9 @@ Property Get UseRangeName(id As Long, ErrorSource As String) As String
         Case 4: UseRangeName = "Chromeで使用"
         Case 5: UseRangeName = "既存のデバッグプロセスを使用"
         Case 6: UseRangeName = "常にブラウザを新規で起動"
+        Case 7: UseRangeName = "イミディエイトに表示"
+        Case 8: UseRangeName = "ブラウザから受信した生のJSONをイミディエイトに表示"
+        Case 9: UseRangeName = "ログファイル保存"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Property

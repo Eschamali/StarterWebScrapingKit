@@ -41,18 +41,10 @@ Public Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String
-        If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value, "chrome", "edge")
 
-        'ログに関する設定を行う
-        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
-        With objBrowser
-            .ViewLogFromImmediate = True                                        'イミディエイトに表示させるか？
-            .SaveLogFile(OneDrivePathToLocalPath(ThisWorkbook.Path)) = False    'ログファイルとして保存するか？
-            .ViewResJsonFromImmediate = True                                    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-        End With
-        
         'ブラウザ起動
+        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
         objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
     End With
 
