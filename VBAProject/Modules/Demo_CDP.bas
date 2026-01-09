@@ -7,6 +7,7 @@ Attribute VB_Name = "Demo_CDP"
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
 ' Last Update :
+'       07/01/26 Long Vh: update the sub procedures to show case the new .notify function
 '       27/04/23 Long Vh: made many improvements with v2.5 to make methods even more intuitive.
 '       07/06/22 Long Vh: corrected typos in comments + more examples
 '       03/06/22 Long Vh: codes edited + notes added + added extensive comments for HSBC colleagues
@@ -35,7 +36,7 @@ Attribute VB_Name = "Demo_CDP"
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
 '***************************************************************************************************
-Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
+Public Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
@@ -43,14 +44,34 @@ Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
         Dim ブラウザ名 As String
         If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
 
-        'ブラウザ起動
+        'ログに関する設定を行う
         Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
+        With objBrowser
+            .ViewLogFromImmediate = True                                        'イミディエイトに表示させるか？
+            .SaveLogFile(OneDrivePathToLocalPath(ThisWorkbook.Path)) = False    'ログファイルとして保存するか？
+            .ViewResJsonFromImmediate = True                                    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        End With
+        
+        'ブラウザ起動
         objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
     End With
 
     'オブジェクトを返却
     Set 設定シートからの起動 = objBrowser
 End Function
+
+Sub 冒険の始まり()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim HelloAutomationBrowser As CDPBrowser: Set HelloAutomationBrowser = 設定シートからの起動
+
+    '↓ここから、あなたのイメージをコードに落とし込む↓
+
+
+
+
+    'ブラウザを正常に閉じる
+    HelloAutomationBrowser.quit
+End Sub
 
 
 
@@ -83,7 +104,7 @@ Sub ネットワークイベントの確認()
     'イベント情報をDownloadsフォルダに保存
     '※参照渡しにより、Events にイベント情報が蓄積される
     Set JsonDicObj = New CDPJConv
-    SaveUTF8 JsonDicObj.ConvertToJson(Events), Environ("UserProfile") & "\Downloads", "Event.json"
+    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Events), Environ("UserProfile") & "\Downloads", "Event.json"
 
     'ブラウザを閉じる
     Demo_NetworkEvent.quit
@@ -104,19 +125,18 @@ Sub runEdge()
    'there are other chrome instances already running.
    'If reAttach = False, .start will not automatically try to reattach
    'to previous instances open by CDP but will start a brand new instead.
-    Dim objBrowser As New CDPBrowser
-    objBrowser.start "edge", cleanActive:=True, reAttach:=True
+    Dim edge As CDPBrowser
+    Set edge = 設定シートからの起動
  
    'Navigate and wait
    'If till argument is omitted, will by default wait until ReadyState = complete
-    objBrowser.navigate "https://livingwaters.com/movie/the-atheist-delusion/", isInteractive
+    edge.navigate "https://livingwaters.com/movie/the-atheist-delusion/", isInteractive
  
-   'Get view count
-    viewCount = objBrowser.jsEval("document.evaluate(""//h3[contains(., 'Total Views')]/*[1]"", document).iterateNext().innerText")
-    objBrowser.jsEval "alert(""This free movie has already reached " & viewCount & " views! Wow!"")"
+   'Get view count via the new notify method
+    viewCount = edge.getElementByQuery("[data-id='4b9a4b19']").innerText
+    edge.notify "This free movie has already reached " & viewCount & " views! Wow!"
  
 End Sub
- 
  
 Sub runHidden()
 '---------------------------------------------------------------------------------
@@ -133,10 +153,10 @@ Sub runHidden()
 '   4. The vote count is seen there.
 '---------------------------------------------------------------------------------
  
-    Dim chrome As New CDPBrowser
+    Dim chrome As CDPBrowser
  
    'Start and hide
-    chrome.start
+    Set chrome = 設定シートからの起動
     chrome.hide
  
    'Perform automation in the background
@@ -157,7 +177,6 @@ Sub runHidden()
     
 End Sub
  
- 
 Sub runTabsAsOne()
 '--------------------------------------------------------------------------
 ' Demonstrate the automation of multiple tabs in a single browser instance.
@@ -165,8 +184,8 @@ Sub runTabsAsOne()
 ' the same instance instead.
 '--------------------------------------------------------------------------
  
-    Dim chrome As New CDPBrowser
-    chrome.start reAttach:=False
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動
     chrome.show
     
    'Automate Tabs
@@ -179,7 +198,6 @@ Sub runTabsAsOne()
  
 End Sub
  
- 
 Sub runTabsAsMany()
 '-------------------------------------------------------------------------------
 ' Demonstrate the automation of multiple tabs in a single browser instance.
@@ -189,8 +207,8 @@ Sub runTabsAsMany()
 ' settings to each other.
 '-------------------------------------------------------------------------------
  
-    Dim chrome As New CDPBrowser
-    chrome.start reAttach:=False
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動
     chrome.show
  
    'Create and assign tabs
@@ -213,7 +231,6 @@ Sub runTabsAsMany()
  
 End Sub
  
- 
 Sub runNewTab()
 '--------------------------------------------------------------------------
 ' This example demonstrates:
@@ -228,8 +245,9 @@ Sub runNewTab()
 '--------------------------------------------------------------------------
  
    'Init browser with custom arguments
-    Dim chrome As New CDPBrowser
-    chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動
+    'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
     chrome.show asMaximized
     
    'Perform standard google search
@@ -251,11 +269,9 @@ Sub runNewTab()
  
    'Feed the top news title for today
     firstTitle = targetTab.getElementByQuery("div[class='Headline']").innerText
-    targetTab.closeTab
-    MsgBox "Top popular headline for the day is """ & firstTitle & """."
+    targetTab.notify "Top popular headline for the day is """ & firstTitle & """."
  
 End Sub
- 
  
 Sub runIFrame()
 '--------------------------------------------------------------------------
@@ -270,7 +286,7 @@ Sub runIFrame()
     demoUrl = "https://www.w3schools.com/html/tryit.asp?filename=tryhtml_iframe_height_width"
     
     Dim chrome As New CDPBrowser
-    chrome.start appUrl:=demoUrl, reAttach:=False
+    Set chrome = 設定シートからの起動(demoUrl)
     
     Dim iFrame1 As CDPElement
     Dim iFrame2 As CDPElement
@@ -278,35 +294,33 @@ Sub runIFrame()
     Set iFrame2 = iFrame1.getElementByQuery("iframe[title='Iframe Example']").getIFrame
     
     txt = iFrame2.getElementByQuery("h1").innerText
-    MsgBox "Retrieved text from the iFrame: """ & txt & """"
+    chrome.notify "Retrieved text from the iFrame: """ & txt & """"
     
 End Sub
  
- 
 Sub getSnapShot()
 '--------------------------------------------------------------------------
-' This example demonstrates the great enhancements of 2.5 over 1.0:
-' 1. The use of external JS library via AddJsLib method.
-' 2. The integration of external JS library into VBA project seamlessly.
-' 3. The use of html2canvas in VBA, a very useful external library for
-'    highly customized screenshot downloading.
+' This example demonstrates the easy handling of capturing a screenshot of
+' the current page under CDP method. The second argument of the snapPage
+' method can be set to True to capture the entire page or to False (default)
+' to capture only the current view section of the page.
 '--------------------------------------------------------------------------
  
     Dim demoUrl As String
     demoUrl = "https://www.google.com/search?q=1sgd+to+vnd"
     
-    Dim chrome As New CDPBrowser
-    chrome.start                'not App Mode as sometimes Chrome App Mode does not allow file downloading
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動   'not App Mode as sometimes Chrome App Mode does not allow file downloading
     chrome.navigate demoUrl
-    
+
    'Snap a portion of the page based on the element indicator
    'If the second argument is omitted, snapPage will snap the entire page
-    Dim targetArea As CDPElement
-    Set targetArea = chrome.getElementByQuery("div[class='I4v0Kc wlkW8 PZPZlf']")
-    chrome.snapPage "todaySGDvVND", targetArea
+    Dim fileName As String
+    fileName = Environ("UserProfile") & "\Downloads\todaySGDvsVND.png"
+    chrome.snapPage fileName 'chrome.snapPage(fileName, True) to capture the entire page instead
+    chrome.notify "Screenshot captured under " & fileName
  
 End Sub
- 
  
 Sub fillReactForm()
 '-------------------------------------------------------------------------
@@ -317,13 +331,14 @@ Sub fillReactForm()
 ' 1. Fill in the name field on the page.
 ' 2. Press submit.
 ' 3. If the field input is recognized by React, alert will tell its value.
+' Updated: 07/01/26: .sendKeys has been replaced with .sendString
 '-------------------------------------------------------------------------
  
     Dim demoUrl As String
     demoUrl = "https://cdpn.io/gaearon/fullpage/VmmPgp?anon=true&editors=0010&view="
     
-    Dim chrome As New CDPBrowser
-    chrome.start
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動
     chrome.navigate demoUrl
         
    'Get the target fields
@@ -342,11 +357,10 @@ Sub fillReactForm()
     sb.click
     
    'This will succeed as it mimicks sending raw keys but to a specific element
-    ip.sendKeys "TEST3"
+    ip.sendString "TEST3"
     sb.click
  
 End Sub
-
 
 Sub switchMain()
 '---------------------------------------------------------------
@@ -360,15 +374,24 @@ Sub switchMain()
 ' for future reattachment.
 '---------------------------------------------------------------
 
-    Dim chrome As New CDPBrowser
-    chrome.start "edge", reAttach:=False
+    Dim chrome As CDPBrowser
+    Set chrome = 設定シートからの起動
     chrome.newTab "google.com", setMain:=True   'the chrome object will now directly refer to the Google tab
     chrome.getTab("about:blank").closeTab       'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub
 
-Sub SaveUTF8(contents As String, FolderPath As String, fileName As String)
+
+
+'***************************************************************************************************
+'* 機能　　：文字列変数をUTF-8形式で保存します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：contents       保存したい`As String`変数を指定
+'            FolderPath     保存先フォルダパス
+'            fileName       保存ファイル名
+'***************************************************************************************************
+Sub SaveFileAsUTF8(contents As String, FolderPath As String, fileName As String)
     '空文字の場合は、違う機能で保存しておく
     If contents = "" Then Open FolderPath & "\" & fileName For Output As #1: Close #1: Exit Sub
     
@@ -395,3 +418,30 @@ Sub SaveUTF8(contents As String, FolderPath As String, fileName As String)
         .Close
     End With
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：ローカルパス
+'* 引数　　：Path                   基本は、`thisworkbook.path`を指定
+'            UsePrivateOneDrive     社内個人OneDriveの場合は、`False`にしてください
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：開いてるExcelがOneDriveにあると、`thisworkbook.path`がインターネット上のURLになってしまい、一部操作ができなくなる問題に対処した物となります。
+'            純ローカルなら、そのまま返します。
+'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます。先頭の定数で、スイッチングしてください
+'
+'* 注意事項：SharePointの場合は、自力でコードを書く必要があります
+'***************************************************************************************************
+Function OneDrivePathToLocalPath(Path As String, Optional UsePrivateOneDrive As Boolean = True) As String
+    'http始まりじゃないなら、そのまま返して終了
+    If Left(Path, 4) <> "http" Then OneDrivePathToLocalPath = Path: Exit Function
+
+    '個人OneDriveモードなら識別番号分、ローカルパスに置き換えて結合
+    If UsePrivateOneDrive Then
+        OneDrivePathToLocalPath = Environ("OneDrive") & Mid(Path, 41)
+    
+    '個人BusinessOneDriveモードなら"Documents"以降のパスを抜き出して、ローカルパスと結合
+    Else
+        OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
+    End If
+End Function
