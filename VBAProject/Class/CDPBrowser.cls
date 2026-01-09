@@ -1672,15 +1672,11 @@ Private Function searchNull() As Long
 ' Updated: 25/10/25: Daniel Polak - new faster version
 '------------------------------------------------------------
 
-    Dim lngPos As Long
-
+    '文字列が空の場合は、即抜け
     If Len(strBuffer) = 0 Then Exit Function
-    lngPos = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
-    If lngPos > 0 Then
-        searchNull = lngPos
-    Else
-        searchNull = 0
-    End If
+    
+    '最初に見つかった文字位置(先頭からその位置までの文字数)を返し、検索文字が見つからなかった場合は、0を返すのでダイレクトで、返り値にセットする
+    searchNull = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
 
 End Function
 
