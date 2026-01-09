@@ -310,57 +310,45 @@ End Function
 '***************************************************************************************************
 '* 機能　　：CDP 出力パイプからの読み取りを試みます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：基本は、読み取ったバイト数を返します。例外は下記です。
-'            -1：実行時点で、パイプの中に読み取るべきデータが存在しない（空である）状態
-'            -2：ReadFile API 自体が失敗しました
-'
-'* 引数　　：strData        CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
-'            IgnoreError    `True` で、PeekNamedPipe API 自体が失敗しても、スルーします
+'* 返り値　：読み取ったバイト数を返します。
+'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
+'            Err_PeekNamedPipe  PeekNamedPipe にてエラーが起こった際のエラーコードを格納します。実質返り値です
+'            Err_ReadFile       ReadFile にてエラーが起こった際のエラーコードを格納します。実質返り値です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。ただし、`PeekNamedPipe`API 自体が失敗した場合は、「Err.Raise」にひっかかります。必要に応じて、引数でスルー可能です。
-'* 注意事項：`IgnoreError`が、`False`の場合、異なるクラスモジュールでこのメソッドを呼び出す際、`On Error Resume Next`を宣言しても、「クラスモジュールで中断」になってると、「Err.Raise」にひっかかります
+'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、第2引数以降で確認して下さい。
 '***************************************************************************************************
-Public Function readProcCDP(ByRef strData As String, Optional IgnoreError As Boolean) As Long
+Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As Long, ByRef Err_ReadFile As Long) As Long
+    'エラーコードの初期化
+    Err_PeekNamedPipe = 0
+    Err_ReadFile = 0
+
     Dim lPeekData As Long
     Dim lngRes As Long
     
     '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
     
-    'API関数が失敗した場合は、0 を返すため、必要に応じて、エラーで止める
-    If lngRes = 0 Then
-        'エラー番号から、意味を取得
-        Dim エラー内容 As String
-        With New WinApiError
-            エラー内容 = .GetMessage(Err.LastDllError, "kernel32")
-        End With
+    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
+    If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
 
-        'エラーで止めるか、メッセージだけで済ませるか
-        If IgnoreError Then
-            Debug.Print Format(Now, "hh:mm:ss") & " | " & "Error  " & " | " & "Error PeekNamedPipe in readProcCDP. ReasonCode:" & Err.LastDllError & " - " & エラー内容
-        Else
-            Err.Raise 901, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ReasonCode:" & Err.LastDllError & ">" & vbCrLf & エラー内容
-        End If
-    End If
-    
+
+    'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
         Dim Buffer As String
         Dim L As Long
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
         bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
-        
-        If bSuccess = 1 Then
+            
+        '0以外なら成功です
+        If bSuccess Then
             strData = Buffer
             readProcCDP = Len(strData)
         Else
-            readProcCDP = -2
+            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
+            Err_ReadFile = Err.LastDllError
         End If
-        
-    Else
-        readProcCDP = -1
     End If
- 
 End Function
 
 Public Function readProcSTD(ByRef strData As String) As Long
