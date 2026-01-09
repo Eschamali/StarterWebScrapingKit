@@ -142,7 +142,6 @@ Private Const TIMEOUT_NAVIGATE As Single = 45
 
 Private core As CDPCore                 'Must be initialized for CDP engine
 Private lngLastID As Long               'Every message sent to edge has an ID
-Private strBuffer As String             'Buffer string, required for various win APIs
 Private brHWnd As LongPtr               'Browser object window handle
 Private brWID As String                 'Useful for windows repositioning
 Private brType As String                'Browser type: either 'chrome' or 'edge'
@@ -1425,6 +1424,7 @@ RetrySend:
         intRes = 1
 
         Do Until intRes < 1
+            '受信処理
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
             '返り値チェック
@@ -1461,58 +1461,88 @@ RetrySend:
    '------------------------------------------------
     Dim timerStart As Double, timerOut As Long
     Dim EventCount As Long
-    Dim strResCollection As Collection
    
     timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
     timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
     Do
         intRes = 1
-        Set strResCollection = New Collection
 
+        '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
         Do Until intRes < 1
+            '受信処理
 12          intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
             '返り値チェック
             If intRes > 0 Then
-                'データあり
-13              strBuffer = strBuffer & strRes
-                strResCollection.Add strRes         '仮で用意。※まだ計画段階
+                'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
+13              Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
+                
+                'メモリを解放
+14              strRes = vbNullString
+                
+                Dim i As Long
+                Dim PieceData As String, tmp As String
+                For i = LBound(JsonMessages) To UBound(JsonMessages)
+15                  If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                              'Only enable if needs to see every raw JS message for debugging/development
+
+                    '最後の要素か？
+16                  If i = UBound(JsonMessages) Then
+                        '空欄か？
+                        If JsonMessages(i) = "" Then
+                            '1回の受信で全て正しいJson形式として得れました
+                            PieceData = vbNullString
+                            printMsg "readProcCDP was able to receive everything !"
+                        Else
+                            'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+                            PieceData = PieceData & JsonMessages(i)
+                            printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
+                        End If
+                    Else
+                        '欠けたデータがあるか？
+                        If StrPtr(PieceData) Then
+                            '結合する
+                            tmp = PieceData & JsonMessages(i)
+                            
+                            'メモリを解放
+                            PieceData = vbNullString
+                        Else
+                            'そのまんま使う
+                            tmp = JsonMessages(i)
+                        End If
+                    
+                        '受信データを Json-Dictionary として変換
+17                      Set results = core.jsConverter.ParseJson(tmp)
+
+                        'イベント内容を確認するモードなら、格納しておく
+18                      If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
+
+                        '実行コマンド結果であるか？
+19                      If results.Exists("id") Then
+                            'そのIDは、Excelに記録してるIDと一致してるか？
+20                          If results.Item("id") = lngCurrentId Then
+                                '結果を返して終了
+21                              Set SendMessage = results
+                                Exit Function
+                            End If
+                        End If
+                    End If
+                Next
             Else
                 'データなしの場合は、エラーコードチェックを行う
                 If ErrorCode_PeekNamedPipe Then
                     'PeekNamedPipe にてエラーがあった場合
-                    printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+22                  printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                     Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                 ElseIf ErrorCode_ReadFile Then
                     'ReadFile にてエラーがあった場合
-                    printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+23                  printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                     Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 End If
             End If
         Loop
         
-        Dim lngNullCharPos As Long
-14      lngNullCharPos = searchNull()
-            
-        Do Until lngNullCharPos = 0
-15          strRes = Left(strBuffer, lngNullCharPos - 1)
-16          strBuffer = Right(strBuffer, Len(strBuffer) - lngNullCharPos)
-            If seeRawSendMsgDbg Then printMsg "strRes = " & strRes                              'Only enable if needs to see every raw JS message for debugging/development
-            If strRes <> "" Then
-17              Set results = core.jsConverter.ParseJson(strRes)
-18              If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
-19              If results.Exists("id") Then
-20                  If results.Item("id") = lngCurrentId Then
-21                      Set SendMessage = results
-                        Exit Function
-                    End If
-                End If
-            End If
-22          lngNullCharPos = searchNull()
-        Loop
-        
         DoEvents
-23      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+24      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
     Loop
     Exit Function
 
@@ -1664,22 +1694,6 @@ ifError:
     Err.Raise ERR_PROTOCOL, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
     
 End Function
-
-
-Private Function searchNull() As Long
-'------------------------------------------------------------
-' CDP messages received from chrome are null-terminated
-' Updated: 25/10/25: Daniel Polak - new faster version
-'------------------------------------------------------------
-
-    '文字列が空の場合は、即抜け
-    If Len(strBuffer) = 0 Then Exit Function
-    
-    '最初に見つかった文字位置(先頭からその位置までの文字数)を返し、検索文字が見つからなかった場合は、0を返すのでダイレクトで、返り値にセットする
-    searchNull = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
-
-End Function
-
 
 Private Function invokeError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
