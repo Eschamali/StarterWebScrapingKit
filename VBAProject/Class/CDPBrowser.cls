@@ -1389,6 +1389,27 @@ Property Get html() As String
     html = jsEval("document.documentElement.innerHTML")
 End Property
 
+'***************************************************************************************************
+'* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：呼び出した時点での、ブラウザイベント内容
+'* LET引数 ：置き換えるDictionary変数。基本は、New Dictionary を渡してのリセットです
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・`Set BrowserEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
+'            ・`Set BrowserEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
+'* 注意事項：`Set BrowserEvents`を使用すると、カウントがリセットされます
+'***************************************************************************************************
+Property Get BrowserEvents() As Dictionary
+    Set BrowserEvents = EventsData
+End Property
+
+Property Set BrowserEvents(ObjDic As Dictionary)
+    Set EventsData = ObjDic
+    
+    'カウントをリセット
+    EventCount = 0
+End Property
+
 
 
 '***************************************************************************************************
@@ -1634,6 +1655,7 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     
     ' 2. 取り出した束に、今回のイベントの詳細データを、追加する
     eventList.Add eventData
+    printMsg "Stored event data from the browser. - " & eventMethod
 End Sub
 
 Private Function attachToSession() As Integer
