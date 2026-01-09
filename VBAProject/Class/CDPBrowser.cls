@@ -143,6 +143,7 @@ Private Const TIMEOUT_NAVIGATE As Single = 45
 Private core As CDPCore                 'Must be initialized for CDP engine
 Private lngLastID As Long               'Every message sent to edge has an ID
 Private brHWnd As LongPtr               'Browser object window handle
+Private PieceData As String             'ストリーム受信で欠けたデータを一時的に蓄積するための変数です
 Private brWID As String                 'Useful for windows repositioning
 Private brType As String                'Browser type: either 'chrome' or 'edge'
 Private brUser As String                'Browser user profile
@@ -1421,9 +1422,9 @@ RetrySend:
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
     Dim ErrorDetail As New WinApiError
 1   If objAllMessages Is Nothing Then
-        intRes = 1
 
-        Do Until intRes < 1
+        'データが尽きるまで、ループ受信処理を行います
+        Do
             '受信処理
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
@@ -1442,9 +1443,12 @@ RetrySend:
                     'ReadFile にてエラーがあった場合
 6                   printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                     Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                Else
+                    'データがまだ、ない。つまり、破棄完了
+                    printMsg "Message queue destruction completed."
                 End If
             End If
-        Loop
+        Loop Until intRes < 1
     End If
     
    '--------------------------------------------------
@@ -1464,87 +1468,95 @@ RetrySend:
    
     timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
     timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+    intRes = 1
+
+    '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
+    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    Dim ResultSendCommand As Boolean
     Do
-        intRes = 1
+        '受信処理
+12      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
-        '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
-        Do Until intRes < 1
-            '受信処理
-12          intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
-
-            '返り値チェック
-            If intRes > 0 Then
-                'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
-13              Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
+        '返り値チェック
+        If intRes > 0 Then
+            'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
+13          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
                 
-                'メモリを解放
-14              strRes = vbNullString
+            'メモリを解放
+14          strRes = vbNullString
                 
-                Dim i As Long
-                Dim PieceData As String, tmp As String
-                For i = LBound(JsonMessages) To UBound(JsonMessages)
-15                  If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                              'Only enable if needs to see every raw JS message for debugging/development
+            Dim i As Long
+            For i = LBound(JsonMessages) To UBound(JsonMessages)
+15              If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                              'Only enable if needs to see every raw JS message for debugging/development
 
-                    '最後の要素か？
-16                  If i = UBound(JsonMessages) Then
-                        '空欄か？
-                        If JsonMessages(i) = "" Then
-                            '1回の受信で全て正しいJson形式として得れました
-                            PieceData = vbNullString
-                            printMsg "readProcCDP was able to receive everything !"
-                        Else
-                            'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                            PieceData = PieceData & JsonMessages(i)
-                            printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
-                        End If
+                '最後の要素か？
+16              If i = UBound(JsonMessages) Then
+                    '空欄か？
+                    If JsonMessages(i) = "" Then
+                        '1回の受信で全て正しいJson形式として得れました
+                        PieceData = vbNullString
+                        printMsg "readProcCDP was able to receive everything !"
                     Else
-                        '欠けたデータがあるか？
-                        If StrPtr(PieceData) Then
-                            '結合する
-                            tmp = PieceData & JsonMessages(i)
-                            
-                            'メモリを解放
-                            PieceData = vbNullString
-                        Else
-                            'そのまんま使う
-                            tmp = JsonMessages(i)
-                        End If
+                        'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+                        PieceData = PieceData & JsonMessages(i)
+                        printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
+                    End If
+                Else
+                    '欠けたデータがあるか？
+                    Dim tmp As String
+                    If StrPtr(PieceData) Then
+                        '結合する
+                        tmp = PieceData & JsonMessages(i)
+                        
+                        'メモリを解放
+                        PieceData = vbNullString
+                    Else
+                        'そのまんま使う
+                        tmp = JsonMessages(i)
+                    End If
                     
-                        '受信データを Json-Dictionary として変換
-17                      Set results = core.jsConverter.ParseJson(tmp)
+                    '受信データを Json-Dictionary として変換
+17                  Set results = core.jsConverter.ParseJson(tmp)
 
-                        'イベント内容を確認するモードなら、格納しておく
-18                      If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
+                    'イベント内容を確認するモードなら、格納しておく
+18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
 
-                        '実行コマンド結果であるか？
-19                      If results.Exists("id") Then
-                            'そのIDは、Excelに記録してるIDと一致してるか？
-20                          If results.Item("id") = lngCurrentId Then
-                                '結果を返して終了
-21                              Set SendMessage = results
-                                Exit Function
-                            End If
+                    '実行コマンド結果であるか？
+19                  If results.Exists("id") Then
+                        'そのIDは、Excelに記録してるIDと一致してるか？
+20                      If results.Item("id") = lngCurrentId Then
+                            '結果を返して、受信ループ終了フラグを立てる
+21                          Set SendMessage = results
+                            ResultSendCommand = True
+                            printMsg "The command result was obtained from readProcCDP ! - ID:" & lngCurrentId
                         End If
                     End If
-                Next
-            Else
-                'データなしの場合は、エラーコードチェックを行う
-                If ErrorCode_PeekNamedPipe Then
-                    'PeekNamedPipe にてエラーがあった場合
-22                  printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
-                    Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
-                ElseIf ErrorCode_ReadFile Then
-                    'ReadFile にてエラーがあった場合
-23                  printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
-                    Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 End If
+            Next
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If ErrorCode_PeekNamedPipe Then
+                'PeekNamedPipe にてエラーがあった場合
+22              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+            ElseIf ErrorCode_ReadFile Then
+                'ReadFile にてエラーがあった場合
+23              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+            Else
+                'データがまだ、ない
+                printMsg "The command result from readProcCDP has not yet been received, so reception continues."
             End If
-        Loop
-        
+        End If
+
         DoEvents
+
+        '一定時間経っても来ないなら、ループから抜けます
 24      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
-    Loop
-    Exit Function
+
+        'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
+    Loop Until ResultSendCommand
+Exit Function
 
 afterErr:
 
