@@ -621,7 +621,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Set newTab = New CDPBrowser
     With ShSetting01_StartBrowser
         '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
-        If Not (.Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value) Then newTab.deserialize
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.newTab")).value) Then newTab.deserialize
     End With
     newTab.id = sessionID_
     If Url <> "" Then newTab.wait
@@ -752,7 +752,7 @@ searchsound:
     Set getTab = New CDPBrowser
     With ShSetting01_StartBrowser
         '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
-        If Not (.Range(.UseRangeName(5, "CDPBrowser.Class_Initialize")).value) Then getTab.deserialize
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.getTab")).value) Then getTab.deserialize
     End With
 
     getTab.id = sessionID_  'will also update the targetID
@@ -2083,11 +2083,11 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         'イミディエイトに関する設定を行う
-        doPrintDbgMsg = .Range(.UseRangeName(7, "Class_Initialize.設定シートからの起動")).value              'イミディエイトに表示させるか？
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, "Class_Initialize.設定シートからの起動")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        doPrintDbgMsg = .Range(.UseRangeName(7, "CDPBrowser.Class_Initialize")).value              'イミディエイトに表示させるか？
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
         'パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "Class_Initialize.設定シートからの起動")).value
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "CDPBrowser.Class_Initialize")).value
         If LogFolderPath <> "" Then
             doLog = True                'ログファイルとして保存するか？
             logPath = LogFolderPath     '保存先のフォルダパスを設定
