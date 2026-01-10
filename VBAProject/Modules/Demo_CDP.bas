@@ -79,7 +79,7 @@ Sub ネットワークイベントの確認()
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
-    'イベント受信を有効化する
+    'イベント受信蓄積を有効化する
     Dim Events As Dictionary: Set Events = New Dictionary
     Set Demo_NetworkEvent.BrowserEvents = Events
     
