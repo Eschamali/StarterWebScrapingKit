@@ -160,7 +160,7 @@ Private targetID As String              'The targetID of the current tab for Inv
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
 Private MessagesCount As Long           'ブラウザからのイベントデータが何回呼ばれたかをカウントします
-
+Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
@@ -262,12 +262,12 @@ Public Sub start(Optional Name As String = "chrome", _
    '------------------------------------------------------------------------------
     
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-    Dim timerStart As Single, timerOut As Long, strLoc As String
+    Dim timerStart As Single, strLoc As String
    
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
     If appUrl <> "" Then
-        timerStart = Timer: timerOut = 45
+        timerStart = Timer
         Do
             If Me.Name <> "" Then Exit Do
             If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for the browser to load the homepage."
@@ -1412,6 +1412,22 @@ Property Let BrowserEventsCount(TakeoverCount As Long)
     MessagesCount = TakeoverCount
 End Property
 
+'***************************************************************************************************
+'* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中のタイムアウト秒数
+'* LET引数 ：置き換えるタイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、45sです。
+'***************************************************************************************************
+Property Get TimeOutSecond() As Long
+    TimeOutSecond = timerOut
+End Property
+
+Property Let TimeOutSecond(TimeSec As Long)
+    timerOut = TimeSec
+End Property
+
 
 
 '***************************************************************************************************
@@ -1421,7 +1437,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにも格納が出来ます
+'            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにもイベント情報を格納が出来ます
 '            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
@@ -1488,9 +1504,6 @@ RetrySend:
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Const timerOut As Long = 30                                                                  'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-    
-    
     Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
     Dim LocalMessagesCount As Long
     
@@ -1519,7 +1532,7 @@ RetrySend:
                     If JsonMessages(i) = "" Then
                         '1回の受信で全て正しいJson形式として得れました
                         PieceData = vbNullString
-                        printMsg "readProcCDP was able to receive everything !"
+                        printMsg "readProcCDP was able to receive everything!"
                     Else
                         'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
                         PieceData = PieceData & JsonMessages(i)
@@ -1553,7 +1566,7 @@ RetrySend:
                             '結果を返して、受信ループ終了フラグを立てる
 22                          Set SendMessage = results
                             ResultSendCommand = True
-                            printMsg "The command result was obtained from readProcCDP ! - ID:" & lngCurrentId
+                            printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
                         End If
                     End If
                 End If
@@ -2066,18 +2079,24 @@ Private Sub Class_Initialize()
 ' Updated: 07/06/2023
 '----------------------------------------------------------------------------------
 
-    '設定シートの各セルから設定値を取得し、適用
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        'ログに関する設定を行う
+        'イミディエイトに関する設定を行う
         doPrintDbgMsg = .Range(.UseRangeName(7, "Class_Initialize.設定シートからの起動")).value              'イミディエイトに表示させるか？
         seeRawSendMsgDbg = .Range(.UseRangeName(8, "Class_Initialize.設定シートからの起動")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
+        'パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "Class_Initialize.設定シートからの起動")).value
         If LogFolderPath <> "" Then
-            doLog = True            'ログファイルとして保存するか？
-            logPath = LogFolderPath
+            doLog = True                'ログファイルとして保存するか？
+            logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If
     End With
+
+    'タイムアウト設定(デフォルトで、45s)
+    timerOut = 45
+    '------------------------------------------------------------------------------
 
 
    'Determine project host type for compatibility
