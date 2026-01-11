@@ -80,8 +80,7 @@ Sub ネットワークイベントの確認()
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
     'イベント受信蓄積を有効化する
-    Dim Events As Dictionary: Set Events = New Dictionary
-    Set Demo_NetworkEvent.BrowserEvents = Events
+    Set Demo_NetworkEvent.BrowserEvents = New Dictionary
     
     'ネットワークイベント受信を有効化する
     Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
@@ -98,7 +97,7 @@ Sub ネットワークイベントの確認()
     'イベント情報をDownloadsフォルダに保存
     '※参照渡しにより、Events にイベント情報が蓄積される
     Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Events), Environ("UserProfile") & "\Downloads", "Event.json"
+    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
 
     'ブラウザを閉じる
     Demo_NetworkEvent.quit
