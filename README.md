@@ -243,17 +243,10 @@ Sub 冒険の始まり()
 End Sub
 ```
 
-### イベントデモ紹介1：イベントキャプチャの切り替えDemo
+### **デモ紹介：`BrowserEvents`プロパティによる、イベントキャプチャのライフサイクル管理**
 
-`CDPBrowser`クラスは、`BrowserEvents`というプロパティを公開しています。このプロパティの状態によって、CDPセッションから受信した非同期イベントのハンドリングが、内部的に切り替わります。
-
-1. **キャプチャモード（有効）：**
-    * **設定方法：** `Set .BrowserEvents = New Scripting.Dictionary`
-    * **動作：** このプロパティに、有効な`Dictionary`オブジェクトがセットされている間、ブラウザから受信したすべての非同期イベントメッセージは、その`Dictionary`に、自動的に追加・蓄積されます。
-
-2. **破棄モード（無効）：**
-    * **設定方法：** `Set .BrowserEvents = Nothing`
-    * **動作：** このプロパティが`Nothing`である間、受信した非同期イベントは、VBA側で一切の処理を行うことなく、即座に破棄されます。これにより、イベントをキャプチャする必要がない区間での、不要なパフォーマンスへの影響を、完全に、回避することができます。
+`Demo_CDP.bas`内の`ネットワークイベントの確認`プロシージャは、`BrowserEvents`プロパティを活用した、高度なイベントハンドリングの実践的なデモです。  
+このデモは、**①有効化、②無効化（と状態の退避）、③退避した状態からの再開**、という3つのフェーズで構成されています。
 
 ```bas
 Sub ネットワークイベントの確認()
@@ -261,12 +254,9 @@ Sub ネットワークイベントの確認()
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
     
-    '-------------------------------- イベントキャプチャを有効化する --------------------------------
-    With Demo_NetworkEvent
-        Set .BrowserEvents = New Dictionary     '`New Dictionary`を渡すことで、イベントキャプチャが可能になる。
-        .BrowserEventsCount = 0                 'カウントリセット
-    End With
-    
+    '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`を渡すことで、新規イベントキャプチャが可能になる。
+
     
     'ネットワークイベント受信を有効化する
     Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
@@ -276,96 +266,70 @@ Sub ネットワークイベントの確認()
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
     Dim JsonDicObj As CDPJConv
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     Set JsonDicObj = New CDPJConv
     SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
 
     
-    '-------------------------------- イベントキャプチャを無効化する --------------------------------
-    With Demo_NetworkEvent
-        Set .BrowserEvents = Nothing            '`Nothing`を渡すことで、イベントを破棄するようになる
-        .BrowserEventsCount = 0                 'カウントリセット
-    End With
+    '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'セーブデータ作成
+    Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`を渡すことで、イベントを破棄するようになる
+
 
     'URL遷移して、読み込み終わるまで待機
-    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+    Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     Set JsonDicObj = New CDPJConv
     SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
-    'ブラウザを閉じる
+
+    '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = SaveDataEvents        '既存のセーブデータを読み込む
+    
+
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+
+    'イベント情報をDownloadsフォルダに保存
+    Set JsonDicObj = New CDPJConv
+    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+
+
+    'ブラウザを閉じる。demo終了
     Demo_NetworkEvent.quit
 End Sub
 ```
 
-* **前半（有効化ゾーン）：**
-    `BrowserEvents`プロパティに`New Dictionary`をセットし、イベントキャプチャを有効化。
-    ページ遷移後に、蓄積されたイベントが、`Event.json`に、正常に保存されることを確認します。
+#### **フェーズ1：イベントキャプチャの有効化**
 
-* **後半（無効化ゾーン）：**
-    同プロパティに`Nothing`をセットし、イベントキャプチャを無効化。
-    再度、ページ遷移を行いますが、`BrowserEvents`は空のままであり、`NotEvent.json`のファイルサイズが、0バイトになることを、確認します。
+* `BrowserEvents`プロパティに、`New Dictionary`で生成した、新しい`Dictionary`インスタンスをセットします。
+* これにより、イベントキャプチャが**有効**になり、`navigate`中に発生した全ての非同期イベントが、その`Dictionary`に蓄積されます。
+* デモでは、この結果が`Event.json`に保存されることを確認します。
 
-この機能により、開発者は、**デバッグや解析に、イベント情報が必要な"特定の区間"だけ**を、狙って、データをキャプチャすることが可能となり、より効率的で、意図の明確な、自動化処理を、構築することができます。
+#### **フェーズ2：イベントキャ-プチャの無効化と、状態の"セーブ"**
 
-**応用可能性：**
-この基本的なテクニックを応用することで、VBAから、より高度なブラウザオートメーションを実装できます。
+* まず、現在の`BrowserEvents`プロパティが保持している`Dictionary`オブジェクトの**参照**を、`SaveDataEvents`という、別のローカル変数に **退避（Set）** させます。
+* 次に、`BrowserEvents`プロパティに`Nothing`をセットします。
+* これにより、イベントキャプチャは**無効**となり、`navigate`中に発生したイベントは、すべて破棄されます。
+* デモでは、`NotEvent.json`のファイルサイズが0バイトとなり、イベントがキャプチャされていないことを確認します。
 
-* **動的な待機処理：**
-    特定の通信リクエスト（`Network.requestWillBeSent`）や、レスポンス（`Network.responseReceived`）が、イベントとして現れるまで、ループで待機する。
-* **隠されたデータの抽出：**
-    `localStorage`やCookieには保存されない、APIレスポンスのボディにのみ含まれる、一時的なトークンなどを、`Network.loadingFinished`イベントなどから抽出する。
-* **DOMイベントの監視：**
-    ネットワークだけでなく、`DOM.childNodeInserted`のようなDOMイベントを監視すれば、「JavaScriptによって、特定の要素が出現した」という、より高度な描画完了のトリガーを、待つことも可能です。
+#### **フェーズ3：退避した状態からの、キャプチャ"再開"**
 
-### イベントデモ紹介2：イベントキャプチャの、高度な制御
+* `BrowserEvents`プロパティに、フェーズ2で **退避させておいた`SaveDataEvents`** を、再び、セットします。
+* これにより、イベントキャプチャは、 **以前の状態を引き継いだ形で、"再開"** されます。
+* `navigate`を実行すると、新しいイベントは、**`SaveDataEvents`が指し示す、元の`Dictionary`オブジェクト**に、**追記**される形で、蓄積されていきます。
+* デモでは、`EventFromSaveData.json`に、**フェーズ1の内容**と、**フェーズ3で新たに追加された内容**が、**両方とも**含まれていることを確認します。
 
-`BrowserEvents`と`BrowserEventsCount`プロパティを、活用することで、より高度で、柔軟なイベントハンドリングが、可能になります。
-
-**シナリオ：特定の区間のみ、イベントキャプチャを一時停止する**
-
-パフォーマンスへの影響を最小限に抑えるため、大量のイベントが発生することが、あらかじめ分かっている処理区間だけ、イベントのキャプチャを、一時的に、無効化し、後から、再開することができます。
-
-**実装例：**
-
-```bas
-' 1. 現在のイベント蓄積状態を、一時変数に退避
-Dim savedEvents As Scripting.Dictionary
-Dim savedCount As Long
-
-Set savedEvents = YourBrowserObject.BrowserEvents
-savedCount = YourBrowserObject.BrowserEventsCount
-
-' 2. イベントキャプチャを、一時的に無効化
-Set YourBrowserObject.BrowserEvents = Nothing
-YourBrowserObject.BrowserEventsCount = 0
-
-' --------------------------------------------------------
-' --- (ここに、大量のイベントを発生させる、重い処理) ---
-'     YourBrowserObject.navigate "..."
-' --------------------------------------------------------
-
-' 3. 退避しておいたイベント状態を、復元し、キャプチャを再開
-Set YourBrowserObject.BrowserEvents = savedEvents
-YourBrowserObject.BrowserEventsCount = savedCount
-
-' これ以降、再び、イベントは、元のDictionaryに蓄積され始める
-```
-
-**解説：**
-このテクニックは、`BrowserEvents`プロパティが、**オブジェクトの「参照」**を、保持している特性を利用しています。
-
-1. `savedEvents`に、現在の`Dictionary`オブジェクトの参照を、退避させます。
-2. `BrowserEvents`に`Nothing`を設定することで、ライブラリは、イベントの蓄積を、停止します。この間、`savedEvents`が保持している、元の`Dictionary`には、何の影響もありません。
-3. 処理が終わった後、`BrowserEvents`に、退避しておいた`savedEvents`の参照を、**再び、設定し直す**ことで、イベントの蓄積は、何事もなかったかのように、元の`Dictionary`に対して、再開されます。
-
-これにより、開発者は、**メモリ使用量**や、**処理パフォーマンス**を、より、厳密に、コントロールしながら、**必要なイベントだけを、効率的に**、収集することが可能になります。
+**この「状態のセーブ＆ロード」という概念により、開発者は、イベントを監視する区間を、より柔軟に、そして、動的に、コントロールすることが可能になります。**
 
 ## `invokeMethod` メソッドについて
 
