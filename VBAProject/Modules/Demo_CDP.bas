@@ -79,25 +79,44 @@ Sub ネットワークイベントの確認()
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
-    'イベント受信蓄積を有効化する
-    Set Demo_NetworkEvent.BrowserEvents = New Dictionary
+    
+    '-------------------------------- イベントキャプチャを有効化する --------------------------------
+    With Demo_NetworkEvent
+        Set .BrowserEvents = New Dictionary     '`New Dictionary`を渡すことで、イベントキャプチャが可能になる。
+        .BrowserEventsCount = 0                 'カウントリセット
+    End With
+    
     
     'ネットワークイベント受信を有効化する
     Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
     
-    'URL遷移して、Msgboxで待機
-    '`iscomplete`だと内部で、イベント情報の破棄が行われるため、破棄されない`isLoading`にしておく
-    Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm", isLoading
-    MsgBox "ブラウザのURL遷移がある程度終わったら、OKを押してください", vbInformation, "イベント待機"   '愚直にmsgboxで待機
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
     Dim JsonDicObj As CDPJConv
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
-    '※参照渡しにより、Events にイベント情報が蓄積される
     Set JsonDicObj = New CDPJConv
     SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
+
+    
+    '-------------------------------- イベントキャプチャを無効化する --------------------------------
+    With Demo_NetworkEvent
+        Set .BrowserEvents = Nothing            '`Nothing`を渡すことで、イベントを破棄するようになる
+        .BrowserEventsCount = 0                 'カウントリセット
+    End With
+
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる(失敗します)
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
+
+    'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
+    Set JsonDicObj = New CDPJConv
+    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
     'ブラウザを閉じる
     Demo_NetworkEvent.quit
