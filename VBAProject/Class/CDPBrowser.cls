@@ -1403,26 +1403,20 @@ Property Set BrowserEvents(ObjDic As Dictionary)
     'SetされたDictionaryの構造をチェックします
     '1. そもそもDictionary オブジェクトが備わっているか？
     If ObjDic Is Nothing Then
-        'Nothing として定義されてる場合は、破棄します
-        Set objAllMessages = ObjDic      '実質、`Nothing`処理
-    
+        'Nothing 処理。以降は、イベントキャプチャはされません。
+        Set objAllMessages = Nothing
         printMsg "Event capture save data has been discarded. Event capture will not be performed."
         
     '2. まっさらの場合
     ElseIf ObjDic.Count = 0 Then
-        '`New Dictionary`して、カウントもリセットさせます
-        Set objAllMessages = ObjDic      '実質、`New Dictionary`処理
-        
-        '初期構造を作成します
-        objAllMessages.Add objAllMessagesName01, 0                   '合計イベントキャプチャ数
-        objAllMessages.Add objAllMessagesName02, New Dictionary      'イベントキャプチャDictionaryデータ
-    
+        '初期化処理。これにより、イベントキャプチャを開始します。
+        Set objAllMessages = FormatDictionary_BrowserEvents
         printMsg "A new event capture save data has been created. Starts event capture."
     
     '3. 指定のKeyがあるか？
     ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) Then
-        Set objAllMessages = ObjDic     '既存データをセット
-        
+        '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
+        Set objAllMessages = ObjDic
         printMsg "Existing event capture save data was successfully loaded. Resume event capture with this save data."
     
     '4. 不正なDictionary 形式なのでエラーで止める
@@ -1697,6 +1691,22 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     printMsg "Stored event data from the browser. - " & EventMethodName
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ブラウザイベント情報を格納するためのフォーマットDictionaryを作成します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：フォーマット済みDictionary
+'***************************************************************************************************
+Private Function FormatDictionary_BrowserEvents() As Dictionary
+        Dim tmp As Dictionary: Set tmp = New Dictionary
+
+        '初期構造を作成します
+        tmp.Add objAllMessagesName01, 0                '合計イベントキャプチャ数
+        tmp.Add objAllMessagesName02, New Dictionary  'イベントキャプチャDictionaryデータ
+        
+        '返却
+        Set FormatDictionary_BrowserEvents = tmp
+End Function
+
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
@@ -1717,12 +1727,9 @@ Private Function attachToSession() As Integer
     On Error GoTo ifError
     
     '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
-    Dim EventMessageForAttachToSession As New Scripting.Dictionary
-    
-    '初期構造を作成します
-    EventMessageForAttachToSession.Add objAllMessagesName01, 0                   '合計イベントキャプチャ数
-    EventMessageForAttachToSession.Add objAllMessagesName02, New Dictionary      'イベントキャプチャDictionaryデータ
+    Dim EventMessageForAttachToSession As Dictionary: Set EventMessageForAttachToSession = FormatDictionary_BrowserEvents
 
+    '実行
 1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", EventMessageForAttachToSession)
     printMsg "Now looking for the browser window"
     
