@@ -70,7 +70,7 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ Demoプロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：ブラウザからのネットワークイベントを保存するデモンストレーションです
+'* 機能　　：イベントキャプチャに関するDemoコードです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：例えば、認証用URLのNetwork.loadingFinished を検知したら、そこの requestId から `Network.getResponseBody` を実行しToken入手なんてことが可能です。(でも、Token抽出とかはNetwork.getCookies や DOMStorage.getDOMStorageItems 等が楽です。)
 '* 注意次項：ここでは、ネットワークイベントのデモですが、他のイベントも同じ操作でとらえることができます
@@ -80,12 +80,9 @@ Sub ネットワークイベントの確認()
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
     
-    '-------------------------------- イベントキャプチャを有効化する --------------------------------
-    With Demo_NetworkEvent
-        Set .BrowserEvents = New Dictionary     '`New Dictionary`を渡すことで、イベントキャプチャが可能になる。
-        .BrowserEventsCount = 0                 'カウントリセット
-    End With
-    
+    '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`を渡すことで、新規イベントキャプチャが可能になる。
+
     
     'ネットワークイベント受信を有効化する
     Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
@@ -95,30 +92,45 @@ Sub ネットワークイベントの確認()
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
     Dim JsonDicObj As CDPJConv
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     Set JsonDicObj = New CDPJConv
     SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
 
     
-    '-------------------------------- イベントキャプチャを無効化する --------------------------------
-    With Demo_NetworkEvent
-        Set .BrowserEvents = Nothing            '`Nothing`を渡すことで、イベントを破棄するようになる
-        .BrowserEventsCount = 0                 'カウントリセット
-    End With
+    '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'セーブデータ作成
+    Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`を渡すことで、イベントを破棄するようになる
+
 
     'URL遷移して、読み込み終わるまで待機
-    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+    Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
-    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる(失敗します)
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")    '存在しないコマンドなので、ブラウザに影響なし
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     Set JsonDicObj = New CDPJConv
     SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
-    'ブラウザを閉じる
+
+    '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = SaveDataEvents        '既存のセーブデータを読み込む
+    
+
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+
+    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+
+    'イベント情報をDownloadsフォルダに保存
+    Set JsonDicObj = New CDPJConv
+    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+
+
+    'ブラウザを閉じる。demo終了
     Demo_NetworkEvent.quit
 End Sub
 

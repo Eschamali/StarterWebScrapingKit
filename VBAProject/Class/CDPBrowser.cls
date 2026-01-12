@@ -133,8 +133,13 @@ Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window
 Private Const ERR_TIMEOUT As Long = 900
 Private Const ERR_PIPE As Long = 901
 Private Const ERR_PROTOCOL As Long = 902
+Private Const ERR_DictionaryStructure As Long = 903
 Private Const TIMEOUT_DEFAULT As Single = 30
 Private Const TIMEOUT_NAVIGATE As Single = 45
+
+'`objAllMessages`Dictionary内部の構造名設定
+Private Const objAllMessagesName01 As String = "TotalEvents"
+Private Const objAllMessagesName02 As String = "EventMethods"
 
 '===================================
 ' Global Variables
@@ -159,7 +164,6 @@ Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
-Private MessagesCount As Long           'ブラウザからのイベントデータが何回呼ばれたかをカウントします
 Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
@@ -1389,27 +1393,42 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・`Set BrowserEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
 '            ・`Set BrowserEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
+'* 注意事項：Set プロパティ使用時、簡易的なDictionary構造のチェックを行います。構造が違うDictionaryを渡された場合、警告メッセージが出て、停止します。
 '***************************************************************************************************
 Property Get BrowserEvents() As Dictionary
     Set BrowserEvents = objAllMessages
 End Property
 
 Property Set BrowserEvents(ObjDic As Dictionary)
-    Set objAllMessages = ObjDic
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからのイベントカウントに関するプロパティを行います
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：呼び出した時点での、ブラウザイベントカウント
-'* LET引数 ：リセットやカウントの引き継ぎをしたい場合に使用します
-'***************************************************************************************************
-Property Get BrowserEventsCount() As Long
-    BrowserEventsCount = MessagesCount
-End Property
-
-Property Let BrowserEventsCount(TakeoverCount As Long)
-    MessagesCount = TakeoverCount
+    'SetされたDictionaryの構造をチェックします
+    '1. そもそもDictionary オブジェクトが備わっているか？
+    If ObjDic Is Nothing Then
+        'Nothing として定義されてる場合は、破棄します
+        Set objAllMessages = ObjDic      '実質、`Nothing`処理
+    
+        printMsg "Event capture save data has been discarded. Event capture will not be performed."
+        
+    '2. まっさらの場合
+    ElseIf ObjDic.Count = 0 Then
+        '`New Dictionary`して、カウントもリセットさせます
+        Set objAllMessages = ObjDic      '実質、`New Dictionary`処理
+        
+        '初期構造を作成します
+        objAllMessages.Add objAllMessagesName01, 0                   '合計イベントキャプチャ数
+        objAllMessages.Add objAllMessagesName02, New Dictionary      'イベントキャプチャDictionaryデータ
+    
+        printMsg "A new event capture save data has been created. Starts event capture."
+    
+    '3. 指定のKeyがあるか？
+    ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) Then
+        Set objAllMessages = ObjDic     '既存データをセット
+        
+        printMsg "Existing event capture save data was successfully loaded. Resume event capture with this save data."
+    
+    '4. 不正なDictionary 形式なのでエラーで止める
+    Else
+        Err.Raise ERR_DictionaryStructure, Description:="Event capture save data structure is invalid."
+    End If
 End Property
 
 '***************************************************************************************************
@@ -1505,7 +1524,6 @@ RetrySend:
    'Read message returned by browser
    '------------------------------------------------
     Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
-    Dim LocalMessagesCount As Long
     
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
@@ -1556,8 +1574,8 @@ RetrySend:
 17                  Set results = core.jsConverter.ParseJson(tmp)
 
                     'イベント内容を確認するモードなら、格納しておく
-18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, MessagesCount                 'パブリック用
-19                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results, LocalMessagesCount  'プライベート用
+18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
+19                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results  'プライベート用
 
                     '実行コマンド結果であるか？
 20                  If results.Exists("id") Then
@@ -1642,37 +1660,41 @@ End Function
 '* 実質返値：Accumulator
 '* 引数　　：Accumulator    これまでの格納イベント。
 '            eventData      Json-Dictionry済みのブラウザからのイベントデータ
-'            Counter        呼ばれた回数。参照渡しにより、カウントは引き継がれます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
-'            時系列データ(Index値)もおまけとして残しておきます。
+'            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, Counter As Long)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
     ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
-    Dim eventMethod As String
-    If eventData.Exists("method") Then eventMethod = eventData("method") Else Exit Sub
+    Dim EventMethodName As String
+    If eventData.Exists("method") Then EventMethodName = eventData("method") Else Exit Sub
 
-    ' インデックスを付与(1始まり)
-    ' これにより、全体の時系列データも保持できます
-    Counter = Counter + 1
-    eventData.Add "__index__", Counter
+    ' 合計イベントキャプチャ数をカウントする
+    Accumulator(objAllMessagesName01) = Accumulator(objAllMessagesName01) + 1
     
+    ' インデックスも付与(1始まり)
+    ' これにより、全体の時系列データも保持できます
+    eventData.Add "__index__", Accumulator(objAllMessagesName01)
+    
+    ' 1.イベントメソッドデータがあるDictionaryに遷移
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(objAllMessagesName02)
 
-    ' 1. このイベント名の「仕切り板」が、すでにあるか？
+    ' 2. このイベント名の「仕切り板」が、すでにあるか？
     Dim eventList As Collection
-    If Not Accumulator.Exists(eventMethod) Then
+    If Not EventsDictionary.Exists(EventMethodName) Then
         ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
         Set eventList = New Collection
-        Accumulator.Add eventMethod, eventList
+        EventsDictionary.Add EventMethodName, eventList
     Else
         ' あれば、その仕切り板の後ろにある、既存の束を取り出す
-        Set eventList = Accumulator(eventMethod)
+        Set eventList = EventsDictionary(EventMethodName)
     End If
     
-    ' 2. 取り出した束に、今回のイベントの詳細データを、追加する
+    ' 3. 取り出した束に、今回のイベントの詳細データを、追加する
     eventList.Add eventData
-    printMsg "Stored event data from the browser. - " & eventMethod
+    
+    printMsg "Stored event data from the browser. - " & EventMethodName
 End Sub
 
 Private Function attachToSession() As Integer
@@ -1694,7 +1716,13 @@ Private Function attachToSession() As Integer
     
     On Error GoTo ifError
     
+    '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
     Dim EventMessageForAttachToSession As New Scripting.Dictionary
+    
+    '初期構造を作成します
+    EventMessageForAttachToSession.Add objAllMessagesName01, 0                   '合計イベントキャプチャ数
+    EventMessageForAttachToSession.Add objAllMessagesName02, New Dictionary      'イベントキャプチャDictionaryデータ
+
 1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", EventMessageForAttachToSession)
     printMsg "Now looking for the browser window"
     
@@ -1704,7 +1732,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession(objAllMessagesName02)("Target.targetCreated")
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
