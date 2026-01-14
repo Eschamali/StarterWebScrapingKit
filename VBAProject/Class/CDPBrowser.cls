@@ -688,7 +688,7 @@ searchit:
     bestScore = -1
     candidateTabId = ""
     For Each Obj In targets
-        If Obj("type") = "page" Then
+        If Obj("type") = SearchType Then
             score = -1
             Select Case True
                 Case tabName <> ""
