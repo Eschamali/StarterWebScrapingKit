@@ -30,6 +30,8 @@
 * **高速・高機能なJSONパーサー**
   * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
   * ※メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
+* **高速な文字コード変換パーサー**
+  * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
 
 ※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
 
@@ -263,10 +265,15 @@ End Sub
 新設された **`BrowserEvents`プロパティ**こそが、その **革命の"鍵"** です。
 
 `Demo_CDP.bas`内の`ネットワークイベントの確認`プロシージャは、`BrowserEvents`プロパティを活用した、高度なイベントハンドリングの実践的なデモです。  
-このデモは、**①有効化、②無効化（と状態の退避）、③退避した状態からの再開**、という3つのフェーズで構成されています。
+このデモは、**①有効化、②無効化（と状態の退避）、③退避した状態からの再開**、という3つのフェーズで構成されています。  
+ついでに、日本語+絵文字の送信も正しく行えてるかのテストも兼ねています。(`常にUTF-8でCDP-Json送信`がONになってる必要があります)
 
 ```bas
 Sub ネットワークイベントの確認()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New CDPJConv
+    Dim CharConvObj As New CharacterCodeConversion:
+    
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
@@ -282,12 +289,10 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Dim JsonDicObj As CDPJConv
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
-    Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
     
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -297,13 +302,14 @@ Sub ネットワークイベントの確認()
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
+    Demo_NetworkEvent.notify "Office田中のYouTube動画に遷移しました" & WorksheetFunction.Unichar(129418)     '日本語兼絵文字表示テスト
+    Demo_NetworkEvent.sleep 5
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
-    Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -318,7 +324,7 @@ Sub ネットワークイベントの確認()
 
     'イベント情報をDownloadsフォルダに保存
     Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -332,12 +338,13 @@ End Sub
 * これにより、イベントキャプチャが**有効**になり、`navigate`中に発生した全ての非同期イベントが、その`Dictionary`に蓄積されます。
 * デモでは、この結果が`Event.json`に保存されることを確認します。
 
-#### **フェーズ2：イベントキャ-プチャの無効化と、状態の"セーブ"**
+#### **フェーズ2：イベントキャプチャの無効化と、状態の"セーブ"**
 
 * まず、現在の`BrowserEvents`プロパティが保持している`Dictionary`オブジェクトの**参照**を、`SaveDataEvents`という、別のローカル変数に **退避（Set）** させます。
 * 次に、`BrowserEvents`プロパティに`Nothing`をセットします。
 * これにより、イベントキャプチャは**無効**となり、`navigate`中に発生したイベントは、すべて破棄されます。
 * デモでは、`NotEvent.json`のファイルサイズが0バイトとなり、イベントがキャプチャされていないことを確認します。
+* また、日本語+絵文字で記述した内容そのまんまが、ブラウザ右下の通知に表示されていることも確認できます。
 
 #### **フェーズ3：退避した状態からの、キャプチャ"再開"**
 
