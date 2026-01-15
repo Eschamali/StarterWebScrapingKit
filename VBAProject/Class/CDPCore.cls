@@ -168,8 +168,31 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
-Public jsConverter As New CDPJConv
- 
+Private Utf8Converter As CharacterCodeConversion
+
+
+
+'***************************************************************************************************
+'                               ■■■ プロパティ機能 ■■■
+'***************************************************************************************************
+'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：UTF-8 の変換が作動してるかの論理値
+'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
+'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
+'***************************************************************************************************
+Property Let UseConverterUtf8FromString(Flag As Boolean)
+    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
+End Property
+
+Property Get UseConverterUtf8FromString() As Boolean
+    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
+End Property
+
+
+
 '===================================
 ' Class Functions
 '===================================
@@ -388,6 +411,30 @@ Public Function writeProc(ByVal strData As String) As Long
  
     Dim lngWritten As Long
     
-    writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
- 
+    'UTF-8バイト配列を使用するか？
+    If Utf8Converter Is Nothing Then
+        'VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+        writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
+    Else
+        'VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列を取得します
+        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData, True)
+
+        'そのバイト配列として、コマンドを送ります
+        writeProc = WriteFile(hCDPInWr, ByVal StrPtr(BinData), UBound(BinData) + 1, lngWritten, ByVal 0&)
+    End If
 End Function
+
+
+
+'***************************************************************************************************
+'* 機能　　：設定シートから、設定値を読み込みます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：クラスモジュール構築時、設定値を適用させます
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
+    End With
+End Sub
