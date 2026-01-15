@@ -169,6 +169,7 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
+Private jsConverter As New CDPJConv
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -362,9 +363,9 @@ step1:
     
    'Construct message for sending ----------------------------------------------------------
     strMessage = "{""method"":""Runtime.evaluate"",""params"":{""expression"":""1+1;""}}"
-    Set objMessage = core.jsConverter.ParseJson(strMessage)
+    Set objMessage = jsConverter.ParseJson(strMessage)
     objMessage.Item("params").Item("expression") = strString & ";"
-    strMessage = core.jsConverter.ConvertToJson(objMessage)
+    strMessage = jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
         
    'Send and check result -------------------------------------------------------------------------------------------
@@ -1302,7 +1303,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim paramStr As String
     Dim results As Scripting.Dictionary
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = core.jsConverter.ConvertToJson(params)
+    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
     Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
 
    'Print error if there is
@@ -1310,7 +1311,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
 
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & core.jsConverter.ConvertToJson(results("result"))
+    If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results("result"))
 
 End Function
 
@@ -1565,7 +1566,7 @@ RetrySend:
                     End If
                     
                     '受信データを Json-Dictionary として変換
-17                  Set results = core.jsConverter.ParseJson(tmp)
+17                  Set results = jsConverter.ParseJson(tmp)
 
                     'イベント内容を確認するモードなら、格納しておく
 18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
@@ -1714,7 +1715,7 @@ Private Function attachToSession() As Integer
 ' Updated: 03/05/23 - Added printMsg msgs & removed URL checking req.
 '-----------------------------------------------------------------------
 ' Note: if needed to read the returned message result from sendMessage,
-' type ?core.jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
+' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
     
     Dim results As Scripting.Dictionary
@@ -1769,11 +1770,11 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
-    printMsg "EventMessageForAttachToSession = " & core.jsConverter.ConvertToJson(objAllMessages)
-    printMsg "results = " & core.jsConverter.ConvertToJson(results)
-    printMsg "results_ = " & core.jsConverter.ConvertToJson(results_)
-    printMsg "results__ = " & core.jsConverter.ConvertToJson(results__)
-    printMsg "results___ = " & core.jsConverter.ConvertToJson(results___)
+    printMsg "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages)
+    printMsg "results = " & jsConverter.ConvertToJson(results)
+    printMsg "results_ = " & jsConverter.ConvertToJson(results_)
+    printMsg "results__ = " & jsConverter.ConvertToJson(results__)
+    printMsg "results___ = " & jsConverter.ConvertToJson(results___)
     printMsg ".start call string: " & brCallString
     
     printParams
