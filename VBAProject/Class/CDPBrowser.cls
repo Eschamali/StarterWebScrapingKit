@@ -1068,7 +1068,7 @@ Public Sub notify(msg)
 
 End Sub
 
-Public Sub snapPage(fullNameWithPngExtension As String, Optional getFullPage As Boolean = False)
+Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPage As Boolean = False)
 '----------------------------------------------------------------------------------
 ' Capture a screenshot of the entire HTML page from the top to bottom. The method
 ' employs html2canvas external library is which loaded via addJsLibrary. To snap
@@ -1103,8 +1103,8 @@ Public Sub snapPage(fullNameWithPngExtension As String, Optional getFullPage As 
    'Save to the same folder if not indicated
     If Not invokeError(r) Then
         b64 = r("data")
-        SaveBase64ToFile b64, fullNameWithPngExtension
-        printMsg "Screenshot saved to: " & fullNameWithPngExtension
+        SaveBase64ToFile b64, FolderPath, FileName
+        printMsg "Screenshot saved to: " & FolderPath & "\" & FileName
     End If
 
 End Sub
@@ -2177,12 +2177,12 @@ Private Sub Class_Initialize()
         
 End Sub
 
-Private Sub SaveBase64ToFile(strB64 As String, strPath As String)
+Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As String)
 '----------------------------------------------------------------------------------
 ' Decode a base64 string and save to file without external dependencies (late bound).
 '----------------------------------------------------------------------------------
 
-    Dim dom As Object, el As Object, Bytes() As Byte, stm As Object
+    Dim dom As Object, el As Object, Bytes() As Byte, CharConv As CharacterCodeConversion
 
     Set dom = CreateObject("MSXML2.DOMDocument")
     Set el = dom.createElement("tmp")
@@ -2190,12 +2190,8 @@ Private Sub SaveBase64ToFile(strB64 As String, strPath As String)
     el.Text = strB64
     Bytes = el.nodeTypedValue
 
-    Set stm = CreateObject("ADODB.Stream")
-    stm.Type = 1
-    stm.Open
-    stm.Write Bytes
-    stm.SaveToFile strPath, 2
-    stm.Close
+    Set CharConv = New CharacterCodeConversion
+    CharConv.BytesToSaveFile Bytes, FolderPath, FileName
 
 End Sub
 
