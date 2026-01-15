@@ -76,6 +76,10 @@ End Sub
 '* 注意次項：ここでは、ネットワークイベントのデモですが、他のイベントも同じ操作でとらえることができます
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New CDPJConv
+    Dim CharConvObj As New CharacterCodeConversion:
+    
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
     
@@ -91,12 +95,10 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Dim JsonDicObj As CDPJConv
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
-    Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
     
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -106,13 +108,14 @@ Sub ネットワークイベントの確認()
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
+    Demo_NetworkEvent.notify "Office田中のYouTube動画に遷移しました" & WorksheetFunction.Unichar(129418)     '日本語兼絵文字表示テスト
+    Demo_NetworkEvent.sleep 5
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
-    Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -127,7 +130,7 @@ Sub ネットワークイベントの確認()
 
     'イベント情報をDownloadsフォルダに保存
     Set JsonDicObj = New CDPJConv
-    SaveFileAsUTF8 JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -339,10 +342,10 @@ Sub getSnapShot()
 
    'Snap a portion of the page based on the element indicator
    'If the second argument is omitted, snapPage will snap the entire page
-    Dim fileName As String
-    fileName = Environ("UserProfile") & "\Downloads\todaySGDvsVND.png"
-    chrome.snapPage fileName 'chrome.snapPage(fileName, True) to capture the entire page instead
-    chrome.notify "Screenshot captured under " & fileName
+    Dim FileName As String
+    FileName = Environ("UserProfile") & "\Downloads\todaySGDvsVND.png"
+    chrome.snapPage FileName 'chrome.snapPage(fileName, True) to capture the entire page instead
+    chrome.notify "Screenshot captured under " & FileName
  
 End Sub
  
@@ -407,41 +410,6 @@ Sub switchMain()
 End Sub
 
 
-
-'***************************************************************************************************
-'* 機能　　：文字列変数をUTF-8形式で保存します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：contents       保存したい`As String`変数を指定
-'            FolderPath     保存先フォルダパス
-'            fileName       保存ファイル名
-'***************************************************************************************************
-Sub SaveFileAsUTF8(contents As String, FolderPath As String, fileName As String)
-    '空文字の場合は、違う機能で保存しておく
-    If contents = "" Then Open FolderPath & "\" & fileName For Output As #1: Close #1: Exit Sub
-    
-    Dim tmp() As Byte
-    With CreateObject("ADODB.Stream")
-        'まずは、UTF-8として書き込む
-        .Charset = "UTF-8"
-        .Open
-        .WriteText contents
-        
-        'cursor位置を先頭に
-        .Position = 0
-        
-        'バイナリ操作モードにする
-        .Type = 1
-        .Position = 3   '先頭から、3バイト分、ずらす
-        tmp = .Read     'この状態で、バイナリを読み込む
-        .Close
-
-        '再Openして、バイナリとして保存
-        .Open
-        .Write tmp
-        .SaveToFile FolderPath & "\" & fileName, 2
-        .Close
-    End With
-End Sub
 
 '***************************************************************************************************
 '* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
