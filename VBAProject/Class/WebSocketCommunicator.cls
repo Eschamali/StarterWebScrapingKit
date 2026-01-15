@@ -70,12 +70,12 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
 
 ''Websocket受信に使用(自作構造体)
 Private Type response
-    Buffer(4095) As Byte     '第1引数
+    Buffer(4095) As Byte    '第1引数
     BufferLength As Long    '第2引数
     ReceiveBytes As Long    '第3引数
-    Status As Long              '第4引数
+    Status As Long          '第4引数
     CurrentPointer As Long  '第5引数
-    result As Long               '戻り値
+    result As Long          '戻り値
     collect As Collection
 End Type
 
@@ -135,7 +135,7 @@ End Property
 '
 '* 返り値  ：エラーコード   ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
+'* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
 '* 注意事項：現時点は、プレーンテキスト送信のみ対応です
 '***************************************************************************************************
 Public Function SendMessage(message As String) As Long
@@ -144,13 +144,14 @@ Public Function SendMessage(message As String) As Long
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
     'テキストメッセージをUTF-8バイト配列に変換
+    Dim CharConv As New CharacterCodeConversion
+    Dim ary() As Byte: ary = CharConv.BytesFromString(message)  'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     'message = StrConv(message, vbFromUnicode)
-    Dim ary() As Byte: ary = StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     
     '変換したバイト配列のサイズを取得
     Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
-    
-    '求めたサイズを基に一括送信
+
+    '求めたサイズで、一括送信
     Dim result As Long
     result = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
@@ -173,7 +174,7 @@ End Function
 '* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
+'* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
 '* 注意事項：・受信データがない状態でこれを呼び出すと、受信データが来るまで、フ　リ　ー　ズ　します。ネット切断することで、40s前後でフリーズ回避できます。
 '            ・現時点は、プレーンテキスト受信のみ対応です
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
@@ -292,59 +293,6 @@ Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, Recei
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：プレーンテキスト「文字列(String)」で送る際、UTF-8バイト配列(Byte())に変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：str        プレーンテキスト「文字列(String)」
-'* 返り値  ：UTF-8バイト配列
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策
-'***************************************************************************************************
-Private Function StringToUtf8Bytes(ByVal str As String) As Byte()
-    With CreateObject("ADODB.Stream")
-        .Type = 2 ' adTypeText
-        .Charset = "UTF-8"
-        .Open
-        .WriteText str
-        
-        ' ストリームの先頭に戻ってバイト型に変更
-        .Position = 0
-        .Type = 1 ' adTypeBinary
-        
-        ' BOM（先頭3バイト）をスキップして読む
-        .Position = 3
-        StringToUtf8Bytes = .Read
-        
-        .Close
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：バイナリデータをプレーンテキスト「UTF-8文字列(String)」に変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：bytes  バイナリデータ
-'* 返り値  ：プレーンテキスト「UTF-8文字列(String)」
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：当然ですが、バイナリデータが、UTF-8バイト配列になっていないと、文字化けします
-'***************************************************************************************************
-Private Function Utf8BytesToString(ByRef Bytes() As Byte) As String
-    With CreateObject("ADODB.Stream")
-        .Type = 1 ' adTypeBinary
-        .Open
-        .Write Bytes
-        
-        ' 先頭に戻ってテキストモードに変更
-        .Position = 0
-        .Type = 2 ' adTypeText
-        .Charset = "UTF-8"
-        
-        ' 文字列として読み出す
-        Utf8BytesToString = .ReadText
-        
-        .Close
-    End With
-End Function
-
-'***************************************************************************************************
 '* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にUTF-8変換します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：collect  コレクションバイト配列
@@ -375,23 +323,11 @@ Private Function MakeResponseMessage(collect As Collection) As String
         For i = 0 To UBound(chunk)
             fullBytes(currentPos) = chunk(i)
             currentPos = currentPos + 1
-        Next i
-    Next chunk
-    
+        Next
+    Next
+
     ' 4. ここでUTF-8変換！（さっきの関数を使う）
-    ' ※末尾のヌル文字(vbNullChar)除去は、UTF-8変換後にやるか、
-    '   変換前にサイズ調整するかですが、ADODBはヌル文字もそのまま変換してくれるので
-    '   変換後にReplaceかLeftで切るのが安全です。
-    
-    Dim resultStr As String
-    resultStr = Utf8BytesToString(fullBytes)
-    
-    ' 5. ヌル文字除去（もしあれば）
-    Dim nullPos As Long
-    nullPos = InStr(resultStr, vbNullChar)
-    If nullPos > 0 Then
-        MakeResponseMessage = Left(resultStr, nullPos - 1)
-    Else
-        MakeResponseMessage = resultStr
-    End If
+    ' ※末尾のヌル文字(vbNullChar)除去も行う
+    Dim CharConv As New CharacterCodeConversion
+    MakeResponseMessage = Split(CharConv.BytesToString(fullBytes), vbNullChar)(0)
 End Function
