@@ -18,7 +18,6 @@ Option Explicit
 '***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
-Private Const NO_ERROR As Long = 0
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
    ByVal eBufferType As Long, _
@@ -150,15 +149,17 @@ Public Function SendMessage(message As String) As Long
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
     'テキストメッセージをUTF-8バイト配列に変換
+    Dim CharConv As New CharacterCodeConversion
+    Dim ary() As Byte: ary = CharConv.BytesFromString(message)  'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     'message = StrConv(message, vbFromUnicode)
     Dim ary() As Byte: ary = ShSetting02_StartWebSocket.StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
     
     '変換したバイト配列のサイズを取得
     Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
-    
-    '求めたサイズを基に一括送信
-    Dim result As Long
-    result = WinHttpWebSocketSend(UseWebsockethandle, _
+
+    '求めたサイズで一括送信し、実行結果コードを返却
+    '※呼び出し側で、エラーかの確認をしてください
+    SendMessage = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
                         VarPtr(ary(0)), messageByteSize)
 
@@ -172,7 +173,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
+'* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
 '* 注意事項：・受信データがない状態でこれを呼び出すと、受信データが来るまで、フ　リ　ー　ズ　します。ネット切断することで、40s前後でフリーズ回避できます。
 '            ・現時点は、プレーンテキスト受信のみ対応です
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
@@ -268,7 +269,7 @@ Public Function CloseWebSocket() As Boolean
     Dim result As Long
     result = WinHttpWebSocketClose(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
-    If result <> NO_ERROR Then GoTo quit
+    If result Then GoTo quit
 
     ' サーバーから返されたクローズステータスを確認する。
     Dim CloseReasonBuffer(123) As Byte
@@ -278,14 +279,14 @@ Public Function CloseWebSocket() As Boolean
     
     result = WinHttpWebSocketQueryCloseStatus(UseWebsockethandle, Status, _
                         CloseReasonBuffer(0), BufferSize, CloseReasonLength)
-    If result <> NO_ERROR Then GoTo quit
+    If result Then GoTo quit
     If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS Then GoTo quit
 
     CloseWebSocket = True
 Exit Function
 
 quit:
-If result <> NO_ERROR Then Debug.Print result
+If result Then Debug.Print result
 Debug.Print "The server closed the connection with status code: " & Status
 Dim strCloseReason As String
 Dim i As Long

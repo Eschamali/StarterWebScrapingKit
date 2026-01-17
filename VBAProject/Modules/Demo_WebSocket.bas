@@ -134,20 +134,29 @@ Sub WebSocketSyncDemo1()
 
     '成功判定
     If ResultHandleCode Then
-        Debug.Print "Websocket success"
+        Debug.Print "Websocket connect is success."
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
         Debug.Print WebsocketObj.GetMessageForSync
 
         '1件分の送受信をしてみる
         '※WorksheetFunction.Unichar　は絵文字を送るときに使えます
-        WebsocketObj.SendMessage "うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418)
-        Debug.Print WebsocketObj.GetMessageForSync
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418))
+        
+        '実行結果確認
+        Dim ErrorMes As New WinApiError
+        If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        
+        '受信メッセージを受け取る
+        Debug.Print WebsocketObj.GetMessage(ResultCode)
+
+        '実行結果確認
+        If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
 
         '---- 後始末 (ハンドルの再利用の場合は、コメントアウトしてね) ----
         CleanWebsocketHandle ResultHandleCode
     Else
-        Debug.Print "Websocket failed"
+        Debug.Print "Websocket connect is failed."
     End If
 End Sub
 
@@ -168,22 +177,28 @@ Sub WebSocketSyncDemo2()
 
     '成功判定
     If ResultHandleCode Then
-        Debug.Print "Websocket success"
+        Debug.Print "Websocket connect is success."
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
 
         '1件分の送信をしてみる(接続先のブラウザにある全cookie情報抽出)
-        '※長文Responseテストも兼ねてます
-        Debug.Print WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Network.getAllCookies""," & _
                   """params"":{}}")
-        
-        Debug.Print WebsocketObj.GetMessageForSync
-        
+
+        '実行結果確認
+        Dim ErrorMes As New WinApiError
+        If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+
+        '受信メッセージを受け取る
+        Debug.Print WebsocketObj.GetMessage(ResultCode)
+
+        '実行結果確認
+        If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
         '---- 後始末 (ハンドルの再利用の場合は、コメントアウトしてね) ----
         CleanWebsocketHandle ResultHandleCode
     Else
-        Debug.Print "Websocket failed"
+        Debug.Print "Websocket connect is failed."
     End If
 End Sub
 
@@ -200,45 +215,18 @@ Sub ReConnectWebSocketSyncDemo()
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    '送受信テスト
-    WebsocketObj.SendMessage ("{""id"":" & 1 & "," & _
+    '送信テスト
+    Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Browser.getVersion""," & _
                   """params"":{}}")
-                
-    Debug.Print WebsocketObj.GetMessageForSync()
-End Sub
 
+    '実行結果確認
+    Dim ErrorMes As New WinApiError
+    If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
+    '受信メッセージを受け取る
+    Debug.Print WebsocketObj.GetMessage(ResultCode)
 
-'***************************************************************************************************
-'                           ■■■ ヘルパープロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：既存のWebSocketハンドル値を使って、ハンドル破棄の手続きをします
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：WebsocketHandle    WebSocketを終了させたいハンドル
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：・サーバーに通信終了依頼をして、WebSocketのハンドルを破棄します
-'            ・エラーになったWebSocketハンドルの場合は、メッセージboxの応答で、そのままハンドル破棄に移れます
-'***************************************************************************************************
-Private Sub CleanWebsocketHandle(websockethandle As LongPtr)
-    '1. オブジェクトを作成して、再接続用のLETメソッドにセット
-    Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
-    WebsocketObj.ReConnect = websockethandle
-
-    '2. サーバーに通信終了依頼を行う
-    '正常終了しなかった場合は、メッセージBoxで問う
-    Dim ResultMsg As Long
-    If Not (WebsocketObj.CloseWebSocket) Then
-        ResultMsg = MsgBox("サーバーへの終了依頼に失敗しました。" & vbCrLf & "VBEで、イミディエイトを御覧ください。" & vbCrLf & "解決しない場合は「はい」で、ハンドル破棄だけ行うことも可能です。" & vbCrLf & "続行しますか？", vbExclamation + vbYesNo, "Failure close")
-        
-        '「いいえ」の場合は、ここで抜ける
-        If ResultMsg = vbNo Then Exit Sub
-    End If
-    
-    '3. Handle破棄
-    Dim tmp As New WebSocketHTTPCommunicator
-    tmp.CloseHWebsocketHandle websockethandle
-
-    '終了通知
-    MsgBox "WebSocketを終了しました", vbInformation, "Success"
+    '実行結果確認
+    If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 End Sub

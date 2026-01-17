@@ -157,13 +157,14 @@ Public Sub CreateFromHttp(Client As WebClient, Request As WebRequest, Http As Ob
     Me.Content = Http.ResponseText
     If Err.Number Then
         ' エラーが発生した場合:
-        ' デバッグ用に、エラー情報を記録
-        Debug.Print "`Http.ResponseText`の取得中にエラーが発生しました。`Http.ResponseBody`から取得してください。"
+        ' デバッグ用に、エラー情報を表示
+        Debug.Print "`Http.ResponseText`の取得中にエラーが発生しました。`Http.ResponseBody`からUTF-8変換した文字列を代わりに代入します。"
         Debug.Print "エラー番号: " & Err.Number
         Debug.Print "エラー内容: " & Err.Description
         
-        ' 代わりにエラー文をセットする
-        Me.Content = "※" & Err.Description
+        ' `Http.ResponseBody`からUTF-8変換した文字列を代わりに代入
+        Dim CharConv As New CharacterCodeConversion
+        Me.Content = CharConv.BytesToString(Http.ResponseBody)
     End If
 
     'エラー無視は終わり

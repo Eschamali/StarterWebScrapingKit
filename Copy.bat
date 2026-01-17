@@ -14,7 +14,7 @@ copy /y %FromPath%*.cls %ToPATH%
 
 
 SET FromPath=Original\SeleniumVBA\src\VBA\
-copy /y %FromPath%WebJsonConverter.cls %ToPATH%CDPJConv.cls
+copy /y %FromPath%WebJsonConverter.cls %ToPATH%
 
 
 SET FromPath=Original\VBA-WEB\src\vbProject\VBA-Web\

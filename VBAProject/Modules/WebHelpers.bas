@@ -617,7 +617,7 @@ Public Function ParseByFormat(value As String, Format As VbWebFormat, _
 
     Select Case Format
     Case VbWebFormat.vbWebFormatJson
-        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
         Set ParseByFormat = APIConverter.ParseJson(value)
     Case VbWebFormat.vbWebFormatFormUrlEncoded
         Set ParseByFormat = ParseUrlEncoded(value)
@@ -680,7 +680,7 @@ Public Function ConvertToFormat(Obj As Variant, Format As VbWebFormat, Optional 
 
     Select Case Format
     Case VbWebFormat.vbWebFormatJson
-        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
         ConvertToFormat = APIConverter.ConvertToJson(Obj)
     Case VbWebFormat.vbWebFormatFormUrlEncoded
         ConvertToFormat = ConvertToUrlEncoded(Obj)

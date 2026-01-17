@@ -1,12 +1,3 @@
-VERSION 1.0 CLASS
-BEGIN
-  MultiUse = -1  'True
-END
-Attribute VB_Name = "CDPJConv"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = False
-Attribute VB_Exposed = False
 '=======================================================================================================
 ' JSON String Converter
 '-------------------------------------------------------------------------------------------------------
@@ -68,8 +59,6 @@ Attribute VB_Exposed = False
 ' (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ' SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
- 
-Option Explicit
  
 '===================================
 ' Win APIs Declarations
@@ -670,7 +659,7 @@ Private Function json_ParseKey(json_String As String, ByRef json_Index As Long) 
     
 End Function
  
- 
+
 Private Function json_IsUndefined(ByVal json_Value As Variant) As Boolean
  
     ' Empty / Nothing -> undefined
@@ -685,7 +674,7 @@ Private Function json_IsUndefined(ByVal json_Value As Variant) As Boolean
     End Select
     
 End Function
- 
+
  
 Private Function json_Encode(ByVal json_Text As Variant) As String
  

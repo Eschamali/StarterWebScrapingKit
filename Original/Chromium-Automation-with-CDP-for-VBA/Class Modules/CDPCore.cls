@@ -1,12 +1,3 @@
-VERSION 1.0 CLASS
-BEGIN
-  MultiUse = -1  'True
-END
-Attribute VB_Name = "CDPCore"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = False
-Attribute VB_Exposed = False
 '==============================================================================================================
 ' Core APIs to generate Pipes and read CDP message
 ' This class is used by Browser class (CDPBrowser)
@@ -16,6 +7,7 @@ Attribute VB_Exposed = False
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
 ' Last Update :
+'       24/10/25 Daniel Polak: added Option Explicit
 '       29/11/22 Long Vh: removed the serializability check + class_terminate to keep handles constantly
 '                         open for subsequent deserializations if needed.
 '       03/06/22 Long Vh: added extensive commentations + refactored codes for HSBC usages
@@ -27,11 +19,13 @@ Attribute VB_Exposed = False
 ' Sources     :
 '       Creating Pipe: https://stackoverflow.com/questions/62172551/error-with-createpipe-in-vba-office-64bit
 '==============================================================================================================
+ 
+Option Explicit
+ 
 '===================================
 ' Win APIs Declarations
 '===================================
-Option Explicit
-
+ 
 Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
     phReadPipe As LongPtr, _
     phWritePipe As LongPtr, _
@@ -40,23 +34,23 @@ Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
  
 Private Declare PtrSafe Function ReadFile Lib "kernel32" ( _
     ByVal hFile As LongPtr, _
-    ByRef lpBuffer As Any, _
+    ByVal lpBuffer As String, _
     ByVal nNumberOfBytesToRead As Long, _
     lpNumberOfBytesRead As Long, _
     ByVal lpOverlapped As Any) As Long
  
-Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProcessW" ( _
-    ByVal lpApplicationName As LongPtr, _
-    ByVal lpCommandLine As LongPtr, _
+Private Declare PtrSafe Function CreateProcessA Lib "kernel32" ( _
+    ByVal lpApplicationName As Long, _
+    ByVal lpCommandLine As String, _
     lpProcessAttributes As Any, _
     lpThreadAttributes As Any, _
     ByVal bInheritHandles As Long, _
     ByVal dwCreationFlags As Long, _
-    ByVal lpEnvironment As Any, _
-    ByVal lpCurrentDirectory As LongPtr, _
+    ByVal lpEnvironment As Long, _
+    ByVal lpCurrentDirectory As Long, _
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
-    
+ 
 Private Declare PtrSafe Function CloseHandle Lib "kernel32" ( _
     ByVal hObject As LongPtr) As Long
  
@@ -77,7 +71,7 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
  
 Private Declare PtrSafe Sub MoveMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
     Destination As Any, _
-    Source As Any, _
+    source As Any, _
     ByVal length As LongPtr)
  
 '===================================
@@ -190,8 +184,7 @@ Public Function serialize() As String
  
 End Function
  
- 
-Public Sub deserialize(strSerialized As String)
+Public Function deserialize(strSerialized As String)
 '--------------------------------------------------------------------
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
@@ -204,10 +197,9 @@ Public Sub deserialize(strSerialized As String)
     hCDPOutRd = objSerialize.Item("hCDPOutRd")
     hCDPInWr = objSerialize.Item("hCDPInWr")
  
-End Sub
+End Function
  
- 
-Public Function init(strExec As String) As Long
+Public Function init(strExec As String, Optional aboolSerializable As Boolean = False) As Integer
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -215,14 +207,18 @@ Public Function init(strExec As String) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
-    Dim result As Long
+    Dim hReadPipe As LongPtr, hWritePipe As LongPtr
+    Dim L As Long, result As Long, bSuccess As Long
+    Dim Buffer As String
+    Dim k As Long
+    
     Dim pipes As STDIO_BUFFER
     Dim pipes2 As STDIO_BUFFER2
  
    'First we create all 4 pipes
    'We start with stdout of the edge process
    'This pipe is used for stderr, too
-    sa.nLength = LenB(sa)
+    sa.nLength = Len(sa)
     sa.bInheritHandle = 1&
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
@@ -273,17 +269,17 @@ Public Function init(strExec As String) As Long
     
    'Define new instance parameters and start it
     With start
-        .cb = LenB(start)
+        .cb = Len(start)
         .dwFlags = STARTF_USESHOWWINDOW
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStdOutWr
         .wShowWindow = SW_SHOWMINIMIZED 'minimize the window at start
-        .cbReserved2 = LenB(pipes2)
+        .cbReserved2 = Len(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
     
-    result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
+    result = CreateProcessA(0&, strExec, sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
  
     If result = 0 Then init = -1
     
@@ -297,7 +293,6 @@ Public Function init(strExec As String) As Long
     init = 0
     
 End Function
- 
  
 Public Function readProcCDP(ByRef strData As String) As Long
 ' --------------------------------------------------------------------------------
@@ -317,7 +312,7 @@ Public Function readProcCDP(ByRef strData As String) As Long
         Dim L As Long
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
+        bSuccess = ReadFile(hCDPOutRd, Buffer, Len(Buffer), L, 0&)
         
         If bSuccess = 1 Then
             strData = Buffer
@@ -331,8 +326,8 @@ Public Function readProcCDP(ByRef strData As String) As Long
     End If
  
 End Function
-
-Public Function readProcSTD(ByRef strData As String) As Long
+ 
+Public Function readProcSTD(ByRef strData As String) As Integer
 ' --------------------------------------------------------------------------------
 ' Same as ReadProcCDP.
 '---------------------------------------------------------------------------------
@@ -346,7 +341,7 @@ Public Function readProcSTD(ByRef strData As String) As Long
         Dim L As Long
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hStdOutRd, ByVal Buffer, Len(Buffer), L, 0&)
+        bSuccess = ReadFile(hStdOutRd, Buffer, Len(Buffer), L, 0&)
         
         If bSuccess = 1 Then
             strData = Buffer
@@ -361,8 +356,7 @@ Public Function readProcSTD(ByRef strData As String) As Long
  
 End Function
  
- 
-Public Function writeProc(ByVal strData As String) As Long
+Public Function writeProc(ByVal strData As String) As Integer
 ' --------------------------------------------------------------------------------
 ' This functions sends a CDP message to the Chromium browser.
 '---------------------------------------------------------------------------------
@@ -372,5 +366,3 @@ Public Function writeProc(ByVal strData As String) As Long
     writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
  
 End Function
-
-

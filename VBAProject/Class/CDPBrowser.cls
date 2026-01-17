@@ -14,17 +14,38 @@ Attribute VB_Exposed = False
 '       ChrisK23 (Code Project)
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
+'       Daniel Polak (SYS, Supporting Your Systems B.V.)
 ' Last Update :
-'       18/08/23 Long Vh: - set core to Private i/o Public as it is meant to be Private.
-'       06/06/23 Long Vh: - applied recommendations by MitsOmitsaras for Access & Word compat.
-'       26/05/23 Long Vh: - made some tweaks for compatibility with Access & Word out-of-the-box
-'       26/04/23 Long Vh: - added .setMain for better tab management.
-'       22/03/23 Long Vh: - added many .getElementsBy methods.
-'                         - added advanced methods to extend features of CDP apps.
-'                         - changed deserialize/serialize methods to read from a temp file.
-'                         - added .snapPage method for capturing an entire web screen.
-'                         - added interactions with the new element class object.
-'                         - many other changes to improve debug handlings.
+'       31/12/25 Daniel Polak: - added BringWindowToTop and bringtoforeground
+'       24/10/25 Daniel Polak: - sendMessage: added soft re-attach attempt when pipe error
+'                              - snapPage: added CDP native screenshot capability which avoids use of external JavaScript library
+'                              - getTab: improved tab selection
+'                              - quit: avoid immediate hard kills, reduces race conditions, and makes shutdown behavior predictable and robust in non-responsive cases
+'                              - searchNull: new faster version
+'                              - use constants (ERR_TIMEOUT, ERR_PIPE, ERR_PROTOCOL, TIMEOUT_DEFAULT, TIMEOUT_NAVIGATE) instead of numbers for clarity
+'       23/10/25 Daniel Polak: - replaced unnecessary use of FileSystemObject
+'                              - added Option Explicit and added all required variable declarations
+'                              - quit: delete the one and only cdpid.txt
+'                              - Class_Initialize: prevent compilation errors
+'                              - cleanUpSessions: solved bug
+'                              - added DeleteCDPID so we use a function instead of repeating same code
+'                              - 64-bit safety: window handles as LongPtr
+'                              - start: added missing space before --homepage
+'                              - jsAddLib: fixed bug in check whether JS library is loaded
+'                              - getTab: fixed typo timeStart instead of timerStart and fixed bug 60000s instead of 60s
+'                              - cleanUpSessions: only terminate automation-processes
+'                              - snapPage: fixed bug where the all files in the Downloads folder were deleted instead of just the temporary screenshot
+'                              - getBrowserPath: added fallback path when registry lookup fails
+'       18/08/23 Long Vh:      - set core to Private i/o Public as it is meant to be Private.
+'       06/06/23 Long Vh:      - applied recommendations by MitsOmitsaras for Access & Word compat.
+'       26/05/23 Long Vh:      - made some tweaks for compatibility with Access & Word out-of-the-box
+'       26/04/23 Long Vh:      - added .setMain for better tab management.
+'       22/03/23 Long Vh:      - added many .getElementsBy methods.
+'                              - added advanced methods to extend features of CDP apps.
+'                              - changed deserialize/serialize methods to read from a temp file.
+'                              - added .snapPage method for capturing an entire web screen.
+'                              - added interactions with the new element class object.
+'                              - many other changes to improve debug handlings.
 ' References  :
 '       Microsoft Scripting Runtime
 ' Sources     :
@@ -36,9 +57,8 @@ Attribute VB_Exposed = False
 '================================================================================================
 Option Explicit
 
-Private Const CDPVer                    As String = "2.7.4"
+Private Const CDPVer                    As String = "3.0.0"
 Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
-Private Const UsePrivateOneDrive        As Boolean = True   '社内個人OneDriveの場合は、`False`にしてください
 '===================================
 ' Win APIs Declarations
 '===================================
@@ -60,6 +80,20 @@ Private Declare PtrSafe Function GetWindowText Lib "user32" Alias "GetWindowText
 Private Declare PtrSafe Function ShowWindow Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     ByVal nCmdShow As Long) As Boolean
+
+Private Declare PtrSafe Function BringWindowToTop Lib "user32" ( _
+    ByVal hWnd As LongPtr) As Long
+
+Private Declare PtrSafe Function SetForegroundWindow Lib "user32" ( _
+    ByVal hWnd As LongPtr) As Long
+
+'DJP 20241105 to solve problems with terminating sessions on terminal server
+Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
+    ) As Long
+
+Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
+    ByVal dwProcessId As Long, _
+    ByRef pSessionId As Long) As Long
 
 '===================================
 ' Constants
@@ -86,10 +120,26 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
+Public Enum TargetgetTargetsType
+    Page
+    iFrame
+End Enum
+
+
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
-Private Const seeRawSendMsgDbg As Boolean = False                   'set to True if needing to see the raw json msg received from the browser for debugging
+
+Private Const ERR_TIMEOUT As Long = 900
+Private Const ERR_PIPE As Long = 901
+Private Const ERR_PROTOCOL As Long = 902
+Private Const ERR_DictionaryStructure As Long = 903
+Private Const TIMEOUT_DEFAULT As Single = 30
+Private Const TIMEOUT_NAVIGATE As Single = 45
+
+'`objAllMessages`Dictionary内部の構造名設定
+Private Const objAllMessagesName01 As String = "TotalEvents"
+Private Const objAllMessagesName02 As String = "EventMethods"
 
 '===================================
 ' Global Variables
@@ -97,8 +147,8 @@ Private Const seeRawSendMsgDbg As Boolean = False                   'set to True
 
 Private core As CDPCore                 'Must be initialized for CDP engine
 Private lngLastID As Long               'Every message sent to edge has an ID
-Private strBuffer As String             'Buffer string, required for various win APIs
-Private brHWnd As LongPtr                  'Browser object window handle
+Private brHWnd As LongPtr               'Browser object window handle
+Private PieceData As String             'ストリーム受信で欠けたデータを一時的に蓄積するための変数です
 Private brWID As String                 'Useful for windows repositioning
 Private brType As String                'Browser type: either 'chrome' or 'edge'
 Private brUser As String                'Browser user profile
@@ -107,11 +157,19 @@ Private brID As String                  'The ID of the current CDPBrowser object
 Private brName As String                'The focused tab name / window name of the active CDPBrowser
 Private brURL As String                 'The focused tab url of the active CDPBrowser
 Private brVer As String                 'The current browser version
+Private brReAttach As Boolean           'Remember reAttach preference from start()
 Private brCallString As String          'The initial call string used by .start
 Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs for CDPElement reference - Added 02/03/2023
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
+Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
+Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
+Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
+Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
+Private logPath As String               'ログファイルの保存フォルダパス
+Private jsConverter As New WebJsonConverter
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -134,15 +192,18 @@ Public Sub start(Optional Name As String = "chrome", _
 ' To add additional arguments to the call string, use the addArguments parameter for instance:
 ' .start addArgs:="--disable-info-bar" (https://peter.sh/experiments/chromium-command-line-switches/)
 ' Note: not all arguments work the same for Chrome and Edge. Some may work for one but not the others.
-' Updated: 22/03/23 - Enhanced to dynamically retrieve installation path of the browser
-'          26/03/23 - Made some quality-of-life changes
+' Updated: 22/03/23 Long Vh:      - Enhanced to dynamically retrieve installation path of the browser
+'          26/03/23 Long Vh:      - Made some quality-of-life changes
+'          25/05/25 Long Vh:      - set default profile to "CDP" so that it can work with the latest chrome update
+'          23/10/25 Daniel Polak: - Added missing space before --homepage
 '--------------------------------------------------------------------------------------------------------------
 
     Dim strCall As String
     Dim result As Long
     Dim timeStart As Single
-                           
+
     timeStart = Timer
+    brReAttach = reAttach
 
    'Determine if already open -----------------------------------------------------
     If reAttach And isLive Then
@@ -203,23 +264,29 @@ Public Sub start(Optional Name As String = "chrome", _
     attachToSession     'Find and attach the newly open Session ID
     getSessionInfo      'Store initial session info for printParams debugging
     serialize           'Create a serial string for future attachment
-    printParams         'Print session info for debugging
-    printMsg "Browser initialization completed after " & Timer - timeStart & "s"
    '------------------------------------------------------------------------------
     
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-    Dim timerStart As Single, timerOut As Long, strLoc As String
+    Dim timerStart As Single, strLoc As String
+   
+   '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
+   'As a result, the below check simply checks if there is "movement" in the name of the page instead
     If appUrl <> "" Then
-        timerStart = Timer: timerOut = 45
+        timerStart = Timer
         Do
-            strLoc = jsEval("window.location.href", dbgMsg:=False)
-            If InStr(strLoc, appUrl) Then Exit Do 'Should be fuzzy check with Instr only as browser often mutates the original string
-            If Timer - timerStart > timerOut Then Err.Raise 900, , "Timeout waiting for the browser to load the homepage."
-            sleep 0.1
+            If Me.Name <> "" Then Exit Do
+            If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            DoEvents
         Loop
        wait
     End If
    '-------------------------------------------------------------------------------------------------------------------------------------
+
+   'Finally print the session details for debugging ------------------------------
+    printParams
+    printMsg "Browser initialization completed after " & Timer - timeStart & "s"
+   '------------------------------------------------------------------------------
+
 End Sub
 
 Private Sub serialize()
@@ -234,7 +301,7 @@ Private Sub serialize()
     'パイプ通信のハンドル情報も記録しておく
     Call core.serialize
 
-    'Excelの所定のワークシートに記録する
+    'Excelの所定のワークシート上のテーブル:ブラウザセッション情報 に記録する
     With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(2, "CDPBrowser.serialize")).DataBodyRange
             WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
@@ -245,7 +312,7 @@ Private Sub serialize()
     'printMsg "New serial string: " & serialize
 End Sub
 
-Private Sub deserialize()
+Public Sub deserialize()
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -261,16 +328,17 @@ Private Sub deserialize()
     
     'ハンドル情報の読み込みへ移る
 1   Call core.deserialize
-    
+
+    'Excelの所定のワークシート上のテーブルにある情報を読み込む
     With ShSetting01_StartBrowser
         With .ListObjects(.UseTableName(2, "CDPBrowser.deserialize")).DataBodyRange
 2           lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
 3           targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
     
 4           sessionID = attachToTab(targetID)
-        Exit Sub
         End With
     End With
+    Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
         
@@ -295,9 +363,9 @@ step1:
     
    'Construct message for sending ----------------------------------------------------------
     strMessage = "{""method"":""Runtime.evaluate"",""params"":{""expression"":""1+1;""}}"
-    Set objMessage = core.jsConverter.ParseJson(strMessage)
+    Set objMessage = jsConverter.ParseJson(strMessage)
     objMessage.Item("params").Item("expression") = strString & ";"
-    strMessage = core.jsConverter.ConvertToJson(objMessage)
+    strMessage = jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
         
    'Send and check result -------------------------------------------------------------------------------------------
@@ -351,7 +419,7 @@ End Function
 
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 '-----------------------------------------------------------------------
-' This sub is a quick wraper to navigate to an url.
+' This sub is a quick wrapper to navigate to an url.
 ' Updated 23/03/23
 '-----------------------------------------------------------------------
     Dim curURL As String
@@ -381,16 +449,25 @@ Public Sub quit()
 '-----------------------------------------------------------------------------------
     
     Dim results As Scripting.Dictionary
-    
+    Dim sngT As Single
+
     On Error Resume Next
     Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
-    
-    'Clean up CdpSessionID
-    Call CleanUpCdpSessionID
 
-    sleep 1   'It seems without waitng a bit the browser crashes and the next time it wants ro recover from a crash
-    printMsg "Browser was terminated."
-    
+    sngT = Timer
+    Do While isLive And Timer - sngT < 5
+        sleep 0.1
+        DoEvents
+    Loop
+    If isLive Then
+        printMsg "Browser didn't close gracefully within 5s; invoking cleanUpSessions."
+        cleanUpSessions
+    End If
+    Call deleteCDPID
+
+    sleep 1 'it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
+    printMsg "The browser has been terminated."
+
 End Sub
 
 Public Function isLive() As Boolean
@@ -428,6 +505,10 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
         Case isInteractive: targetState = "interactive"
         Case isComplete: targetState = "complete"
     End Select
+    
+    '初期値を設定しておく
+    '　どうせ最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
+    strState = "loading"
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
@@ -499,6 +580,21 @@ Public Sub hide()
 End Sub
 
 
+Public Function bringToForeground()
+'------------------------------------------------------------------
+' Brings the browser window to the foreground
+' Updated: Long Vh - 06/01/26 should be a function like others
+'------------------------------------------------------------------
+
+    If brHWnd = 0 Then brHWnd = getHandle
+    If brHWnd <> 0 Then
+        ShowWindow brHWnd, doShow
+        BringWindowToTop brHWnd
+        SetForegroundWindow brHWnd
+    End If
+
+End Function
+
 Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean) As CDPBrowser
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
@@ -528,6 +624,10 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    'Switch attachment to the new tab
     printMsg "newTab will now open a new CDP instance"
     Set newTab = New CDPBrowser
+    With ShSetting01_StartBrowser
+        '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.newTab")).value) Then newTab.deserialize
+    End With
     newTab.id = sessionID_
     If Url <> "" Then newTab.wait
 
@@ -539,57 +639,114 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     printMsg "Tab [" & brName & " | " & targetID & "] is now the main session tab for " & brID
 End Function
 
-
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional doRetry As Boolean = False) As CDPBrowser
-'------------------------------------------------------------------
-' Search and find the Session ID of the tab already open based on
-' its name or its url. tabName and url arguments can be partial. By
-' omitting both these arguments, getTab will try to attach to the
-' nearest unattached tab.
-' Update: 06/06/23 - Added doRetry argument
-'         03/05/23 - Combined the method with the getTabNew
-'------------------------------------------------------------------
-
+'***************************************************************************************************
+'* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPBrowser
+'* 引数　　：tabName    タブ名
+'            Url        URL
+'            setMain    たった今使ってる クラスモジュール - CDPBrowserに、この引数の結果に基づいて、セッションIDを置き換えます
+'            SearchType "page","iframe" といった、セッションの種類を指定します
+'            doRetry    `True`で、出現まで何回かリトライします。
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：01/08/26 Eschamali     - iframeへの切り替えができるように改良
+'            06/06/23               - Added doRetry argument
+'            03/05/23               - Combined the method with the getTabNew
+'            24/10/25 Daniel Polak  - Predictable, precise, and script-friendly tab selection that scales well when there are many similar tabs open
+'                                     Exact title and URL-prefix matching avoids accidentally selecting tabs with similar titles/URLs
+'            23/10/25 Daniel Polak  - Fixed typo timeStart instead of timerStart and fixed bug 60000s instead of 60s
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：tabName引数とurl引数は部分的な指定が可能です。SearchType はデフォルトは、"page"にしてます。
+'* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
+'***************************************************************************************************
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPBrowser
     Dim results As Scripting.Dictionary
-    Dim tabId As String
+    Dim tabId As String, candidateTabId As String, errMsg As String
     Dim timerStart As Single
     Dim targets As Object, Obj As Object
     Dim tabfound As Boolean
-    Dim errMsg As String
     Dim timeStart As Long
+    Dim bestScore As Long, score As Long
+    Dim info As String
 
     If doRetry Then timerStart = Timer
+    
+    'Typeを決める
+    Dim SearchType As String
+    Select Case SearchTypeID
+        Case TargetgetTargetsType.Page: SearchType = "page"
+        Case TargetgetTargetsType.iFrame: SearchType = "iframe"
+        Case Else: Err.Raise vbObjectError + 1, "CDPBrowser.getTab", "このパラメーターは、未定義です"
+    End Select
 
 searchit:
 
     Set results = invokeMethod("Target.getTargets")
     Set targets = results("targetInfos")
     
+    'スコア方式を利用して、理想の対象タブ情報を取得します
+    Const MaxScore As Long = 100
+    bestScore = -1
+    candidateTabId = ""
     For Each Obj In targets
-        If Obj("type") = "page" Then
+        If Obj("type") = SearchType Then
+            score = -1
             Select Case True
                 Case tabName <> ""
-                    If InStr(Obj("title"), tabName) Then tabfound = True Else errMsg = "with name containing """ & tabName & """"
+                    If Obj.Exists("title") Then
+                        If Obj("title") = tabName Then
+                            score = 100
+                        ElseIf InStr(Obj("title"), tabName) Then
+                            score = 50
+                        Else
+                            errMsg = "with name containing """ & tabName & """"
+                        End If
+                    End If
                 Case Url <> ""
-                    If InStr(Obj("url"), Url) Then tabfound = True Else errMsg = "with url containing """ & Url & """"
+                    If Obj.Exists("url") Then
+                        If Left$(Obj("url"), Len(Url)) = Url Then
+                            score = 90
+                        ElseIf InStr(Obj("url"), Url) Then
+                            score = 40
+                        Else
+                            errMsg = "with url containing """ & Url & """"
+                        End If
+                    End If
                 Case Else
-                    If Obj("attached") = False Then tabfound = True Else errMsg = "as no new unattached tab could be found"
+                    If Obj("attached") = False Then
+                        score = 80
+                    Else
+                        score = 30
+                        errMsg = "as no new unattached tab could be found"
+                    End If
             End Select
-            If tabfound Then
-                tabId = Obj("targetId")
-                Exit For
+            If score > bestScore Then
+                bestScore = score
+                candidateTabId = Obj("targetId")
             End If
+            
+            '最大スコアが出てるなら、捜査打ち切り
+            If bestScore = MaxScore Then Exit For
         End If
     Next
 
+    If bestScore >= 0 Then
+        tabfound = True
+        tabId = candidateTabId
+    End If
+
    'Do retry as long as not timeout (default 60s)
-    If Not tabfound And doRetry And Timer - timeStart < 60000 Then GoTo searchit
+    If Not tabfound And doRetry And Timer - timerStart < 60 Then GoTo searchit
 
    'Returns nothing if not found
    'Nothing is preferred over throwing error
-    If Not tabfound Then Exit Function
-
-    printMsg "Found the tab with ID: " & tabId
+    If Not tabfound Then
+        info = IIf(tabName <> "", tabName, IIf(Url <> "", Url, "(no new tab found)"))
+        printMsg "Unable to find the tab: " & info
+        Exit Function
+    Else
+        printMsg "Found the tab with ID: " & tabId & ". (確証度：" & bestScore & "%)"
+    End If
 
 searchsound:
    Dim sessionID_ As String
@@ -598,7 +755,13 @@ searchsound:
 
    'Return the new CDP object
     Set getTab = New CDPBrowser
+    With ShSetting01_StartBrowser
+        '`new CDP object`に、既存のパイプ通信情報を渡すため、OFFになっても、情報を渡すようにする
+        If Not (.Range(.UseRangeName(5, "CDPBrowser.getTab")).value) Then getTab.deserialize
+    End With
+
     getTab.id = sessionID_  'will also update the targetID
+    sleep 'give some time so that the debugging session can switch to the new tab
 
    'Set as main session tab if required
     If Not setMain Then Exit Function
@@ -624,7 +787,8 @@ Public Sub closeTab()
         End With
     End With
 
-    If targetID = mainID Then printMsg "Unable to close this tab " & targetID & " as it is the main session tab", doRaiseError:=True
+    '操作中のタブ自体を閉じないように仕向ける
+    If targetID = mainID Then printMsg "Unable to close this tab " & targetID & " as it is the main session tab", doRaiseError:=True: Exit Sub
            
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
@@ -735,7 +899,8 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' object in previous IE automation. Refer to the below for some examples.
 ' https://www.w3schools.com/jsref/met_document_queryselector.asp
 ' https://stackoverflow.com/a/29937844
-' Updated: 02/03/2023
+' https://www.w3.org/TR/selectors-3/#context
+' Updated: 08/11/2023
 ' Examples ------------------------------------------------------------------------
 ' eg.1 "#abc": get the first element with id attribute = abc
 ' eg.2 "tb.xyz": get the first element with tag tb and with class xyz
@@ -744,6 +909,15 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' eg.5 "[a1='abc'][a2='xyz']": get element with attribute a1 = abc and a2 = 123
 ' eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
 ' of an element with attribute a1 = abc
+' eg.7 "#processType [id*='select_option']": get child element with id text that
+' contains "select_option" and is a child of element with id "processType"
+' eg.8 "#upload:not([disabled])": get the first element with id=upload and does not
+' have attribute 'disabled'.
+' eg.9 "#upload:disabled": get the first element with id=upload and has attribute
+' 'disabled'.
+' eg.10 "#id1 tr:last-child [id*='invoiceno']": first get element with id text
+' 'id1', then look for the last child with tag 'tr', then finally look within the
+' child's children for the first element with id containing 'invoiceno'.
 '----------------------------------------------------------------------------------
     
    'Get a new unique varID
@@ -804,6 +978,7 @@ Public Sub jsAddLib(strURL As String)
 ' massive possibility of extended features.
 ' https://stackoverflow.com/a/57572107
 ' Updated: 23/03/2023
+'          23/10/2025 Daniel Polak - fixed bug in check whether JS library is loaded
 '----------------------------------------------------------------------------------
 ' Note: the script library should only be added after the page is fully loaded. If
 ' it is loaded when the HTML document is refereshing, it risks adding the script to
@@ -812,7 +987,7 @@ Public Sub jsAddLib(strURL As String)
 '----------------------------------------------------------------------------------
     
    'Check if already loaded, if so then no need to add again
-    If getElementByQuery("script[src='" & strURL & "']").varResult = "null" Then
+    If getElementByQuery("script[src='" & strURL & "']").varResult <> "null" Then
         printMsg "The HTML already contains the JS Library: """ & strURL & """"
         Exit Sub
     End If
@@ -831,79 +1006,107 @@ Public Sub jsAddLib(strURL As String)
    'Load the script URL
     jsEval "loadScript('" & strURL & "')"
     printMsg "Successfully added the JS Library: """ & strURL & """"
+
 End Sub
 
-Public Sub snapPage(Optional fileName As String = "mysnapshot", Optional targetElement As CDPElement)
+Public Sub jsAddScript(strLocalScriptPath As String)
+'----------------------------------------------------------------------------------
+' Load the contents of the local script file directly to the HTML page. This is
+' useful when you have a custom local script to add in a certain feature to a web
+' application (eg adding a custom popup message).
+' Updated: 01/12/2025
+'----------------------------------------------------------------------------------
+' Note: the library should only be added after the page is fully loaded. If
+' it is loaded when the HTML document is refereshing, it risks adding the script to
+' the old HTML document which will be replaced by the new one causing the script to
+' be inexistent and resulting in "ReferenceError" due to its functions not defined.
+'----------------------------------------------------------------------------------
+
+    If Dir(strLocalScriptPath) = "" Then Exit Sub
+
+    Dim fso As New FileSystemObject
+    jsEval fso.OpenTextFile(strLocalScriptPath).ReadAll 'Load the script contents
+    printMsg "Successfully added the local script: """ & strLocalScriptPath & """"
+
+    Set fso = Nothing
+
+End Sub
+
+Public Sub notify(msg)
+'----------------------------------------------------------------------------------
+' Send a custom notification message on the bottom right corner of the screen. This
+' popup message is nicer than alert() and it is not modal: ie. does not the user to
+' interact with it while pausing the automation.
+' Credit: Claude AI
+' Updated: 01/12/2025
+'----------------------------------------------------------------------------------
+
+   'Make sure backslash if any is escaped
+    msg = Replace(msg, "\", "\\")
+
+    jsEval "function showStatus(msg, duration = 10000) {" & _
+                "let c = document.getElementById('statusContainer');" & _
+                "if (!c) {" & _
+                    "c = document.createElement('div');" & _
+                    "c.id = 'statusContainer';" & _
+                    "c.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;';" & _
+                    "document.body.appendChild(c);" & _
+                "}" & _
+                "const m = document.createElement('div');" & _
+                "m.style.cssText = 'background:#4CAF50;color:white;padding:16px 24px;margin-top:10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;transition:all 0.3s;opacity:0;transform:translateX(400px);font-size:16px;font-family:system-ui,-apple-system,BlinkMacSystemFont,Roboto,sans-serif;font-weight:300;line-height:1.5;';" & _
+                "m.textContent = msg;" & _
+                "c.appendChild(m);" & _
+                "setTimeout(() => { m.style.opacity = '1'; m.style.transform = 'translateX(0)'; }, 10);" & _
+                "setTimeout(() => {" & _
+                    "m.style.opacity = '0';" & _
+                    "m.style.transform = 'translateX(400px)';" & _
+                    "setTimeout(() => c.removeChild(m), 300);" & _
+                "}, duration);" & _
+            "}"
+
+    jsEval "showStatus('" & msg & "')"
+
+End Sub
+
+Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPage As Boolean = False)
 '----------------------------------------------------------------------------------
 ' Capture a screenshot of the entire HTML page from the top to bottom. The method
 ' employs html2canvas external library is which loaded via addJsLibrary. To snap
 ' only a certain element within the page, indicate the same with the targetElement
 ' argument (default is "document.body" for the entire page).
 ' Original source: https://stackoverflow.com/a/51478809
-' Updated: 14/04/2023
+' Updated: 14/04/23
+'          23/10/25 Daniel Polak - fixed bug where the all files in the Downloads folder were deleted instead of just the temporary screenshot
+'          24/10/25 Daniel Polak - added CDP native screenshot capability which avoids use of external JavaScript library
+'          07/01/26 Long Vh      - removed the use of html2canvas js lib in favor of using the native CDP method to capture the page. Overhauled the function design.
 '----------------------------------------------------------------------------------
-' Note : Avoid saving the fileName with . as Chromium browser will likely reject
-'        the file and does not allow it to be downloaded. This function assumes the
-'        download folder is the default download folder.
+' Note : if getFullPage = false, snapPage will only get a screenshot of the current
+'        view. If true, it will get all the way from the start to the bottom. See
+'        demo.getSnapShot sub procedure for example.
 '----------------------------------------------------------------------------------
 
-   'Add the html2canvas library location ---------------------------------
-    jsAddLib "https://html2canvas.hertzen.com/dist/html2canvas.min.js"
-   '----------------------------------------------------------------------
+    Dim params As New Scripting.Dictionary
+    Dim r As Scripting.Dictionary
+    Dim b64 As String, tmpPng As String
 
-   'Clean up the Downloads folder ---------------------------------------------
-    Dim fso As Object, f As Object
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    For Each f In fso.GetFolder(Environ("USERPROFILE") & "\Downloads\").Files
-        f.Delete
-    Next f
-   '---------------------------------------------------------------------------
+   'Verify if the page can be captured with screenshot
+    Set r = invokeMethod("Page.getLayoutMetrics")
+    If invokeError(r) Then
+        printMsg "Unable to perform snapPage on this screen as it has no layout metrics."
+        Exit Sub
+    End If
 
-   'Run screen capture script
-   '(Javascript Original)
-    '    html2canvas(document.body, { scrollY: -window.scrollY }).then(function (canvas) {
-    '        var link = document.createElement('a');     //create an element tag a
-    '        link.href = canvas.toDataURL();             //save img data to href
-    '        link.download = 'file-name.png';            //file name
-    '        document.body.appendChild(link);            //add link to page
-    '        link.click();                               //click it for downloading
-    '        document.body.removeChild(link);            //then remove it
-    '    });
-    Dim callString As String, targetJS As String
-    If targetElement Is Nothing Then targetJS = "document.body" Else targetJS = targetElement.varName
-    callString = "html2canvas(" & targetJS & ", { scrollY: -window.scrollY }).then(function (canvas) { var link = document.createElement('a'); link.href = canvas.toDataURL(); link.download = '" & fileName & "'; document.body.appendChild(link); link.click(); document.body.removeChild(link); });"
-    Dim isRetrying As Boolean: isRetrying = False
-    Dim timerStart As Single, timerOut As Long, strReturn As String
-    timerStart = Timer: timerOut = 10   'seconds
-    Do
-        strReturn = jsEval(callString, Not isRetrying)
-        If InStr(strReturn, "html2canvas is not defined") = 0 Then Exit Do   'if html2canvas is loaded, move on, else retry connecting with html2canvas
-        If Timer - timerStart > timerOut Then printMsg "Timeout waiting for html2canvas to response.", doRaiseError:=True
-        If Not isRetrying Then printMsg "Retrying html2canvas execution...": sleep 0.1
-        isRetrying = True    'so that jsEval is not going to spam immediate window
-    Loop
+   'Perform the snip
+    If getFullPage Then params.Add "captureBeyondViewport", True
+    Set r = invokeMethod("Page.captureScreenshot", params)
 
-   'Grab the file from Downloads ------------------------------------------------------------------------------------------------
-   'Auto remove the dot char from original name to prevent download error
-    fileName = Replace(fileName, ".", "") & ".png"    'default file extension to .png
-    Dim filePath As String
-    filePath = Environ("USERPROFILE") & "\Downloads\" & fileName
-    timerStart = Timer: timerOut = 60   'seconds
-    While Dir(filePath) = ""   'Wait till image file is created
-        DoEvents
-        If Dir(filePath & ".crdownload") <> "" Then filePath = filePath & ".crdownload"   'Sometimes chrome just added this tail
-        If Timer - timerStart > timerOut Then printMsg "Timeout waiting for the screenshot download.", doRaiseError:=True
-    Wend
-   '-----------------------------------------------------------------------------------------------------------------------------
+   'Save to the same folder if not indicated
+    If Not invokeError(r) Then
+        b64 = r("data")
+        SaveBase64ToFile b64, FolderPath, FileName
+        printMsg "Screenshot saved to: " & FolderPath & "\" & FileName
+    End If
 
-   'Save to destination folder ----------------------------------
-    Dim destnPath As String
-    destnPath = OneDrivePathToLocalPath(thisApp.Path) & "\Saved Screens\"
-    If Dir(destnPath, vbDirectory) = "" Then MkDir (destnPath)
-    fso.GetFile(filePath).Copy destnPath & fileName, True
-   '-------------------------------------------------------------
-
-    printMsg "snapPage sucessfully saved the image to """ & destnPath & fileName & """"
 End Sub
 
 Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
@@ -912,25 +1115,35 @@ Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Opti
 ' also print to a dated log file. This is useful at user level where
 ' the Immediate Window is not easily accessible. doRaiseError will also raise an
 ' error aside from printing the error message to the log file.
-' Updated: 20/03/2023
+' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
+'                            spamming info. This can be turned on by setting globally
+'                            noDbgMsg = False or noLogging = False
 '----------------------------------------------------------------------------------
-    Dim strFormattedMsg As String
+    
+    Dim intFile As Integer
+    Dim logName As String, strFormattedMsg As String
+    
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
     Else: strFormattedMsg = Format(Now, "hh:mm:ss") & " | " & brID & " | " & strMsg
 
-    Debug.Print strFormattedMsg  'standard output to Immediate Window
-    
-    Dim logPath As String, logName As String
-    logPath = OneDrivePathToLocalPath(thisApp.Path) & "\Logs\"
+   'Perform msg output to Immediate Window if needed
+    If doPrintDbgMsg Then
+        Debug.Print strFormattedMsg
+    End If
 
-    logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
-    If Dir(logPath, vbDirectory) = "" Then MkDir logPath
-    Open logPath & logName For Append As #1
-    Print #1, strFormattedMsg
-    Close #1
+   'Perform msg logging if needed
+    If doLog Then
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
+        If Dir(logPath, vbDirectory) = "" Then MkDir logPath
+        intFile = FreeFile
+        Open logPath & "\" & logName For Append As #intFile
+        Print #intFile, strFormattedMsg
+        Close #intFile
+    End If
 
 On Error Resume Next 'GCUser99
-    If doRaiseError Then Err.Raise 900, Description:=strMsg
+    If doRaiseError Then Err.Raise ERR_PROTOCOL, Description:=strMsg
+
 End Sub
 
 Public Sub printTabs()
@@ -987,6 +1200,41 @@ Public Sub printParams()
     printMsg "CDP Version   | CDPVer    | " & CDPVer
 End Sub
 
+
+Public Function tabCount() As Long
+'------------------------------------------------------------------------------
+' Print all current tabs info. Useful for debugging.
+' Updated : 05/02/25 - changed from printTabs to tabCount to get the count too
+'------------------------------------------------------------------------------
+
+    Dim results, targets, target_ As Scripting.Dictionary
+    Dim i As Integer
+
+    Set results = invokeMethod("Target.getTargets")
+    Set targets = results("targetInfos")
+
+   'Read info
+    printMsg "---------------------------------------------------"
+    printMsg "Tabs Information"
+    printMsg "---------------------------------------------------"
+
+    i = 0
+    For Each target_ In targets
+        If target_("type") = "page" Then
+            printMsg "#" & i & vbTab & _
+                        "type: " & target_("type") & " | " & _
+                        "attached: " & target_("attached") & " | " & _
+                        "title: " & target_("title") & " | " & _
+                        "url: " & target_("url") & " | " & _
+                        "target ID: " & target_("targetId")
+            i = i + 1
+        End If
+    Next
+
+    tabCount = i
+
+End Function
+
 Public Sub sleep(Optional seconds As Double = 0.5)
 '------------------------------------------------------------------
 ' Custom sleep function. Sleep by 0.5s by default.
@@ -1008,6 +1256,66 @@ Public Sub activate()
     params("targetId") = CStr(getTargetID)
     invokeMethod "Target.activateTarget", params
 End Sub
+
+
+Public Sub handleDialog(Accept As Boolean, Optional promptText As Variant)
+'----------------------------------------------------------------------------------
+' Accepts or dismisses a JavaScript initiated dialog (alert, confirm, prompt, or
+' onbeforeunload). accept = True to accept the dialog, else dimiss it. promptText
+' is the text to enter into the dialog prompt before accepting, used only if this is a
+' prompt dialog.
+' Note: this method requires the execution of "pageEnable" before the dialog appears
+' so that the dialog event is probably exposed and captured as an event.
+' Updated: 23/07/2025 - added as requested by Jane Zhang for her project
+'----------------------------------------------------------------------------------
+
+    Dim params As New Scripting.Dictionary
+
+    params("accept") = CBool(Accept)
+    If Not IsMissing(promptText) Then params("promptText") = CStr(promptText)
+    invokeMethod "Page.handleJavaScriptDialog", params
+
+End Sub
+
+Public Sub pageEnable()
+'----------------------------------------------------------------------------------
+' Enable the page for events listening. Required for handleDialog for instance.
+'----------------------------------------------------------------------------------
+
+    invokeMethod "Page.enable"
+
+End Sub
+
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+'-----------------------------------------------------------------
+' This function enables advanced method invocation under CDP.
+' For a list of all methods available, see:
+' https://chromedevtools.github.io/devtools-protocol/tot/Browser/
+' Error message will be prompted automatically by invokeError in
+' the Immediate Window.
+' The return object is Json String that has been converted to a
+' dictionary object.
+' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
+' Updated: 28/04/23 - Set this to Public as it is useful
+'          20/03/23 - Added printMsg msgs & set to Private
+'-----------------------------------------------------------------
+
+    Dim paramStr As String
+    Dim results As Scripting.Dictionary
+
+    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
+
+   'Print error if there is
+    If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
+
+   'Return result object
+    If results.Exists("result") Then Set invokeMethod = results.Item("result")
+    If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results("result"))
+
+End Function
+
+
 
 '=============================================================================
 ' PUBLIC PROPERTIES
@@ -1079,54 +1387,78 @@ Property Get html() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：CDPコマンドの核となる、`method`、およびオプションの`params`を直接指定して、実行します
+'* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：実行結果のJson-Dictionary
-'* 引数　　：methodName         Network.getCookies とか、Browser.getVersion 等々
-'            params             オプションパラメーターセット。予め呼び出し側で、Json-Dictionaryとして組み立ててください
-'            EventMessages      ブラウザからのイベント情報を取得したい場合に指定します。参照渡しによりここに実行までの過去のイベントが、Json-Dictionaryとして積まれていきます。省略で、過去のイベントを破棄します
-'            dbgMsg             実行結果をイミディエイトに出すか指定します
+'* GET返値 ：呼び出した時点での、ブラウザイベント内容
+'* LET引数 ：置き換えるDictionary変数。基本は、New Dictionary を渡してのリセットです
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：・低レベル操作により、実装されてる全ての CDP－Json が実行可能です
-'            ・イベント情報も確認したい場合は第三引数に、New Dictionary 済みの変数を渡すことで、受け取ることが可能です
-'
-'* 注意事項：・エラーメッセージは、invokeError によってイミディエイトウィンドウに自動的に表示されます
-'            ・一部のイベントは、「"method": "XXXX.enable"」といった形式で事前送信(設定)する必要があります
-'---------------------------------------------------------------------------------------------------
-'* 関連URL ：・出典                     https://github.com/PerditionC/VBAChromeDevProtocol
-'            ・CDPドキュメントブック　  https://chromedevtools.github.io/devtools-protocol/tot/Brows
-'---------------------------------------------------------------------------------------------------
-'* 更新履歴：・25/12/18 - イベント情報を格納/破棄のスイッチングができる仕組みを実装
-'            ・25/04/23 - Set this to Public as it is useful
-'            ・20/03/23 - Added printMsg msgs & set to Private
+'* 機能説明：・`Set BrowserEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
+'            ・`Set BrowserEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
+'* 注意事項：Set プロパティ使用時、簡易的なDictionary構造のチェックを行います。構造が違うDictionaryを渡された場合、警告メッセージが出て、停止します。
 '***************************************************************************************************
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional EventMessages As Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
-    Dim paramStr As String
-    Dim results As Scripting.Dictionary
+Property Get BrowserEvents() As Dictionary
+    Set BrowserEvents = objAllMessages
+End Property
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = core.jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", EventMessages)
-
-   'Print error if there is
-    If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
-
-   'Return result object
-    If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & core.jsConverter.ConvertToJson(results("result"))
-End Function
-
-'=============================================================================
-' PRIVATE FUNCTIONS
-'=============================================================================
-
-Private Function SendMessage(strMessage As String, Optional objAllMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
-'--------------------------------------------------------------
-' Send message to CDP and check if the message is received
-' yet by the Chromium browser.
-' Updated: 03/05/23 - Added soft-reset on peeknamepipe error
-'          22/03/23 - Added error handling for better debugging
-'--------------------------------------------------------------
+Property Set BrowserEvents(ObjDic As Dictionary)
+    'SetされたDictionaryの構造をチェックします
+    '1. そもそもDictionary オブジェクトが備わっているか？
+    If ObjDic Is Nothing Then
+        'Nothing 処理。以降は、イベントキャプチャはされません。
+        Set objAllMessages = Nothing
+        printMsg "Event capture save data has been discarded. Event capture will not be performed."
+        
+    '2. まっさらの場合
+    ElseIf ObjDic.Count = 0 Then
+        '初期化処理。これにより、イベントキャプチャを開始します。
+        Set objAllMessages = FormatDictionary_BrowserEvents
+        printMsg "A new event capture save data has been created. Starts event capture."
     
+    '3. 指定のKeyがあるか？
+    ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) Then
+        '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
+        Set objAllMessages = ObjDic
+        printMsg "Existing event capture save data was successfully loaded. Resume event capture with this save data."
+    
+    '4. 不正なDictionary 形式なのでエラーで止める
+    Else
+        Err.Raise ERR_DictionaryStructure, Description:="Event capture save data structure is invalid."
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中のタイムアウト秒数
+'* LET引数 ：置き換えるタイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、45sです。
+'***************************************************************************************************
+Property Get TimeOutSecond() As Long
+    TimeOutSecond = timerOut
+End Property
+
+Property Let TimeOutSecond(TimeSec As Long)
+    timerOut = TimeSec
+End Property
+
+
+
+'***************************************************************************************************
+'                              ■■■ プライベートプロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにもイベント情報を格納が出来ます
+'            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
+'            ・03/22/23 - Added error handling for better debugging
+'            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
+'***************************************************************************************************
+Private Function SendMessage(strMessage As String, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Dim intRes As Long
     Dim strRes As String
     Dim lngCurrentId As Long
@@ -1134,26 +1466,44 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
             
     lngCurrentId = lngLastID
     lngLastID = lngLastID + 1       'We increase the global ID counter
-            
+
+RetrySend:
+
     On Error GoTo ifError
             
    'Before sending a message the message-buffer is emptied
    'All messages that we have received so far cannot be an answer to the message that we will send
    'So they can be safely discarded
-1   If objAllMessages Is Nothing Then
-        intRes = 1
-        Do Until intRes < 1
-2           intRes = core.readProcCDP(strRes)
-3           If intRes > 0 Then strBuffer = strBuffer & strRes
-        Loop
-        
-        Dim lngNullCharPos As Long
-4       lngNullCharPos = searchNull()
-        
-        Do Until lngNullCharPos = 0
-5           strBuffer = Right(strBuffer, Len(strBuffer) - lngNullCharPos)                        'if necessary, add "printMsg (left(strBuffer, lngNullCharPos))" above this for debugging
-6           lngNullCharPos = searchNull()
-        Loop
+    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
+    Dim ErrorDetail As New WinApiError
+1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
+
+        'データが尽きるまで、ループ受信処理を行います
+        Do
+            '受信処理
+2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+
+            '返り値チェック
+            If intRes > 0 Then
+               'データありだが、あくまで破棄処理のため何もしない(強いていうなら、デバッグメッセージを出す)
+3               printMsg "Emptying the message buffer..."
+4               If seeRawSendMsgDbg Then printMsg "strRes = " & strRes
+            Else
+                'データなしの場合は、エラーコードチェックを行う
+                If ErrorCode_PeekNamedPipe Then
+                    'PeekNamedPipe にてエラーがあった場合
+5                   printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                ElseIf ErrorCode_ReadFile Then
+                    'ReadFile にてエラーがあった場合
+6                   printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                    Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                Else
+                    'データがまだ、ない。つまり、破棄完了
+                    printMsg "Message queue destruction completed."
+                End If
+            End If
+        Loop Until intRes < 1
     End If
     
    '--------------------------------------------------
@@ -1168,41 +1518,104 @@ Private Function SendMessage(strMessage As String, Optional objAllMessages As Sc
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double, timerOut As Long
-    Dim EventCount As Long
-   
-    timerStart = Timer                                                                           'Failsafe timer to ensure loop ends when server fails to respond
-    timerOut = 30                                                                                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+    Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
+    
+    '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
+    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    Dim ResultSendCommand As Boolean
     Do
-        intRes = 1
-        Do Until intRes < 1                                                                      'We read from edge and process messages until we receive a message with our ID
-12          intRes = core.readProcCDP(strRes)
-13          If intRes > 0 Then strBuffer = strBuffer & strRes
-        Loop
-        
-14      lngNullCharPos = searchNull()
-            
-        Do Until lngNullCharPos = 0
-15          strRes = Left(strBuffer, lngNullCharPos - 1)
-16          strBuffer = Right(strBuffer, Len(strBuffer) - lngNullCharPos)
-            If seeRawSendMsgDbg Then printMsg "strRes = " & strRes                              'Only enable if needs to see every raw JS message for debugging/development
-            If strRes <> "" Then
-17              Set results = core.jsConverter.ParseJson(strRes)
-18              If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results, EventCount
-19              If results.Exists("id") Then
-20                  If results.Item("id") = lngCurrentId Then
-21                      Set SendMessage = results
-                        Exit Function
+        '受信処理
+12      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+
+        '返り値チェック
+        If intRes > 0 Then
+            'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
+13          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
+                
+            'メモリを解放
+14          strRes = vbNullString
+                
+            Dim i As Long
+            For i = LBound(JsonMessages) To UBound(JsonMessages)
+15              If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                              'Only enable if needs to see every raw JS message for debugging/development
+
+                '最後の要素か？
+16              If i = UBound(JsonMessages) Then
+                    '空欄か？
+                    If JsonMessages(i) = "" Then
+                        '1回の受信で全て正しいJson形式として得れました
+                        PieceData = vbNullString
+                        printMsg "readProcCDP was able to receive everything!"
+                    Else
+                        'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+                        PieceData = PieceData & JsonMessages(i)
+                        printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
+                    End If
+                Else
+                    '欠けたデータがあるか？
+                    Dim tmp As String
+                    If StrPtr(PieceData) Then
+                        '結合する
+                        tmp = PieceData & JsonMessages(i)
+                        
+                        'メモリを解放
+                        PieceData = vbNullString
+                    Else
+                        'そのまんま使う
+                        tmp = JsonMessages(i)
+                    End If
+                    
+                    '受信データを Json-Dictionary として変換
+17                  Set results = jsConverter.ParseJson(tmp)
+
+                    'イベント内容を確認するモードなら、格納しておく
+18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
+19                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results  'プライベート用
+
+                    '実行コマンド結果であるか？
+20                  If results.Exists("id") Then
+                        'そのIDは、Excelに記録してるIDと一致してるか？
+21                      If results.Item("id") = lngCurrentId Then
+                            '結果を返して、受信ループ終了フラグを立てる
+22                          Set SendMessage = results
+                            ResultSendCommand = True
+                            printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
+                        End If
                     End If
                 End If
+            Next
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If ErrorCode_PeekNamedPipe Then
+                'PeekNamedPipe にてエラーがあった場合
+23              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+                Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+            ElseIf ErrorCode_ReadFile Then
+                'ReadFile にてエラーがあった場合
+24              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+                Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+            Else
+                'データがまだ、ない
+                printMsg "The command result from readProcCDP has not yet been received, so reception continues."
             End If
-22          lngNullCharPos = searchNull()
-        Loop
-        
+        End If
+
         DoEvents
-23      If Timer - timerStart > timerOut Then Err.Raise 900, , "Timeout waiting for browser to return message."
-    Loop
-    
+
+        '一定時間経っても来ないなら、ループから抜けます
+25      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+
+        'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
+    Loop Until ResultSendCommand
+Exit Function
+
+afterErr:
+
+    printMsg "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)"
+    On Error Resume Next
+    attachToSession
+    GoTo RetrySend
+
 ifError:
                   
     If Not dbgMsg Then Exit Function    'Allow the option to bypass error if intended
@@ -1213,12 +1626,26 @@ ifError:
     errorDesc = Err.Description
     printMsg "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
     printMsg "strMessage used by sendMessage: " & strMessage
-    If InStr(Err.Description, "PeekNamedPipe") Then
-        printMsg "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow."
-        Call CleanUpCdpSessionID   'soft reset
+
+    Dim blnDidSoftRetry As Boolean, blnDoSoftRetry As Boolean
+    blnDoSoftRetry = False
+    If Not blnDidSoftRetry Then
+        If InStr(errorDesc, "PeekNamedPipe") > 0 And brReAttach Then
+            blnDoSoftRetry = True
+            blnDidSoftRetry = True
+            Err.Clear
+        End If
     End If
-    
-    Err.Raise 900, , "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
+    If blnDoSoftRetry Then
+        Resume afterErr
+    End If
+
+    If InStr(errorDesc, "PeekNamedPipe") > 0 Then
+        printMsg "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow."
+        deleteCDPID
+    End If
+
+    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, ERR_PIPE, ERR_PROTOCOL), , "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
         
 End Function
 
@@ -1228,37 +1655,58 @@ End Function
 '* 実質返値：Accumulator
 '* 引数　　：Accumulator    これまでの格納イベント。
 '            eventData      Json-Dictionry済みのブラウザからのイベントデータ
-'            Counter        呼ばれた回数。参照渡しにより、カウントは引き継がれます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
-'            時系列データ(Index値)もおまけとして残しておきます。
+'            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, Counter As Long)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
     ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
-    Dim eventMethod As String
-    If eventData.Exists("method") Then eventMethod = eventData("method") Else Exit Sub
+    Dim EventMethodName As String
+    If eventData.Exists("method") Then EventMethodName = eventData("method") Else Exit Sub
 
-    ' インデックスを付与(1始まり)
-    ' これにより、全体の時系列データも保持できます
-    Counter = Counter + 1
-    eventData.Add "__index__", Counter
+    ' 合計イベントキャプチャ数をカウントする
+    Accumulator(objAllMessagesName01) = Accumulator(objAllMessagesName01) + 1
     
+    ' インデックスも付与(1始まり)
+    ' これにより、全体の時系列データも保持できます
+    eventData.Add "__index__", Accumulator(objAllMessagesName01)
+    
+    ' 1.イベントメソッドデータがあるDictionaryに遷移
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(objAllMessagesName02)
 
-    ' 1. このイベント名の「仕切り板」が、すでにあるか？
+    ' 2. このイベント名の「仕切り板」が、すでにあるか？
     Dim eventList As Collection
-    If Not Accumulator.Exists(eventMethod) Then
+    If Not EventsDictionary.Exists(EventMethodName) Then
         ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
         Set eventList = New Collection
-        Accumulator.Add eventMethod, eventList
+        EventsDictionary.Add EventMethodName, eventList
     Else
         ' あれば、その仕切り板の後ろにある、既存の束を取り出す
-        Set eventList = Accumulator(eventMethod)
+        Set eventList = EventsDictionary(EventMethodName)
     End If
     
-    ' 2. 取り出した束に、今回のイベントの詳細データを、追加する
+    ' 3. 取り出した束に、今回のイベントの詳細データを、追加する
     eventList.Add eventData
+    
+    printMsg "Stored event data from the browser. - " & EventMethodName
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザイベント情報を格納するためのフォーマットDictionaryを作成します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：フォーマット済みDictionary
+'***************************************************************************************************
+Private Function FormatDictionary_BrowserEvents() As Dictionary
+        Dim tmp As Dictionary: Set tmp = New Dictionary
+
+        '初期構造を作成します
+        tmp.Add objAllMessagesName01, 0                '合計イベントキャプチャ数
+        tmp.Add objAllMessagesName02, New Dictionary  'イベントキャプチャDictionaryデータ
+        
+        '返却
+        Set FormatDictionary_BrowserEvents = tmp
+End Function
 
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
@@ -1267,7 +1715,7 @@ Private Function attachToSession() As Integer
 ' Updated: 03/05/23 - Added printMsg msgs & removed URL checking req.
 '-----------------------------------------------------------------------
 ' Note: if needed to read the returned message result from sendMessage,
-' type ?core.jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
+' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
     
     Dim results As Scripting.Dictionary
@@ -1279,8 +1727,11 @@ Private Function attachToSession() As Integer
     
     On Error GoTo ifError
     
-    Dim objAllMessages As New Scripting.Dictionary
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", objAllMessages)
+    '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
+    Dim EventMessageForAttachToSession As Dictionary: Set EventMessageForAttachToSession = FormatDictionary_BrowserEvents
+
+    '実行
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", EventMessageForAttachToSession)
     printMsg "Now looking for the browser window"
     
    'Read message to confirm the requested url is found
@@ -1289,7 +1740,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In objAllMessages("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession(objAllMessagesName02)("Target.targetCreated")
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
@@ -1311,7 +1762,7 @@ Private Function attachToSession() As Integer
     
     printMsg "Successfully attached to Session ID " & sessionID
     Exit Function
-    
+
 ifError:
                  
    'Record errmsg and print helpful infos
@@ -1319,45 +1770,17 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
-    printMsg "objAllMessages = " & core.jsConverter.ConvertToJson(objAllMessages)
-    printMsg "results = " & core.jsConverter.ConvertToJson(results)
-    printMsg "results_ = " & core.jsConverter.ConvertToJson(results_)
-    printMsg "results__ = " & core.jsConverter.ConvertToJson(results__)
-    printMsg "results___ = " & core.jsConverter.ConvertToJson(results___)
+    printMsg "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages)
+    printMsg "results = " & jsConverter.ConvertToJson(results)
+    printMsg "results_ = " & jsConverter.ConvertToJson(results_)
+    printMsg "results__ = " & jsConverter.ConvertToJson(results__)
+    printMsg "results___ = " & jsConverter.ConvertToJson(results___)
     printMsg ".start call string: " & brCallString
     
     printParams
-    Err.Raise 900, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
+    Err.Raise ERR_PROTOCOL, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
     
 End Function
-
-
-Private Function searchNull() As Long
-'------------------------------------------------------------
-' CDP messages received from chrome are null-terminated
-' It seemed to me you cant search for vbnull in a string
-' in vba. Thats why i re-implemented the search function
-'------------------------------------------------------------
-'yes you can search for vbNullChar!
-'SearchNull = InStr(strBuffer, vbNullChar)
-
-    Dim i As Long
-    Dim lngBufferLength As Long
-
-    lngBufferLength = Len(strBuffer)
-    searchNull = 0
-
-    If lngBufferLength = 0 Then Exit Function
-
-    For i = 1 To lngBufferLength
-        If Mid(strBuffer, i, 1) = vbNullChar Then
-            searchNull = i
-            Exit Function
-        End If
-    Next i
-    
-End Function
-
 
 Private Function invokeError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
@@ -1431,20 +1854,29 @@ Private Function getHandle() As LongPtr
 End Function
 
 Private Sub cleanUpSessions()
-'------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------------------------
 ' Provides cleaning before firing up a new session to prevent
 ' pipe error
-'------------------------------------------------------------------
+' Update: 05/11/24: Daniel Polak - modified to solve problems with closing sessions (that do not belong to this user) on terminal server
+'         23/10/25: Daniel Polak - p.name and p.terminate were not correct, replaced by proc.name and proc.terminate (discovered this bug because we are using Option Explicit now). On Error Resume Next was hiding the bug too.
+'                                - only terminate automation-processes (where command line contains --remote-debugging-pipe)
+'-----------------------------------------------------------------------------------------------------------------------------------------
+
+    '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
+    Dim lProcessId As Long, lSessionId As Long
+    lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
+    ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
 
     'Clean up all running sessions
-    Dim p As Object
+    Dim proc As Object
     On Error Resume Next
-    
-    '起動中のブラウザexe名でまず、絞る
-    For Each p In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where Name = '" & brType & "'")
-        'デバッグ用の引数があるかチェックし、その引数のブラウザだけ、落とす
-        If InStr(p.CommandLine, ArgRemoteDebuggingName) > 0 Then
-            p.Terminate
+
+    '2. 前述の2つの情報を基に、起動中のアプリたちを取得する
+    For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
+        '3. 起動中のブラウザ名であるか確認
+        If LCase$(proc.Name) = LCase$(brType) Then
+            '4. 自動化プロセスのみを終了します（コマンドラインに --remote-debugging-pipe が含まれている場合）
+            If InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName, vbTextCompare) > 0 Then proc.Terminate
         End If
         DoEvents
     Next
@@ -1452,7 +1884,7 @@ Private Sub cleanUpSessions()
     Err.Number = 0
 
     'Also clean up all prev CDP
-    Call CleanUpCdpSessionID
+    Call deleteCDPID
 
    'Clean core params for new session
     lngLastID = 0   'To make a clean slate for new session
@@ -1473,23 +1905,29 @@ Private Sub setCrashStateNormal()
 
    'Mark 'Normal' on the preference file to prevent Restore Page popup on start
    'This file locates at %localappdata%/Google/User Data/Default/Preferences
-   Dim filePath As String, prefFolder As String, prefFile As Object, strContents As String, strNewContents As String
+   Dim filePath As String, prefFolder As String, prefFile As Object, strContents As String, strNewContents As String, intF As Integer
     If brUser = "Default" Then prefFolder = brUser Else prefFolder = brUser & "\Default"
     Select Case brType
-        Case brChrome: filePath = Environ("LOCALAPPDATA") & "\Google\Chrome\User Data\" & prefFolder & "\Preferences"
-        Case brEdge: filePath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\" & prefFolder & "\Preferences"
+        Case brChrome: filePath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & prefFolder & "\Default\Preferences"
+        Case brEdge: filePath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & prefFolder & "\Default\Preferences"
     End Select
 
-    Dim fso As New Scripting.FileSystemObject
-    If Not fso.FileExists(filePath) Then Exit Sub
-    Set prefFile = fso.OpenTextFile(filePath, ForReading)
-    strContents = prefFile.ReadAll
-    strNewContents = Replace(strContents, "Crashed", "Normal", Compare:=vbBinaryCompare)   'ie. Exact match only
-    prefFile.Close
+    If LenB(Dir(filePath)) = 0 Then Exit Sub
 
-    Set prefFile = fso.OpenTextFile(filePath, ForWriting)
-    prefFile.Write strNewContents
-    prefFile.Close
+    intF = FreeFile
+    Open filePath For Binary As #intF
+        strContents = Input$(LOF(intF), #intF)
+    Close #intF
+
+   'Precise replacement: only replace exit_type value
+    strNewContents = Replace(strContents, """exit_type"":""Crashed""", """exit_type"":""Normal""", 1, -1, vbBinaryCompare)
+
+    If strNewContents <> strContents Then
+        intF = FreeFile
+        Open filePath For Binary As #intF
+            Put #intF, 1, strNewContents
+        Close #intF
+    End If
 
     printMsg "setCrashStateNormal completed"
 End Sub
@@ -1530,7 +1968,7 @@ End Function
 '            False      お亡くなり
 '* 引数　　：PID        プロセスID
 '***************************************************************************************************
-Function IsProcessRunning(ByVal pid As Long) As Boolean
+Private Function IsProcessRunning(ByVal pid As Long) As Boolean
     Dim wmi As Object
     Dim col As Object
     
@@ -1590,6 +2028,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 ' Obtain the installation path of the browser program. This is useful when
 ' the installation path is changed by the user or their corporation for security.
 ' Updated: 22/03/2023
+' 20251023 Daniel Polak - added fallback path when registry lookup fails (in a locked-down environment)
 '----------------------------------------------------------------------------------
     
     Select Case True
@@ -1614,33 +2053,28 @@ Private Function getBrowserPath(strBrowserType As String) As String
         End If
     End With
 
-    If Err.Number <> 0 Then printMsg Err.Description, doRaiseError:=True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：ローカルパス
-'* 引数　　：Path   基本は、`thisworkbook.path`を指定
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：開いてるExcelがOneDriveにあると、`thisworkbook.path`がインターネット上のURLになってしまい、一部操作ができなくなる問題に対処した物となります。
-'            純ローカルなら、そのまま返します。
-'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます。先頭の定数で、スイッチングしてください
-'
-'* 注意事項：SharePointの場合は、自力でコードを書く必要があります
-'***************************************************************************************************
-Private Function OneDrivePathToLocalPath(Path As String) As String
-    'http始まりじゃないなら、そのまま返して終了
-    If Left(Path, 4) <> "http" Then OneDrivePathToLocalPath = Path: Exit Function
-
-    '個人OneDriveモードなら識別番号分、ローカルパスに置き換えて結合
-    If UsePrivateOneDrive Then
-        OneDrivePathToLocalPath = Environ("OneDrive") & Mid(Path, 41)
-    
-    '個人BusinessOneDriveモードなら"Documents"以降のパスを抜き出して、ローカルパスと結合
-    Else
-        OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
+    If Err.Number <> 0 Or LenB(getBrowserPath) = 0 Then
+        Err.Clear
+        Select Case brType
+            Case brChrome
+                If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & brType)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & brType
+                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & brType)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & brType
+                End If
+            Case brEdge
+                If LenB(Dir(Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & brType)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & brType
+                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & brType)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & brType
+                End If
+        End Select
+        If LenB(getBrowserPath) > 0 Then
+            If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
+        End If
+        If LenB(getBrowserPath) = 0 Then printMsg "Unable to locate " & brType & " installation path.", doRaiseError:=True
     End If
+
 End Function
 
 Private Sub getSessionInfo()
@@ -1665,12 +2099,13 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：デバッグブラウザのハンドル情報を消去します
 '***************************************************************************************************
-Private Sub CleanUpCdpSessionID()
+Private Sub deleteCDPID()
     With ShSetting01_StartBrowser
-        .ListObjects(.UseTableName(1, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
-        .ListObjects(.UseTableName(2, "CDPBrowser.CleanUpCdpSessionID")).DataBodyRange.Columns(2).Clear
+        .ListObjects(.UseTableName(1, "CDPBrowser.deleteCDPID")).DataBodyRange.Columns(2).Clear 'パイプ通信Handle情報
+        .ListObjects(.UseTableName(2, "CDPBrowser.deleteCDPID")).DataBodyRange.Columns(2).Clear 'ブラウザセッション情報
     End With
 End Sub
+
 
 
 Private Sub Class_Initialize()
@@ -1679,7 +2114,27 @@ Private Sub Class_Initialize()
 ' If so, automatically attempt to reattach to it.
 ' Updated: 07/06/2023
 '----------------------------------------------------------------------------------
+
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        'イミディエイトに関する設定を行う
+        doPrintDbgMsg = .Range(.UseRangeName(7, "CDPBrowser.Class_Initialize")).value              'イミディエイトに表示させるか？
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
+        'パスが設定されてたら、ログファイル保存を有効化
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "CDPBrowser.Class_Initialize")).value
+        If LogFolderPath <> "" Then
+            doLog = True                'ログファイルとして保存するか？
+            logPath = LogFolderPath     '保存先のフォルダパスを設定
+        End If
+    End With
+
+    'タイムアウト設定(デフォルトで、45s)
+    timerOut = 45
+    '------------------------------------------------------------------------------
+
+
    'Determine project host type for compatibility
     Select Case True
         Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
@@ -1720,6 +2175,24 @@ Private Sub Class_Initialize()
     printMsg brID & " successfully attached to Tab ID " & targetID
     getSessionInfo
         
+End Sub
+
+Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As String)
+'----------------------------------------------------------------------------------
+' Decode a base64 string and save to file without external dependencies (late bound).
+'----------------------------------------------------------------------------------
+
+    Dim dom As Object, el As Object, Bytes() As Byte, CharConv As CharacterCodeConversion
+
+    Set dom = CreateObject("MSXML2.DOMDocument")
+    Set el = dom.createElement("tmp")
+    el.DataType = "bin.base64"
+    el.Text = strB64
+    Bytes = el.nodeTypedValue
+
+    Set CharConv = New CharacterCodeConversion
+    CharConv.BytesToSaveFile Bytes, FolderPath, FileName
+
 End Sub
 
 '===============================================================================================

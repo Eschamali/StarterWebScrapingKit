@@ -168,8 +168,31 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
-Public jsConverter As New CDPJConv
- 
+Private Utf8Converter As CharacterCodeConversion
+
+
+
+'***************************************************************************************************
+'                               ■■■ プロパティ機能 ■■■
+'***************************************************************************************************
+'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：UTF-8 の変換が作動してるかの論理値
+'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
+'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
+'***************************************************************************************************
+Property Let UseConverterUtf8FromString(Flag As Boolean)
+    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
+End Property
+
+Property Get UseConverterUtf8FromString() As Boolean
+    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
+End Property
+
+
+
 '===================================
 ' Class Functions
 '===================================
@@ -306,39 +329,49 @@ Public Function Init(strExec As String) As Long
     Init = 0
 
 End Function
- 
- 
-Public Function readProcCDP(ByRef strData As String) As Long
-' --------------------------------------------------------------------------------
-' This function tries to read from the CDP out pipe.
-' Reading is non-blocking, if there are no bytes ro read the function returns 0,
-' otherwise the number of bytes read.
-'---------------------------------------------------------------------------------
- 
+
+'***************************************************************************************************
+'* 機能　　：CDP 出力パイプからの読み取りを試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：読み取ったバイト数を返します。
+'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
+'            Err_PeekNamedPipe  PeekNamedPipe にてエラーが起こった際のエラーコードを格納します。実質返り値です
+'            Err_ReadFile       ReadFile にてエラーが起こった際のエラーコードを格納します。実質返り値です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、第2引数以降で確認して下さい。
+'***************************************************************************************************
+Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As Long, ByRef Err_ReadFile As Long) As Long
+    'エラーコードの初期化
+    Err_PeekNamedPipe = 0
+    Err_ReadFile = 0
+
     Dim lPeekData As Long
     Dim lngRes As Long
     
+    '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
-    If lngRes = 0 Then Err.Raise 901, Description:="Error PeekNamedPipe in readProcCDP."
     
+    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
+    If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
+
+
+    'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
         Dim Buffer As String
         Dim L As Long
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
         bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
-        
-        If bSuccess = 1 Then
+            
+        '0以外なら成功です
+        If bSuccess Then
             strData = Buffer
             readProcCDP = Len(strData)
         Else
-            readProcCDP = -2
+            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
+            Err_ReadFile = Err.LastDllError
         End If
-        
-    Else
-        readProcCDP = -1
     End If
- 
 End Function
 
 Public Function readProcSTD(ByRef strData As String) As Long
@@ -378,6 +411,30 @@ Public Function writeProc(ByVal strData As String) As Long
  
     Dim lngWritten As Long
     
-    writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
- 
+    'UTF-8バイト配列を使用するか？
+    If Utf8Converter Is Nothing Then
+        'VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+        writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
+    Else
+        'VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列を取得します
+        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData, True)
+
+        'そのバイト配列として、コマンドを送ります
+        writeProc = WriteFile(hCDPInWr, ByVal StrPtr(BinData), UBound(BinData) + 1, lngWritten, ByVal 0&)
+    End If
 End Function
+
+
+
+'***************************************************************************************************
+'* 機能　　：設定シートから、設定値を読み込みます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：クラスモジュール構築時、設定値を適用させます
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
+    End With
+End Sub
