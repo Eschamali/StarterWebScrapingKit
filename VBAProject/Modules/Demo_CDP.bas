@@ -108,8 +108,6 @@ Sub ネットワークイベントの確認()
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
-    Demo_NetworkEvent.notify "Office田中のYouTube動画に遷移しました" & WorksheetFunction.Unichar(129418)     '日本語兼絵文字表示テスト
-    Demo_NetworkEvent.sleep 5
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
@@ -135,6 +133,45 @@ Sub ネットワークイベントの確認()
 
     'ブラウザを閉じる。demo終了
     Demo_NetworkEvent.quit
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：日本語に関するDemoコードです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：id属性やname属性に日本語が使われてるサイトでの動作テストです。コードは、`https://qiita.com/yaju/items/0807cc762af4a0568806`を参考にしてます。
+'* 注意次項：このテストを行う際は、シート：ブラウザ起動設定 にて、`常にUTF-8でCDP-Json送信`をONにしてください
+'***************************************************************************************************
+Sub JapaneseElementTest()
+    '設定シートに基づくブラウザ立ち上げ、BMI計算サイトへアクセスします
+    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからの起動("https://keisan.site/exec/system/1161228728")
+    
+    ' 身長をセット
+    Dim height As CDPElement
+    Set height = Demo_Japanese.getElementByID("var_身長")
+    height.sendString "170.5"
+    Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト
+    Demo_Japanese.sleep 3
+    
+    ' 体重をセット
+    Dim weight As CDPElement
+    Set weight = Demo_Japanese.getElementByID("var_体重")
+    weight.sendString "48.5"
+    Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト
+    Demo_Japanese.sleep 3
+
+    ' ボタンクリック
+    Demo_Japanese.getElementByID("executebtn").click
+    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト
+    Demo_Japanese.sleep 3
+
+    ' 体脂肪率を取得
+    Dim 体脂肪率 As Double
+    体脂肪率 = Demo_Japanese.getElementByID("ans1").innerText
+    Debug.Print "体脂肪率は、" & 体脂肪率 & "% です。"
+
+
+    'ブラウザを閉じる。demo終了
+    Demo_Japanese.quit
 End Sub
 
 Sub runEdge()
