@@ -253,7 +253,98 @@ Sub 冒険の始まり()
 End Sub
 ```
 
-### **デモ紹介：`BrowserEvents`プロパティによる、非同期イベントのキャプチャ機能**
+### **デモ紹介1：【🎌日本語よ、こんにちは！🎌】もう、"`\uXXXX`"の呪縛からは、さようなら。**
+
+海外の、優れたライブラリ:`Chromium-Automation-with-CDP-for-VBA`  
+その輝かしい力の前に、我々、日本のVBA使いは、常に、 **たった一つの「壁」** に、絶望してきました。
+
+**―――日本語（マルチバイト文字）という、越えられない、壁。**
+
+`id`や`name`属性に、**日本語**が使われているだけで、止まる。  
+`sendString`で、**日本語**を送ろうとすれば、文字化けするか、エラーになる。  
+我々は、泣く泣く、**`\u3046\u307f\u306d\u3053\uff01\u307f\u3083\uff5e\u304a\uff01`** のような、 **古代の"呪文"（Unicodeエスケープ）** を、手作業で、唱え続けるしか、ありませんでした。
+
+**しかし、その"暗黒時代"は、今日、終わりを告げます。**
+
+#### **【革命の、"スイッチ"】**
+
+このライブラリは、**設定を、たった一つ、`常にUTF-8でCDP-Json送信`を`ON`にするだけ**で、 **VBAと、Chromiumの間に、"奇跡"の直通回線（UTF-8ブリッジ）** を、架けます。
+
+**【あなたのコードが、"詩"になる】**  
+もう、呪文は、いらない。  
+あなたのVBEは、 **ありのままの「日本語」** を、受け入れます。
+
+* **日本語のIDを持つ、要素を探したい？**
+  → `Demo_Japanese.getElementByID("var_身長")`  
+  **書くだけ**で、いい。
+
+* **日本語の文字列を、ブラウザに送りたい？**
+  → `Demo_Japanese.notify "身長を入力しました"`  
+  **書くだけ**で、いい。
+
+* **なんなら、"絵文字"だって？**
+  → `WorksheetFunction.Unichar`  
+  で、召喚した **「🖋️」** や **「⚖️」** も、**何の問題もなく**、ブラウザの世界へ、旅立ちます。
+
+#### **【Demoが、"証明"する、新世界】**
+
+`JapaneseElementTest`を実行してみてください。
+
+```bas
+Sub JapaneseElementTest()
+    '設定シートに基づくブラウザ立ち上げ、BMI計算サイトへアクセスします
+    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからの起動("https://keisan.site/exec/system/1161228728")
+    
+    ' 身長をセット
+    Dim height As CDPElement
+    Set height = Demo_Japanese.getElementByID("var_身長")
+    
+    '日本語と絵文字入力テスト
+    height.sendString "うみねこ！" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "みゃ～お！" & WorksheetFunction.Unichar(129442)  '日本語兼サロゲートペア絵文字通知表示テスト(U+1F636 U+200D U+1F32B U+FE0F、U+1F9A2)
+    Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(129418)       '日本語兼絵文字通知表示テスト(U+1F98A)
+    Demo_Japanese.sleep 3
+
+    'ちゃんと数字で入力しなおす
+    height.sendString "170.5"
+    Demo_Japanese.notify "身長を入力し直しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+1F58D U+FE0F)
+    Demo_Japanese.sleep 3
+    
+    ' 体重をセット
+    Dim weight As CDPElement
+    Set weight = Demo_Japanese.getElementByID("var_体重")
+    weight.sendString "48.5"
+    Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+2696 U+FE0F)
+    Demo_Japanese.sleep 3
+
+    ' ボタンクリック
+    Demo_Japanese.getElementByID("executebtn").click
+    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
+    Demo_Japanese.sleep 3
+
+    ' 体脂肪率を取得
+    Dim 体脂肪率 As Double
+    体脂肪率 = Demo_Japanese.getElementByID("ans1").innerText
+    Debug.Print "体脂肪率は、" & 体脂肪率 & "% です。"
+
+
+    'ブラウザを閉じる。demo終了
+    Demo_Japanese.quit
+End Sub
+```
+
+* **設定ON：**  
+    日本語のIDを持つ要素を、完璧に捕捉し、日本語と絵文字の通知を、美しく表示させ、計算結果を、イミディエイトウィンドウに、誇らしげに、出力するでしょう。
+* **設定OFF：**  
+    ―――世界は、再び、**沈黙**します。  
+    日本語のIDを持つ要素を見つけられず、虚しい **「タイムアウトエラー」**が、あなたを、**"あの頃"の絶望**へと、引き戻します。
+
+**これは、単なる機能追加では、ありません。**  
+**日本のVBA開発者を、**  
+**文字コードという、"牢獄"から、**  
+**完全に、"解放"するための、**  
+**我々の、"革命"なのです。**
+
+### **デモ紹介2：`BrowserEvents`プロパティによる、非同期イベントのキャプチャ機能**
 
 ![demoコードの大まかな流れ](doc/説明7.png)
 
@@ -312,8 +403,6 @@ Sub ネットワークイベントの確認()
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
-    Demo_NetworkEvent.notify "Office田中のYouTube動画に遷移しました" & WorksheetFunction.Unichar(129418)     '日本語兼絵文字表示テスト
-    Demo_NetworkEvent.sleep 5
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
