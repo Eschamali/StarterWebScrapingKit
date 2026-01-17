@@ -373,7 +373,7 @@ End Sub
 ```bas
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New CDPJConv
+    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion:
     
     '設定シートに基づくブラウザ立ち上げ
@@ -423,7 +423,6 @@ Sub ネットワークイベントの確認()
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
-    Set JsonDicObj = New CDPJConv
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
