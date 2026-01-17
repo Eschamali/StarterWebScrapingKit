@@ -5,7 +5,7 @@
 ## インターネットの世界を、その手に
 
 スクレイピングに必要なすべての要素を、このマクロブック「1つ」に詰め込みました。  
-面倒な環境構築はもう必要ありません。このファイルを開いたその瞬間から、あなたの業務効率化とインターネット自動操作への旅が始まります。
+面倒な環境構築はもう必要ありません。このマクロブックを開いたその瞬間から、あなたの業務効率化とインターネット自動操作への旅が始まります。
 
 本ツールは、現代のWeb技術を攻略するために必須となる「3つの神器」を実装しています。
 
@@ -23,13 +23,17 @@
 
 * **WebSocket実装のコアロジック**
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
+    * [製作者：@kabkabkab氏](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)
 * **CDP制御・パイプ通信の基盤**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
+    * 製作者：longvh211氏
 * **WinHTTP 5.1 ラッパー**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
+    * オリジナル製作者：Tim Hall氏
 * **高速・高機能なJSONパーサー**
   * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-  * ※メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
+    * GCuser99氏による改良
+    * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
 * **高速な文字コード変換パーサー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
 
