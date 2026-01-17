@@ -18,7 +18,6 @@ Option Explicit
 '***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
-Private Const NO_ERROR As Long = 0
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
    ByVal eBufferType As Long, _
@@ -80,7 +79,6 @@ Private Type response
 End Type
 
 Public Http As WebSocketHTTPCommunicator
-Private GetErrorMes As New WinApiError
 Private ExistingWebsockethandle_ As LongPtr
 
 
@@ -151,27 +149,17 @@ Public Function SendMessage(message As String) As Long
     '変換したバイト配列のサイズを取得
     Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
 
-    '求めたサイズで、一括送信
-    Dim result As Long
-    result = WinHttpWebSocketSend(UseWebsockethandle, _
+    '求めたサイズで一括送信し、実行結果コードを返却
+    '※呼び出し側で、エラーかの確認をしてください
+    SendMessage = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
                         VarPtr(ary(0)), messageByteSize)
-    
-    'エラーチェック
-    If result = NO_ERROR Then
-        '成功なら、0とする
-        SendMessage = NO_ERROR
-    Else
-        'エラーなら､エラーコードで返す
-        Debug.Print "送信エラー発生。ErrorCode：" & result & ",Description：" & GetErrorMes.GetMessage(result, "winhttp")
-        SendMessage = result
-    End If
 End Function
 
 '***************************************************************************************************
 '* 機能　　：WebSocketからの受信を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：ReConnectionHandle 再接続時のWebSocketハンドル値
+'* 引数    ：ResultCode     WinHttpWebSocketReceive の実行結果。実質返り値です。
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
@@ -179,7 +167,7 @@ End Function
 '            ・現時点は、プレーンテキスト受信のみ対応です
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
 '***************************************************************************************************
-Public Function GetMessage() As String
+Public Function GetMessage(Optional ByRef ResultCode As Long) As String
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
@@ -196,8 +184,9 @@ Public Function GetMessage() As String
                         UseWebsockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
                         res.ReceiveBytes, res.Status)
         
-        'エラーならGoToへ
-        If res.result <> NO_ERROR Then GoTo quit
+        'エラーなら即抜け
+        '※呼び出し側で、エラーかの確認をしてください
+        If res.result Then ResultCode = res.result: Exit Function
 
         'メッセージを全て受信し終えたら、各パケットを結合
         If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
@@ -221,11 +210,6 @@ Public Function GetMessage() As String
             InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
         End If
     Loop
-
-
-'エラー時は、エラーメッセージを表示
-quit:
-Debug.Print "受信エラー発生。ErrorCode：" & res.result & ",Description：" & GetErrorMes.GetMessage(res.result, "winhttp")
 End Function
 
 '***************************************************************************************************
@@ -239,7 +223,7 @@ Public Function CloseWebSocket() As Boolean
     Dim result As Long
     result = WinHttpWebSocketClose(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
-    If result <> NO_ERROR Then GoTo quit
+    If result Then GoTo quit
 
     ' サーバーから返されたクローズステータスを確認する。
     Dim CloseReasonBuffer(123) As Byte
@@ -249,14 +233,14 @@ Public Function CloseWebSocket() As Boolean
     
     result = WinHttpWebSocketQueryCloseStatus(UseWebsockethandle, Status, _
                         CloseReasonBuffer(0), BufferSize, CloseReasonLength)
-    If result <> NO_ERROR Then GoTo quit
+    If result Then GoTo quit
     If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS Then GoTo quit
 
     CloseWebSocket = True
 Exit Function
 
 quit:
-If result <> NO_ERROR Then Debug.Print result
+If result Then Debug.Print result
 Debug.Print "The server closed the connection with status code: " & Status
 Dim strCloseReason As String
 Dim i As Long

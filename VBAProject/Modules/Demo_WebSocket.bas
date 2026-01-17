@@ -23,19 +23,28 @@ Sub websocketdemo()
 
     '成功判定
     If ResultHandleCode Then
-        Debug.Print "Websocket success"
+        Debug.Print "Websocket connect is success."
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
         Debug.Print WebsocketObj.GetMessage
 
         '1件分の送受信をしてみる
         '※WorksheetFunction.Unichar　は絵文字を送るときに使えます
-        WebsocketObj.SendMessage "うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418)
-        Debug.Print WebsocketObj.GetMessage
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418))
+        
+        '実行結果確認
+        Dim ErrorMes As New WinApiError
+        If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        
+        '受信メッセージを受け取る
+        Debug.Print WebsocketObj.GetMessage(ResultCode)
+
+        '実行結果確認
+        If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
         '後始末
         WebsocketObj.CloseWebSocket
     Else
-        Debug.Print "Websocket failed"
+        Debug.Print "Websocket connect is failed."
     End If
 End Sub
 
@@ -56,21 +65,28 @@ Sub websocketdemo2()
 
     '成功判定
     If ResultHandleCode Then
-        Debug.Print "Websocket success"
+        Debug.Print "Websocket connect is success."
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
 
         '1件分の送信をしてみる(接続先のブラウザにある全cookie情報抽出)
-        Debug.Print WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Network.getAllCookies""," & _
                   """params"":{}}")
-        
-        Debug.Print WebsocketObj.GetMessage
-        
+
+        '実行結果確認
+        Dim ErrorMes As New WinApiError
+        If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+
+        '受信メッセージを受け取る
+        Debug.Print WebsocketObj.GetMessage(ResultCode)
+
+        '実行結果確認
+        If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
         '後始末
         WebsocketObj.CloseWebSocket
     Else
-        Debug.Print "Websocket failed"
+        Debug.Print "Websocket connect is failed."
     End If
 End Sub
 
@@ -87,10 +103,18 @@ Sub rewebsocketdemo()
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    '送受信テスト
-    WebsocketObj.SendMessage ("{""id"":" & 1 & "," & _
+    '送信テスト
+    Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Browser.getVersion""," & _
                   """params"":{}}")
-                
-    Debug.Print WebsocketObj.GetMessage()
+
+    '実行結果確認
+    Dim ErrorMes As New WinApiError
+    If ResultCode Then Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+
+    '受信メッセージを受け取る
+    Debug.Print WebsocketObj.GetMessage(ResultCode)
+
+    '実行結果確認
+    If ResultCode Then Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 End Sub
