@@ -420,7 +420,7 @@ Public Function writeProc(ByVal strData As String) As Long
         Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData, True)
 
         'そのバイト配列として、コマンドを送ります
-        writeProc = WriteFile(hCDPInWr, ByVal StrPtr(BinData), UBound(BinData) + 1, lngWritten, ByVal 0&)
+        writeProc = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
 End Function
 
