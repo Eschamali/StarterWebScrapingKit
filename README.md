@@ -34,7 +34,7 @@
   * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
     * GCuser99氏による改良
     * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
-* **高速な文字コード変換パーサー**
+* **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland DI Management Services Pty
 
@@ -119,7 +119,7 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 ### 🌟 **Chromium-Automation: "Excel"こそが、あなたの司令塔**
 
 もう、VBAのコードと、にらめっこする必要はありません。
-**あなたの"戦場"は、常に、使い慣れた「Excelシート」の上**にあります。
+**あなたの"戦場"は、使い慣れた「Excelシート」の上**にもあります。
 
 * **【脱・ハードコーディング】起動設定は、"シート"の上で：**  
     起動引数とかどうしよう...😣  
@@ -367,8 +367,7 @@ End Sub
 新設された **`BrowserEvents`プロパティ**こそが、その **革命の"鍵"** です。
 
 `Demo_CDP.bas`内の`ネットワークイベントの確認`プロシージャは、`BrowserEvents`プロパティを活用した、高度なイベントハンドリングの実践的なデモです。  
-このデモは、**①有効化、②無効化（と状態の退避）、③退避した状態からの再開**、という3つのフェーズで構成されています。  
-ついでに、日本語+絵文字の送信も正しく行えてるかのテストも兼ねています。(`常にUTF-8でCDP-Json送信`がONになってる必要があります)
+このデモは、**①有効化、②無効化（と状態の退避）、③退避した状態からの再開**、という3つのフェーズで構成されています。
 
 ```bas
 Sub ネットワークイベントの確認()
