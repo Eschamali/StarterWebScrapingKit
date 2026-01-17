@@ -23,7 +23,7 @@
 
 * **WebSocket実装のコアロジック**
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
-    * [製作者：@kabkabkab氏](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)
+    * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
 * **CDP制御・パイプ通信の基盤**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
     * 製作者：longvh211氏
