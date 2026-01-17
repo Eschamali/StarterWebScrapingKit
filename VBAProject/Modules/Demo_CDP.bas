@@ -16,7 +16,7 @@ Attribute VB_Name = "Demo_CDP"
 ' Notes       :
 '       The framework does not need a matching webdriver as this is not a webdriver-based API.
 '       This module includes a few examples of automating browsers using CDP. For the
-'       engine codes, refer to the class modules CDPBrowser, CDPCore, CDPElement, and CDPJConv
+'       engine codes, refer to the class modules CDPBrowser, CDPCore, CDPElement, and WebJsonConverter
 '       For original examples, refer to Chris' article on CodeProject:
 '       https://www.codeproject.com/Tips/5307593/Automate-Chrome-Edge-using-VBA
 '       For the latest update of the CDP Framework by Long Vh:
@@ -77,7 +77,7 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New CDPJConv
+    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion:
     
     '設定シートに基づくブラウザ立ち上げ
@@ -127,7 +127,6 @@ Sub ネットワークイベントの確認()
     Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
-    Set JsonDicObj = New CDPJConv
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 

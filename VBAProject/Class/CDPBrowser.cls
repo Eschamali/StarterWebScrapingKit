@@ -169,7 +169,7 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
-Private jsConverter As New CDPJConv
+Private jsConverter As New WebJsonConverter
 
 '=============================================================================
 ' PUBLIC FUNCTIONS

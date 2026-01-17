@@ -183,7 +183,7 @@ Public Function ConvertXmlToJson(ByVal XmlValue As Variant, Optional ByVal White
     If ReturnAs = vbObject Then
         Set ConvertXmlToJson = xml_ReturnObject
     Else
-        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
         ConvertXmlToJson = APIConverter.ConvertToJson(xml_ReturnObject, Whitespace)
     End If
 End Function
@@ -210,7 +210,7 @@ Public Function ConvertJsonToXml(ByVal JsonValue As Variant, Optional ByVal Whit
     
     Select Case VarType(JsonValue)
     Case vbString
-        Dim APIConverter As CDPJConv: Set APIConverter = New CDPJConv
+        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
         Set json_ReturnObject = ConvertJsonToXml(APIConverter.ParseJson(JsonValue), Whitespace, vbObject)
     Case VBA.vbObject
         If VBA.TypeName(JsonValue) = "Dictionary" Then
