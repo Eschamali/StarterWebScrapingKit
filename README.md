@@ -36,6 +36,7 @@
     * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
 * **高速な文字コード変換パーサー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
+    * David Ireland DI Management Services Pty
 
 ※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
 
