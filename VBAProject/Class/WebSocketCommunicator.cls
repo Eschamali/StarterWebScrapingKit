@@ -68,7 +68,7 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ) As Long
 
 ''Websocket受信に使用(自作構造体)
-Private Type response
+Private Type WebSocketReceiveManage
     Buffer(4095) As Byte    '第1引数
     BufferLength As Long    '第2引数
     ReceiveBytes As Long    '第3引数
@@ -82,17 +82,39 @@ Public Http As WebSocketHTTPCommunicator
 Private ExistingWebsockethandle_ As LongPtr
 
 
- 
+
+'***************************************************************************************************
+'                                 ■■■ 設定/取得メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：既存のwebsocketのハンドル値を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：このクラスオブジェクトに設定中のWebsockethandle値
+'* LET引数 ：ExistingWebsockethandle    以前取得したWebsockethandle値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：以前に確立したwebsocketのハンドル値を渡すことで続きのやり取りができます。
+'* 注意事項：ErrorCode:12030 が来た場合は、もう切断状態です。「接続処理（Connect）からやり直す（再接続）」 しかありません。
+'            別プロセスを跨ぐ使用("/x excel.exe" による別プロセス起動など)はできません...
+'***************************************************************************************************
+Public Property Get ReConnect() As LongPtr
+    ReConnect = ExistingWebsockethandle_
+End Property
+Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
+    ExistingWebsockethandle_ = ExistingWebsockethandle
+End Property
+
+
+
 '***************************************************************************************************
 '                                   ■■■ 公開メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：websocketのハンドル値を新規に取得します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：指定したURIのwebsocketのハンドル値　※失敗時は、0です
-'* 引数    ：Host           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
-'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
-'            SecureMode     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'* 引数    ：Host               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
+'            Path               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port               http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
+'            SecureMode         http始まりならFalse、https始まりなら、Trueですが、無視もできます。
+'            CallBackProcedure  外部から呼び出す標準モジュール内のプロシージャ名(AddressOf ○○)を指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ヘルパークラスを伝って、websocketのハンドル値を取得する仕組みとなっています
 '* 注意事項：・secureモードが正しくないと、処理に失敗します
@@ -100,30 +122,26 @@ Private ExistingWebsockethandle_ As LongPtr
 '            ・既存のwebsocketのハンドル値を使う際は、次項のメソッドをご利用下さい
 '            ・引数のデフォルトOptional構成は、httpsプロトコルです
 '***************************************************************************************************
-Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True) As LongPtr
+Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True, Optional CallBackProcedure As LongPtr) As LongPtr
+    '非同期/同期の設定
+    Dim UseMode As Boolean
+    If CallBackProcedure Then UseMode = True Else UseMode = False
+    
+    '通常のHTTP接続を行う
     Set Http = New WebSocketHTTPCommunicator
-    If Http.Connect(Host, Path, port, SecureMode) = False Then GoTo quit
-    If Http.UpgradeToWebSocket() = False Then GoTo quit
+    If Http.Connect(Host, Path, port, SecureMode, UseMode) = False Then GoTo quit
+    
+    'WebSocketへの昇格処理を行う
+    If Http.UpgradeToWebSocket(CallBackProcedure) = False Then GoTo quit
 
     '成功したときのWebSocketハンドル値を返す
     Init = Http.websockethandle
 Exit Function
+
+
 quit:
     Init = 0
 End Function
-
-'***************************************************************************************************
-'* 機能　　：既存のwebsocketのハンドル値を設定します
-'---------------------------------------------------------------------------------------------------
-'* LET引数 ：ExistingWebsockethandle    以前取得したWebsockethandle値
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：以前に確立したwebsocketのハンドル値を渡すことで続きのやり取りができます。
-'* 注意事項：ErrorCode:12030 が来た場合は、もう切断状態です。「接続処理（Connect）からやり直す（再接続）」 しかありません。
-'            別プロセスを跨ぐ使用("/x excel.exe" による別プロセス起動など)はできません...
-'***************************************************************************************************
-Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
-    ExistingWebsockethandle_ = ExistingWebsockethandle
-End Property
 
 '***************************************************************************************************
 '* 機能　　：WebSocketへ送信を行います
@@ -173,7 +191,7 @@ Public Function GetMessage(Optional ByRef ResultCode As Long) As String
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
     'ストリーミング受信準備
-    Dim res As response
+    Dim res As WebSocketReceiveManage
     InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
     Set res.collect = New Collection
 
@@ -187,12 +205,12 @@ Public Function GetMessage(Optional ByRef ResultCode As Long) As String
         'エラーなら即抜け
         '※呼び出し側で、エラーかの確認をしてください
         If res.result Then ResultCode = res.result: Exit Function
-
+        
         'メッセージを全て受信し終えたら、各パケットを結合
         If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
             '最後のパケットを追加
             res.collect.Add res.Buffer
-            
+
             '全てのパケットを結合して、プレーンテキストに変換して、返却
             GetMessage = MakeResponseMessage(res.collect)
             Exit Function
