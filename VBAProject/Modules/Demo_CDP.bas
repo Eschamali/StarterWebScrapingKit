@@ -148,20 +148,27 @@ Sub JapaneseElementTest()
     ' 身長をセット
     Dim height As CDPElement
     Set height = Demo_Japanese.getElementByID("var_身長")
+    
+    '日本語と絵文字入力テスト
+    height.sendString "うみねこ！" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "みゃ～お！" & WorksheetFunction.Unichar(129442)  '日本語兼サロゲートペア絵文字通知表示テスト(U+1F636 U+200D U+1F32B U+FE0F、U+1F9A2)
+    Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(129418)       '日本語兼絵文字通知表示テスト(U+1F98A)
+    Demo_Japanese.sleep 3
+
+    'ちゃんと数字で入力しなおす
     height.sendString "170.5"
-    Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト
+    Demo_Japanese.notify "身長を入力し直しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+1F58D U+FE0F)
     Demo_Japanese.sleep 3
     
     ' 体重をセット
     Dim weight As CDPElement
     Set weight = Demo_Japanese.getElementByID("var_体重")
     weight.sendString "48.5"
-    Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト
+    Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+2696 U+FE0F)
     Demo_Japanese.sleep 3
 
     ' ボタンクリック
     Demo_Japanese.getElementByID("executebtn").click
-    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト
+    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     Demo_Japanese.sleep 3
 
     ' 体脂肪率を取得
