@@ -10,7 +10,7 @@ Attribute VB_Exposed = False
 '***************************************************************************************************
 '       VBAの「Unicode」(UTF-16)文字列を別の文字コードに変換したり、その逆を行ったりします。
 '           WebAPIのやり取りとか、日本語を含んだCDP-Jsonコマンドを行う際に利用します。
-'            おまけとして、ファイルの読み書きも対応します。ADODB の代わりにどうぞ!
+'          おまけとして、ファイルの読み書きも対応します。ADODB.Stream の代わりにどうぞ!
 '***************************************************************************************************
 ' basUtf8FromString
 
@@ -137,7 +137,7 @@ Public Function BytesFromString(strInput As String, Optional TerminatingNullHold
     ' Get length in bytes *including* terminating null
     nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
 
-    ' Boolean引数`TerminatingNullRemove`の仕様を利用して、終端nullを除去するかの補正を行う
+    ' Boolean引数`TerminatingNullHold`の仕様を利用して、終端nullを除去するかの補正を行う
     ReDim abBuffer(nBytes - 2 - TerminatingNullHold) ' NB ReDim with one less byte than you need
     nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, VarPtr(abBuffer(0)), nBytes - 1 - TerminatingNullHold, 0&, 0&)
     BytesFromString = abBuffer
