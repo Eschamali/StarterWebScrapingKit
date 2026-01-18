@@ -15,11 +15,22 @@ Private Declare PtrSafe Sub memcpy Lib "msvcrt.dll" (ByVal dest As LongPtr, ByVa
 
 
 '***************************************************************************************************
-'                      ■■■ コールバック処理を円滑に行うグローバル定義 ■■■
+'                                   ■■■ 構造体定義 ■■■
+'***************************************************************************************************
+'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ns-winhttp-winhttp_web_socket_status
+Private Type WINHTTP_WEB_SOCKET_STATUS
+    dwBytesTransferred As Long
+    eBufferType As Long
+End Type
+
+
+
+'***************************************************************************************************
+'                      ■■■ コールバック処理を行うためのグローバル定義 ■■■
 '***************************************************************************************************
 'Websocket蓄積受信状況把握に使用
-Public Type WebSocketReceiveManage
-    Buffer(4095) As Byte    '第1引数        コールバックで自動で入ってくれる
+Public Type G_WebSocketReceiveManage
+    Buffer() As Byte        '第1引数        コールバックで自動で入ってくれる
     BufferLength As Long    '第2引数        ※事前に計算で求める必要あり
     ReceiveBytes As Long    '第3引数        WINHTTP_WEB_SOCKET_STATUS.dwBytesTransferred
     Status As Long          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
@@ -27,17 +38,8 @@ Public Type WebSocketReceiveManage
     result As Long          '戻り値         コールバック内では無意味
     collect As Collection   'チャンク収集   ※バラバラのデータを蓄積させる用
 End Type
-Global G_res As WebSocketReceiveManage
-
-
-
-'***************************************************************************************************
-'                                   ■■■ 構造体定義 ■■■
-'***************************************************************************************************
-Private Type WINHTTP_WEB_SOCKET_STATUS
-    dwBytesTransferred As Long
-    eBufferType As Long
-End Type
+Global G_res As G_WebSocketReceiveManage
+Global ReceivedFlag As Boolean            'メッセージ受信済みフラグ
 
 
 
@@ -65,7 +67,8 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
         
         
             '========================= ステータス値　把握用 =========================
-            With ShSetting02_StartWebSocket
+            Dim ReceivingProcessing As New WebSocketCommunicator
+            With ReceivingProcessing
                 ViewLog.LogDebug "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
                 ViewLog.LogDebug "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
                 ViewLog.LogDebug "Type ：" & .Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
@@ -80,48 +83,17 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
             G_res.Status = WebSocketStatus.eBufferType
             G_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
 
-            'WINHTTP_CALLBACK_STATUS に応じた分岐処理
-            Dim tmp
+
+            'WINHTTP_CALLBACK_STATUS に応じたログ処理
             Select Case dwInternetStatus
                 'READ_COMPLETE
                 Case 524288
-                    '1. バッファー情報の更新
-                    ShSetting02_StartWebSocket.UpdateBufferInfo G_res.CurrentPointer, G_res.BufferLength, G_res.ReceiveBytes
-
-                    '2. 受信処理を託す
-                    tmp = ShSetting02_StartWebSocket.CommonWinHttpWebSocketReceive(G_res)
-                    
-                    '3. 全ての受信を終えたときの処理
-                    '　UTF8_MESSAGE_BUFFER_TYPE  ：Buffer には、UTF-8    メッセージ全体またはその最後の部分が含まれます。
-                    If G_res.Status = 2 Then
-                        '4. 完成品のプレーンテキストをキューのCollectionに蓄積
-                        ShSetting02_StartWebSocket.ReceiveBox = CStr(tmp)
-                        
-                        '5. 一時蓄積データも初期化
-                        Set G_res.collect = New Collection
-                        ViewLog.LogInfo "一時Collectionキューをクリーンしました。", ErrorSource
-                        Application.OnTime Now + TimeValue("00:00:01"), "受信したのをテーブルに一気に追加"
-                    
-                    '　BINARY_MESSAGE_BUFFER_TYPE：Buffer には、バイナリ メッセージ全体またはその最後の部分が含まれます。
-                    ElseIf G_res.Status = 0 Then
-                        '4. 完成品のバイナリデータをキューのCollectionに蓄積
-                        ShSetting02_StartWebSocket.ReceiveBox = CByte(tmp)
-                    
-                        '5. 一時蓄積データも初期化
-                        Set G_res.collect = New Collection
-                        ViewLog.LogInfo "一時Collectionキューをクリーンしました。", ErrorSource
-
-                    End If
-                
-                    '受信予約
-                    AsyncWebsocketReciveFromWorksheet
+                    ReceivedFlag = True
+                    ViewLog.LogInfo "非同期処理により、受信メッセージを格納しました。呼び出し側にて、受信メッセージを処理してください。", ErrorSource
 
                 'WRITE_COMPLETE
                 Case 1048576
-                    ViewLog.LogInfo "送信できました！", ErrorSource
-                    
-                    '受信予約
-                    AsyncWebsocketReciveFromWorksheet
+                    ViewLog.LogInfo "非同期処理により、送信の確認が取れました。必要に応じて、受信予約を行ってください。", ErrorSource
                     
                 'REQUEST_ERROR
                 Case 2097152
@@ -130,7 +102,9 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
                 'CLOSE_COMPLETE
                 Case 33554432
                     ViewLog.LogInfo "WebSocket を閉じました。", ErrorSource
-
+                    
+                Case Else
+                    ViewLog.LogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコードが来てます：" & dwInternetStatus, ErrorSource
             End Select
 
 
