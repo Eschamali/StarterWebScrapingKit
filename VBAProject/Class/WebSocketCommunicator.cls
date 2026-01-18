@@ -343,9 +343,9 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
 
     'テキスト変換するか判断して、返却
     If InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE Then
-        GetSyncMessage = vbNullString
+        GetAsyncMessage = vbNullString
     ElseIf GetBinaryMode Then
-        GetSyncMessage = tmp
+        GetAsyncMessage = tmp
     Else
         GetAsyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
     End If
