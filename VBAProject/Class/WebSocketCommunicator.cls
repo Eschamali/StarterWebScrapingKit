@@ -210,38 +210,36 @@ quit:
 End Function
 
 '***************************************************************************************************
-'* 機能　　：WebSocketへ送信を行います
+'* 機能　　：受け取ったデータで、WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：message            送信プレーンテキスト
-'* 返り値  ：実行結果コード     ※成功時は、0です
+'* 引数    ：SendData   String OR Byte 型を想定
+'* 返り値  ：実行結果コード   ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策により、ADODB を介したバイト配列変換を使用してます
-'* 注意事項：・現時点は、プレーンテキスト送信のみ対応です
-'            ・非同期の場合は、コールバック側での確認も必要です
+'* 機能説明：型判定を行い、テキストもWideCharToMultiByte を介したバイト配列変換を使用します
+'* 注意事項：・テキストも所詮、バイナリデータなのでこのような方式にしています。
+'            ・非同期モードでも使えるようにしていますがその場合、実行結果コードは常に0です。コールバック側で実際に確認する必要があります。
 '***************************************************************************************************
-Public Function SendMessage(message As String) As Long
+Public Function SendMessage(SendData As Variant) As Long
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
-    'テキストメッセージをUTF-8バイト配列に変換
-    Dim CharConv As New CharacterCodeConversion
-    Dim ary() As Byte: ary = CharConv.BytesFromString(message)  'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
-    'message = StrConv(message, vbFromUnicode)
-    Dim ary() As Byte: ary = ShSetting02_StartWebSocket.StringToUtf8Bytes(message)     'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
-    
-    '変換したバイト配列のサイズを取得
-    Dim messageByteSize As Long: messageByteSize = UBound(ary) + 1
+    '必要に応じて、バイト配列として変換する
+    Dim UseData() As Byte
+    Select Case VarType(SendData)
+        Case vbString: UseData = CharConv.BytesFromString(CStr(SendData))   'テキストをバイト配列に変換する
+        Case vbByte: UseData = SendData                                     'そのまんま使用
+        Case Else: Err.Raise vbObjectError + 1, "WebSocketCommunicator.SendMessage", "この操作は、String型かByte型のみ可能です。" & vbCrLf & "数値のみで渡してる場合は事前に、`CStr`を介す必要があります。"
+    End Select
+
+    'バイト配列のサイズを取得
+    Dim messageByteSize As Long: messageByteSize = UBound(UseData) + 1
 
     '求めたサイズで一括送信し、実行結果コードを返却
     '※呼び出し側で、エラーかの確認をしてください
     SendMessage = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
-                        VarPtr(ary(0)), messageByteSize)
-
-
-    '実行結果コードを返却
-    SendMessage = result
+                        VarPtr(UseData(0)), messageByteSize)
 End Function
 
 '***************************************************************************************************
