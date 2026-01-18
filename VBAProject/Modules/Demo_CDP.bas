@@ -385,9 +385,7 @@ Sub getSnapShot()
 
    'Snap a portion of the page based on the element indicator
    'If the second argument is omitted, snapPage will snap the entire page
-    Dim FileName As String
-    FileName = Environ("UserProfile") & "\Downloads\todaySGDvsVND.png"
-    chrome.snapPage FileName 'chrome.snapPage(fileName, True) to capture the entire page instead
+    chrome.snapPage Environ("UserProfile") & "\Downloads", "todaySGDvsVND.png" 'chrome.snapPage(fileName, True) to capture the entire page instead
     chrome.notify "Screenshot captured under " & FileName
  
 End Sub
