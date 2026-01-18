@@ -335,7 +335,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     
         'エラーなら即抜け
         '※呼び出し側で、エラーかの確認をしてください
-        If res.result Then ResultCode = res.result: Exit Function
+        If G_res.result Then ResultCode = G_res.result: Exit Function
 
         'グローバル変数側と仲介しながら、バッファー管理処理へ移る
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
