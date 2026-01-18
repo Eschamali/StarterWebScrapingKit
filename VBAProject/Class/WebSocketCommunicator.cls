@@ -327,11 +327,9 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     Do
         '非同期処理側で既に、受信済みデータがある場合は、処理を飛ばします
         '※次の受信データがある状態で、この処理が走ると、コールバック側のプロシージャへ遷移し、グローバル変数側に、メッセージが格納されます。
-        If Not (ReceivedFlag) Then
-            G_res.result = WinHttpWebSocketReceive( _
-                            UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
-                            G_res.ReceiveBytes, G_res.Status)
-        End If
+        G_res.result = WinHttpWebSocketReceive( _
+                        UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
+                        G_res.ReceiveBytes, G_res.Status)
     
         'エラーなら即抜け
         '※呼び出し側で、エラーかの確認をしてください
