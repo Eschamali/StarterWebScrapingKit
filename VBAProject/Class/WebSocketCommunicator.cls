@@ -26,6 +26,7 @@ Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ) As Long
 
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
+Private Const WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE = -1 '受信リクエスト。※独自コード
 Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0 'バイナリメッセージ全体か最後の部分。
 Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1 'バイナリメッセージの一部分のみ｡
 Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2 'UTF-8メッセージ全体か最後の部分。
@@ -67,14 +68,27 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
 
-'WebSocket に関する定義
-Private Http As WebSocketHTTPCommunicator
+'Websocket蓄積受信状況把握に使用
+Private Type WebSocketReceiveManage
+    Buffer() As Byte        '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
+    BufferLength As Long    '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
+    ReceiveBytes As Long    '第3引数        `WinHttpWebSocketReceive`から受信できたサイズ
+    Status As Long          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
+    CurrentPointer As Long  '第5引数        カーソル位置　※`UpdateBufferInfo`内で計算します
+    result As Long          '戻り値         `WinHttpWebSocketReceive`自体の実行結果
+    collect As Collection   'チャンク収集   バラバラのデータを蓄積させる用
+End Type
+
+
+Private Const BufferToAllocate As Long = 4095
 Private ExistingWebsockethandle_ As LongPtr
+Private Http As WebSocketHTTPCommunicator
+Private CharConv As New CharacterCodeConversion
 
 
 
 '***************************************************************************************************
-'                                 ■■■ 設定/取得メソッド ■■■
+'                                 ■■■ プロパティメソッド ■■■
 '***************************************************************************************************
 '* 機能　　：既存のwebsocketのハンドル値を設定します
 '---------------------------------------------------------------------------------------------------
@@ -88,8 +102,70 @@ Private ExistingWebsockethandle_ As LongPtr
 Public Property Get ReConnect() As LongPtr
     ReConnect = ExistingWebsockethandle_
 End Property
+
 Public Property Let ReConnect(ExistingWebsockethandle As LongPtr)
     ExistingWebsockethandle_ = ExistingWebsockethandle
+End Property
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 数値から翻訳 ■■■
+'***************************************************************************************************
+'* 機能    ：WINHTTP_WEB_SOCKET_BUFFER_TYPE - eBufferType 一式
+'---------------------------------------------------------------------------------------------------
+'* URL　　 ：https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
+'***************************************************************************************************
+Public Property Get Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(TypeID As Long, ErrorSource As String) As String
+    Select Case TypeID
+        Case 0: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "BINARY_MESSAGE_BUFFER_TYPE"
+        Case 1: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "BINARY_FRAGMENT_BUFFER_TYPE"
+        Case 2: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_MESSAGE_BUFFER_TYPE"
+        Case 3: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_FRAGMENT_BUFFER_TYPE"
+        Case 4: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "CLOSE_BUFFER_TYPE"
+        Case Else: Err.Raise 4 + vbObjectError, ErrorSource, "未知の WINHTTP_WEB_SOCKET_BUFFER_TYPE が来ました。" & vbCrLf & "Code：" & TypeID
+    End Select
+End Property
+
+'***************************************************************************************************
+'* 機能    ：WINHTTP_STATUS_CALLBACK - dwInternetStatus 一式
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：Websocketとは関係ないコールバック定数は一旦、コメントアウトしています
+'---------------------------------------------------------------------------------------------------
+'* URL　　 ：https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+'***************************************************************************************************
+Public Property Get Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus As Long, ErrorSource As String) As String
+    Select Case dwInternetStatus
+'        Case 1: Name__WINHTTP_STATUS_CALLBACK = "RESOLVING_NAME"
+'        Case 2: Name__WINHTTP_STATUS_CALLBACK = "NAME_RESOLVED"
+'        Case 4: Name__WINHTTP_STATUS_CALLBACK = "CONNECTING_TO_SERVER"
+'        Case 8: Name__WINHTTP_STATUS_CALLBACK = "CONNECTED_TO_SERVER"
+'        Case 16: Name__WINHTTP_STATUS_CALLBACK = "SENDING_REQUEST"
+'        Case 32: Name__WINHTTP_STATUS_CALLBACK = "REQUEST_SENT"
+'        Case 64: Name__WINHTTP_STATUS_CALLBACK = "RECEIVING_RESPONSE"
+'        Case 128: Name__WINHTTP_STATUS_CALLBACK = "RESPONSE_RECEIVED"
+'        Case 256: Name__WINHTTP_STATUS_CALLBACK = "CLOSING_CONNECTION"
+'        Case 512: Name__WINHTTP_STATUS_CALLBACK = "CONNECTION_CLOSED"
+'        Case 1024: Name__WINHTTP_STATUS_CALLBACK = "HANDLE_CREATED"
+'        Case 2048: Name__WINHTTP_STATUS_CALLBACK = "HANDLE_CLOSING"
+'        Case 4096: Name__WINHTTP_STATUS_CALLBACK = "DETECTING_PROXY"
+'        Case 16384: Name__WINHTTP_STATUS_CALLBACK = "REDIRECT"
+'        Case 32768: Name__WINHTTP_STATUS_CALLBACK = "INTERMEDIATE_RESPONSE"
+'        Case 65536: Name__WINHTTP_STATUS_CALLBACK = "SECURE_FAILURE"
+'        Case 131072: Name__WINHTTP_STATUS_CALLBACK = "HEADERS_AVAILABLE"
+'        Case 262144: Name__WINHTTP_STATUS_CALLBACK = "DATA_AVAILABLE"
+        Case 524288: Name__WINHTTP_STATUS_CALLBACK = "READ_COMPLETE"
+        Case 1048576: Name__WINHTTP_STATUS_CALLBACK = "WRITE_COMPLETE"
+        Case 2097152: Name__WINHTTP_STATUS_CALLBACK = "REQUEST_ERROR"
+'        Case 4194304: Name__WINHTTP_STATUS_CALLBACK = "SENDREQUEST_COMPLETE"
+'        Case 16777216: Name__WINHTTP_STATUS_CALLBACK = "GETPRO_YFORURL_COMPLETE"
+        Case 33554432: Name__WINHTTP_STATUS_CALLBACK = "CLOSE_COMPLETE"
+'        Case 67108864: Name__WINHTTP_STATUS_CALLBACK = "SHUTDOWN_COMPLETE"
+'        Case 268435456: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_WRITE_COMPLETE"
+'        Case 536870912: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_READ_COMPLETE"
+'        Case Else: Err.Raise 3 + vbObjectError, ErrorSource, "未知の WINHTTP_CALLBACK_STATUS が来ました。" & vbCrLf & "Code：" & dwInternetStatus
+        Case Else: Name__WINHTTP_STATUS_CALLBACK = "Unknow_Code:" & dwInternetStatus
+    End Select
 End Property
 
 
@@ -147,7 +223,7 @@ Public Function SendMessage(message As String) As Long
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
-
+    
     'テキストメッセージをUTF-8バイト配列に変換
     Dim CharConv As New CharacterCodeConversion
     Dim ary() As Byte: ary = CharConv.BytesFromString(message)  'Task：ここに直接バイナリデータを入れることで、画像とかもいけるかも？
@@ -249,9 +325,9 @@ Public Function GetMessageForAsync() As Long
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
     '受信予約処理
-    G_res.result = WinHttpWebSocketReceive( _
-                    UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
-                    G_res.ReceiveBytes, G_res.Status)
+            G_res.result = WinHttpWebSocketReceive( _
+                            UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
+                            G_res.ReceiveBytes, G_res.Status)
                     
 
     '実行結果コードを返却
@@ -299,4 +375,183 @@ If Len(strCloseReason) > 0 Then
     Debug.Print " and reason: " & strCloseReason
 End If
 CloseWebSocket = False
+End Function
+
+
+
+'***************************************************************************************************
+'                                ■■■ ヘルパープロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：バッファ初期化
+'***************************************************************************************************
+Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
+    ReDim responseBuffer(BufferToAllocate)
+    CurrentPointer = 0
+    BufferLength = UBound(responseBuffer) + 1
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：バッファ管理情報更新
+'***************************************************************************************************
+Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
+    CurrentPointer = CurrentPointer + ReceiveBytes
+    BufferLength = BufferLength - ReceiveBytes
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にUTF-8変換します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：collect  コレクションバイト配列
+'* 返り値  ：合体したバイト配列
+'***************************************************************************************************
+Private Function MakeResponseFullBytes(collect As Collection) As Byte()
+    Dim totalSize As Long
+    Dim chunk As Variant
+    Dim fullBytes() As Byte
+    Dim currentPos As Long
+    Dim i As Long
+    
+    ' 1. まず合計サイズを計算する
+    totalSize = 0
+    For Each chunk In collect
+        ' 配列のサイズを加算（UBound+1）
+        totalSize = totalSize + (UBound(chunk) + 1)
+    Next chunk
+    
+    ' 2. 巨大な配列を確保
+    ReDim fullBytes(0 To totalSize - 1)
+
+    ' 3. バイトデータをコピーして結合
+    currentPos = 0
+    For Each chunk In collect
+        For i = 0 To UBound(chunk)
+            fullBytes(currentPos) = chunk(i)
+            currentPos = currentPos + 1
+        Next
+    Next
+
+    '4. 返却
+    MakeResponseFullBytes = fullBytes
+End Function
+
+'***************************************************************************************************
+'* 機能　　：クラス内ユーザー定義型：WebSocketReceiveManage とグローバル変数側ユーザー定義型：G_WebSocketReceiveManage の橋渡し役を担います
+'---------------------------------------------------------------------------------------------------
+' *返り値  ：Param.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)が、
+'            ・0,2 ：完成品のバイナリデータ
+'            ・他：Empty
+'
+'* 引数    ：ユーザー定義型 - WebSocketReceiveManage
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：バッファー管理を行うための仲介処理をします
+'***************************************************************************************************
+Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketReceiveManage) As Byte()
+    'コールバック側で受け取ったグローバル変数で、クラス内変数へコピーする
+    With tmp
+        .Buffer = G_res.Buffer
+        .BufferLength = G_res.BufferLength
+        Set .collect = G_res.collect
+        .CurrentPointer = G_res.CurrentPointer
+        .ReceiveBytes = G_res.ReceiveBytes
+        .result = G_res.result
+        .Status = G_res.Status
+    End With
+    
+    'コピーしたクラス内変数で、バッファー管理へ移し、結果を返却
+    IntermediaryProcessing_BufferManagement = BufferManagement(tmp)
+    
+    'メッセージ処理したので、格納済みフラグを消す
+    ReceivedFlag = False
+
+    'バッファー処理した結果を、グローバル変数側へ反映する
+    With G_res
+        .Buffer = tmp.Buffer
+        .BufferLength = tmp.BufferLength
+        Set .collect = tmp.collect
+        .CurrentPointer = tmp.CurrentPointer
+        .ReceiveBytes = tmp.ReceiveBytes
+        .result = tmp.result
+        .Status = tmp.Status
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WinHttpWebSocketReceive のバッファー管理を担います
+'---------------------------------------------------------------------------------------------------
+' *返り値  ：Param.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)が、
+'            ・0,2 ：完成品のバイナリデータ
+'            ・他：Empty
+'
+'* 引数    ：ユーザー定義型 - WebSocketReceiveManage
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：デバッグログによるストリーミング受信状況の可視化を行っています。
+'***************************************************************************************************
+Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte()
+    'ログ把握用クラス
+    Dim ViewLog As New Logger
+    Const TraceName As String = "WebSocketCommunicator.BufferManagement"
+
+    'バッファー情報の更新
+    UpdateBufferInfo Param.CurrentPointer, Param.BufferLength, Param.ReceiveBytes
+
+
+    '========================= 受信ステータス値　把握用 =========================
+    ViewLog.LogDebug "------------ WebSocket 受信ステータス ------------", TraceName
+    ViewLog.LogDebug "バッファー残量 ：" & Param.BufferLength & " byte", TraceName
+    ViewLog.LogDebug "受信データ量　 ：" & Param.ReceiveBytes & " byte", TraceName
+    ViewLog.LogDebug "バッファー位置 ：" & Param.CurrentPointer & " byte", TraceName
+    ViewLog.LogDebug "WebSocketStatus：" & Param.Status, TraceName
+    ViewLog.LogDebug "---------------------------------------------------", TraceName
+    '============================================================================
+
+
+    'WINHTTP_WEB_SOCKET_STATUS.eBufferType による分岐処理
+    '※4 + 1種類のタイプが出ますが、4種類の部分はどっちもバイナリ処理のため、統一します。
+    Select Case Param.Status
+        Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+            ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
+        
+        Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
+            ViewLog.LogInfo "全ての" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "バイナリ", "UTF-8") & "データが届きました。", TraceName
+            
+            '1. 最後のパケットデータを追加
+            Param.collect.Add Param.Buffer
+            ViewLog.LogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
+
+            '2. 全てのチャンクを結合して、返却
+            BufferManagement = MakeResponseFullBytes(Param.collect)
+            ViewLog.LogInfo "チャンクを全て結合し、バイト配列として返却しました。", TraceName
+
+            '3. 全てを受信し終えたステータスなので、初期化処理
+            InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
+            Set Param.collect = New Collection
+            ViewLog.LogInfo "バッファーを確保しました。", TraceName
+        
+        Case WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
+            '1. バッファー残量確認
+            ViewLog.LogWarn "一部の" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, "バイナリ", "UTF-8") & "データを受け取りました。完全なデータの受信には再度、受信リクエストを送る必要があります。", TraceName
+            If Param.BufferLength <= 0 Then
+                ViewLog.LogInfo "バッファーを使い果たしました。", TraceName
+                
+                '2. 満たしたパケットをコレクションへ追加
+                Param.collect.Add Param.Buffer
+                ViewLog.LogInfo "満たしたバッファーを一時Collectionキューに追加しました。", TraceName
+
+                '3. バッファー初期化して、空きを確保
+                InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
+                ViewLog.LogInfo "バッファーを確保しました。", TraceName
+            Else
+                ViewLog.LogInfo "バッファーに空きがあるため、次の受信処理に持ち越します。", TraceName
+            End If
+
+        'サーバーが閉じるフレームを送信しました。
+        Case WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
+            ViewLog.LogInfo "切断リクエストが来たため、WebSocket 処理を終了します...", TraceName
+            
+            '具体的な処理はまだ未実装
+        
+        '`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコード
+        Case Else
+            ViewLog.LogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコードが来てます：" & Param.Status, TraceName
+    End Select
 End Function
