@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   Websocketの確立に必要なWindowsAPI宣言や処理を行います。WebSocketへのアップグレードまでは、ここのモジュールで行います
+'   Websocketの確立に必要なWindowsAPI宣言や処理を行います。WebSocketへのアップグレードまでは、ここのクラスモジュールで行います
 '   winhttp5.1 では、http系統特化のためここでは、WinHttp.dll を直接操作する低レベル操作を行います
 '
 '           ここをカスタマイズすることで、cookieや認証ヘッダー対応もできたりします
@@ -38,8 +38,8 @@ Private Const WINHTTP_ACCESS_TYPE_NO_PROXY = 1 '＝プロキシを介さず、すべてのホス
 Private Const WINHTTP_ACCESS_TYPE_NAMED_PROXY = 3
 Private Const WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY = 4
 Private Const WINHTTP_NO_PROXY_BYPASS = 0
-Private Const WINHTTP_FLAG_SYNC = &H0          ' セッションは同期　これを使用
-Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' セッション非同期　未実装
+Private Const WINHTTP_FLAG_SYNC = &H0          ' セッションは同期
+Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' セッション非同期
 
 Private Declare PtrSafe Function WinHttpConnect Lib "WinHttp" ( _
    ByVal hSession As LongPtr, _
@@ -264,6 +264,21 @@ quit:
     UpgradeToWebSocket = False
 End Function
 
+'***************************************************************************************************
+'* 機能　　：WebSocketハンドルの後始末を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：anyHandle      保存したハンドルを使用するときに指定して下さい。
+'***************************************************************************************************
+Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
+    'クラス内部で保存してるWebSocketハンドル
+    If hwebsockethandle_ Then WinHttpCloseHandle hwebsockethandle_: hwebsockethandle_ = 0
+    If Err.LastDllError Then Debug.Print "クラス内 websockethandle 破棄にて、エラー：" & Err.LastDllError
+
+    '引数としてのWebSocketハンドル
+    If anyHandle <> 0 Then WinHttpCloseHandle anyHandle
+    If Err.LastDllError Then Debug.Print "引数の handle 破棄にて、エラー：" & Err.LastDllError
+End Sub
+
 
 
 '***************************************************************************************************
@@ -302,51 +317,14 @@ End Function
 '* 注意事項：WebSocket も後始末する場合は、次項のプロシージャも呼び出して下さい
 '***************************************************************************************************
 Private Sub CloseHInternetHandles()
-    If (hRequestHandle_ <> 0) Then
-        WinHttpCloseHandle (hRequestHandle_)
-        hRequestHandle_ = 0
-    End If
-    If (hConnectionHandle_ <> 0) Then
-        WinHttpCloseHandle (hConnectionHandle_)
-        hConnectionHandle_ = 0
-    End If
-    If (hSessionHandle_ <> 0) Then
-        WinHttpCloseHandle (hSessionHandle_)
-        hSessionHandle_ = 0
-    End If
+    If hRequestHandle_ Then WinHttpCloseHandle hRequestHandle_: hRequestHandle_ = 0
+    If Err.LastDllError Then Debug.Print "RequestHandle 破棄にて、エラー：" & Err.LastDllError
 
+    If hConnectionHandle_ Then WinHttpCloseHandle hConnectionHandle_: hConnectionHandle_ = 0
+    If Err.LastDllError Then Debug.Print "ConnectionHandle 破棄にて、エラー：" & Err.LastDllError
 
-    Dim result As Long
-    result = Err.LastDllError
-    If (result <> ERROR_SUCCESS) Then
-          MsgBox "quitting with result: " & result
-    End If
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：WebSocketハンドルの後始末を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：anyHandle      保存したハンドルを使用するときに指定して下さい。
-'***************************************************************************************************
-Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
-    'クラス内部で保存してるWebSocketハンドル
-    If (hwebsockethandle_ <> 0) Then
-        WinHttpCloseHandle (hwebsockethandle_)
-        hwebsockethandle_ = 0
-    End If
-
-    '引数としてのWebSocketハンドル
-    If (anyHandle <> 0) Then
-        WinHttpCloseHandle (anyHandle)
-        anyHandle = 0
-    End If
-
-
-    Dim result As Long
-    result = Err.LastDllError
-    If (result <> ERROR_SUCCESS) Then
-          MsgBox "quitting with result: " & result
-    End If
+    If hSessionHandle_ Then WinHttpCloseHandle hSessionHandle_: hSessionHandle_ = 0
+    If Err.LastDllError Then Debug.Print "SessionHandle 破棄にて、エラー：" & Err.LastDllError
 End Sub
 
 
