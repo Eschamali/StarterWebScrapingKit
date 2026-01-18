@@ -289,30 +289,66 @@ Public Function GetSyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef
 End Function
 
 '***************************************************************************************************
-'* 機能　　：WebSocketからの受信予約を行います
+'* 機能　　：WebSocketからの非同期受信を行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：エラーコード   ※成功時は、0です
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：・非同期モードではありますが実際は、受信予約扱いです。それまでにメッセージがあれば、コールバック側でメッセージの確認が取れます
-'            ・受信データが空でもフリーズせず、受信予約的な挙動となります
+'* 引数    ：GetBinaryMode
+'               `True`  バイト配列として受け取る場合
+'               `False` テキストとして受け取る場合
 '
-'* 注意事項：・現時点は、プレーンテキスト受信のみ対応です
-'            ・受信データが空かつ既に予約済みの場合に更にこのメソッドを呼ぶと、4317エラーが返るようです
-'            ・これを呼び出すと、全メッセージを受信するのではなく、呼び出す度に1件1件受信される仕組みです
+'            ResultCode     WinHttpWebSocketReceive の実行結果。実質返り値です。
+'* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・非同期モードではありますが実際は、コールバック側の処理が終わったら、もとの呼び出し側に戻って処理を続けるというシングル仕様です
+'            ・同期受信処理と違って、受信データがなくてもブロッキングしません
+'
+'* 注意事項：・受信データが空かつ既に予約済みの場合に更にこのメソッドを呼ぶと、4317エラーが返ります
+'            ・これを呼び出すと、全メッセージを受信するのではなく、呼び出す度に1回1回、受信される仕組みです
+'            ・WinHttpWebSocketReceive に渡す際は、グローバル引数として渡す必要があります
 '***************************************************************************************************
-Public Function GetMessageForAsync() As Long
+Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
-    '受信予約処理
+    '非同期処理側で既に、受信済みデータがあるか？
+    If Not (ReceivedFlag) Then
+        'ない場合は、初期化
+        InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
+        Set G_res.collect = New Collection
+        ResultCode = 0
+
+        '非同期モードの場合は、こっちも追加で初期化しておく
+        G_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+        G_res.ReceiveBytes = 0
+    End If
+
+    'データが尽きるまで、レスポンス受信ループ
+    Dim tmp() As Byte, InsiderRes As WebSocketReceiveManage
+    Do
+        '非同期処理側で既に、受信済みデータがある場合は、処理を飛ばします
+        '※次の受信データがある状態で、この処理が走ると、コールバック側のプロシージャへ遷移し、グローバル変数側に、メッセージが格納されます。
+        If Not (ReceivedFlag) Then
             G_res.result = WinHttpWebSocketReceive( _
                             UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                             G_res.ReceiveBytes, G_res.Status)
-                    
+        End If
+    
+        'エラーなら即抜け
+        '※呼び出し側で、エラーかの確認をしてください
+        If res.result Then ResultCode = res.result: Exit Function
 
-    '実行結果コードを返却
-    GetMessageForAsync = G_res.result
+        'グローバル変数側と仲介しながら、バッファー管理処理へ移る
+        tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
+    Loop Until InsiderRes.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+
+    'テキスト変換するか判断して、返却
+    If InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE Then
+        GetSyncMessage = vbNullString
+    ElseIf GetBinaryMode Then
+        GetSyncMessage = tmp
+    Else
+        GetAsyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
+    End If
 End Function
 
 '***************************************************************************************************
