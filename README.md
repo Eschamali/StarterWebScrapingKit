@@ -116,7 +116,7 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 
 ---
 
-### 🌟 **Chromium-Automation: "Excel"こそが、あなたの司令塔**
+### 🌟 **Chromium-Automation-with-CDP-for-VBA: "Excel"こそが、あなたの司令塔**
 
 もう、VBAのコードと、にらめっこする必要はありません。
 **あなたの"戦場"は、使い慣れた「Excelシート」の上**にもあります。
