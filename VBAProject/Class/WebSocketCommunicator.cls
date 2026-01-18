@@ -353,8 +353,12 @@ End Function
 
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：ForceClose
+'               `True`  必ず、ハンドル破棄まで突っ走ります
+'               `False` 途中でエラーがある場合は、そこで終わります
 '***************************************************************************************************
-Public Function CloseWebSocket() As Boolean
+Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
@@ -362,7 +366,7 @@ Public Function CloseWebSocket() As Boolean
     Dim result As Long
     result = WinHttpWebSocketClose(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
-    If result Then GoTo quit
+    If result And Not (ForceClose) Then GoTo quit
 
     ' サーバーから返されたクローズステータスを確認する。
     Dim CloseReasonBuffer(123) As Byte
@@ -372,8 +376,12 @@ Public Function CloseWebSocket() As Boolean
     
     result = WinHttpWebSocketQueryCloseStatus(UseWebsockethandle, Status, _
                         CloseReasonBuffer(0), BufferSize, CloseReasonLength)
-    If result Then GoTo quit
-    If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS Then GoTo quit
+    If result And Not (ForceClose) Then GoTo quit
+    If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS And Not (ForceClose) Then GoTo quit
+    
+    'ハンドルを破棄
+    Set Http = New WebSocketHTTPCommunicator
+    Http.CloseHWebsocketHandle UseWebsockethandle
 
     CloseWebSocket = True
 Exit Function
