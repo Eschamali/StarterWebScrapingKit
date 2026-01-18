@@ -245,6 +245,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：WebSocketからの同期受信を行います
 '---------------------------------------------------------------------------------------------------
+'* 引数    ：GetBinaryMode
+'               `True`  バイト配列として受け取る場合
+'               `False` テキストとして受け取る場合
+'
+'            ResultCode     WinHttpWebSocketReceive の実行結果。実質返り値です。
 '* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
@@ -252,57 +257,35 @@ End Function
 '            ・現時点は、プレーンテキスト受信のみ対応です
 '            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
 '***************************************************************************************************
-Public Function GetMessageForSync() As String
-    'ログ関連定義
-    Dim Error翻訳 As New WinApiError
-    Dim LogView As New Logger
-    Const ErrorSource As String = "WebSocketCommunicator.GetMessageForSync"
-
+Public Function GetSyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
-    'ストリーミング受信準備
+    'ストリーミング受信準備による初期化
     Dim res As WebSocketReceiveManage
-    ShSetting02_StartWebSocket.InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength    'バッファー初期化
-    Set res.collect = New Collection                                                                '一時蓄積データも初期化
+    InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
+    Set res.collect = New Collection
+    ResultCode = 0
 
     'データが尽きるまで、レスポンス受信ループ
-    Dim tmp
+    Dim tmp() As Byte
     Do
         '受信処理
         res.result = WinHttpWebSocketReceive( _
                         UseWebsockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
                         res.ReceiveBytes, res.Status)
         
-        'エラーならGoToへ
-        If res.result <> NO_ERROR Then GoTo quit
-        LogView.LogInfo Error翻訳.GetMessage(res.result, "winhttp"), ErrorSource
-
-        'バッファー情報の更新
-        ShSetting02_StartWebSocket.UpdateBufferInfo res.CurrentPointer, res.BufferLength, res.ReceiveBytes
- 
-        '受信処理を託す
-        tmp = ShSetting02_StartWebSocket.CommonWinHttpWebSocketReceive(res)
+        'エラーなら即抜け
+        '※呼び出し側で、エラーかの確認をしてください
+        If res.result Then ResultCode = res.result: Exit Function
         
-        '全ての受信を終えたときの処理
-        If res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Then
-            '完成品のプレーンテキストを返却
-            GetMessageForSync = CStr(tmp)
+        'バッファー管理処理へ移る
+        tmp = BufferManagement(res)
+    Loop Until res.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
 
-            Exit Function
-        ElseIf res.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Then
-            '完成品のバイナリデータを返却
-            
-            
-            Exit Function
-        End If
-    Loop
-
-
-'エラー時は、エラーメッセージを表示
-quit:
-LogView.LogError Error翻訳.GetMessage(res.result, "winhttp"), ErrorSource, res.result
+    'テキスト変換するか判断して、返却
+    If GetBinaryMode Then GetSyncMessage = tmp Else GetSyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
 End Function
 
 '***************************************************************************************************
