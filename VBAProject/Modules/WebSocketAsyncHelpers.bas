@@ -10,7 +10,7 @@ Option Explicit
 '***************************************************************************************************
 '                        ■■■ VBA用の変数にコピーするためのWinAPI宣言 ■■■
 '***************************************************************************************************
-Private Declare PtrSafe Sub memcpy Lib "msvcrt.dll" (ByVal dest As LongPtr, ByVal src As LongPtr, ByVal Count As LongPtr)
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As LongPtr)
 
 
 
@@ -51,7 +51,7 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
     'ログ把握用クラス
     Dim ViewLog As New Logger
     Const ErrorSource As String = "WebSocketAsyncHelpers.WebSocketCallback"
-
+    
     '万が一、WebSocket 関連以外のコールバックが来ても問題ないように排除する
     Select Case dwInternetStatus
         'WebSocket関連のコールバック値を列挙する
@@ -63,7 +63,7 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
             ' src:  ポインタの値 (lpvStatusInformation)
             ' size: 構造体のサイズ (LenB)
             Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
-            memcpy VarPtr(WebSocketStatus), lpvStatusInformation, LenB(WebSocketStatus)
+            CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
         
         
             '========================= ステータス値　把握用 =========================
