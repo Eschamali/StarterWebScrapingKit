@@ -138,7 +138,10 @@ Sub WebSocketDemoASync1_1_初期化()
     
     '接続先を設定します
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("echo.websocket.org", "", , , AddressOf WebSocketCallback)
-    
+
+    'フラグのリセット
+    IncomingRequestsFlag = False
+
     '成功判定
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. AsyncMode."
@@ -235,6 +238,9 @@ Sub WebSocketDemoASync2_長文レスポンス()
     '接続先を設定します
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("127.0.0.1", "devtools/page/1AAA01F8A73F5568DDF8FF042B62D61C", 9222, False, AddressOf WebSocketCallback)
     
+    'フラグのリセット
+    IncomingRequestsFlag = False
+
     '成功判定
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. AsyncMode."
