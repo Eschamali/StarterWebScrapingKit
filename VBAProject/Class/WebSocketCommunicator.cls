@@ -70,17 +70,16 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
 
 'Websocket蓄積受信状況把握に使用
 Private Type WebSocketReceiveManage
-    Buffer() As Byte        '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
-    BufferLength As Long    '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
-    ReceiveBytes As Long    '第3引数        `WinHttpWebSocketReceive`から受信できたサイズ
-    Status As Long          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
-    CurrentPointer As Long  '第5引数        カーソル位置　※`UpdateBufferInfo`内で計算します
-    result As Long          '戻り値         `WinHttpWebSocketReceive`自体の実行結果
-    collect As Collection   'チャンク収集   バラバラのデータを蓄積させる用
+    Buffer(BufferToAllocate - 1) As Byte    '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
+    BufferLength As Long                    '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
+    ReceiveBytes As Long                    '第3引数        `WinHttpWebSocketReceive`から受信できたサイズ
+    Status As Long                          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
+    CurrentPointer As Long                  '第5引数        カーソル位置　※`UpdateBufferInfo`内で計算します
+    result As Long                          '戻り値         `WinHttpWebSocketReceive`自体の実行結果
+    collect As Collection                   'チャンク収集   バラバラのデータを蓄積させる用
 End Type
 
 
-Private Const BufferToAllocate As Long = 4095
 Private ExistingWebsockethandle_ As LongPtr
 Private Http As WebSocketHTTPCommunicator
 Private CharConv As New CharacterCodeConversion
@@ -337,12 +336,12 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
             G_res.result = WinHttpWebSocketReceive( _
                             UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                             G_res.ReceiveBytes, G_res.Status)
-        
+
             'エラーなら即抜け
             '※呼び出し側で、エラーかの確認をしてください
             If G_res.result Then ResultCode = G_res.result: Exit Function
         End If
-        
+    
         'グローバル変数側と仲介しながら、バッファー管理処理へ移る
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
     Loop Until InsiderRes.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
@@ -416,7 +415,7 @@ End Function
 '* 機能　　：バッファ初期化
 '***************************************************************************************************
 Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
-    ReDim responseBuffer(BufferToAllocate)
+    Erase responseBuffer
     CurrentPointer = 0
     BufferLength = UBound(responseBuffer) + 1
 End Sub
@@ -477,9 +476,15 @@ End Function
 '* 機能説明：バッファー管理を行うための仲介処理をします
 '***************************************************************************************************
 Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketReceiveManage) As Byte()
+    Dim i As Long
+    
     'コールバック側で受け取ったグローバル変数で、クラス内変数へコピーする
     With tmp
-        .Buffer = G_res.Buffer
+        '固定配列なので、愚直にループでコピー
+        For i = LBound(.Buffer) To UBound(.Buffer)
+            .Buffer(i) = G_res.Buffer(i)
+        Next
+        
         .BufferLength = G_res.BufferLength
         Set .collect = G_res.collect
         .CurrentPointer = G_res.CurrentPointer
@@ -496,7 +501,11 @@ Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketR
 
     'バッファー処理した結果を、グローバル変数側へ反映する
     With G_res
-        .Buffer = tmp.Buffer
+        '固定配列なので、愚直にループで転記
+        For i = LBound(.Buffer) To UBound(.Buffer)
+            .Buffer(i) = tmp.Buffer(i)
+        Next
+
         .BufferLength = tmp.BufferLength
         Set .collect = tmp.collect
         .CurrentPointer = tmp.CurrentPointer

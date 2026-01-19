@@ -28,15 +28,17 @@ End Type
 '***************************************************************************************************
 '           ■■■ コールバック処理を出来るだけ安定的に、行うためのグローバル定義 ■■■
 '***************************************************************************************************
+Public Const BufferToAllocate As Long = 4096
+
 'Websocket蓄積受信状況把握に使用
 Public Type G_WebSocketReceiveManage
-    Buffer() As Byte        '第1引数        コールバックで自動で入ってくれる
-    BufferLength As Long    '第2引数        ※事前に計算で求める必要あり
-    ReceiveBytes As Long    '第3引数        WINHTTP_WEB_SOCKET_STATUS.dwBytesTransferred
-    Status As Long          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
-    CurrentPointer As Long  '第5引数        ※事前に計算で求める必要あり
-    result As Long          '戻り値         コールバック内では無意味
-    collect As Collection   'チャンク収集   ※バラバラのデータを蓄積させる用
+    Buffer(BufferToAllocate - 1) As Byte    '第1引数        コールバックで自動で入ってくれる
+    BufferLength As Long                    '第2引数        ※事前に計算で求める必要あり
+    ReceiveBytes As Long                    '第3引数        WINHTTP_WEB_SOCKET_STATUS.dwBytesTransferred
+    Status As Long                          '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
+    CurrentPointer As Long                  '第5引数        ※事前に計算で求める必要あり
+    result As Long                          '戻り値         コールバック内では無意味
+    collect As Collection                   'チャンク収集   ※バラバラのデータを蓄積させる用
 End Type
 Global G_res As G_WebSocketReceiveManage
 
