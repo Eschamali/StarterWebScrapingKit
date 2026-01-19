@@ -26,7 +26,7 @@ End Type
 
 
 '***************************************************************************************************
-'                      ■■■ コールバック処理を行うためのグローバル定義 ■■■
+'           ■■■ コールバック処理を出来るだけ安定的に、行うためのグローバル定義 ■■■
 '***************************************************************************************************
 'Websocket蓄積受信状況把握に使用
 Public Type G_WebSocketReceiveManage
@@ -39,6 +39,8 @@ Public Type G_WebSocketReceiveManage
     collect As Collection   'チャンク収集   ※バラバラのデータを蓄積させる用
 End Type
 Global G_res As G_WebSocketReceiveManage
+
+'フラグ管理
 Global ReceivedFlag         As Boolean      'メッセージ受信済みフラグ
 Global IncomingRequestsFlag As Boolean      '受信予約済みフラグ
 
