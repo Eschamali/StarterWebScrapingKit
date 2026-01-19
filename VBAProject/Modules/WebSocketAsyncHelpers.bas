@@ -39,7 +39,8 @@ Public Type G_WebSocketReceiveManage
     collect As Collection   'チャンク収集   ※バラバラのデータを蓄積させる用
 End Type
 Global G_res As G_WebSocketReceiveManage
-Global ReceivedFlag As Boolean            'メッセージ受信済みフラグ
+Global ReceivedFlag         As Boolean      'メッセージ受信済みフラグ
+Global IncomingRequestsFlag As Boolean      '受信予約済みフラグ
 
 
 
@@ -89,6 +90,7 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
                 'READ_COMPLETE
                 Case 524288
                     ReceivedFlag = True
+                    IncomingRequestsFlag = False
                     ViewLog.LogInfo "非同期処理により、受信メッセージを格納しました。呼び出し側にて、受信メッセージを処理してください。", ErrorSource
 
                 'WRITE_COMPLETE

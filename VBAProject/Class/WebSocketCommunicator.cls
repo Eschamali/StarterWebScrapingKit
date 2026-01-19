@@ -26,12 +26,12 @@ Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ) As Long
 
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
-Private Const WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE = -1 '受信リクエスト。※独自コード
-Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0 'バイナリメッセージ全体か最後の部分。
-Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1 'バイナリメッセージの一部分のみ｡
-Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2 'UTF-8メッセージ全体か最後の部分。
-Private Const WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE = 3 'UTF-8 メッセージの一部分のみ。
-Private Const WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE = 4 'CloseFrame。
+Private Const WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE = -1 '受信リクエスト。※独自ステータスコード
+Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0     'バイナリメッセージ全体か最後の部分。
+Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1    'バイナリメッセージの一部分のみ｡
+Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2       'UTF-8メッセージ全体か最後の部分。
+Private Const WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE = 3      'UTF-8 メッセージの一部分のみ。
+Private Const WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE = 4              'CloseFrame。
 
 Private Declare PtrSafe Function WinHttpWebSocketReceive Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
@@ -84,6 +84,7 @@ Private Const BufferToAllocate As Long = 4095
 Private ExistingWebsockethandle_ As LongPtr
 Private Http As WebSocketHTTPCommunicator
 Private CharConv As New CharacterCodeConversion
+Private ViewLog As New Logger
 
 
 
@@ -309,13 +310,18 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
+    
+    'エラーコードの初期化
+    ResultCode = 0
+    
+    '既に受信予約済みの場合は、即抜け
+    If IncomingRequestsFlag Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Sub
 
     '非同期処理側で既に、受信済みデータがあるか？
     If Not (ReceivedFlag) Then
         'ない場合は、初期化
         InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
         Set G_res.collect = New Collection
-        ResultCode = 0
 
         '非同期モードの場合は、こっちも追加で初期化しておく
         G_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
@@ -512,8 +518,7 @@ End Function
 '* 機能説明：デバッグログによるストリーミング受信状況の可視化を行っています。
 '***************************************************************************************************
 Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte()
-    'ログ把握用クラス
-    Dim ViewLog As New Logger
+    'ログ把握用
     Const TraceName As String = "WebSocketCommunicator.BufferManagement"
 
     'バッファー情報の更新
@@ -533,7 +538,9 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
     'WINHTTP_WEB_SOCKET_STATUS.eBufferType による分岐処理
     '※4 + 1種類のタイプが出ますが、4種類の部分はどっちもバイナリ処理のため、統一します。
     Select Case Param.Status
+        '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+            IncomingRequestsFlag = True
             ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
