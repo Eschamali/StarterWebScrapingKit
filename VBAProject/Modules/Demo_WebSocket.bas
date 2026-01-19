@@ -140,7 +140,7 @@ Sub WebSocketDemoASync1_1_初期化()
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("echo.websocket.org", "", , , AddressOf WebSocketCallback)
 
     'フラグのリセット
-    IncomingRequestsFlag = False
+    isDataReady = False
 
     '成功判定
     If ResultHandleCode Then
@@ -175,7 +175,7 @@ End Sub
 
 Sub WebSocketDemoASync1_2_受信リクエスト()
     '前項で得たハンドル値
-    Const ReConnectionHandle As LongPtr = 2519160849248^
+    Const ReConnectionHandle As LongPtr = 2172043420336^
 
     'オブジェクトを作成して、再接続用のLETメソッドにセット
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
@@ -196,7 +196,7 @@ End Sub
 
 Sub WebSocketDemoASync1_3_ハンドルから送信()
     '前項で得たハンドル値
-    Const ReConnectionHandle As LongPtr = 2519160849248^
+    Const ReConnectionHandle As LongPtr = 2172043420336^
 
     'カウント用
     Static Count As Long
@@ -237,9 +237,9 @@ Sub WebSocketDemoASync2_長文レスポンス()
     
     '接続先を設定します
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("127.0.0.1", "devtools/page/1AAA01F8A73F5568DDF8FF042B62D61C", 9222, False, AddressOf WebSocketCallback)
-    
+
     'フラグのリセット
-    IncomingRequestsFlag = False
+    isDataReady = False
 
     '成功判定
     If ResultHandleCode Then

@@ -314,10 +314,10 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     ResultCode = 0
     
     '既に受信予約済みの場合は、即抜け
-    If IncomingRequestsFlag Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
+    If isDataReady Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
 
     '非同期処理側で既に、受信済みデータがあるか？
-    If Not (ReceivedFlag) Then
+    If Not (isReceiving) Then
         'ない場合は、初期化
         InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
         Set G_res.collect = New Collection
@@ -332,7 +332,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     Do
         '非同期処理側で既に、受信済みデータがある場合は、処理を飛ばします
         '※次の受信データがある状態で、この処理が走ると、コールバック側のプロシージャへ遷移し、グローバル変数側に、メッセージが格納されます。
-        If Not (ReceivedFlag) Then
+        If Not (isReceiving) Then
             G_res.result = WinHttpWebSocketReceive( _
                             UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                             G_res.ReceiveBytes, G_res.Status)
@@ -496,8 +496,8 @@ Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketR
     'コピーしたクラス内変数で、バッファー管理へ移し、結果を返却
     IntermediaryProcessing_BufferManagement = BufferManagement(tmp)
     
-    'メッセージ処理したので、格納済みフラグを消す
-    ReceivedFlag = False
+    'メッセージ処理したので、受信済みフラグを消す
+    isReceiving = False
 
     'バッファー処理した結果を、グローバル変数側へ反映する
     With G_res
@@ -549,7 +549,7 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
     Select Case Param.Status
         '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-            IncomingRequestsFlag = True
+            isDataReady = True
             ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
