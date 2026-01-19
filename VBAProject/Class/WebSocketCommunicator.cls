@@ -315,7 +315,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     ResultCode = 0
     
     '既に受信予約済みの場合は、即抜け
-    If IncomingRequestsFlag Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Sub
+    If IncomingRequestsFlag Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
 
     '非同期処理側で既に、受信済みデータがあるか？
     If Not (ReceivedFlag) Then
