@@ -1412,7 +1412,7 @@ Property Set BrowserEvents(ObjDic As Dictionary)
         printMsg "A new event capture save data has been created. Starts event capture."
     
     '3. 指定のKeyがあるか？
-    ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) Then
+    ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set objAllMessages = ObjDic
         printMsg "Existing event capture save data was successfully loaded. Resume event capture with this save data."
