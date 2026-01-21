@@ -2036,7 +2036,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
    'Return the path
     On Error Resume Next
-    Dim objWSHost As Object, reg As Object, strKeyPath As String
+    Dim objWSHost As WbemScripting.SWbemObject, reg As Object, strKeyPath As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
     
     'カスタムパスがあったらそっちを優先
@@ -2151,6 +2151,69 @@ Private Function checkURI(URI As String) As String
     Err.Raise ERR_UnregisteredProtocol, "CDPBrowser.checkURI", ErrorMes
 End Function
 
+'***************************************************************************************************
+'* 機能　　：リモート デバッグを使用できるか確認します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：BrowserExeName        "msedge.exe" とかを指定します。本家ライブラリに沿った形です
+'* 返り値　：使用可否の論理値
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：企業によっては、ポリシー設定でリモートデバッグできないようにしています。
+'　　　　　　設定されていると、起動はできたのに、なんか操作できないといった混乱が発生するため、このチェックを設けています
+'***************************************************************************************************
+Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
+    'レジストリ操作に必要な定数の定義
+    Const HKEY_LOCAL_MACHINE = &H80000002
+    Const HKEY_CURRENT_USER = &H80000001
+    Const ReadSuccess As Long = 0                           '存在するときは、`0`を返します
+    Const valueName As String = "RemoteDebuggingAllowed"    'チェック対象のキー名
+    Const DisableValue As Long = 0                          '`0`が、リモート デバッグを使用することはできません。
+
+
+    'ブラウザ名に応じて、パスを設定
+    Dim RegPathBrowser As String
+    Select Case BrowserExeName
+        Case brEdge: RegPathBrowser = "Microsoft\Edge"      'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
+        Case brChrome: RegPathBrowser = "Google\Chrome"     'https://issues.chromium.org/issues/42323066
+        Case Else: printMsg "Browser initiation fails: only the defined browser types can be accepted", doRaiseError:=True
+    End Select
+    
+    'チェック相対パスを設定
+    Dim regPath As String: regPath = "SOFTWARE\Policies\" & RegPathBrowser
+    
+    '必要な変数を用意
+    Dim regProvider As WbemScripting.SWbemObject: Set regProvider = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    Dim regValue As Long    '存在有無結果
+    Dim returnVal As Long   '値そのもの
+
+
+    ' --- チェック①：【HKEY_LOCAL_MACHINE】---
+    ' "HKLM" は、このPCの、"すべて"のユーザーに影響する、強力な設定
+    returnVal = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, valueName, regValue)
+    
+    ' 値が、読み取れた場合
+    If returnVal = ReadSuccess Then
+        ' 処理が、成功した (キーも、値も、"存在した")
+        If regValue = DisableValue Then
+            ' そして、その値が「0」だった
+            Err.Raise ERR_PolicyViolation, "CDPBrowser.IsRemoteDebuggingBlockedByPolicy", "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。"
+            Exit Sub ' ★ブロック確定！
+        End If
+    End If
+    
+    
+    ' --- チェック②：【HKEY_CURRENT_USER】---
+    ' "HKCU" は、"今、ログインしているユーザー"だけに、影響する設定
+    returnVal = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, valueName, regValue)
+
+    ' 値が、読み取れた場合
+    If returnVal = ReadSuccess Then
+        If regValue = DisableValue Then
+            Err.Raise ERR_PolicyViolation, "CDPBrowser.IsRemoteDebuggingBlockedByPolicy", "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。"
+            Exit Sub ' ★ブロック確定！
+        End If
+    End If
+End Sub
+
 
 
 Private Sub Class_Initialize()
@@ -2163,6 +2226,12 @@ Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
+        'そもそも、デバッグ操作によるブラウザの使用を許可しているかを確認します。ポリシー違反があると、停止します。
+        '※主要なブラウザのみチェックします
+        'Edge　　→　https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
+        'Chrome　→　https://issues.chromium.org/issues/42323066
+        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
+
         'イミディエイトに関する設定を行う
         doPrintDbgMsg = .Range(.UseRangeName(7, "CDPBrowser.Class_Initialize")).value              'イミディエイトに表示させるか？
         seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
