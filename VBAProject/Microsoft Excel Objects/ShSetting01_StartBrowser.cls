@@ -42,6 +42,7 @@ Property Get UseTableName(id As Long, ErrorSource As String) As String
     Select Case id
         Case 1: UseTableName = "PreviousHandleInfo"
         Case 2: UseTableName = "PreviousBrowserInfo"
+        Case 3: UseTableName = "ProtocolWhiteList"
         Case Else: Err.Raise 2 + vbObjectError, ErrorSource, "渡されたテーブルIDは、定義されてません"
     End Select
 End Property

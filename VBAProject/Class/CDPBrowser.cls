@@ -57,7 +57,7 @@ Attribute VB_Exposed = False
 '================================================================================================
 Option Explicit
 
-Private Const CDPVer                    As String = "3.0.0"
+Private Const CDPVer                    As String = "3.0.1"
 Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
 '===================================
 ' Win APIs Declarations
@@ -134,6 +134,8 @@ Private Const ERR_TIMEOUT As Long = 900
 Private Const ERR_PIPE As Long = 901
 Private Const ERR_PROTOCOL As Long = 902
 Private Const ERR_DictionaryStructure As Long = 903
+Private Const ERR_UnregisteredProtocol As Long = 904
+Private Const ERR_PolicyViolation As Long = 905
 Private Const TIMEOUT_DEFAULT As Single = 30
 Private Const TIMEOUT_NAVIGATE As Single = 45
 
@@ -227,8 +229,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
     If appUrl <> "" Then
         If appUrl = "about:blank" Then printMsg "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", doRaiseError:=True
-        If InStr(appUrl, "http") = 0 Then appUrl = "http://" & appUrl   'ie. devs can just simply input "google.com" i/o "http://google.com"
-        strCall = strCall & " --app=""" & appUrl & """"
+        strCall = strCall & " --app=""" & checkURI(appUrl) & """"
     Else
         strCall = strCall & " --homepage ""about:blank"""
     End If
@@ -425,21 +426,18 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     Dim curURL As String
    'Check if already navigated
     curURL = jsEval("window.location.href", False)
-    If curURL = strURL Then
-        printMsg "Already navigated to """ & strURL & """"
+    If curURL = checkURI(strURL) Then
+        printMsg "Already navigated to """ & checkURI(strURL) & """"
         Exit Sub
     End If
 
-   'Quick formatting for simple URL input
-    If strURL <> "about:blank" And InStr(strURL, "http") = 0 Then strURL = "http://" & strURL
-
    'If not yet then do navigate
     Dim results As Scripting.Dictionary
-    Set results = SendMessage("{""method"":""Page.navigate"",""params"":{""url"":""" & strURL & """}}")
+    Set results = SendMessage("{""method"":""Page.navigate"",""params"":{""url"":""" & checkURI(strURL) & """}}")
     'should also add a maxTimeLimit to Wait
     wait till:=till
     getSessionInfo 'update new session info for printParams
-    printMsg "Navigated to: " & strURL
+    printMsg "Navigated to: " & checkURI(strURL)
 End Sub
 
 Public Sub quit()
@@ -609,8 +607,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 '------------------------------------------------------------------
     Dim sessionID_ As String
     Dim params As New Scripting.Dictionary
-    If Url <> "" Then Url = IIf(Url <> "about:blank" And InStr(Url, "http") = 0, "http://" & Url, Url)
-    params("url") = CStr(Url)
+    params("url") = CStr(checkURI(Url))
     If newWindow Then params("newWindow") = CBool(newWindow)
 
     Dim results As Scripting.Dictionary
@@ -629,7 +626,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         If Not (.Range(.UseRangeName(5, "CDPBrowser.newTab")).value) Then newTab.deserialize
     End With
     newTab.id = sessionID_
-    If Url <> "" Then newTab.wait
+    If checkURI(Url) <> "" Then newTab.wait
 
    'Set as main session tab if required
     If Not setMain Then Exit Function
@@ -2106,6 +2103,54 @@ Private Sub deleteCDPID()
     End With
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：URIのプロトコルチェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：引数の内容そのまんま
+'* 引数　　：URI   ブラウザのURLに渡す予定の文字列
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
+'***************************************************************************************************
+Private Function checkURI(URI As String) As String
+    '1. ホワイトリストのプロトコルを取得
+    With ShSetting01_StartBrowser
+        Dim tmp, WhiteList
+        tmp = .ListObjects(.UseTableName(3, "CDPBrowser.checkURI")).DataBodyRange.Columns(3)
+        
+        '配列か？
+        If IsArray(tmp) Then
+            'そのまんま
+            WhiteList = tmp
+        Else
+            '配列じゃない場合は配列にしておく
+            ReDim WhiteList(1 To 1, 1 To 1)
+            WhiteList(1, 1) = tmp
+        End If
+
+        '解放
+        tmp = vbNullString
+    End With
+    
+    '2. 先頭始まりかチェック
+    Dim i As Long
+    For i = 1 To UBound(WhiteList)
+        '先頭始まりなら、引数の内容そのまんまを返して抜ける
+        If InStr(1, URI, WhiteList(i, 1)) = 1 Then checkURI = URI: Exit Function
+    Next
+
+    '3. プロトコル名をチェック
+    Dim ProtocolName, ErrorMes As String
+    ProtocolName = Split(URI, ":")
+    If UBound(ProtocolName) = 0 Then
+        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
+    Else
+        ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
+    End If
+
+    '4. エラーで中断
+    Err.Raise ERR_UnregisteredProtocol, "CDPBrowser.checkURI", ErrorMes
+End Function
+
 
 
 Private Sub Class_Initialize()
@@ -2136,6 +2181,7 @@ Private Sub Class_Initialize()
 
 
    'Determine project host type for compatibility
+    '※このツールは、Excel特化に改良してるため、Excel以外は動作しません
     Select Case True
         Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
         'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
