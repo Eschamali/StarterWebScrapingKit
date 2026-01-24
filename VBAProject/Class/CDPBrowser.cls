@@ -1231,21 +1231,24 @@ Public Sub printParams()
     printMsg brID & " Information"
     printMsg "---------------------------------------------------"
 
-    printMsg "Session ID    | sessionID | " & sessionID
-    printMsg "Last ID       | lngLastID | " & lngLastID
-    printMsg "Window Handle | brHWnd    | " & brHWnd
-    printMsg "Window ID     | brWId     | " & brWID
-    printMsg "Browser Type  | brType    | " & brType
-    printMsg "Browser Ver   | brVer     | " & brVer
-    printMsg "Browser Path  | brPath    | " & brPath
-    printMsg "Tab URL       | brUrl     | " & brURL
-    printMsg "Tab Title     | brName    | " & brName
-    printMsg "Tab ID        | targetID  | " & targetID
-    printMsg "Core StdInWr  | hStdInWr  | " & core.hStdInWr
-    printMsg "Core StdOutRd | hStdOutRd | " & core.hStdOutRd
-    printMsg "Core CDPInWr  | hCDPInWr  | " & core.hCDPInWr
-    printMsg "Core CDPOutRd | hCDPOutRd | " & core.hCDPOutRd
-    printMsg "CDP Version   | CDPVer    | " & CDPVer
+    printMsg "Session ID        | sessionID    | " & sessionID
+    printMsg "Last ID           | lngLastID    | " & lngLastID
+    printMsg "Window Handle     | brHWnd       | " & brHWnd
+    printMsg "Window ID         | brWId        | " & brWID
+    printMsg "Browser Type      | brType       | " & brType
+    printMsg "Browser Ver       | brVer        | " & brVer
+    printMsg "Browser Path      | brPath       | " & brPath
+    printMsg "Tab URL           | brUrl        | " & brURL
+    printMsg "Tab Title         | brName       | " & brName
+    printMsg "Tab ID            | targetID     | " & targetID
+    printMsg "Core StdInWr      | hStdInWr     | " & core.hStdInWr
+    printMsg "Core StdOutRd     | hStdOutRd    | " & core.hStdOutRd
+    printMsg "Core hStderrOutRd | hStderrOutRd | " & core.hStderrOutRd
+    printMsg "Core CDPInWr      | hCDPInWr     | " & core.hCDPInWr
+    printMsg "Core CDPOutRd     | hCDPOutRd    | " & core.hCDPOutRd
+    printMsg "Core dwProcessId  | dwProcessId  | " & core.dwProcessId
+    printMsg "CDP Version       | CDPVer       | " & CDPVer
+
 End Sub
 
 Public Function tabCount() As Long

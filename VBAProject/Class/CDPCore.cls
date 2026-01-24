@@ -164,6 +164,8 @@ Private Const SW_RESTORE = 9
  
 Private hStdOutWr As LongPtr
 Public hStdOutRd As LongPtr
+Private hStderrOutWr As LongPtr
+Public hStderrOutRd As LongPtr
 Public hStdInWr As LongPtr
 Private hStdInRd As LongPtr
 Private hCDPOutWr As LongPtr
@@ -261,11 +263,17 @@ Public Function Init(strExec As String) As Long
  
    'First we create all 4 pipes
    'We start with stdout of the edge process
-   'This pipe is used for stderr, too
     sa.nLength = LenB(sa)
     sa.bInheritHandle = 1&
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
+    If result = 0 Then
+        Init = -2
+        Exit Function
+    End If
+
+    'stderr
+    result = CreatePipe(hStderrOutRd, hStderrOutWr, sa, 0)
     If result = 0 Then
         Init = -2
         Exit Function
@@ -296,7 +304,7 @@ Public Function Init(strExec As String) As Long
     pipes.number_of_fds = 5
     pipes.os_handle(0) = hStdInRd
     pipes.os_handle(1) = hStdOutWr
-    pipes.os_handle(2) = hStdOutWr
+    pipes.os_handle(2) = hStderrOutWr
     pipes.os_handle(3) = hCDPInRd
     pipes.os_handle(4) = hCDPOutWr
     pipes.crt_flags(0) = 9
@@ -332,6 +340,7 @@ Public Function Init(strExec As String) As Long
     CloseHandle hStdInRd
     CloseHandle hCDPOutWr
     CloseHandle hCDPInRd
+    CloseHandle hStderrOutWr
 
     hProcess = proc.hProcess
     dwProcessId = proc.dwProcessId
