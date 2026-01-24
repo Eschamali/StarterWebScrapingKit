@@ -313,21 +313,25 @@ Private Sub serialize()
 '                     specific profile for reattachment.
 '------------------------------------------------------------------
 
-    'パイプ通信のハンドル情報も記録しておく
-    Call core.serialize
-
-    'Excelの所定のワークシート上のテーブル:ブラウザセッション情報 に記録する
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(2, "CDPBrowser.serialize")).DataBodyRange
-            WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2)).value = lngLastID
-            WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2)).value = targetID
-        End With
+    'データ記録準備
+    Dim excelSerialize As String
+    With WorksheetFunction
+        excelSerialize = "{""" & .TextJoin(""";""", False, _
+                                    .TextJoin(""",""", False, brUser, "lngLastID", lngLastID), _
+                                    .TextJoin(""",""", False, brUser, "targetID", targetID) _
+        ) & """}"
     End With
 
-    'printMsg "New serial string: " & serialize
+    'パイプ通信のハンドル情報も記録しておき、結果を表示しておく
+    printMsg "New serial string: " & core.serialize(brUser) & " - " & excelSerialize
+
+    'テーブルに、ブラウザセッション情報を記録する
+    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
+    ShSetting01_StartBrowser.serializeToTable(2, "CDPBrowser.serialize") = Evaluate(excelSerialize)
+
 End Sub
 
-Public Sub deserialize()
+Private Sub deserialize(UserName As String)
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -339,20 +343,21 @@ Public Sub deserialize()
 
     On Error GoTo iferr
 
+    Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
-    'ハンドル情報の読み込みへ移る
-1   Call core.deserialize
+    '`UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
+1   Call core.deserialize(UserName)
 
-    'Excelの所定のワークシート上のテーブルにある情報を読み込む
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(2, "CDPBrowser.deserialize")).DataBodyRange
-2           lngLastID = WorksheetFunction.XLookup("lngLastID", .Columns(1), .Columns(2), 0)
-3           targetID = WorksheetFunction.XLookup("targetID", .Columns(1), .Columns(2), "")
-    
-4           sessionID = attachToTab(targetID)
-        End With
-    End With
+    'Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
+2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, "CDPBrowser.deserialize")
+
+    'クラス内変数に適用
+3   lngLastID = objSerialize.Item("lngLastID")
+4   targetID = objSerialize.Item("targetID")
+
+    '接続先IDを適用
+5   sessionID = attachToTab(targetID)
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -2053,48 +2058,7 @@ Private Function getTargetID() As String
     Dim results As Scripting.Dictionary
     Set results = invokeMethod("Target.getTargetInfo")
     getTargetID = results("targetInfo").Item("targetId")
-End Function
 
-'***************************************************************************************************
-'* 機能　　：指定のプロセスIDが生きているか判定します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：True       生きてる
-'            False      お亡くなり
-'* 引数　　：PID        プロセスID
-'***************************************************************************************************
-Private Function IsProcessRunning(ByVal pid As Long) As Boolean
-    Dim wmi As Object
-    Dim col As Object
-    
-    ' PIDが0以下なら論外
-    If pid <= 0 Then
-        IsProcessRunning = False
-        Debug.Print "無効なプロセスIDです。新規で立ち上げます。"
-        With ShSetting01_StartBrowser
-            .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
-        End With
-        Exit Function
-    End If
-
-    On Error Resume Next
-    ' WMIサービスに接続
-    Set wmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
-    
-    ' そのPIDを持つプロセスを探すクエリ
-    Set col = wmi.ExecQuery("Select ProcessId From Win32_Process Where ProcessId = " & pid)
-    
-    ' エラーがなくて、かつ見つかった数が0より大きければ生きている
-    If Err.Number = 0 And col.Count > 0 Then
-        IsProcessRunning = True
-        Debug.Print "既存のデバッグブラウザプロセスを見つけました。再アタッチします。"
-    Else
-        IsProcessRunning = False
-        Debug.Print "既存のデバッグブラウザプロセスが見つかりませんでした。新規で立ち上げます。"
-        With ShSetting01_StartBrowser
-            .Range(.UseRangeName(6, "CDPBrowser.IsProcessRunning")).value = True
-        End With
-    End If
-    On Error GoTo 0
 End Function
 
 Private Function newVarID() As String
@@ -2199,8 +2163,8 @@ Private Sub deleteCDPID()
 '----------------------------------------------------------------------------------
 
     With ShSetting01_StartBrowser
-        .ListObjects(.UseTableName(1, "CDPBrowser.deleteCDPID")).DataBodyRange.Columns(2).Clear 'パイプ通信Handle情報
-        .ListObjects(.UseTableName(2, "CDPBrowser.deleteCDPID")).DataBodyRange.Columns(2).Clear 'ブラウザセッション情報
+        .DeleteCDPToTable(1, "CDPBrowser.deleteCDPID") = brUser  'パイプ通信Handle情報
+        .DeleteCDPToTable(2, "CDPBrowser.deleteCDPID") = brUser  'ブラウザセッション情報
     End With
 
 End Sub

@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
 ' Last Update :
+'       24/10/25 Daniel Polak: added Option Explicit
 '       29/11/22 Long Vh: removed the serializability check + class_terminate to keep handles constantly
 '                         open for subsequent deserializations if needed.
 '       03/06/22 Long Vh: added extensive commentations + refactored codes for HSBC usages
@@ -27,10 +28,12 @@ Attribute VB_Exposed = False
 ' Sources     :
 '       Creating Pipe: https://stackoverflow.com/questions/62172551/error-with-createpipe-in-vba-office-64bit
 '==============================================================================================================
+
+Option Explicit
+
 '===================================
 ' Win APIs Declarations
 '===================================
-Option Explicit
 
 Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
     phReadPipe As LongPtr, _
@@ -56,7 +59,7 @@ Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProce
     ByVal lpCurrentDirectory As LongPtr, _
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
-    
+
 Private Declare PtrSafe Function CloseHandle Lib "kernel32" ( _
     ByVal hObject As LongPtr) As Long
  
@@ -154,7 +157,7 @@ Private Const STARTF_USESHOWWINDOW As Long = &H1&
 Private Const SW_SHOWMINIMIZED = 2
 Private Const SW_SHOWMAXIMIZED = 3
 Private Const SW_RESTORE = 9
- 
+
 '===================================
 ' Shared Variables
 '===================================
@@ -168,6 +171,7 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
+Public dwProcessId As LongPtr 'プロセスID
 Private Utf8Converter As CharacterCodeConversion
 
 
@@ -197,40 +201,52 @@ End Property
 ' Class Functions
 '===================================
  
-Public Sub serialize()
+Public Function serialize(UserName As String) As String
 '-------------------------------------------------------------------
 ' Create serialized Json string from the current browser instance.
 '-------------------------------------------------------------------
 
-    'テーブルに、ハンドル情報を記録する
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
-            WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
-            WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
-            WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2)).value = hCDPOutRd
-            WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2)).value = hCDPInWr
-        End With
+    'データ記録準備
+    Dim tmp As String
+    With WorksheetFunction
+        tmp = "{""" & .TextJoin(""";""", False, _
+                            .TextJoin(""",""", False, UserName, "hStdOutRd", hStdOutRd), _
+                            .TextJoin(""",""", False, UserName, "hStderrOutRd", hStderrOutRd), _
+                            .TextJoin(""",""", False, UserName, "hStdInWr", hStdInWr), _
+                            .TextJoin(""",""", False, UserName, "hCDPOutRd", hCDPOutRd), _
+                            .TextJoin(""",""", False, UserName, "hCDPInWr", hCDPInWr), _
+                            .TextJoin(""",""", False, UserName, "dwProcessId", dwProcessId) _
+        ) & """}"
     End With
-End Sub
- 
- 
-Public Sub deserialize()
+
+    'Excelテーブルに、パイプハンドル情報を記録する
+    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
+    ShSetting01_StartBrowser.serializeToTable(1, "CDPCore.serialize") = Evaluate(tmp)
+
+    '作成情報の返却
+    serialize = tmp
+
+End Function
+
+Public Sub deserialize(UserName As String)
 '--------------------------------------------------------------------
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
 
-    'テーブルから、ハンドル情報を読み込む
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
-            hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
-            hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
-            hCDPOutRd = WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2), 0)
-            hCDPInWr = WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2), 0)
-        End With
-    End With
+    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    Dim PipeInfo As Dictionary
+    Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
+
+    'クラス内変数に適用
+    hStdOutRd = PipeInfo("hStdOutRd")
+    hStderrOutRd = PipeInfo("hStderrOutRd")
+    hStdInWr = PipeInfo("hStdInWr")
+    hCDPOutRd = PipeInfo("hCDPOutRd")
+    hCDPInWr = PipeInfo("hCDPInWr")
+    dwProcessId = PipeInfo("dwProcessId")
+
 End Sub
- 
- 
+
 Public Function Init(strExec As String) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
@@ -254,7 +270,7 @@ Public Function Init(strExec As String) As Long
         Init = -2
         Exit Function
     End If
-    
+
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
@@ -306,32 +322,26 @@ Public Function Init(strExec As String) As Long
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
-    
+
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
- 
+
     If result = 0 Then Init = -1
-    
+
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
     CloseHandle hStdInRd
     CloseHandle hCDPOutWr
     CloseHandle hCDPInRd
-    
-    hProcess = proc.hProcess
 
-    'プロセスIDを残す
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.Init")).DataBodyRange
-            WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
-        End With
-    End With
+    hProcess = proc.hProcess
+    dwProcessId = proc.dwProcessId
 
     Init = 0
 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：CDP 出力パイプからの読み取りを試みます
+'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：読み取ったバイト数を返します。
 '* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
@@ -350,7 +360,7 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
     
     '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
-    
+
     'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
     If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
 
@@ -362,7 +372,7 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
         bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
-            
+
         '0以外なら成功です
         If bSuccess Then
             strData = Buffer
@@ -402,8 +412,7 @@ Public Function readProcSTD(ByRef strData As String) As Long
     End If
  
 End Function
- 
- 
+
 Public Function writeProc(ByVal strData As String) As Long
 ' --------------------------------------------------------------------------------
 ' This functions sends a CDP message to the Chromium browser.
