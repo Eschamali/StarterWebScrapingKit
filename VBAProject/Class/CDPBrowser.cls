@@ -771,7 +771,7 @@ searchit:
         printMsg "Unable to find the tab: " & info
         Exit Function
     Else
-        printMsg "Found the tab with ID: " & tabId & ". (確証度：" & bestScore & "%)"
+        printMsg "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)"
     End If
 
 searchfound:
