@@ -2194,6 +2194,9 @@ End Sub
 '* 注意事項：セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
 '***************************************************************************************************
 Private Function checkURI(URI As String) As String
+    '0. 空文字の場合は、チェックしません
+    If URI = "" Then checkURI = URI: Exit Function
+
     '1. ホワイトリストのプロトコルを取得
     With ShSetting01_StartBrowser
         Dim tmp, WhiteList
