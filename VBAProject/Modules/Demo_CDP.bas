@@ -7,6 +7,7 @@ Attribute VB_Name = "Demo_CDP"
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
 ' Last Update :
+'       22/01/26 Long Vh: added demoMultiProfileOperation and demoReattachment examples
 '       07/01/26 Long Vh: update the sub procedures to show case the new .notify function
 '       27/04/23 Long Vh: made many improvements with v2.5 to make methods even more intuitive.
 '       07/06/22 Long Vh: corrected typos in comments + more examples
@@ -22,6 +23,7 @@ Attribute VB_Name = "Demo_CDP"
 '       For the latest update of the CDP Framework by Long Vh:
 '       https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA
 '===================================================================================================
+Option Explicit
 
 
 
@@ -33,28 +35,30 @@ Attribute VB_Name = "Demo_CDP"
 '* 返り値　：クラスモジュール - CDPBrowser
 '* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
 '                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
+'
+'            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
 '***************************************************************************************************
-Public Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
+Public Function 設定シートからの起動(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
         Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value, "chrome", "edge")
 
-        'ブラウザ起動
-        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
-        objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
-    End With
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, SwitchUser)
 
-    'オブジェクトを返却
-    Set 設定シートからの起動 = objBrowser
+        'ブラウザ起動
+        Set 設定シートからの起動 = New CDPBrowser
+        設定シートからの起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
+    End With
 End Function
 
 Sub 冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloAutomationBrowser As CDPBrowser: Set HelloAutomationBrowser = 設定シートからの起動
+    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからの起動
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -62,7 +66,7 @@ Sub 冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloAutomationBrowser.quit
+    HelloWorldAutomationBrowser.quit
 End Sub
 
 
@@ -167,7 +171,7 @@ Sub JapaneseElementTest()
 
     ' ボタンクリック
     Demo_Japanese.getElementByID("executebtn").click
-    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
+    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     Demo_Japanese.sleep 3
 
     ' 体脂肪率を取得
@@ -203,6 +207,7 @@ Sub runEdge()
     edge.navigate "https://livingwaters.com/movie/the-atheist-delusion/", isInteractive
  
    'Get view count via the new notify method
+    Dim viewCount As Long
     viewCount = edge.getElementByQuery("[data-id='4b9a4b19']").innerText
     edge.notify "This free movie has already reached " & viewCount & " views! Wow!"
  
@@ -239,9 +244,11 @@ Sub runHidden()
     
    'Get the vote count only once the target element appears on screen
    'The onExists method is needed as this element appears after ReadyState = "complete"
+    Dim voteCount As Long
     voteCount = chrome.getElementByID("ctl00_RateArticle_VoteCountNoHist").onExist.innerHTML
     
    'Confirm result and display
+    Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
     If userChoice = vbYes Then chrome.show Else chrome.quit
     
@@ -259,9 +266,9 @@ Sub runTabsAsOne()
     chrome.show
     
    'Automate Tabs
-    chrome.Url = "google.com"   'or [chrome.navigate "google.com"]
-    chrome.newTab "sg.yahoo.com"
-    chrome.newTab "bing.com"
+    chrome.Url = "https://google.com"   'or [chrome.navigate "https://google.com"]
+    chrome.newTab "https://sg.yahoo.com"
+    chrome.newTab "https://bing.com"
  
    'Resize to complete
     chrome.show xywh:="0 20 1000 700"
@@ -290,9 +297,9 @@ Sub runTabsAsMany()
     Set tab3 = chrome.newTab(newWindow:=True)
  
    'Automate each tabs
-    tab1.navigate "google.com"
-    tab2.navigate "sg.yahoo.com"
-    tab3.navigate "bing.com"
+    tab1.navigate "https://google.com"
+    tab2.navigate "https://sg.yahoo.com"
+    tab3.navigate "https://bing.com"
  
    'Resize to complete
     tab1.show xywh:="0 10 1000 700"
@@ -338,6 +345,7 @@ Sub runNewTab()
     targetTab.wait
  
    'Feed the top news title for today
+    Dim firstTitle As String
     firstTitle = targetTab.getElementByQuery("div[class='Headline']").innerText
     targetTab.notify "Top popular headline for the day is """ & firstTitle & """."
  
@@ -363,6 +371,7 @@ Sub runIFrame()
     Set iFrame1 = chrome.getElementByID("iframeResult").getIFrame
     Set iFrame2 = iFrame1.getElementByQuery("iframe[title='Iframe Example']").getIFrame
     
+    Dim txt As String
     txt = iFrame2.getElementByQuery("h1").innerText
     chrome.notify "Retrieved text from the iFrame: """ & txt & """"
     
@@ -386,6 +395,8 @@ Sub getSnapShot()
    'Snap a portion of the page based on the element indicator
    'If the second argument is omitted, snapPage will snap the entire page
     chrome.snapPage Environ("UserProfile") & "\Downloads", "todaySGDvsVND.png" 'chrome.snapPage(fileName, True) to capture the entire page instead
+
+    Dim FileName As String: FileName = Environ("UserProfile") & "\Downloads\todaySGDvsVND.png"
     chrome.notify "Screenshot captured under " & FileName
  
 End Sub
@@ -444,9 +455,92 @@ Sub switchMain()
 
     Dim chrome As CDPBrowser
     Set chrome = 設定シートからの起動
-    chrome.newTab "google.com", setMain:=True   'the chrome object will now directly refer to the Google tab
+    chrome.newTab "http://google.com", setMain:=True   'the chrome object will now directly refer to the Google tab
     chrome.getTab("about:blank").closeTab       'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
+
+End Sub
+
+Sub demoMultiProfileOperation()
+'----------------------------------------------------------------------------------------
+' This example demonstrates a powerful feature of v3.1 called multi-instances operation.
+' Under multi-instances, our framework can open browsers as separate independent
+' instances; thereby enables advanced automation tactics such as robotic process
+' automation and asynchronous operation. The procedure below attempts to open 2 CDP
+' instances and runs at the same time asynchronously - something that VBA natively does
+' not support. You will be able to see from the Immediate Window that (1) execBot2 is
+' started first then execBot1 and (2) both bot operations run simultaneously and bot 1
+' finishes first (likely as yahoo.com has less thing to load then finance.yahoo.com)
+' even though it is started after bot 2. This implies that thanks to the multi-
+' instances framework, we can achieve asynchronous operation.
+'
+' Without this feature, the closest to this application is to open a CDP session with
+' multiple tabs but in that scenario, you can not achieve asynchronous operation as
+' Chrome Devtools Protocol is tied to a single user profile so automation on a tab has
+' to wait for one another. Additionally, if one tab causes the browser to crash, other
+' running tabs will crash as well.
+'----------------------------------------------------------------------------------------
+
+    Application.OnTime Now + TimeValue("00:00:01"), "execBot1"
+    execBot2
+
+End Sub
+
+Function execBot1()
+'----------------------------------------------------------------------------------------
+' Refer to the demoMultiProfileOperation
+'----------------------------------------------------------------------------------------
+    
+    Debug.Print Format(Now, "hh:mm:ss") & " execBot1 started."
+    
+    Dim e1 As CDPBrowser
+    Set e1 = 設定シートからの起動
+    e1.navigate "https://yahoo.com"
+    
+    Debug.Print Format(Now, "hh:mm:ss") & " execBot1 completed."
+
+End Function
+
+Function execBot2()
+'----------------------------------------------------------------------------------------
+' Refer to the demoMultiProfileOperation
+'----------------------------------------------------------------------------------------
+
+    Debug.Print Format(Now, "hh:mm:ss") & " execBot2 started."
+
+    Dim e2 As CDPBrowser
+    Set e2 = 設定シートからの起動(, "CDP2")
+    e2.navigate "https://finance.yahoo.com"
+    
+    Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
+
+End Function
+
+Sub demoReattachmentPart1()
+'----------------------------------------------------------------------------------------
+' From v3.1, .reattach is necessary to perform reattachment to the current CDP instances
+' as each instance is now identified with a unique user profile for multi-instances
+' operation. The below procedure starts a new CDP session under profile CDP2. After
+' running demoReattachmentPart1, you can run demoReattachmentPart2 to see the correct
+' way of applying .reattach to the CDP2 session.
+'----------------------------------------------------------------------------------------
+
+    Dim c As CDPBrowser
+    Set c = 設定シートからの起動
+    c.navigate "https://google.com"
+
+End Sub
+
+Sub demoReattachmentPart2()
+'----------------------------------------------------------------------------------------
+' See notes in demoReattachmentPart1
+'----------------------------------------------------------------------------------------
+
+    Dim c As New CDPBrowser
+    With ShSetting01_StartBrowser
+        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value) = True Then c.navigate "https://wikipedia.com" _
+        Else Debug.Print "Failed to reattach. Perhaps the reattach profile CDP2 is incorrect?"
+    End With
 
 End Sub
 
