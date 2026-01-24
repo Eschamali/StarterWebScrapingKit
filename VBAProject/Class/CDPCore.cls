@@ -393,21 +393,31 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
     End If
 End Function
 
-Public Function readProcSTD(ByRef strData As String) As Long
-' --------------------------------------------------------------------------------
-' Same as ReadProcCDP.
-'---------------------------------------------------------------------------------
- 
+'***************************************************************************************************
+'* 機能　　：標準出力エラーと標準出力を読み取ります
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：読み取ったバイト数を返します。
+'* 引数　　：strData            標準出力エラーあるいは、標準出力内容を格納したい変数。実質返り値です
+'            ErrorMode          `True`  標準出力エラーで読み取り
+'                               `False` 標準出力で読み取り
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・読み取りは非ブロッキングです。データがなくても、次に進めれます。
+'            ・ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
+'***************************************************************************************************
+Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
+    '使用するパイプ通信判定
+    Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
+
     Dim lPeekData As Long
     
-    PeekNamedPipe hStdOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
+    PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
     
     If lPeekData > 0 Then
         Dim Buffer As String
         Dim L As Long
         Dim bSuccess As Long
         Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hStdOutRd, ByVal Buffer, Len(Buffer), L, 0&)
+        bSuccess = ReadFile(UsehStdRd, ByVal Buffer, Len(Buffer), L, 0&)
         
         If bSuccess = 1 Then
             strData = Buffer

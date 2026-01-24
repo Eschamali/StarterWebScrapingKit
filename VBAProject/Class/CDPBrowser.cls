@@ -1576,11 +1576,16 @@ RetrySend:
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-7   intRes = core.readProcSTD(strRes)                                                            'Sometimes edge writes to stdout so we clear stdout too.
-8   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-9   If sessionID <> "" Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
-10  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
-11  core.writeProc strMessage                                                                    'Send message to the browser instance
+7   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
+    If intRes > 0 Then printMsg "stdout = " & strRes
+
+8   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
+    If intRes > 0 Then printMsg "stderrout = " & strRes
+
+9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
+10   If sessionID <> "" Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
+12  core.writeProc strMessage                                                                    'Send message to the browser instance
 
    '------------------------------------------------
    'Read message returned by browser
@@ -1592,22 +1597,22 @@ RetrySend:
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
     Do
         '受信処理
-12      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+13      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
 
         '返り値チェック
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
-13          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
+14          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
 
             'メモリを解放
-14          strRes = vbNullString
+15          strRes = vbNullString
 
             Dim i As Long
             For i = LBound(JsonMessages) To UBound(JsonMessages)
-15              If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                   'Only enable if needs to see every raw JS message for debugging/development
+16              If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                   'Only enable if needs to see every raw JS message for debugging/development
 
                 '最後の要素か？
-16              If i = UBound(JsonMessages) Then
+17              If i = UBound(JsonMessages) Then
                     '空欄か？
                     If JsonMessages(i) = "" Then
                         '1回の受信で全て正しいJson形式として得れました
@@ -1633,18 +1638,18 @@ RetrySend:
                     End If
                     
                     '受信データを Json-Dictionary として変換
-17                  Set results = jsConverter.ParseJson(tmp)
+18                  Set results = jsConverter.ParseJson(tmp)
 
                     'イベント内容を確認するモードなら、格納しておく
-18                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
-19                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results  'プライベート用
+19                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
+20                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results  'プライベート用
 
                     '実行コマンド結果であるか？
-20                  If results.Exists("id") Then
+21                  If results.Exists("id") Then
                         'そのIDは、Excelに記録してるIDと一致してるか？
-21                      If results.Item("id") = lngCurrentId Then
+22                      If results.Item("id") = lngCurrentId Then
                             '結果を返して、受信ループ終了フラグを立てる
-22                          Set SendMessage = results
+23                          Set SendMessage = results
                             ResultSendCommand = True
                             printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
                         End If
@@ -1655,11 +1660,11 @@ RetrySend:
             'データなしの場合は、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-23              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+24              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-24              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+25              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
             Else
                 'データがまだ、ない
@@ -1670,7 +1675,7 @@ RetrySend:
         DoEvents
 
         '一定時間経っても来ないなら、ループから抜けます
-25      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+26      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
 
         'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
     Loop Until ResultSendCommand
