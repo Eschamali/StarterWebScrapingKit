@@ -1761,14 +1761,12 @@ End Sub
 '* 返値    ：フォーマット済みDictionary
 '***************************************************************************************************
 Private Function FormatDictionary_BrowserEvents() As Dictionary
-        Dim tmp As Dictionary: Set tmp = New Dictionary
+    '新規オブジェクトセット
+    Set FormatDictionary_BrowserEvents = New Dictionary
 
     '初期構造を作成します
-        tmp.Add objAllMessagesName01, 0                '合計イベントキャプチャ数
-        tmp.Add objAllMessagesName02, New Dictionary  'イベントキャプチャDictionaryデータ
-        
-        '返却
-        Set FormatDictionary_BrowserEvents = tmp
+    FormatDictionary_BrowserEvents.Add objAllMessagesName01, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BrowserEvents.Add objAllMessagesName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
 Private Function attachToSession() As Integer
