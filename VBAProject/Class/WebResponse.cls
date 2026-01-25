@@ -164,7 +164,7 @@ Public Sub CreateFromHttp(Client As WebClient, Request As WebRequest, Http As Ob
         
         ' `Http.ResponseBody`‚©‚çUTF-8•ÏŠ·‚µ‚½•¶š—ñ‚ğ‘ã‚í‚è‚É‘ã“ü
         Dim CharConv As New CharacterCodeConversion
-        Me.Content = CharConv.BytesToString(Http.ResponseBody)
+        Me.Content = CharConv.BytesToString((Http.ResponseBody))
     End If
 
     'ƒGƒ‰[–³‹‚ÍI‚í‚è
