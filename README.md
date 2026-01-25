@@ -222,27 +222,25 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 ワークシート：ブラウザ起動設定　で設定した内容でブラウザが起動してくれるので、特にこだわりがなければこのテンプレートコードを推奨します。  
 
 ```bas
-Function 設定シートからの起動(Optional StartURL As String) As CDPBrowser
+Public Function 設定シートからの起動(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String
-        If .Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value Then ブラウザ名 = "chrome" Else ブラウザ名 = "edge"
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value, "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, SwitchUser)
 
         'ブラウザ起動
-        Dim objBrowser As CDPBrowser: Set objBrowser = New CDPBrowser
-        objBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(5, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
+        Set 設定シートからの起動 = New CDPBrowser
+        設定シートからの起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
     End With
-
-    'オブジェクトを返却
-    Set 設定シートからの起動 = objBrowser
 End Function
-
 
 Sub 冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloAutomationBrowser As CDPBrowser: Set HelloAutomationBrowser = 設定シートからの起動
+    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからの起動
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -250,7 +248,7 @@ Sub 冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloAutomationBrowser.quit
+    HelloWorldAutomationBrowser.quit
 End Sub
 ```
 
