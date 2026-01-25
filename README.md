@@ -293,7 +293,7 @@ End Sub
 
 ```bas
 Sub JapaneseElementTest()
-    '設定シートに基づくブラウザ立ち上げ、BMI計算サイトへアクセスします
+    '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
     Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからの起動("https://keisan.site/exec/system/1161228728")
     
     ' 身長をセット
@@ -319,7 +319,7 @@ Sub JapaneseElementTest()
 
     ' ボタンクリック
     Demo_Japanese.getElementByID("executebtn").click
-    Demo_Japanese.notify "BMIを計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
+    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     Demo_Japanese.sleep 3
 
     ' 体脂肪率を取得
@@ -442,7 +442,6 @@ End Sub
 * 次に、`BrowserEvents`プロパティに`Nothing`をセットします。
 * これにより、イベントキャプチャは**無効**となり、`navigate`中に発生したイベントは、すべて破棄されます。
 * デモでは、`NotEvent.json`のファイルサイズが0バイトとなり、イベントがキャプチャされていないことを確認します。
-* また、日本語+絵文字で記述した内容そのまんまが、ブラウザ右下の通知に表示されていることも確認できます。
 
 #### **フェーズ3：退避した状態からの、キャプチャ"再開"**
 
