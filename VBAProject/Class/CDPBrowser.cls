@@ -1620,7 +1620,7 @@ RetrySend:
                         printMsg "readProcCDP was able to receive everything!"
                     Else
                         'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                        strBuffer = strBuffer & JsonMessages(i)
+18                      strBuffer = strBuffer & JsonMessages(i)
                         printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
                     End If
                 Else
@@ -1628,44 +1628,71 @@ RetrySend:
                     Dim tmp As String
                     If StrPtr(strBuffer) Then
                         '結合する
-                        tmp = strBuffer & JsonMessages(i)
-                        
+19                      tmp = strBuffer & JsonMessages(i)
+                        printMsg "The fragmented data is then combined to create the JSON data."
+
                         'メモリを解放
-                        strBuffer = vbNullString
+20                      strBuffer = vbNullString
                     Else
                         'そのまんま使う
-                        tmp = JsonMessages(i)
+21                      tmp = JsonMessages(i)
+                        printMsg "Check the JSON data that fits in the buffer."
                     End If
                     
                     '受信データを Json-Dictionary として変換
-18                  Set results = jsConverter.ParseJson(tmp)
+22                  Set results = jsConverter.ParseJson(tmp)
 
-                    'イベント内容を確認するモードなら、格納しておく
-19                  If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, results            'パブリック用
-20                  If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, results  'プライベート用
-
-                    '実行コマンド結果であるか？
-21                  If results.Exists("id") Then
-                        'そのIDは、Excelに記録してるIDと一致してるか？
-22                      If results.Item("id") = lngCurrentId Then
-                            '結果を返して、受信ループ終了フラグを立てる
-23                          Set SendMessage = results
-                            ResultSendCommand = True
-                            printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
-                        End If
+                    'イベント格納と、ID判定用のプロシージャへ遷移
+23                  If HelperProcessingResultCDP(results, InternalUseMessages, lngCurrentId) Then
+                        '結果を返して、受信ループ終了フラグを立てる
+24                      Set SendMessage = results
+                        ResultSendCommand = True
+                        printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
                     End If
                 End If
             Next
         Else
-            'データなしの場合は、エラーコードチェックを行う
+            'データなしの場合は、エラーコードチェックなどを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-24              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+25              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-25              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+26              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
                 Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+            
+            ElseIf StrPtr(strBuffer) Then
+                '欠けたデータがある
+                printMsg "The received data was 0 byte, but there was fragmented data, so we checked whether it was in JSON format."
+
+                '一応、初期化
+27              Set results = Nothing
+
+                'Json-Dictionaryにできるか試す
+                On Error Resume Next
+28                  Set results = jsConverter.ParseJson(strBuffer)
+                On Error GoTo 0
+
+                'Json-Dictionaryに変換出来たら、完成されたJsonとして処理する
+29              If Not (results Is Nothing) Then
+                    printMsg "`strBuffer` is Json data. Do the appropriate processing."
+
+                    'Json-Dictionaryへ変換済みなので、初期化しておく
+30                  strBuffer = vbNullString
+
+                    'イベント格納と、ID判定用のプロシージャへ遷移
+31                  If HelperProcessingResultCDP(results, InternalUseMessages, lngCurrentId) Then
+                        '結果を返して、受信ループ終了フラグを立てる
+32                      Set SendMessage = results
+                        ResultSendCommand = True
+                        printMsg "The command result was obtained by joining the fragmented data. - ID:" & lngCurrentId
+                    Else
+                        'イベントデータでした
+                        printMsg "The command result from `strBuffer` has not yet been received, so reception continues."
+                    End If
+                End If
             Else
                 'データがまだ、ない
                 printMsg "The command result from readProcCDP has not yet been received, so reception continues."
@@ -1675,7 +1702,7 @@ RetrySend:
         DoEvents
 
         '一定時間経っても来ないなら、ループから抜けます
-26      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+33      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
 
         'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
     Loop Until ResultSendCommand
@@ -1764,9 +1791,32 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：イベントの格納やID判定を担います
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：`returnCDPJson`に、CDP-Jsonコマンド結果があれば、`True`になります
+'* 引数　　：returnCDPJson          Json-Dictionary形式済みのブラウザからのイベントやCDP-Jsonコマンド結果
+'            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用
+'            checkCommandID         確認するコマンドID
+'***************************************************************************************************
+Private Function HelperProcessingResultCDP(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long)
+    'イベント内容を確認するモードなら、格納しておく
+    If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, returnCDPJson              'パブリック(呼び出し側使用)用
+    If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, returnCDPJson    'プライベート(クラス内変数)用
+
+    '実行コマンド結果であるか？
+    If returnCDPJson.Exists("id") Then
+        'そのIDは、Excelに記録してるIDと一致してるか？
+        If returnCDPJson.Item("id") = checkCommandID Then
+            '結果を返して、受信ループ終了フラグを返す
+            HelperProcessingResultCDP = True
+        End If
+    End If
+End Function
+
+'***************************************************************************************************
 '* 機能　　：ブラウザイベント情報を格納するためのフォーマットDictionaryを作成します
 '---------------------------------------------------------------------------------------------------
-'* 返値    ：フォーマット済みDictionary
+'* 返り値  ：フォーマット済みDictionary
 '***************************************************************************************************
 Private Function FormatDictionary_BrowserEvents() As Dictionary
     '新規オブジェクトセット
