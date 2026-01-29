@@ -1338,7 +1338,7 @@ Public Sub pageEnable()
 
 End Sub
 
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional BrowserContext As Boolean, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
 '-----------------------------------------------------------------
 ' This function enables advanced method invocation under CDP.
 ' For a list of all methods available, see:
@@ -1356,7 +1356,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", BrowserContext)
 
    'Print error if there is
     If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
@@ -1515,6 +1515,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'            BrowserContext         `True`で、ブラウザ自身を対象したコマンド実行モードとなります
 '            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにもイベント情報を格納が出来ます
 '            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
 '---------------------------------------------------------------------------------------------------
@@ -1522,7 +1523,7 @@ End Property
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional BrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Dim intRes As Long
     Dim strRes As String
     Dim lngCurrentId As Long
@@ -1583,7 +1584,7 @@ RetrySend:
     If intRes > 0 Then printMsg "stderrout = " & strRes
 
 9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-10   If sessionID <> "" Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+10  If sessionID <> "" And Not (BrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 12  core.writeProc strMessage                                                                    'Send message to the browser instance
 
@@ -1850,7 +1851,7 @@ Private Function attachToSession() As Integer
     Dim EventMessageForAttachToSession As Dictionary: Set EventMessageForAttachToSession = FormatDictionary_BrowserEvents
 
     '実行
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", EventMessageForAttachToSession)
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, EventMessageForAttachToSession)
     printMsg "Now looking for the browser window"
 
    'Read message to confirm the requested url is found
