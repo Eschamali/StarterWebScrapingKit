@@ -531,6 +531,7 @@ Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行する�
 | :--- | :--- | :--- |
 | **引数: methodName** | String | 実行したい**CDPメソッド名**を指定します（例: `"Network.getCookies"`、`"Browser.getVersion"` など）。 |
 | **引数: params** | Scripting.Dictionary (Optional) | メソッドに渡す**オプションパラメータ**です。呼び出し側でJson-Dictionaryとして組み立てておく必要があります。 |
+| **引数: BrowserContext** | Boolean (Optional) | 実行対象を**ブラウザ自身にする**かを指定します。デフォルトは `False` で、タブセッションモードです。 |
 | **引数: dbgMsg** | Boolean (Optional) | 実行結果を**イミディエイトウィンドウに出力するか**どうかを指定します。デフォルトは `False` です。 |
 | **返り値** | Scripting.Dictionary | 実行結果のJSON応答に含まれる **`result` セクション**をDictionary形式で返します。 |
 
