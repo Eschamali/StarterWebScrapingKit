@@ -184,6 +184,78 @@ Sub JapaneseElementTest()
     Demo_Japanese.quit
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：拡張機能を読み込むDemoコードです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：ブラウザ自身をターゲットとした`invokeMethod`の使用例です
+'* 注意次項：このテストを行う際は、シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御`をONにしてください
+'***************************************************************************************************
+Sub UseExtensions()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New WebJsonConverter
+    
+    '拡張機能があるアンパックフォルダパスを、ダイアログで指定
+    '参考 → https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
+    Dim ExtensionsFolderPath As String
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
+        .InitialFileName = Environ("UserProfile") & "\Downloads"    '初期位置
+
+        If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
+    End With
+
+
+    '設定シートに基づくブラウザ立ち上げ
+    Dim controlExtensions As CDPBrowser: Set controlExtensions = 設定シートからの起動
+    
+    '拡張機能のページへ遷移
+    controlExtensions.navigate "edge://extensions/"
+
+    '拡張機能を読み込む
+    Dim CDPParams As Dictionary, ResultCDP As Dictionary
+    Set CDPParams = New Dictionary
+    CDPParams.Add "path", ExtensionsFolderPath
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True)
+
+    '読み込まれたか確認する
+    If ResultCDP Is Nothing Then
+        'CDP-Json結果に`error`要素あり
+        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
+
+        'ブラウザを閉じる。demo終了
+        controlExtensions.quit
+        Exit Sub
+
+    ElseIf ResultCDP.Exists("id") Then
+        MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & ResultCDP("id")
+    
+    Else
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(ResultCDP), vbExclamation, "Not found id"
+
+        'ブラウザを閉じる。demo終了
+        controlExtensions.quit
+    End If
+
+
+    '拡張機能をアンインストール
+    Set CDPParams = New Dictionary
+    CDPParams.Add "id", ResultCDP("id")
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True)
+
+    '消えたか確認する
+    If ResultCDP Is Nothing Then
+        'CDP-Json結果に`error`要素あり
+        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
+
+    Else
+        MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "Uninstall Done!"
+    End If
+
+
+    'ブラウザを閉じる。demo終了
+    controlExtensions.quit
+End Sub
+
 Sub runEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
