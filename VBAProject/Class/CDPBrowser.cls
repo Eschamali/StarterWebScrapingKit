@@ -178,6 +178,7 @@ Private doLog As Boolean                'ƒƒOƒtƒ@ƒCƒ‹‚É‚àAƒfƒoƒbƒOƒƒbƒZ[ƒW‚ğ
 Private logPath As String               'ƒƒOƒtƒ@ƒCƒ‹‚Ì•Û‘¶ƒtƒHƒ‹ƒ_ƒpƒX
 Private Policy_UserDataDir As Boolean   'ƒ†[ƒU[ƒf[ƒ^ƒfƒBƒŒƒNƒgƒŠ‚ªŒÅ’è‰»‚³‚ê‚Ä‚é‚©”»’è
 Private jsConverter As New WebJsonConverter
+Private errorDetails As Dictionary      'CDP-JsonƒRƒ}ƒ“ƒhÀs‚ÌÅŒã‚ÌƒGƒ‰[î•ñ
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -1506,6 +1507,18 @@ Property Let TimeOutSecond(TimeSec As Long)
     timerOut = TimeSec
 End Property
 
+'***************************************************************************************************
+'* ‹@”\@@FCDP-Json ƒRƒ}ƒ“ƒhŒ‹‰Ê‚Ì‚¤‚¿AÅŒã‚ÌƒGƒ‰[î•ñ‚ğæ“¾‚µ‚Ü‚·
+'---------------------------------------------------------------------------------------------------
+'* GET•Ô’l FÅŒã‚ÌƒGƒ‰[î•ñ
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€F‚ ‚­‚Ü‚Å‚àAuÅŒãv‚ÌƒGƒ‰[î•ñ‚È‚Ì‚ÅA¬Œ÷‚µ‚Ä‚àÁ–Å‚µ‚Ü‚¹‚ñB
+'            “KØ‚È`invokeMethod`‚ğÀs‚µ‚½‚Ì‚É•Ô‚è’l‚ªA`Nothing`‚Æ‚È‚é‚Ì‚ªAƒGƒ‰[‚Ì–Úˆó‚Æ‚È‚é‚Ì‚ÅA‚»‚ê‚Å‚±‚ÌƒGƒ‰[î•ñ‚ğŒ©‚És‚Á‚Ä‚­‚¾‚³‚¢B
+'***************************************************************************************************
+Property Get LastCDPJsonError() As Dictionary
+    Set LastCDPJsonError = errorDetails
+End Property
+
 
 
 '***************************************************************************************************
@@ -1935,7 +1948,6 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
         printMsg "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage
         invokeError = True
     ElseIf result.Exists("error") Then
-        Dim errorDetails As Scripting.Dictionary
         Set errorDetails = result("error")
         ErrorCode = errorDetails("code")
         ErrorMessage = errorDetails("message")
