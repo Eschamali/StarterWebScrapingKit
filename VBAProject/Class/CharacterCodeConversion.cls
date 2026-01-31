@@ -169,15 +169,29 @@ End Function
 '* 引数　　：abArray    指定の文字コードのルールに従ったバイナリ配列
 '            FolderPath 保存先フォルダパス
 '            FileName   ファイル名
+'            AddMode
+'               `True`  追記モード
+'               `False` 上書きモード
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テキストも所詮、バイナリデータです。「Open ステートメント」を使ったバイナリ書き込みを行います。
 '* 注意事項：・事前に、`BytesFromString`で、変換後のバイト配列を得る必要があります。
-'            ・同名パスが、既にある場合は、上書きされます。呼び出し側で対処してください。
+'            ・同名パスが、既にある場合は、削除→新規による実質上書きとなります。
 '            ・競合対策で、他のプロセスからの操作の制限を設けます。
 '***************************************************************************************************
-Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String)
+Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String, Optional AddMode As Boolean)
+    'フルパス生成
+    Dim FileFullpath As String: FileFullpath = FolderPath & "\" & FileName
+
+    '追記じゃない場合は、パスにファイルがあったら削除するようにします
+    If Dir(FileFullpath) <> "" And Not (AddMode) Then Kill FileFullpath
+
+    '書き込み準備
     Dim fNum As Integer: fNum = FreeFile
-    Open FolderPath & "\" & FileName For Binary Access Write Lock Read Write As #fNum
+    Open FileFullpath For Binary Access Write Lock Write As #fNum
+        '追記モードの場合、ファイルの「"一番、最後"」まで、ポインタを、"移動"させ、その「次」の位置を書き込みスタート位置にする
+        If AddMode Then Seek #fNum, LOF(fNum) + 1
+
+        '書き込み
         Put #fNum, , abArray
     Close #fNum
 End Sub
@@ -194,7 +208,7 @@ End Sub
 '***************************************************************************************************
 Function BytesFromSavedFile(FolderPath As String, FileName As String) As Byte()
     Dim fNum As Integer: fNum = FreeFile
-    Open FolderPath & "\" & FileName For Binary Access Read Lock Read Write As #fNum
+    Open FolderPath & "\" & FileName For Binary Access Read Lock Read As #fNum
         'ファイルサイズがあるか？
         If LOF(fNum) > 0 Then
             ' ファイルサイズ分の配列を確保（0ベースなので -1）
