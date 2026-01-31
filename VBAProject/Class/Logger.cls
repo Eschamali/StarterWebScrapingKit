@@ -92,7 +92,7 @@ Private Type SYSTEMTIME
 End Type
 
 'ログレベル設定用ユーザー定義
-Public Enum LogLevel
+Public Enum LogLevelName
     Trace_
     Debug_
     info_
