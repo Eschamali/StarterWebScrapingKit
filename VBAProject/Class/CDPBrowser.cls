@@ -134,6 +134,7 @@ End Enum
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
+Private Const ThisClassName As String = "CDPBrowser"                'ÉçÉOÇÃÉgÉåÅ[ÉXóp
 
 Private Const ERR_TIMEOUT As Long = 900
 Private Const ERR_PIPE As Long = 901
@@ -152,7 +153,10 @@ Private Const objAllMessagesName02 As String = "EventMethods"
 ' Global Variables
 '===================================
 
+Private jsConverter As New WebJsonConverter 'ExcelÇ≈ÅAJsonÉfÅ[É^ÇDictionary(Collection)Ç…ïœä∑Ç≈Ç´ÇÈÇ∑Ç≤Ç¢Ç‚Ç¬
+Private LogControl As New Logger        'ÉçÉOÉåÉxÉãÇÃêßå‰
 Private core As CDPCore                 'Must be initialized for CDP engine
+
 Private lngLastID As Long               'Every message sent to edge has an ID
 Private strBuffer As String             'ÉXÉgÉäÅ[ÉÄéÛêMÇ≈åáÇØÇΩÉfÅ[É^ÇàÍéûìIÇ…í~êœÇ∑ÇÈÇΩÇﬂÇÃïœêîÇ≈Ç∑
 Private brHWnd As LongPtr               'Browser object window handle
@@ -177,7 +181,6 @@ Private doPrintDbgMsg As Boolean        'ÉCÉ~ÉfÉBÉGÉCÉgÇ…ÅAÉfÉoÉbÉOÉÅÉbÉZÅ[ÉWÇè
 Private doLog As Boolean                'ÉçÉOÉtÉ@ÉCÉãÇ…Ç‡ÅAÉfÉoÉbÉOÉÅÉbÉZÅ[ÉWÇécÇ∑Ç©
 Private logPath As String               'ÉçÉOÉtÉ@ÉCÉãÇÃï€ë∂ÉtÉHÉãÉ_ÉpÉX
 Private Policy_UserDataDir As Boolean   'ÉÜÅ[ÉUÅ[ÉfÅ[É^ÉfÉBÉåÉNÉgÉäÇ™å≈íËâªÇ≥ÇÍÇƒÇÈÇ©îªíË
-Private jsConverter As New WebJsonConverter
 Private errorDetails As Dictionary      'CDP-JsonÉRÉ}ÉìÉhé¿çséûÇÃç≈å„ÇÃÉGÉâÅ[èÓïÒ
 
 '=============================================================================
@@ -211,6 +214,7 @@ Public Sub start(Optional Name As String = "chrome", _
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '--------------------------------------------------------------------------------------------------------------
+    Const FromName As String = ThisClassName & ".start"
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
@@ -223,7 +227,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Select Case Name
         Case "edge": brType = brEdge
         Case "chrome": brType = brChrome
-        Case Else: printMsg "Browser initiation fails: only the defined browser types can be accepted", doRaiseError:=True
+        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromName, doRaiseError:=True
     End Select
     brPath = getBrowserPath(brType)
     strCall = """" & brPath & """ --" & ArgRemoteDebuggingName
@@ -231,7 +235,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
     If appUrl <> "" Then
-        If appUrl = "about:blank" Then printMsg "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", doRaiseError:=True
+        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromName, doRaiseError:=True
         strCall = strCall & " --app=""" & checkURI(appUrl) & """"
     Else
         strCall = strCall & " --homepage ""about:blank"""
@@ -270,7 +274,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Set core = New CDPCore
     brCallString = strCall
     intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg "Unable to initialize CDPCore", doRaiseError:=True Else printMsg "CDPCore initialized successfully"
+    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore", FromName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromName
     lngLastID = 1 'reset the pipe message ID
    '-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -297,7 +301,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg "Browser initialization completed after " & Timer - timeStart & "s"
+    printMsg info_, "Browser initialization completed after " & Timer - timeStart & "s", FromName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -1155,7 +1159,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 End Sub
 
-Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
 '----------------------------------------------------------------------------------
 ' A custom printMsg that besides printing to the Immediate Window, it will
 ' also print to a dated log file. This is useful at user level where
@@ -1166,26 +1170,31 @@ Public Sub printMsg(strMsg As String, Optional isHeader As Boolean = False, Opti
 '                            noDbgMsg = False or noLogging = False
 '----------------------------------------------------------------------------------
 
-    Dim intFile As Integer
     Dim logName As String, strFormattedMsg As String
 
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = Format(Now, "hh:mm:ss") & " | " & brID & " | " & strMsg
-
-   'Perform msg output to Immediate Window if needed
-    If doPrintDbgMsg Then
-        Debug.Print strFormattedMsg
-    End If
+    Else strFormattedMsg = " | " & brID & " | " & strMsg
 
    'Perform msg logging if needed
     If doLog Then
         logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
         If Dir(logPath, vbDirectory) = "" Then MkDir logPath
-        intFile = FreeFile
-        Open logPath & "\" & logName For Append As #intFile
-        Print #intFile, strFormattedMsg
-        Close #intFile
     End If
+
+   'Perform msg output to Immediate Window if needed
+    If doPrintDbgMsg Then
+        With LogControl
+            Select Case LogLevel_
+                Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, logPath, logName
+                Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, logPath, logName
+                Case LogLevelName.info_: .LogInfo strFormattedMsg, From, logPath, logName
+                Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, logPath, logName
+                Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, logPath, logName, Err.Number
+                Case Else: Debug.Print "ïsê≥Ç»LogLevelÇ≈Ç∑ÅB " & LogLevel_
+            End Select
+        End With
+    End If
+
 
 On Error Resume Next 'GCUser99
     If doRaiseError Then Err.Raise ERR_PROTOCOL, Description:=strMsg
