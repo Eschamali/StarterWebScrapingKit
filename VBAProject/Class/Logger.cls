@@ -73,6 +73,26 @@ Option Explicit
 
 
 
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)    'ミリ秒単位を扱うためのAPI(時差は、ローカルPCに準拠)
+Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)   'ミリ秒単位を扱うためのAPI(UTC準拠)
+
+'構造体宣言
+Private Type SYSTEMTIME
+    wYear As Integer
+    wMonth As Integer
+    wDayOfWeek As Integer
+    wDay As Integer
+    wHour As Integer
+    wMinute As Integer
+    wSecond As Integer
+    wMilliseconds As Integer
+End Type
+
+
+
 Public LogCallback As Variant
 
 ''
@@ -87,6 +107,8 @@ Public LogCallback As Variant
 ''
 Private LogThreshold As Long
 
+Private UTCMode As Boolean
+
 ''
 ' @property LogEnabled
 ' @type Boolean
@@ -100,8 +122,10 @@ Public Property Let LogLevel(value As Long)
     LogThreshold = value
 End Property
 
+
+
 ' ============================================= '
-' Public Methods
+' Private Methods
 ' ============================================= '
 
 ''
@@ -144,10 +168,45 @@ Private Sub Log(Level As Long, message As String, Optional From As String)
         Case 5
             log_LevelValue = "ERROR"
         End Select
-    
-        Debug.Print "[" & Format(Now(), "yyyy/mm/dd hh:mm:ss") & "] " & log_LevelValue & " " & IIf(From <> "", "{" & From & "} ", "") & message
+
+        Debug.Print "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & IIf(From <> "", "{" & From & "} ", "") & message
     End If
 End Sub
+
+
+'***************************************************************************************************
+'* 機能　　：現在日時をミリ秒単位で取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`yyyy/mm/dd hh:mm:ss.fff`という書式
+'* 引数　　：UseUTC
+'               `True`　UTC基準で取得
+'               `False` 時差込みで取得(ローカルPCの設定に依存)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：関数自体やPC環境ごとにミリ秒の精度に誤差があるため、実際の時刻とはどうしても数ミリ秒から数10ミリ秒程度でズレてしまうことは認識しておく必要があります。
+'***************************************************************************************************
+Private Function GetNowFormat(Optional UseUTC As Boolean) As String
+    Dim t As SYSTEMTIME
+
+    ' 現在日時取得
+    If UseUTC Then GetSystemTime (t) Else GetLocalTime (t)
+
+    ' `yyyy/mm/dd hh:mm:ss.fff`に整形
+    With t
+        GetLocalTimeTest = Format(.wYear, "0000") & "/" & _
+                           Format(.wMonth, "00") & "/" & _
+                           Format(.wDay, "00") & " " & _
+                           Format(.wHour, "00") & ":" & _
+                           Format(.wMinute, "00") & ":" & _
+                           Format(.wSecond, "00") & "." & _
+                           Format(.wMilliseconds, "000")
+    End With
+End Function
+
+
+
+' ============================================= '
+' Public Methods
+' ============================================= '
 
 ''
 ' @method LogTrace
