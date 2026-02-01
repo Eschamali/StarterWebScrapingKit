@@ -67,13 +67,13 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
             Flags = Flags Or FORMAT_MESSAGE_FROM_HMODULE
         End If
     End If
-    
+
     ' メッセージ取得
     length = FormatMessage(Flags, hModule, ErrorCode, 0, Buffer, Len(Buffer), 0)
-    
+
     If length > 0 Then
         ' 末尾の改行とかヌル文字を消して返す
-        GetMessage = Replace(Left(Buffer, length), vbCrLf, "")
+        GetMessage = Replace(Split(Buffer, vbNullChar)(0), vbCrLf, "")
     Else
         GetMessage = "定義されていないエラーです (Code: " & ErrorCode & ")"
     End If
