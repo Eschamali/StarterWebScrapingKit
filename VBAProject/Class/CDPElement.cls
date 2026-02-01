@@ -31,6 +31,8 @@ Attribute VB_Exposed = False
 
 Option Explicit
 
+Private Const ThisClassName As String = "CDPElement"
+
 Private main As CDPBrowser
 Private varIDs As Scripting.Dictionary
 Private varID As String
@@ -175,6 +177,8 @@ Property Let value(strTextVal As String)
 ' Updated: 28/04/23 - React fields value inputing enhancement
 '          12/12/23 - added checkExist
 '-----------------------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".value"
+
 
     Dim e1 As String
     Dim isReact As Boolean
@@ -185,7 +189,7 @@ Property Let value(strTextVal As String)
    'Help devs know if the field is a React field
     e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
-    If isReact Then main.printMsg "FYI: this is a REACT field as the first method is " & e1
+    If isReact Then main.printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
    'Perform inputing using all the methods
     If Not isReact Then
@@ -456,6 +460,8 @@ Public Function sendString(textToSend As String) As Boolean
 ' when dealing with different type of html input elements.
 ' Updated: 28/04/2023 - Created & debugged the "+" sign issue.
 '----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendString"
+
 
     Dim objectId As String
 
@@ -487,7 +493,7 @@ Public Function sendString(textToSend As String) As Boolean
     main.invokeMethod "Input.insertText", params
 
     sendString = True
-    main.printMsg "Executed sendString(""" & textToSend & """) successfully on " & getVarID
+    main.printMsg info_, "Executed sendString(""" & textToSend & """) successfully on " & getVarID, FromProcedureName
 
 End Function
 
@@ -499,6 +505,8 @@ Public Function sendClick() As Boolean
 ' element via backdoor manipulation using CDP ports and thus can
 ' bypass many complex JavaScript requirements to trigger a click.
 '----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendClick"
+
 
     Dim x, y As String
 
@@ -519,7 +527,7 @@ Public Function sendClick() As Boolean
     main.invokeMethod "Input.dispatchMouseEvent", params
 
     sendClick = True
-    main.printMsg "Executed sendClick successfully on " & getVarID
+    main.printMsg info_, "Executed sendClick successfully on " & getVarID, FromProcedureName
 
 End Function
 
@@ -530,6 +538,8 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
 ' nasty field that only allows certain action to be executed with
 ' raw keyboard handling.
 '----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendKey"
+
 
     Dim objectId As String
 
@@ -567,7 +577,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     main.invokeMethod "Input.dispatchKeyEvent", params
 
     sendKey = True
-    main.printMsg "Executed sendKey successfully on " & getVarID
+    main.printMsg info_, "Executed sendKey successfully on " & getVarID, FromProcedureName
 
 End Function
 
@@ -623,10 +633,12 @@ Public Function ifExist() As CDPElement
 ' all subsequent functions related to it.
 ' Updated: 12/12/2023
 '----------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".ifExist"
+
 
     checkExist = True
     Set ifExist = Me
-    main.printMsg "ifExist returned " & isExist & " on [" & varJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", "")
+    main.printMsg info_, "ifExist returned " & isExist & " on [" & varJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
 
 End Function
 
@@ -636,13 +648,15 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 ' existance on the HTML page.
 ' Updated: 23/11/2023
 '----------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".onExist"
+
 
     Dim timeStart As Single
 
     timeStart = Timer
     Do While VarType = "null"
         If Timer - timeStart > timeOutInSeconds Then
-            main.printMsg "onExists timeout on varJS = " & varJS, doRaiseError:=raiseTimeoutError
+            main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
         VarType = main.jsEval(varJS, False)
@@ -650,7 +664,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Loop
 
     Set onExist = Me
-    main.printMsg "onExists satisfied: " & getVarID & " is now available for interaction"
+    main.printMsg info_, "onExists satisfied: " & getVarID & " is now available for interaction", FromProcedureName
 
 End Function
 
@@ -662,13 +676,15 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
 ' existence hence no further interactions should be needed.
 ' Updated: 23/11/2023 - make function returns True
 '----------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".onExistNot"
+
 
     Dim timeStart As Single
 
     timeStart = Timer
     Do While VarType <> "null"
         If Timer - timeStart > timeOutInSeconds Then
-            main.printMsg "onExistsNot timeout on varJS = " & varJS, doRaiseError:=raiseTimeoutError
+            main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
         VarType = main.jsEval(varJS, False)
@@ -676,7 +692,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Loop
 
     onExistNot = True
-    main.printMsg "onExistsNot satisfied: " & getVarID & " is no longer available for interaction"
+    main.printMsg info_, "onExistsNot satisfied: " & getVarID & " is no longer available for interaction", FromProcedureName
 
 End Function
 
@@ -964,6 +980,8 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '---------------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getElementByXPath"
+
 
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -984,7 +1002,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
    'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
    'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
     If Left(strXPath, 2) = "//" Then
-        main.printMsg "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode"
+        main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
@@ -1007,6 +1025,8 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 ' Note that index for accessing the collection members start at one (not zero).
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
+
 
     Dim result As String
     Dim elements As Collection
@@ -1032,7 +1052,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
    'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
    'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
     If Left(strXPath, 2) = "//" Then
-        main.printMsg "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode"
+        main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
@@ -1068,6 +1088,8 @@ Public Function getIFrame() As CDPElement
 ' https://www.w3schools.com/jsref/prop_frame_contentdocument.asp
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getIFrame"
+
 
     Dim src As String
 
@@ -1084,7 +1106,7 @@ Public Function getIFrame() As CDPElement
 
    'Check if the iFrame is hosted on a different domain
     src = getAttribute("src")
-    If InStr(src, "http") Then main.printMsg "This iFrame may not be hosted in the same domain. src=""" & src & """"
+    If InStr(src, "http") Then main.printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
 
    'Get the object and assign to the varID in the browser
     Dim varJS_ As String: Dim result As String
