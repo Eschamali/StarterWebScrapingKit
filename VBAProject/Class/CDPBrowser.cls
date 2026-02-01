@@ -1221,7 +1221,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     End With
 
 
-    'ブラウザ自身や、パイプ通信自体に問題があると判断された場合は、このツールでの処理(CDP-Json)ができないので、エラーで停止させておく
+    'ブラウザ自身や、パイプ通信自体に問題や、タイムアウトになったと判断された場合は、このツールでの処理(CDP-Json)ができないので、エラーで停止させておく
     If doRaiseError Then Err.Raise ERR_PROTOCOL, From, Description:=strMsg
 
 End Sub
