@@ -387,7 +387,7 @@ Sub ネットワークイベントの確認()
 
     
     'ネットワークイベント受信を有効化する
-    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable", , True)
+    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable")
     
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -398,7 +398,7 @@ Sub ネットワークイベントの確認()
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
-    
+
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
     Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'セーブデータ作成
     Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`を渡すことで、イベントを破棄するようになる
@@ -537,7 +537,6 @@ Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行する�
 | **引数: methodName** | String | 実行したい**CDPメソッド名**を指定します（例: `"Network.getCookies"`、`"Browser.getVersion"` など）。 |
 | **引数: params** | Scripting.Dictionary (Optional) | メソッドに渡す**オプションパラメータ**です。呼び出し側でJson-Dictionaryとして組み立てておく必要があります。 |
 | **引数: BrowserContext** | Boolean (Optional) | 実行対象を**ブラウザ自身にする**かを指定します。デフォルトは `False` で、タブセッションモードです。 |
-| **引数: dbgMsg** | Boolean (Optional) | 実行結果を**イミディエイトウィンドウに出力するか**どうかを指定します。デフォルトは `False` です。 |
 | **返り値** | Scripting.Dictionary | 実行結果のJSON応答に含まれる **`result` セクション**をDictionary形式で返します。 |
 
 #### 補足事項
