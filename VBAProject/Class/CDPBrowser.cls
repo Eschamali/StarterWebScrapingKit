@@ -177,7 +177,6 @@ Private thisApp As Object               'A dymanic variable used in CDPBrowser i
 Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
 Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
-Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 Private Policy_UserDataDir As Boolean   'ユーザーデータディレクトリが固定化されてるか判定
@@ -214,7 +213,8 @@ Public Sub start(Optional Name As String = "chrome", _
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '--------------------------------------------------------------------------------------------------------------
-    Const FromName As String = ThisClassName & ".start"
+    Const FromProcedureName As String = ThisClassName & ".start"
+
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
@@ -227,7 +227,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Select Case Name
         Case "edge": brType = brEdge
         Case "chrome": brType = brChrome
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromName, doRaiseError:=True
+        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
     brPath = getBrowserPath(brType)
     strCall = """" & brPath & """ --" & ArgRemoteDebuggingName
@@ -235,7 +235,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
     If appUrl <> "" Then
-        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromName, doRaiseError:=True
+        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromProcedureName, doRaiseError:=True
         strCall = strCall & " --app=""" & checkURI(appUrl) & """"
     Else
         strCall = strCall & " --homepage ""about:blank"""
@@ -274,7 +274,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Set core = New CDPCore
     brCallString = strCall
     intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore", FromName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromName
+    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore", FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     lngLastID = 1 'reset the pipe message ID
    '-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -301,7 +301,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & Timer - timeStart & "s", FromName
+    printMsg info_, "Browser initialization completed after " & Timer - timeStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -317,6 +317,8 @@ Private Sub serialize()
 '                     the cpid file name to allow targetting of
 '                     specific profile for reattachment.
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
 
     'データ記録準備
     Dim excelSerialize As String
@@ -328,11 +330,11 @@ Private Sub serialize()
     End With
 
     'パイプ通信のハンドル情報も記録しておき、結果を表示しておく
-    printMsg "New serial string: " & core.serialize(brUser) & " - " & excelSerialize
-
+    printMsg info_, "New serial string: " & core.serialize(brUser) & " - " & excelSerialize, FromProcedureName
+ 
     'テーブルに、ブラウザセッション情報を記録する
     'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(2, "CDPBrowser.serialize") = Evaluate(excelSerialize)
+    ShSetting01_StartBrowser.serializeToTable(2, FromProcedureName) = Evaluate(excelSerialize)
 
 End Sub
 
@@ -345,6 +347,8 @@ Private Sub deserialize(UserName As String)
 ' Updated: 03/05/23 - replace sessionID with targetID which is
 '                     constant and stable on every CDP session
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".deserialize"
+
 
     On Error GoTo iferr
 
@@ -355,7 +359,7 @@ Private Sub deserialize(UserName As String)
 1   Call core.deserialize(UserName)
 
     'Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
-2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, "CDPBrowser.deserialize")
+2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, FromProcedureName)
 
     'クラス内変数に適用
 3   lngLastID = objSerialize.Item("lngLastID")
@@ -367,7 +371,7 @@ Private Sub deserialize(UserName As String)
 
 iferr: 'if deserialize fails, simply move on to starting anew
 
-    printMsg "deserialization failed at line " & Erl
+    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & WorksheetFunction.TextJoin(",", True, "lngLastID:" & lngLastID, "targetID:" & targetID, "sessionID:" & sessionID), FromProcedureName
 
 End Sub
 
@@ -379,6 +383,8 @@ Public Function jsEval(strString As String, Optional dbgMsg As Boolean = True) A
 ' was removed for simplicity.
 ' Added dbgMsg to read debug line on the go when needed.
 '------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".jsEval"
+
 
     Dim results As Scripting.Dictionary
     Dim strMessage As String
@@ -395,22 +401,22 @@ step1:
 
    'Send and check result -------------------------------------------------------------------------------------------
     Set results = SendMessage(strMessage, dbgMsg:=dbgMsg)
-    If results Is Nothing Then printMsg "Unable to contact the Browser instance!", doRaiseError:=True
+    If results Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
     If Not results.Exists("error") Then GoTo step2
    '-----------------------------------------------------------------------------------------------------------------
 
    'Handle errors ---------------------------------------------------------------------------------------------------
     Dim errMsg As String, retried As Boolean
     errMsg = results("error")("message")
-    printMsg "jsEval Error: " & errMsg
-    If errMsg = "'Runtime.evaluate' wasn't found" Then printMsg "Possibly the main session has been abruptly closed."
+    printMsg WARN_, "jsEval Error: " & errMsg, FromProcedureName
+    If errMsg = "'Runtime.evaluate' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
-        printMsg "Attempting to update Session ID " & sessionID
+        printMsg info_, "Attempting to update Session ID " & sessionID, FromProcedureName
         sessionID = "": sessionID = attachToTab(targetID)
-        printMsg "New Session ID obtained: " & sessionID
+        printMsg info_, "New Session ID obtained: " & sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
-    printMsg "The Browser was unable to evaluate the JS expression: " & strString, doRaiseError:=True
+    printMsg ERROR_, "The Browser was unable to evaluate the JS expression: " & strString, FromProcedureName, doRaiseError:=True
    '-----------------------------------------------------------------------------------------------------------------
 
 step2:
@@ -437,7 +443,7 @@ step3:
     If Not jsEval = "" Then strResult = " | Returned: " & jsEval Else strResult = ""
     strResult = Replace(strResult, vbNewLine, "")
     If Len(jsEval) > 200 Then strResult = Left(strResult, 200) & "(showing 200/" & Len(jsEval) & " chars)"
-    If dbgMsg Then printMsg "Script executed: " & strString & strResult
+    printMsg Debug_, "Script executed: " & strString & strResult, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
 End Function
@@ -447,12 +453,14 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 ' This sub is a quick wrapper to navigate to an url.
 ' Updated 23/03/23
 '-----------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".navigate"
+
 
    'Check if already navigated
     Dim curURL As String
     curURL = jsEval("window.location.href", False)
     If curURL = checkURI(strURL) Then
-        printMsg "Already navigated to """ & strURL & """"
+        printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
     End If
 
@@ -463,7 +471,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     'should also add a maxTimeLimit to Wait
     wait till:=till
     getSessionInfo 'update new session info for printParams
-    printMsg "Navigated to: " & strURL
+    printMsg info_, "Navigated to: " & strURL, FromProcedureName
 
 End Sub
 
@@ -473,6 +481,8 @@ Public Sub quit()
 ' Original Name: closeBrowser
 ' Update: 24/10/2025: Daniel Polak - avoid immediate hard kills, reduce race conditions, and make shutdown behavior predictable and robust in non-responsive cases
 '-----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".quit"
+
 
     Dim results As Scripting.Dictionary
     Dim sngT As Single
@@ -486,7 +496,7 @@ Public Sub quit()
         DoEvents
     Loop
     If isLive Then
-        printMsg "Browser didn't close gracefully within 5s; invoking cleanUpSessions."
+        printMsg WARN_, "Browser didn't close gracefully within 5s; invoking cleanUpSessions.", FromProcedureName
         cleanUpSessions
     End If
 
@@ -494,7 +504,7 @@ Public Sub quit()
     deleteCDPID
 
     sleep 1 'it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
-    printMsg "The browser has been terminated."
+    printMsg info_, "The browser has been terminated.", FromProcedureName
 
 End Sub
 
@@ -527,6 +537,8 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 ' Updated: 26/04/23 - Enhanced 'till' to Enum type for ease of use
 '                   - Added exit for targetState = interactive in case CDP misses the state change
 '--------------------------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".wait"
+
 
     Dim strState As String, targetState As String
     Select Case till
@@ -536,17 +548,17 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
     End Select
 
     '初期値を設定しておく
-    '　どうせ最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
+    '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
     strState = "loading"
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
-        If dbgState Then printMsg "Current ReadyState: " & strState             'option to print ReadyState info during iteration
+        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 
-    If dbgState Then printMsg "Wait '" & targetState & "' satisfied"
+    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
 
 End Sub
 
@@ -638,6 +650,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 '          26/04/23 Format url argument to accept simplified input
 '          22/01/26 Added .reattach where appropriate
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".newTab"
+
 
     Dim params As New Scripting.Dictionary
     Dim sessionID_ As String
@@ -655,7 +669,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
    'Switch attachment to the new tab
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
-    printMsg "newTab will now open a new CDP instance"
+    printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
     Set newTab = New CDPBrowser
     newTab.reattach brUser
     newTab.id = sessionID_
@@ -666,7 +680,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Me.id = sessionID_
     getSessionInfo
     serialize
-    printMsg "Tab [" & brName & " | " & targetID & "] is now the main session tab for " & brID
+    printMsg info_, "Tab [" & brName & " | " & targetID & "] is now the main session tab for " & brID, FromProcedureName
 
 End Function
 
@@ -692,6 +706,9 @@ End Function
 '* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '***************************************************************************************************
 Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".getTab"
+
+
     Dim results As Scripting.Dictionary, Obj As Scripting.Dictionary
     Dim tabId As String, candidateTabId As String, errMsg As String
     Dim targets As Collection
@@ -773,10 +790,10 @@ searchit:
    'Nothing is preferred over throwing error
     If Not tabfound Then
         info = IIf(tabName <> "", tabName, IIf(Url <> "", Url, "(no new tab found)"))
-        printMsg "Unable to find the tab: " & info
+        printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
         Exit Function
     Else
-        printMsg "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)"
+        printMsg info_, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
     End If
 
 searchfound:
@@ -797,7 +814,7 @@ searchfound:
     Me.id = sessionID_
     getSessionInfo
     serialize
-    printMsg "Tab [" & targetID & "] is now the main session tab for " & brID
+    printMsg info_, "Tab [" & targetID & "] is now the main session tab for " & brID, FromProcedureName
 
 End Function
 
@@ -807,22 +824,24 @@ Public Sub closeTab()
 ' be retrieved by using getTargetId. This is the targetId of the
 ' active tab under focus of the automation pipe.
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".closeTab"
+
 
    'Get the original serialized tab ID
     Dim mainID As String, serial As Dictionary
-    Set serial = ShSetting01_StartBrowser.deserializeFromTable(brUser, 2, "CDPBrowser.deserialize")
+    Set serial = ShSetting01_StartBrowser.deserializeFromTable(brUser, 2, FromProcedureName)
     mainID = serial.Item("targetID")
 
     '操作中のタブ自体を閉じないように仕向ける
     If targetID = mainID Then
-        printMsg "Unable to close this tab " & targetID & " as it is the main session tab"
+        printMsg WARN_, "Unable to close this tab " & targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
     End If
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
     invokeMethod "Target.closeTarget", params
-    printMsg brID & " was closed"
+    printMsg info_, brID & " was closed", FromProcedureName
 
 End Sub
 
@@ -1013,10 +1032,12 @@ Public Sub jsAddLib(strURL As String)
 ' the old HTML document which will be replaced by the new one causing the script to
 ' be inexistent and resulting in "ReferenceError" due to its functions not defined.
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".jsAddLib"
+
 
    'Check if already loaded, if so then no need to add again
     If getElementByQuery("script[src='" & strURL & "']").varResult <> "null" Then
-        printMsg "The HTML already contains the JS Library: """ & strURL & """"
+        printMsg WARN_, "The HTML already contains the JS Library: """ & strURL & """", FromProcedureName
         Exit Sub
     End If
 
@@ -1033,7 +1054,7 @@ Public Sub jsAddLib(strURL As String)
 
    'Load the script URL
     jsEval "loadScript('" & strURL & "')"
-    printMsg "Successfully added the JS Library: """ & strURL & """"
+    printMsg info_, "Successfully added the JS Library: """ & strURL & """", FromProcedureName
 
 End Sub
 
@@ -1049,12 +1070,14 @@ Public Sub jsAddScript(strLocalScriptPath As String)
 ' the old HTML document which will be replaced by the new one causing the script to
 ' be inexistent and resulting in "ReferenceError" due to its functions not defined.
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".jsAddScript"
+
 
     If Dir(strLocalScriptPath) = "" Then Exit Sub
 
     Dim fso As New FileSystemObject
     jsEval fso.OpenTextFile(strLocalScriptPath).ReadAll 'Load the script contents
-    printMsg "Successfully added the local script: """ & strLocalScriptPath & """"
+    printMsg info_, "Successfully added the local script: """ & strLocalScriptPath & """", FromProcedureName
 
     Set fso = Nothing
 
@@ -1068,6 +1091,8 @@ Public Function reattach(userProfile As String) As Boolean
 ' and thus enables the possibility of running multiple CDP automation operations
 ' on entirely different tasks simultaneously.
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
 
     brUser = userProfile
     deserialize brUser
@@ -1077,7 +1102,7 @@ Public Function reattach(userProfile As String) As Boolean
         printParams
     Else
         reattach = False
-        printMsg "Failed to reattach to previous CPID."
+        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
     End If
 
 End Function
@@ -1134,6 +1159,8 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 '        view. If true, it will get all the way from the start to the bottom. See
 '        demo.getSnapShot sub procedure for example.
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".snapPage"
+
 
     Dim params As New Scripting.Dictionary
     Dim r As Scripting.Dictionary
@@ -1142,7 +1169,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
    'Verify if the page can be captured with screenshot
     Set r = invokeMethod("Page.getLayoutMetrics")
     If invokeError(r) Then
-        printMsg "Unable to perform snapPage on this screen as it has no layout metrics."
+        printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
     End If
 
@@ -1154,7 +1181,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     If Not invokeError(r) Then
         b64 = r("data")
         SaveBase64ToFile b64, FolderPath, FileName
-        printMsg "Screenshot saved to: " & FolderPath & "\" & FileName
+        printMsg info_, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
     End If
 
 End Sub
@@ -1182,22 +1209,20 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     End If
 
    'Perform msg output to Immediate Window if needed
-    If doPrintDbgMsg Then
-        With LogControl
-            Select Case LogLevel_
-                Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, logPath, logName
-                Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, logPath, logName
-                Case LogLevelName.info_: .LogInfo strFormattedMsg, From, logPath, logName
-                Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, logPath, logName
-                Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, logPath, logName, Err.Number
-                Case Else: Debug.Print "不正なLogLevelです。 " & LogLevel_
-            End Select
-        End With
-    End If
+    With LogControl
+        Select Case LogLevel_
+            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, logPath, logName
+            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, logPath, logName
+            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, logPath, logName
+            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, logPath, logName
+            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, logPath, logName, Err.Number
+            Case Else: 'ログ出力無効化
+        End Select
+    End With
 
 
-On Error Resume Next 'GCUser99
-    If doRaiseError Then Err.Raise ERR_PROTOCOL, Description:=strMsg
+    'ブラウザ自身や、パイプ通信自体に問題があると判断された場合は、このツールでの処理(CDP-Json)ができないので、エラーで停止させておく
+    If doRaiseError Then Err.Raise ERR_PROTOCOL, From, Description:=strMsg
 
 End Sub
 
@@ -1205,6 +1230,8 @@ Public Sub printTabs()
 '------------------------------------------------------------------
 ' Print all current tabs info. Useful for debugging.
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".printTabs"
+
 
     Dim results As Scripting.Dictionary, target_ As Scripting.Dictionary
     Dim i As Long
@@ -1213,19 +1240,19 @@ Public Sub printTabs()
     Set targets = results("targetInfos")
 
    'Read info
-    printMsg "---------------------------------------------------"
-    printMsg "Tabs Information"
-    printMsg "---------------------------------------------------"
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, "Tabs Information", FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     i = 1
     For Each target_ In targets
         If target_("type") = "page" Then
-            printMsg "#" & i & vbTab & _
+            printMsg Debug_, "#" & i & vbTab & _
                         "type: " & target_("type") & " | " & _
                         "attached: " & target_("attached") & " | " & _
                         "title: " & target_("title") & " | " & _
                         "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId")
+                        "target ID: " & target_("targetId"), FromProcedureName
             i = i + 1
         End If
     Next
@@ -1236,28 +1263,30 @@ Public Sub printParams()
 '------------------------------------------------------------------
 ' Print all parameters of the current session for debuggings.
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".printParams"
 
-    printMsg "---------------------------------------------------"
-    printMsg brID & " Information"
-    printMsg "---------------------------------------------------"
 
-    printMsg "Session ID        | sessionID    | " & sessionID
-    printMsg "Last ID           | lngLastID    | " & lngLastID
-    printMsg "Window Handle     | brHWnd       | " & brHWnd
-    printMsg "Window ID         | brWId        | " & brWID
-    printMsg "Browser Type      | brType       | " & brType
-    printMsg "Browser Ver       | brVer        | " & brVer
-    printMsg "Browser Path      | brPath       | " & brPath
-    printMsg "Tab URL           | brUrl        | " & brURL
-    printMsg "Tab Title         | brName       | " & brName
-    printMsg "Tab ID            | targetID     | " & targetID
-    printMsg "Core StdInWr      | hStdInWr     | " & core.hStdInWr
-    printMsg "Core StdOutRd     | hStdOutRd    | " & core.hStdOutRd
-    printMsg "Core hStderrOutRd | hStderrOutRd | " & core.hStderrOutRd
-    printMsg "Core CDPInWr      | hCDPInWr     | " & core.hCDPInWr
-    printMsg "Core CDPOutRd     | hCDPOutRd    | " & core.hCDPOutRd
-    printMsg "Core dwProcessId  | dwProcessId  | " & core.dwProcessId
-    printMsg "CDP Version       | CDPVer       | " & CDPVer
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, brID & " Information", FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+
+    printMsg Debug_, "Session ID        | sessionID    | " & sessionID, FromProcedureName
+    printMsg Debug_, "Last ID           | lngLastID    | " & lngLastID, FromProcedureName
+    printMsg Debug_, "Window Handle     | brHWnd       | " & brHWnd, FromProcedureName
+    printMsg Debug_, "Window ID         | brWId        | " & brWID, FromProcedureName
+    printMsg Debug_, "Browser Type      | brType       | " & brType, FromProcedureName
+    printMsg Debug_, "Browser Ver       | brVer        | " & brVer, FromProcedureName
+    printMsg Debug_, "Browser Path      | brPath       | " & brPath, FromProcedureName
+    printMsg Debug_, "Tab URL           | brUrl        | " & brURL, FromProcedureName
+    printMsg Debug_, "Tab Title         | brName       | " & brName, FromProcedureName
+    printMsg Debug_, "Tab ID            | targetID     | " & targetID, FromProcedureName
+    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.hStdInWr, FromProcedureName
+    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.hStdOutRd, FromProcedureName
+    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.hStderrOutRd, FromProcedureName
+    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.hCDPInWr, FromProcedureName
+    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.hCDPOutRd, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.dwProcessId, FromProcedureName
+    printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
 
 End Sub
 
@@ -1266,6 +1295,8 @@ Public Function tabCount() As Long
 ' Print all current tabs info. Useful for debugging.
 ' Updated : 05/02/25 - changed from printTabs to tabCount to get the count too
 '------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".tabCount"
+
 
     Dim results, targets, target_ As Scripting.Dictionary
     Dim i As Integer
@@ -1274,19 +1305,19 @@ Public Function tabCount() As Long
     Set targets = results("targetInfos")
 
    'Read info
-    printMsg "---------------------------------------------------"
-    printMsg "Tabs Information"
-    printMsg "---------------------------------------------------"
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, "Tabs Information", FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     i = 0
     For Each target_ In targets
         If target_("type") = "page" Then
-            printMsg "#" & i & vbTab & _
+            printMsg Debug_, "#" & i & vbTab & _
                         "type: " & target_("type") & " | " & _
                         "attached: " & target_("attached") & " | " & _
                         "title: " & target_("title") & " | " & _
                         "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId")
+                        "target ID: " & target_("targetId"), FromProcedureName
             i = i + 1
         End If
     Next
@@ -1348,7 +1379,7 @@ Public Sub pageEnable()
 
 End Sub
 
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional BrowserContext As Boolean, Optional dbgMsg As Boolean = False) As Scripting.Dictionary
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional BrowserContext As Boolean) As Scripting.Dictionary
 '-----------------------------------------------------------------
 ' This function enables advanced method invocation under CDP.
 ' For a list of all methods available, see:
@@ -1361,6 +1392,8 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
 ' Updated: 28/04/23 - Set this to Public as it is useful
 '          20/03/23 - Added printMsg msgs & set to Private
 '-----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".invokeMethod"
+
 
     Dim paramStr As String
     Dim results As Scripting.Dictionary
@@ -1369,11 +1402,11 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", BrowserContext)
 
    'Print error if there is
-    If invokeError(results) Then printMsg "Failed to invoke method """ & methodName & """", doRaiseError:=True
+    If invokeError(results) Then printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
 
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    If dbgMsg Then printMsg "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results("result"))
+    printMsg Debug_, "Invoked """ & methodName & """ with Raw - result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
@@ -1421,9 +1454,11 @@ Property Let Name(newName As String)
 ' Set the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".Name"
+
 
     jsEval "document.title = '" & newName & "'", False
-    printMsg "Tab name changed to " & newName
+    printMsg info_, "Tab name changed to " & newName, FromProcedureName
     brName = newName
 
 End Property
@@ -1443,10 +1478,12 @@ Property Let id(newID As String)
 ' Set the session ID of the current browser to a new value
 ' Added 02/03/2023
 '------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".id"
+
 
     sessionID = newID
     getSessionInfo        'update all session infos
-    printMsg brID & " updated Session ID to " & sessionID
+    printMsg info_, brID & " updated Session ID to " & sessionID, FromProcedureName
 
 End Property
 
@@ -1475,28 +1512,31 @@ Property Get BrowserEvents() As Dictionary
 End Property
 
 Property Set BrowserEvents(ObjDic As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".BrowserEvents"
+
+
     'SetされたDictionaryの構造をチェックします
     '1. そもそもDictionary オブジェクトが備わっているか？
     If ObjDic Is Nothing Then
         'Nothing 処理。以降は、イベントキャプチャはされません。
         Set objAllMessages = Nothing
-        printMsg "Event capture save data has been discarded. Event capture will not be performed."
+        printMsg info_, "Event capture save data has been discarded. Event capture will not be performed.", FromProcedureName
 
     '2. まっさらの場合
     ElseIf ObjDic.Count = 0 Then
         '初期化処理。これにより、イベントキャプチャを開始します。
         Set objAllMessages = FormatDictionary_BrowserEvents
-        printMsg "A new event capture save data has been created. Starts event capture."
+        printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
     '3. 指定のKeyがあるか？
     ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set objAllMessages = ObjDic
-        printMsg "Existing event capture save data was successfully loaded. Resume event capture with this save data."
+        printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
 
     '4. 不正なDictionary 形式なのでエラーで止める
     Else
-        Err.Raise ERR_DictionaryStructure, Description:="Event capture save data structure is invalid."
+        printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
     End If
 End Property
 
@@ -1546,6 +1586,9 @@ End Property
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '***************************************************************************************************
 Private Function SendMessage(strMessage As String, Optional BrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+
+
     Dim intRes As Long
     Dim strRes As String
     Dim lngCurrentId As Long
@@ -1564,47 +1607,50 @@ RetrySend:
    'All messages that we have received so far cannot be an answer to the message that we will send
    'So they can be safely discarded
 1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
+        printMsg Trace_, "Starts discarding browser event information...", FromProcedureName
 
         'データが尽きるまで、ループ受信処理を行います
         Do
             '受信処理
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+            printMsg Trace_, "Discard - ResSize = " & intRes, FromProcedureName
 
             '返り値チェック
             If intRes > 0 Then
-               'データありだが、あくまで破棄処理のため何もしない(強いていうなら、デバッグメッセージを出す)
-3               printMsg "Emptying the message buffer..."
-4               If seeRawSendMsgDbg Then printMsg "strRes = " & strRes
+               'データありだが、あくまで破棄処理のため何もしない(強いていうなら、破棄するメッセージをそのまま出す)
+3               printMsg Trace_, "Emptying the message buffer...", FromProcedureName
+4               If seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
 
             Else
                 'データなしの場合は、エラーコードチェックを行う
                 If ErrorCode_PeekNamedPipe Then
                     'PeekNamedPipe にてエラーがあった場合
-5                   printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
-                    Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+5                   printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
 
                 ElseIf ErrorCode_ReadFile Then
                     'ReadFile にてエラーがあった場合
-6                   printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
-                    Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
+6                   printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
 
                 Else
                     'データがまだ、ない。つまり、破棄完了
-                    printMsg "Message queue destruction completed."
+                    printMsg Trace_, "Message queue destruction completed.", FromProcedureName
                 End If
             End If
         Loop Until intRes < 1
     End If
 
    '--------------------------------------------------
-   'Send message to the browser
+   'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
 7   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
-    If intRes > 0 Then printMsg "stdout = " & strRes
+    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
 
 8   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
-    If intRes > 0 Then printMsg "stderrout = " & strRes
+    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
 
+   '--------------------------------------------------
+   'Send message to the browser
+   '--------------------------------------------------
 9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
 10  If sessionID <> "" And Not (BrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
@@ -1618,21 +1664,25 @@ RetrySend:
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
+    printMsg Trace_, "Processes incoming messages from the browser...", FromProcedureName
     Do
         '受信処理
 13      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
 14          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
+            printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
 
             'メモリを解放
+            If seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & strRes, FromProcedureName
 15          strRes = vbNullString
 
             Dim i As Long
             For i = LBound(JsonMessages) To UBound(JsonMessages)
-16              If seeRawSendMsgDbg Then printMsg "strRes = " & JsonMessages(i)                   'Only enable if needs to see every raw JS message for debugging/development
+16              If seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
                 '最後の要素か？
 17              If i = UBound(JsonMessages) Then
@@ -1640,11 +1690,14 @@ RetrySend:
                     If JsonMessages(i) = "" Then
                         '1回の受信で全て正しいJson形式として得れました
                         strBuffer = vbNullString
-                        printMsg "readProcCDP was able to receive everything!"
+                        printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
                     Else
                         'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+                        printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
 18                      strBuffer = strBuffer & JsonMessages(i)
-                        printMsg "readProcCDP was unable to receive all the data. It accumulates the last element data..."
+                        printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
+
+                        printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
                     End If
                 Else
                     '欠けたデータがあるか？
@@ -1652,17 +1705,18 @@ RetrySend:
                     If StrPtr(strBuffer) Then
                         '結合する
 19                      tmp = strBuffer & JsonMessages(i)
-                        printMsg "The fragmented data is then combined to create the JSON data."
+                        printMsg Trace_, "The fragmented data is then combined to create the JSON data.", FromProcedureName
 
                         'メモリを解放
 20                      strBuffer = vbNullString
                     Else
                         'そのまんま使う
 21                      tmp = JsonMessages(i)
-                        printMsg "Check the JSON data that fits in the buffer."
+                        printMsg Trace_, "Check the JSON data that fits in the buffer.", FromProcedureName
                     End If
-                    
+
                     '受信データを Json-Dictionary として変換
+                    printMsg Trace_, "Actual Processing Json = " & tmp, FromProcedureName
 22                  Set results = jsConverter.ParseJson(tmp)
 
                     'イベント格納と、ID判定用のプロシージャへ遷移
@@ -1670,25 +1724,25 @@ RetrySend:
                         '結果を返して、受信ループ終了フラグを立てる
 24                      Set SendMessage = results
                         ResultSendCommand = True
-                        printMsg "The command result was obtained from readProcCDP! - ID:" & lngCurrentId
+                        printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
                     End If
                 End If
+
+                DoEvents
             Next
         Else
             'データなしの場合は、エラーコードチェックなどを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-25              printMsg "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
-                Err.Raise ERR_PIPE, Description:="Error PeekNamedPipe in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_PeekNamedPipe & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32")
+25              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
 
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-26              printMsg "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
-                Err.Raise ERR_PIPE, Description:="Error ReadFile in readProcCDP." & vbCrLf & vbCrLf & "<ErrorCode:" & ErrorCode_ReadFile & ">" & vbCrLf & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32")
-            
+26              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
+
             ElseIf StrPtr(strBuffer) Then
-                '欠けたデータがある
-                printMsg "The received data was 0 byte, but there was fragmented data, so we checked whether it was in JSON format."
+                '欠けたデータがある場合
+                printMsg Trace_, "The received data was 0 byte, but there was fragmented data, so we check whether it was in JSON format.", FromProcedureName
 
                 '一応、初期化
 27              Set results = Nothing
@@ -1700,32 +1754,36 @@ RetrySend:
 
                 'Json-Dictionaryに変換出来たら、完成されたJsonとして処理する
 29              If Not (results Is Nothing) Then
-                    printMsg "`strBuffer` is Json data. Do the appropriate processing."
+                    printMsg Trace_, "`strBuffer` is Json data. Do the appropriate processing.", FromProcedureName
 
                     'Json-Dictionaryへ変換済みなので、初期化しておく
 30                  strBuffer = vbNullString
+                    printMsg Trace_, "`strBuffer` is cleaned.", FromProcedureName
 
                     'イベント格納と、ID判定用のプロシージャへ遷移
 31                  If HelperProcessingResultCDP(results, InternalUseMessages, lngCurrentId) Then
                         '結果を返して、受信ループ終了フラグを立てる
 32                      Set SendMessage = results
                         ResultSendCommand = True
-                        printMsg "The command result was obtained by joining the fragmented data. - ID:" & lngCurrentId
+                        printMsg Debug_, "The command result was obtained by joining the fragmented data. - ID:" & lngCurrentId, FromProcedureName
                     Else
                         'イベントデータでした
-                        printMsg "The command result from `strBuffer` has not yet been received, so reception continues."
+                        printMsg Debug_, "The command result from `strBuffer` has not yet been received, so reception continues.", FromProcedureName
                     End If
+                Else
+                    'データはまだ欠けている
+                    printMsg Debug_, "`strBuffer` is still missing. Continuing receiving.", FromProcedureName
                 End If
             Else
                 'データがまだ、ない
-                printMsg "The command result from readProcCDP has not yet been received, so reception continues."
+                printMsg Debug_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
             End If
         End If
 
         DoEvents
 
         '一定時間経っても来ないなら、ループから抜けます
-33      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, , "Timeout waiting for browser to return message."
+33      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
 
         'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
     Loop Until ResultSendCommand
@@ -1733,7 +1791,7 @@ RetrySend:
 
 afterErr:
 
-    printMsg "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)"
+    printMsg WARN_, "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)", FromProcedureName
     On Error Resume Next
     attachToSession
     GoTo RetrySend
@@ -1746,8 +1804,8 @@ ifError:
     Dim errorLine As Long, errorDesc As String
     errorLine = Erl
     errorDesc = Err.Description
-    printMsg "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
-    printMsg "strMessage used by sendMessage: " & strMessage
+    printMsg ERROR_, "sendMessage error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
+    printMsg ERROR_, "strMessage used by sendMessage: " & strMessage, FromProcedureName
 
     Dim blnDidSoftRetry As Boolean, blnDoSoftRetry As Boolean
     blnDoSoftRetry = False
@@ -1763,11 +1821,11 @@ ifError:
     End If
 
     If InStr(errorDesc, "PeekNamedPipe") > 0 Then
-        printMsg "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow."
+        printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName
         deleteCDPID
     End If
 
-    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, ERR_PIPE, ERR_PROTOCOL), , "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
+    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, ERR_PIPE, ERR_PROTOCOL), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
 
 End Function
 
@@ -1783,12 +1841,21 @@ End Function
 '            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '***************************************************************************************************
 Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
+
+
     ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
     Dim EventMethodName As String
-    If eventData.Exists("method") Then EventMethodName = eventData("method") Else Exit Sub
+    If eventData.Exists("method") Then
+        EventMethodName = eventData("method")
+    Else
+        printMsg Debug_, "This is not an event, but a command result. - ID:" & eventData("id"), FromProcedureName
+        Exit Sub
+    End If
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(objAllMessagesName01) = Accumulator(objAllMessagesName01) + 1
+    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(objAllMessagesName01), FromProcedureName
 
     ' インデックスも付与(1始まり)
     ' これにより、全体の時系列データも保持できます
@@ -1803,36 +1870,62 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
         ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
         Set eventList = New Collection
         EventsDictionary.Add EventMethodName, eventList
+
+        printMsg Debug_, "A new type of event. -" & EventMethodName, FromProcedureName
     Else
         ' あれば、その仕切り板の後ろにある、既存の束を取り出す
         Set eventList = EventsDictionary(EventMethodName)
+
+        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
     End If
 
     ' 3. 取り出した束に、今回のイベントの詳細データを、追加する
     eventList.Add eventData
-    printMsg "Stored event data from the browser. - " & EventMethodName
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：イベントの格納やID判定を担います
 '---------------------------------------------------------------------------------------------------
 '* 返値    ：`returnCDPJson`に、CDP-Jsonコマンド結果があれば、`True`になります
-'* 引数　　：returnCDPJson          Json-Dictionary形式済みのブラウザからのイベントやCDP-Jsonコマンド結果
-'            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用
+'* 引数　　：returnCDPJson          1件分の`Json-Dictionary`形式済みのブラウザからのイベントやCDP-Jsonコマンド結果
+'            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
 '            checkCommandID         確認するコマンドID
 '***************************************************************************************************
 Private Function HelperProcessingResultCDP(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long)
+    Const FromProcedureName As String = ThisClassName & ".HelperProcessingResultCDP"
+
+
     'イベント内容を確認するモードなら、格納しておく
-    If Not objAllMessages Is Nothing Then OnNewEventReceived objAllMessages, returnCDPJson              'パブリック(呼び出し側使用)用
-    If Not InternalUseMessages Is Nothing Then OnNewEventReceived InternalUseMessages, returnCDPJson    'プライベート(クラス内変数)用
+    'パブリック(呼び出し側使用)用
+    If Not objAllMessages Is Nothing Then
+        printMsg Debug_, "Event capture mode is enabled. storing...", FromProcedureName
+        OnNewEventReceived objAllMessages, returnCDPJson
+    Else
+        printMsg Debug_, "Event capture mode is disabled.", FromProcedureName
+    End If
+
+    'プライベート(クラス内変数)用
+    If Not InternalUseMessages Is Nothing Then
+        printMsg Debug_, "Gets the event information required inside the class. storing...", FromProcedureName
+        OnNewEventReceived InternalUseMessages, returnCDPJson
+    Else
+        printMsg Debug_, "No event information needed inside the class", FromProcedureName
+    End If
 
     '実行コマンド結果であるか？
     If returnCDPJson.Exists("id") Then
+        printMsg Trace_, "Command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
+
         'そのIDは、Excelに記録してるIDと一致してるか？
         If returnCDPJson.Item("id") = checkCommandID Then
             '結果を返して、受信ループ終了フラグを返す
             HelperProcessingResultCDP = True
+            printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
+        Else
+            printMsg WARN_, "The received data is the command result (ID:" & returnCDPJson.Item("id") & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel.", FromProcedureName
         End If
+    Else
+        printMsg Trace_, "This received data is event information.", FromProcedureName
     End If
 End Function
 
@@ -1859,6 +1952,8 @@ Private Function attachToSession() As Integer
 ' Note: if needed to read the returned message result from sendMessage,
 ' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".attachToSession"
+
 
     Dim results As Scripting.Dictionary
     Dim results_ As Scripting.Dictionary
@@ -1874,7 +1969,7 @@ Private Function attachToSession() As Integer
 
     '実行
 1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, EventMessageForAttachToSession)
-    printMsg "Now looking for the browser window"
+    printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
@@ -1892,8 +1987,8 @@ Private Function attachToSession() As Integer
             End If
         End If
     Next
-2   If Not boolFound Then printMsg "Unable to find the browser session", doRaiseError:=True _
-    Else printMsg "Now attaching CDP pipes to the browser session"
+2   If Not boolFound Then printMsg ERROR_, "Unable to find the browser session", FromProcedureName, doRaiseError:=True _
+    Else printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
 
    'Establish connection with the CDP pipes
 3   targetID = results__.Item("targetId")
@@ -1902,7 +1997,7 @@ Private Function attachToSession() As Integer
 6   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
 7   Set results___ = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
 
-    printMsg "Successfully attached to Session ID " & sessionID
+    printMsg info_, "Successfully attached to Session ID " & sessionID, FromProcedureName
     Exit Function
 
 ifError:
@@ -1911,13 +2006,13 @@ ifError:
     Dim errorLine As Long, errorDesc As String
     errorLine = Erl
     errorDesc = Err.Description
-    printMsg "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
-    printMsg "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages)
-    printMsg "results = " & jsConverter.ConvertToJson(results)
-    printMsg "results_ = " & jsConverter.ConvertToJson(results_)
-    printMsg "results__ = " & jsConverter.ConvertToJson(results__)
-    printMsg "results___ = " & jsConverter.ConvertToJson(results___)
-    printMsg ".start call string: " & brCallString
+    printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
+    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages), FromProcedureName
+    printMsg Debug_, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
+    printMsg Debug_, "results_ = " & jsConverter.ConvertToJson(results_), FromProcedureName
+    printMsg Debug_, "results__ = " & jsConverter.ConvertToJson(results__), FromProcedureName
+    printMsg Debug_, "results___ = " & jsConverter.ConvertToJson(results___), FromProcedureName
+    printMsg Debug_, ".start call string: " & brCallString, FromProcedureName
 
     printParams
     Err.Raise ERR_PROTOCOL, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
@@ -1948,22 +2043,24 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
 ' Error message will be shown via printMsg
 ' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '-----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".invokeError"
+
 
     If result Is Nothing Then
         Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
         ErrorCode = -1 'arbitrary nonzero value, may change in future
         ErrorMessage = "Timeout or No results"
         ErrorData = vbEmpty
-        printMsg "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         invokeError = True
     ElseIf result.Exists("error") Then
         Set errorDetails = result("error")
         ErrorCode = errorDetails("code")
         ErrorMessage = errorDetails("message")
-        printMsg "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         If errorDetails.Exists("data") Then
             ErrorData = errorDetails("data")
-            printMsg "       " & ErrorData
+            printMsg WARN_, "       " & ErrorData, FromProcedureName
         Else
             ErrorData = vbEmpty ' vbNullString? is errorDetails("data") a string or object?
         End If
@@ -2021,6 +2118,8 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
 '         23/10/25: Daniel Polak - p.name and p.terminate were not correct, replaced by proc.name and proc.terminate (discovered this bug because we are using Option Explicit now). On Error Resume Next was hiding the bug too.
 '                                - only terminate automation-processes (where command line contains --remote-debugging-pipe)
 '-----------------------------------------------------------------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
+
 
     '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
     Dim lProcessId As Long, lSessionId As Long
@@ -2057,7 +2156,7 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     lngLastID = 0   'To make a clean slate for new session
     sessionID = ""  'Likewise
 
-    printMsg "cleanUpSessions completed and previous CdpSessionID removed"
+    printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
 
 End Sub
 
@@ -2071,6 +2170,8 @@ Private Sub setCrashStateNormal()
 ' Update: 22/01/26 - Tweaked to work well with the new multi-instance
 '                    structure.
 '------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".setCrashStateNormal"
+
 
     Dim filePath As String, prefFolder As String, prefFile As Object, strContents As String, strNewContents As String, intF As Integer
 
@@ -2105,7 +2206,7 @@ Private Sub setCrashStateNormal()
         Close #intF
     End If
 
-    printMsg "setCrashStateNormal completed"
+    printMsg info_, "setCrashStateNormal completed", FromProcedureName
 
 End Sub
 
@@ -2166,11 +2267,13 @@ Private Function getBrowserPath(strBrowserType As String) As String
 ' Updated: 22/03/2023
 ' 20251023 Daniel Polak - added fallback path when registry lookup fails (in a locked-down environment)
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
+
 
     Select Case True
         Case InStr(LCase(strBrowserType), "chrome"): brType = brChrome
         Case InStr(LCase(strBrowserType), "edg"): brType = brEdge         'On edge it is just "Edg"
-        Case Else: printMsg "Unable to getBrowserPath for browser type: " & brType, doRaiseError:=True
+        Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & brType, FromProcedureName, doRaiseError:=True
     End Select
 
    'Return the path
@@ -2180,12 +2283,12 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
     'カスタムパスがあったらそっちを優先
     With ShSetting01_StartBrowser
-        If .Range(.UseRangeName(1, "CDPBrowser.getBrowserPath.カスタムパス判定")).value = "" Then
+        If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
             Set objWSHost = CreateObject("WScript.Shell")
             strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
             getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
         Else
-            getBrowserPath = .Range(.UseRangeName(1, "CDPBrowser.getBrowserPath.カスタムパス判定")).value
+            getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
         End If
     End With
 
@@ -2208,7 +2311,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
         If LenB(getBrowserPath) > 0 Then
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
         End If
-        If LenB(getBrowserPath) = 0 Then printMsg "Unable to locate " & brType & " installation path.", doRaiseError:=True
+        If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & brType & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 
 End Function
@@ -2239,10 +2342,12 @@ Private Sub deleteCDPID()
 ' By      : Eschamali
 ' 機能    ：デバッグブラウザのパイプハンドル/セッション情報を消去します
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
+
 
     With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, "CDPBrowser.deleteCDPID") = brUser  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, "CDPBrowser.deleteCDPID") = brUser  'ブラウザセッション情報
+        .DeleteCDPToTable(1, FromProcedureName) = brUser  'パイプ通信Handle情報
+        .DeleteCDPToTable(2, FromProcedureName) = brUser  'ブラウザセッション情報
     End With
 
 End Sub
@@ -2274,13 +2379,22 @@ End Sub
 '* 注意事項：セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
 '***************************************************************************************************
 Private Function checkURI(URI As String) As String
+    Const FromProcedureName As String = ThisClassName & ".checkURI"
+
+
     '0. 空文字の場合は、チェックしません
-    If URI = "" Then checkURI = URI: Exit Function
+    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
+    If URI = "" Then
+        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
+
+        checkURI = URI
+        Exit Function
+    End If
 
     '1. ホワイトリストのプロトコルを取得
     With ShSetting01_StartBrowser
         Dim tmp, WhiteList
-        tmp = .ListObjects(.UseTableName(3, "CDPBrowser.checkURI")).DataBodyRange.Columns(3)
+        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.接頭辞)
 
         '配列か？
         If IsArray(tmp) Then
@@ -2300,20 +2414,25 @@ Private Function checkURI(URI As String) As String
     Dim i As Long
     For i = 1 To UBound(WhiteList)
         '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, WhiteList(i, 1)) = 1 Then checkURI = URI: Exit Function
+        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
+            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
+
+            checkURI = URI
+            Exit Function
+        End If
     Next
 
     '3. プロトコル名をチェック
     Dim ProtocolName, ErrorMes As String
     ProtocolName = Split(URI, ":")
     If UBound(ProtocolName) = 0 Then
-        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
+        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため省略せず、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
     Else
         ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
     End If
 
     '4. エラーで中断
-    Err.Raise ERR_UnregisteredProtocol, "CDPBrowser.checkURI", ErrorMes
+    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
 
 End Function
 
@@ -2329,6 +2448,9 @@ End Function
 '               ・UserDataDir
 '***************************************************************************************************
 Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
+    Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
+
+
     'レジストリ操作に必要な定数の定義
     Const HKEY_LOCAL_MACHINE = &H80000002
     Const HKEY_CURRENT_USER = &H80000001
@@ -2345,7 +2467,7 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Select Case BrowserExeName
         Case brEdge: RegPathBrowser = "Microsoft\Edge"
         Case brChrome: RegPathBrowser = "Google\Chrome"     'https://issues.chromium.org/issues/42323066
-        Case Else: printMsg "Browser initiation fails: only the defined browser types can be accepted", doRaiseError:=True
+        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
 
     'チェック相対パスを設定
@@ -2372,7 +2494,7 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         ' 処理が、成功した (キーも、値も、"存在した")
         If KeyValue = DisableRemote Then
             ' そして、その値が「0」だった
-            Err.Raise ERR_PolicyViolation, "CDPBrowser.IsRemoteDebuggingBlockedByPolicy", "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。"
+            printMsg ERROR_, "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。", FromProcedureName, doRaiseError:=True
             Exit Sub ' ★ブロック確定！
         End If
     End If
@@ -2384,7 +2506,7 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     ' 値が、読み取れた場合
     If KeyExists = ReadSuccess Then
         If KeyValue = DisableRemote Then
-            Err.Raise ERR_PolicyViolation, "CDPBrowser.IsRemoteDebuggingBlockedByPolicy", "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。"
+            printMsg ERROR_, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", FromProcedureName, doRaiseError:=True
             Exit Sub ' ★ブロック確定！
         End If
     End If
@@ -2400,14 +2522,22 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     KeyExists = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, KeyName, KeyValue)
     
     ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then Policy_UserDataDir = True: Exit Sub
+    If KeyExists = ReadSuccess Then
+        Policy_UserDataDir = True
+        printMsg WARN_, "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & KeyValue & "`に固定されています。" & vbCrLf & "起動中のブラウザを全て落とします。", FromProcedureName
+        Exit Sub
+    End If
 
     ' --- チェック②：【HKEY_CURRENT_USER】---
     ' "HKCU" は、"今、ログインしているユーザー"だけに、影響する設定
     KeyExists = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, KeyName, KeyValue)
 
     ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then Policy_UserDataDir = True: Exit Sub
+    If KeyExists = ReadSuccess Then
+        Policy_UserDataDir = True
+        printMsg WARN_, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & KeyValue & "`に固定されています。" & vbCrLf & "起動中のブラウザを全て落とします。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除して下さい。", FromProcedureName
+        Exit Sub
+    End If
 End Sub
 
 
@@ -2430,7 +2560,6 @@ Private Sub Class_Initialize()
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
 
         '2. イミディエイトに関する設定を行う
-        doPrintDbgMsg = .Range(.UseRangeName(7, "CDPBrowser.Class_Initialize")).value              'イミディエイトに表示させるか？
         seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
         '3. パスが設定されてたら、ログファイル保存を有効化
