@@ -169,11 +169,11 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         Dim log_LevelValue As String
         Select Case Level
         Case 1
-            log_LevelValue = "Trace"
+            log_LevelValue = "TRACE"
         Case 2
-            log_LevelValue = "Debug"
+            log_LevelValue = "DEBUG"
         Case 3
-            log_LevelValue = "Info "
+            log_LevelValue = "INFO "
         Case 4
             log_LevelValue = "WARN "
         Case 5
@@ -184,7 +184,7 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & message & IIf(From <> "", " | " & From & " |", "")
 
         'イミディエイトへ表示
-        Debug.Print LogString
+        If doPrintDbgMsg Then Debug.Print LogString
 
         'ファイルパスが指定されてたら、ログファイルへ保存
         If SaveLogFolderPath <> "" And LogFileName <> "" Then
