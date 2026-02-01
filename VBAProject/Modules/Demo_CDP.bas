@@ -199,7 +199,7 @@ Sub UseExtensions()
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(msoFileDialogFolderPicker)
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
-        .InitialFileName = Environ("UserProfile") & "\Downloads"    '初期位置
+        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
 
         If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
     End With
