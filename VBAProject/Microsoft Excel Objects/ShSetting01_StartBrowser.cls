@@ -17,19 +17,19 @@ Option Explicit
 '***************************************************************************************************
 '                             ■■■ テーブルの列操作用 ■■■
 '***************************************************************************************************
-Enum Table01ColumnID
+Public Enum Table01ColumnID
     UserName = 1
     PipeName
     HandleValue
 End Enum
 
-Enum Table02ColumnID
+Public Enum Table02ColumnID
     UserName = 1
     DataName
     DataValue
 End Enum
 
-Enum Table03ColumnID
+Public Enum Table03ColumnID
     ProtocolName = 1
     階層
     接頭辞
