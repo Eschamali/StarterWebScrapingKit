@@ -116,6 +116,7 @@ Public LogCallback As Variant
 ''
 Private LogThreshold As Long
 Private UTCMode As Boolean
+Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
 
 Private SaveLogObj As New CharacterCodeConversion
 
@@ -178,14 +179,14 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         Case 5
             log_LevelValue = "ERROR"
         End Select
-        
+
         '文字列生成
-        Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & IIf(From <> "", "|" & From & "| ", "") & message
+        Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & message & IIf(From <> "", " | " & From & " |", "")
 
         'イミディエイトへ表示
         Debug.Print LogString
-        
-        'ログファイルへ保存
+
+        'ファイルパスが指定されてたら、ログファイルへ保存
         If SaveLogFolderPath <> "" And LogFileName <> "" Then
             With SaveLogObj
                 .BytesToSaveFile .BytesFromString(LogString), SaveLogFolderPath, LogFileName, True
@@ -208,17 +209,17 @@ Private Function GetNowFormat(Optional UseUTC As Boolean) As String
     Dim t As SYSTEMTIME
 
     ' 現在日時取得
-    If UseUTC Then GetSystemTime (t) Else GetLocalTime (t)
+    If UseUTC Then GetSystemTime t Else GetLocalTime t
 
     ' `yyyy/mm/dd hh:mm:ss.fff`に整形
     With t
-        GetLocalTimeTest = Format(.wYear, "0000") & "/" & _
-                           Format(.wMonth, "00") & "/" & _
-                           Format(.wDay, "00") & " " & _
-                           Format(.wHour, "00") & ":" & _
-                           Format(.wMinute, "00") & ":" & _
-                           Format(.wSecond, "00") & "." & _
-                           Format(.wMilliseconds, "000")
+        GetNowFormat = Format(.wYear, "0000") & "/" & _
+                       Format(.wMonth, "00") & "/" & _
+                       Format(.wDay, "00") & " " & _
+                       Format(.wHour, "00") & ":" & _
+                       Format(.wMinute, "00") & ":" & _
+                       Format(.wSecond, "00") & "." & _
+                       Format(.wMilliseconds, "000")
     End With
 End Function
 
@@ -288,22 +289,12 @@ End Sub
 
 
 
-'初期化時に、条件付きコンパイル引数 を基に、初期ログレベルを決める
 Private Sub Class_Initialize()
-    #If LOG_LEVEL = 4 Then
-        LogThreshold = 4
-    
-    #ElseIf LOG_LEVEL = 3 Then
-        LogThreshold = 3
-    
-    #ElseIf LOG_LEVEL = 2 Then
-        LogThreshold = 2
-        
-    #ElseIf LOG_LEVEL = 1 Then
-        LogThreshold = 1
-    
-    #Else
-        LogThreshold = 0
-
-    #End If
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'イミディエイトに表示させるか？
+        LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ログレベルの設定
+    End With
+    '------------------------------------------------------------------------------
 End Sub
