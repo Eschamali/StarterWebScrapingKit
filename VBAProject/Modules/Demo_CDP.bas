@@ -104,7 +104,7 @@ Sub ネットワークイベントの確認()
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
-    
+
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
     Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'セーブデータ作成
     Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`を渡すことで、イベントを破棄するようになる
@@ -248,7 +248,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
 
     Else
-        MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "Uninstall Done!"
+        MsgBox "拡張機能のアンインストールに成功しました。ブラウザをご確認ください。", vbInformation, "Uninstall Done!"
     End If
 
 
