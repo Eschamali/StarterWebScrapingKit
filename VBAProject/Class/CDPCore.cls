@@ -333,7 +333,7 @@ Public Function Init(strExec As String) As Long
 
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
 
-    If result = 0 Then Init = -1
+    If result = 0 Then Init = -1 Else Init = 0
 
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
@@ -344,8 +344,6 @@ Public Function Init(strExec As String) As Long
 
     hProcess = proc.hProcess
     dwProcessId = proc.dwProcessId
-
-    Init = 0
 
 End Function
 
