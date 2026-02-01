@@ -189,7 +189,7 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         'ファイルパスが指定されてたら、ログファイルへ保存
         If SaveLogFolderPath <> "" And LogFileName <> "" Then
             With SaveLogObj
-                .BytesToSaveFile .BytesFromString(LogString), SaveLogFolderPath, LogFileName, True
+                .BytesToSaveFile .BytesFromString(LogString & vbCrLf), SaveLogFolderPath, LogFileName, True
             End With
         End If
     End If
