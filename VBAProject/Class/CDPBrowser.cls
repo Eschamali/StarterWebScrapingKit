@@ -156,6 +156,7 @@ Private Const objAllMessagesName02 As String = "EventMethods"
 Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
 Private LogControl As New Logger        'ログレベルの制御
 Private core As CDPCore                 'Must be initialized for CDP engine
+Private ErrorDetail As New WinApiError  'エラーコードから、詳細を取得するやつ
 
 Private lngLastID As Long               'Every message sent to edge has an ID
 Private strBuffer As String             'ストリーム受信で欠けたデータを一時的に蓄積するための変数です
@@ -273,8 +274,9 @@ Public Sub start(Optional Name As String = "chrome", _
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     Set core = New CDPCore
     brCallString = strCall
+    printMsg Debug_, "Starting pipe communication... → " & brCallString, FromProcedureName
     intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore", FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
+    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     lngLastID = 1 'reset the pipe message ID
    '-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -1593,7 +1595,6 @@ Private Function SendMessage(strMessage As String, Optional BrowserContext As Bo
     Dim strRes As String
     Dim lngCurrentId As Long
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-    Dim ErrorDetail As New WinApiError
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
 
     lngCurrentId = lngLastID
