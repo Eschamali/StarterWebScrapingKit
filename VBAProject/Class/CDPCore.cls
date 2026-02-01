@@ -437,7 +437,16 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
         bSuccess = ReadFile(UsehStdRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
 
         If bSuccess = 1 Then
-            strData = Utf8Converter.BytesToString(Buffer)
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
             readProcSTD = lPeekData
         Else
             readProcSTD = -2
