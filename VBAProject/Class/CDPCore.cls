@@ -335,15 +335,15 @@ Public Function Init(strExec As String) As Long
 
     '実行結果チェック
     If result = 0 Then
+        'エラーコードを返す
+        Init = Err.LastDllError
+
         '失敗なので、自身で使用するはずだったハンドルも削除
         CloseHandle hStdOutRd
         CloseHandle hStdInWr
         CloseHandle hCDPOutRd
         CloseHandle hCDPInWr
         CloseHandle hStderrOutRd
-
-        'エラーコードを返す
-        Init = Err.LastDllError
     Else
         '成功は、0として返却
         Init = 0
