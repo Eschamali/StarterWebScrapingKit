@@ -2279,7 +2279,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
    'Return the path
     On Error Resume Next
-    Dim objWSHost As WbemScripting.SWbemObject, reg As Object, strKeyPath As String
+    Dim objWSHost As Object, reg As Object, strKeyPath As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
 
     'カスタムパスの指定があったらそっちを優先
@@ -2317,6 +2317,9 @@ Private Function getBrowserPath(strBrowserType As String) As String
         If LenB(getBrowserPath) > 0 Then
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
         End If
+
+        '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
+        On Error GoTo 0
         If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & brType & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 
