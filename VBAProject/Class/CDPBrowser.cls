@@ -1563,8 +1563,8 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：あくまでも、「最後」のエラー情報なので、成功しても消滅しません。
-'            適切な`invokeMethod`を実行したのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'* 注意事項：あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
     Set LastCDPJsonError = errorDetails
@@ -2282,19 +2282,24 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Dim objWSHost As WbemScripting.SWbemObject, reg As Object, strKeyPath As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
 
-    'カスタムパスがあったらそっちを優先
+    'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
+            '1. レジストリで、ブラウザインストールパスを特定
             Set objWSHost = CreateObject("WScript.Shell")
             strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
             getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
         Else
+            '1. カスタムパスを指定(ポータブル版ブラウザなど)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
         End If
     End With
 
+    'レジストリ操作にてエラー or バスが空の場合は、次の捜索へ
     If Err.Number <> 0 Or LenB(getBrowserPath) = 0 Then
         Err.Clear
+
+        '2. デフォルトインストールパスチェック
         Select Case brType
             Case brChrome
                 If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & brType)) > 0 Then
