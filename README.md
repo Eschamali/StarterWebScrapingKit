@@ -37,6 +37,11 @@
 * **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland DI Management Services Pty
+  * [VBAで Windows APIを使った UTF-8 ←→ Unicode相互変換](https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2)
+    * 製作者：@yamashiroakihito
+* **ログレベルの基礎部分**
+  * [VBA-Log](https://github.com/VBA-tools/VBA-Log)
+    * 製作者：timhall氏
 
 ※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
 

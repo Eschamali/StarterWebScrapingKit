@@ -11,7 +11,9 @@ Attribute VB_Exposed = False
 '       VBAの「Unicode」(UTF-16)文字列を別の文字コードに変換したり、その逆を行ったりします。
 '           WebAPIのやり取りとか、日本語を含んだCDP-Jsonコマンドを行う際に利用します。
 '          おまけとして、ファイルの読み書きも対応します。ADODB.Stream の代わりにどうぞ!
-
+'
+'   https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2
+'
 ' Written by David Ireland DI Management Services Pty Limited 2015
 ' <http://di-mgt.com.au> <http://cryptosys.net>
 ' @license MIT license <http://opensource.org/licenses/MIT>
@@ -31,7 +33,6 @@ Option Explicit
 '                               ■■■ 必要なAPI宣言 ■■■
 '***************************************************************************************************
 ''' WinApi function that maps a UTF-16 (wide character) string to a new character string
-#If VBA7 Then
 Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
@@ -42,21 +43,8 @@ Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
     ByVal lpDefaultChar As Long, _
     ByVal lpUsedDefaultChar As Long _
     ) As Long
-#Else
-Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpWideCharStr As Long, _
-    ByVal cchWideChar As Long, _
-    ByVal lpMultiByteStr As Long, _
-    ByVal cbMultiByte As Long, _
-    ByVal lpDefaultChar As Long, _
-    ByVal lpUsedDefaultChar As Long _
-    ) As Long
-#End If
     
 ''' Maps a character string to a UTF-16 (wide character) string
-#If VBA7 Then
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
@@ -65,16 +53,7 @@ Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal lpWideCharStr As LongPtr, _
     ByVal cchWideChar As Long _
     ) As Long
-#Else
-Private Declare Function MultiByteToWideChar Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpMultiByteStr As Long, _
-    ByVal cchMultiByte As Long, _
-    ByVal lpWideCharStr As Long, _
-    ByVal cchWideChar As Long _
-    ) As Long
-#End If
+
 
 
 '***************************************************************************************************
@@ -112,7 +91,13 @@ End Property
 '***************************************************************************************************
 '                            ■■■ プライベートメソッド ■■■
 '***************************************************************************************************
-''' Return length of byte array or zero if uninitialized
+'* 機能　　：バイト配列のサイズを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：サイズ
+'* 引数    ：サイズを計測したいバイト配列
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Return length of byte array or zero if uninitialized
+'***************************************************************************************************
 Private Function BytesLength(abBytes() As Byte) As Long
     ' Trap error if array is uninitialized
     On Error Resume Next
@@ -124,7 +109,13 @@ End Function
 '***************************************************************************************************
 '                            ■■■ メインの文字コード変換メソッド ■■■
 '***************************************************************************************************
-''' Return byte array with VBA "Unicode" string encoded in Specified character code
+'* 機能　　：Unicode文字列を指定コードページのバイト配列に変換します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：指定コードページのバイト配列
+'* 引数    ：指定コードページに変換したいUnicode文字列
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Return byte array with VBA "Unicode" string encoded in Specified character code
+'***************************************************************************************************
 Public Function BytesFromString(strInput As String) As Byte()
     Dim nBytes As Long
     Dim abBuffer() As Byte
@@ -142,20 +133,32 @@ Public Function BytesFromString(strInput As String) As Byte()
     BytesFromString = abBuffer
 End Function
 
-''' Return VBA "Unicode" string from byte array encoded in Specified character code
+'***************************************************************************************************
+'* 機能　　：指定コードページのバイト配列をVBAで扱えるUnicode文字列に変換します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：Unicode文字列
+'* 引数    ：指定コードページのバイト配列
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Return VBA "Unicode" string from byte array encoded in Specified character code
+'***************************************************************************************************
 Public Function BytesToString(abArray() As Byte) As String
     Dim nBytes As Long
     Dim nChars As Long
     Dim strOut As String
-    BytesToString = ""
+
+    '初期化
+    BytesToString = vbNullString
+
     ' Catch uninitialized input array
     nBytes = BytesLength(abArray)
-    If nBytes <= 0 Then Exit Function
+    If nBytes < 1 Then Exit Function
+
     ' Get number of characters in output string
-    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(0)), nBytes, 0&, 0&)
+    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, 0&, 0&)
+
     ' Dimension output buffer to receive string
-    strOut = String(nChars, 0)
-    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(0)), nBytes, StrPtr(strOut), nChars)
+    strOut = String(nChars, vbNullChar)
+    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, StrPtr(strOut), nChars)
     BytesToString = Left$(strOut, nChars)
 End Function
 
