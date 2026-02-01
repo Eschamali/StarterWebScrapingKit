@@ -125,20 +125,20 @@ End Function
 '                            ■■■ メインの文字コード変換メソッド ■■■
 '***************************************************************************************************
 ''' Return byte array with VBA "Unicode" string encoded in Specified character code
-Public Function BytesFromString(strInput As String, Optional TerminatingNullHold As Boolean) As Byte()
+Public Function BytesFromString(strInput As String) As Byte()
     Dim nBytes As Long
     Dim abBuffer() As Byte
-    
+    Dim InputSize As Long: InputSize = Len(strInput)
+
     ' Catch empty or null input string
     BytesFromString = vbNullString
-    If Len(strInput) < 1 Then Exit Function
-    
-    ' Get length in bytes *including* terminating null
-    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    If InputSize < 1 Then Exit Function
 
-    ' Boolean引数`TerminatingNullHold`の仕様を利用して、終端nullを除去するかの補正を行う
-    ReDim abBuffer(nBytes - 2 - TerminatingNullHold) ' NB ReDim with one less byte than you need
-    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, VarPtr(abBuffer(0)), nBytes - 1 - TerminatingNullHold, 0&, 0&)
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), InputSize, 0&, 0&, 0&, 0&)
+
+    ReDim abBuffer(nBytes - 1) ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), InputSize, VarPtr(abBuffer(0)), nBytes, 0&, 0&)
     BytesFromString = abBuffer
 End Function
 

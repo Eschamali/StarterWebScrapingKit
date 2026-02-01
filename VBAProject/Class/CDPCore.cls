@@ -411,7 +411,7 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
     Dim lPeekData As Long
     
     PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
-    
+
     If lPeekData > 0 Then
         Dim Buffer As String
         Dim L As Long
@@ -445,7 +445,7 @@ Public Function writeProc(ByVal strData As String) As Long
         writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
     Else
         'VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列を取得します
-        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData, True)
+        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData)
 
         'そのバイト配列として、コマンドを送ります
         writeProc = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
