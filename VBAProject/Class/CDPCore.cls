@@ -417,19 +417,18 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
 
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer As String
-        Dim L As Long
+        Dim Buffer() As Byte
         Dim bSuccess As Long
-        Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(UsehStdRd, ByVal Buffer, Len(Buffer), L, 0&)
-        
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(UsehStdRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
+
         If bSuccess = 1 Then
-            strData = Buffer
-            readProcSTD = Len(strData)
+            strData = Utf8Converter.BytesToString(Buffer)
+            readProcSTD = lPeekData
         Else
             readProcSTD = -2
         End If
-        
+
     Else
         readProcSTD = -1
     End If
