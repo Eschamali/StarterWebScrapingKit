@@ -325,7 +325,7 @@ Public Function Init(strExec As String) As Long
         .dwFlags = STARTF_USESHOWWINDOW
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
-        .hStdError = hStdOutWr
+        .hStdError = hStderrOutWr
         .wShowWindow = SW_SHOWMINIMIZED 'minimize the window at start
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
@@ -333,7 +333,21 @@ Public Function Init(strExec As String) As Long
 
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
 
-    If result = 0 Then Init = -1 Else Init = 0
+    '実行結果チェック
+    If result = 0 Then
+        '失敗なので、自身で使用するはずだったハンドルも削除
+        CloseHandle hStdOutRd
+        CloseHandle hStdInWr
+        CloseHandle hCDPOutRd
+        CloseHandle hCDPInWr
+        CloseHandle hStderrOutRd
+
+        'エラーコードを返す
+        Init = Err.LastDllError
+    Else
+        '成功は、0として返却
+        Init = 0
+    End If
 
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
