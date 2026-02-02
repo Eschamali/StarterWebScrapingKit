@@ -105,7 +105,7 @@ Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
     Dim InsertDataRows          As Long: InsertDataRows = UBound(SetArray, 1)       '行数
 
     '操作するテーブルオブジェクトの基準セルを取得
-    Dim TableName As String: TableName = UseTableName(TableID, ErrorSource)
+    Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
     Dim StartPos As Range: Set StartPos = GetReferenceRange(UseTableName(TableID, ErrorSource), CStr(SetArray(1, 1)), "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
     'データ挿入方式判定
@@ -168,7 +168,7 @@ End Property
 '***************************************************************************************************
 Property Let DeleteCDPToTable(TableID As Long, ErrorSource As String, UserName As String)
     '操作対象のテーブル名を取得
-    Dim TableName As String: TableName = UseTableName(TableID, ErrorSource)
+    Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
     '文字列が格納されているか？
     If StrPtr(UserName) Then
