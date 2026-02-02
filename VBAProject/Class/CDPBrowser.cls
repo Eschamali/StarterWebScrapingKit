@@ -1673,6 +1673,8 @@ RetrySend:
 9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
 10  If sessionID <> "" And Not (BrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
+
+    printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
 12  core.writeProc strMessage                                                                    'Send message to the browser instance
 
    '------------------------------------------------
