@@ -1863,14 +1863,34 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
 
-    ' イベント名を取得しますが、イベント(Method)名がない場合は、コマンド結果なので即抜けする
+    '格納前のチェックを行います
+    '1. ブラウザからのイベントか？
     Dim EventMethodName As String
     If eventData.Exists("method") Then
+        'イベント名を記録
         EventMethodName = eventData("method")
+
+        '2. `SessionID`項目があるか？
+        If eventData.Exists("sessionId") Then
+            '3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？
+            If eventData("sessionId") = sessionID Then
+                'タブとしてのイベント情報です
+                printMsg Trace_, "An event for the session ID was detected. - " & eventData("sessionId"), FromProcedureName
+            Else
+                '旧セッションが、うまく破棄できなかった時に備えて、二重記録を抑制します。なお、ログには残します
+                printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - " & eventData("sessionId"), FromProcedureName
+                Exit Sub
+            End If
+        Else
+            'ブラウザ自身としてのイベント情報です
+            printMsg Trace_, "This event is a BrowserContext. - " & EventMethodName, FromProcedureName
+        End If
     Else
-        printMsg Debug_, "This is not an event, but a command result. - ID:" & eventData("id"), FromProcedureName
+        'コマンド結果は、格納対象外なので、抜ける
+        printMsg Trace_, "This is not an event, but a command result. - ID:" & eventData("id"), FromProcedureName
         Exit Sub
     End If
+
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(objAllMessagesName01) = Accumulator(objAllMessagesName01) + 1
@@ -1880,6 +1900,8 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     ' これにより、全体の時系列データも保持できます
     eventData.Add "__index__", Accumulator(objAllMessagesName01)
 
+
+    '格納開始
     ' 1.イベントメソッドデータがあるDictionaryに遷移
     Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(objAllMessagesName02)
 
@@ -1935,7 +1957,7 @@ Private Function HelperProcessingResultCDP(returnCDPJson As Dictionary, Internal
     If returnCDPJson.Exists("id") Then
         printMsg Trace_, "Command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
 
-        'そのIDは、Excelに記録してるIDと一致してるか？
+        'そのIDは、クラス内変数に記録してるIDと一致してるか？
         If returnCDPJson.Item("id") = checkCommandID Then
             '結果を返して、受信ループ終了フラグを返す
             HelperProcessingResultCDP = True
