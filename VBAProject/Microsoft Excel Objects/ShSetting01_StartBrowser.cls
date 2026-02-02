@@ -173,7 +173,10 @@ End Property
 Property Get deserializeFromTable(UserName As String, TableID As Long, ErrorSource As String) As Dictionary
     '操作するテーブルオブジェクトの基準セルを取得
     Dim GetTakeNum As Long
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(UseTableName(TableID, ErrorSource), UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource, GetTakeNum)
+    Dim StartPos As Range: Set StartPos = GetReferenceRange(UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource), UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource, GetTakeNum)
+
+    '基準セルがない場合は、即抜け
+    If StartPos Is Nothing Then Exit Property
 
     '取得するテーブルに応じて、取得行数を変えてデータ取得
     Dim DataSet
