@@ -106,7 +106,7 @@ Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
 
     '操作するテーブルオブジェクトの基準セルを取得
     Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(UseTableName(TableID, ErrorSource), CStr(SetArray(1, 1)), "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
+    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, CStr(SetArray(1, 1)), "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
     'データ挿入方式判定
     If StartPos Is Nothing Then
