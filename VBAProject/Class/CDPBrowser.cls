@@ -2140,7 +2140,7 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
                 '5. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
                 proc.Terminate
 
-            ElseIf InStr(proc.CommandLine, "--" & ArgRemoteDebuggingName) And InStr(proc.CommandLine, brUser) Then
+            ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 1 And InStr(1, proc.CommandLine, brUser) > 1 Then
                 '5. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
                  proc.Terminate
             End If
