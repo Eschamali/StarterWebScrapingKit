@@ -327,6 +327,7 @@ Private Sub serialize()
     With WorksheetFunction
         excelSerialize = "{""" & .TextJoin(""";""", False, _
                                     .TextJoin(""",""", False, brUser, "lngLastID", lngLastID), _
+                                    .TextJoin(""",""", False, brUser, "sessionID", sessionID), _
                                     .TextJoin(""",""", False, brUser, "targetID", targetID) _
         ) & """}"
     End With
@@ -367,8 +368,25 @@ Private Sub deserialize(UserName As String)
 3   lngLastID = objSerialize.Item("lngLastID")
 4   targetID = objSerialize.Item("targetID")
 
-    '接続先IDを適用
-5   sessionID = attachToTab(targetID)
+    '旧SessionIDの破棄を試みる
+    Dim ResultDetach As Dictionary, CDPparameters As Dictionary
+5   Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
+    Set CDPparameters = New Dictionary
+
+    CDPparameters.Add "sessionId", oldSessionID
+    printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
+6   Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, True)
+
+    '結果を判定
+    '※エラーによるエラーメッセージは、`invokeMethod`が担います
+7   If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
+
+    'SessionIDを再生成し、適用
+8   sessionID = attachToTab(targetID)
+    printMsg info_, "A new session ID has been assigned. - " & sessionID, FromProcedureName
+
+    '記録しておく
+9   ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = sessionID
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew

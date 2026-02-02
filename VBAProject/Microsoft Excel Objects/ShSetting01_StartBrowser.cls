@@ -38,6 +38,17 @@ End Enum
 
 
 '***************************************************************************************************
+'                             ■■■ テーブルの行操作用 ■■■
+'***************************************************************************************************
+Public Enum Table02RowID
+    lngLastID = 1
+    sessionID
+    targetID
+End Enum
+
+
+
+'***************************************************************************************************
 '                             ■■■ プロパティメソッド ■■■
 '***************************************************************************************************
 '* 機能　　：このシートのみ定義されてるセル名称を取得します
@@ -79,7 +90,7 @@ Property Get UseTableName(TableID As Long, ErrorSource As String) As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：指定テーブルIDへデータ追加/上書きを行います
+'* 機能　　：指定テーブルIDへデータ追加/上書きを一括で行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：TableID        テーブルID
 '            ErrorSource    この関数を呼び出したソース
@@ -126,6 +137,27 @@ Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
         '存在するので、先頭セルを基準にリサイズして上書き
         StartPos.Resize(InsertDataRows, InsertDataColumns) = SetArray
     End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザセッション管理テーブルに、データ上書きを単一で行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName       対象ユーザー名
+'            ReplaceID      置き換えるデータID
+'            ErrorSource    この関数を呼び出したソース
+'            SetValue       上書きするデータ
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・新規追加はできません。既存データのみ有効です
+'            ・ハンドル情報管理テーブルは非対応です
+'***************************************************************************************************
+Property Let serializeSingleToHandleInfoTable(UserName As String, ReplaceID As Table02RowID, ErrorSource As String, SetValue As String)
+    '操作するテーブルオブジェクトの基準セルを取得
+    Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
+    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
+
+    '存在したら、、先頭セルを基準にオフセットして上書き
+    '※オフセットは、0始まりなので補正しておく
+    If Not (StartPos Is Nothing) Then StartPos.Offset(ReplaceID - 1, Table02ColumnID.DataValue - 1) = SetValue
 End Property
 
 '***************************************************************************************************
@@ -262,7 +294,7 @@ Private Function GetReferenceRange(TableName As String, SearchUser As String, Er
 
                 Case UseTableName(2, ErrorSource)
                     Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table02ColumnID.UserName), .Columns(Table02ColumnID.UserName))   '第四引数に`Nothing`を入れればいい感じになると思いきやダメみたいです
-                    ResizeRows = 2  '1ユーザーにつき、2つ分のブラウザセッション情報
+                    ResizeRows = 3  '1ユーザーにつき、3つ分のブラウザセッション情報
 
                 Case Else
                     On Error GoTo 0
