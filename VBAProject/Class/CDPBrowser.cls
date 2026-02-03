@@ -744,7 +744,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Select Case SearchTypeID
         Case TargetgetTargetsType.Page: SearchType = "page"
         Case TargetgetTargetsType.iFrame: SearchType = "iframe"
-        Case Else: Err.Raise vbObjectError + 1, "CDPBrowser.getTab", "このパラメーターは、未定義です"
+        Case Else: Err.Raise vbObjectError + 1, FromProcedureName, "このパラメーターは、未定義です"
     End Select
 
 searchit:
