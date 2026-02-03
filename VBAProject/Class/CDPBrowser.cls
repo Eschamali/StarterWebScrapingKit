@@ -1940,7 +1940,7 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
             '--------- 3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
             If returnCDPJson("sessionId") = sessionID Then
                 'ページとしてのイベント情報です
-                printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & returnCDPJson("sessionId"), FromProcedureName
+                printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
             Else
                 '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するフラグを立てます。ログにも残します
                 FlagValue = FlagValue Or oldSessionID
