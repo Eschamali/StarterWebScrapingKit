@@ -145,9 +145,9 @@ Private Const ERR_PolicyViolation As Long = 905
 Private Const TIMEOUT_DEFAULT As Single = 30
 Private Const TIMEOUT_NAVIGATE As Single = 45
 
-'`objAllMessages`Dictionary内部の構造名設定
-Private Const objAllMessagesName01 As String = "TotalEvents"
-Private Const objAllMessagesName02 As String = "EventMethods"
+'ブラウザからのイベント情報を格納する際のDictionaryKey名設定
+Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
+Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 '===================================
 ' Global Variables
@@ -1549,7 +1549,7 @@ Property Set BrowserEvents(ObjDic As Dictionary)
         printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
     '3. 指定のKeyがあるか？
-    ElseIf ObjDic.Exists(objAllMessagesName01) And ObjDic.Exists(objAllMessagesName02) And ObjDic.Count = 2 Then
+    ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set objAllMessages = ObjDic
         printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
@@ -1741,7 +1741,7 @@ RetrySend:
 22                  Set results = jsConverter.ParseJson(tmp)
 
                     'イベント格納と、ID判定用のプロシージャへ遷移
-23                  If HelperProcessingResultCDP(results, InternalUseMessages, lngCurrentId) Then
+23                  If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
                         '結果を返して、受信ループ終了フラグを立てる
 24                      Set SendMessage = results
                         ResultSendCommand = True
@@ -1782,7 +1782,7 @@ RetrySend:
                     printMsg Trace_, "`strBuffer` is cleaned.", FromProcedureName
 
                     'イベント格納と、ID判定用のプロシージャへ遷移
-31                  If HelperProcessingResultCDP(results, InternalUseMessages, lngCurrentId) Then
+31                  If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
                         '結果を返して、受信ループ終了フラグを立てる
 32                      Set SendMessage = results
                         ResultSendCommand = True
@@ -1797,7 +1797,7 @@ RetrySend:
                 End If
             Else
                 'データがまだ、ない
-                printMsg Debug_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
+                printMsg Trace_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
             End If
         End If
 
@@ -1860,115 +1860,146 @@ End Function
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
 '            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
+'* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
 '***************************************************************************************************
 Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
 
-    '格納前のチェックを行います
-    '1. ブラウザからのイベントか？
-    Dim EventMethodName As String
-    If eventData.Exists("method") Then
-        'イベント名を記録
-        EventMethodName = eventData("method")
-
-        '2. `SessionID`項目があるか？
-        If eventData.Exists("sessionId") Then
-            '3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？
-            If eventData("sessionId") = sessionID Then
-                'タブとしてのイベント情報です
-                printMsg Trace_, "An event for the session ID was detected. - " & eventData("sessionId"), FromProcedureName
-            Else
-                '旧セッションが、うまく破棄できなかった時に備えて、二重記録を抑制します。なお、ログには残します
-                printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - " & eventData("sessionId"), FromProcedureName
-                Exit Sub
-            End If
-        Else
-            'ブラウザ自身としてのイベント情報です
-            printMsg Trace_, "This event is a BrowserContext. - " & EventMethodName, FromProcedureName
-        End If
-    Else
-        'コマンド結果は、格納対象外なので、抜ける
-        printMsg Trace_, "This is not an event, but a command result. - ID:" & eventData("id"), FromProcedureName
-        Exit Sub
-    End If
-
+    'イベント名を取得
+    Dim EventMethodName As String: EventMethodName = eventData("method")
 
     ' 合計イベントキャプチャ数をカウントする
-    Accumulator(objAllMessagesName01) = Accumulator(objAllMessagesName01) + 1
-    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(objAllMessagesName01), FromProcedureName
+    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
+    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
 
     ' インデックスも付与(1始まり)
     ' これにより、全体の時系列データも保持できます
-    eventData.Add "__index__", Accumulator(objAllMessagesName01)
+    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
 
 
     '格納開始
     ' 1.イベントメソッドデータがあるDictionaryに遷移
-    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(objAllMessagesName02)
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
 
-    ' 2. このイベント名の「仕切り板」が、すでにあるか？
+    ' 2. このイベント名の`Collection`が、すでにあるか？
     Dim eventList As Collection
-    If Not EventsDictionary.Exists(EventMethodName) Then
-        ' なければ、新しい「カードの束（Collection）」を作って、仕切り板と一緒に、棚に入れる
+    If EventsDictionary.Exists(EventMethodName) Then
+        ' あれば、そのコレクションデータをセット
+        Set eventList = EventsDictionary(EventMethodName)
+        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
+    Else
+        ' なければ、新しい`Collection`をセット
         Set eventList = New Collection
         EventsDictionary.Add EventMethodName, eventList
 
-        printMsg Debug_, "A new type of event. -" & EventMethodName, FromProcedureName
-    Else
-        ' あれば、その仕切り板の後ろにある、既存の束を取り出す
-        Set eventList = EventsDictionary(EventMethodName)
-
-        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
+        printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
     End If
 
-    ' 3. 取り出した束に、今回のイベントの詳細データを、追加する
+    ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
     eventList.Add eventData
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：イベントの格納やID判定を担います
+'* 機能　　：ブラウザからの受信データの構造をチェックします
 '---------------------------------------------------------------------------------------------------
-'* 返値    ：`returnCDPJson`に、CDP-Jsonコマンド結果があれば、`True`になります
+'* 返値    ：TRUE :受信ループを止める合図。
+'               例：・`returnCDPJson`に、ExcelからのCDP-Jsonコマンド結果がある。
+'                   ・構文エラーによる、ID項目なし
+'
+'            FALSE:受信ループを継続する合図。
+'               例：・`returnCDPJson`は、ブラウザからのイベント情報である
+'
 '* 引数　　：returnCDPJson          1件分の`Json-Dictionary`形式済みのブラウザからのイベントやCDP-Jsonコマンド結果
 '            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
 '            checkCommandID         確認するコマンドID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、ブラウザイベントの場合はついでに、イベント情報を格納します。
+'* 注意事項；CDP-Jsonコマンド結果IDの不一致(シングルスレッド配下なら多分ないはず...)の場合は、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
-Private Function HelperProcessingResultCDP(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long)
-    Const FromProcedureName As String = ThisClassName & ".HelperProcessingResultCDP"
+Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
-    'イベント内容を確認するモードなら、格納しておく
-    'パブリック(呼び出し側使用)用
-    If Not objAllMessages Is Nothing Then
-        printMsg Debug_, "Event capture mode is enabled. storing...", FromProcedureName
-        OnNewEventReceived objAllMessages, returnCDPJson
+    '======================================= チェック開始 =======================================
+    Dim FlagValue As Long
+
+    Const resultCommand As Long = 2 ^ 0
+    Const browserEvent  As Long = 2 ^ 1
+    Const mismatchID    As Long = 2 ^ 2
+    Const oldSessionID  As Long = 2 ^ 3
+
+    '--------- 1. ブラウザからのイベントか？ ---------
+    If returnCDPJson.Exists("method") Then
+        FlagValue = FlagValue Or browserEvent
+
+        '--------- 2. `SessionID`項目があるか？ ---------
+        If returnCDPJson.Exists("sessionId") Then
+            printMsg Trace_, "This event is a PageContext.", FromProcedureName
+
+            '--------- 3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
+            If returnCDPJson("sessionId") = checkCommandID Then
+                'ページとしてのイベント情報です
+                printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & returnCDPJson("sessionId"), FromProcedureName
+            Else
+                '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するフラグを立てます。ログにも残します
+                FlagValue = FlagValue Or oldSessionID
+                printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & returnCDPJson("sessionId"), FromProcedureName
+            End If
+        Else
+            'ブラウザ自身としてのイベント情報です
+            printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+        End If
     Else
-        printMsg Debug_, "Event capture mode is disabled.", FromProcedureName
+        FlagValue = FlagValue Or resultCommand
+
+        '--------- 2. `id`項目があるか？ ---------
+        If returnCDPJson.Exists("id") Then
+            printMsg Trace_, "CDP-Json command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
+
+            '--------- 3. そのIDは、クラス内変数に記録してるIDと一致してるか？ ---------
+            If returnCDPJson.Item("id") = checkCommandID Then
+                '正しいコマンド結果が返ったので次項に、受信ループ終了フラグを返すようにする
+                printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
+            Else
+                '何かの拍子でずれてるようだ... シングルスレッド配下なら多分ないはず... だがずれてたら、不整合につながるため、エラーで止める
+                FlagValue = FlagValue Or mismatchID
+                printMsg ERROR_, "The command result was received(id:" & returnCDPJson.Item("id") & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel. Processing will be stopped due to the inconsistency.", FromProcedureName, doRaiseError:=True
+            End If
+        Else
+            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし次項に、受信ループ終了フラグを返すようにする
+            printMsg WARN_, "Both the `id` and `method` fields are missing. This may be a syntax error.", FromProcedureName
+        End If
+    End If
+
+
+    '======================================= このプロシージャから抜けるか判定 =======================================
+    Dim judgementBit As Long
+
+    '1. 正しいコマンド結果が来たので、受信ループを止めて、抜けるか？
+    judgementBit = resultCommand
+    If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
+
+    '2. 受信ループは止めないが、古いSessionIDなので抜けるか？
+    judgementBit = browserEvent Or oldSessionID
+    If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = False: Exit Function
+
+
+    '======================================= イベント情報を格納するフェーズへ =======================================
+    'パブリック(呼び出し側使用)用
+    If objAllMessages Is Nothing Then
+        printMsg Trace_, "Event capture mode is disabled.", FromProcedureName
+    Else
+        printMsg Trace_, "Event capture mode is enabled. storing...", FromProcedureName
+        OnNewEventReceived objAllMessages, returnCDPJson
     End If
 
     'プライベート(クラス内変数)用
-    If Not InternalUseMessages Is Nothing Then
-        printMsg Debug_, "Gets the event information required inside the class. storing...", FromProcedureName
+    If InternalUseMessages Is Nothing Then
+        printMsg Trace_, "No event information needed inside the class.", FromProcedureName
+    Else
+        printMsg Trace_, "Gets the event information required inside the class. storing...", FromProcedureName
         OnNewEventReceived InternalUseMessages, returnCDPJson
-    Else
-        printMsg Debug_, "No event information needed inside the class", FromProcedureName
-    End If
-
-    '実行コマンド結果であるか？
-    If returnCDPJson.Exists("id") Then
-        printMsg Trace_, "Command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
-
-        'そのIDは、クラス内変数に記録してるIDと一致してるか？
-        If returnCDPJson.Item("id") = checkCommandID Then
-            '結果を返して、受信ループ終了フラグを返す
-            HelperProcessingResultCDP = True
-            printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
-        Else
-            printMsg WARN_, "The received data is the command result (ID:" & returnCDPJson.Item("id") & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel.", FromProcedureName
-        End If
-    Else
-        printMsg Trace_, "This received data is event information.", FromProcedureName
     End If
 End Function
 
@@ -1982,8 +2013,8 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     Set FormatDictionary_BrowserEvents = New Dictionary
 
     '初期構造を作成します
-    FormatDictionary_BrowserEvents.Add objAllMessagesName01, 0                 '合計イベントキャプチャ数
-    FormatDictionary_BrowserEvents.Add objAllMessagesName02, New Dictionary    'イベントキャプチャDictionaryデータ
+    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
 Private Function attachToSession() As Integer
@@ -2020,7 +2051,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession(objAllMessagesName02)("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession(EventsDictionaryKeyName02)("Target.targetCreated")
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
