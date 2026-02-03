@@ -238,32 +238,33 @@ End Property
 '* 注意事項：エラー時は、デフォルト値に書き換えます。前回の値には戻せません。
 '***************************************************************************************************
 Private Sub Worksheet_Change(ByVal Target As Range)
-    'デフォルト値
-    Const DefaultValue As String = "Automation Data"
+    ' --- チェック対象のセルとデフォルト値を用意 ---
+    Const checkCell1_DefaultValue As String = "Automation Data"
+    Dim checkCell1 As Range: Set checkCell1 = Me.Range(Me.UseRangeName(2, "ShSetting01_StartBrowser.Worksheet_Change"))
 
-
-    ' --- チェック対象のセルを指定 ---
-    Dim checkCell As Range: Set checkCell = Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change"))
 
     ' --- 変更されたセル(Target)が、チェック対象セルと重なっているか判定 ---
-    ' ※これを入れないと、シート上のどのセルを変更しても処理が走ってしまう
-    If Intersect(Target, checkCell) Is Nothing Then Exit Sub
-
-    ' --- 実際の入力チェック処理 ---
     Application.EnableEvents = False
-    Select Case checkCell.value
-        ' 条件1: セルが空っぽ（空文字列）の場合
-        Case ""
-            MsgBox "この項目は、入力必須です。デフォルト値に戻します。", vbExclamation, "入力エラー"
-            Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change")).value = DefaultValue
+    Select Case True
+        '1. ユーザーデータディレクトリ の設定チェック
+        Case Not (Intersect(Target, checkCell1) Is Nothing)
+            '値を確認します
+            Select Case checkCell1.value
+                ' 条件1: セルが空っぽ（空文字列）の場合
+                Case ""
+                    MsgBox "この項目は、入力必須です。デフォルト値に戻します。", vbExclamation, "入力エラー"
+                    checkCell1.value = checkCell1_DefaultValue
 
-        ' 条件2: 特定の禁止文字列が入力された場合
-        Case "User Data"
-            MsgBox "セキュリティ対策のため、標準のデータディレクトリの指定はできません。" & vbCrLf & "詳細は下記をご覧ください。" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "デフォルト値に戻します。", vbCritical, "入力エラー"
-            Me.Range(Me.UseRangeName(2, "Me.Worksheet_Change")).value = DefaultValue
-    
-        ' 条件3: 排他設定
-    
+                ' 条件2: 特定の禁止文字列が入力された場合
+                Case "User Data"
+                    MsgBox "セキュリティ対策のため、標準のデータディレクトリの指定はできません。" & vbCrLf & "詳細は下記をご覧ください。" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "デフォルト値に戻します。", vbCritical, "入力エラー"
+                    checkCell1.value = checkCell1_DefaultValue
+
+            End Select
+
+        '他のセルをチェックする場合に追加する...
+        Case Else
+
     End Select
     Application.EnableEvents = True
 End Sub
