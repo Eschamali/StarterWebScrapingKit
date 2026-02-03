@@ -1426,7 +1426,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
 
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    printMsg Debug_, "Invoked """ & methodName & """ with Raw - result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
