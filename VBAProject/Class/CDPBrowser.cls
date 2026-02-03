@@ -1938,7 +1938,7 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
             printMsg Trace_, "This event is a PageContext.", FromProcedureName
 
             '--------- 3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
-            If returnCDPJson("sessionId") = checkCommandID Then
+            If returnCDPJson("sessionId") = sessionID Then
                 'ページとしてのイベント情報です
                 printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & returnCDPJson("sessionId"), FromProcedureName
             Else
