@@ -1224,7 +1224,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
 
    'Perform msg logging if needed
     If doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.txt"
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
         If Dir(logPath, vbDirectory) = "" Then MkDir logPath
     End If
 
