@@ -1716,11 +1716,11 @@ RetrySend:
                     If StrPtr(strBuffer) Then
                         'åãçáÇ∑ÇÈ
 17                      tmp = strBuffer & JsonMessages(i)
-                        printMsg Trace_, "The fragmented data is then combined to create the JSON data.", FromProcedureName
+                        printMsg Trace_, "There is data being accumulated, so it will be merged.", FromProcedureName
                     Else
                         'ÇªÇÃÇ‹ÇÒÇ‹égÇ§
 18                      tmp = JsonMessages(i)
-                        printMsg Trace_, "Check the JSON data that fits in the buffer.", FromProcedureName
+                        printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
                     End If
 
 
