@@ -1701,113 +1701,96 @@ RetrySend:
             If seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & strRes, FromProcedureName
 15          strRes = vbNullString
 
+            '分割した数分、処理
             Dim i As Long
             For i = LBound(JsonMessages) To UBound(JsonMessages)
 16              If seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
-                '最後の要素か？
-17              If i = UBound(JsonMessages) Then
-                    '空欄か？
-                    If JsonMessages(i) = "" Then
-                        '1回の受信で全て正しいJson形式として得れました
-                        strBuffer = vbNullString
-                        printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
-                    Else
-                        'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                        printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
-18                      strBuffer = strBuffer & JsonMessages(i)
-                        printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
-
-                        printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
-                    End If
+                'そもそも空データであるか？
+                If JsonMessages(i) = "" Then
+                    '空文字は飛ばして、次の`split`へ
+                    printMsg Trace_, "The Split(" & i & ") data is empty. Go to the next element.", FromProcedureName
                 Else
-                    '欠けたデータがあるか？
+                    '1. 欠けたデータがあるか？
                     Dim tmp As String
                     If StrPtr(strBuffer) Then
                         '結合する
-19                      tmp = strBuffer & JsonMessages(i)
+17                      tmp = strBuffer & JsonMessages(i)
                         printMsg Trace_, "The fragmented data is then combined to create the JSON data.", FromProcedureName
-
-                        'メモリを解放
-20                      strBuffer = vbNullString
                     Else
                         'そのまんま使う
-21                      tmp = JsonMessages(i)
+18                      tmp = JsonMessages(i)
                         printMsg Trace_, "Check the JSON data that fits in the buffer.", FromProcedureName
                     End If
 
-                    '受信データを Json-Dictionary として変換
-                    printMsg Trace_, "Actual Processing Json = " & tmp, FromProcedureName
-22                  Set results = jsConverter.ParseJson(tmp)
 
-                    'イベント格納と、ID判定用のプロシージャへ遷移
-23                  If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
-                        '結果を返して、受信ループ終了フラグを立てる
-24                      Set SendMessage = results
-                        ResultSendCommand = True
-                        printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
+                    '2. `Split`で得たJson文字列をJsonDictionaryに変換できるか試みる
+                    ' =============================================================================
+                    ' 【重要】ここで、`Err.Raise`によって止まってしまう場合
+                    ' VBEメニューの [ツール] > [オプション] > [全般] > [エラートラップ] の設定を
+                    ' 「エラー処理対象外のエラーで中断(E)」に変更してください。
+                    ' ※「クラスモジュールで中断(R)」になっていると`Resume Next`が効かずに停止します。
+                    ' =============================================================================
+                    Set results = Nothing   '前回データをクリアしておく
+                    If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
+
+                    On Error Resume Next    '内部クラスでのエラーキャッチを無視する
+19                      Set results = jsConverter.ParseJson(tmp)
+                    On Error GoTo 0
+
+
+                    '3. 変換できたか確認
+                    If results Is Nothing Then
+                        'データが、"欠けた"状態なので蓄積しておく。頻繁には来ない想定。仕組み上、最後の要素で通るはず
+                        printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
+
+                        If seeRawSendMsgDbg Then printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
+20                      strBuffer = tmp
+                        If seeRawSendMsgDbg Then printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
+                    Else
+                        '正しいJson形式なので、貯めたデータを解放しておく
+21                      strBuffer = vbNullString
+                        printMsg Trace_, "The Split(" & i & ") data is complete JSON data. Checking the data...", FromProcedureName
+
+                        '受信データのチェックを行うプロシージャへ遷移します。
+22                      If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
+                            '直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てて、コマンド結果も返す
+                            ResultSendCommand = True
+23                          Set SendMessage = results
+
+                            printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
+                        End If
                     End If
                 End If
 
                 DoEvents
             Next
         Else
-            'データなしの場合は、エラーコードチェックなどを行う
+            'データなしの場合は、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-25              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
-
+24              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-26              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
-
-            ElseIf StrPtr(strBuffer) Then
-                '欠けたデータがある場合
-                printMsg Trace_, "The received data was 0 byte, but there was fragmented data, so we check whether it was in JSON format.", FromProcedureName
-
-                '一応、初期化
-27              Set results = Nothing
-
-                'Json-Dictionaryにできるか試す
-                On Error Resume Next
-28                  Set results = jsConverter.ParseJson(strBuffer)
-                On Error GoTo 0
-
-                'Json-Dictionaryに変換出来たら、完成されたJsonとして処理する
-29              If Not (results Is Nothing) Then
-                    printMsg Trace_, "`strBuffer` is Json data. Do the appropriate processing.", FromProcedureName
-
-                    'Json-Dictionaryへ変換済みなので、初期化しておく
-30                  strBuffer = vbNullString
-                    printMsg Trace_, "`strBuffer` is cleaned.", FromProcedureName
-
-                    'イベント格納と、ID判定用のプロシージャへ遷移
-31                  If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
-                        '結果を返して、受信ループ終了フラグを立てる
-32                      Set SendMessage = results
-                        ResultSendCommand = True
-                        printMsg Debug_, "The command result was obtained by joining the fragmented data. - ID:" & lngCurrentId, FromProcedureName
-                    Else
-                        'イベントデータでした
-                        printMsg Debug_, "The command result from `strBuffer` has not yet been received, so reception continues.", FromProcedureName
-                    End If
-                Else
-                    'データはまだ欠けている
-                    printMsg Debug_, "`strBuffer` is still missing. Continuing receiving.", FromProcedureName
-                End If
+25              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
                 'データがまだ、ない
                 printMsg Trace_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
             End If
+
+            DoEvents
         End If
 
-        DoEvents
+        'コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
+        If ResultSendCommand And StrPtr(strBuffer) <> 0 Then printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
 
-        '一定時間経っても来ないなら、ループから抜けます
-33      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+        '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
+26      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
 
-        'CDP-Jsonコマンドの結果が得れてるなら、受信ループ処理を終了します
-    Loop Until ResultSendCommand
+        'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
+    Loop Until ResultSendCommand And StrPtr(strBuffer) = 0
+
+    printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
     Exit Function
 
 afterErr:
@@ -1976,7 +1959,7 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
     '======================================= このプロシージャから抜けるか判定 =======================================
     Dim judgementBit As Long
 
-    '1. 正しいコマンド結果が来たので、受信ループを止めて、抜けるか？
+    '1. 送ったコマンドの結果は来たので、受信ループを止めて、抜けるか？
     judgementBit = resultCommand
     If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
 
