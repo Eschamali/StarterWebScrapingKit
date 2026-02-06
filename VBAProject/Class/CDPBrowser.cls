@@ -1628,7 +1628,7 @@ RetrySend:
 1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
         printMsg Trace_, "Starts discarding browser event information...", FromProcedureName
 
-        'データが尽きるまで、ループ受信処理を行います
+        '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信破棄を行います
         Do
             '受信処理
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
@@ -1655,7 +1655,7 @@ RetrySend:
                     printMsg Trace_, "Message queue destruction completed.", FromProcedureName
                 End If
             End If
-        Loop Until intRes < 1
+        Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
     End If
 
    '--------------------------------------------------
@@ -1742,17 +1742,22 @@ RetrySend:
                         printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
                     End If
 
-                    '受信データを Json-Dictionary として変換
+                    '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
                     If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
-23                  Set results = jsConverter.ParseJson(tmp)
+                    If tmp <> "" Then
+                        '受信データを Json-Dictionary として変換
+23                      Set results = jsConverter.ParseJson(tmp)
 
-                    '受信データのチェックを行うプロシージャへ遷移します。
-24                  If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
-                        '直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てて、コマンド結果も返す
-                        ResultSendCommand = True
-25                      Set SendMessage = results
+                        '受信データのチェックを行うプロシージャへ遷移します。
+24                      If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
+                            '直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てて、コマンド結果も返す
+                            ResultSendCommand = True
+25                          Set SendMessage = results
 
-                        printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
+                            printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
+                        End If
+                    Else
+                        printMsg Debug_, "`vbnullchar` seems to be received with multiple characters.", FromProcedureName
                     End If
                 End If
 
