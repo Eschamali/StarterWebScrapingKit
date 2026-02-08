@@ -150,24 +150,24 @@ Public Sub CreateFromHttp(Client As WebClient, Request As WebRequest, Http As Ob
     Me.StatusCode = Http.Status
     Me.StatusDescription = Http.StatusText
     
-    'uUnicode •¶š‚Ìƒ}ƒbƒsƒ“ƒO‚ªƒ^[ƒQƒbƒg‚Ìƒ}ƒ‹ƒ`ƒoƒCƒgƒR[ƒhƒy[ƒW‚É‚ ‚è‚Ü‚¹‚ñBv‚Ì‘Îˆ
+    'ã€ŒUnicode æ–‡å­—ã®ãƒãƒƒãƒ”ãƒ³ã‚°ãŒã‚¿ãƒ¼ã‚²ãƒƒãƒˆã®ãƒãƒ«ãƒãƒã‚¤ãƒˆã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã«ã‚ã‚Šã¾ã›ã‚“ã€‚ã€ã®å¯¾å‡¦
     On Error Resume Next
     
-    'ˆê’U‘ã“üˆ—
+    'ä¸€æ—¦ä»£å…¥å‡¦ç†
     Me.Content = Http.ResponseText
     If Err.Number Then
-        ' ƒGƒ‰[‚ª”­¶‚µ‚½ê‡:
-        ' ƒfƒoƒbƒO—p‚ÉAƒGƒ‰[î•ñ‚ğ•\¦
-        Debug.Print "`Http.ResponseText`‚Ìæ“¾’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B`Http.ResponseBody`‚©‚çUTF-8•ÏŠ·‚µ‚½•¶š—ñ‚ğ‘ã‚í‚è‚É‘ã“ü‚µ‚Ü‚·B"
-        Debug.Print "ƒGƒ‰[”Ô†: " & Err.Number
-        Debug.Print "ƒGƒ‰[“à—e: " & Err.Description
+        ' ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ãŸå ´åˆ:
+        ' ãƒ‡ãƒãƒƒã‚°ç”¨ã«ã€ã‚¨ãƒ©ãƒ¼æƒ…å ±ã‚’è¡¨ç¤º
+        Debug.Print "`Http.ResponseText`ã®å–å¾—ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸã€‚`Http.ResponseBody`ã‹ã‚‰UTF-8å¤‰æ›ã—ãŸæ–‡å­—åˆ—ã‚’ä»£ã‚ã‚Šã«ä»£å…¥ã—ã¾ã™ã€‚"
+        Debug.Print "ã‚¨ãƒ©ãƒ¼ç•ªå·: " & Err.Number
+        Debug.Print "ã‚¨ãƒ©ãƒ¼å†…å®¹: " & Err.Description
         
-        ' `Http.ResponseBody`‚©‚çUTF-8•ÏŠ·‚µ‚½•¶š—ñ‚ğ‘ã‚í‚è‚É‘ã“ü
+        ' `Http.ResponseBody`ã‹ã‚‰UTF-8å¤‰æ›ã—ãŸæ–‡å­—åˆ—ã‚’ä»£ã‚ã‚Šã«ä»£å…¥
         Dim CharConv As New CharacterCodeConversion
         Me.Content = CharConv.BytesToString((Http.ResponseBody))
     End If
 
-    'ƒGƒ‰[–³‹‚ÍI‚í‚è
+    'ã‚¨ãƒ©ãƒ¼ç„¡è¦–ã¯çµ‚ã‚ã‚Š
     On Error GoTo 0
 
     Me.Body = Http.ResponseBody

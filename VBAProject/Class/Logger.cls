@@ -74,12 +74,12 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ WindowsAPIéŒ¾ ¡¡¡
+'                                   â– â– â–  WindowsAPIå®£è¨€ â– â– â– 
 '***************************************************************************************************
-Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)    'ƒ~ƒŠ•b’PˆÊ‚ğˆµ‚¤‚½‚ß‚ÌAPI(·‚ÍAƒ[ƒJƒ‹PC‚É€‹’)
-Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)   'ƒ~ƒŠ•b’PˆÊ‚ğˆµ‚¤‚½‚ß‚ÌAPI(UTC€‹’)
+Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)    'ãƒŸãƒªç§’å˜ä½ã‚’æ‰±ã†ãŸã‚ã®API(æ™‚å·®ã¯ã€ãƒ­ãƒ¼ã‚«ãƒ«PCã«æº–æ‹ )
+Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)   'ãƒŸãƒªç§’å˜ä½ã‚’æ‰±ã†ãŸã‚ã®API(UTCæº–æ‹ )
 
-'\‘¢‘ÌéŒ¾
+'æ§‹é€ ä½“å®£è¨€
 Private Type SYSTEMTIME
     wYear As Integer
     wMonth As Integer
@@ -91,7 +91,7 @@ Private Type SYSTEMTIME
     wMilliseconds As Integer
 End Type
 
-'ƒƒOƒŒƒxƒ‹İ’è—pƒ†[ƒU[’è‹`
+'ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«è¨­å®šç”¨ãƒ¦ãƒ¼ã‚¶ãƒ¼å®šç¾©
 Public Enum LogLevelName
     Trace_
     Debug_
@@ -116,7 +116,7 @@ Public LogCallback As Variant
 ''
 Private LogThreshold As Long
 Private UTCMode As Boolean
-Private doPrintDbgMsg As Boolean        'ƒCƒ~ƒfƒBƒGƒCƒg‚ÉAƒfƒoƒbƒOƒƒbƒZ[ƒW‚ğo‚·‚©
+Private doPrintDbgMsg As Boolean        'ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«ã€ãƒ‡ãƒãƒƒã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºã™ã‹
 
 Private SaveLogObj As New CharacterCodeConversion
 
@@ -180,13 +180,13 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
             log_LevelValue = "ERROR"
         End Select
 
-        '•¶š—ñ¶¬
+        'æ–‡å­—åˆ—ç”Ÿæˆ
         Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & message & IIf(From <> "", " | " & From & " |", "")
 
-        'ƒCƒ~ƒfƒBƒGƒCƒg‚Ö•\¦
+        'ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã¸è¡¨ç¤º
         If doPrintDbgMsg Then Debug.Print LogString
 
-        'ƒtƒ@ƒCƒ‹ƒpƒX‚ªw’è‚³‚ê‚Ä‚½‚çAƒƒOƒtƒ@ƒCƒ‹‚Ö•Û‘¶
+        'ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ãŒæŒ‡å®šã•ã‚Œã¦ãŸã‚‰ã€ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã¸ä¿å­˜
         If SaveLogFolderPath <> "" And LogFileName <> "" Then
             With SaveLogObj
                 .BytesToSaveFile .BytesFromString(LogString & vbCrLf), SaveLogFolderPath, LogFileName, True
@@ -196,22 +196,22 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@FŒ»İ“ú‚ğƒ~ƒŠ•b’PˆÊ‚Åæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šç¾åœ¨æ—¥æ™‚ã‚’ãƒŸãƒªç§’å˜ä½ã§å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@F`yyyy/mm/dd hh:mm:ss.fff`‚Æ‚¢‚¤‘®
-'* ˆø”@@FUseUTC
-'               `True`@UTCŠî€‚Åæ“¾
-'               `False` ·‚İ‚Åæ“¾(ƒ[ƒJƒ‹PC‚Ìİ’è‚ÉˆË‘¶)
+'* è¿”ã‚Šå€¤ã€€ï¼š`yyyy/mm/dd hh:mm:ss.fff`ã¨ã„ã†æ›¸å¼
+'* å¼•æ•°ã€€ã€€ï¼šUseUTC
+'               `True`ã€€UTCåŸºæº–ã§å–å¾—
+'               `False` æ™‚å·®è¾¼ã¿ã§å–å¾—(ãƒ­ãƒ¼ã‚«ãƒ«PCã®è¨­å®šã«ä¾å­˜)
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FŠÖ”©‘Ì‚âPCŠÂ‹«‚²‚Æ‚Éƒ~ƒŠ•b‚Ì¸“x‚ÉŒë·‚ª‚ ‚é‚½‚ßAÀÛ‚Ì‚Æ‚Í‚Ç‚¤‚µ‚Ä‚à”ƒ~ƒŠ•b‚©‚ç”10ƒ~ƒŠ•b’ö“x‚ÅƒYƒŒ‚Ä‚µ‚Ü‚¤‚±‚Æ‚Í”F¯‚µ‚Ä‚¨‚­•K—v‚ª‚ ‚è‚Ü‚·B
+'* æ³¨æ„äº‹é …ï¼šé–¢æ•°è‡ªä½“ã‚„PCç’°å¢ƒã”ã¨ã«ãƒŸãƒªç§’ã®ç²¾åº¦ã«èª¤å·®ãŒã‚ã‚‹ãŸã‚ã€å®Ÿéš›ã®æ™‚åˆ»ã¨ã¯ã©ã†ã—ã¦ã‚‚æ•°ãƒŸãƒªç§’ã‹ã‚‰æ•°10ãƒŸãƒªç§’ç¨‹åº¦ã§ã‚ºãƒ¬ã¦ã—ã¾ã†ã“ã¨ã¯èªè­˜ã—ã¦ãŠãå¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚
 '***************************************************************************************************
 Private Function GetNowFormat(Optional UseUTC As Boolean) As String
     Dim t As SYSTEMTIME
 
-    ' Œ»İ“úæ“¾
+    ' ç¾åœ¨æ—¥æ™‚å–å¾—
     If UseUTC Then GetSystemTime t Else GetLocalTime t
 
-    ' `yyyy/mm/dd hh:mm:ss.fff`‚É®Œ`
+    ' `yyyy/mm/dd hh:mm:ss.fff`ã«æ•´å½¢
     With t
         GetNowFormat = Format(.wYear, "0000") & "/" & _
                        Format(.wMonth, "00") & "/" & _
@@ -290,11 +290,11 @@ End Sub
 
 
 Private Sub Class_Initialize()
-    '------------------------- ƒNƒ‰ƒX“à•Ï”‚Ìˆê•”‚ğ‰Šú‰» -------------------------
-    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
+    '------------------------- ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã®ä¸€éƒ¨ã‚’åˆæœŸåŒ– -------------------------
+    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
     With ShSetting01_StartBrowser
-        doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'ƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
-        LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ƒƒOƒŒƒxƒ‹‚Ìİ’è
+        doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã‚‹ã‹ï¼Ÿ
+        LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã®è¨­å®š
     End With
     '------------------------------------------------------------------------------
 End Sub

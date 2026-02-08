@@ -8,14 +8,14 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'                    VBA����AWindowsAPI�g�p���̃G���[�R�[�h���ڍ׏����o�͂��܂�
+'                    VBAから、WindowsAPI使用時のエラーコードを詳細情報を出力します
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                             ������ WindowsAPI�ƒ萔�錾 ������
+'                             ■■■ WindowsAPIと定数宣言 ■■■
 '***************************************************************************************************
 Private Declare PtrSafe Function FormatMessage Lib "kernel32" Alias "FormatMessageA" ( _
     ByVal dwFlags As Long, ByVal lpSource As LongPtr, ByVal dwMessageId As Long, _
@@ -32,15 +32,15 @@ Const FORMAT_MESSAGE_IGNORE_INSERTS = &H200
 
 
 '***************************************************************************************************
-'                               ������ ���J�v���V�[�W�� ������
+'                               ■■■ 公開プロシージャ ■■■
 '***************************************************************************************************
-'* �@�\�@�@�F�G���[�ԍ����烁�b�Z�[�W���擾���܂�
+'* 機能　　：エラー番号からメッセージを取得します
 '---------------------------------------------------------------------------------------------------
-'* �Ԃ�l�@�F�����ɉ������G���[���b�Z�[�W
-'* �����@�@�FErrorCode      �ʏ�́AErr.LastDllError ���w�肵�܂�
-'            DllName        �����WinAPI(����.dll)�̃G���[�ƕ������Ă�Ȃ�A������w�肵�܂�
+'* 返り値　：引数に沿ったエラーメッセージ
+'* 引数　　：ErrorCode      通常は、Err.LastDllError を指定します
+'            DllName        特定のWinAPI(○○.dll)のエラーと分かってるなら、それを指定します
 '---------------------------------------------------------------------------------------------------
-'* ���ӎ����F�Ԃ錾��́AWindows�̐ݒ茾��Ɉˑ����܂�
+'* 注意事項：返る言語は、Windowsの設定言語に依存します
 '***************************************************************************************************
 Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As String) As String
     Dim Buffer As String
@@ -52,12 +52,12 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
     Buffer = Space(1024)
     Flags = FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_IGNORE_INSERTS
     
-    ' DLL�w�肪����ꍇ
+    ' DLL指定がある場合
     If DllName <> "" Then
-        ' �܂����[�h�ς݂��T��
+        ' まずロード済みか探す
         hModule = GetModuleHandle(DllName)
         
-        ' �Ȃ���΃��[�h����
+        ' なければロードする
         If hModule = 0 Then
             hModule = LoadLibrary(DllName)
             isLoaded = True
@@ -68,13 +68,13 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
         End If
     End If
 
-    ' ���b�Z�[�W�擾
+    ' メッセージ取得
     length = FormatMessage(Flags, hModule, ErrorCode, 0, Buffer, Len(Buffer), 0)
 
     If length > 0 Then
-        ' �����̉��s�Ƃ��k�������������ĕԂ�
+        ' 末尾の改行とかヌル文字を消して返す
         GetMessage = Replace(Split(Buffer, vbNullChar)(0), vbCrLf, "")
     Else
-        GetMessage = "��`����Ă��Ȃ��G���[�ł� (Code: " & ErrorCode & ")"
+        GetMessage = "定義されていないエラーです (Code: " & ErrorCode & ")"
     End If
 End Function

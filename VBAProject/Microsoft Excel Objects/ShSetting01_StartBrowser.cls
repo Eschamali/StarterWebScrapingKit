@@ -8,14 +8,14 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 '***************************************************************************************************
-'                   CDPŒo—R‚ÅAƒuƒ‰ƒEƒU‘€ì‚·‚éÛ‚Ì€”õŠÖ˜A‚ÌƒV[ƒg‚Å‚·
+'                   CDPçµŒç”±ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶æ“ä½œã™ã‚‹éš›ã®æº–å‚™é–¢é€£ã®ã‚·ãƒ¼ãƒˆã§ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                             ¡¡¡ ƒe[ƒuƒ‹‚Ì—ñ‘€ì—p ¡¡¡
+'                             â– â– â–  ãƒ†ãƒ¼ãƒ–ãƒ«ã®åˆ—æ“ä½œç”¨ â– â– â– 
 '***************************************************************************************************
 Public Enum Table01ColumnID
     UserName = 1
@@ -31,14 +31,14 @@ End Enum
 
 Public Enum Table03ColumnID
     ProtocolName = 1
-    ŠK‘w
-    Ú“ª«
+    éšå±¤
+    æ¥é ­è¾
 End Enum
 
 
 
 '***************************************************************************************************
-'                             ¡¡¡ ƒe[ƒuƒ‹‚Ìs‘€ì—p ¡¡¡
+'                             â– â– â–  ãƒ†ãƒ¼ãƒ–ãƒ«ã®è¡Œæ“ä½œç”¨ â– â– â– 
 '***************************************************************************************************
 Public Enum Table02RowID
     lngLastID = 1
@@ -49,140 +49,140 @@ End Enum
 
 
 '***************************************************************************************************
-'                             ¡¡¡ ƒvƒƒpƒeƒBƒƒ\ƒbƒh ¡¡¡
+'                             â– â– â–  ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F‚±‚ÌƒV[ƒg‚Ì‚İ’è‹`‚³‚ê‚Ä‚éƒZƒ‹–¼Ì‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã“ã®ã‚·ãƒ¼ãƒˆã®ã¿å®šç¾©ã•ã‚Œã¦ã‚‹ã‚»ãƒ«åç§°ã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FID‚É•R‚Ã‚­ƒZƒ‹–¼Ì
-'* ˆø”@@FRangeID        ƒZƒ‹ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
+'* è¿”ã‚Šå€¤ã€€ï¼šIDã«ç´ã¥ãã‚»ãƒ«åç§°
+'* å¼•æ•°ã€€ã€€ï¼šRangeID        ã‚»ãƒ«ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
 '***************************************************************************************************
 Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
     Select Case RangeID
-        Case 1: UseRangeName = "ƒuƒ‰ƒEƒUexeƒpƒX"
-        Case 2: UseRangeName = "ƒ†[ƒU[ƒf[ƒ^ƒtƒHƒ‹ƒ_–¼"
-        Case 3: UseRangeName = "’Ç‰Á‚Ì‹N“®ˆø”ˆê®"
-        Case 4: UseRangeName = "Chrome‚Åg—p"
+        Case 1: UseRangeName = "ãƒ–ãƒ©ã‚¦ã‚¶exeãƒ‘ã‚¹"
+        Case 2: UseRangeName = "ãƒ¦ãƒ¼ã‚¶ãƒ¼ãƒ‡ãƒ¼ã‚¿ãƒ•ã‚©ãƒ«ãƒ€å"
+        Case 3: UseRangeName = "è¿½åŠ ã®èµ·å‹•å¼•æ•°ä¸€å¼"
+        Case 4: UseRangeName = "Chromeã§ä½¿ç”¨"
         Case 5: UseRangeName = "LogLevel"
-        Case 6: UseRangeName = "í‚Éƒuƒ‰ƒEƒU‚ğV‹K‚Å‹N“®"
-        Case 7: UseRangeName = "ƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦"
-        Case 8: UseRangeName = "ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSON‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦"
-        Case 9: UseRangeName = "ƒƒOƒtƒ@ƒCƒ‹•Û‘¶"
-        Case 10: UseRangeName = "í‚ÉUTF8‚Å‘—M"
-        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "“n‚³‚ê‚½ƒZƒ‹ID‚ÍA’è‹`‚³‚ê‚Ä‚Ü‚¹‚ñ"
+        Case 6: UseRangeName = "å¸¸ã«ãƒ–ãƒ©ã‚¦ã‚¶ã‚’æ–°è¦ã§èµ·å‹•"
+        Case 7: UseRangeName = "ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤º"
+        Case 8: UseRangeName = "ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰å—ä¿¡ã—ãŸç”Ÿã®JSONã‚’ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤º"
+        Case 9: UseRangeName = "ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ä¿å­˜"
+        Case 10: UseRangeName = "å¸¸ã«UTF8ã§é€ä¿¡"
+        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "æ¸¡ã•ã‚ŒãŸã‚»ãƒ«IDã¯ã€å®šç¾©ã•ã‚Œã¦ã¾ã›ã‚“"
     End Select
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@F‚±‚ÌƒV[ƒg‚É‚ ‚éƒe[ƒuƒ‹–¼‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã“ã®ã‚·ãƒ¼ãƒˆã«ã‚ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«åã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FID‚É•R‚Ã‚­ƒe[ƒuƒ‹–¼Ì
-'* ˆø”@@FTableID        ƒe[ƒuƒ‹ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
+'* è¿”ã‚Šå€¤ã€€ï¼šIDã«ç´ã¥ããƒ†ãƒ¼ãƒ–ãƒ«åç§°
+'* å¼•æ•°ã€€ã€€ï¼šTableID        ãƒ†ãƒ¼ãƒ–ãƒ«ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
 '***************************************************************************************************
 Property Get UseTableName(TableID As Long, ErrorSource As String) As String
     Select Case TableID
         Case 1: UseTableName = "PreviousHandleInfo"
         Case 2: UseTableName = "PreviousBrowserInfo"
         Case 3: UseTableName = "ProtocolWhiteList"
-        Case Else: Err.Raise 2 + vbObjectError, ErrorSource, "“n‚³‚ê‚½ƒe[ƒuƒ‹ID‚ÍA’è‹`‚³‚ê‚Ä‚Ü‚¹‚ñ"
+        Case Else: Err.Raise 2 + vbObjectError, ErrorSource, "æ¸¡ã•ã‚ŒãŸãƒ†ãƒ¼ãƒ–ãƒ«IDã¯ã€å®šç¾©ã•ã‚Œã¦ã¾ã›ã‚“"
     End Select
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èƒe[ƒuƒ‹ID‚Öƒf[ƒ^’Ç‰Á/ã‘‚«‚ğˆêŠ‡‚Ås‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šãƒ†ãƒ¼ãƒ–ãƒ«IDã¸ãƒ‡ãƒ¼ã‚¿è¿½åŠ /ä¸Šæ›¸ãã‚’ä¸€æ‹¬ã§è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”@@FTableID        ƒe[ƒuƒ‹ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
-'            SetArray       ’Ç‰Á‚·‚éƒf[ƒ^”z—ñ
+'* å¼•æ•°ã€€ã€€ï¼šTableID        ãƒ†ãƒ¼ãƒ–ãƒ«ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
+'            SetArray       è¿½åŠ ã™ã‚‹ãƒ‡ãƒ¼ã‚¿é…åˆ—
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FE`SetArray`‚ÍA2ŸŒ³”z—ñ‚É‚·‚é•K—v‚ª‚ ‚è‚Ü‚·
-'            E“¯–¼ƒ†[ƒU[‚Ìê‡‚ÍAã‘‚«‚µ‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šãƒ»`SetArray`ã¯ã€2æ¬¡å…ƒé…åˆ—ã«ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™
+'            ãƒ»åŒåãƒ¦ãƒ¼ã‚¶ãƒ¼ã®å ´åˆã¯ã€ä¸Šæ›¸ãã—ã¾ã™
 '***************************************************************************************************
 Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
-    '”z—ñ‚¶‚á‚È‚¢‚Ì‚ÍƒGƒ‰[‚É‚µ‚Ü‚·
-    If Not (IsArray(SetArray)) Then Err.Raise 3 + vbObjectError, ErrorSource, "ƒf[ƒ^‘}“ü‚É‚ÍA”z—ñŒ`®‚ª•K—v‚Å‚·"
+    'é…åˆ—ã˜ã‚ƒãªã„ã®ã¯ã‚¨ãƒ©ãƒ¼ã«ã—ã¾ã™
+    If Not (IsArray(SetArray)) Then Err.Raise 3 + vbObjectError, ErrorSource, "ãƒ‡ãƒ¼ã‚¿æŒ¿å…¥ã«ã¯ã€é…åˆ—å½¢å¼ãŒå¿…è¦ã§ã™"
 
-    '“ü—Íƒf[ƒ^”‚ğæ“¾
+    'å…¥åŠ›ãƒ‡ãƒ¼ã‚¿æ•°ã‚’å–å¾—
     On Error Resume Next
         Dim ErrorExists As Long
-        Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray, 2)    '—ñ”
+        Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray, 2)    'åˆ—æ•°
         ErrorExists = Err.Number
     On Error GoTo 0
 
-    '2ŸŒ³”z—ñ‚¶‚á‚È‚¢‚Ì‚ÍƒGƒ‰[‚É‚µ‚Ü‚·
-    If ErrorExists Then Err.Raise ErrorExists, ErrorSource, "ƒf[ƒ^‘}“ü‚É‚ÍA2ŸŒ³”z—ñŒ`®‚ª•K—v‚Å‚·"
+    '2æ¬¡å…ƒé…åˆ—ã˜ã‚ƒãªã„ã®ã¯ã‚¨ãƒ©ãƒ¼ã«ã—ã¾ã™
+    If ErrorExists Then Err.Raise ErrorExists, ErrorSource, "ãƒ‡ãƒ¼ã‚¿æŒ¿å…¥ã«ã¯ã€2æ¬¡å…ƒé…åˆ—å½¢å¼ãŒå¿…è¦ã§ã™"
 
-    Dim InsertDataRows          As Long: InsertDataRows = UBound(SetArray, 1)       's”
+    Dim InsertDataRows          As Long: InsertDataRows = UBound(SetArray, 1)       'è¡Œæ•°
 
-    '‘€ì‚·‚éƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚ÌŠî€ƒZƒ‹‚ğæ“¾
+    'æ“ä½œã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®åŸºæº–ã‚»ãƒ«ã‚’å–å¾—
     Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, CStr(SetArray(1, 1)), "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
-    'ƒf[ƒ^‘}“ü•û®”»’è
+    'ãƒ‡ãƒ¼ã‚¿æŒ¿å…¥æ–¹å¼åˆ¤å®š
     If StartPos Is Nothing Then
-        'ƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚»‚Ì‚à‚Ì‚ğæ“¾
+        'ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãã®ã‚‚ã®ã‚’å–å¾—
         Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
 
-        'ƒe[ƒuƒ‹‚ÉŠi”[‚µ‚Ä‚éƒf[ƒ^”‚ğæ“¾
+        'ãƒ†ãƒ¼ãƒ–ãƒ«ã«æ ¼ç´ã—ã¦ã‚‹ãƒ‡ãƒ¼ã‚¿æ•°ã‚’å–å¾—
         Dim DataRows As Long: DataRows = TargetTableObj.ListRows.Count
 
-        'ƒe[ƒuƒ‹©‘Ì‚ªŠm•Û‚µ‚Ä‚és”‚ğæ“¾
+        'ãƒ†ãƒ¼ãƒ–ãƒ«è‡ªä½“ãŒç¢ºä¿ã—ã¦ã‚‹è¡Œæ•°ã‚’å–å¾—
         Dim TableRows As Long: TableRows = TargetTableObj.ListColumns(1).Range.Count
 
-        '‘¶İ‚µ‚È‚¢‚Ì‚ÅAƒe[ƒuƒ‹––”ö‚É’Ç‰Á‚µ‚Ü‚·B
-        '¦‰E‹L‚ÌƒeƒNƒjƒbƒN‚ğQl‚É‚µ‚½’Ç‰Á•û®‚Å‚·¨http://officetanaka.net/excel/vba/table/08.htm
+        'å­˜åœ¨ã—ãªã„ã®ã§ã€ãƒ†ãƒ¼ãƒ–ãƒ«æœ«å°¾ã«è¿½åŠ ã—ã¾ã™ã€‚
+        'â€»å³è¨˜ã®ãƒ†ã‚¯ãƒ‹ãƒƒã‚¯ã‚’å‚è€ƒã«ã—ãŸè¿½åŠ æ–¹å¼ã§ã™â†’http://officetanaka.net/excel/vba/table/08.htm
         TargetTableObj.ListColumns(1).Range(TableRows + 1 + (DataRows = 0)).Resize(InsertDataRows, InsertDataColumns) = SetArray
     Else
-        '‘¶İ‚·‚é‚Ì‚ÅAæ“ªƒZƒ‹‚ğŠî€‚ÉƒŠƒTƒCƒY‚µ‚Äã‘‚«
+        'å­˜åœ¨ã™ã‚‹ã®ã§ã€å…ˆé ­ã‚»ãƒ«ã‚’åŸºæº–ã«ãƒªã‚µã‚¤ã‚ºã—ã¦ä¸Šæ›¸ã
         StartPos.Resize(InsertDataRows, InsertDataColumns) = SetArray
     End If
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“ŠÇ—ƒe[ƒuƒ‹‚ÉAƒf[ƒ^ã‘‚«‚ğ’Pˆê‚Ås‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³ç®¡ç†ãƒ†ãƒ¼ãƒ–ãƒ«ã«ã€ãƒ‡ãƒ¼ã‚¿ä¸Šæ›¸ãã‚’å˜ä¸€ã§è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”@@FUserName       ‘ÎÛƒ†[ƒU[–¼
-'            ReplaceID      ’u‚«Š·‚¦‚éƒf[ƒ^ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
-'            SetValue       ã‘‚«‚·‚éƒf[ƒ^
+'* å¼•æ•°ã€€ã€€ï¼šUserName       å¯¾è±¡ãƒ¦ãƒ¼ã‚¶ãƒ¼å
+'            ReplaceID      ç½®ãæ›ãˆã‚‹ãƒ‡ãƒ¼ã‚¿ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
+'            SetValue       ä¸Šæ›¸ãã™ã‚‹ãƒ‡ãƒ¼ã‚¿
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FEV‹K’Ç‰Á‚Í‚Å‚«‚Ü‚¹‚ñBŠù‘¶ƒf[ƒ^‚Ì‚İ—LŒø‚Å‚·
-'            Eƒnƒ“ƒhƒ‹î•ñŠÇ—ƒe[ƒuƒ‹‚Í”ñ‘Î‰‚Å‚·
+'* æ³¨æ„äº‹é …ï¼šãƒ»æ–°è¦è¿½åŠ ã¯ã§ãã¾ã›ã‚“ã€‚æ—¢å­˜ãƒ‡ãƒ¼ã‚¿ã®ã¿æœ‰åŠ¹ã§ã™
+'            ãƒ»ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ç®¡ç†ãƒ†ãƒ¼ãƒ–ãƒ«ã¯éå¯¾å¿œã§ã™
 '***************************************************************************************************
 Property Let serializeSingleToHandleInfoTable(UserName As String, ReplaceID As Table02RowID, ErrorSource As String, SetValue As String)
-    '‘€ì‚·‚éƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚ÌŠî€ƒZƒ‹‚ğæ“¾
+    'æ“ä½œã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®åŸºæº–ã‚»ãƒ«ã‚’å–å¾—
     Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
 
-    '‘¶İ‚µ‚½‚çAAæ“ªƒZƒ‹‚ğŠî€‚ÉƒIƒtƒZƒbƒg‚µ‚Äã‘‚«
-    '¦ƒIƒtƒZƒbƒg‚ÍA0n‚Ü‚è‚È‚Ì‚Å•â³‚µ‚Ä‚¨‚­
+    'å­˜åœ¨ã—ãŸã‚‰ã€ã€å…ˆé ­ã‚»ãƒ«ã‚’åŸºæº–ã«ã‚ªãƒ•ã‚»ãƒƒãƒˆã—ã¦ä¸Šæ›¸ã
+    'â€»ã‚ªãƒ•ã‚»ãƒƒãƒˆã¯ã€0å§‹ã¾ã‚Šãªã®ã§è£œæ­£ã—ã¦ãŠã
     If Not (StartPos Is Nothing) Then StartPos.Offset(ReplaceID - 1, Table02ColumnID.DataValue - 1) = SetValue
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èƒe[ƒuƒ‹ID‚©‚çA‘ÎÛ‚Ìƒ†[ƒU–¼‚É•R‚Ã‚­ƒnƒ“ƒhƒ‹/ƒZƒbƒVƒ‡ƒ“î•ñ‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šãƒ†ãƒ¼ãƒ–ãƒ«IDã‹ã‚‰ã€å¯¾è±¡ã®ãƒ¦ãƒ¼ã‚¶åã«ç´ã¥ããƒãƒ³ãƒ‰ãƒ«/ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FUserName,TableID‚É•R‚Ã‚­ƒe[ƒuƒ‹“à‚Ìî•ñ‚ğDictionaryŒ^‚É‚µ‚½‚à‚Ì
-'* ˆø”@@FUserName       ‘ÎÛ‚Ìƒ†[ƒU–¼
-'            TableID        ƒe[ƒuƒ‹ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
+'* è¿”ã‚Šå€¤ã€€ï¼šUserName,TableIDã«ç´ã¥ããƒ†ãƒ¼ãƒ–ãƒ«å†…ã®æƒ…å ±ã‚’Dictionaryå‹ã«ã—ãŸã‚‚ã®
+'* å¼•æ•°ã€€ã€€ï¼šUserName       å¯¾è±¡ã®ãƒ¦ãƒ¼ã‚¶å
+'            TableID        ãƒ†ãƒ¼ãƒ–ãƒ«ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€F‹L˜^‚³‚ê‚Ä‚È‚¢`UserName`‚ğw’è‚·‚é‚ÆA`Nothing`‚ª•Ô‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šè¨˜éŒ²ã•ã‚Œã¦ãªã„`UserName`ã‚’æŒ‡å®šã™ã‚‹ã¨ã€`Nothing`ãŒè¿”ã‚Šã¾ã™
 '***************************************************************************************************
 Property Get deserializeFromTable(UserName As String, TableID As Long, ErrorSource As String) As Dictionary
-    '‘€ì‚·‚éƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚ÌŠî€ƒZƒ‹‚ğæ“¾
+    'æ“ä½œã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®åŸºæº–ã‚»ãƒ«ã‚’å–å¾—
     Dim GetTakeNum As Long
     Dim StartPos As Range: Set StartPos = GetReferenceRange(UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource), UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource, GetTakeNum)
 
-    'Šî€ƒZƒ‹‚ª‚È‚¢ê‡‚ÍA‘¦”²‚¯
+    'åŸºæº–ã‚»ãƒ«ãŒãªã„å ´åˆã¯ã€å³æŠœã‘
     If StartPos Is Nothing Then Exit Property
 
-    'æ“¾‚·‚éƒe[ƒuƒ‹‚É‰‚¶‚ÄAæ“¾s”‚ğ•Ï‚¦‚Äƒf[ƒ^æ“¾
+    'å–å¾—ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã«å¿œã˜ã¦ã€å–å¾—è¡Œæ•°ã‚’å¤‰ãˆã¦ãƒ‡ãƒ¼ã‚¿å–å¾—
     Dim DataSet
-    DataSet = StartPos.Offset(0, 1).Resize(GetTakeNum, 2)   '`UserName`î•ñ‚Í•s—v‚È‚Ì‚ÅA1—ñ•ª‰E‚ÖƒVƒtƒg‚·‚é
+    DataSet = StartPos.Offset(0, 1).Resize(GetTakeNum, 2)   '`UserName`æƒ…å ±ã¯ä¸è¦ãªã®ã§ã€1åˆ—åˆ†å³ã¸ã‚·ãƒ•ãƒˆã™ã‚‹
 
-    'ƒf[ƒ^–¼‚Æ’l‚Ì•R‚Ã‚¯‚ğs‚¢ADictionary‚Å•Ô‹p
+    'ãƒ‡ãƒ¼ã‚¿åã¨å€¤ã®ç´ã¥ã‘ã‚’è¡Œã„ã€Dictionaryã§è¿”å´
     Dim i As Long
     Set deserializeFromTable = New Dictionary
     For i = 1 To GetTakeNum
@@ -191,37 +191,37 @@ Property Get deserializeFromTable(UserName As String, TableID As Long, ErrorSour
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èƒe[ƒuƒ‹ID‚©‚çA‘ÎÛ‚Ìƒ†[ƒU–¼‚É•R‚Ã‚­ƒnƒ“ƒhƒ‹/ƒZƒbƒVƒ‡ƒ“î•ñ‚ğÁ‹‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šãƒ†ãƒ¼ãƒ–ãƒ«IDã‹ã‚‰ã€å¯¾è±¡ã®ãƒ¦ãƒ¼ã‚¶åã«ç´ã¥ããƒãƒ³ãƒ‰ãƒ«/ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’æ¶ˆå»ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FUserName,ID‚É•R‚Ã‚­ƒe[ƒuƒ‹“à‚Ìî•ñ‚ğDictionaryŒ^‚É‚µ‚½‚à‚Ì
-'* ˆø”@@FUserName       ‘ÎÛ‚Ìƒ†[ƒU–¼
-'            TableID        ƒe[ƒuƒ‹ID
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
+'* è¿”ã‚Šå€¤ã€€ï¼šUserName,IDã«ç´ã¥ããƒ†ãƒ¼ãƒ–ãƒ«å†…ã®æƒ…å ±ã‚’Dictionaryå‹ã«ã—ãŸã‚‚ã®
+'* å¼•æ•°ã€€ã€€ï¼šUserName       å¯¾è±¡ã®ãƒ¦ãƒ¼ã‚¶å
+'            TableID        ãƒ†ãƒ¼ãƒ–ãƒ«ID
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FE‹L˜^‚³‚ê‚Ä‚È‚¢`UserName`‚ğw’è‚µ‚Ä‚à–â‘è‚ ‚è‚Ü‚¹‚ñB‚±‚Ìê‡Aƒe[ƒuƒ‹‚Ì‘€ì‚Í”­¶‚µ‚Ü‚¹‚ñB
-'            E`UserName`‚ğ`vbnullstring`‚Åw’è‚·‚é‚ÆA‘Sƒf[ƒ^Á‹‚Æ‚µ‚Ä“®ì‚µ‚Ü‚·B
+'* æ³¨æ„äº‹é …ï¼šãƒ»è¨˜éŒ²ã•ã‚Œã¦ãªã„`UserName`ã‚’æŒ‡å®šã—ã¦ã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“ã€‚ã“ã®å ´åˆã€ãƒ†ãƒ¼ãƒ–ãƒ«ã®æ“ä½œã¯ç™ºç”Ÿã—ã¾ã›ã‚“ã€‚
+'            ãƒ»`UserName`ã‚’`vbnullstring`ã§æŒ‡å®šã™ã‚‹ã¨ã€å…¨ãƒ‡ãƒ¼ã‚¿æ¶ˆå»ã¨ã—ã¦å‹•ä½œã—ã¾ã™ã€‚
 '***************************************************************************************************
 Property Let DeleteCDPToTable(TableID As Long, ErrorSource As String, UserName As String)
-    '‘€ì‘ÎÛ‚Ìƒe[ƒuƒ‹–¼‚ğæ“¾
+    'æ“ä½œå¯¾è±¡ã®ãƒ†ãƒ¼ãƒ–ãƒ«åã‚’å–å¾—
     Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
-    '•¶š—ñ‚ªŠi”[‚³‚ê‚Ä‚¢‚é‚©H
+    'æ–‡å­—åˆ—ãŒæ ¼ç´ã•ã‚Œã¦ã„ã‚‹ã‹ï¼Ÿ
     If StrPtr(UserName) Then
-        '`UserName`‚ğƒL[‚ÉA‘€ì‚·‚éƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚ÌŠî€ƒZƒ‹‚ğæ“¾
+        '`UserName`ã‚’ã‚­ãƒ¼ã«ã€æ“ä½œã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®åŸºæº–ã‚»ãƒ«ã‚’å–å¾—
         Dim GetTakeNum As Long
         Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource, GetTakeNum)
         
-        'Šî€ƒZƒ‹‚ª‚È‚¢ê‡‚ÍA‘¦”²‚¯
+        'åŸºæº–ã‚»ãƒ«ãŒãªã„å ´åˆã¯ã€å³æŠœã‘
         If StartPos Is Nothing Then Exit Property
 
-        '‘ÎÛ‚Ìƒe[ƒuƒ‹‚É‰‚¶‚ÄAÁ‹s”‚ğƒŠƒTƒCƒY
+        'å¯¾è±¡ã®ãƒ†ãƒ¼ãƒ–ãƒ«ã«å¿œã˜ã¦ã€æ¶ˆå»è¡Œæ•°ã‚’ãƒªã‚µã‚¤ã‚º
         Dim DataSet As Range
         Set DataSet = StartPos.Resize(GetTakeNum, 3)
 
-        'Á‹
+        'æ¶ˆå»
         DataSet.Delete
     Else
-        '1ŒˆÈã‚ ‚Á‚½‚çA‘SÁ‹‚µ‚Ü‚·
+        '1ä»¶ä»¥ä¸Šã‚ã£ãŸã‚‰ã€å…¨æ¶ˆå»ã—ã¾ã™
         With Me.ListObjects(TableName)
             If .ListRows.Count Then .DataBodyRange.Delete
         End With
@@ -231,38 +231,38 @@ End Property
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒCƒxƒ“ƒgƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â–  ã‚¤ãƒ™ãƒ³ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F“ü—Í‹K‘¥ƒ`ƒFƒbƒN‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šå…¥åŠ›è¦å‰‡ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FƒGƒ‰[‚ÍAƒfƒtƒHƒ‹ƒg’l‚É‘‚«Š·‚¦‚Ü‚·B‘O‰ñ‚Ì’l‚É‚Í–ß‚¹‚Ü‚¹‚ñB
+'* æ³¨æ„äº‹é …ï¼šã‚¨ãƒ©ãƒ¼æ™‚ã¯ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã«æ›¸ãæ›ãˆã¾ã™ã€‚å‰å›ã®å€¤ã«ã¯æˆ»ã›ã¾ã›ã‚“ã€‚
 '***************************************************************************************************
 Private Sub Worksheet_Change(ByVal Target As Range)
-    ' --- ƒ`ƒFƒbƒN‘ÎÛ‚ÌƒZƒ‹‚ÆƒfƒtƒHƒ‹ƒg’l‚ğ—pˆÓ ---
+    ' --- ãƒã‚§ãƒƒã‚¯å¯¾è±¡ã®ã‚»ãƒ«ã¨ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’ç”¨æ„ ---
     Const checkCell1_DefaultValue As String = "Automation Data"
     Dim checkCell1 As Range: Set checkCell1 = Me.Range(Me.UseRangeName(2, "ShSetting01_StartBrowser.Worksheet_Change"))
 
 
-    ' --- •ÏX‚³‚ê‚½ƒZƒ‹(Target)‚ªAƒ`ƒFƒbƒN‘ÎÛƒZƒ‹‚Æd‚È‚Á‚Ä‚¢‚é‚©”»’è ---
+    ' --- å¤‰æ›´ã•ã‚ŒãŸã‚»ãƒ«(Target)ãŒã€ãƒã‚§ãƒƒã‚¯å¯¾è±¡ã‚»ãƒ«ã¨é‡ãªã£ã¦ã„ã‚‹ã‹åˆ¤å®š ---
     Application.EnableEvents = False
     Select Case True
-        '1. ƒ†[ƒU[ƒf[ƒ^ƒfƒBƒŒƒNƒgƒŠ ‚Ìİ’èƒ`ƒFƒbƒN
+        '1. ãƒ¦ãƒ¼ã‚¶ãƒ¼ãƒ‡ãƒ¼ã‚¿ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª ã®è¨­å®šãƒã‚§ãƒƒã‚¯
         Case Not (Intersect(Target, checkCell1) Is Nothing)
-            '’l‚ğŠm”F‚µ‚Ü‚·
+            'å€¤ã‚’ç¢ºèªã—ã¾ã™
             Select Case checkCell1.value
-                ' ğŒ1: ƒZƒ‹‚ª‹ó‚Á‚Ûi‹ó•¶š—ñj‚Ìê‡
+                ' æ¡ä»¶1: ã‚»ãƒ«ãŒç©ºã£ã½ï¼ˆç©ºæ–‡å­—åˆ—ï¼‰ã®å ´åˆ
                 Case ""
-                    MsgBox "‚±‚Ì€–Ú‚ÍA“ü—Í•K{‚Å‚·BƒfƒtƒHƒ‹ƒg’l‚É–ß‚µ‚Ü‚·B", vbExclamation, "“ü—ÍƒGƒ‰["
+                    MsgBox "ã“ã®é …ç›®ã¯ã€å…¥åŠ›å¿…é ˆã§ã™ã€‚ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã«æˆ»ã—ã¾ã™ã€‚", vbExclamation, "å…¥åŠ›ã‚¨ãƒ©ãƒ¼"
                     checkCell1.value = checkCell1_DefaultValue
 
-                ' ğŒ2: “Á’è‚Ì‹Ö~•¶š—ñ‚ª“ü—Í‚³‚ê‚½ê‡
+                ' æ¡ä»¶2: ç‰¹å®šã®ç¦æ­¢æ–‡å­—åˆ—ãŒå…¥åŠ›ã•ã‚ŒãŸå ´åˆ
                 Case "User Data"
-                    MsgBox "ƒZƒLƒ…ƒŠƒeƒB‘Îô‚Ì‚½‚ßA•W€‚Ìƒf[ƒ^ƒfƒBƒŒƒNƒgƒŠ‚Ìw’è‚Í‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "Ú×‚Í‰º‹L‚ğ‚²——‚­‚¾‚³‚¢B" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "ƒfƒtƒHƒ‹ƒg’l‚É–ß‚µ‚Ü‚·B", vbCritical, "“ü—ÍƒGƒ‰["
+                    MsgBox "ã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£å¯¾ç­–ã®ãŸã‚ã€æ¨™æº–ã®ãƒ‡ãƒ¼ã‚¿ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã®æŒ‡å®šã¯ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "è©³ç´°ã¯ä¸‹è¨˜ã‚’ã”è¦§ãã ã•ã„ã€‚" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã«æˆ»ã—ã¾ã™ã€‚", vbCritical, "å…¥åŠ›ã‚¨ãƒ©ãƒ¼"
                     checkCell1.value = checkCell1_DefaultValue
 
             End Select
 
-        '‘¼‚ÌƒZƒ‹‚ğƒ`ƒFƒbƒN‚·‚éê‡‚É’Ç‰Á‚·‚é...
+        'ä»–ã®ã‚»ãƒ«ã‚’ãƒã‚§ãƒƒã‚¯ã™ã‚‹å ´åˆã«è¿½åŠ ã™ã‚‹...
         Case Else
 
     End Select
@@ -272,37 +272,37 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒwƒ‹ƒp[ƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â–  ãƒ˜ãƒ«ãƒ‘ãƒ¼ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fƒe[ƒuƒ‹‘€ì‚ÌŠî€ƒZƒ‹‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ†ãƒ¼ãƒ–ãƒ«æ“ä½œã®åŸºæº–ã‚»ãƒ«ã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FŠî€ƒZƒ‹ƒIƒuƒWƒFƒNƒg
-'* ˆø”@@FTableName      ‚±‚Ìƒ[ƒNƒV[ƒgã‚Ìƒe[ƒuƒ‹–¼
-'            SearchUser     ŒŸõƒ†[ƒU[–¼
-'            ErrorSource    ‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚½ƒ\[ƒX
-'            ResizeRows     —LŒø‚Èƒf[ƒ^s””ÍˆÍ(¦QÆ“n‚µ‚É‚æ‚éÀ¿•Ô‚è’l)
+'* è¿”ã‚Šå€¤ã€€ï¼šåŸºæº–ã‚»ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'* å¼•æ•°ã€€ã€€ï¼šTableName      ã“ã®ãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆä¸Šã®ãƒ†ãƒ¼ãƒ–ãƒ«å
+'            SearchUser     æ¤œç´¢ãƒ¦ãƒ¼ã‚¶ãƒ¼å
+'            ErrorSource    ã“ã®é–¢æ•°ã‚’å‘¼ã³å‡ºã—ãŸã‚½ãƒ¼ã‚¹
+'            ResizeRows     æœ‰åŠ¹ãªãƒ‡ãƒ¼ã‚¿è¡Œæ•°ç¯„å›²(â€»å‚ç…§æ¸¡ã—ã«ã‚ˆã‚‹å®Ÿè³ªè¿”ã‚Šå€¤)
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FŠî€ƒZƒ‹‚ª‚È‚¢ê‡‚ÍA`Nothing`‚Æ‚È‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šåŸºæº–ã‚»ãƒ«ãŒãªã„å ´åˆã¯ã€`Nothing`ã¨ãªã‚Šã¾ã™
 '***************************************************************************************************
 Private Function GetReferenceRange(TableName As String, SearchUser As String, ErrorSource As String, Optional ByRef ResizeRows As Long) As Range
-    '‚±‚Ìƒ[ƒNƒV[ƒgã‚É‚ ‚éƒe[ƒuƒ‹ƒIƒuƒWƒFƒNƒg‚ğæ“¾
+    'ã“ã®ãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆä¸Šã«ã‚ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’å–å¾—
     Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
 
-    'ƒf[ƒ^‘€ì‚ÌŠî€‚Æ‚È‚éƒZƒ‹‚ğæ“¾‚·‚é
+    'ãƒ‡ãƒ¼ã‚¿æ“ä½œã®åŸºæº–ã¨ãªã‚‹ã‚»ãƒ«ã‚’å–å¾—ã™ã‚‹
     With TargetTableObj.DataBodyRange
         On Error Resume Next
             Select Case TableName
                 Case UseTableName(1, ErrorSource)
-                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table01ColumnID.UserName), .Columns(Table01ColumnID.UserName))   '‘ælˆø”‚É`Nothing`‚ğ“ü‚ê‚ê‚Î‚¢‚¢Š´‚¶‚É‚È‚é‚Æv‚¢‚«‚âƒ_ƒ‚İ‚½‚¢‚Å‚·
-                    ResizeRows = 6  '1ƒ†[ƒU[‚É‚Â‚«A5‚Â•ª‚ÌƒpƒCƒvƒnƒ“ƒhƒ‹î•ñ + ƒvƒƒZƒXID
+                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table01ColumnID.UserName), .Columns(Table01ColumnID.UserName))   'ç¬¬å››å¼•æ•°ã«`Nothing`ã‚’å…¥ã‚Œã‚Œã°ã„ã„æ„Ÿã˜ã«ãªã‚‹ã¨æ€ã„ãã‚„ãƒ€ãƒ¡ã¿ãŸã„ã§ã™
+                    ResizeRows = 6  '1ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«ã¤ãã€5ã¤åˆ†ã®ãƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«æƒ…å ± + ãƒ—ãƒ­ã‚»ã‚¹ID
 
                 Case UseTableName(2, ErrorSource)
-                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table02ColumnID.UserName), .Columns(Table02ColumnID.UserName))   '‘ælˆø”‚É`Nothing`‚ğ“ü‚ê‚ê‚Î‚¢‚¢Š´‚¶‚É‚È‚é‚Æv‚¢‚«‚âƒ_ƒ‚İ‚½‚¢‚Å‚·
-                    ResizeRows = 3  '1ƒ†[ƒU[‚É‚Â‚«A3‚Â•ª‚Ìƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“î•ñ
+                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table02ColumnID.UserName), .Columns(Table02ColumnID.UserName))   'ç¬¬å››å¼•æ•°ã«`Nothing`ã‚’å…¥ã‚Œã‚Œã°ã„ã„æ„Ÿã˜ã«ãªã‚‹ã¨æ€ã„ãã‚„ãƒ€ãƒ¡ã¿ãŸã„ã§ã™
+                    ResizeRows = 3  '1ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«ã¤ãã€3ã¤åˆ†ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±
 
                 Case Else
                     On Error GoTo 0
-                    Err.Raise 4 + vbObjectError, ErrorSource, "“n‚³‚ê‚½ƒe[ƒuƒ‹–¼F" & TableName & "@‚ÍA‚±‚ÌƒvƒƒpƒeƒB‚Å‚Íg—p‚Å‚«‚Ü‚¹‚ñ"
+                    Err.Raise 4 + vbObjectError, ErrorSource, "æ¸¡ã•ã‚ŒãŸãƒ†ãƒ¼ãƒ–ãƒ«åï¼š" & TableName & "ã€€ã¯ã€ã“ã®ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã§ã¯ä½¿ç”¨ã§ãã¾ã›ã‚“"
             End Select
         On Error GoTo 0
     End With

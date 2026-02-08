@@ -1,49 +1,49 @@
 Attribute VB_Name = "Demo_WebSocket"
 '***************************************************************************************************
-'                          WebSocket ‚Ìƒfƒ‚ƒ“ƒXƒgƒŒ[ƒVƒ‡ƒ“‚Å‚·
-'                   ‚±‚ê‚ğ‹ìg‚·‚ê‚ÎAFireFox ‚Ì©“®‘€ì‚à‰Â”\‚Å‚·
+'                          WebSocket ã®ãƒ‡ãƒ¢ãƒ³ã‚¹ãƒˆãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã§ã™
+'                   ã“ã‚Œã‚’é§†ä½¿ã™ã‚Œã°ã€FireFox ã®è‡ªå‹•æ“ä½œã‚‚å¯èƒ½ã§ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ “¯Šúˆ— ¡¡¡
+'                                   â– â– â–  åŒæœŸå‡¦ç† â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èwssƒvƒƒgƒRƒ‹‚ÉV‹K“¯ŠúÚ‘±‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šwssãƒ—ãƒ­ãƒˆã‚³ãƒ«ã«æ–°è¦åŒæœŸæ¥ç¶šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FEWebsocket‚ÌDemo‚ª‚Å‚«‚éuwss://echo.websocket.orgv‚ÖÚ‘±‚µAŠÈ’P‚È‘—óMƒeƒXƒg‚ğ‚µ‚Ü‚·
-'            E“à•”‚Ì•¶šƒR[ƒh•ÏŠ·‚É‚æ‚èA“ú–{Œê‚à–â‘è‚ ‚è‚Ü‚¹‚ñ
-'* ’ˆÓ–€F‚Ü‚¾‰½‚àóM‚µ‚Ä‚È‚¢ó‘Ô‚ÅAóMˆ—‚ğ‚·‚é‚ÆƒtƒŠ[ƒY‚µ‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šãƒ»Websocketã®DemoãŒã§ãã‚‹ã€Œwss://echo.websocket.orgã€ã¸æ¥ç¶šã—ã€ç°¡å˜ãªé€å—ä¿¡ãƒ†ã‚¹ãƒˆã‚’ã—ã¾ã™
+'            ãƒ»å†…éƒ¨ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰å¤‰æ›ã«ã‚ˆã‚Šã€æ—¥æœ¬èªã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“
+'* æ³¨æ„äº‹é …ï¼šã¾ã ä½•ã‚‚å—ä¿¡ã—ã¦ãªã„çŠ¶æ…‹ã§ã€å—ä¿¡å‡¦ç†ã‚’ã™ã‚‹ã¨ãƒ•ãƒªãƒ¼ã‚ºã—ã¾ã™
 '***************************************************************************************************
 Sub WebSocketDemoSync1()
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     
-    'Ú‘±æ‚ğİ’è‚µ‚Ü‚·
+    'æ¥ç¶šå…ˆã‚’è¨­å®šã—ã¾ã™
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("echo.websocket.org", "")
 
-    '¬Œ÷”»’è
+    'æˆåŠŸåˆ¤å®š
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. SyncMode."
-        Debug.Print "ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹ƒR[ƒhF" & ResultHandleCode
+        Debug.Print "å†æ¥ç¶šæ™‚ã®ãƒãƒ³ãƒ‰ãƒ«ã‚³ãƒ¼ãƒ‰ï¼š" & ResultHandleCode
         Debug.Print WebsocketObj.GetSyncMessage
 
-        '1Œ•ª‚Ì‘—M‚ğ‚µ‚Ä‚İ‚é
-        '¦WorksheetFunction.Unichar@‚ÍŠG•¶š‚ğ‘—‚é‚Æ‚«‚Ég‚¦‚Ü‚·
-        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("‚¤‚İ‚Ë‚±I‚İ‚á`‚¨I" & WorksheetFunction.Unichar(129418))
+        '1ä»¶åˆ†ã®é€ä¿¡ã‚’ã—ã¦ã¿ã‚‹
+        'â€»WorksheetFunction.Unicharã€€ã¯çµµæ–‡å­—ã‚’é€ã‚‹ã¨ãã«ä½¿ãˆã¾ã™
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("ã†ã¿ã­ã“ï¼ã¿ã‚ƒï½ãŠï¼" & WorksheetFunction.Unichar(129418))
         
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         Dim ErrorMes As New WinApiError
-        If ResultCode Then Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        If ResultCode Then Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
         
-        'óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+        'å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
         Debug.Print WebsocketObj.GetSyncMessage(, ResultCode)
 
-        'ÀsŒ‹‰ÊŠm”F
-        If ResultCode Then Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        'å®Ÿè¡Œçµæœç¢ºèª
+        If ResultCode Then Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
-        'Œãn––
+        'å¾Œå§‹æœ«
         WebsocketObj.CloseWebSocket
     Else
         Debug.Print "Websocket connect is failed."
@@ -51,41 +51,41 @@ Sub WebSocketDemoSync1()
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èwsƒvƒƒgƒRƒ‹‚ÉV‹K“¯ŠúÚ‘±‚µ‚Ü‚·B
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šwsãƒ—ãƒ­ãƒˆã‚³ãƒ«ã«æ–°è¦åŒæœŸæ¥ç¶šã—ã¾ã™ã€‚
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FEWebsocketŒo—R‚É‚æ‚éChrome DevTools Protcol ‘€ì‚ğƒfƒ‚ƒ“ƒXƒgƒŒ[ƒVƒ‡ƒ“‚µ‚Ü‚·B‘S‚ÄJsonƒR[ƒh‚Å‚Ì‚â‚èæ‚è‚Æ‚È‚è‚Ü‚·
-'            E“à•”‚Ì•¶šƒR[ƒh•ÏŠ·‚É‚æ‚èA“ú–{Œê‚à–â‘è‚ ‚è‚Ü‚¹‚ñ
-'            EFireFox ‚à“¯‚¶Œ´—‚È‚Ì‚ÅA‘—‚éJsonƒRƒ}ƒ“ƒh‚ª³‚µ‚¯‚ê‚Î©“®‘€ì‰Â”\‚Å‚·
-'* ’ˆÓ–€F‚Ü‚¾‰½‚àóM‚µ‚Ä‚È‚¢ó‘Ô‚ÅAóMˆ—‚ğ‚·‚é‚ÆƒtƒŠ[ƒY‚µ‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šãƒ»WebsocketçµŒç”±ã«ã‚ˆã‚‹Chrome DevTools Protcol æ“ä½œã‚’ãƒ‡ãƒ¢ãƒ³ã‚¹ãƒˆãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã—ã¾ã™ã€‚å…¨ã¦Jsonã‚³ãƒ¼ãƒ‰ã§ã®ã‚„ã‚Šå–ã‚Šã¨ãªã‚Šã¾ã™
+'            ãƒ»å†…éƒ¨ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰å¤‰æ›ã«ã‚ˆã‚Šã€æ—¥æœ¬èªã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“
+'            ãƒ»FireFox ã‚‚åŒã˜åŸç†ãªã®ã§ã€é€ã‚‹Jsonã‚³ãƒãƒ³ãƒ‰ãŒæ­£ã—ã‘ã‚Œã°è‡ªå‹•æ“ä½œå¯èƒ½ã§ã™
+'* æ³¨æ„äº‹é …ï¼šã¾ã ä½•ã‚‚å—ä¿¡ã—ã¦ãªã„çŠ¶æ…‹ã§ã€å—ä¿¡å‡¦ç†ã‚’ã™ã‚‹ã¨ãƒ•ãƒªãƒ¼ã‚ºã—ã¾ã™
 '***************************************************************************************************
 Sub WebSocketDemoSync2()
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     
-    'Ú‘±æ‚ÌwsƒvƒƒgƒRƒ‹‚ÌURI‚ğw’è‚µ‚Ü‚·
+    'æ¥ç¶šå…ˆã®wsãƒ—ãƒ­ãƒˆã‚³ãƒ«ã®URIã‚’æŒ‡å®šã—ã¾ã™
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("127.0.0.1", "devtools/page/61BE42DB3C9B8C64774F795A2E8E4168", 9222, False)
 
-    '¬Œ÷”»’è
+    'æˆåŠŸåˆ¤å®š
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. SyncMode."
-        Debug.Print "ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹ƒR[ƒhF" & ResultHandleCode
+        Debug.Print "å†æ¥ç¶šæ™‚ã®ãƒãƒ³ãƒ‰ãƒ«ã‚³ãƒ¼ãƒ‰ï¼š" & ResultHandleCode
 
-        '1Œ•ª‚Ì‘—M‚ğ‚µ‚Ä‚İ‚é(Ú‘±æ‚Ìƒuƒ‰ƒEƒU‚É‚ ‚é‘Scookieî•ñ’Šo)
+        '1ä»¶åˆ†ã®é€ä¿¡ã‚’ã—ã¦ã¿ã‚‹(æ¥ç¶šå…ˆã®ãƒ–ãƒ©ã‚¦ã‚¶ã«ã‚ã‚‹å…¨cookieæƒ…å ±æŠ½å‡º)
         Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Network.getAllCookies""," & _
                   """params"":{}}")
 
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         Dim ErrorMes As New WinApiError
-        If ResultCode Then Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        If ResultCode Then Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
-        'óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+        'å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
         Debug.Print WebsocketObj.GetSyncMessage(, ResultCode)
 
-        'ÀsŒ‹‰ÊŠm”F
-        If ResultCode Then Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+        'å®Ÿè¡Œçµæœç¢ºèª
+        If ResultCode Then Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
-        'Œãn––
+        'å¾Œå§‹æœ«
         WebsocketObj.CloseWebSocket
     Else
         Debug.Print "Websocket connect is failed."
@@ -93,78 +93,78 @@ Sub WebSocketDemoSync2()
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@FŠù‘¶‚ÌWebSocketƒnƒ“ƒhƒ‹’l‚ğg‚Á‚ÄAÄÚ‘±‚µ‚â‚èæ‚è‚ÌÄŠJ‚ğ‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ—¢å­˜ã®WebSocketãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’ä½¿ã£ã¦ã€å†æ¥ç¶šã—ã‚„ã‚Šå–ã‚Šã®å†é–‹ã‚’ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€F‚Ü‚¾‰½‚àóM‚µ‚Ä‚È‚¢ó‘Ô‚ÅAóMˆ—‚ğ‚·‚é‚ÆƒtƒŠ[ƒY‚µ‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šã¾ã ä½•ã‚‚å—ä¿¡ã—ã¦ãªã„çŠ¶æ…‹ã§ã€å—ä¿¡å‡¦ç†ã‚’ã™ã‚‹ã¨ãƒ•ãƒªãƒ¼ã‚ºã—ã¾ã™
 '***************************************************************************************************
 Sub ReWebSocketDemoSync()
-    '‘O€‚Å“¾‚½ƒnƒ“ƒhƒ‹’l
+    'å‰é …ã§å¾—ãŸãƒãƒ³ãƒ‰ãƒ«å€¤
     Const ReConnectionHandle As LongPtr = 1510884779936^
 
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬‚µ‚ÄAÄÚ‘±—p‚ÌLETƒƒ\ƒbƒh‚ÉƒZƒbƒg
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆã—ã¦ã€å†æ¥ç¶šç”¨ã®LETãƒ¡ã‚½ãƒƒãƒ‰ã«ã‚»ãƒƒãƒˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    '‘—MƒeƒXƒg
+    'é€ä¿¡ãƒ†ã‚¹ãƒˆ
     Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Browser.getVersion""," & _
                   """params"":{}}")
 
-    'ÀsŒ‹‰ÊŠm”F
+    'å®Ÿè¡Œçµæœç¢ºèª
     Dim ErrorMes As New WinApiError
-    If ResultCode Then Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+    If ResultCode Then Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 
-    'óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+    'å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
     Debug.Print WebsocketObj.GetSyncMessage(, ResultCode)
 
-    'ÀsŒ‹‰ÊŠm”F
-    If ResultCode Then Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
+    'å®Ÿè¡Œçµæœç¢ºèª
+    If ResultCode Then Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp"): Exit Sub
 End Sub
 
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ ”ñ“¯Šúˆ— ¡¡¡
+'                                   â– â– â–  éåŒæœŸå‡¦ç† â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fw’èwssƒvƒƒgƒRƒ‹‚ÉV‹K”ñ“¯ŠúÚ‘±‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šwssãƒ—ãƒ­ãƒˆã‚³ãƒ«ã«æ–°è¦éåŒæœŸæ¥ç¶šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FEWebsocket‚ÌDemo‚ª‚Å‚«‚éuwss://echo.websocket.orgv‚ÖÚ‘±‚µAŠÈ’P‚È‘—MƒeƒXƒg‚ğ‚µ‚Ü‚·
-'            E“à•”‚Ì•¶šƒR[ƒh•ÏŠ·‚É‚æ‚èA“ú–{Œê‚à–â‘è‚ ‚è‚Ü‚¹‚ñ
-'* ’ˆÓ–€F‚±‚±‚Å‚ÍAóM‚Í‚Ü‚¾‚µ‚Ü‚¹‚ñ
+'* è©³ç´°èª¬æ˜ï¼šãƒ»Websocketã®DemoãŒã§ãã‚‹ã€Œwss://echo.websocket.orgã€ã¸æ¥ç¶šã—ã€ç°¡å˜ãªé€ä¿¡ãƒ†ã‚¹ãƒˆã‚’ã—ã¾ã™
+'            ãƒ»å†…éƒ¨ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰å¤‰æ›ã«ã‚ˆã‚Šã€æ—¥æœ¬èªã‚‚å•é¡Œã‚ã‚Šã¾ã›ã‚“
+'* æ³¨æ„äº‹é …ï¼šã“ã“ã§ã¯ã€å—ä¿¡ã¯ã¾ã ã—ã¾ã›ã‚“
 '***************************************************************************************************
-Sub WebSocketDemoASync1_1_‰Šú‰»()
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬
+Sub WebSocketDemoASync1_1_åˆæœŸåŒ–()
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     
-    'Ú‘±æ‚ğİ’è‚µ‚Ü‚·
+    'æ¥ç¶šå…ˆã‚’è¨­å®šã—ã¾ã™
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("echo.websocket.org", "", , , AddressOf WebSocketCallback)
 
-    'ƒtƒ‰ƒO‚ÌƒŠƒZƒbƒg
+    'ãƒ•ãƒ©ã‚°ã®ãƒªã‚»ãƒƒãƒˆ
     isDataReady = False
 
-    '¬Œ÷”»’è
+    'æˆåŠŸåˆ¤å®š
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. AsyncMode."
-        Debug.Print "ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹ƒR[ƒhF" & ResultHandleCode
+        Debug.Print "å†æ¥ç¶šæ™‚ã®ãƒãƒ³ãƒ‰ãƒ«ã‚³ãƒ¼ãƒ‰ï¼š" & ResultHandleCode
 
-        '1Œ•ª‚Ì‘—M‚ğ‚µ‚Ä‚İ‚é
-        '¦WorksheetFunction.Unichar@‚ÍŠG•¶š‚ğ‘—‚é‚Æ‚«‚Ég‚¦‚Ü‚·
-        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("‚¤‚İ‚Ë‚±I‚İ‚á`‚¨I" & WorksheetFunction.Unichar(129418))
+        '1ä»¶åˆ†ã®é€ä¿¡ã‚’ã—ã¦ã¿ã‚‹
+        'â€»WorksheetFunction.Unicharã€€ã¯çµµæ–‡å­—ã‚’é€ã‚‹ã¨ãã«ä½¿ãˆã¾ã™
+        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("ã†ã¿ã­ã“ï¼ã¿ã‚ƒï½ãŠï¼" & WorksheetFunction.Unichar(129418))
         
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         Dim ErrorMes As New WinApiError
         If ResultCode Then
-            Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+            Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
         Else
             Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
         End If
 
-        'óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+        'å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
         Debug.Print WebsocketObj.GetAsyncMessage(, ResultCode)
             
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         If ResultCode Then
-            Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+            Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
         Else
             Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
         End If
@@ -173,98 +173,98 @@ Sub WebSocketDemoASync1_1_‰Šú‰»()
     End If
 End Sub
 
-Sub WebSocketDemoASync1_2_óMƒŠƒNƒGƒXƒg()
-    '‘O€‚Å“¾‚½ƒnƒ“ƒhƒ‹’l
+Sub WebSocketDemoASync1_2_å—ä¿¡ãƒªã‚¯ã‚¨ã‚¹ãƒˆ()
+    'å‰é …ã§å¾—ãŸãƒãƒ³ãƒ‰ãƒ«å€¤
     Const ReConnectionHandle As LongPtr = 2172043420336^
 
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬‚µ‚ÄAÄÚ‘±—p‚ÌLETƒƒ\ƒbƒh‚ÉƒZƒbƒg
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆã—ã¦ã€å†æ¥ç¶šç”¨ã®LETãƒ¡ã‚½ãƒƒãƒ‰ã«ã‚»ãƒƒãƒˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    'óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+    'å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
     Dim ResultCode As Long
     Debug.Print WebsocketObj.GetAsyncMessage(, ResultCode)
         
-    'ÀsŒ‹‰ÊŠm”F
+    'å®Ÿè¡Œçµæœç¢ºèª
     Dim ErrorMes As New WinApiError
     If ResultCode Then
-        Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
-Sub WebSocketDemoASync1_3_ƒnƒ“ƒhƒ‹‚©‚ç‘—M()
-    '‘O€‚Å“¾‚½ƒnƒ“ƒhƒ‹’l
+Sub WebSocketDemoASync1_3_ãƒãƒ³ãƒ‰ãƒ«ã‹ã‚‰é€ä¿¡()
+    'å‰é …ã§å¾—ãŸãƒãƒ³ãƒ‰ãƒ«å€¤
     Const ReConnectionHandle As LongPtr = 2172043420336^
 
-    'ƒJƒEƒ“ƒg—p
+    'ã‚«ã‚¦ãƒ³ãƒˆç”¨
     Static Count As Long
     Count = Count + 1
 
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬‚µ‚ÄAÄÚ‘±—p‚ÌLETƒƒ\ƒbƒh‚ÉƒZƒbƒg
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆã—ã¦ã€å†æ¥ç¶šç”¨ã®LETãƒ¡ã‚½ãƒƒãƒ‰ã«ã‚»ãƒƒãƒˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    '1Œ•ª‚Ì‘—M‚ğ‚µ‚Ä‚İ‚é
-    '¦WorksheetFunction.Unichar@‚ÍŠG•¶š‚ğ‘—‚é‚Æ‚«‚Ég‚¦‚Ü‚·
-    Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("‚¤‚İ‚Ë‚±I‚İ‚á`‚¨I" & Count & WorksheetFunction.Unichar(129418))
+    '1ä»¶åˆ†ã®é€ä¿¡ã‚’ã—ã¦ã¿ã‚‹
+    'â€»WorksheetFunction.Unicharã€€ã¯çµµæ–‡å­—ã‚’é€ã‚‹ã¨ãã«ä½¿ãˆã¾ã™
+    Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("ã†ã¿ã­ã“ï¼ã¿ã‚ƒï½ãŠï¼" & Count & WorksheetFunction.Unichar(129418))
         
-    'ÀsŒ‹‰ÊŠm”F
+    'å®Ÿè¡Œçµæœç¢ºèª
     Dim ErrorMes As New WinApiError
     If ResultCode Then
-        Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
-Sub WebSocketDemoASync1_4_Œãn––()
-    '‘O€‚Å“¾‚½ƒnƒ“ƒhƒ‹’l
+Sub WebSocketDemoASync1_4_å¾Œå§‹æœ«()
+    'å‰é …ã§å¾—ãŸãƒãƒ³ãƒ‰ãƒ«å€¤
     Const ReConnectionHandle As LongPtr = 2519160849248^
 
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬‚µ‚ÄAÄÚ‘±—p‚ÌLETƒƒ\ƒbƒh‚ÉƒZƒbƒg
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆã—ã¦ã€å†æ¥ç¶šç”¨ã®LETãƒ¡ã‚½ãƒƒãƒ‰ã«ã‚»ãƒƒãƒˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     WebsocketObj.ReConnect = ReConnectionHandle
 
-    'Œãn––
+    'å¾Œå§‹æœ«
     WebsocketObj.CloseWebSocket (True)
 End Sub
 
-Sub WebSocketDemoASync2_’·•¶ƒŒƒXƒ|ƒ“ƒX()
-    'ƒIƒuƒWƒFƒNƒg‚ğì¬
+Sub WebSocketDemoASync2_é•·æ–‡ãƒ¬ã‚¹ãƒãƒ³ã‚¹()
+    'ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ä½œæˆ
     Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
     
-    'Ú‘±æ‚ğİ’è‚µ‚Ü‚·
+    'æ¥ç¶šå…ˆã‚’è¨­å®šã—ã¾ã™
     Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("127.0.0.1", "devtools/page/1AAA01F8A73F5568DDF8FF042B62D61C", 9222, False, AddressOf WebSocketCallback)
 
-    'ƒtƒ‰ƒO‚ÌƒŠƒZƒbƒg
+    'ãƒ•ãƒ©ã‚°ã®ãƒªã‚»ãƒƒãƒˆ
     isDataReady = False
 
-    '¬Œ÷”»’è
+    'æˆåŠŸåˆ¤å®š
     If ResultHandleCode Then
         Debug.Print "Websocket connect is success. AsyncMode."
-        Debug.Print "ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹ƒR[ƒhF" & ResultHandleCode
+        Debug.Print "å†æ¥ç¶šæ™‚ã®ãƒãƒ³ãƒ‰ãƒ«ã‚³ãƒ¼ãƒ‰ï¼š" & ResultHandleCode
 
-        '‘—MƒeƒXƒg
+        'é€ä¿¡ãƒ†ã‚¹ãƒˆ
         Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("{""id"":" & 1 & "," & _
                   """method"":""Network.getAllCookies""," & _
                   """params"":{}}")
         
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         Dim ErrorMes As New WinApiError
         If ResultCode Then
-            Debug.Print "‘—MƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+            Debug.Print "é€ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
         Else
             Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
         End If
 
-        '’·•¶óMƒƒbƒZ[ƒW‚ğó‚¯æ‚é
+        'é•·æ–‡å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ã‘å–ã‚‹
         Debug.Print WebsocketObj.GetAsyncMessage(, ResultCode)
             
-        'ÀsŒ‹‰ÊŠm”F
+        'å®Ÿè¡Œçµæœç¢ºèª
         If ResultCode Then
-            Debug.Print "óMƒGƒ‰[”­¶BErrorCodeF" & ResultCode & ",DescriptionF" & ErrorMes.GetMessage(ResultCode, "winhttp")
+            Debug.Print "å—ä¿¡ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã€‚ErrorCodeï¼š" & ResultCode & ",Descriptionï¼š" & ErrorMes.GetMessage(ResultCode, "winhttp")
         Else
             Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
         End If

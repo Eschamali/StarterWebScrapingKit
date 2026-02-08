@@ -8,15 +8,15 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'                      Websocket‚Æ‚Ì‚â‚èæ‚è‚ÌŠj‚Æ‚È‚éˆ—‚Å‚·
-'   winhttp5.1 ‚Å‚ÍAhttpŒn““Á‰»‚Ì‚½‚ß‚±‚±‚Å‚ÍAWinHttp.dll ‚ğ’¼Ú‘€ì‚·‚é’áƒŒƒxƒ‹‘€ì‚ğs‚¢‚Ü‚·
+'                      Websocketã¨ã®ã‚„ã‚Šå–ã‚Šã®æ ¸ã¨ãªã‚‹å‡¦ç†ã§ã™
+'   winhttp5.1 ã§ã¯ã€httpç³»çµ±ç‰¹åŒ–ã®ãŸã‚ã“ã“ã§ã¯ã€WinHttp.dll ã‚’ç›´æ¥æ“ä½œã™ã‚‹ä½ãƒ¬ãƒ™ãƒ«æ“ä½œã‚’è¡Œã„ã¾ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                           ¡¡¡ WindowsAPIéŒ¾‚Æ’è”’è‹` ¡¡¡
+'                           â– â– â–  WindowsAPIå®£è¨€ã¨å®šæ•°å®šç¾© â– â– â– 
 '***************************************************************************************************
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
@@ -26,12 +26,12 @@ Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ) As Long
 
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
-Private Const WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE = -1 'óMƒŠƒNƒGƒXƒgB¦“Æ©ƒXƒe[ƒ^ƒXƒR[ƒh
-Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0     'ƒoƒCƒiƒŠƒƒbƒZ[ƒW‘S‘Ì‚©ÅŒã‚Ì•”•ªB
-Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1    'ƒoƒCƒiƒŠƒƒbƒZ[ƒW‚Ìˆê•”•ª‚Ì‚İ¡
-Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2       'UTF-8ƒƒbƒZ[ƒW‘S‘Ì‚©ÅŒã‚Ì•”•ªB
-Private Const WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE = 3      'UTF-8 ƒƒbƒZ[ƒW‚Ìˆê•”•ª‚Ì‚İB
-Private Const WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE = 4              'CloseFrameB
+Private Const WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE = -1 'å—ä¿¡ãƒªã‚¯ã‚¨ã‚¹ãƒˆã€‚â€»ç‹¬è‡ªã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚³ãƒ¼ãƒ‰
+Private Const WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE = 0     'ãƒã‚¤ãƒŠãƒªãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å…¨ä½“ã‹æœ€å¾Œã®éƒ¨åˆ†ã€‚
+Private Const WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE = 1    'ãƒã‚¤ãƒŠãƒªãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®ä¸€éƒ¨åˆ†ã®ã¿ï½¡
+Private Const WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE = 2       'UTF-8ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å…¨ä½“ã‹æœ€å¾Œã®éƒ¨åˆ†ã€‚
+Private Const WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE = 3      'UTF-8 ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®ä¸€éƒ¨åˆ†ã®ã¿ã€‚
+Private Const WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE = 4              'CloseFrameã€‚
 
 Private Declare PtrSafe Function WinHttpWebSocketReceive Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
@@ -68,15 +68,15 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
 
-'Websocket’~ÏóMó‹µ”cˆ¬‚Ég—p
+'Websocketè“„ç©å—ä¿¡çŠ¶æ³æŠŠæ¡ã«ä½¿ç”¨
 Private Type WebSocketReceiveManage
-    Buffer(BufferToAllocate - 1) As Byte    '‘æ1ˆø”        `WinHttpWebSocketReceive`‚©‚ç‚ÌóMƒoƒCƒgƒf[ƒ^
-    BufferLength As Long                    '‘æ2ˆø”        ƒoƒbƒtƒ@[c—Ê@¦`UpdateBufferInfo`“à‚ÅŒvZ‚µ‚Ü‚·
-    ReceiveBytes As Long                    '‘æ3ˆø”        `WinHttpWebSocketReceive`‚©‚çóM‚Å‚«‚½ƒTƒCƒY
-    Status As Long                          '‘æ4ˆø”        WINHTTP_WEB_SOCKET_STATUS.eBufferType
-    CurrentPointer As Long                  '‘æ5ˆø”        ƒJ[ƒ\ƒ‹ˆÊ’u@¦`UpdateBufferInfo`“à‚ÅŒvZ‚µ‚Ü‚·
-    result As Long                          '–ß‚è’l         `WinHttpWebSocketReceive`©‘Ì‚ÌÀsŒ‹‰Ê
-    collect As Collection                   'ƒ`ƒƒƒ“ƒNûW   ƒoƒ‰ƒoƒ‰‚Ìƒf[ƒ^‚ğ’~Ï‚³‚¹‚é—p
+    Buffer(BufferToAllocate - 1) As Byte    'ç¬¬1å¼•æ•°        `WinHttpWebSocketReceive`ã‹ã‚‰ã®å—ä¿¡ãƒã‚¤ãƒˆãƒ‡ãƒ¼ã‚¿
+    BufferLength As Long                    'ç¬¬2å¼•æ•°        ãƒãƒƒãƒ•ã‚¡ãƒ¼æ®‹é‡ã€€â€»`UpdateBufferInfo`å†…ã§è¨ˆç®—ã—ã¾ã™
+    ReceiveBytes As Long                    'ç¬¬3å¼•æ•°        `WinHttpWebSocketReceive`ã‹ã‚‰å—ä¿¡ã§ããŸã‚µã‚¤ã‚º
+    Status As Long                          'ç¬¬4å¼•æ•°        WINHTTP_WEB_SOCKET_STATUS.eBufferType
+    CurrentPointer As Long                  'ç¬¬5å¼•æ•°        ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®ã€€â€»`UpdateBufferInfo`å†…ã§è¨ˆç®—ã—ã¾ã™
+    result As Long                          'æˆ»ã‚Šå€¤         `WinHttpWebSocketReceive`è‡ªä½“ã®å®Ÿè¡Œçµæœ
+    collect As Collection                   'ãƒãƒ£ãƒ³ã‚¯åé›†   ãƒãƒ©ãƒãƒ©ã®ãƒ‡ãƒ¼ã‚¿ã‚’è“„ç©ã•ã›ã‚‹ç”¨
 End Type
 
 
@@ -88,16 +88,16 @@ Private ViewLog As New Logger
 
 
 '***************************************************************************************************
-'                                 ¡¡¡ ƒvƒƒpƒeƒBƒƒ\ƒbƒh ¡¡¡
+'                                 â– â– â–  ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FŠù‘¶‚Ìwebsocket‚Ìƒnƒ“ƒhƒ‹’l‚ğİ’è‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ—¢å­˜ã®websocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’è¨­å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l F‚±‚ÌƒNƒ‰ƒXƒIƒuƒWƒFƒNƒg‚Éİ’è’†‚ÌWebsockethandle’l
-'* LETˆø” FExistingWebsockethandle    ˆÈ‘Oæ“¾‚µ‚½Websockethandle’l
+'* GETè¿”å€¤ ï¼šã“ã®ã‚¯ãƒ©ã‚¹ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã«è¨­å®šä¸­ã®Websockethandleå€¤
+'* LETå¼•æ•° ï¼šExistingWebsockethandle    ä»¥å‰å–å¾—ã—ãŸWebsockethandleå€¤
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FˆÈ‘O‚ÉŠm—§‚µ‚½websocket‚Ìƒnƒ“ƒhƒ‹’l‚ğ“n‚·‚±‚Æ‚Å‘±‚«‚Ì‚â‚èæ‚è‚ª‚Å‚«‚Ü‚·B
-'* ’ˆÓ–€FErrorCode:12030 ‚ª—ˆ‚½ê‡‚ÍA‚à‚¤Ø’fó‘Ô‚Å‚·BuÚ‘±ˆ—iConnectj‚©‚ç‚â‚è’¼‚·iÄÚ‘±jv ‚µ‚©‚ ‚è‚Ü‚¹‚ñB
-'            •ÊƒvƒƒZƒX‚ğŒ×‚®g—p("/x excel.exe" ‚É‚æ‚é•ÊƒvƒƒZƒX‹N“®‚È‚Ç)‚Í‚Å‚«‚Ü‚¹‚ñ...
+'* æ©Ÿèƒ½èª¬æ˜ï¼šä»¥å‰ã«ç¢ºç«‹ã—ãŸwebsocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’æ¸¡ã™ã“ã¨ã§ç¶šãã®ã‚„ã‚Šå–ã‚ŠãŒã§ãã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼šErrorCode:12030 ãŒæ¥ãŸå ´åˆã¯ã€ã‚‚ã†åˆ‡æ–­çŠ¶æ…‹ã§ã™ã€‚ã€Œæ¥ç¶šå‡¦ç†ï¼ˆConnectï¼‰ã‹ã‚‰ã‚„ã‚Šç›´ã™ï¼ˆå†æ¥ç¶šï¼‰ã€ ã—ã‹ã‚ã‚Šã¾ã›ã‚“ã€‚
+'            åˆ¥ãƒ—ãƒ­ã‚»ã‚¹ã‚’è·¨ãä½¿ç”¨("/x excel.exe" ã«ã‚ˆã‚‹åˆ¥ãƒ—ãƒ­ã‚»ã‚¹èµ·å‹•ãªã©)ã¯ã§ãã¾ã›ã‚“...
 '***************************************************************************************************
 Public Property Get ReConnect() As LongPtr
     ReConnect = ExistingWebsockethandle_
@@ -110,11 +110,11 @@ End Property
 
 
 '***************************************************************************************************
-'                                 ¡¡¡ ”’l‚©‚ç–|–ó ¡¡¡
+'                                 â– â– â–  æ•°å€¤ã‹ã‚‰ç¿»è¨³ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\    FWINHTTP_WEB_SOCKET_BUFFER_TYPE - eBufferType ˆê®
+'* æ©Ÿèƒ½    ï¼šWINHTTP_WEB_SOCKET_BUFFER_TYPE - eBufferType ä¸€å¼
 '---------------------------------------------------------------------------------------------------
-'* URL@@ Fhttps://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
+'* URLã€€ã€€ ï¼šhttps://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
 '***************************************************************************************************
 Public Property Get Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(TypeID As Long, ErrorSource As String) As String
     Select Case TypeID
@@ -123,16 +123,16 @@ Public Property Get Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(TypeID As Long, ErrorSo
         Case 2: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_MESSAGE_BUFFER_TYPE"
         Case 3: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "UTF8_FRAGMENT_BUFFER_TYPE"
         Case 4: Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE = "CLOSE_BUFFER_TYPE"
-        Case Else: Err.Raise 4 + vbObjectError, ErrorSource, "–¢’m‚Ì WINHTTP_WEB_SOCKET_BUFFER_TYPE ‚ª—ˆ‚Ü‚µ‚½B" & vbCrLf & "CodeF" & TypeID
+        Case Else: Err.Raise 4 + vbObjectError, ErrorSource, "æœªçŸ¥ã® WINHTTP_WEB_SOCKET_BUFFER_TYPE ãŒæ¥ã¾ã—ãŸã€‚" & vbCrLf & "Codeï¼š" & TypeID
     End Select
 End Property
 
 '***************************************************************************************************
-'* ‹@”\    FWINHTTP_STATUS_CALLBACK - dwInternetStatus ˆê®
+'* æ©Ÿèƒ½    ï¼šWINHTTP_STATUS_CALLBACK - dwInternetStatus ä¸€å¼
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FWebsocket‚Æ‚ÍŠÖŒW‚È‚¢ƒR[ƒ‹ƒoƒbƒN’è”‚Íˆê’UAƒRƒƒ“ƒgƒAƒEƒg‚µ‚Ä‚¢‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šWebsocketã¨ã¯é–¢ä¿‚ãªã„ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯å®šæ•°ã¯ä¸€æ—¦ã€ã‚³ãƒ¡ãƒ³ãƒˆã‚¢ã‚¦ãƒˆã—ã¦ã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* URL@@ Fhttps://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
+'* URLã€€ã€€ ï¼šhttps://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
 '***************************************************************************************************
 Public Property Get Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus As Long, ErrorSource As String) As String
     Select Case dwInternetStatus
@@ -163,7 +163,7 @@ Public Property Get Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus As Long, Erro
 '        Case 67108864: Name__WINHTTP_STATUS_CALLBACK = "SHUTDOWN_COMPLETE"
 '        Case 268435456: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_WRITE_COMPLETE"
 '        Case 536870912: Name__WINHTTP_STATUS_CALLBACK = "SETTINGS_READ_COMPLETE"
-'        Case Else: Err.Raise 3 + vbObjectError, ErrorSource, "–¢’m‚Ì WINHTTP_CALLBACK_STATUS ‚ª—ˆ‚Ü‚µ‚½B" & vbCrLf & "CodeF" & dwInternetStatus
+'        Case Else: Err.Raise 3 + vbObjectError, ErrorSource, "æœªçŸ¥ã® WINHTTP_CALLBACK_STATUS ãŒæ¥ã¾ã—ãŸã€‚" & vbCrLf & "Codeï¼š" & dwInternetStatus
         Case Else: Name__WINHTTP_STATUS_CALLBACK = "Unknow_Code:" & dwInternetStatus
     End Select
 End Property
@@ -171,36 +171,36 @@ End Property
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ ŒöŠJƒƒ\ƒbƒh ¡¡¡
+'                                   â– â– â–  å…¬é–‹ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fwebsocket‚Ìƒnƒ“ƒhƒ‹’l‚ğV‹K‚Éæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šwebsocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’æ–°è¦ã«å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l  Fw’è‚µ‚½URI‚Ìwebsocket‚Ìƒnƒ“ƒhƒ‹’l@¦¸”s‚ÍA0‚Å‚·
-'* ˆø”    FHost               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ‚È‚çA"github.com"
-'            Path               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ‚È‚çA"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port               httpn‚Ü‚è‚È‚ç80Ahttpsn‚Ü‚è‚È‚çA443‚Å‚·‚ªAƒJƒXƒ^ƒ€‚à‰Â”\‚Å‚·B
-'            SecureMode         httpn‚Ü‚è‚È‚çFalseAhttpsn‚Ü‚è‚È‚çATrue‚Å‚·‚ªA–³‹‚à‚Å‚«‚Ü‚·B
-'            CallBackProcedure  ŠO•”‚©‚çŒÄ‚Ño‚·•W€ƒ‚ƒWƒ…[ƒ‹“à‚ÌƒvƒƒV[ƒWƒƒ–¼(AddressOf ››)‚ğw’è‚µ‚Ü‚·
+'* è¿”ã‚Šå€¤  ï¼šæŒ‡å®šã—ãŸURIã®websocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã€€â€»å¤±æ•—æ™‚ã¯ã€0ã§ã™
+'* å¼•æ•°    ï¼šHost               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ãªã‚‰ã€"github.com"
+'            Path               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ãªã‚‰ã€"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port               httpå§‹ã¾ã‚Šãªã‚‰80ã€httpså§‹ã¾ã‚Šãªã‚‰ã€443ã§ã™ãŒã€ã‚«ã‚¹ã‚¿ãƒ ã‚‚å¯èƒ½ã§ã™ã€‚
+'            SecureMode         httpå§‹ã¾ã‚Šãªã‚‰Falseã€httpså§‹ã¾ã‚Šãªã‚‰ã€Trueã§ã™ãŒã€ç„¡è¦–ã‚‚ã§ãã¾ã™ã€‚
+'            CallBackProcedure  å¤–éƒ¨ã‹ã‚‰å‘¼ã³å‡ºã™æ¨™æº–ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«å†…ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£å(AddressOf â—‹â—‹)ã‚’æŒ‡å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾Fƒwƒ‹ƒp[ƒNƒ‰ƒX‚ğ“`‚Á‚ÄAwebsocket‚Ìƒnƒ“ƒhƒ‹’l‚ğæ“¾‚·‚éd‘g‚İ‚Æ‚È‚Á‚Ä‚¢‚Ü‚·
-'* ’ˆÓ–€FEsecureƒ‚[ƒh‚ª³‚µ‚­‚È‚¢‚ÆAˆ—‚É¸”s‚µ‚Ü‚·
-'            Ecookie‚â”FØƒwƒbƒ_[“™‚Í–¢‘Î‰‚Å‚·B“½–¼ƒAƒNƒZƒX—p‚Å‚·
-'            EŠù‘¶‚Ìwebsocket‚Ìƒnƒ“ƒhƒ‹’l‚ğg‚¤Û‚ÍAŸ€‚Ìƒƒ\ƒbƒh‚ğ‚²—˜—p‰º‚³‚¢
-'            Eˆø”‚ÌƒfƒtƒHƒ‹ƒgOptional\¬‚ÍAhttpsƒvƒƒgƒRƒ‹‚Å‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ˜ãƒ«ãƒ‘ãƒ¼ã‚¯ãƒ©ã‚¹ã‚’ä¼ã£ã¦ã€websocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’å–å¾—ã™ã‚‹ä»•çµ„ã¿ã¨ãªã£ã¦ã„ã¾ã™
+'* æ³¨æ„äº‹é …ï¼šãƒ»secureãƒ¢ãƒ¼ãƒ‰ãŒæ­£ã—ããªã„ã¨ã€å‡¦ç†ã«å¤±æ•—ã—ã¾ã™
+'            ãƒ»cookieã‚„èªè¨¼ãƒ˜ãƒƒãƒ€ãƒ¼ç­‰ã¯æœªå¯¾å¿œã§ã™ã€‚åŒ¿åã‚¢ã‚¯ã‚»ã‚¹ç”¨ã§ã™
+'            ãƒ»æ—¢å­˜ã®websocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’ä½¿ã†éš›ã¯ã€æ¬¡é …ã®ãƒ¡ã‚½ãƒƒãƒ‰ã‚’ã”åˆ©ç”¨ä¸‹ã•ã„
+'            ãƒ»å¼•æ•°ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆOptionalæ§‹æˆã¯ã€httpsãƒ—ãƒ­ãƒˆã‚³ãƒ«ã§ã™
 '***************************************************************************************************
 Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True, Optional CallBackProcedure As LongPtr) As LongPtr
-    '”ñ“¯Šú/“¯Šú‚Ìİ’è
+    'éåŒæœŸ/åŒæœŸã®è¨­å®š
     Dim UseMode As Boolean
     If CallBackProcedure Then UseMode = True Else UseMode = False
     
-    '’Êí‚ÌHTTPÚ‘±‚ğs‚¤
+    'é€šå¸¸ã®HTTPæ¥ç¶šã‚’è¡Œã†
     Set Http = New WebSocketHTTPCommunicator
     If Http.Connect(Host, Path, port, SecureMode, UseMode) = False Then GoTo quit
     
-    'WebSocket‚Ö‚Ì¸Šiˆ—‚ğs‚¤
+    'WebSocketã¸ã®æ˜‡æ ¼å‡¦ç†ã‚’è¡Œã†
     If Http.UpgradeToWebSocket(CallBackProcedure) = False Then GoTo quit
 
-    '¬Œ÷‚µ‚½‚Æ‚«‚ÌWebSocketƒnƒ“ƒhƒ‹’l‚ğ•Ô‚·
+    'æˆåŠŸã—ãŸã¨ãã®WebSocketãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’è¿”ã™
     Init = Http.websockethandle
 Exit Function
 
@@ -210,143 +210,143 @@ quit:
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@Fó‚¯æ‚Á‚½ƒf[ƒ^‚ÅAWebSocket‚Ö‘—M‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šå—ã‘å–ã£ãŸãƒ‡ãƒ¼ã‚¿ã§ã€WebSocketã¸é€ä¿¡ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    FSendData   String OR Byte Œ^‚ğ‘z’è
-'* •Ô‚è’l  FÀsŒ‹‰ÊƒR[ƒh   ¦¬Œ÷‚ÍA0‚Å‚·
+'* å¼•æ•°    ï¼šSendData   String OR Byte å‹ã‚’æƒ³å®š
+'* è¿”ã‚Šå€¤  ï¼šå®Ÿè¡Œçµæœã‚³ãƒ¼ãƒ‰   â€»æˆåŠŸæ™‚ã¯ã€0ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FŒ^”»’è‚ğs‚¢AƒeƒLƒXƒg‚àWideCharToMultiByte ‚ğ‰î‚µ‚½ƒoƒCƒg”z—ñ•ÏŠ·‚ğg—p‚µ‚Ü‚·
-'* ’ˆÓ–€FEƒeƒLƒXƒg‚àŠ‘FAƒoƒCƒiƒŠƒf[ƒ^‚È‚Ì‚Å‚±‚Ì‚æ‚¤‚È•û®‚É‚µ‚Ä‚¢‚Ü‚·B
-'            E”ñ“¯Šúƒ‚[ƒh‚Å‚àg‚¦‚é‚æ‚¤‚É‚µ‚Ä‚¢‚Ü‚·‚ª‚»‚Ìê‡AÀsŒ‹‰ÊƒR[ƒh‚Íí‚É0‚Å‚·BƒR[ƒ‹ƒoƒbƒN‘¤‚ÅÀÛ‚ÉŠm”F‚·‚é•K—v‚ª‚ ‚è‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šå‹åˆ¤å®šã‚’è¡Œã„ã€ãƒ†ã‚­ã‚¹ãƒˆã‚‚WideCharToMultiByte ã‚’ä»‹ã—ãŸãƒã‚¤ãƒˆé…åˆ—å¤‰æ›ã‚’ä½¿ç”¨ã—ã¾ã™
+'* æ³¨æ„äº‹é …ï¼šãƒ»ãƒ†ã‚­ã‚¹ãƒˆã‚‚æ‰€è©®ã€ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿ãªã®ã§ã“ã®ã‚ˆã†ãªæ–¹å¼ã«ã—ã¦ã„ã¾ã™ã€‚
+'            ãƒ»éåŒæœŸãƒ¢ãƒ¼ãƒ‰ã§ã‚‚ä½¿ãˆã‚‹ã‚ˆã†ã«ã—ã¦ã„ã¾ã™ãŒãã®å ´åˆã€å®Ÿè¡Œçµæœã‚³ãƒ¼ãƒ‰ã¯å¸¸ã«0ã§ã™ã€‚ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯å´ã§å®Ÿéš›ã«ç¢ºèªã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚
 '***************************************************************************************************
 Public Function SendMessage(SendData As Variant) As Long
-    'ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹î•ñ‚ª‚ ‚Á‚½‚ç‚»‚Á‚¿‚ğg—p‚·‚é
+    'å†æ¥ç¶šã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ãŒã‚ã£ãŸã‚‰ãã£ã¡ã‚’ä½¿ç”¨ã™ã‚‹
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
-    '•K—v‚É‰‚¶‚ÄAƒoƒCƒg”z—ñ‚Æ‚µ‚Ä•ÏŠ·‚·‚é
+    'å¿…è¦ã«å¿œã˜ã¦ã€ãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦å¤‰æ›ã™ã‚‹
     Dim UseData() As Byte
     Select Case VarType(SendData)
-        Case vbString: UseData = CharConv.BytesFromString(CStr(SendData))   'ƒeƒLƒXƒg‚ğƒoƒCƒg”z—ñ‚É•ÏŠ·‚·‚é
-        Case vbByte: UseData = SendData                                     '‚»‚Ì‚Ü‚ñ‚Üg—p
-        Case Else: Err.Raise vbObjectError + 1, "WebSocketCommunicator.SendMessage", "‚±‚Ì‘€ì‚ÍAStringŒ^‚©ByteŒ^‚Ì‚İ‰Â”\‚Å‚·B" & vbCrLf & "”’l‚Ì‚İ‚Å“n‚µ‚Ä‚éê‡‚Í–‘O‚ÉA`CStr`‚ğ‰î‚·•K—v‚ª‚ ‚è‚Ü‚·B"
+        Case vbString: UseData = CharConv.BytesFromString(CStr(SendData))   'ãƒ†ã‚­ã‚¹ãƒˆã‚’ãƒã‚¤ãƒˆé…åˆ—ã«å¤‰æ›ã™ã‚‹
+        Case vbByte: UseData = SendData                                     'ãã®ã¾ã‚“ã¾ä½¿ç”¨
+        Case Else: Err.Raise vbObjectError + 1, "WebSocketCommunicator.SendMessage", "ã“ã®æ“ä½œã¯ã€Stringå‹ã‹Byteå‹ã®ã¿å¯èƒ½ã§ã™ã€‚" & vbCrLf & "æ•°å€¤ã®ã¿ã§æ¸¡ã—ã¦ã‚‹å ´åˆã¯äº‹å‰ã«ã€`CStr`ã‚’ä»‹ã™å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚"
     End Select
 
-    'ƒoƒCƒg”z—ñ‚ÌƒTƒCƒY‚ğæ“¾
+    'ãƒã‚¤ãƒˆé…åˆ—ã®ã‚µã‚¤ã‚ºã‚’å–å¾—
     Dim messageByteSize As Long: messageByteSize = UBound(UseData) + 1
 
-    '‹‚ß‚½ƒTƒCƒY‚ÅˆêŠ‡‘—M‚µAÀsŒ‹‰ÊƒR[ƒh‚ğ•Ô‹p
-    '¦ŒÄ‚Ño‚µ‘¤‚ÅAƒGƒ‰[‚©‚ÌŠm”F‚ğ‚µ‚Ä‚­‚¾‚³‚¢
+    'æ±‚ã‚ãŸã‚µã‚¤ã‚ºã§ä¸€æ‹¬é€ä¿¡ã—ã€å®Ÿè¡Œçµæœã‚³ãƒ¼ãƒ‰ã‚’è¿”å´
+    'â€»å‘¼ã³å‡ºã—å´ã§ã€ã‚¨ãƒ©ãƒ¼ã‹ã®ç¢ºèªã‚’ã—ã¦ãã ã•ã„
     SendMessage = WinHttpWebSocketSend(UseWebsockethandle, _
                         WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, _
                         VarPtr(UseData(0)), messageByteSize)
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FWebSocket‚©‚ç‚Ì“¯ŠúóM‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šWebSocketã‹ã‚‰ã®åŒæœŸå—ä¿¡ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    FGetBinaryMode
-'               `True`  ƒoƒCƒg”z—ñ‚Æ‚µ‚Äó‚¯æ‚éê‡
-'               `False` ƒeƒLƒXƒg‚Æ‚µ‚Äó‚¯æ‚éê‡
+'* å¼•æ•°    ï¼šGetBinaryMode
+'               `True`  ãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦å—ã‘å–ã‚‹å ´åˆ
+'               `False` ãƒ†ã‚­ã‚¹ãƒˆã¨ã—ã¦å—ã‘å–ã‚‹å ´åˆ
 '
-'            ResultCode     WinHttpWebSocketReceive ‚ÌÀsŒ‹‰ÊBÀ¿•Ô‚è’l‚Å‚·B
-'* •Ô‚è’l  FWebSocket‚©‚ç‚ÌóMƒƒbƒZ[ƒWB¦ƒGƒ‰[‚¾‚ÆAvbnullstring ‚Å‚·
+'            ResultCode     WinHttpWebSocketReceive ã®å®Ÿè¡Œçµæœã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™ã€‚
+'* è¿”ã‚Šå€¤  ï¼šWebSocketã‹ã‚‰ã®å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã€‚â€»ã‚¨ãƒ©ãƒ¼ã ã¨ã€vbnullstring ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FErrorCodeF12152@‘Îô‚É‚æ‚èAWideCharToMultiByte ‚ğ‰î‚µ‚½ƒoƒCƒg”z—ñ•ÏŠ·‚ğg—p‚µ‚Ä‚Ü‚·
-'* ’ˆÓ–€FEóMƒf[ƒ^‚ª‚È‚¢ó‘Ô‚Å‚±‚ê‚ğŒÄ‚Ño‚·‚ÆAóMƒf[ƒ^‚ª—ˆ‚é‚Ü‚ÅAƒt@ƒŠ@[@ƒY@‚µ‚Ü‚·BƒlƒbƒgØ’f‚·‚é‚±‚Æ‚ÅA40s‘OŒã‚ÅƒtƒŠ[ƒY‰ñ”ğ‚Å‚«‚Ü‚·B
-'            EŒ»“_‚ÍAƒvƒŒ[ƒ“ƒeƒLƒXƒgóM‚Ì‚İ‘Î‰‚Å‚·
-'            E‘—M‚Æˆá‚Á‚ÄóM‚Í“à•”‚ÅAŒÅ’è‚Ìƒoƒbƒtƒ@[ƒTƒCƒYóM‚É‚æ‚éƒXƒgƒŠ[ƒ~ƒ“ƒOóM•û®‚ğæ‚Á‚Ä‚¢‚Ü‚·B‚»‚Ì‚½‚ßAóMƒf[ƒ^—Ê‚ª‘½‚¢‚Æ•Ô‚é‚Ü‚ÅŠÔ‚ª‚©‚©‚è‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šErrorCodeï¼š12152ã€€å¯¾ç­–ã«ã‚ˆã‚Šã€WideCharToMultiByte ã‚’ä»‹ã—ãŸãƒã‚¤ãƒˆé…åˆ—å¤‰æ›ã‚’ä½¿ç”¨ã—ã¦ã¾ã™
+'* æ³¨æ„äº‹é …ï¼šãƒ»å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒãªã„çŠ¶æ…‹ã§ã“ã‚Œã‚’å‘¼ã³å‡ºã™ã¨ã€å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒæ¥ã‚‹ã¾ã§ã€ãƒ•ã€€ãƒªã€€ãƒ¼ã€€ã‚ºã€€ã—ã¾ã™ã€‚ãƒãƒƒãƒˆåˆ‡æ–­ã™ã‚‹ã“ã¨ã§ã€40så‰å¾Œã§ãƒ•ãƒªãƒ¼ã‚ºå›é¿ã§ãã¾ã™ã€‚
+'            ãƒ»ç¾æ™‚ç‚¹ã¯ã€ãƒ—ãƒ¬ãƒ¼ãƒ³ãƒ†ã‚­ã‚¹ãƒˆå—ä¿¡ã®ã¿å¯¾å¿œã§ã™
+'            ãƒ»é€ä¿¡ã¨é•ã£ã¦å—ä¿¡ã¯å†…éƒ¨ã§ã€å›ºå®šã®ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚µã‚¤ã‚ºå—ä¿¡ã«ã‚ˆã‚‹ã‚¹ãƒˆãƒªãƒ¼ãƒŸãƒ³ã‚°å—ä¿¡æ–¹å¼ã‚’å–ã£ã¦ã„ã¾ã™ã€‚ãã®ãŸã‚ã€å—ä¿¡ãƒ‡ãƒ¼ã‚¿é‡ãŒå¤šã„ã¨è¿”ã‚‹ã¾ã§æ™‚é–“ãŒã‹ã‹ã‚Šã¾ã™ã€‚
 '***************************************************************************************************
 Public Function GetSyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
-    'ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹î•ñ‚ª‚ ‚Á‚½‚ç‚»‚Á‚¿‚ğg—p‚·‚é
+    'å†æ¥ç¶šã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ãŒã‚ã£ãŸã‚‰ãã£ã¡ã‚’ä½¿ç”¨ã™ã‚‹
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
-    'ƒXƒgƒŠ[ƒ~ƒ“ƒOóM€”õ‚É‚æ‚é‰Šú‰»
+    'ã‚¹ãƒˆãƒªãƒ¼ãƒŸãƒ³ã‚°å—ä¿¡æº–å‚™ã«ã‚ˆã‚‹åˆæœŸåŒ–
     Dim res As WebSocketReceiveManage
     InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
     Set res.collect = New Collection
     ResultCode = 0
 
-    'ƒf[ƒ^‚ªs‚«‚é‚Ü‚ÅAƒŒƒXƒ|ƒ“ƒXóMƒ‹[ƒv
+    'ãƒ‡ãƒ¼ã‚¿ãŒå°½ãã‚‹ã¾ã§ã€ãƒ¬ã‚¹ãƒãƒ³ã‚¹å—ä¿¡ãƒ«ãƒ¼ãƒ—
     Dim tmp() As Byte
     Do
-        'óMˆ—
+        'å—ä¿¡å‡¦ç†
         res.result = WinHttpWebSocketReceive( _
                         UseWebsockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
                         res.ReceiveBytes, res.Status)
         
-        'ƒGƒ‰[‚È‚ç‘¦”²‚¯
-        '¦ŒÄ‚Ño‚µ‘¤‚ÅAƒGƒ‰[‚©‚ÌŠm”F‚ğ‚µ‚Ä‚­‚¾‚³‚¢
+        'ã‚¨ãƒ©ãƒ¼ãªã‚‰å³æŠœã‘
+        'â€»å‘¼ã³å‡ºã—å´ã§ã€ã‚¨ãƒ©ãƒ¼ã‹ã®ç¢ºèªã‚’ã—ã¦ãã ã•ã„
         If res.result Then ResultCode = res.result: Exit Function
         
-        'ƒoƒbƒtƒ@[ŠÇ—ˆ—‚ÖˆÚ‚é
+        'ãƒãƒƒãƒ•ã‚¡ãƒ¼ç®¡ç†å‡¦ç†ã¸ç§»ã‚‹
         tmp = BufferManagement(res)
     Loop Until res.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
 
-    'ƒeƒLƒXƒg•ÏŠ·‚·‚é‚©”»’f‚µ‚ÄA•Ô‹p
+    'ãƒ†ã‚­ã‚¹ãƒˆå¤‰æ›ã™ã‚‹ã‹åˆ¤æ–­ã—ã¦ã€è¿”å´
     If GetBinaryMode Then GetSyncMessage = tmp Else GetSyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FWebSocket‚©‚ç‚Ì”ñ“¯ŠúóM‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šWebSocketã‹ã‚‰ã®éåŒæœŸå—ä¿¡ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    FGetBinaryMode
-'               `True`  ƒoƒCƒg”z—ñ‚Æ‚µ‚Äó‚¯æ‚éê‡
-'               `False` ƒeƒLƒXƒg‚Æ‚µ‚Äó‚¯æ‚éê‡
+'* å¼•æ•°    ï¼šGetBinaryMode
+'               `True`  ãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦å—ã‘å–ã‚‹å ´åˆ
+'               `False` ãƒ†ã‚­ã‚¹ãƒˆã¨ã—ã¦å—ã‘å–ã‚‹å ´åˆ
 '
-'            ResultCode     WinHttpWebSocketReceive ‚ÌÀsŒ‹‰ÊBÀ¿•Ô‚è’l‚Å‚·B
-'* •Ô‚è’l  FWebSocket‚©‚ç‚ÌóMƒƒbƒZ[ƒWB¦ƒGƒ‰[‚¾‚ÆAvbnullstring ‚Å‚·
+'            ResultCode     WinHttpWebSocketReceive ã®å®Ÿè¡Œçµæœã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™ã€‚
+'* è¿”ã‚Šå€¤  ï¼šWebSocketã‹ã‚‰ã®å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã€‚â€»ã‚¨ãƒ©ãƒ¼ã ã¨ã€vbnullstring ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FE”ñ“¯Šúƒ‚[ƒh‚Å‚Í‚ ‚è‚Ü‚·‚ªÀÛ‚ÍAƒR[ƒ‹ƒoƒbƒN‘¤‚Ìˆ—‚ªI‚í‚Á‚½‚çA‚à‚Æ‚ÌŒÄ‚Ño‚µ‘¤‚É–ß‚Á‚Äˆ—‚ğ‘±‚¯‚é‚Æ‚¢‚¤ƒVƒ“ƒOƒ‹d—l‚Å‚·
-'            E“¯ŠúóMˆ—‚Æˆá‚Á‚ÄAóMƒf[ƒ^‚ª‚È‚­‚Ä‚àƒuƒƒbƒLƒ“ƒO‚µ‚Ü‚¹‚ñ
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ»éåŒæœŸãƒ¢ãƒ¼ãƒ‰ã§ã¯ã‚ã‚Šã¾ã™ãŒå®Ÿéš›ã¯ã€ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯å´ã®å‡¦ç†ãŒçµ‚ã‚ã£ãŸã‚‰ã€ã‚‚ã¨ã®å‘¼ã³å‡ºã—å´ã«æˆ»ã£ã¦å‡¦ç†ã‚’ç¶šã‘ã‚‹ã¨ã„ã†ã‚·ãƒ³ã‚°ãƒ«ä»•æ§˜ã§ã™
+'            ãƒ»åŒæœŸå—ä¿¡å‡¦ç†ã¨é•ã£ã¦ã€å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒãªãã¦ã‚‚ãƒ–ãƒ­ãƒƒã‚­ãƒ³ã‚°ã—ã¾ã›ã‚“
 '
-'* ’ˆÓ–€FEóMƒf[ƒ^‚ª‹ó‚©‚ÂŠù‚É—\–ñÏ‚İ‚Ìê‡‚ÉX‚É‚±‚Ìƒƒ\ƒbƒh‚ğŒÄ‚Ô‚ÆA4317ƒGƒ‰[‚ª•Ô‚è‚Ü‚·
-'            E‚±‚ê‚ğŒÄ‚Ño‚·‚ÆA‘SƒƒbƒZ[ƒW‚ğóM‚·‚é‚Ì‚Å‚Í‚È‚­AŒÄ‚Ño‚·“x‚É1‰ñ1‰ñAóM‚³‚ê‚éd‘g‚İ‚Å‚·
-'            EWinHttpWebSocketReceive ‚É“n‚·Û‚ÍAƒOƒ[ƒoƒ‹ˆø”‚Æ‚µ‚Ä“n‚·•K—v‚ª‚ ‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šãƒ»å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒç©ºã‹ã¤æ—¢ã«äºˆç´„æ¸ˆã¿ã®å ´åˆã«æ›´ã«ã“ã®ãƒ¡ã‚½ãƒƒãƒ‰ã‚’å‘¼ã¶ã¨ã€4317ã‚¨ãƒ©ãƒ¼ãŒè¿”ã‚Šã¾ã™
+'            ãƒ»ã“ã‚Œã‚’å‘¼ã³å‡ºã™ã¨ã€å…¨ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å—ä¿¡ã™ã‚‹ã®ã§ã¯ãªãã€å‘¼ã³å‡ºã™åº¦ã«1å›1å›ã€å—ä¿¡ã•ã‚Œã‚‹ä»•çµ„ã¿ã§ã™
+'            ãƒ»WinHttpWebSocketReceive ã«æ¸¡ã™éš›ã¯ã€ã‚°ãƒ­ãƒ¼ãƒãƒ«å¼•æ•°ã¨ã—ã¦æ¸¡ã™å¿…è¦ãŒã‚ã‚Šã¾ã™
 '***************************************************************************************************
 Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
-    'ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹î•ñ‚ª‚ ‚Á‚½‚ç‚»‚Á‚¿‚ğg—p‚·‚é
+    'å†æ¥ç¶šã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ãŒã‚ã£ãŸã‚‰ãã£ã¡ã‚’ä½¿ç”¨ã™ã‚‹
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
     
-    'ƒGƒ‰[ƒR[ƒh‚Ì‰Šú‰»
+    'ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã®åˆæœŸåŒ–
     ResultCode = 0
     
-    'Šù‚ÉóM—\–ñÏ‚İ‚Ìê‡‚ÍA‘¦”²‚¯
-    If isDataReady Then ViewLog.LogWarn "Šù‚ÉóM—\–ñÏ‚İ‚Å‚·B", "WebSocketCommunicator.GetAsyncMessage": Exit Function
+    'æ—¢ã«å—ä¿¡äºˆç´„æ¸ˆã¿ã®å ´åˆã¯ã€å³æŠœã‘
+    If isDataReady Then ViewLog.LogWarn "æ—¢ã«å—ä¿¡äºˆç´„æ¸ˆã¿ã§ã™ã€‚", "WebSocketCommunicator.GetAsyncMessage": Exit Function
 
-    '”ñ“¯Šúˆ—‘¤‚ÅŠù‚ÉAóMÏ‚İƒf[ƒ^‚ª‚ ‚é‚©H
+    'éåŒæœŸå‡¦ç†å´ã§æ—¢ã«ã€å—ä¿¡æ¸ˆã¿ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹ã‹ï¼Ÿ
     If Not (isReceiving) Then
-        '‚È‚¢ê‡‚ÍA‰Šú‰»
+        'ãªã„å ´åˆã¯ã€åˆæœŸåŒ–
         InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
         Set G_res.collect = New Collection
 
-        '”ñ“¯Šúƒ‚[ƒh‚Ìê‡‚ÍA‚±‚Á‚¿‚à’Ç‰Á‚Å‰Šú‰»‚µ‚Ä‚¨‚­
+        'éåŒæœŸãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯ã€ã“ã£ã¡ã‚‚è¿½åŠ ã§åˆæœŸåŒ–ã—ã¦ãŠã
         G_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
         G_res.ReceiveBytes = 0
     End If
 
-    'ƒf[ƒ^‚ªs‚«‚é‚Ü‚ÅAƒŒƒXƒ|ƒ“ƒXóMƒ‹[ƒv
+    'ãƒ‡ãƒ¼ã‚¿ãŒå°½ãã‚‹ã¾ã§ã€ãƒ¬ã‚¹ãƒãƒ³ã‚¹å—ä¿¡ãƒ«ãƒ¼ãƒ—
     Dim tmp() As Byte, InsiderRes As WebSocketReceiveManage
     Do
-        '”ñ“¯Šúˆ—‘¤‚ÅŠù‚ÉAóMÏ‚İƒf[ƒ^‚ª‚ ‚éê‡‚ÍAˆ—‚ğ”ò‚Î‚µ‚Ü‚·
-        '¦Ÿ‚ÌóMƒf[ƒ^‚ª‚ ‚éó‘Ô‚ÅA‚±‚Ìˆ—‚ª‘–‚é‚ÆAƒR[ƒ‹ƒoƒbƒN‘¤‚ÌƒvƒƒV[ƒWƒƒ‚Ö‘JˆÚ‚µAƒOƒ[ƒoƒ‹•Ï”‘¤‚ÉAƒƒbƒZ[ƒW‚ªŠi”[‚³‚ê‚Ü‚·B
+        'éåŒæœŸå‡¦ç†å´ã§æ—¢ã«ã€å—ä¿¡æ¸ˆã¿ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹å ´åˆã¯ã€å‡¦ç†ã‚’é£›ã°ã—ã¾ã™
+        'â€»æ¬¡ã®å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹çŠ¶æ…‹ã§ã€ã“ã®å‡¦ç†ãŒèµ°ã‚‹ã¨ã€ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯å´ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã¸é·ç§»ã—ã€ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°å´ã«ã€ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒæ ¼ç´ã•ã‚Œã¾ã™ã€‚
         If Not (isReceiving) Then
             G_res.result = WinHttpWebSocketReceive( _
                             UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
                             G_res.ReceiveBytes, G_res.Status)
 
-            'ƒGƒ‰[‚È‚ç‘¦”²‚¯
-            '¦ŒÄ‚Ño‚µ‘¤‚ÅAƒGƒ‰[‚©‚ÌŠm”F‚ğ‚µ‚Ä‚­‚¾‚³‚¢
+            'ã‚¨ãƒ©ãƒ¼ãªã‚‰å³æŠœã‘
+            'â€»å‘¼ã³å‡ºã—å´ã§ã€ã‚¨ãƒ©ãƒ¼ã‹ã®ç¢ºèªã‚’ã—ã¦ãã ã•ã„
             If G_res.result Then ResultCode = G_res.result: Exit Function
         End If
     
-        'ƒOƒ[ƒoƒ‹•Ï”‘¤‚Æ’‡‰î‚µ‚È‚ª‚çAƒoƒbƒtƒ@[ŠÇ—ˆ—‚ÖˆÚ‚é
+        'ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°å´ã¨ä»²ä»‹ã—ãªãŒã‚‰ã€ãƒãƒƒãƒ•ã‚¡ãƒ¼ç®¡ç†å‡¦ç†ã¸ç§»ã‚‹
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
     Loop Until InsiderRes.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
 
-    'ƒeƒLƒXƒg•ÏŠ·‚·‚é‚©”»’f‚µ‚ÄA•Ô‹p
+    'ãƒ†ã‚­ã‚¹ãƒˆå¤‰æ›ã™ã‚‹ã‹åˆ¤æ–­ã—ã¦ã€è¿”å´
     If InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE Then
         GetAsyncMessage = vbNullString
     ElseIf GetBinaryMode Then
@@ -357,14 +357,14 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FWebsocket’ÊM‚ğI—¹‚³‚¹‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šWebsocketé€šä¿¡ã‚’çµ‚äº†ã•ã›ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    FForceClose
-'               `True`  •K‚¸Aƒnƒ“ƒhƒ‹”jŠü‚Ü‚Å“Ë‚Á‘–‚è‚Ü‚·
-'               `False` “r’†‚ÅƒGƒ‰[‚ª‚ ‚éê‡‚ÍA‚»‚±‚ÅI‚í‚è‚Ü‚·
+'* å¼•æ•°    ï¼šForceClose
+'               `True`  å¿…ãšã€ãƒãƒ³ãƒ‰ãƒ«ç ´æ£„ã¾ã§çªã£èµ°ã‚Šã¾ã™
+'               `False` é€”ä¸­ã§ã‚¨ãƒ©ãƒ¼ãŒã‚ã‚‹å ´åˆã¯ã€ãã“ã§çµ‚ã‚ã‚Šã¾ã™
 '***************************************************************************************************
 Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
-    'ÄÚ‘±‚Ìƒnƒ“ƒhƒ‹î•ñ‚ª‚ ‚Á‚½‚ç‚»‚Á‚¿‚ğg—p‚·‚é
+    'å†æ¥ç¶šã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ãŒã‚ã£ãŸã‚‰ãã£ã¡ã‚’ä½¿ç”¨ã™ã‚‹
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
 
@@ -373,7 +373,7 @@ Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
                         WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
     If result And Not (ForceClose) Then GoTo quit
 
-    ' ƒT[ƒo[‚©‚ç•Ô‚³‚ê‚½ƒNƒ[ƒYƒXƒe[ƒ^ƒX‚ğŠm”F‚·‚éB
+    ' ã‚µãƒ¼ãƒãƒ¼ã‹ã‚‰è¿”ã•ã‚ŒãŸã‚¯ãƒ­ãƒ¼ã‚ºã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’ç¢ºèªã™ã‚‹ã€‚
     Dim CloseReasonBuffer(123) As Byte
     Dim BufferSize As Long: BufferSize = UBound(CloseReasonBuffer) + 1
     Dim Status As Integer
@@ -384,7 +384,7 @@ Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
     If result And Not (ForceClose) Then GoTo quit
     If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS And Not (ForceClose) Then GoTo quit
     
-    'ƒnƒ“ƒhƒ‹‚ğ”jŠü
+    'ãƒãƒ³ãƒ‰ãƒ«ã‚’ç ´æ£„
     Set Http = New WebSocketHTTPCommunicator
     Http.CloseHWebsocketHandle UseWebsockethandle
 
@@ -410,9 +410,9 @@ End Function
 
 
 '***************************************************************************************************
-'                                ¡¡¡ ƒwƒ‹ƒp[ƒvƒƒV[ƒWƒƒ ¡¡¡
+'                                â– â– â–  ãƒ˜ãƒ«ãƒ‘ãƒ¼ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fƒoƒbƒtƒ@‰Šú‰»
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒãƒƒãƒ•ã‚¡åˆæœŸåŒ–
 '***************************************************************************************************
 Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
     Erase responseBuffer
@@ -421,7 +421,7 @@ Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, B
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒoƒbƒtƒ@ŠÇ—î•ñXV
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒãƒƒãƒ•ã‚¡ç®¡ç†æƒ…å ±æ›´æ–°
 '***************************************************************************************************
 Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
     CurrentPointer = CurrentPointer + ReceiveBytes
@@ -429,10 +429,10 @@ Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, Recei
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒ`ƒƒƒ“ƒN‚²‚Æ‚É‹æØ‚ç‚ê‚½ƒRƒŒƒNƒVƒ‡ƒ“ƒoƒCƒg”z—ñ‚ğˆê‹C‚ÉUTF-8•ÏŠ·‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒãƒ£ãƒ³ã‚¯ã”ã¨ã«åŒºåˆ‡ã‚‰ã‚ŒãŸã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ãƒã‚¤ãƒˆé…åˆ—ã‚’ä¸€æ°—ã«UTF-8å¤‰æ›ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    Fcollect  ƒRƒŒƒNƒVƒ‡ƒ“ƒoƒCƒg”z—ñ
-'* •Ô‚è’l  F‡‘Ì‚µ‚½ƒoƒCƒg”z—ñ
+'* å¼•æ•°    ï¼šcollect  ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ãƒã‚¤ãƒˆé…åˆ—
+'* è¿”ã‚Šå€¤  ï¼šåˆä½“ã—ãŸãƒã‚¤ãƒˆé…åˆ—
 '***************************************************************************************************
 Private Function MakeResponseFullBytes(collect As Collection) As Byte()
     Dim totalSize As Long
@@ -441,17 +441,17 @@ Private Function MakeResponseFullBytes(collect As Collection) As Byte()
     Dim currentPos As Long
     Dim i As Long
     
-    ' 1. ‚Ü‚¸‡ŒvƒTƒCƒY‚ğŒvZ‚·‚é
+    ' 1. ã¾ãšåˆè¨ˆã‚µã‚¤ã‚ºã‚’è¨ˆç®—ã™ã‚‹
     totalSize = 0
     For Each chunk In collect
-        ' ”z—ñ‚ÌƒTƒCƒY‚ğ‰ÁZiUBound+1j
+        ' é…åˆ—ã®ã‚µã‚¤ã‚ºã‚’åŠ ç®—ï¼ˆUBound+1ï¼‰
         totalSize = totalSize + (UBound(chunk) + 1)
     Next chunk
     
-    ' 2. ‹‘å‚È”z—ñ‚ğŠm•Û
+    ' 2. å·¨å¤§ãªé…åˆ—ã‚’ç¢ºä¿
     ReDim fullBytes(0 To totalSize - 1)
 
-    ' 3. ƒoƒCƒgƒf[ƒ^‚ğƒRƒs[‚µ‚ÄŒ‹‡
+    ' 3. ãƒã‚¤ãƒˆãƒ‡ãƒ¼ã‚¿ã‚’ã‚³ãƒ”ãƒ¼ã—ã¦çµåˆ
     currentPos = 0
     For Each chunk In collect
         For i = 0 To UBound(chunk)
@@ -460,27 +460,27 @@ Private Function MakeResponseFullBytes(collect As Collection) As Byte()
         Next
     Next
 
-    '4. •Ô‹p
+    '4. è¿”å´
     MakeResponseFullBytes = fullBytes
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FƒNƒ‰ƒX“àƒ†[ƒU[’è‹`Œ^FWebSocketReceiveManage ‚ÆƒOƒ[ƒoƒ‹•Ï”‘¤ƒ†[ƒU[’è‹`Œ^FG_WebSocketReceiveManage ‚Ì‹´“n‚µ–ğ‚ğ’S‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¯ãƒ©ã‚¹å†…ãƒ¦ãƒ¼ã‚¶ãƒ¼å®šç¾©å‹ï¼šWebSocketReceiveManage ã¨ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°å´ãƒ¦ãƒ¼ã‚¶ãƒ¼å®šç¾©å‹ï¼šG_WebSocketReceiveManage ã®æ©‹æ¸¡ã—å½¹ã‚’æ‹…ã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-' *•Ô‚è’l  FParam.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)‚ªA
-'            E0,2 FŠ®¬•i‚ÌƒoƒCƒiƒŠƒf[ƒ^
-'            E‘¼FEmpty
+' *è¿”ã‚Šå€¤  ï¼šParam.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)ãŒã€
+'            ãƒ»0,2 ï¼šå®Œæˆå“ã®ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿
+'            ãƒ»ä»–ï¼šEmpty
 '
-'* ˆø”    Fƒ†[ƒU[’è‹`Œ^ - WebSocketReceiveManage
+'* å¼•æ•°    ï¼šãƒ¦ãƒ¼ã‚¶ãƒ¼å®šç¾©å‹ - WebSocketReceiveManage
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾Fƒoƒbƒtƒ@[ŠÇ—‚ğs‚¤‚½‚ß‚Ì’‡‰îˆ—‚ğ‚µ‚Ü‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒãƒƒãƒ•ã‚¡ãƒ¼ç®¡ç†ã‚’è¡Œã†ãŸã‚ã®ä»²ä»‹å‡¦ç†ã‚’ã—ã¾ã™
 '***************************************************************************************************
 Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketReceiveManage) As Byte()
     Dim i As Long
     
-    'ƒR[ƒ‹ƒoƒbƒN‘¤‚Åó‚¯æ‚Á‚½ƒOƒ[ƒoƒ‹•Ï”‚ÅAƒNƒ‰ƒX“à•Ï”‚ÖƒRƒs[‚·‚é
+    'ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯å´ã§å—ã‘å–ã£ãŸã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°ã§ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã¸ã‚³ãƒ”ãƒ¼ã™ã‚‹
     With tmp
-        'ŒÅ’è”z—ñ‚È‚Ì‚ÅA‹ğ’¼‚Éƒ‹[ƒv‚ÅƒRƒs[
+        'å›ºå®šé…åˆ—ãªã®ã§ã€æ„šç›´ã«ãƒ«ãƒ¼ãƒ—ã§ã‚³ãƒ”ãƒ¼
         For i = LBound(.Buffer) To UBound(.Buffer)
             .Buffer(i) = G_res.Buffer(i)
         Next
@@ -493,15 +493,15 @@ Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketR
         .Status = G_res.Status
     End With
     
-    'ƒRƒs[‚µ‚½ƒNƒ‰ƒX“à•Ï”‚ÅAƒoƒbƒtƒ@[ŠÇ—‚ÖˆÚ‚µAŒ‹‰Ê‚ğ•Ô‹p
+    'ã‚³ãƒ”ãƒ¼ã—ãŸã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã§ã€ãƒãƒƒãƒ•ã‚¡ãƒ¼ç®¡ç†ã¸ç§»ã—ã€çµæœã‚’è¿”å´
     IntermediaryProcessing_BufferManagement = BufferManagement(tmp)
     
-    'ƒƒbƒZ[ƒWˆ—‚µ‚½‚Ì‚ÅAóMÏ‚İƒtƒ‰ƒO‚ğÁ‚·
+    'ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å‡¦ç†ã—ãŸã®ã§ã€å—ä¿¡æ¸ˆã¿ãƒ•ãƒ©ã‚°ã‚’æ¶ˆã™
     isReceiving = False
 
-    'ƒoƒbƒtƒ@[ˆ—‚µ‚½Œ‹‰Ê‚ğAƒOƒ[ƒoƒ‹•Ï”‘¤‚Ö”½‰f‚·‚é
+    'ãƒãƒƒãƒ•ã‚¡ãƒ¼å‡¦ç†ã—ãŸçµæœã‚’ã€ã‚°ãƒ­ãƒ¼ãƒãƒ«å¤‰æ•°å´ã¸åæ˜ ã™ã‚‹
     With G_res
-        'ŒÅ’è”z—ñ‚È‚Ì‚ÅA‹ğ’¼‚Éƒ‹[ƒv‚Å“]‹L
+        'å›ºå®šé…åˆ—ãªã®ã§ã€æ„šç›´ã«ãƒ«ãƒ¼ãƒ—ã§è»¢è¨˜
         For i = LBound(.Buffer) To UBound(.Buffer)
             .Buffer(i) = tmp.Buffer(i)
         Next
@@ -516,83 +516,83 @@ Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketR
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FWinHttpWebSocketReceive ‚Ìƒoƒbƒtƒ@[ŠÇ—‚ğ’S‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šWinHttpWebSocketReceive ã®ãƒãƒƒãƒ•ã‚¡ãƒ¼ç®¡ç†ã‚’æ‹…ã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-' *•Ô‚è’l  FParam.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)‚ªA
-'            E0,2 FŠ®¬•i‚ÌƒoƒCƒiƒŠƒf[ƒ^
-'            E‘¼FEmpty
+' *è¿”ã‚Šå€¤  ï¼šParam.Status(WINHTTP_WEB_SOCKET_BUFFER_TYPE)ãŒã€
+'            ãƒ»0,2 ï¼šå®Œæˆå“ã®ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿
+'            ãƒ»ä»–ï¼šEmpty
 '
-'* ˆø”    Fƒ†[ƒU[’è‹`Œ^ - WebSocketReceiveManage
+'* å¼•æ•°    ï¼šãƒ¦ãƒ¼ã‚¶ãƒ¼å®šç¾©å‹ - WebSocketReceiveManage
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FƒfƒoƒbƒOƒƒO‚É‚æ‚éƒXƒgƒŠ[ƒ~ƒ“ƒOóMó‹µ‚Ì‰Â‹‰»‚ğs‚Á‚Ä‚¢‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã«ã‚ˆã‚‹ã‚¹ãƒˆãƒªãƒ¼ãƒŸãƒ³ã‚°å—ä¿¡çŠ¶æ³ã®å¯è¦–åŒ–ã‚’è¡Œã£ã¦ã„ã¾ã™ã€‚
 '***************************************************************************************************
 Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte()
-    'ƒƒO”cˆ¬—p
+    'ãƒ­ã‚°æŠŠæ¡ç”¨
     Const TraceName As String = "WebSocketCommunicator.BufferManagement"
 
-    'ƒoƒbƒtƒ@[î•ñ‚ÌXV
+    'ãƒãƒƒãƒ•ã‚¡ãƒ¼æƒ…å ±ã®æ›´æ–°
     UpdateBufferInfo Param.CurrentPointer, Param.BufferLength, Param.ReceiveBytes
 
 
-    '========================= óMƒXƒe[ƒ^ƒX’l@”cˆ¬—p =========================
-    ViewLog.LogDebug "------------ WebSocket óMƒXƒe[ƒ^ƒX ------------", TraceName
-    ViewLog.LogDebug "ƒoƒbƒtƒ@[c—Ê F" & Param.BufferLength & " byte", TraceName
-    ViewLog.LogDebug "óMƒf[ƒ^—Ê@ F" & Param.ReceiveBytes & " byte", TraceName
-    ViewLog.LogDebug "ƒoƒbƒtƒ@[ˆÊ’u F" & Param.CurrentPointer & " byte", TraceName
-    ViewLog.LogDebug "WebSocketStatusF" & Param.Status, TraceName
+    '========================= å—ä¿¡ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹å€¤ã€€æŠŠæ¡ç”¨ =========================
+    ViewLog.LogDebug "------------ WebSocket å—ä¿¡ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ ------------", TraceName
+    ViewLog.LogDebug "ãƒãƒƒãƒ•ã‚¡ãƒ¼æ®‹é‡ ï¼š" & Param.BufferLength & " byte", TraceName
+    ViewLog.LogDebug "å—ä¿¡ãƒ‡ãƒ¼ã‚¿é‡ã€€ ï¼š" & Param.ReceiveBytes & " byte", TraceName
+    ViewLog.LogDebug "ãƒãƒƒãƒ•ã‚¡ãƒ¼ä½ç½® ï¼š" & Param.CurrentPointer & " byte", TraceName
+    ViewLog.LogDebug "WebSocketStatusï¼š" & Param.Status, TraceName
     ViewLog.LogDebug "---------------------------------------------------", TraceName
     '============================================================================
 
 
-    'WINHTTP_WEB_SOCKET_STATUS.eBufferType ‚É‚æ‚é•ªŠòˆ—
-    '¦4 + 1í—Ş‚Ìƒ^ƒCƒv‚ªo‚Ü‚·‚ªA4í—Ş‚Ì•”•ª‚Í‚Ç‚Á‚¿‚àƒoƒCƒiƒŠˆ—‚Ì‚½‚ßA“ˆê‚µ‚Ü‚·B
+    'WINHTTP_WEB_SOCKET_STATUS.eBufferType ã«ã‚ˆã‚‹åˆ†å²å‡¦ç†
+    'â€»4 + 1ç¨®é¡ã®ã‚¿ã‚¤ãƒ—ãŒå‡ºã¾ã™ãŒã€4ç¨®é¡ã®éƒ¨åˆ†ã¯ã©ã£ã¡ã‚‚ãƒã‚¤ãƒŠãƒªå‡¦ç†ã®ãŸã‚ã€çµ±ä¸€ã—ã¾ã™ã€‚
     Select Case Param.Status
-        '¦”ñ“¯Šú—p‚É“Á•Ê‚É—pˆÓ‚µ‚½ƒR[ƒh‚Å‚·
+        'â€»éåŒæœŸç”¨ã«ç‰¹åˆ¥ã«ç”¨æ„ã—ãŸã‚³ãƒ¼ãƒ‰ã§ã™
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
             isDataReady = True
-            ViewLog.LogInfo "‚Ü‚¾AóMƒf[ƒ^‚ª‚ ‚è‚Ü‚¹‚ñBóM—\–ñ‚ğs‚¢‚Ü‚µ‚½B", TraceName
+            ViewLog.LogInfo "ã¾ã ã€å—ä¿¡ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚Šã¾ã›ã‚“ã€‚å—ä¿¡äºˆç´„ã‚’è¡Œã„ã¾ã—ãŸã€‚", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-            ViewLog.LogInfo "‘S‚Ä‚Ì" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "ƒoƒCƒiƒŠ", "UTF-8") & "ƒf[ƒ^‚ª“Í‚«‚Ü‚µ‚½B", TraceName
+            ViewLog.LogInfo "å…¨ã¦ã®" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "ãƒã‚¤ãƒŠãƒª", "UTF-8") & "ãƒ‡ãƒ¼ã‚¿ãŒå±Šãã¾ã—ãŸã€‚", TraceName
             
-            '1. ÅŒã‚ÌƒpƒPƒbƒgƒf[ƒ^‚ğ’Ç‰Á
+            '1. æœ€å¾Œã®ãƒ‘ã‚±ãƒƒãƒˆãƒ‡ãƒ¼ã‚¿ã‚’è¿½åŠ 
             Param.collect.Add Param.Buffer
-            ViewLog.LogInfo "ÅŒã‚Ìƒoƒbƒtƒ@[‚ğˆêCollectionƒLƒ…[‚É’Ç‰Á‚µ‚Ü‚µ‚½B", TraceName
+            ViewLog.LogInfo "æœ€å¾Œã®ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’ä¸€æ™‚Collectionã‚­ãƒ¥ãƒ¼ã«è¿½åŠ ã—ã¾ã—ãŸã€‚", TraceName
 
-            '2. ‘S‚Ä‚Ìƒ`ƒƒƒ“ƒN‚ğŒ‹‡‚µ‚ÄA•Ô‹p
+            '2. å…¨ã¦ã®ãƒãƒ£ãƒ³ã‚¯ã‚’çµåˆã—ã¦ã€è¿”å´
             BufferManagement = MakeResponseFullBytes(Param.collect)
-            ViewLog.LogInfo "ƒ`ƒƒƒ“ƒN‚ğ‘S‚ÄŒ‹‡‚µAƒoƒCƒg”z—ñ‚Æ‚µ‚Ä•Ô‹p‚µ‚Ü‚µ‚½B", TraceName
+            ViewLog.LogInfo "ãƒãƒ£ãƒ³ã‚¯ã‚’å…¨ã¦çµåˆã—ã€ãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦è¿”å´ã—ã¾ã—ãŸã€‚", TraceName
 
-            '3. ‘S‚Ä‚ğóM‚µI‚¦‚½ƒXƒe[ƒ^ƒX‚È‚Ì‚ÅA‰Šú‰»ˆ—
+            '3. å…¨ã¦ã‚’å—ä¿¡ã—çµ‚ãˆãŸã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãªã®ã§ã€åˆæœŸåŒ–å‡¦ç†
             InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
             Set Param.collect = New Collection
-            ViewLog.LogInfo "ƒoƒbƒtƒ@[‚ğŠm•Û‚µ‚Ü‚µ‚½B", TraceName
+            ViewLog.LogInfo "ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’ç¢ºä¿ã—ã¾ã—ãŸã€‚", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
-            '1. ƒoƒbƒtƒ@[c—ÊŠm”F
-            ViewLog.LogWarn "ˆê•”‚Ì" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, "ƒoƒCƒiƒŠ", "UTF-8") & "ƒf[ƒ^‚ğó‚¯æ‚è‚Ü‚µ‚½BŠ®‘S‚Èƒf[ƒ^‚ÌóM‚É‚ÍÄ“xAóMƒŠƒNƒGƒXƒg‚ğ‘—‚é•K—v‚ª‚ ‚è‚Ü‚·B", TraceName
+            '1. ãƒãƒƒãƒ•ã‚¡ãƒ¼æ®‹é‡ç¢ºèª
+            ViewLog.LogWarn "ä¸€éƒ¨ã®" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, "ãƒã‚¤ãƒŠãƒª", "UTF-8") & "ãƒ‡ãƒ¼ã‚¿ã‚’å—ã‘å–ã‚Šã¾ã—ãŸã€‚å®Œå…¨ãªãƒ‡ãƒ¼ã‚¿ã®å—ä¿¡ã«ã¯å†åº¦ã€å—ä¿¡ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚’é€ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚", TraceName
             If Param.BufferLength <= 0 Then
-                ViewLog.LogInfo "ƒoƒbƒtƒ@[‚ğg‚¢‰Ê‚½‚µ‚Ü‚µ‚½B", TraceName
+                ViewLog.LogInfo "ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’ä½¿ã„æœãŸã—ã¾ã—ãŸã€‚", TraceName
                 
-                '2. –‚½‚µ‚½ƒpƒPƒbƒg‚ğƒRƒŒƒNƒVƒ‡ƒ“‚Ö’Ç‰Á
+                '2. æº€ãŸã—ãŸãƒ‘ã‚±ãƒƒãƒˆã‚’ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ã¸è¿½åŠ 
                 Param.collect.Add Param.Buffer
-                ViewLog.LogInfo "–‚½‚µ‚½ƒoƒbƒtƒ@[‚ğˆêCollectionƒLƒ…[‚É’Ç‰Á‚µ‚Ü‚µ‚½B", TraceName
+                ViewLog.LogInfo "æº€ãŸã—ãŸãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’ä¸€æ™‚Collectionã‚­ãƒ¥ãƒ¼ã«è¿½åŠ ã—ã¾ã—ãŸã€‚", TraceName
 
-                '3. ƒoƒbƒtƒ@[‰Šú‰»‚µ‚ÄA‹ó‚«‚ğŠm•Û
+                '3. ãƒãƒƒãƒ•ã‚¡ãƒ¼åˆæœŸåŒ–ã—ã¦ã€ç©ºãã‚’ç¢ºä¿
                 InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
-                ViewLog.LogInfo "ƒoƒbƒtƒ@[‚ğŠm•Û‚µ‚Ü‚µ‚½B", TraceName
+                ViewLog.LogInfo "ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’ç¢ºä¿ã—ã¾ã—ãŸã€‚", TraceName
             Else
-                ViewLog.LogInfo "ƒoƒbƒtƒ@[‚É‹ó‚«‚ª‚ ‚é‚½‚ßAŸ‚ÌóMˆ—‚É‚¿‰z‚µ‚Ü‚·B", TraceName
+                ViewLog.LogInfo "ãƒãƒƒãƒ•ã‚¡ãƒ¼ã«ç©ºããŒã‚ã‚‹ãŸã‚ã€æ¬¡ã®å—ä¿¡å‡¦ç†ã«æŒã¡è¶Šã—ã¾ã™ã€‚", TraceName
             End If
 
-        'ƒT[ƒo[‚ª•Â‚¶‚éƒtƒŒ[ƒ€‚ğ‘—M‚µ‚Ü‚µ‚½B
+        'ã‚µãƒ¼ãƒãƒ¼ãŒé–‰ã˜ã‚‹ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’é€ä¿¡ã—ã¾ã—ãŸã€‚
         Case WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
-            ViewLog.LogInfo "Ø’fƒŠƒNƒGƒXƒg‚ª—ˆ‚½‚½‚ßAWebSocket ˆ—‚ğI—¹‚µ‚Ü‚·...", TraceName
+            ViewLog.LogInfo "åˆ‡æ–­ãƒªã‚¯ã‚¨ã‚¹ãƒˆãŒæ¥ãŸãŸã‚ã€WebSocket å‡¦ç†ã‚’çµ‚äº†ã—ã¾ã™...", TraceName
             
-            '‹ï‘Ì“I‚Èˆ—‚Í‚Ü‚¾–¢À‘•
+            'å…·ä½“çš„ãªå‡¦ç†ã¯ã¾ã æœªå®Ÿè£…
         
-        '`WINHTTP_WEB_SOCKET_STATUS.eBufferType`–¢’è‹`‚ÌƒR[ƒh
+        '`WINHTTP_WEB_SOCKET_STATUS.eBufferType`æœªå®šç¾©ã®ã‚³ãƒ¼ãƒ‰
         Case Else
-            ViewLog.LogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`–¢’è‹`‚ÌƒR[ƒh‚ª—ˆ‚Ä‚Ü‚·F" & Param.Status, TraceName
+            ViewLog.LogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`æœªå®šç¾©ã®ã‚³ãƒ¼ãƒ‰ãŒæ¥ã¦ã¾ã™ï¼š" & Param.Status, TraceName
     End Select
 End Function

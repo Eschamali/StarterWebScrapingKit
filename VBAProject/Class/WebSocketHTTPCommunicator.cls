@@ -8,17 +8,17 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   Websocket‚ÌŠm—§‚É•K—v‚ÈWindowsAPIéŒ¾‚âˆ—‚ğs‚¢‚Ü‚·BWebSocket‚Ö‚ÌƒAƒbƒvƒOƒŒ[ƒh‚Ü‚Å‚ÍA‚±‚±‚ÌƒNƒ‰ƒXƒ‚ƒWƒ…[ƒ‹‚Ås‚¢‚Ü‚·
-'   winhttp5.1 ‚Å‚ÍAhttpŒn““Á‰»‚Ì‚½‚ß‚±‚±‚Å‚ÍAWinHttp.dll ‚ğ’¼Ú‘€ì‚·‚é’áƒŒƒxƒ‹‘€ì‚ğs‚¢‚Ü‚·
+'   Websocketã®ç¢ºç«‹ã«å¿…è¦ãªWindowsAPIå®£è¨€ã‚„å‡¦ç†ã‚’è¡Œã„ã¾ã™ã€‚WebSocketã¸ã®ã‚¢ãƒƒãƒ—ã‚°ãƒ¬ãƒ¼ãƒ‰ã¾ã§ã¯ã€ã“ã“ã®ã‚¯ãƒ©ã‚¹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã§è¡Œã„ã¾ã™
+'   winhttp5.1 ã§ã¯ã€httpç³»çµ±ç‰¹åŒ–ã®ãŸã‚ã“ã“ã§ã¯ã€WinHttp.dll ã‚’ç›´æ¥æ“ä½œã™ã‚‹ä½ãƒ¬ãƒ™ãƒ«æ“ä½œã‚’è¡Œã„ã¾ã™
 '
-'           ‚±‚±‚ğƒJƒXƒ^ƒ}ƒCƒY‚·‚é‚±‚Æ‚ÅAcookie‚â”FØƒwƒbƒ_[‘Î‰‚à‚Å‚«‚½‚è‚µ‚Ü‚·
+'           ã“ã“ã‚’ã‚«ã‚¹ã‚¿ãƒã‚¤ã‚ºã™ã‚‹ã“ã¨ã§ã€cookieã‚„èªè¨¼ãƒ˜ãƒƒãƒ€ãƒ¼å¯¾å¿œã‚‚ã§ããŸã‚Šã—ã¾ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                           ¡¡¡ WindowsAPIéŒ¾‚Æ’è”’è‹` ¡¡¡
+'                           â– â– â–  WindowsAPIå®£è¨€ã¨å®šæ•°å®šç¾© â– â– â– 
 '***************************************************************************************************
 Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
 Private Const ERROR_SUCCESS = 0
@@ -34,12 +34,12 @@ Private Declare PtrSafe Function WinHttpOpen Lib "WinHttp" ( _
    ByVal dwFlags As Long _
    ) As LongPtr
 Private Const WINHTTP_ACCESS_TYPE_DEFAULT_PROXY = 0
-Private Const WINHTTP_ACCESS_TYPE_NO_PROXY = 1 'ƒvƒƒLƒV‚ğ‰î‚³‚¸A‚·‚×‚Ä‚ÌƒzƒXƒg–¼‚ğ’¼Ú‰ğŒˆB
+Private Const WINHTTP_ACCESS_TYPE_NO_PROXY = 1 'ï¼ãƒ—ãƒ­ã‚­ã‚·ã‚’ä»‹ã•ãšã€ã™ã¹ã¦ã®ãƒ›ã‚¹ãƒˆåã‚’ç›´æ¥è§£æ±ºã€‚
 Private Const WINHTTP_ACCESS_TYPE_NAMED_PROXY = 3
 Private Const WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY = 4
 Private Const WINHTTP_NO_PROXY_BYPASS = 0
-Private Const WINHTTP_FLAG_SYNC = &H0          ' ƒZƒbƒVƒ‡ƒ“‚Í“¯Šú
-Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' ƒZƒbƒVƒ‡ƒ“”ñ“¯Šú
+Private Const WINHTTP_FLAG_SYNC = &H0          ' ã‚»ãƒƒã‚·ãƒ§ãƒ³ã¯åŒæœŸ
+Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' ã‚»ãƒƒã‚·ãƒ§ãƒ³éåŒæœŸ
 
 Private Declare PtrSafe Function WinHttpConnect Lib "WinHttp" ( _
    ByVal hSession As LongPtr, _
@@ -115,9 +115,9 @@ Private Const WINHTTP_QUERY_FLAG_NUMBER = &H20000000
 Private Const WINHTTP_HEADER_NAME_BY_INDEX = 0
 Private Const WINHTTP_NO_OUTPUT_BUFFER = 0
 Private Const WINHTTP_NO_HEADER_INDEX = 0
-Private Const HTTP_STATUS_CONTINUE = 100           ' ƒŠƒNƒGƒXƒg‚Ì‘±sOK
-Private Const HTTP_STATUS_SWITCH_PROTOCOLS = 101   ' ƒT[ƒo[‚ªƒAƒbƒvƒOƒŒ[ƒhƒwƒbƒ_‚ÅƒvƒƒgƒRƒ‹‚ğØ‚è‘Ö‚¦‚½
-Private Const HTTP_STATUS_OK = 200                 ' ƒŠƒNƒGƒXƒgŠ®—¹
+Private Const HTTP_STATUS_CONTINUE = 100           ' ãƒªã‚¯ã‚¨ã‚¹ãƒˆã®ç¶šè¡ŒOK
+Private Const HTTP_STATUS_SWITCH_PROTOCOLS = 101   ' ã‚µãƒ¼ãƒãƒ¼ãŒã‚¢ãƒƒãƒ—ã‚°ãƒ¬ãƒ¼ãƒ‰ãƒ˜ãƒƒãƒ€ã§ãƒ—ãƒ­ãƒˆã‚³ãƒ«ã‚’åˆ‡ã‚Šæ›¿ãˆãŸ
+Private Const HTTP_STATUS_OK = 200                 ' ãƒªã‚¯ã‚¨ã‚¹ãƒˆå®Œäº†
 
 Private Declare PtrSafe Function WinHttpWebSocketCompleteUpgrade Lib "WinHttp" ( _
    ByVal hRequest As LongPtr, _
@@ -151,11 +151,11 @@ Private hwebsockethandle_ As LongPtr
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ ƒvƒƒpƒeƒB ¡¡¡
+'                                   â– â– â–  ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FŠm—§‚µ‚½websocket‚Ìƒnƒ“ƒhƒ‹’l‚ğæ“¾‚ğ‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šç¢ºç«‹ã—ãŸwebsocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’å–å¾—ã‚’ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Get•Ô’l FƒAƒNƒeƒBƒu‚Èwebsocket‚Ìƒnƒ“ƒhƒ‹’l
+'* Getè¿”å€¤ ï¼šã‚¢ã‚¯ãƒ†ã‚£ãƒ–ãªwebsocketã®ãƒãƒ³ãƒ‰ãƒ«å€¤
 '***************************************************************************************************
 Public Property Get websockethandle() As LongPtr
     websockethandle = hwebsockethandle_
@@ -164,23 +164,23 @@ End Property
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ ŒöŠJƒƒ\ƒbƒh ¡¡¡
+'                                   â– â– â–  å…¬é–‹ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F’Êí‚Ì http-GET Ú‘±‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šé€šå¸¸ã® http-GET æ¥ç¶šã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l  F¬Œ÷/¸”s
-'* ˆø”    FHost           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ‚È‚çA"github.com"
-'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ‚È‚çA"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port           httpn‚Ü‚è‚È‚ç80Ahttpsn‚Ü‚è‚È‚çA443‚Å‚·‚ªAƒJƒXƒ^ƒ€‚à‰Â”\‚Å‚·B
-'            SecureFlag     httpn‚Ü‚è‚È‚çFalseAhttpsn‚Ü‚è‚È‚çATrue‚Å‚·‚ªA–³‹‚à‚Å‚«‚Ü‚·B
-'            Async          True‚Å¤”ñ“¯Šú‚Æ‚µ‚Ä¤WebSocket‚ğ—˜—p‚Å‚«‚é‚æ‚¤‚Éˆ—‚µ‚Ü‚·¡‚È‚¨¤WebSocket‚Ö‚ÌƒAƒbƒvƒOƒŒ[ƒh‚Ü‚Å‚Í¤“¯Šú“I‚Èˆ—‚Æ‚µ‚Ü‚·¡
+'* è¿”ã‚Šå€¤  ï¼šæˆåŠŸ/å¤±æ•—
+'* å¼•æ•°    ï¼šHost           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ãªã‚‰ã€"github.com"
+'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON ãªã‚‰ã€"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
+'            port           httpå§‹ã¾ã‚Šãªã‚‰80ã€httpså§‹ã¾ã‚Šãªã‚‰ã€443ã§ã™ãŒã€ã‚«ã‚¹ã‚¿ãƒ ã‚‚å¯èƒ½ã§ã™ã€‚
+'            SecureFlag     httpå§‹ã¾ã‚Šãªã‚‰Falseã€httpså§‹ã¾ã‚Šãªã‚‰ã€Trueã§ã™ãŒã€ç„¡è¦–ã‚‚ã§ãã¾ã™ã€‚
+'            Async          Trueã§ï½¤éåŒæœŸã¨ã—ã¦ï½¤WebSocketã‚’åˆ©ç”¨ã§ãã‚‹ã‚ˆã†ã«å‡¦ç†ã—ã¾ã™ï½¡ãªãŠï½¤WebSocketã¸ã®ã‚¢ãƒƒãƒ—ã‚°ãƒ¬ãƒ¼ãƒ‰ã¾ã§ã¯ï½¤åŒæœŸçš„ãªå‡¦ç†ã¨ã—ã¾ã™ï½¡
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FÅ‰‚Íhttp’ÊM‚ğs‚Á‚ÄA200‚ª•Ô‚é‚©Šm”F‚µ‚Ü‚·
-'* ’ˆÓ–€FEsecureƒ‚[ƒh‚ª³‚µ‚­‚È‚¢‚ÆAˆ—‚É¸”s‚µ‚Ü‚·
-'            Ecookie‚â”FØƒwƒbƒ_[“™‚Í–¢‘Î‰‚Å‚·B“½–¼ƒAƒNƒZƒX—p‚Å‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šæœ€åˆã¯httpé€šä¿¡ã‚’è¡Œã£ã¦ã€200ãŒè¿”ã‚‹ã‹ç¢ºèªã—ã¾ã™
+'* æ³¨æ„äº‹é …ï¼šãƒ»secureãƒ¢ãƒ¼ãƒ‰ãŒæ­£ã—ããªã„ã¨ã€å‡¦ç†ã«å¤±æ•—ã—ã¾ã™
+'            ãƒ»cookieã‚„èªè¨¼ãƒ˜ãƒƒãƒ€ãƒ¼ç­‰ã¯æœªå¯¾å¿œã§ã™ã€‚åŒ¿åã‚¢ã‚¯ã‚»ã‚¹ç”¨ã§ã™
 '***************************************************************************************************
 Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean, Async As Boolean) As Boolean
-    '”ñ“¯Šú/“¯Šú‚Ìİ’è
+    'éåŒæœŸ/åŒæœŸã®è¨­å®š
     Dim UseMode As Long
     If Async Then UseMode = WINHTTP_FLAG_ASYNC Else UseMode = WINHTTP_FLAG_SYNC
     
@@ -189,11 +189,11 @@ Public Function Connect(Host As String, Path As String, port As Long, SecureFlag
     hConnectionHandle_ = WinHttpConnect(hSessionHandle_, StrPtr(Host), port, 0)
     If hConnectionHandle_ = 0 Then GoTo quit
     
-    'ƒZƒLƒ…ƒAƒ‚[ƒh‚ÌØ‚è‘Ö‚¦”»’è
+    'ã‚»ã‚­ãƒ¥ã‚¢ãƒ¢ãƒ¼ãƒ‰ã®åˆ‡ã‚Šæ›¿ãˆåˆ¤å®š
     Dim SecureMode As Long
     If SecureFlag Then SecureMode = WINHTTP_FLAG_SECURE Else SecureMode = 0
 
-    '“K—p‚µ‚ÄƒŠƒNƒGƒXƒg
+    'é©ç”¨ã—ã¦ãƒªã‚¯ã‚¨ã‚¹ãƒˆ
     hRequestHandle_ = WinHttpOpenRequest(hConnectionHandle_, _
                                     StrPtr(GET_METHOD), StrPtr(Path), StrPtr(HTTP_VERSION), 0, 0, SecureMode)
     If hRequestHandle_ = 0 Then GoTo quit
@@ -208,19 +208,19 @@ Public Function Connect(Host As String, Path As String, port As Long, SecureFlag
 
     If IsResponseStatus(200) = False Then GoTo quit
     
-    'ˆê˜A‚Ìˆ—‚âƒ`ƒFƒbƒN‚ğ’´‚¦‚½‚ç¬Œ÷‚Æ‚İ‚È‚·
+    'ä¸€é€£ã®å‡¦ç†ã‚„ãƒã‚§ãƒƒã‚¯ã‚’è¶…ãˆãŸã‚‰æˆåŠŸã¨ã¿ãªã™
     Connect = True
 Exit Function
 quit:
-    Debug.Print "Http.Connect¸”s"
+    Debug.Print "Http.Connectå¤±æ•—"
     Connect = False
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FHTTP’ÊM‚©‚çWebSocket’ÊM‚ÉUpGrade‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šHTTPé€šä¿¡ã‹ã‚‰WebSocketé€šä¿¡ã«UpGradeã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l  F¬Œ÷/¸”s
-'* ˆø”    FCallBackProcedure  ŠO•”‚©‚çŒÄ‚Ño‚·•W€ƒ‚ƒWƒ…[ƒ‹“à‚ÌƒvƒƒV[ƒWƒƒ–¼(AddressOf ››)‚ğw’è‚µ‚Ü‚·
+'* è¿”ã‚Šå€¤  ï¼šæˆåŠŸ/å¤±æ•—
+'* å¼•æ•°    ï¼šCallBackProcedure  å¤–éƒ¨ã‹ã‚‰å‘¼ã³å‡ºã™æ¨™æº–ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«å†…ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£å(AddressOf â—‹â—‹)ã‚’æŒ‡å®šã—ã¾ã™
 '***************************************************************************************************
 Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boolean
     Dim result As Long
@@ -236,58 +236,58 @@ Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boo
     result = WinHttpReceiveResponse(hRequestHandle_, 0)
     If result = 0 Then GoTo quit
     
-    '101‚ÅƒAƒbƒvƒOƒŒ[ƒhŠm”F
+    '101ã§ã‚¢ãƒƒãƒ—ã‚°ãƒ¬ãƒ¼ãƒ‰ç¢ºèª
     If IsResponseStatus(101) = False Then GoTo quit
 
-    'ƒAƒbƒvƒOƒŒ[ƒh‚µ‚½ƒnƒ“ƒhƒ‹’l‚ğæ“¾‚µ‚Ü‚·
+    'ã‚¢ãƒƒãƒ—ã‚°ãƒ¬ãƒ¼ãƒ‰ã—ãŸãƒãƒ³ãƒ‰ãƒ«å€¤ã‚’å–å¾—ã—ã¾ã™
     hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, 0)
     If hwebsockethandle_ = 0 Then GoTo quit
-'    Debug.Print "Upgrade¬Œ÷"
+'    Debug.Print "UpgradeæˆåŠŸ"
 
-    'ƒR[ƒ‹ƒoƒbƒNŠÖ”‚ªw’è‚³‚ê‚Ä‚éê‡‚ÍAƒR[ƒ‹ƒoƒbƒN“o˜^‚ğs‚¢‚Ü‚·
+    'ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯é–¢æ•°ãŒæŒ‡å®šã•ã‚Œã¦ã‚‹å ´åˆã¯ã€ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ç™»éŒ²ã‚’è¡Œã„ã¾ã™
     If CallBackProcedure Then
         result = WinHttpSetStatusCallback(hwebsockethandle_, CallBackProcedure, _
                 WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
         If result < 0 Then GoTo quit
         
-'        Debug.Print "ƒR[ƒ‹ƒoƒbƒN@“o˜^¬Œ÷"
+'        Debug.Print "ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã€€ç™»éŒ²æˆåŠŸ"
     End If
 
-    '‘S‚Ä‚ÌŠÖ–å‚ğ’´‚¦‚½‚çA¬Œ÷‚Æ‚·‚é
+    'å…¨ã¦ã®é–¢é–€ã‚’è¶…ãˆãŸã‚‰ã€æˆåŠŸã¨ã™ã‚‹
     UpgradeToWebSocket = True
 
 Exit Function
 quit:
-    If result = 0 Then Debug.Print "UpgradeF" & result
-    If result < 0 Then Debug.Print "ƒR[ƒ‹ƒoƒbƒN“o˜^¸”sBErrorCodeF" & result: CloseHWebsocketHandle
-    If hwebsockethandle_ = 0 Then Debug.Print "UpgradeF" & Err.LastDllError
+    If result = 0 Then Debug.Print "Upgradeï¼š" & result
+    If result < 0 Then Debug.Print "ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ç™»éŒ²å¤±æ•—ã€‚ErrorCodeï¼š" & result: CloseHWebsocketHandle
+    If hwebsockethandle_ = 0 Then Debug.Print "Upgradeï¼š" & Err.LastDllError
     UpgradeToWebSocket = False
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FWebSocketƒnƒ“ƒhƒ‹‚ÌŒãn––‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šWebSocketãƒãƒ³ãƒ‰ãƒ«ã®å¾Œå§‹æœ«ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”    FanyHandle      •Û‘¶‚µ‚½ƒnƒ“ƒhƒ‹‚ğg—p‚·‚é‚Æ‚«‚Éw’è‚µ‚Ä‰º‚³‚¢B
+'* å¼•æ•°    ï¼šanyHandle      ä¿å­˜ã—ãŸãƒãƒ³ãƒ‰ãƒ«ã‚’ä½¿ç”¨ã™ã‚‹ã¨ãã«æŒ‡å®šã—ã¦ä¸‹ã•ã„ã€‚
 '***************************************************************************************************
 Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
-    'ƒNƒ‰ƒX“à•”‚Å•Û‘¶‚µ‚Ä‚éWebSocketƒnƒ“ƒhƒ‹
+    'ã‚¯ãƒ©ã‚¹å†…éƒ¨ã§ä¿å­˜ã—ã¦ã‚‹WebSocketãƒãƒ³ãƒ‰ãƒ«
     If hwebsockethandle_ Then WinHttpCloseHandle hwebsockethandle_: hwebsockethandle_ = 0
-    If Err.LastDllError Then Debug.Print "ƒNƒ‰ƒX“à websockethandle ”jŠü‚É‚ÄAƒGƒ‰[F" & Err.LastDllError
+    If Err.LastDllError Then Debug.Print "ã‚¯ãƒ©ã‚¹å†… websockethandle ç ´æ£„ã«ã¦ã€ã‚¨ãƒ©ãƒ¼ï¼š" & Err.LastDllError
 
-    'ˆø”‚Æ‚µ‚Ä‚ÌWebSocketƒnƒ“ƒhƒ‹
+    'å¼•æ•°ã¨ã—ã¦ã®WebSocketãƒãƒ³ãƒ‰ãƒ«
     If anyHandle <> 0 Then WinHttpCloseHandle anyHandle
-    If Err.LastDllError Then Debug.Print "ˆø”‚Ì handle ”jŠü‚É‚ÄAƒGƒ‰[F" & Err.LastDllError
+    If Err.LastDllError Then Debug.Print "å¼•æ•°ã® handle ç ´æ£„ã«ã¦ã€ã‚¨ãƒ©ãƒ¼ï¼š" & Err.LastDllError
 End Sub
 
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒwƒ‹ƒp[ƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â–  ãƒ˜ãƒ«ãƒ‘ãƒ¼ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FHttpƒŒƒXƒ|ƒ“ƒX‚ÌƒXƒe[ƒ^ƒXƒR[ƒhŠm”F‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šHttpãƒ¬ã‚¹ãƒãƒ³ã‚¹ã®ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚³ãƒ¼ãƒ‰ç¢ºèªã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l  F¬Œ÷/¸”s
-'* ˆø”    FCheckStatusNumber  Šú‘Ò‚·‚éƒXƒe[ƒ^ƒXƒR[ƒh
+'* è¿”ã‚Šå€¤  ï¼šæˆåŠŸ/å¤±æ•—
+'* å¼•æ•°    ï¼šCheckStatusNumber  æœŸå¾…ã™ã‚‹ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚³ãƒ¼ãƒ‰
 '***************************************************************************************************
 Private Function IsResponseStatus(CheckStatusNumber As Long) As Boolean
     Dim statusCodeBuffer As Long
@@ -307,24 +307,24 @@ Exit Function
 quit:
     If result = False Then Debug.Print result
     If statusCodeBuffer <> CheckStatusNumber Then Debug.Print _
-        "ƒXƒe[ƒ^ƒXƒR[ƒh:" & statusCodeBuffer & "/" & CheckStatusNumber & "ˆÈŠO"
+        "ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚³ãƒ¼ãƒ‰:" & statusCodeBuffer & "/" & CheckStatusNumber & "ä»¥å¤–"
     IsResponseStatus = False
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FHTTP’ÊMƒnƒ“ƒhƒ‹Œn“‚ÌŒãn––‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šHTTPé€šä¿¡ãƒãƒ³ãƒ‰ãƒ«ç³»çµ±ã®å¾Œå§‹æœ«ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FWebSocket ‚àŒãn––‚·‚éê‡‚ÍAŸ€‚ÌƒvƒƒV[ƒWƒƒ‚àŒÄ‚Ño‚µ‚Ä‰º‚³‚¢
+'* æ³¨æ„äº‹é …ï¼šWebSocket ã‚‚å¾Œå§‹æœ«ã™ã‚‹å ´åˆã¯ã€æ¬¡é …ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã‚‚å‘¼ã³å‡ºã—ã¦ä¸‹ã•ã„
 '***************************************************************************************************
 Private Sub CloseHInternetHandles()
     If hRequestHandle_ Then WinHttpCloseHandle hRequestHandle_: hRequestHandle_ = 0
-    If Err.LastDllError Then Debug.Print "RequestHandle ”jŠü‚É‚ÄAƒGƒ‰[F" & Err.LastDllError
+    If Err.LastDllError Then Debug.Print "RequestHandle ç ´æ£„ã«ã¦ã€ã‚¨ãƒ©ãƒ¼ï¼š" & Err.LastDllError
 
     If hConnectionHandle_ Then WinHttpCloseHandle hConnectionHandle_: hConnectionHandle_ = 0
-    If Err.LastDllError Then Debug.Print "ConnectionHandle ”jŠü‚É‚ÄAƒGƒ‰[F" & Err.LastDllError
+    If Err.LastDllError Then Debug.Print "ConnectionHandle ç ´æ£„ã«ã¦ã€ã‚¨ãƒ©ãƒ¼ï¼š" & Err.LastDllError
 
     If hSessionHandle_ Then WinHttpCloseHandle hSessionHandle_: hSessionHandle_ = 0
-    If Err.LastDllError Then Debug.Print "SessionHandle ”jŠü‚É‚ÄAƒGƒ‰[F" & Err.LastDllError
+    If Err.LastDllError Then Debug.Print "SessionHandle ç ´æ£„ã«ã¦ã€ã‚¨ãƒ©ãƒ¼ï¼š" & Err.LastDllError
 End Sub
 
 

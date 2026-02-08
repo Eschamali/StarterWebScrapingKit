@@ -28,231 +28,231 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                               ¡¡¡ İ’èƒvƒƒV[ƒWƒƒ ¡¡¡
+'                               â– â– â–  è¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@Fİ’èƒV[ƒg‚©‚çAƒpƒ‰ƒ[ƒ^[‚ğ“Ç‚İ‚ñ‚ÅAƒuƒ‰ƒEƒU‚ğ‹N“®‚·‚éƒwƒ‹ƒp[ƒ‚ƒWƒ…[ƒ‹‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šè¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã€ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼ã‚’èª­ã¿è¾¼ã‚“ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚’èµ·å‹•ã™ã‚‹ãƒ˜ãƒ«ãƒ‘ãƒ¼ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FƒNƒ‰ƒXƒ‚ƒWƒ…[ƒ‹ - CDPBrowser
-'* ˆø”@@FStartURL   ƒuƒ‰ƒEƒU‹N“®‚ÉƒAƒNƒZƒX‚µ‚½‚¢URLBw’è‚µ‚È‚¢ê‡‚ÍA‹óƒy[ƒW(abount:blank)‚É‚È‚è‚Ü‚·B
-'                       –¢w’è‚Å‚à ƒNƒ‰ƒXƒƒ\ƒbƒhFnavigate ‚ÅŒã‚©‚çAURL‘JˆÚ‚à‰Â”\‚Å‚·B
+'* è¿”ã‚Šå€¤ã€€ï¼šã‚¯ãƒ©ã‚¹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ« - CDPBrowser
+'* å¼•æ•°ã€€ã€€ï¼šStartURL   ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•æ™‚ã«ã‚¢ã‚¯ã‚»ã‚¹ã—ãŸã„URLã€‚æŒ‡å®šã—ãªã„å ´åˆã¯ã€ç©ºãƒšãƒ¼ã‚¸(abount:blank)ã«ãªã‚Šã¾ã™ã€‚
+'                       æœªæŒ‡å®šã§ã‚‚ ã‚¯ãƒ©ã‚¹ãƒ¡ã‚½ãƒƒãƒ‰ï¼šnavigate ã§å¾Œã‹ã‚‰ã€URLé·ç§»ã‚‚å¯èƒ½ã§ã™ã€‚
 '
-'            SwtchUser  ƒ}ƒ‹ƒ`ƒCƒ“ƒXƒ^ƒ“ƒX—p‚É•Êƒ†[ƒU[‚ğw’è‚·‚é‚Æ‚«‚Ég—p‚µ‚Ü‚·
+'            SwtchUser  ãƒãƒ«ãƒã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ç”¨ã«åˆ¥ãƒ¦ãƒ¼ã‚¶ãƒ¼ã‚’æŒ‡å®šã™ã‚‹ã¨ãã«ä½¿ç”¨ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FVBE‚É‚æ‚éƒn[ƒhƒR[ƒfƒBƒ“ƒO‚Å‚Í‚È‚­Aİ’èƒV[ƒg‚©‚ç“Ç‚İ‚Ş•û®‚É‚æ‚èAƒ†[ƒU[‘¤‚©‚ç‚àèŒy‚Éİ’è•ÏX‚ª‚Å‚«‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šVBEã«ã‚ˆã‚‹ãƒãƒ¼ãƒ‰ã‚³ãƒ¼ãƒ‡ã‚£ãƒ³ã‚°ã§ã¯ãªãã€è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰èª­ã¿è¾¼ã‚€æ–¹å¼ã«ã‚ˆã‚Šã€ãƒ¦ãƒ¼ã‚¶ãƒ¼å´ã‹ã‚‰ã‚‚æ‰‹è»½ã«è¨­å®šå¤‰æ›´ãŒã§ãã¾ã™
 '***************************************************************************************************
-Public Function İ’èƒV[ƒg‚©‚ç‚Ì‹N“®(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
-    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µA“K—p
+Public Function è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
+    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€é©ç”¨
     With ShSetting01_StartBrowser
-        '‹N“®ƒuƒ‰ƒEƒUí—Ş‚Ìİ’è
-        '¦CDP|Json ƒRƒ}ƒ“ƒh‚É‚æ‚é‘€ì‚È‚Ì‚ÅAChromiumŒn“‚Å‚ ‚ê‚ÎAEdge,Chrome ˆÈŠO‚É‚à‚Å‚«‚é‚©‚Æv‚¢‚Ü‚·‚ªˆê’U‚ÍƒƒWƒƒ[‚È‚â‚Â‚Ì‚İ‚Å
-        Dim ƒuƒ‰ƒEƒU–¼ As String: ƒuƒ‰ƒEƒU–¼ = IIf(.Range(.UseRangeName(4, "Demo_CDP.İ’èƒV[ƒg‚©‚ç‚Ì‹N“®")).value, "chrome", "edge")
+        'èµ·å‹•ãƒ–ãƒ©ã‚¦ã‚¶ç¨®é¡ã®è¨­å®š
+        'â€»CDPï¼Json ã‚³ãƒãƒ³ãƒ‰ã«ã‚ˆã‚‹æ“ä½œãªã®ã§ã€Chromiumç³»çµ±ã§ã‚ã‚Œã°ã€Edge,Chrome ä»¥å¤–ã«ã‚‚ã§ãã‚‹ã‹ã¨æ€ã„ã¾ã™ãŒä¸€æ—¦ã¯ãƒ¡ã‚¸ãƒ£ãƒ¼ãªã‚„ã¤ã®ã¿ã§
+        Dim ãƒ–ãƒ©ã‚¦ã‚¶å As String: ãƒ–ãƒ©ã‚¦ã‚¶å = IIf(.Range(.UseRangeName(4, "Demo_CDP.è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•")).value, "chrome", "edge")
 
-        '‘æ2ˆø”‚ªÈ—ª‚È‚çƒV[ƒg‘¤‚Ìİ’è‚ğ“K—p
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.İ’èƒV[ƒg‚©‚ç‚Ì‹N“®")).value, SwitchUser)
+        'ç¬¬2å¼•æ•°ãŒçœç•¥ãªã‚‰ã‚·ãƒ¼ãƒˆå´ã®è¨­å®šã‚’é©ç”¨
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•")).value, SwitchUser)
 
-        'ƒuƒ‰ƒEƒU‹N“®
-        Set İ’èƒV[ƒg‚©‚ç‚Ì‹N“® = New CDPBrowser
-        İ’èƒV[ƒg‚©‚ç‚Ì‹N“®.start ƒuƒ‰ƒEƒU–¼, StartURL, .Range(.UseRangeName(6, "Demo_CDP.İ’èƒV[ƒg‚©‚ç‚Ì‹N“®")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.İ’èƒV[ƒg‚©‚ç‚Ì‹N“®")).value
+        'ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•
+        Set è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹• = New CDPBrowser
+        è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•.start ãƒ–ãƒ©ã‚¦ã‚¶å, StartURL, .Range(.UseRangeName(6, "Demo_CDP.è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•")).value
     End With
 End Function
 
-Sub –`Œ¯‚Ìn‚Ü‚è()
-    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+Sub å†’é™ºã®å§‹ã¾ã‚Š()
+    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’
+    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
 
-    '«‚±‚±‚©‚çA‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
-
-
+    'â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
 
 
-    'ƒuƒ‰ƒEƒU‚ğ³í‚É•Â‚¶‚é
+
+
+    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’æ­£å¸¸ã«é–‰ã˜ã‚‹
     HelloWorldAutomationBrowser.quit
 End Sub
 
 
 
 '***************************************************************************************************
-'                               ¡¡¡ DemoƒvƒƒV[ƒWƒƒ ¡¡¡
+'                               â– â– â–  Demoãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ÉŠÖ‚·‚éDemoƒR[ƒh‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã«é–¢ã™ã‚‹Demoã‚³ãƒ¼ãƒ‰ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾F—á‚¦‚ÎA”FØ—pURL‚ÌNetwork.loadingFinished ‚ğŒŸ’m‚µ‚½‚çA‚»‚±‚Ì requestId ‚©‚ç `Network.getResponseBody` ‚ğÀs‚µToken“üè‚È‚ñ‚Ä‚±‚Æ‚ª‰Â”\‚Å‚·B(‚Å‚àAToken’Šo‚Æ‚©‚ÍNetwork.getCookies ‚â DOMStorage.getDOMStorageItems “™‚ªŠy‚Å‚·B)
-'* ’ˆÓŸ€F‚±‚±‚Å‚ÍAƒlƒbƒgƒ[ƒNƒCƒxƒ“ƒg‚Ìƒfƒ‚‚Å‚·‚ªA‘¼‚ÌƒCƒxƒ“ƒg‚à“¯‚¶‘€ì‚Å‚Æ‚ç‚¦‚é‚±‚Æ‚ª‚Å‚«‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šä¾‹ãˆã°ã€èªè¨¼ç”¨URLã®Network.loadingFinished ã‚’æ¤œçŸ¥ã—ãŸã‚‰ã€ãã“ã® requestId ã‹ã‚‰ `Network.getResponseBody` ã‚’å®Ÿè¡Œã—Tokenå…¥æ‰‹ãªã‚“ã¦ã“ã¨ãŒå¯èƒ½ã§ã™ã€‚(ã§ã‚‚ã€TokenæŠ½å‡ºã¨ã‹ã¯Network.getCookies ã‚„ DOMStorage.getDOMStorageItems ç­‰ãŒæ¥½ã§ã™ã€‚)
+'* æ³¨æ„æ¬¡é …ï¼šã“ã“ã§ã¯ã€ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚¤ãƒ™ãƒ³ãƒˆã®ãƒ‡ãƒ¢ã§ã™ãŒã€ä»–ã®ã‚¤ãƒ™ãƒ³ãƒˆã‚‚åŒã˜æ“ä½œã§ã¨ã‚‰ãˆã‚‹ã“ã¨ãŒã§ãã¾ã™
 '***************************************************************************************************
-Sub ƒlƒbƒgƒ[ƒNƒCƒxƒ“ƒg‚ÌŠm”F()
-    '•K—v‚È•ÏŠ·ƒIƒuƒWƒFƒNƒg‚ğ—pˆÓ
+Sub ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚¤ãƒ™ãƒ³ãƒˆã®ç¢ºèª()
+    'å¿…è¦ãªå¤‰æ›ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ç”¨æ„
     Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion:
     
-    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°
-    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’
+    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     
     
-    '-------------------------------- ‹@”\1FƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ğ—LŒø‰»‚·‚é --------------------------------
-    Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`‚ğ“n‚·‚±‚Æ‚ÅAV‹KƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ª‰Â”\‚É‚È‚éB
+    '-------------------------------- æ©Ÿèƒ½1ï¼šã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`ã‚’æ¸¡ã™ã“ã¨ã§ã€æ–°è¦ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ãŒå¯èƒ½ã«ãªã‚‹ã€‚
 
     
-    'ƒlƒbƒgƒ[ƒNƒCƒxƒ“ƒgóM‚ğ—LŒø‰»‚·‚é
+    'ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚¤ãƒ™ãƒ³ãƒˆå—ä¿¡ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹
     Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable")
     
-    'URL‘JˆÚ‚µ‚ÄA“Ç‚İ‚İI‚í‚é‚Ü‚Å‘Ò‹@
+    'URLé·ç§»ã—ã¦ã€èª­ã¿è¾¼ã¿çµ‚ã‚ã‚‹ã¾ã§å¾…æ©Ÿ
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
-    '–³ˆÓ–¡‚ÈƒRƒ}ƒ“ƒh‚ğ‚ ‚¦‚Ä‘—‚èAæ‚Ù‚Ç‚ÌURL‘JˆÚ‚©‚ç‰º‹L‚ÌinvokeMethodƒƒ\ƒbƒhÀs‚Ü‚Å‚É—ˆ‚½ƒCƒxƒ“ƒgî•ñ‚ğæ“¾‚³‚¹‚é
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '‘¶İ‚µ‚È‚¢ƒRƒ}ƒ“ƒh‚È‚Ì‚ÅAƒuƒ‰ƒEƒU‚É‰e‹¿‚È‚µ
+    'ç„¡æ„å‘³ãªã‚³ãƒãƒ³ãƒ‰ã‚’ã‚ãˆã¦é€ã‚Šã€å…ˆã»ã©ã®URLé·ç§»ã‹ã‚‰ä¸‹è¨˜ã®invokeMethodãƒ¡ã‚½ãƒƒãƒ‰å®Ÿè¡Œã¾ã§ã«æ¥ãŸã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’å–å¾—ã•ã›ã‚‹
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  'å­˜åœ¨ã—ãªã„ã‚³ãƒãƒ³ãƒ‰ãªã®ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶ã«å½±éŸ¿ãªã—
 
-    'ƒCƒxƒ“ƒgî•ñ‚ğDownloadsƒtƒHƒ‹ƒ_‚É•Û‘¶
+    'ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’Downloadsãƒ•ã‚©ãƒ«ãƒ€ã«ä¿å­˜
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
 
-    '-------------------------------- ‹@”\2FƒZ[ƒuƒf[ƒ^‚ğì¬‚µAƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ğ–³Œø‰»‚·‚é --------------------------------
-    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'ƒZ[ƒuƒf[ƒ^ì¬
-    Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`‚ğ“n‚·‚±‚Æ‚ÅAƒCƒxƒ“ƒg‚ğ”jŠü‚·‚é‚æ‚¤‚É‚È‚é
+    '-------------------------------- æ©Ÿèƒ½2ï¼šã‚»ãƒ¼ãƒ–ãƒ‡ãƒ¼ã‚¿ã‚’ä½œæˆã—ã€ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’ç„¡åŠ¹åŒ–ã™ã‚‹ --------------------------------
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'ã‚»ãƒ¼ãƒ–ãƒ‡ãƒ¼ã‚¿ä½œæˆ
+    Set Demo_NetworkEvent.BrowserEvents = Nothing               '`Nothing`ã‚’æ¸¡ã™ã“ã¨ã§ã€ã‚¤ãƒ™ãƒ³ãƒˆã‚’ç ´æ£„ã™ã‚‹ã‚ˆã†ã«ãªã‚‹
 
 
-    'URL‘JˆÚ‚µ‚ÄA“Ç‚İ‚İI‚í‚é‚Ü‚Å‘Ò‹@
+    'URLé·ç§»ã—ã¦ã€èª­ã¿è¾¼ã¿çµ‚ã‚ã‚‹ã¾ã§å¾…æ©Ÿ
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
-    '–³ˆÓ–¡‚ÈƒRƒ}ƒ“ƒh‚ğ‚ ‚¦‚Ä‘—‚èAæ‚Ù‚Ç‚ÌURL‘JˆÚ‚©‚ç‰º‹L‚ÌinvokeMethodƒƒ\ƒbƒhÀs‚Ü‚Å‚É—ˆ‚½ƒCƒxƒ“ƒgî•ñ‚ğæ“¾‚³‚¹‚æ‚¤‚Æ‚İ‚é
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '‘¶İ‚µ‚È‚¢ƒRƒ}ƒ“ƒh‚È‚Ì‚ÅAƒuƒ‰ƒEƒU‚É‰e‹¿‚È‚µ
+    'ç„¡æ„å‘³ãªã‚³ãƒãƒ³ãƒ‰ã‚’ã‚ãˆã¦é€ã‚Šã€å…ˆã»ã©ã®URLé·ç§»ã‹ã‚‰ä¸‹è¨˜ã®invokeMethodãƒ¡ã‚½ãƒƒãƒ‰å®Ÿè¡Œã¾ã§ã«æ¥ãŸã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’å–å¾—ã•ã›ã‚ˆã†ã¨è©¦ã¿ã‚‹
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  'å­˜åœ¨ã—ãªã„ã‚³ãƒãƒ³ãƒ‰ãªã®ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶ã«å½±éŸ¿ãªã—
 
-    'ƒCƒxƒ“ƒgî•ñ‚ğDownloadsƒtƒHƒ‹ƒ_‚É•Û‘¶‚µ‚Ü‚·‚ªA–³Œø’†‚È‚Ì‚Å0ƒoƒCƒg‚É‚È‚è‚Ü‚·
+    'ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’Downloadsãƒ•ã‚©ãƒ«ãƒ€ã«ä¿å­˜ã—ã¾ã™ãŒã€ç„¡åŠ¹ä¸­ãªã®ã§0ãƒã‚¤ãƒˆã«ãªã‚Šã¾ã™
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
-    '-------------------------------- ‹@”\3FƒZ[ƒuƒf[ƒ^‚ğ“Ç‚İ‚İA‚»‚±‚©‚çƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ğÄŠJ‚·‚é --------------------------------
-    Set Demo_NetworkEvent.BrowserEvents = SaveDataEvents        'Šù‘¶‚ÌƒZ[ƒuƒf[ƒ^‚ğ“Ç‚İ‚Ş
+    '-------------------------------- æ©Ÿèƒ½3ï¼šã‚»ãƒ¼ãƒ–ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã¿ã€ãã“ã‹ã‚‰ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’å†é–‹ã™ã‚‹ --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = SaveDataEvents        'æ—¢å­˜ã®ã‚»ãƒ¼ãƒ–ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã‚€
     
 
-    'URL‘JˆÚ‚µ‚ÄA“Ç‚İ‚İI‚í‚é‚Ü‚Å‘Ò‹@
+    'URLé·ç§»ã—ã¦ã€èª­ã¿è¾¼ã¿çµ‚ã‚ã‚‹ã¾ã§å¾…æ©Ÿ
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
-    '–³ˆÓ–¡‚ÈƒRƒ}ƒ“ƒh‚ğ‚ ‚¦‚Ä‘—‚èAæ‚Ù‚Ç‚ÌURL‘JˆÚ‚©‚ç‰º‹L‚ÌinvokeMethodƒƒ\ƒbƒhÀs‚Ü‚Å‚É—ˆ‚½ƒCƒxƒ“ƒgî•ñ‚ğæ“¾‚³‚¹‚é
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '‘¶İ‚µ‚È‚¢ƒRƒ}ƒ“ƒh‚È‚Ì‚ÅAƒuƒ‰ƒEƒU‚É‰e‹¿‚È‚µ
+    'ç„¡æ„å‘³ãªã‚³ãƒãƒ³ãƒ‰ã‚’ã‚ãˆã¦é€ã‚Šã€å…ˆã»ã©ã®URLé·ç§»ã‹ã‚‰ä¸‹è¨˜ã®invokeMethodãƒ¡ã‚½ãƒƒãƒ‰å®Ÿè¡Œã¾ã§ã«æ¥ãŸã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’å–å¾—ã•ã›ã‚‹
+    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  'å­˜åœ¨ã—ãªã„ã‚³ãƒãƒ³ãƒ‰ãªã®ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶ã«å½±éŸ¿ãªã—
 
-    'ƒCƒxƒ“ƒgî•ñ‚ğDownloadsƒtƒHƒ‹ƒ_‚É•Û‘¶
+    'ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’Downloadsãƒ•ã‚©ãƒ«ãƒ€ã«ä¿å­˜
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
-    'ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚éBdemoI—¹
+    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ã€‚demoçµ‚äº†
     Demo_NetworkEvent.quit
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@F“ú–{Œê‚ÉŠÖ‚·‚éDemoƒR[ƒh‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ—¥æœ¬èªã«é–¢ã™ã‚‹Demoã‚³ãƒ¼ãƒ‰ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾Fid‘®«‚âname‘®«‚É“ú–{Œê‚ªg‚í‚ê‚Ä‚éƒTƒCƒg‚Å‚Ì“®ìƒeƒXƒg‚Å‚·BƒR[ƒh‚ÍA`https://qiita.com/yaju/items/0807cc762af4a0568806`‚ğQl‚É‚µ‚Ä‚Ü‚·B
-'* ’ˆÓŸ€F‚±‚ÌƒeƒXƒg‚ğs‚¤Û‚ÍAƒV[ƒgFƒuƒ‰ƒEƒU‹N“®İ’è ‚É‚ÄA`í‚ÉUTF-8‚ÅCDP-Json‘—M`‚ğON‚É‚µ‚Ä‚­‚¾‚³‚¢
+'* è©³ç´°èª¬æ˜ï¼šidå±æ€§ã‚„nameå±æ€§ã«æ—¥æœ¬èªãŒä½¿ã‚ã‚Œã¦ã‚‹ã‚µã‚¤ãƒˆã§ã®å‹•ä½œãƒ†ã‚¹ãƒˆã§ã™ã€‚ã‚³ãƒ¼ãƒ‰ã¯ã€`https://qiita.com/yaju/items/0807cc762af4a0568806`ã‚’å‚è€ƒã«ã—ã¦ã¾ã™ã€‚
+'* æ³¨æ„æ¬¡é …ï¼šã“ã®ãƒ†ã‚¹ãƒˆã‚’è¡Œã†éš›ã¯ã€ã‚·ãƒ¼ãƒˆï¼šãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®š ã«ã¦ã€`å¸¸ã«UTF-8ã§CDP-Jsoné€ä¿¡`ã‚’ONã«ã—ã¦ãã ã•ã„
 '***************************************************************************************************
 Sub JapaneseElementTest()
-    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°A‘Ì‰–b—¦ŒvZƒTƒCƒg‚ÖƒAƒNƒZƒX‚µ‚Ü‚·
-    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®("https://keisan.site/exec/system/1161228728")
+    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’ã€ä½“è„‚è‚ªç‡è¨ˆç®—ã‚µã‚¤ãƒˆã¸ã‚¢ã‚¯ã‚»ã‚¹ã—ã¾ã™
+    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•("https://keisan.site/exec/system/1161228728")
     
-    ' g’·‚ğƒZƒbƒg
+    ' èº«é•·ã‚’ã‚»ãƒƒãƒˆ
     Dim height As CDPElement
-    Set height = Demo_Japanese.getElementByID("var_g’·")
+    Set height = Demo_Japanese.getElementByID("var_èº«é•·")
     
-    '“ú–{Œê‚ÆŠG•¶š“ü—ÍƒeƒXƒg
-    height.sendString "‚¤‚İ‚Ë‚±I" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "‚İ‚á`‚¨I" & WorksheetFunction.Unichar(129442)  '“ú–{ŒêŒ“ƒTƒƒQ[ƒgƒyƒAŠG•¶š“ü—ÍƒeƒXƒg(U+1F636 U+200D U+1F32B U+FE0FAU+1F9A2)
-    Demo_Japanese.notify "g’·‚ğ“ü—Í‚µ‚Ü‚µ‚½" & WorksheetFunction.Unichar(129418)       '“ú–{ŒêŒ“ŠG•¶š’Ê’m•\¦ƒeƒXƒg(U+1F98A)
+    'æ—¥æœ¬èªã¨çµµæ–‡å­—å…¥åŠ›ãƒ†ã‚¹ãƒˆ
+    height.sendString "ã†ã¿ã­ã“ï¼" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "ã¿ã‚ƒï½ãŠï¼" & WorksheetFunction.Unichar(129442)  'æ—¥æœ¬èªå…¼ã‚µãƒ­ã‚²ãƒ¼ãƒˆãƒšã‚¢çµµæ–‡å­—å…¥åŠ›ãƒ†ã‚¹ãƒˆ(U+1F636 U+200D U+1F32B U+FE0Fã€U+1F9A2)
+    Demo_Japanese.notify "èº«é•·ã‚’å…¥åŠ›ã—ã¾ã—ãŸ" & WorksheetFunction.Unichar(129418)       'æ—¥æœ¬èªå…¼çµµæ–‡å­—é€šçŸ¥è¡¨ç¤ºãƒ†ã‚¹ãƒˆ(U+1F98A)
     Demo_Japanese.sleep 3
 
-    '‚¿‚á‚ñ‚Æ”š‚Å“ü—Í‚µ‚È‚¨‚·
+    'ã¡ã‚ƒã‚“ã¨æ•°å­—ã§å…¥åŠ›ã—ãªãŠã™
     height.sendString "170.5"
-    Demo_Japanese.notify "g’·‚ğ“ü—Í‚µ’¼‚µ‚Ü‚µ‚½" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '“ú–{ŒêŒ“ƒTƒƒQ[ƒgƒyƒAŠG•¶š’Ê’m•\¦ƒeƒXƒg(U+1F58D U+FE0F)
+    Demo_Japanese.notify "èº«é•·ã‚’å…¥åŠ›ã—ç›´ã—ã¾ã—ãŸ" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    'æ—¥æœ¬èªå…¼ã‚µãƒ­ã‚²ãƒ¼ãƒˆãƒšã‚¢çµµæ–‡å­—é€šçŸ¥è¡¨ç¤ºãƒ†ã‚¹ãƒˆ(U+1F58D U+FE0F)
     Demo_Japanese.sleep 3
     
-    ' ‘Ìd‚ğƒZƒbƒg
+    ' ä½“é‡ã‚’ã‚»ãƒƒãƒˆ
     Dim weight As CDPElement
-    Set weight = Demo_Japanese.getElementByID("var_‘Ìd")
+    Set weight = Demo_Japanese.getElementByID("var_ä½“é‡")
     weight.sendString "48.5"
-    Demo_Japanese.notify "‘Ìd‚ğ“ü—Í‚µ‚Ü‚µ‚½" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '“ú–{ŒêŒ“ƒTƒƒQ[ƒgƒyƒAŠG•¶š’Ê’m•\¦ƒeƒXƒg(U+2696 U+FE0F)
+    Demo_Japanese.notify "ä½“é‡ã‚’å…¥åŠ›ã—ã¾ã—ãŸ" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    'æ—¥æœ¬èªå…¼ã‚µãƒ­ã‚²ãƒ¼ãƒˆãƒšã‚¢çµµæ–‡å­—é€šçŸ¥è¡¨ç¤ºãƒ†ã‚¹ãƒˆ(U+2696 U+FE0F)
     Demo_Japanese.sleep 3
 
-    ' ƒ{ƒ^ƒ“ƒNƒŠƒbƒN
+    ' ãƒœã‚¿ãƒ³ã‚¯ãƒªãƒƒã‚¯
     Demo_Japanese.getElementByID("executebtn").click
-    Demo_Japanese.notify "‘Ì‰–b—¦‚ğŒvZ‚µ‚Ü‚µ‚½" & WorksheetFunction.Unichar(129518)    '“ú–{ŒêŒ“ŠG•¶š’Ê’m•\¦ƒeƒXƒg(U+1F9EE)
+    Demo_Japanese.notify "ä½“è„‚è‚ªç‡ã‚’è¨ˆç®—ã—ã¾ã—ãŸ" & WorksheetFunction.Unichar(129518)    'æ—¥æœ¬èªå…¼çµµæ–‡å­—é€šçŸ¥è¡¨ç¤ºãƒ†ã‚¹ãƒˆ(U+1F9EE)
     Demo_Japanese.sleep 3
 
-    ' ‘Ì‰–b—¦‚ğæ“¾
-    Dim ‘Ì‰–b—¦ As Double
-    ‘Ì‰–b—¦ = Demo_Japanese.getElementByID("ans1").innerText
-    Debug.Print "‘Ì‰–b—¦‚ÍA" & ‘Ì‰–b—¦ & "% ‚Å‚·B"
+    ' ä½“è„‚è‚ªç‡ã‚’å–å¾—
+    Dim ä½“è„‚è‚ªç‡ As Double
+    ä½“è„‚è‚ªç‡ = Demo_Japanese.getElementByID("ans1").innerText
+    Debug.Print "ä½“è„‚è‚ªç‡ã¯ã€" & ä½“è„‚è‚ªç‡ & "% ã§ã™ã€‚"
 
 
-    'ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚éBdemoI—¹
+    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ã€‚demoçµ‚äº†
     Demo_Japanese.quit
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@FŠg’£‹@”\‚ğ“Ç‚İ‚ŞDemoƒR[ƒh‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ‹¡å¼µæ©Ÿèƒ½ã‚’èª­ã¿è¾¼ã‚€Demoã‚³ãƒ¼ãƒ‰ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾Fƒuƒ‰ƒEƒU©g‚ğƒ^[ƒQƒbƒg‚Æ‚µ‚½`invokeMethod`‚Ìg—p—á‚Å‚·
-'* ’ˆÓŸ€F‚±‚ÌƒeƒXƒg‚ğs‚¤Û‚ÍAƒV[ƒgFƒuƒ‰ƒEƒU‹N“®İ’è ‚É‚ÄA`CDP-Json‚ÅŠg’£‹@”\‚ğ§Œä`‚ğON‚É‚µ‚Ä‚­‚¾‚³‚¢
+'* è©³ç´°èª¬æ˜ï¼šãƒ–ãƒ©ã‚¦ã‚¶è‡ªèº«ã‚’ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã¨ã—ãŸ`invokeMethod`ã®ä½¿ç”¨ä¾‹ã§ã™
+'* æ³¨æ„æ¬¡é …ï¼šã“ã®ãƒ†ã‚¹ãƒˆã‚’è¡Œã†éš›ã¯ã€ã‚·ãƒ¼ãƒˆï¼šãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®š ã«ã¦ã€`CDP-Jsonã§æ‹¡å¼µæ©Ÿèƒ½ã‚’åˆ¶å¾¡`ã‚’ONã«ã—ã¦ãã ã•ã„
 '***************************************************************************************************
 Sub UseExtensions()
-    '•K—v‚È•ÏŠ·ƒIƒuƒWƒFƒNƒg‚ğ—pˆÓ
+    'å¿…è¦ãªå¤‰æ›ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’ç”¨æ„
     Dim JsonDicObj As New WebJsonConverter
     
-    'Šg’£‹@”\‚ª‚ ‚éƒAƒ“ƒpƒbƒNƒtƒHƒ‹ƒ_ƒpƒX‚ğAƒ_ƒCƒAƒƒO‚Åw’è
-    'Ql ¨ https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
+    'æ‹¡å¼µæ©Ÿèƒ½ãŒã‚ã‚‹ã‚¢ãƒ³ãƒ‘ãƒƒã‚¯ãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹ã‚’ã€ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã§æŒ‡å®š
+    'å‚è€ƒ â†’ https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(msoFileDialogFolderPicker)
-        .Title = "Šg’£‹@”\‚ÌŠî‚Æ‚È‚é`manifest.json`‚ğŠÜ‚ŞƒtƒHƒ‹ƒ_‚ğ‘I‘ğ‚µ‚Ä‚­‚¾‚³‚¢"
-        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '‰ŠúˆÊ’u
+        .Title = "æ‹¡å¼µæ©Ÿèƒ½ã®åŸºã¨ãªã‚‹`manifest.json`ã‚’å«ã‚€ãƒ•ã‚©ãƒ«ãƒ€ã‚’é¸æŠã—ã¦ãã ã•ã„"
+        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    'åˆæœŸä½ç½®
 
         If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
     End With
 
 
-    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°
-    Dim controlExtensions As CDPBrowser: Set controlExtensions = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’
+    Dim controlExtensions As CDPBrowser: Set controlExtensions = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     
-    'Šg’£‹@”\‚Ìƒy[ƒW‚Ö‘JˆÚ
+    'æ‹¡å¼µæ©Ÿèƒ½ã®ãƒšãƒ¼ã‚¸ã¸é·ç§»
     controlExtensions.navigate "edge://extensions/"
 
-    'Šg’£‹@”\‚ğ“Ç‚İ‚Ş
+    'æ‹¡å¼µæ©Ÿèƒ½ã‚’èª­ã¿è¾¼ã‚€
     Dim CDPParams As Dictionary, ResultCDP As Dictionary
     Set CDPParams = New Dictionary
     CDPParams.Add "path", ExtensionsFolderPath
     Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True)
 
-    '“Ç‚İ‚Ü‚ê‚½‚©Šm”F‚·‚é
+    'èª­ã¿è¾¼ã¾ã‚ŒãŸã‹ç¢ºèªã™ã‚‹
     If ResultCDP Is Nothing Then
-        'CDP-JsonŒ‹‰Ê‚É`error`—v‘f‚ ‚è
-        MsgBox "Šg’£‹@”\‚ÌƒCƒ“ƒXƒg[ƒ‹‚É¸”s‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & "ƒŒ´ˆö„" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
+        'CDP-Jsonçµæœã«`error`è¦ç´ ã‚ã‚Š
+        MsgBox "æ‹¡å¼µæ©Ÿèƒ½ã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã«å¤±æ•—ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & "ï¼œåŸå› ï¼" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
 
-        'ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚éBdemoI—¹
+        'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ã€‚demoçµ‚äº†
         controlExtensions.quit
         Exit Sub
 
     ElseIf ResultCDP.Exists("id") Then
-        MsgBox "Šg’£‹@”\‚ÌƒCƒ“ƒXƒg[ƒ‹‚É¬Œ÷‚µ‚Ü‚µ‚½Bƒuƒ‰ƒEƒU‚ğ‚²Šm”F‚­‚¾‚³‚¢B" & vbCrLf & "‚È‚¨AOK‚ğ‰Ÿ‚·‚ÆAƒAƒ“ƒCƒ“ƒXƒg[ƒ‹‚µ‚Ü‚·B", vbInformation, "ExtensionsIDF" & ResultCDP("id")
+        MsgBox "æ‹¡å¼µæ©Ÿèƒ½ã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã«æˆåŠŸã—ã¾ã—ãŸã€‚ãƒ–ãƒ©ã‚¦ã‚¶ã‚’ã”ç¢ºèªãã ã•ã„ã€‚" & vbCrLf & "ãªãŠã€OKã‚’æŠ¼ã™ã¨ã€ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¾ã™ã€‚", vbInformation, "ExtensionsIDï¼š" & ResultCDP("id")
     
     Else
-        MsgBox "ƒCƒ“ƒXƒg[ƒ‹ID‚ÌŠm”F‚ªæ‚ê‚Ü‚¹‚ñ‚Å‚µ‚½B" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(ResultCDP), vbExclamation, "Not found id"
+        MsgBox "ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«IDã®ç¢ºèªãŒå–ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(ResultCDP), vbExclamation, "Not found id"
 
-        'ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚éBdemoI—¹
+        'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ã€‚demoçµ‚äº†
         controlExtensions.quit
     End If
 
 
-    'Šg’£‹@”\‚ğƒAƒ“ƒCƒ“ƒXƒg[ƒ‹
+    'æ‹¡å¼µæ©Ÿèƒ½ã‚’ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«
     Set CDPParams = New Dictionary
     CDPParams.Add "id", ResultCDP("id")
     Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True)
 
-    'Á‚¦‚½‚©Šm”F‚·‚é
+    'æ¶ˆãˆãŸã‹ç¢ºèªã™ã‚‹
     If ResultCDP Is Nothing Then
-        'CDP-JsonŒ‹‰Ê‚É`error`—v‘f‚ ‚è
-        MsgBox "Šg’£‹@”\‚ÌƒAƒ“ƒCƒ“ƒXƒg[ƒ‹‚É¸”s‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & "ƒŒ´ˆö„" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
+        'CDP-Jsonçµæœã«`error`è¦ç´ ã‚ã‚Š
+        MsgBox "æ‹¡å¼µæ©Ÿèƒ½ã®ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã«å¤±æ•—ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & "ï¼œåŸå› ï¼" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
 
     Else
-        MsgBox "Šg’£‹@”\‚ÌƒAƒ“ƒCƒ“ƒXƒg[ƒ‹‚É¬Œ÷‚µ‚Ü‚µ‚½Bƒuƒ‰ƒEƒU‚ğ‚²Šm”F‚­‚¾‚³‚¢B", vbInformation, "Uninstall Done!"
+        MsgBox "æ‹¡å¼µæ©Ÿèƒ½ã®ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã«æˆåŠŸã—ã¾ã—ãŸã€‚ãƒ–ãƒ©ã‚¦ã‚¶ã‚’ã”ç¢ºèªãã ã•ã„ã€‚", vbInformation, "Uninstall Done!"
     End If
 
 
-    'ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚éBdemoI—¹
+    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ã€‚demoçµ‚äº†
     controlExtensions.quit
 End Sub
 
@@ -272,7 +272,7 @@ Sub runEdge()
    'If reAttach = False, .start will not automatically try to reattach
    'to previous instances open by CDP but will start a brand new instead.
     Dim edge As CDPBrowser
-    Set edge = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set edge = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
  
    'Navigate and wait
    'If till argument is omitted, will by default wait until ReadyState = complete
@@ -303,7 +303,7 @@ Sub runHidden()
     Dim chrome As CDPBrowser
  
    'Start and hide
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     chrome.hide
  
    'Perform automation in the background
@@ -334,7 +334,7 @@ Sub runTabsAsOne()
 '--------------------------------------------------------------------------
  
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     chrome.show
     
    'Automate Tabs
@@ -357,7 +357,7 @@ Sub runTabsAsMany()
 '-------------------------------------------------------------------------------
  
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     chrome.show
  
    'Create and assign tabs
@@ -395,7 +395,7 @@ Sub runNewTab()
  
    'Init browser with custom arguments
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
     chrome.show asMaximized
     
@@ -436,7 +436,7 @@ Sub runIFrame()
     demoUrl = "https://www.w3schools.com/html/tryit.asp?filename=tryhtml_iframe_height_width"
     
     Dim chrome As New CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®(demoUrl)
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•(demoUrl)
     
     Dim iFrame1 As CDPElement
     Dim iFrame2 As CDPElement
@@ -461,7 +461,7 @@ Sub getSnapShot()
     demoUrl = "https://www.google.com/search?q=1sgd+to+vnd"
     
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®   'not App Mode as sometimes Chrome App Mode does not allow file downloading
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•   'not App Mode as sometimes Chrome App Mode does not allow file downloading
     chrome.navigate demoUrl
 
    'Snap a portion of the page based on the element indicator
@@ -489,7 +489,7 @@ Sub fillReactForm()
     demoUrl = "https://cdpn.io/gaearon/fullpage/VmmPgp?anon=true&editors=0010&view="
     
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     chrome.navigate demoUrl
         
    'Get the target fields
@@ -526,7 +526,7 @@ Sub switchMain()
 '---------------------------------------------------------------
 
     Dim chrome As CDPBrowser
-    Set chrome = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set chrome = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     chrome.newTab "http://google.com", setMain:=True   'the chrome object will now directly refer to the Google tab
     chrome.getTab("about:blank").closeTab       'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
@@ -566,7 +566,7 @@ Function execBot1()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 started."
     
     Dim e1 As CDPBrowser
-    Set e1 = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set e1 = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     e1.navigate "https://yahoo.com"
     
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 completed."
@@ -581,7 +581,7 @@ Function execBot2()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 started."
 
     Dim e2 As CDPBrowser
-    Set e2 = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®(, "CDP2")
+    Set e2 = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•(, "CDP2")
     e2.navigate "https://finance.yahoo.com"
     
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
@@ -598,7 +598,7 @@ Sub demoReattachmentPart1()
 '----------------------------------------------------------------------------------------
 
     Dim c As CDPBrowser
-    Set c = İ’èƒV[ƒg‚©‚ç‚Ì‹N“®
+    Set c = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èµ·å‹•
     c.navigate "https://google.com"
 
 End Sub
@@ -619,27 +619,27 @@ End Sub
 
 
 '***************************************************************************************************
-'* ‹@”\@@F‚±‚ÌExcel‚ªAOneDriveã‚ÅÀs‚³‚ê‚Ä‚éê‡‚ÌƒpƒX•ÏŠ·ˆ—‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã“ã®ExcelãŒã€OneDriveä¸Šã§å®Ÿè¡Œã•ã‚Œã¦ã‚‹å ´åˆã®ãƒ‘ã‚¹å¤‰æ›å‡¦ç†ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@Fƒ[ƒJƒ‹ƒpƒX
-'* ˆø”@@FPath                   Šî–{‚ÍA`thisworkbook.path`‚ğw’è
-'            UsePrivateOneDrive     Ğ“àŒÂlOneDrive‚Ìê‡‚ÍA`False`‚É‚µ‚Ä‚­‚¾‚³‚¢
+'* è¿”ã‚Šå€¤ã€€ï¼šãƒ­ãƒ¼ã‚«ãƒ«ãƒ‘ã‚¹
+'* å¼•æ•°ã€€ã€€ï¼šPath                   åŸºæœ¬ã¯ã€`thisworkbook.path`ã‚’æŒ‡å®š
+'            UsePrivateOneDrive     ç¤¾å†…å€‹äººOneDriveã®å ´åˆã¯ã€`False`ã«ã—ã¦ãã ã•ã„
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FŠJ‚¢‚Ä‚éExcel‚ªOneDrive‚É‚ ‚é‚ÆA`thisworkbook.path`‚ªƒCƒ“ƒ^[ƒlƒbƒgã‚ÌURL‚É‚È‚Á‚Ä‚µ‚Ü‚¢Aˆê•”‘€ì‚ª‚Å‚«‚È‚­‚È‚é–â‘è‚É‘Îˆ‚µ‚½•¨‚Æ‚È‚è‚Ü‚·B
-'            ƒƒ[ƒJƒ‹‚È‚çA‚»‚Ì‚Ü‚Ü•Ô‚µ‚Ü‚·B
-'            ŒÂlŒü‚¯OneDrive ‚Æ ƒrƒWƒlƒXŒü‚¯ŒÂlOneDrive ‚É‘Î‰‚µ‚Ä‚Ü‚·Bæ“ª‚Ì’è”‚ÅAƒXƒCƒbƒ`ƒ“ƒO‚µ‚Ä‚­‚¾‚³‚¢
+'* æ©Ÿèƒ½èª¬æ˜ï¼šé–‹ã„ã¦ã‚‹ExcelãŒOneDriveã«ã‚ã‚‹ã¨ã€`thisworkbook.path`ãŒã‚¤ãƒ³ã‚¿ãƒ¼ãƒãƒƒãƒˆä¸Šã®URLã«ãªã£ã¦ã—ã¾ã„ã€ä¸€éƒ¨æ“ä½œãŒã§ããªããªã‚‹å•é¡Œã«å¯¾å‡¦ã—ãŸç‰©ã¨ãªã‚Šã¾ã™ã€‚
+'            ç´”ãƒ­ãƒ¼ã‚«ãƒ«ãªã‚‰ã€ãã®ã¾ã¾è¿”ã—ã¾ã™ã€‚
+'            å€‹äººå‘ã‘OneDrive ã¨ ãƒ“ã‚¸ãƒã‚¹å‘ã‘å€‹äººOneDrive ã«å¯¾å¿œã—ã¦ã¾ã™ã€‚å…ˆé ­ã®å®šæ•°ã§ã€ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã—ã¦ãã ã•ã„
 '
-'* ’ˆÓ–€FSharePoint‚Ìê‡‚ÍA©—Í‚ÅƒR[ƒh‚ğ‘‚­•K—v‚ª‚ ‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šSharePointã®å ´åˆã¯ã€è‡ªåŠ›ã§ã‚³ãƒ¼ãƒ‰ã‚’æ›¸ãå¿…è¦ãŒã‚ã‚Šã¾ã™
 '***************************************************************************************************
 Function OneDrivePathToLocalPath(Path As String, Optional UsePrivateOneDrive As Boolean = True) As String
-    'httpn‚Ü‚è‚¶‚á‚È‚¢‚È‚çA‚»‚Ì‚Ü‚Ü•Ô‚µ‚ÄI—¹
+    'httpå§‹ã¾ã‚Šã˜ã‚ƒãªã„ãªã‚‰ã€ãã®ã¾ã¾è¿”ã—ã¦çµ‚äº†
     If Left(Path, 4) <> "http" Then OneDrivePathToLocalPath = Path: Exit Function
 
-    'ŒÂlOneDriveƒ‚[ƒh‚È‚ç¯•Ê”Ô†•ªAƒ[ƒJƒ‹ƒpƒX‚É’u‚«Š·‚¦‚ÄŒ‹‡
+    'å€‹äººOneDriveãƒ¢ãƒ¼ãƒ‰ãªã‚‰è­˜åˆ¥ç•ªå·åˆ†ã€ãƒ­ãƒ¼ã‚«ãƒ«ãƒ‘ã‚¹ã«ç½®ãæ›ãˆã¦çµåˆ
     If UsePrivateOneDrive Then
         OneDrivePathToLocalPath = Environ("OneDrive") & Mid(Path, 41)
     
-    'ŒÂlBusinessOneDriveƒ‚[ƒh‚È‚ç"Documents"ˆÈ~‚ÌƒpƒX‚ğ”²‚«o‚µ‚ÄAƒ[ƒJƒ‹ƒpƒX‚ÆŒ‹‡
+    'å€‹äººBusinessOneDriveãƒ¢ãƒ¼ãƒ‰ãªã‚‰"Documents"ä»¥é™ã®ãƒ‘ã‚¹ã‚’æŠœãå‡ºã—ã¦ã€ãƒ­ãƒ¼ã‚«ãƒ«ãƒ‘ã‚¹ã¨çµåˆ
     Else
         OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
     End If

@@ -173,21 +173,21 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
-Public dwProcessId As LongPtr 'ƒvƒƒZƒXID
+Public dwProcessId As LongPtr 'ãƒ—ãƒ­ã‚»ã‚¹ID
 Private Utf8Converter As CharacterCodeConversion
 
 
 
 '***************************************************************************************************
-'                               ¡¡¡ ƒvƒƒpƒeƒB‹@”\ ¡¡¡
+'                               â– â– â–  ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£æ©Ÿèƒ½ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FƒRƒ}ƒ“ƒh‚ğ‘—‚é(WriteFile)‘O‚ÉAVBA‚ÌuUnicodev•¶š—ñ‚ğUTF-8‚ÅƒGƒ“ƒR[ƒh‚µ‚½ƒoƒCƒg”z—ñ‚Æ‚µ‚ÄAƒRƒ}ƒ“ƒh‚ğ‘—‚é‚©‚ğİ’è‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚‹(WriteFile)å‰ã«ã€VBAã®ã€ŒUnicodeã€æ–‡å­—åˆ—ã‚’UTF-8ã§ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‰ã—ãŸãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦ã€ã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚‹ã‹ã‚’è¨­å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l FUTF-8 ‚Ì•ÏŠ·‚ªì“®‚µ‚Ä‚é‚©‚Ì˜_—’l
-'* LETˆø” FE`True`   VBA‚ÌuUnicodev•¶š—ñ‚ğUTF-8‚ÅƒGƒ“ƒR[ƒh‚µ‚½ƒoƒCƒg”z—ñ‚Æ‚µ‚ÄAƒRƒ}ƒ“ƒh‚ğ‘—‚è‚Ü‚·
-'            E`False`  VBA‚ÌuUnicodev•¶š—ñ‚»‚Ì‚Ü‚ñ‚Ü‚ÅAƒRƒ}ƒ“ƒh‚ğ‘—‚è‚Ü‚·
+'* GETè¿”å€¤ ï¼šUTF-8 ã®å¤‰æ›ãŒä½œå‹•ã—ã¦ã‚‹ã‹ã®è«–ç†å€¤
+'* LETå¼•æ•° ï¼šãƒ»`True`   VBAã®ã€ŒUnicodeã€æ–‡å­—åˆ—ã‚’UTF-8ã§ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‰ã—ãŸãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦ã€ã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚Šã¾ã™
+'            ãƒ»`False`  VBAã®ã€ŒUnicodeã€æ–‡å­—åˆ—ãã®ã¾ã‚“ã¾ã§ã€ã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚Šã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾F“ú–{Œê‚Å‚Ì‘—M‚ª•K—v‚Ìê‡‚Í`True`‚Åİ’è‚µ‚È‚¢‚ÆA“r’†‚Å“®ì‚ª~‚Ü‚é‚±‚Æ‚ª‚ ‚é‚½‚ßA‚±‚ÌƒvƒƒpƒeƒB‚ğİ‚¯‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šæ—¥æœ¬èªã§ã®é€ä¿¡ãŒå¿…è¦ã®å ´åˆã¯`True`ã§è¨­å®šã—ãªã„ã¨ã€é€”ä¸­ã§å‹•ä½œãŒæ­¢ã¾ã‚‹ã“ã¨ãŒã‚ã‚‹ãŸã‚ã€ã“ã®ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚’è¨­ã‘ã¾ã™
 '***************************************************************************************************
 Property Let UseConverterUtf8FromString(Flag As Boolean)
     If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
@@ -208,7 +208,7 @@ Public Function serialize(UserName As String) As String
 ' Create serialized Json string from the current browser instance.
 '-------------------------------------------------------------------
 
-    'ƒf[ƒ^‹L˜^€”õ
+    'ãƒ‡ãƒ¼ã‚¿è¨˜éŒ²æº–å‚™
     Dim tmp As String
     With WorksheetFunction
         tmp = "{""" & .TextJoin(""";""", False, _
@@ -221,11 +221,11 @@ Public Function serialize(UserName As String) As String
         ) & """}"
     End With
 
-    'Excelƒe[ƒuƒ‹‚ÉAƒpƒCƒvƒnƒ“ƒhƒ‹î•ñ‚ğ‹L˜^‚·‚é
-    'EvaluateŠÖ”‚ğ—˜—p‚µ‚ÄAã‹L‚Åì‚Á‚½‹Lq•û®‚ÅŠÈˆÕ“I‚È2ŸŒ³”z—ñ‚ğì¬‚µ‚Ü‚·
+    'Excelãƒ†ãƒ¼ãƒ–ãƒ«ã«ã€ãƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ã‚’è¨˜éŒ²ã™ã‚‹
+    'Evaluateé–¢æ•°ã‚’åˆ©ç”¨ã—ã¦ã€ä¸Šè¨˜ã§ä½œã£ãŸè¨˜è¿°æ–¹å¼ã§ç°¡æ˜“çš„ãª2æ¬¡å…ƒé…åˆ—ã‚’ä½œæˆã—ã¾ã™
     ShSetting01_StartBrowser.serializeToTable(1, "CDPCore.serialize") = Evaluate(tmp)
 
-    'ì¬î•ñ‚Ì•Ô‹p
+    'ä½œæˆæƒ…å ±ã®è¿”å´
     serialize = tmp
 
 End Function
@@ -235,11 +235,11 @@ Public Sub deserialize(UserName As String)
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
 
-    'Excelƒe[ƒuƒ‹‚©‚çA`UserName`‚É•R‚Ã‚­ƒpƒCƒvƒnƒ“ƒhƒ‹î•ñ‚ğ“Ç‚İ‚Ş
+    'Excelãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰ã€`UserName`ã«ç´ã¥ããƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ã‚’èª­ã¿è¾¼ã‚€
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
-    'ƒNƒ‰ƒX“à•Ï”‚É“K—p
+    'ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨
     hStdOutRd = PipeInfo("hStdOutRd")
     hStderrOutRd = PipeInfo("hStderrOutRd")
     hStdInWr = PipeInfo("hStdInWr")
@@ -333,19 +333,19 @@ Public Function Init(strExec As String) As Long
 
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
 
-    'ÀsŒ‹‰Êƒ`ƒFƒbƒN
+    'å®Ÿè¡Œçµæœãƒã‚§ãƒƒã‚¯
     If result = 0 Then
-        'ƒGƒ‰[ƒR[ƒh‚ğ•Ô‚·
+        'ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’è¿”ã™
         Init = Err.LastDllError
 
-        '¸”s‚È‚Ì‚ÅA©g‚Åg—p‚·‚é‚Í‚¸‚¾‚Á‚½ƒnƒ“ƒhƒ‹‚àíœ
+        'å¤±æ•—ãªã®ã§ã€è‡ªèº«ã§ä½¿ç”¨ã™ã‚‹ã¯ãšã ã£ãŸãƒãƒ³ãƒ‰ãƒ«ã‚‚å‰Šé™¤
         CloseHandle hStdOutRd
         CloseHandle hStdInWr
         CloseHandle hCDPOutRd
         CloseHandle hCDPInWr
         CloseHandle hStderrOutRd
     Else
-        '¬Œ÷‚ÍA0‚Æ‚µ‚Ä•Ô‹p
+        'æˆåŠŸã¯ã€0ã¨ã—ã¦è¿”å´
         Init = 0
     End If
 
@@ -362,31 +362,31 @@ Public Function Init(strExec As String) As Long
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FCDP-JsonƒRƒ}ƒ“ƒhŒ‹‰Ê‚âAƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgî•ñ‚Ì“Ç‚İæ‚è‚ğ‚İ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šCDP-Jsonã‚³ãƒãƒ³ãƒ‰çµæœã‚„ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã®èª­ã¿å–ã‚Šã‚’è©¦ã¿ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@F“Ç‚İæ‚Á‚½ƒoƒCƒg”‚ğ•Ô‚µ‚Ü‚·B
-'* ˆø”@@FstrData            CDP-Json ‚ÌÀsŒ‹‰ÊAƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚µ‚½‚¢•Ï”BÀ¿•Ô‚è’l‚Å‚·
-'            Err_PeekNamedPipe  PeekNamedPipe ‚É‚ÄƒGƒ‰[‚ª‹N‚±‚Á‚½Û‚ÌƒGƒ‰[ƒR[ƒh‚ğŠi”[‚µ‚Ü‚·BÀ¿•Ô‚è’l‚Å‚·
-'            Err_ReadFile       ReadFile ‚É‚ÄƒGƒ‰[‚ª‹N‚±‚Á‚½Û‚ÌƒGƒ‰[ƒR[ƒh‚ğŠi”[‚µ‚Ü‚·BÀ¿•Ô‚è’l‚Å‚·
+'* è¿”ã‚Šå€¤ã€€ï¼šèª­ã¿å–ã£ãŸãƒã‚¤ãƒˆæ•°ã‚’è¿”ã—ã¾ã™ã€‚
+'* å¼•æ•°ã€€ã€€ï¼šstrData            CDP-Json ã®å®Ÿè¡Œçµæœã€ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ã—ãŸã„å¤‰æ•°ã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™
+'            Err_PeekNamedPipe  PeekNamedPipe ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒèµ·ã“ã£ãŸéš›ã®ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’æ ¼ç´ã—ã¾ã™ã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™
+'            Err_ReadFile       ReadFile ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒèµ·ã“ã£ãŸéš›ã®ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’æ ¼ç´ã—ã¾ã™ã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾F“Ç‚İæ‚è‚Í”ñƒuƒƒbƒLƒ“ƒO‚Å‚·Bƒf[ƒ^‚ª‚È‚­‚Ä‚àAŸ‚Éi‚ß‚ê‚Ü‚·BŠeíƒGƒ‰[ƒR[ƒh‚ÍA‘æ2ˆø”ˆÈ~‚ÅŠm”F‚µ‚Ä‰º‚³‚¢B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šèª­ã¿å–ã‚Šã¯éãƒ–ãƒ­ãƒƒã‚­ãƒ³ã‚°ã§ã™ã€‚ãƒ‡ãƒ¼ã‚¿ãŒãªãã¦ã‚‚ã€æ¬¡ã«é€²ã‚ã‚Œã¾ã™ã€‚å„ç¨®ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã¯ã€ç¬¬2å¼•æ•°ä»¥é™ã§ç¢ºèªã—ã¦ä¸‹ã•ã„ã€‚
 '***************************************************************************************************
 Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As Long, ByRef Err_ReadFile As Long) As Long
-    'ƒGƒ‰[ƒR[ƒh‚Ì‰Šú‰»
+    'ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã®åˆæœŸåŒ–
     Err_PeekNamedPipe = 0
     Err_ReadFile = 0
 
     Dim lPeekData As Long
     Dim lngRes As Long
     
-    'ˆ—‚ª¬Œ÷‚·‚é‚ÆA–ß‚è’l‚Í 0 ˆÈŠO‚É‚È‚è‚Ü‚·B
+    'å‡¦ç†ãŒæˆåŠŸã™ã‚‹ã¨ã€æˆ»ã‚Šå€¤ã¯ 0 ä»¥å¤–ã«ãªã‚Šã¾ã™ã€‚
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
 
-    'APIŠÖ”:PeekNamedPipe ‚ª¸”s‚µ‚½ê‡‚ÍA0 ‚ğ•Ô‚·‚½‚ßA`Err_PeekNamedPipe`‚ÉƒGƒ‰[ƒR[ƒh‚ğŠi”[
+    'APIé–¢æ•°:PeekNamedPipe ãŒå¤±æ•—ã—ãŸå ´åˆã¯ã€0 ã‚’è¿”ã™ãŸã‚ã€`Err_PeekNamedPipe`ã«ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’æ ¼ç´
     If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
 
 
-    'ƒf[ƒ^‚ª‚ ‚Á‚½‚çÀÛ‚ÉAƒf[ƒ^‚ğ“üè‚·‚éˆ—‚Ö
+    'ãƒ‡ãƒ¼ã‚¿ãŒã‚ã£ãŸã‚‰å®Ÿéš›ã«ã€ãƒ‡ãƒ¼ã‚¿ã‚’å…¥æ‰‹ã™ã‚‹å‡¦ç†ã¸
     If lPeekData > 0 Then
         Dim Buffer As String
         Dim L As Long
@@ -394,42 +394,42 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
         Buffer = Space$(lPeekData)
         bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
 
-        '0ˆÈŠO‚È‚ç¬Œ÷‚Å‚·
+        '0ä»¥å¤–ãªã‚‰æˆåŠŸã§ã™
         If bSuccess Then
             strData = Buffer
             readProcCDP = Len(strData)
         Else
-            'APIŠÖ”:ReadFile ‚ª¸”s‚µ‚½ê‡‚ÍA0 ‚ğ•Ô‚·‚½‚ßA`Err_ReadFile`‚ÉƒGƒ‰[ƒR[ƒh‚ğŠi”[
+            'APIé–¢æ•°:ReadFile ãŒå¤±æ•—ã—ãŸå ´åˆã¯ã€0 ã‚’è¿”ã™ãŸã‚ã€`Err_ReadFile`ã«ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’æ ¼ç´
             Err_ReadFile = Err.LastDllError
         End If
     End If
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@F•W€o—ÍƒGƒ‰[‚Æ•W€o—Í‚ğ“Ç‚İæ‚è‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ¨™æº–å‡ºåŠ›ã‚¨ãƒ©ãƒ¼ã¨æ¨™æº–å‡ºåŠ›ã‚’èª­ã¿å–ã‚Šã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FŠî–{‚ÍA“Ç‚İæ‚Á‚½ƒoƒCƒg”‚ğ•Ô‚µ‚Ü‚·‚ªA
-'               -1Fƒf[ƒ^‚È‚µ or `PeekNamedPipe`‚ÅƒGƒ‰[
-'               -2F`ReadFile`‚ÅƒGƒ‰[
+'* è¿”ã‚Šå€¤ã€€ï¼šåŸºæœ¬ã¯ã€èª­ã¿å–ã£ãŸãƒã‚¤ãƒˆæ•°ã‚’è¿”ã—ã¾ã™ãŒã€
+'               -1ï¼šãƒ‡ãƒ¼ã‚¿ãªã— or `PeekNamedPipe`ã§ã‚¨ãƒ©ãƒ¼
+'               -2ï¼š`ReadFile`ã§ã‚¨ãƒ©ãƒ¼
 '
-'* ˆø”@@FstrData            •W€o—ÍƒGƒ‰[‚ ‚é‚¢‚ÍA•W€o—Í“à—e‚ğŠi”[‚µ‚½‚¢•Ï”BÀ¿•Ô‚è’l‚Å‚·
-'            ErrorMode          `True`  •W€o—ÍƒGƒ‰[‚Å“Ç‚İæ‚è
-'                               `False` •W€o—Í‚Å“Ç‚İæ‚è
+'* å¼•æ•°ã€€ã€€ï¼šstrData            æ¨™æº–å‡ºåŠ›ã‚¨ãƒ©ãƒ¼ã‚ã‚‹ã„ã¯ã€æ¨™æº–å‡ºåŠ›å†…å®¹ã‚’æ ¼ç´ã—ãŸã„å¤‰æ•°ã€‚å®Ÿè³ªè¿”ã‚Šå€¤ã§ã™
+'            ErrorMode          `True`  æ¨™æº–å‡ºåŠ›ã‚¨ãƒ©ãƒ¼ã§èª­ã¿å–ã‚Š
+'                               `False` æ¨™æº–å‡ºåŠ›ã§èª­ã¿å–ã‚Š
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾F“Ç‚İæ‚è‚Í”ñƒuƒƒbƒLƒ“ƒO‚Å‚·Bƒf[ƒ^‚ª‚È‚­‚Ä‚àAŸ‚Éi‚ß‚ê‚Ü‚·B
-'* ’ˆÓ–€FƒƒWƒbƒN©‘Ì‚ÍA‘Oq‚Ì`readProcCDP`‚Æˆê‚Å‚·‚ªA‚»‚±‚Ü‚Åd—v‹‚µ‚È‚¢‚½‚ßAŠÈ—ª‰»‚µ‚Ä‚Ü‚·B
-'            ÀÛ‚ÌƒGƒ‰[ƒR[ƒh‚à“Á‚ÉŠm”F‚µ‚Ü‚¹‚ñB
+'* æ©Ÿèƒ½èª¬æ˜ï¼šèª­ã¿å–ã‚Šã¯éãƒ–ãƒ­ãƒƒã‚­ãƒ³ã‚°ã§ã™ã€‚ãƒ‡ãƒ¼ã‚¿ãŒãªãã¦ã‚‚ã€æ¬¡ã«é€²ã‚ã‚Œã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼šãƒ­ã‚¸ãƒƒã‚¯è‡ªä½“ã¯ã€å‰è¿°ã®`readProcCDP`ã¨ä¸€ç·’ã§ã™ãŒã€ãã“ã¾ã§é‡è¦è¦–ã—ãªã„ãŸã‚ã€ç°¡ç•¥åŒ–ã—ã¦ã¾ã™ã€‚
+'            å®Ÿéš›ã®ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚‚ç‰¹ã«ç¢ºèªã—ã¾ã›ã‚“ã€‚
 '***************************************************************************************************
 Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
-    'g—p‚·‚éƒpƒCƒv’ÊM”»’è
+    'ä½¿ç”¨ã™ã‚‹ãƒ‘ã‚¤ãƒ—é€šä¿¡åˆ¤å®š
     Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
 
-    'ˆ—‚ª¬Œ÷‚·‚é‚ÆA–ß‚è’l‚Í 0 ˆÈŠO‚É‚È‚è‚Ü‚·B
+    'å‡¦ç†ãŒæˆåŠŸã™ã‚‹ã¨ã€æˆ»ã‚Šå€¤ã¯ 0 ä»¥å¤–ã«ãªã‚Šã¾ã™ã€‚
     Dim lPeekData As Long
     PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
 
 
-    'ƒf[ƒ^‚ª‚ ‚Á‚½‚çÀÛ‚ÉAƒf[ƒ^‚ğ“üè‚·‚éˆ—‚Ö
+    'ãƒ‡ãƒ¼ã‚¿ãŒã‚ã£ãŸã‚‰å®Ÿéš›ã«ã€ãƒ‡ãƒ¼ã‚¿ã‚’å…¥æ‰‹ã™ã‚‹å‡¦ç†ã¸
     If lPeekData > 0 Then
         Dim Buffer() As Byte
         Dim bSuccess As Long
@@ -437,16 +437,16 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
         bSuccess = ReadFile(UsehStdRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
 
         If bSuccess = 1 Then
-            'ƒoƒCƒg”z—ñ‚ğUTF-8‚É•ÏŠ·‚·‚é‚©H
+            'ãƒã‚¤ãƒˆé…åˆ—ã‚’UTF-8ã«å¤‰æ›ã™ã‚‹ã‹ï¼Ÿ
             If Utf8Converter Is Nothing Then
-                '‚»‚Ì‚Ü‚ñ‚Ü•Ô‹p
+                'ãã®ã¾ã‚“ã¾è¿”å´
                 strData = StrConv(Buffer, vbUnicode)
             Else
-                '•ÏŠ·‚µ‚½ã‚ÅA•Ô‹p
+                'å¤‰æ›ã—ãŸä¸Šã§ã€è¿”å´
                 strData = Utf8Converter.BytesToString(Buffer)
             End If
 
-            'æ“¾ƒTƒCƒY‚ğ•Ô‹p
+            'å–å¾—ã‚µã‚¤ã‚ºã‚’è¿”å´
             readProcSTD = lPeekData
         Else
             readProcSTD = -2
@@ -465,15 +465,15 @@ Public Function writeProc(ByVal strData As String) As Long
  
     Dim lngWritten As Long
     
-    'UTF-8ƒoƒCƒg”z—ñ‚ğg—p‚·‚é‚©H
+    'UTF-8ãƒã‚¤ãƒˆé…åˆ—ã‚’ä½¿ç”¨ã™ã‚‹ã‹ï¼Ÿ
     If Utf8Converter Is Nothing Then
-        'VBA‚ÌuUnicodev•¶š—ñ‚»‚Ì‚Ü‚ñ‚Ü‚ÅAƒRƒ}ƒ“ƒh‚ğ‘—‚è‚Ü‚·
+        'VBAã®ã€ŒUnicodeã€æ–‡å­—åˆ—ãã®ã¾ã‚“ã¾ã§ã€ã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚Šã¾ã™
         writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
     Else
-        'VBA‚ÌuUnicodev•¶š—ñ‚ğUTF-8‚ÅƒGƒ“ƒR[ƒh‚µ‚½ƒoƒCƒg”z—ñ‚ğæ“¾‚µ‚Ü‚·
+        'VBAã®ã€ŒUnicodeã€æ–‡å­—åˆ—ã‚’UTF-8ã§ã‚¨ãƒ³ã‚³ãƒ¼ãƒ‰ã—ãŸãƒã‚¤ãƒˆé…åˆ—ã‚’å–å¾—ã—ã¾ã™
         Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData)
 
-        '‚»‚ÌƒoƒCƒg”z—ñ‚Æ‚µ‚ÄAƒRƒ}ƒ“ƒh‚ğ‘—‚è‚Ü‚·
+        'ãã®ãƒã‚¤ãƒˆé…åˆ—ã¨ã—ã¦ã€ã‚³ãƒãƒ³ãƒ‰ã‚’é€ã‚Šã¾ã™
         writeProc = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
 End Function
@@ -481,13 +481,13 @@ End Function
 
 
 '***************************************************************************************************
-'* ‹@”\@@Fİ’èƒV[ƒg‚©‚çAİ’è’l‚ğ“Ç‚İ‚İ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šè¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã€è¨­å®šå€¤ã‚’èª­ã¿è¾¼ã¿ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FƒNƒ‰ƒXƒ‚ƒWƒ…[ƒ‹\’zAİ’è’l‚ğ“K—p‚³‚¹‚Ü‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šã‚¯ãƒ©ã‚¹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«æ§‹ç¯‰æ™‚ã€è¨­å®šå€¤ã‚’é©ç”¨ã•ã›ã¾ã™
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    '------------------------- ƒNƒ‰ƒX“à•Ï”‚Ìˆê•”‚ğ‰Šú‰» -------------------------
-    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
+    '------------------------- ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã®ä¸€éƒ¨ã‚’åˆæœŸåŒ– -------------------------
+    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
     With ShSetting01_StartBrowser
         UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
     End With

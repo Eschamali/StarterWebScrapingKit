@@ -134,7 +134,7 @@ End Enum
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
-Private Const ThisClassName As String = "CDPBrowser"                'ƒƒO‚ÌƒgƒŒ[ƒX—p
+Private Const ThisClassName As String = "CDPBrowser"                'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
 
 Private Const ERR_TIMEOUT As Long = 900
 Private Const ERR_PIPE As Long = 901
@@ -145,7 +145,7 @@ Private Const ERR_PolicyViolation As Long = 905
 Private Const TIMEOUT_DEFAULT As Single = 30
 Private Const TIMEOUT_NAVIGATE As Single = 45
 
-'ƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚·‚éÛ‚ÌDictionaryKey–¼İ’è
+'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ã™ã‚‹éš›ã®DictionaryKeyåè¨­å®š
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
@@ -153,13 +153,13 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 ' Global Variables
 '===================================
 
-Private jsConverter As New WebJsonConverter 'Excel‚ÅAJsonƒf[ƒ^‚ğDictionary(Collection)‚É•ÏŠ·‚Å‚«‚é‚·‚²‚¢‚â‚Â
-Private LogControl As New Logger        'ƒƒOƒŒƒxƒ‹‚Ì§Œä
+Private jsConverter As New WebJsonConverter 'Excelã§ã€Jsonãƒ‡ãƒ¼ã‚¿ã‚’Dictionary(Collection)ã«å¤‰æ›ã§ãã‚‹ã™ã”ã„ã‚„ã¤
+Private LogControl As New Logger        'ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã®åˆ¶å¾¡
 Private core As CDPCore                 'Must be initialized for CDP engine
-Private ErrorDetail As New WinApiError  'ƒGƒ‰[ƒR[ƒh‚©‚çAÚ×‚ğæ“¾‚·‚é‚â‚Â
+Private ErrorDetail As New WinApiError  'ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‹ã‚‰ã€è©³ç´°ã‚’å–å¾—ã™ã‚‹ã‚„ã¤
 
 Private lngLastID As Long               'Every message sent to edge has an ID
-Private strBuffer As String             'ƒXƒgƒŠ[ƒ€óM‚ÅŒ‡‚¯‚½ƒf[ƒ^‚ğˆê“I‚É’~Ï‚·‚é‚½‚ß‚Ì•Ï”‚Å‚·
+Private strBuffer As String             'ã‚¹ãƒˆãƒªãƒ¼ãƒ å—ä¿¡ã§æ¬ ã‘ãŸãƒ‡ãƒ¼ã‚¿ã‚’ä¸€æ™‚çš„ã«è“„ç©ã™ã‚‹ãŸã‚ã®å¤‰æ•°ã§ã™
 Private brHWnd As LongPtr               'Browser object window handle
 Private brWID As String                 'Useful for windows repositioning
 Private brType As String                'Browser type: either 'chrome' or 'edge'
@@ -175,13 +175,13 @@ Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs fo
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private objAllMessages As Dictionary    'ƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgƒf[ƒ^‚ğ’~Ï‚·‚é‚½‚ß‚Ì•Ï”‚Å‚·
+Private objAllMessages As Dictionary    'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿ã‚’è“„ç©ã™ã‚‹ãŸã‚ã®å¤‰æ•°ã§ã™
 Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
-Private doLog As Boolean                'ƒƒOƒtƒ@ƒCƒ‹‚É‚àAƒfƒoƒbƒOƒƒbƒZ[ƒW‚ğc‚·‚©
-Private logPath As String               'ƒƒOƒtƒ@ƒCƒ‹‚Ì•Û‘¶ƒtƒHƒ‹ƒ_ƒpƒX
-Private Policy_UserDataDir As Boolean   'ƒ†[ƒU[ƒf[ƒ^ƒfƒBƒŒƒNƒgƒŠ‚ªŒÅ’è‰»‚³‚ê‚Ä‚é‚©”»’è
-Private errorDetails As Dictionary      'CDP-JsonƒRƒ}ƒ“ƒhÀs‚ÌÅŒã‚ÌƒGƒ‰[î•ñ
+Private doLog As Boolean                'ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã«ã‚‚ã€ãƒ‡ãƒãƒƒã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’æ®‹ã™ã‹
+Private logPath As String               'ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã®ä¿å­˜ãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹
+Private Policy_UserDataDir As Boolean   'ãƒ¦ãƒ¼ã‚¶ãƒ¼ãƒ‡ãƒ¼ã‚¿ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãŒå›ºå®šåŒ–ã•ã‚Œã¦ã‚‹ã‹åˆ¤å®š
+Private errorDetails As Dictionary      'CDP-Jsonã‚³ãƒãƒ³ãƒ‰å®Ÿè¡Œæ™‚ã®æœ€å¾Œã®ã‚¨ãƒ©ãƒ¼æƒ…å ±
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -274,7 +274,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     Set core = New CDPCore
     brCallString = strCall
-    printMsg Debug_, "Starting pipe communication... ¨ " & brCallString, FromProcedureName
+    printMsg Debug_, "Starting pipe communication... â†’ " & brCallString, FromProcedureName
     intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     lngLastID = 1 'reset the pipe message ID
@@ -322,7 +322,7 @@ Private Sub serialize()
     Const FromProcedureName As String = ThisClassName & ".serialize"
 
 
-    'ƒf[ƒ^‹L˜^€”õ
+    'ãƒ‡ãƒ¼ã‚¿è¨˜éŒ²æº–å‚™
     Dim excelSerialize As String
     With WorksheetFunction
         excelSerialize = "{""" & .TextJoin(""";""", False, _
@@ -332,11 +332,11 @@ Private Sub serialize()
         ) & """}"
     End With
 
-    'ƒpƒCƒv’ÊM‚Ìƒnƒ“ƒhƒ‹î•ñ‚à‹L˜^‚µ‚Ä‚¨‚«AŒ‹‰Ê‚ğ•\¦‚µ‚Ä‚¨‚­
+    'ãƒ‘ã‚¤ãƒ—é€šä¿¡ã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ã‚‚è¨˜éŒ²ã—ã¦ãŠãã€çµæœã‚’è¡¨ç¤ºã—ã¦ãŠã
     printMsg info_, "New serial string: " & core.serialize(brUser) & " - " & excelSerialize, FromProcedureName
  
-    'ƒe[ƒuƒ‹‚ÉAƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“î•ñ‚ğ‹L˜^‚·‚é
-    'EvaluateŠÖ”‚ğ—˜—p‚µ‚ÄAã‹L‚Åì‚Á‚½‹Lq•û®‚ÅŠÈˆÕ“I‚È2ŸŒ³”z—ñ‚ğì¬‚µ‚Ü‚·
+    'ãƒ†ãƒ¼ãƒ–ãƒ«ã«ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’è¨˜éŒ²ã™ã‚‹
+    'Evaluateé–¢æ•°ã‚’åˆ©ç”¨ã—ã¦ã€ä¸Šè¨˜ã§ä½œã£ãŸè¨˜è¿°æ–¹å¼ã§ç°¡æ˜“çš„ãª2æ¬¡å…ƒé…åˆ—ã‚’ä½œæˆã—ã¾ã™
     ShSetting01_StartBrowser.serializeToTable(2, FromProcedureName) = Evaluate(excelSerialize)
 
 End Sub
@@ -358,17 +358,17 @@ Private Sub deserialize(UserName As String)
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
-    '`UserName`‚É•R‚Ã‚­ƒpƒCƒv’ÊM‚Ìƒnƒ“ƒhƒ‹î•ñ‚Ì“Ç‚İ‚İ‚ÖˆÚ‚é
+    '`UserName`ã«ç´ã¥ããƒ‘ã‚¤ãƒ—é€šä¿¡ã®ãƒãƒ³ãƒ‰ãƒ«æƒ…å ±ã®èª­ã¿è¾¼ã¿ã¸ç§»ã‚‹
 1   Call core.deserialize(UserName)
 
-    'Excelƒe[ƒuƒ‹‚©‚çA`UserName`‚É•R‚Ã‚­ƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“î•ñ‚ğ“Ç‚İ‚Ş
+    'Excelãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰ã€`UserName`ã«ç´ã¥ããƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’èª­ã¿è¾¼ã‚€
 2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, FromProcedureName)
 
-    'ƒNƒ‰ƒX“à•Ï”‚É“K—p
+    'ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨
 3   lngLastID = objSerialize.Item("lngLastID")
 4   targetID = objSerialize.Item("targetID")
 
-    '‹ŒSessionID‚Ì”jŠü‚ğ‚İ‚é
+    'æ—§SessionIDã®ç ´æ£„ã‚’è©¦ã¿ã‚‹
     Dim ResultDetach As Dictionary, CDPparameters As Dictionary
 5   Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
     Set CDPparameters = New Dictionary
@@ -377,15 +377,15 @@ Private Sub deserialize(UserName As String)
     printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
 6   Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, True)
 
-    'Œ‹‰Ê‚ğ”»’è
-    '¦ƒGƒ‰[‚É‚æ‚éƒGƒ‰[ƒƒbƒZ[ƒW‚ÍA`invokeMethod`‚ª’S‚¢‚Ü‚·
+    'çµæœã‚’åˆ¤å®š
+    'â€»ã‚¨ãƒ©ãƒ¼ã«ã‚ˆã‚‹ã‚¨ãƒ©ãƒ¼ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯ã€`invokeMethod`ãŒæ‹…ã„ã¾ã™
 7   If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
 
-    'SessionID‚ğÄ¶¬‚µA“K—p
+    'SessionIDã‚’å†ç”Ÿæˆã—ã€é©ç”¨
 8   sessionID = attachToTab(targetID)
     printMsg info_, "A new session ID has been assigned. - " & sessionID, FromProcedureName
 
-    '‹L˜^‚µ‚Ä‚¨‚­
+    'è¨˜éŒ²ã—ã¦ãŠã
 9   ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = sessionID
     Exit Sub
 
@@ -520,7 +520,7 @@ Public Sub quit()
         cleanUpSessions
     End If
 
-    'ƒpƒCƒvƒnƒ“ƒhƒ‹Aƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“î•ñ‚ğÁ‹‚µ‚És‚«‚Ü‚·
+    'ãƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’æ¶ˆå»ã—ã«è¡Œãã¾ã™
     deleteCDPID
 
     sleep 1 'it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
@@ -567,8 +567,8 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
         Case isComplete: targetState = "complete"
     End Select
 
-    '‰Šú’l‚ğİ’è‚µ‚Ä‚¨‚­
-    'Å‰‚Í‚Ù‚Ú•K‚¸loading‚¾‚©‚çA`targetState`‚ª`loading`‚É‚È‚Á‚Ä‚½‚çA‚í‚´‚í‚´ƒ`ƒFƒbƒN‚·‚é•K—v«‚Í‚È‚¢
+    'åˆæœŸå€¤ã‚’è¨­å®šã—ã¦ãŠã
+    'æœ€åˆã¯ã»ã¼å¿…ãšloadingã ã‹ã‚‰ã€`targetState`ãŒ`loading`ã«ãªã£ã¦ãŸã‚‰ã€ã‚ã–ã‚ã–ãƒã‚§ãƒƒã‚¯ã™ã‚‹å¿…è¦æ€§ã¯ãªã„
     strState = "loading"
 
     Do Until strState = targetState
@@ -705,25 +705,25 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FŠù‚ÉŠJ‚¢‚Ä‚¢‚éƒ^ƒu‚ÌƒZƒbƒVƒ‡ƒ“ID‚ğAƒ^ƒu‚Ì–¼‘O‚Ü‚½‚ÍURL‚ÉŠî‚Ã‚¢‚ÄŒŸõ‚µ‚Ü‚·B
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæ—¢ã«é–‹ã„ã¦ã„ã‚‹ã‚¿ãƒ–ã®ã‚»ãƒƒã‚·ãƒ§ãƒ³IDã‚’ã€ã‚¿ãƒ–ã®åå‰ã¾ãŸã¯URLã«åŸºã¥ã„ã¦æ¤œç´¢ã—ã¾ã™ã€‚
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FƒNƒ‰ƒXƒ‚ƒWƒ…[ƒ‹ - CDPBrowser
-'* ˆø”@@FtabName    ƒ^ƒu–¼
+'* è¿”ã‚Šå€¤ã€€ï¼šã‚¯ãƒ©ã‚¹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ« - CDPBrowser
+'* å¼•æ•°ã€€ã€€ï¼štabName    ã‚¿ãƒ–å
 '            Url        URL
-'            setMain    ‚½‚Á‚½¡g‚Á‚Ä‚é ƒNƒ‰ƒXƒ‚ƒWƒ…[ƒ‹ - CDPBrowser‚ÉA‚±‚Ìˆø”‚ÌŒ‹‰Ê‚ÉŠî‚Ã‚¢‚ÄAƒZƒbƒVƒ‡ƒ“ID‚ğ’u‚«Š·‚¦‚Ü‚·
-'            SearchType "page","iframe" ‚Æ‚¢‚Á‚½AƒZƒbƒVƒ‡ƒ“‚Ìí—Ş‚ğw’è‚µ‚Ü‚·
-'            doRetry    `True`‚ÅAoŒ»‚Ü‚Å‰½‰ñ‚©ƒŠƒgƒ‰ƒC‚µ‚Ü‚·B
+'            setMain    ãŸã£ãŸä»Šä½¿ã£ã¦ã‚‹ ã‚¯ãƒ©ã‚¹ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ« - CDPBrowserã«ã€ã“ã®å¼•æ•°ã®çµæœã«åŸºã¥ã„ã¦ã€ã‚»ãƒƒã‚·ãƒ§ãƒ³IDã‚’ç½®ãæ›ãˆã¾ã™
+'            SearchType "page","iframe" ã¨ã„ã£ãŸã€ã‚»ãƒƒã‚·ãƒ§ãƒ³ã®ç¨®é¡ã‚’æŒ‡å®šã—ã¾ã™
+'            doRetry    `True`ã§ã€å‡ºç¾ã¾ã§ä½•å›ã‹ãƒªãƒˆãƒ©ã‚¤ã—ã¾ã™ã€‚
 '---------------------------------------------------------------------------------------------------
-'* XV—š—ğF06/06/23               - Added doRetry argument
+'* æ›´æ–°å±¥æ­´ï¼š06/06/23               - Added doRetry argument
 '            03/05/23               - Combined the method with the getTabNew
 '            24/10/25 Daniel Polak  - Predictable, precise, and script-friendly tab selection that scales well when there are many similar tabs open
 '                                     Exact title and URL-prefix matching avoids accidentally selecting tabs with similar titles/URLs
 '            23/10/25 Daniel Polak  - Fixed typo timeStart instead of timerStart and fixed bug 60000s instead of 60s
-'            01/08/26 Eschamali     - iframe‚Ö‚ÌØ‚è‘Ö‚¦‚ª‚Å‚«‚é‚æ‚¤‚É‰ü—Ç
+'            01/08/26 Eschamali     - iframeã¸ã®åˆ‡ã‚Šæ›¿ãˆãŒã§ãã‚‹ã‚ˆã†ã«æ”¹è‰¯
 '            22/01/26 Long Vh       - Added .reattach where appropriate
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FtabNameˆø”‚Æurlˆø”‚Í•”•ª“I‚Èw’è(•”•ªˆê’v)‚ª‰Â”\‚Å‚·BSearchType ‚ÍƒfƒtƒHƒ‹ƒg‚ÍA"page"‚É‚µ‚Ä‚Ü‚·B
-'* ’ˆÓ–€F‚±‚ê‚ç‚Ìˆø”‚ğ—¼•û‚Æ‚àÈ—ª‚·‚é‚ÆAgetTab‚ÍÅ‚à‹ß‚¢–¢Ú‘±‚Ìƒ^ƒu‚ÉÚ‘±‚µ‚æ‚¤‚Æ‚µ‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼štabNameå¼•æ•°ã¨urlå¼•æ•°ã¯éƒ¨åˆ†çš„ãªæŒ‡å®š(éƒ¨åˆ†ä¸€è‡´)ãŒå¯èƒ½ã§ã™ã€‚SearchType ã¯ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯ã€"page"ã«ã—ã¦ã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼šã“ã‚Œã‚‰ã®å¼•æ•°ã‚’ä¸¡æ–¹ã¨ã‚‚çœç•¥ã™ã‚‹ã¨ã€getTabã¯æœ€ã‚‚è¿‘ã„æœªæ¥ç¶šã®ã‚¿ãƒ–ã«æ¥ç¶šã—ã‚ˆã†ã¨ã—ã¾ã™ã€‚
 '***************************************************************************************************
 Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPBrowser
     Const FromProcedureName As String = ThisClassName & ".getTab"
@@ -739,12 +739,12 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
     If doRetry Then timerStart = Timer
 
-    'Type‚ğŒˆ‚ß‚é
+    'Typeã‚’æ±ºã‚ã‚‹
     Dim SearchType As String
     Select Case SearchTypeID
         Case TargetgetTargetsType.Page: SearchType = "page"
         Case TargetgetTargetsType.iFrame: SearchType = "iframe"
-        Case Else: Err.Raise vbObjectError + 1, FromProcedureName, "‚±‚Ìƒpƒ‰ƒ[ƒ^[‚ÍA–¢’è‹`‚Å‚·"
+        Case Else: Err.Raise vbObjectError + 1, FromProcedureName, "ã“ã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼ã¯ã€æœªå®šç¾©ã§ã™"
     End Select
 
 searchit:
@@ -752,7 +752,7 @@ searchit:
     Set results = invokeMethod("Target.getTargets")
     Set targets = results("targetInfos")
 
-    'ƒXƒRƒA•û®‚ğ—˜—p‚µ‚ÄA—‘z‚Ì‘ÎÛƒ^ƒuî•ñ‚ğæ“¾‚µ‚Ü‚·
+    'ã‚¹ã‚³ã‚¢æ–¹å¼ã‚’åˆ©ç”¨ã—ã¦ã€ç†æƒ³ã®å¯¾è±¡ã‚¿ãƒ–æƒ…å ±ã‚’å–å¾—ã—ã¾ã™
     Const MaxScore As Long = 100
     bestScore = -1
     candidateTabId = ""
@@ -793,7 +793,7 @@ searchit:
                 candidateTabId = Obj("targetId")
             End If
 
-            'Å‘åƒXƒRƒA‚ªo‚Ä‚é‚È‚çA‘{¸‘Å‚¿Ø‚è
+            'æœ€å¤§ã‚¹ã‚³ã‚¢ãŒå‡ºã¦ã‚‹ãªã‚‰ã€æœæŸ»æ‰“ã¡åˆ‡ã‚Š
             If bestScore = MaxScore Then Exit For
         End If
     Next
@@ -813,7 +813,7 @@ searchit:
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
         Exit Function
     Else
-        printMsg info_, "Found the tab with ID: " & tabId & ". (CertaintyF" & bestScore & "%)", FromProcedureName
+        printMsg info_, "Found the tab with ID: " & tabId & ". (Certaintyï¼š" & bestScore & "%)", FromProcedureName
     End If
 
 searchfound:
@@ -852,7 +852,7 @@ Public Sub closeTab()
     Set serial = ShSetting01_StartBrowser.deserializeFromTable(brUser, 2, FromProcedureName)
     mainID = serial.Item("targetID")
 
-    '‘€ì’†‚Ìƒ^ƒu©‘Ì‚ğ•Â‚¶‚È‚¢‚æ‚¤‚ÉdŒü‚¯‚é
+    'æ“ä½œä¸­ã®ã‚¿ãƒ–è‡ªä½“ã‚’é–‰ã˜ãªã„ã‚ˆã†ã«ä»•å‘ã‘ã‚‹
     If targetID = mainID Then
         printMsg WARN_, "Unable to close this tab " & targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
@@ -1236,12 +1236,12 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
             Case LogLevelName.info_: .LogInfo strFormattedMsg, From, logPath, logName
             Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, logPath, logName
             Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, logPath, logName, Err.Number
-            Case Else: 'ƒƒOo—Í–³Œø‰»
+            Case Else: 'ãƒ­ã‚°å‡ºåŠ›ç„¡åŠ¹åŒ–
         End Select
     End With
 
 
-    'ƒuƒ‰ƒEƒU©g‚âAƒpƒCƒv’ÊM©‘Ì‚É–â‘è‚âAƒ^ƒCƒ€ƒAƒEƒg‚É‚È‚Á‚½‚Æ”»’f‚³‚ê‚½ê‡‚ÍA‚±‚Ìƒc[ƒ‹‚Å‚Ìˆ—(CDP-Json)‚ª‚Å‚«‚È‚¢‚Ì‚ÅAƒGƒ‰[‚Å’â~‚³‚¹‚Ä‚¨‚­
+    'ãƒ–ãƒ©ã‚¦ã‚¶è‡ªèº«ã‚„ã€ãƒ‘ã‚¤ãƒ—é€šä¿¡è‡ªä½“ã«å•é¡Œã‚„ã€ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆã«ãªã£ãŸã¨åˆ¤æ–­ã•ã‚ŒãŸå ´åˆã¯ã€ã“ã®ãƒ„ãƒ¼ãƒ«ã§ã®å‡¦ç†(CDP-Json)ãŒã§ããªã„ã®ã§ã€ã‚¨ãƒ©ãƒ¼ã§åœæ­¢ã•ã›ã¦ãŠã
     If doRaiseError Then Err.Raise ERR_PROTOCOL, From, Description:=strMsg
 
 End Sub
@@ -1518,14 +1518,14 @@ Property Get html() As String
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒg“à—e‚ÉŠÖ‚·‚éƒvƒƒpƒeƒB‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆå†…å®¹ã«é–¢ã™ã‚‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l FŒÄ‚Ño‚µ‚½“_‚Å‚ÌAƒuƒ‰ƒEƒUƒCƒxƒ“ƒg“à—e
-'* LETˆø” F’u‚«Š·‚¦‚éDictionary•Ï”BŠî–{‚ÍANew Dictionary ‚ğ“n‚µ‚Ä‚ÌƒŠƒZƒbƒg‚Å‚·
+'* GETè¿”å€¤ ï¼šå‘¼ã³å‡ºã—ãŸæ™‚ç‚¹ã§ã®ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ™ãƒ³ãƒˆå†…å®¹
+'* LETå¼•æ•° ï¼šç½®ãæ›ãˆã‚‹Dictionaryå¤‰æ•°ã€‚åŸºæœ¬ã¯ã€New Dictionary ã‚’æ¸¡ã—ã¦ã®ãƒªã‚»ãƒƒãƒˆã§ã™
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FE`Set BrowserEvents` ‚ÉA`New Dictionary`‚ğ“n‚·‚ÆAƒCƒxƒ“ƒg‹L˜^ƒ‚[ƒh‚É‚È‚è‚Ü‚·B
-'            E`Set BrowserEvents` ‚ÉA`Nothing`‚ğ“n‚·‚ÆAƒCƒxƒ“ƒg”jŠüƒ‚[ƒh‚É‚È‚è‚Ü‚·B
-'* ’ˆÓ–€FSet ƒvƒƒpƒeƒBg—pAŠÈˆÕ“I‚ÈDictionary\‘¢‚Ìƒ`ƒFƒbƒN‚ğs‚¢‚Ü‚·B\‘¢‚ªˆá‚¤Dictionary‚ğ“n‚³‚ê‚½ê‡AŒxƒƒbƒZ[ƒW‚ªo‚ÄA’â~‚µ‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ»`Set BrowserEvents` ã«ã€`New Dictionary`ã‚’æ¸¡ã™ã¨ã€ã‚¤ãƒ™ãƒ³ãƒˆè¨˜éŒ²ãƒ¢ãƒ¼ãƒ‰ã«ãªã‚Šã¾ã™ã€‚
+'            ãƒ»`Set BrowserEvents` ã«ã€`Nothing`ã‚’æ¸¡ã™ã¨ã€ã‚¤ãƒ™ãƒ³ãƒˆç ´æ£„ãƒ¢ãƒ¼ãƒ‰ã«ãªã‚Šã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼šSet ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ä½¿ç”¨æ™‚ã€ç°¡æ˜“çš„ãªDictionaryæ§‹é€ ã®ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã„ã¾ã™ã€‚æ§‹é€ ãŒé•ã†Dictionaryã‚’æ¸¡ã•ã‚ŒãŸå ´åˆã€è­¦å‘Šãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒå‡ºã¦ã€åœæ­¢ã—ã¾ã™ã€‚
 '***************************************************************************************************
 Property Get BrowserEvents() As Dictionary
     Set BrowserEvents = objAllMessages
@@ -1535,38 +1535,38 @@ Property Set BrowserEvents(ObjDic As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".BrowserEvents"
 
 
-    'Set‚³‚ê‚½Dictionary‚Ì\‘¢‚ğƒ`ƒFƒbƒN‚µ‚Ü‚·
-    '1. ‚»‚à‚»‚àDictionary ƒIƒuƒWƒFƒNƒg‚ª”õ‚í‚Á‚Ä‚¢‚é‚©H
+    'Setã•ã‚ŒãŸDictionaryã®æ§‹é€ ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¾ã™
+    '1. ãã‚‚ãã‚‚Dictionary ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãŒå‚™ã‚ã£ã¦ã„ã‚‹ã‹ï¼Ÿ
     If ObjDic Is Nothing Then
-        'Nothing ˆ—BˆÈ~‚ÍAƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚Í‚³‚ê‚Ü‚¹‚ñB
+        'Nothing å‡¦ç†ã€‚ä»¥é™ã¯ã€ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã¯ã•ã‚Œã¾ã›ã‚“ã€‚
         Set objAllMessages = Nothing
         printMsg info_, "Event capture save data has been discarded. Event capture will not be performed.", FromProcedureName
 
-    '2. ‚Ü‚Á‚³‚ç‚Ìê‡
+    '2. ã¾ã£ã•ã‚‰ã®å ´åˆ
     ElseIf ObjDic.Count = 0 Then
-        '‰Šú‰»ˆ—B‚±‚ê‚É‚æ‚èAƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ğŠJn‚µ‚Ü‚·B
+        'åˆæœŸåŒ–å‡¦ç†ã€‚ã“ã‚Œã«ã‚ˆã‚Šã€ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’é–‹å§‹ã—ã¾ã™ã€‚
         Set objAllMessages = FormatDictionary_BrowserEvents
         printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
-    '3. w’è‚ÌKey‚ª‚ ‚é‚©H
+    '3. æŒ‡å®šã®KeyãŒã‚ã‚‹ã‹ï¼Ÿ
     ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
-        'Šù‘¶ƒf[ƒ^‚ğƒZƒbƒgB‚±‚ê‚É‚æ‚èA‚±‚ÌDictionary‚ÉƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚Ì’Ç‹L‚ªs‚í‚ê‚Ü‚·B
+        'æ—¢å­˜ãƒ‡ãƒ¼ã‚¿ã‚’ã‚»ãƒƒãƒˆã€‚ã“ã‚Œã«ã‚ˆã‚Šã€ã“ã®Dictionaryã«ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã®è¿½è¨˜ãŒè¡Œã‚ã‚Œã¾ã™ã€‚
         Set objAllMessages = ObjDic
         printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
 
-    '4. •s³‚ÈDictionary Œ`®‚È‚Ì‚ÅƒGƒ‰[‚Å~‚ß‚é
+    '4. ä¸æ­£ãªDictionary å½¢å¼ãªã®ã§ã‚¨ãƒ©ãƒ¼ã§æ­¢ã‚ã‚‹
     Else
         printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
     End If
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@FCDP-Json ƒRƒ}ƒ“ƒhŒ‹‰Ê‚ğ“¾‚é‚½‚ß‚Ìƒ^ƒCƒ€ƒAƒEƒgŠÔ‚ğİ’è‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šCDP-Json ã‚³ãƒãƒ³ãƒ‰çµæœã‚’å¾—ã‚‹ãŸã‚ã®ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆæ™‚é–“ã‚’è¨­å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l Fİ’è’†‚Ìƒ^ƒCƒ€ƒAƒEƒg•b”
-'* LETˆø” F’u‚«Š·‚¦‚éƒ^ƒCƒ€ƒAƒEƒg•b”
+'* GETè¿”å€¤ ï¼šè¨­å®šä¸­ã®ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆç§’æ•°
+'* LETå¼•æ•° ï¼šç½®ãæ›ãˆã‚‹ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆç§’æ•°
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FÅ‰‚Ìƒuƒ‰ƒEƒU‹N“®‚Ì‘JˆÚŠ®—¹”»’è‚âACDP-Json ƒRƒ}ƒ“ƒhŒ‹‰Ê‚ğ“¾‚é‚Ì‚É‘Ò‚ÂŠÔ‚ğİ’è‚µ‚Ü‚·BƒfƒtƒHƒ‹ƒg‚ÍA45s‚Å‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šæœ€åˆã®ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•æ™‚ã®é·ç§»å®Œäº†åˆ¤å®šã‚„ã€CDP-Json ã‚³ãƒãƒ³ãƒ‰çµæœã‚’å¾—ã‚‹ã®ã«å¾…ã¤æ™‚é–“ã‚’è¨­å®šã—ã¾ã™ã€‚ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯ã€45sã§ã™ã€‚
 '***************************************************************************************************
 Property Get TimeOutSecond() As Long
     TimeOutSecond = timerOut
@@ -1577,12 +1577,12 @@ Property Let TimeOutSecond(TimeSec As Long)
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@FCDP-Json ƒRƒ}ƒ“ƒhŒ‹‰Ê‚Ì‚¤‚¿AÅŒã‚ÌƒGƒ‰[î•ñ‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šCDP-Json ã‚³ãƒãƒ³ãƒ‰çµæœã®ã†ã¡ã€æœ€å¾Œã®ã‚¨ãƒ©ãƒ¼æƒ…å ±ã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l FÅŒã‚ÌƒGƒ‰[î•ñ
+'* GETè¿”å€¤ ï¼šæœ€å¾Œã®ã‚¨ãƒ©ãƒ¼æƒ…å ±
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€F‚ ‚­‚Ü‚Å‚àAuÅŒãv‚ÌƒGƒ‰[î•ñ‚È‚Ì‚ÅA¬Œ÷‚µ‚Ä‚àÁ–Å‚µ‚Ü‚¹‚ñB`Err.LastDllError`‚É€‹’‚µ‚Ä‚Ü‚·B
-'            “KØ‚È`invokeMethod`‚ğÀs‚µ‚½‚Â‚à‚è‚È‚Ì‚É•Ô‚è’l‚ªA`Nothing`‚Æ‚È‚é‚Ì‚ªAƒGƒ‰[‚Ì–Úˆó‚Æ‚È‚é‚Ì‚ÅA‚»‚ê‚Å‚±‚ÌƒGƒ‰[î•ñ‚ğŒ©‚És‚Á‚Ä‚­‚¾‚³‚¢B
+'* æ³¨æ„äº‹é …ï¼šã‚ãã¾ã§ã‚‚ã€ã€Œæœ€å¾Œã€ã®ã‚¨ãƒ©ãƒ¼æƒ…å ±ãªã®ã§ã€æˆåŠŸã—ã¦ã‚‚æ¶ˆæ»…ã—ã¾ã›ã‚“ã€‚`Err.LastDllError`ã«æº–æ‹ ã—ã¦ã¾ã™ã€‚
+'            é©åˆ‡ãª`invokeMethod`ã‚’å®Ÿè¡Œã—ãŸã¤ã‚‚ã‚Šãªã®ã«è¿”ã‚Šå€¤ãŒã€`Nothing`ã¨ãªã‚‹ã®ãŒã€ã‚¨ãƒ©ãƒ¼ã®ç›®å°ã¨ãªã‚‹ã®ã§ã€ãã‚Œã§ã“ã®ã‚¨ãƒ©ãƒ¼æƒ…å ±ã‚’è¦‹ã«è¡Œã£ã¦ãã ã•ã„ã€‚
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
     Set LastCDPJsonError = errorDetails
@@ -1591,19 +1591,19 @@ End Property
 
 
 '***************************************************************************************************
-'                              ¡¡¡ ƒvƒ‰ƒCƒx[ƒgƒvƒƒV[ƒWƒƒ ¡¡¡
+'                              â– â– â–  ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FCDP ‚ÉƒƒbƒZ[ƒW‚ğ‘—M‚µAChromium ƒuƒ‰ƒEƒU‚ÅƒƒbƒZ[ƒW‚ªóM‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©‚ğŠm”F‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šCDP ã«ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’é€ä¿¡ã—ã€Chromium ãƒ–ãƒ©ã‚¦ã‚¶ã§ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒå—ä¿¡ã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹ã‚’ç¢ºèªã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FCDP-JsonƒRƒ}ƒ“ƒh ‚ÌÀsŒ‹‰Ê(Json-Dictionary Œ`®)
-'* ˆø”@@FstrMessage             Chromium ƒuƒ‰ƒEƒU‚É‘—‚éCDP-JsonƒRƒ}ƒ“ƒh(ƒvƒŒ[ƒ“ƒeƒLƒXƒg)
-'            BrowserContext         `True`‚ÅAƒuƒ‰ƒEƒU©g‚ğ‘ÎÛ‚µ‚½ƒRƒ}ƒ“ƒhÀsƒ‚[ƒh‚Æ‚È‚è‚Ü‚·
-'            InternalUseMessages    ƒNƒ‰ƒX“à•”‚Åg—p‚µ‚½‚¢‚Æ‚«‚ÉA`New Dictionry`‚Æ‚µ‚ÄA“n‚·‚±‚Æ‚ÅA‚±‚Á‚¿‚É‚àƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚ªo—ˆ‚Ü‚·
-'            dbgMsg                 `True`‚ÅƒGƒ‰[AƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚Ü‚·B
+'* è¿”ã‚Šå€¤ã€€ï¼šCDP-Jsonã‚³ãƒãƒ³ãƒ‰ ã®å®Ÿè¡Œçµæœ(Json-Dictionary å½¢å¼)
+'* å¼•æ•°ã€€ã€€ï¼šstrMessage             Chromium ãƒ–ãƒ©ã‚¦ã‚¶ã«é€ã‚‹CDP-Jsonã‚³ãƒãƒ³ãƒ‰(ãƒ—ãƒ¬ãƒ¼ãƒ³ãƒ†ã‚­ã‚¹ãƒˆ)
+'            BrowserContext         `True`ã§ã€ãƒ–ãƒ©ã‚¦ã‚¶è‡ªèº«ã‚’å¯¾è±¡ã—ãŸã‚³ãƒãƒ³ãƒ‰å®Ÿè¡Œãƒ¢ãƒ¼ãƒ‰ã¨ãªã‚Šã¾ã™
+'            InternalUseMessages    ã‚¯ãƒ©ã‚¹å†…éƒ¨ã§ä½¿ç”¨ã—ãŸã„ã¨ãã«ã€`New Dictionry`ã¨ã—ã¦ã€æ¸¡ã™ã“ã¨ã§ã€ã“ã£ã¡ã«ã‚‚ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ãŒå‡ºæ¥ã¾ã™
+'            dbgMsg                 `True`ã§ã‚¨ãƒ©ãƒ¼æ™‚ã€ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã¾ã™ã€‚
 '---------------------------------------------------------------------------------------------------
-'* XV—š—ğFE03/05/23 - Added soft-reset on peeknamepipe error
-'            E03/22/23 - Added error handling for better debugging
-'            E24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
+'* æ›´æ–°å±¥æ­´ï¼šãƒ»03/05/23 - Added soft-reset on peeknamepipe error
+'            ãƒ»03/22/23 - Added error handling for better debugging
+'            ãƒ»24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '***************************************************************************************************
 Private Function SendMessage(strMessage As String, Optional BrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
@@ -1628,30 +1628,30 @@ RetrySend:
 1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
         printMsg Trace_, "Starts discarding browser event information...", FromProcedureName
 
-        'I’[null•¶š‚ª‚ ‚Á‚Ä®Š‚ÂAóMƒf[ƒ^0‚ª—ˆ‚é‚Ü‚ÅAƒ‹[ƒvóM”jŠü‚ğs‚¢‚Ü‚·
+        'çµ‚ç«¯nullæ–‡å­—ãŒã‚ã£ã¦å°šä¸”ã¤ã€å—ä¿¡ãƒ‡ãƒ¼ã‚¿0ãŒæ¥ã‚‹ã¾ã§ã€ãƒ«ãƒ¼ãƒ—å—ä¿¡ç ´æ£„ã‚’è¡Œã„ã¾ã™
         Do
-            'óMˆ—
+            'å—ä¿¡å‡¦ç†
 2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
             printMsg Trace_, "Discard - ResSize = " & intRes, FromProcedureName
 
-            '•Ô‚è’lƒ`ƒFƒbƒN
+            'è¿”ã‚Šå€¤ãƒã‚§ãƒƒã‚¯
             If intRes > 0 Then
-               'ƒf[ƒ^‚ ‚è‚¾‚ªA‚ ‚­‚Ü‚Å”jŠüˆ—‚Ì‚½‚ß‰½‚à‚µ‚È‚¢(‹­‚¢‚Ä‚¢‚¤‚È‚çA”jŠü‚·‚éƒƒbƒZ[ƒW‚ğ‚»‚Ì‚Ü‚Üo‚·)
+               'ãƒ‡ãƒ¼ã‚¿ã‚ã‚Šã ãŒã€ã‚ãã¾ã§ç ´æ£„å‡¦ç†ã®ãŸã‚ä½•ã‚‚ã—ãªã„(å¼·ã„ã¦ã„ã†ãªã‚‰ã€ç ´æ£„ã™ã‚‹ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ãã®ã¾ã¾å‡ºã™)
 3               printMsg Trace_, "Emptying the message buffer...", FromProcedureName
 4               If seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
 
             Else
-                'ƒf[ƒ^‚È‚µ‚Ìê‡‚ÍAƒGƒ‰[ƒR[ƒhƒ`ƒFƒbƒN‚ğs‚¤
+                'ãƒ‡ãƒ¼ã‚¿ãªã—ã®å ´åˆã¯ã€ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã†
                 If ErrorCode_PeekNamedPipe Then
-                    'PeekNamedPipe ‚É‚ÄƒGƒ‰[‚ª‚ ‚Á‚½ê‡
+                    'PeekNamedPipe ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒã‚ã£ãŸå ´åˆ
 5                   printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
 
                 ElseIf ErrorCode_ReadFile Then
-                    'ReadFile ‚É‚ÄƒGƒ‰[‚ª‚ ‚Á‚½ê‡
+                    'ReadFile ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒã‚ã£ãŸå ´åˆ
 6                   printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
 
                 Else
-                    'ƒf[ƒ^‚ª‚Ü‚¾A‚È‚¢B‚Â‚Ü‚èA”jŠüŠ®—¹
+                    'ãƒ‡ãƒ¼ã‚¿ãŒã¾ã ã€ãªã„ã€‚ã¤ã¾ã‚Šã€ç ´æ£„å®Œäº†
                     printMsg Trace_, "Message queue destruction completed.", FromProcedureName
                 End If
             End If
@@ -1659,7 +1659,7 @@ RetrySend:
     End If
 
    '--------------------------------------------------
-   'ƒuƒ‰ƒEƒU©‘Ì‚Ì•W€o—ÍA•W€o—ÍƒGƒ‰[ ‚ÌŠm”F
+   'ãƒ–ãƒ©ã‚¦ã‚¶è‡ªä½“ã®æ¨™æº–å‡ºåŠ›ã€æ¨™æº–å‡ºåŠ›ã‚¨ãƒ©ãƒ¼ ã®ç¢ºèª
    '--------------------------------------------------
 7   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
     If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
@@ -1682,38 +1682,38 @@ RetrySend:
    '------------------------------------------------
     Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
 
-    'óMˆ—¨Jsonˆ—¨óMˆ—¨Jsonˆ—¨c@‚Æ‚¢‚¤ƒƒWƒbƒN‚Åƒ‹[ƒvˆ—‚ğs‚¢‚Ü‚·
-    'CDP-JsonƒRƒ}ƒ“ƒh‚ğ‘—‚Á‚½Û‚ÌID‚ª•Ô‚Á‚Ä‚­‚é‚Ü‚ÅAƒ‹[ƒvóMˆ—‚ğs‚¢‚Ü‚·‚ªAƒ^ƒCƒ€ƒAƒEƒg‚É‚È‚Á‚½‚çA”²‚¯‚Ü‚·
+    'å—ä¿¡å‡¦ç†â†’Jsonå‡¦ç†â†’å—ä¿¡å‡¦ç†â†’Jsonå‡¦ç†â†’â€¦ã€€ã¨ã„ã†ãƒ­ã‚¸ãƒƒã‚¯ã§ãƒ«ãƒ¼ãƒ—å‡¦ç†ã‚’è¡Œã„ã¾ã™
+    'CDP-Jsonã‚³ãƒãƒ³ãƒ‰ã‚’é€ã£ãŸéš›ã®IDãŒè¿”ã£ã¦ãã‚‹ã¾ã§ã€ãƒ«ãƒ¼ãƒ—å—ä¿¡å‡¦ç†ã‚’è¡Œã„ã¾ã™ãŒã€ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆã«ãªã£ãŸã‚‰ã€æŠœã‘ã¾ã™
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
     printMsg Trace_, "Processes incoming messages from the browser...", FromProcedureName
     Do
-        'óMˆ—
+        'å—ä¿¡å‡¦ç†
 13      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
-        '•Ô‚è’lƒ`ƒFƒbƒN
+        'è¿”ã‚Šå€¤ãƒã‚§ãƒƒã‚¯
         If intRes > 0 Then
-            'ƒf[ƒ^‚ ‚èBóMƒƒbƒZ[ƒW‚ğŠˆ—p‚·‚é‚½‚ßAnull•¶š‹æØ‚è‚Æ‚µ‚ÄƒXƒ}[ƒg‚É•ªŠ„
+            'ãƒ‡ãƒ¼ã‚¿ã‚ã‚Šã€‚å—ä¿¡ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’æ´»ç”¨ã™ã‚‹ãŸã‚ã€nullæ–‡å­—åŒºåˆ‡ã‚Šã¨ã—ã¦ã‚¹ãƒãƒ¼ãƒˆã«åˆ†å‰²
 14          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
             printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
 
-            'ƒƒ‚ƒŠ‚ğ‰ğ•ú
+            'ãƒ¡ãƒ¢ãƒªã‚’è§£æ”¾
             If seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & strRes, FromProcedureName
 15          strRes = vbNullString
 
-            '•ªŠ„‚µ‚½”•ªAˆ—
+            'åˆ†å‰²ã—ãŸæ•°åˆ†ã€å‡¦ç†
             Dim i As Long
             For i = LBound(JsonMessages) To UBound(JsonMessages)
 16              If seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
-                'ÅŒã‚Ì—v‘f‚©H
+                'æœ€å¾Œã®è¦ç´ ã‹ï¼Ÿ
 17              If i = UBound(JsonMessages) Then
-                    '‹ó—“‚©H
+                    'ç©ºæ¬„ã‹ï¼Ÿ
                     If JsonMessages(i) = "" Then
-                        '1‰ñ‚ÌóM‚Å‘S‚Ä³‚µ‚¢JsonŒ`®‚Æ‚µ‚Ä“¾‚ê‚Ü‚µ‚½
+                        '1å›ã®å—ä¿¡ã§å…¨ã¦æ­£ã—ã„Jsonå½¢å¼ã¨ã—ã¦å¾—ã‚Œã¾ã—ãŸ
                         printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
                     Else
-                        'ƒf[ƒ^‚ªA"Œ‡‚¯‚½"ó‘Ô‚È‚Ì‚Å’~Ï‚ÅAƒLƒƒƒbƒVƒ…‚µ‚Ä‚¨‚­B•p”É‚É‚Í—ˆ‚È‚¢‘z’è
+                        'ãƒ‡ãƒ¼ã‚¿ãŒã€"æ¬ ã‘ãŸ"çŠ¶æ…‹ãªã®ã§è“„ç©ã§ã€ã‚­ãƒ£ãƒƒã‚·ãƒ¥ã—ã¦ãŠãã€‚é »ç¹ã«ã¯æ¥ãªã„æƒ³å®š
                         printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
                         printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
 18                      strBuffer = strBuffer & JsonMessages(i)
@@ -1722,10 +1722,10 @@ RetrySend:
                         printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
                     End If
                 Else
-                    '1. Œ‡‚¯‚½ƒf[ƒ^‚ª‚ ‚é‚©H
+                    '1. æ¬ ã‘ãŸãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹ã‹ï¼Ÿ
                     Dim tmp As String
                     If StrPtr(strBuffer) Then
-                        '‹óƒf[ƒ^‚¶‚á‚È‚¢ê‡‚ÍAŒ‹‡‚·‚é
+                        'ç©ºãƒ‡ãƒ¼ã‚¿ã˜ã‚ƒãªã„å ´åˆã¯ã€çµåˆã™ã‚‹
                         If JsonMessages(i) = "" Then
                             tmp = strBuffer
 19                          printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
@@ -1734,23 +1734,23 @@ RetrySend:
                             printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
                         End If
 
-                        'ÅŒã‚Ì—v‘f‚Å‚Í‚È‚¢‚½‚ßAJsonƒf[ƒ^‚ªŠ®¬‚³‚ê‚½‚Æ‚µA’~Ï’†‚Ìƒf[ƒ^‚ğƒNƒŠƒA‚·‚é
+                        'æœ€å¾Œã®è¦ç´ ã§ã¯ãªã„ãŸã‚ã€Jsonãƒ‡ãƒ¼ã‚¿ãŒå®Œæˆã•ã‚ŒãŸã¨ã—ã€è“„ç©ä¸­ã®ãƒ‡ãƒ¼ã‚¿ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹
 21                      strBuffer = vbNullString
                     Else
-                        '‚»‚Ì‚Ü‚ñ‚Üg‚¤
+                        'ãã®ã¾ã‚“ã¾ä½¿ã†
 22                      tmp = JsonMessages(i)
                         printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
                     End If
 
-                    '2. `vbnullchar`‚ª˜A‘±‚Å—ˆ‚½‚É”õ‚¦‚ÄA‹ó•¶š‚Í‚»‚à‚»‚àó‚¯•t‚¯‚È‚¢‚æ‚¤‚É‚·‚é
-                    If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure ¨ " & tmp, FromProcedureName
+                    '2. `vbnullchar`ãŒé€£ç¶šã§æ¥ãŸæ™‚ã«å‚™ãˆã¦ã€ç©ºæ–‡å­—ã¯ãã‚‚ãã‚‚å—ã‘ä»˜ã‘ãªã„ã‚ˆã†ã«ã™ã‚‹
+                    If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure â†’ " & tmp, FromProcedureName
                     If tmp <> "" Then
-                        'óMƒf[ƒ^‚ğ Json-Dictionary ‚Æ‚µ‚Ä•ÏŠ·
+                        'å—ä¿¡ãƒ‡ãƒ¼ã‚¿ã‚’ Json-Dictionary ã¨ã—ã¦å¤‰æ›
 23                      Set results = jsConverter.ParseJson(tmp)
 
-                        'óMƒf[ƒ^‚Ìƒ`ƒFƒbƒN‚ğs‚¤ƒvƒƒV[ƒWƒƒ‚Ö‘JˆÚ‚µ‚Ü‚·B
+                        'å—ä¿¡ãƒ‡ãƒ¼ã‚¿ã®ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã†ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã¸é·ç§»ã—ã¾ã™ã€‚
 24                      If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
-                            '’¼‹ß‚É‘—‚Á‚½ƒRƒ}ƒ“ƒhŒ‹‰Ê‚Å‚ ‚é‚±‚Æ‚ğŠm”F‚Å‚«‚½‚Ì‚ÅAóMƒ‹[ƒvI—¹ƒtƒ‰ƒO‚ğ—§‚Ä‚ÄAƒRƒ}ƒ“ƒhŒ‹‰Ê‚à•Ô‚·
+                            'ç›´è¿‘ã«é€ã£ãŸã‚³ãƒãƒ³ãƒ‰çµæœã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèªã§ããŸã®ã§ã€å—ä¿¡ãƒ«ãƒ¼ãƒ—çµ‚äº†ãƒ•ãƒ©ã‚°ã‚’ç«‹ã¦ã¦ã€ã‚³ãƒãƒ³ãƒ‰çµæœã‚‚è¿”ã™
                             ResultSendCommand = True
 25                          Set SendMessage = results
 
@@ -1764,36 +1764,36 @@ RetrySend:
                 DoEvents
             Next
         Else
-            'ƒf[ƒ^‚È‚µ‚Ìê‡‚ÍAƒGƒ‰[ƒR[ƒhƒ`ƒFƒbƒN‚ğs‚¤
+            'ãƒ‡ãƒ¼ã‚¿ãªã—ã®å ´åˆã¯ã€ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã†
             If ErrorCode_PeekNamedPipe Then
-                'PeekNamedPipe ‚É‚ÄƒGƒ‰[‚ª‚ ‚Á‚½ê‡
+                'PeekNamedPipe ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒã‚ã£ãŸå ´åˆ
 26              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
             ElseIf ErrorCode_ReadFile Then
-                'ReadFile ‚É‚ÄƒGƒ‰[‚ª‚ ‚Á‚½ê‡
+                'ReadFile ã«ã¦ã‚¨ãƒ©ãƒ¼ãŒã‚ã£ãŸå ´åˆ
 27              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
-                'ƒf[ƒ^‚ª‚Ü‚¾A‚È‚¢
+                'ãƒ‡ãƒ¼ã‚¿ãŒã¾ã ã€ãªã„
                 printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
             End If
 
             DoEvents
         End If
 
-        '‚¢‚­‚Â‚©‚ÌƒƒO•\¦
+        'ã„ãã¤ã‹ã®ãƒ­ã‚°è¡¨ç¤º
         If ResultSendCommand = False Then
-            '1. ƒRƒ}ƒ“ƒhŒ‹‰Ê‚ªA‚Ü‚¾—ˆ‚È‚¢
+            '1. ã‚³ãƒãƒ³ãƒ‰çµæœãŒã€ã¾ã æ¥ãªã„
             printMsg Trace_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
 
         ElseIf ResultSendCommand And StrPtr(strBuffer) <> 0 Then
-            '2. ƒRƒ}ƒ“ƒhŒ‹‰Ê‚Í“¾‚ê‚Ä‚àAŒ‡‘¹Json‚ª‚Ü‚¾‚ ‚éê‡‚ÍA•s®‡‚ğ–h‚®‚½‚ßAƒ‹[ƒvóMŒp‘±‚Ì|‚ğ’Ê’m‚µ‚Ä‚¨‚­
+            '2. ã‚³ãƒãƒ³ãƒ‰çµæœã¯å¾—ã‚Œã¦ã‚‚ã€æ¬ æJsonãŒã¾ã ã‚ã‚‹å ´åˆã¯ã€ä¸æ•´åˆã‚’é˜²ããŸã‚ã€ãƒ«ãƒ¼ãƒ—å—ä¿¡ç¶™ç¶šã®æ—¨ã‚’é€šçŸ¥ã—ã¦ãŠã
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
         End If
 
 
-        'ˆê’èŠÔŒo‚Á‚Ä‚àƒRƒ}ƒ“ƒhŒ‹‰Ê‚ª—ˆ‚È‚¢‚È‚çAƒ‹[ƒv‚©‚ç”²‚¯‚Ü‚·
+        'ä¸€å®šæ™‚é–“çµŒã£ã¦ã‚‚ã‚³ãƒãƒ³ãƒ‰çµæœãŒæ¥ãªã„ãªã‚‰ã€ãƒ«ãƒ¼ãƒ—ã‹ã‚‰æŠœã‘ã¾ã™
 28      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
 
-        'CDP-JsonƒRƒ}ƒ“ƒh‚ÌŒ‹‰Ê‚ª“¾‚ê‚Ä‚¨‚è‚È‚¨‚©‚ÂAŒ‡‚¯‚Ä‚éƒf[ƒ^‚ª‚È‚¯‚ê‚ÎAóMƒ‹[ƒv‚ğI—¹‚µ‚Ü‚·
+        'CDP-Jsonã‚³ãƒãƒ³ãƒ‰ã®çµæœãŒå¾—ã‚Œã¦ãŠã‚ŠãªãŠã‹ã¤ã€æ¬ ã‘ã¦ã‚‹ãƒ‡ãƒ¼ã‚¿ãŒãªã‘ã‚Œã°ã€å—ä¿¡ãƒ«ãƒ¼ãƒ—ã‚’çµ‚äº†ã—ã¾ã™
     Loop Until ResultSendCommand And StrPtr(strBuffer) = 0
 
     printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
@@ -1840,77 +1840,77 @@ ifError:
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FƒCƒxƒ“ƒg‚Ìuí—Şiƒƒ\ƒbƒh–¼jv‚²‚Æ‚ÌdØ‚è‚ğ“ü‚êA‚»‚±‚ÉCollection‚ğ“ü‚ê‚Ä‚¢‚«‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¤ãƒ™ãƒ³ãƒˆã®ã€Œç¨®é¡ï¼ˆãƒ¡ã‚½ãƒƒãƒ‰åï¼‰ã€ã”ã¨ã®ä»•åˆ‡ã‚Šã‚’å…¥ã‚Œã€ãã“ã«Collectionã‚’å…¥ã‚Œã¦ã„ãã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* À¿•Ô’lFAccumulator
-'* ˆø”@@FAccumulator    ‚±‚ê‚Ü‚Å‚ÌŠi”[ƒCƒxƒ“ƒgB
-'            eventData      Json-DictionryÏ‚İ‚Ìƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgƒf[ƒ^
+'* å®Ÿè³ªè¿”å€¤ï¼šAccumulator
+'* å¼•æ•°ã€€ã€€ï¼šAccumulator    ã“ã‚Œã¾ã§ã®æ ¼ç´ã‚¤ãƒ™ãƒ³ãƒˆã€‚
+'            eventData      Json-Dictionryæ¸ˆã¿ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾Fƒƒ\ƒbƒh–¼‚ğƒL[‚É‚µA‚»‚ê‚¼‚ê‚Ì’†‚Å‚ÍAŒn—ñ‚ª•Û‚Â‚æ‚¤‚É’Ç‰Á‚µ‚Ä‚¢‚«‚Ü‚·B
-'            ‚±‚ê‚É‚æ‚èAu“Á’è‚Ì"í—Ş"‚ÌƒCƒxƒ“ƒgv‚ğAŒÂ•Ê‚Éƒ`ƒFƒbƒN‚µ‚â‚·‚­‚È‚è‚Ü‚·B
-'            Œn—ñƒf[ƒ^(Index’l)‚Æ‡ŒvƒLƒƒƒvƒ`ƒƒ”‚à‚¨‚Ü‚¯‚Æ‚µ‚Äc‚µ‚Ä‚¨‚«‚Ü‚·B
-'* ’ˆÓ–€G‚±‚ÌƒvƒƒV[ƒWƒƒ‚ğŒÄ‚Ño‚·‘O‚ÉAƒCƒxƒ“ƒgƒf[ƒ^‚Å‚ ‚é‚©‚Ìƒ`ƒFƒbƒN‚ğÏ‚Ü‚¹‚Ä‚­‚¾‚³‚¢
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ¡ã‚½ãƒƒãƒ‰åã‚’ã‚­ãƒ¼ã«ã—ã€ãã‚Œãã‚Œã®ä¸­ã§ã¯ã€æ™‚ç³»åˆ—ãŒä¿ã¤ã‚ˆã†ã«è¿½åŠ ã—ã¦ã„ãã¾ã™ã€‚
+'            ã“ã‚Œã«ã‚ˆã‚Šã€ã€Œç‰¹å®šã®"ç¨®é¡"ã®ã‚¤ãƒ™ãƒ³ãƒˆã€ã‚’ã€å€‹åˆ¥ã«ãƒã‚§ãƒƒã‚¯ã—ã‚„ã™ããªã‚Šã¾ã™ã€‚
+'            æ™‚ç³»åˆ—ãƒ‡ãƒ¼ã‚¿(Indexå€¤)ã¨åˆè¨ˆã‚­ãƒ£ãƒ—ãƒãƒ£æ•°ã‚‚ãŠã¾ã‘ã¨ã—ã¦æ®‹ã—ã¦ãŠãã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼›ã“ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã‚’å‘¼ã³å‡ºã™å‰ã«ã€ã‚¤ãƒ™ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿ã§ã‚ã‚‹ã‹ã®ãƒã‚§ãƒƒã‚¯ã‚’æ¸ˆã¾ã›ã¦ãã ã•ã„
 '***************************************************************************************************
 Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
 
-    'ƒCƒxƒ“ƒg–¼‚ğæ“¾
+    'ã‚¤ãƒ™ãƒ³ãƒˆåã‚’å–å¾—
     Dim EventMethodName As String: EventMethodName = eventData("method")
 
-    ' ‡ŒvƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ”‚ğƒJƒEƒ“ƒg‚·‚é
+    ' åˆè¨ˆã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£æ•°ã‚’ã‚«ã‚¦ãƒ³ãƒˆã™ã‚‹
     Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
     printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
 
-    ' ƒCƒ“ƒfƒbƒNƒX‚à•t—^(1n‚Ü‚è)
-    ' ‚±‚ê‚É‚æ‚èA‘S‘Ì‚ÌŒn—ñƒf[ƒ^‚à•Û‚Å‚«‚Ü‚·
+    ' ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã‚‚ä»˜ä¸(1å§‹ã¾ã‚Š)
+    ' ã“ã‚Œã«ã‚ˆã‚Šã€å…¨ä½“ã®æ™‚ç³»åˆ—ãƒ‡ãƒ¼ã‚¿ã‚‚ä¿æŒã§ãã¾ã™
     eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
 
 
-    'Ši”[ŠJn
-    ' 1.ƒCƒxƒ“ƒgƒƒ\ƒbƒhƒf[ƒ^‚ª‚ ‚éDictionary‚É‘JˆÚ
+    'æ ¼ç´é–‹å§‹
+    ' 1.ã‚¤ãƒ™ãƒ³ãƒˆãƒ¡ã‚½ãƒƒãƒ‰ãƒ‡ãƒ¼ã‚¿ãŒã‚ã‚‹Dictionaryã«é·ç§»
     Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
 
-    ' 2. ‚±‚ÌƒCƒxƒ“ƒg–¼‚Ì`Collection`‚ªA‚·‚Å‚É‚ ‚é‚©H
+    ' 2. ã“ã®ã‚¤ãƒ™ãƒ³ãƒˆåã®`Collection`ãŒã€ã™ã§ã«ã‚ã‚‹ã‹ï¼Ÿ
     Dim eventList As Collection
     If EventsDictionary.Exists(EventMethodName) Then
-        ' ‚ ‚ê‚ÎA‚»‚ÌƒRƒŒƒNƒVƒ‡ƒ“ƒf[ƒ^‚ğƒZƒbƒg
+        ' ã‚ã‚Œã°ã€ãã®ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ãƒ‡ãƒ¼ã‚¿ã‚’ã‚»ãƒƒãƒˆ
         Set eventList = EventsDictionary(EventMethodName)
         printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
     Else
-        ' ‚È‚¯‚ê‚ÎAV‚µ‚¢`Collection`‚ğƒZƒbƒg
+        ' ãªã‘ã‚Œã°ã€æ–°ã—ã„`Collection`ã‚’ã‚»ãƒƒãƒˆ
         Set eventList = New Collection
         EventsDictionary.Add EventMethodName, eventList
 
         printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
     End If
 
-    ' 3. ƒZƒbƒg‚³‚ê‚½ƒRƒŒƒNƒVƒ‡ƒ“‚ÉA¡‰ñ‚ÌƒCƒxƒ“ƒg‚ÌÚ×ƒf[ƒ^‚ğA’Ç‰Á‚·‚é
+    ' 3. ã‚»ãƒƒãƒˆã•ã‚ŒãŸã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ã«ã€ä»Šå›ã®ã‚¤ãƒ™ãƒ³ãƒˆã®è©³ç´°ãƒ‡ãƒ¼ã‚¿ã‚’ã€è¿½åŠ ã™ã‚‹
     eventList.Add eventData
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒuƒ‰ƒEƒU‚©‚ç‚ÌóMƒf[ƒ^‚Ì\‘¢‚ğƒ`ƒFƒbƒN‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®å—ä¿¡ãƒ‡ãƒ¼ã‚¿ã®æ§‹é€ ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô’l    FTRUE :óMƒ‹[ƒv‚ğ~‚ß‚é‡}B
-'               —áFE`returnCDPJson`‚ÉAExcel‚©‚ç‚ÌCDP-JsonƒRƒ}ƒ“ƒhŒ‹‰Ê‚ª‚ ‚éB
-'                   E\•¶ƒGƒ‰[‚É‚æ‚éAID€–Ú‚È‚µ
+'* è¿”å€¤    ï¼šTRUE :å—ä¿¡ãƒ«ãƒ¼ãƒ—ã‚’æ­¢ã‚ã‚‹åˆå›³ã€‚
+'               ä¾‹ï¼šãƒ»`returnCDPJson`ã«ã€Excelã‹ã‚‰ã®CDP-Jsonã‚³ãƒãƒ³ãƒ‰çµæœãŒã‚ã‚‹ã€‚
+'                   ãƒ»æ§‹æ–‡ã‚¨ãƒ©ãƒ¼ã«ã‚ˆã‚‹ã€IDé …ç›®ãªã—
 '
-'            FALSE:óMƒ‹[ƒv‚ğŒp‘±‚·‚é‡}B
-'               —áFE`returnCDPJson`‚ÍAƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒgî•ñ‚Å‚ ‚é
+'            FALSE:å—ä¿¡ãƒ«ãƒ¼ãƒ—ã‚’ç¶™ç¶šã™ã‚‹åˆå›³ã€‚
+'               ä¾‹ï¼šãƒ»`returnCDPJson`ã¯ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã§ã‚ã‚‹
 '
-'* ˆø”@@FreturnCDPJson          1Œ•ª‚Ì`Json-Dictionary`Œ`®Ï‚İ‚Ìƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒg‚âCDP-JsonƒRƒ}ƒ“ƒhŒ‹‰Ê
-'            InternalUseMessages    ƒNƒ‰ƒX“àƒvƒƒV[ƒWƒƒ‚ÅAƒCƒxƒ“ƒg“à—e‚ğˆµ‚¤—p‚Æ‚µ‚Ä’~Ï‚³‚¹‚éQÆ•Ï”
-'            checkCommandID         Šm”F‚·‚éƒRƒ}ƒ“ƒhID
+'* å¼•æ•°ã€€ã€€ï¼šreturnCDPJson          1ä»¶åˆ†ã®`Json-Dictionary`å½¢å¼æ¸ˆã¿ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆã‚„CDP-Jsonã‚³ãƒãƒ³ãƒ‰çµæœ
+'            InternalUseMessages    ã‚¯ãƒ©ã‚¹å†…ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã§ã€ã‚¤ãƒ™ãƒ³ãƒˆå†…å®¹ã‚’æ‰±ã†ç”¨ã¨ã—ã¦è“„ç©ã•ã›ã‚‹å‚ç…§å¤‰æ•°
+'            checkCommandID         ç¢ºèªã™ã‚‹ã‚³ãƒãƒ³ãƒ‰ID
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FƒCƒxƒ“ƒgƒf[ƒ^ or CDP-JsonƒRƒ}ƒ“ƒhŒ‹‰Ê or \•¶ƒGƒ‰[ ‚ÌŠm”F‚ğ‚µAƒuƒ‰ƒEƒUƒCƒxƒ“ƒg‚Ìê‡‚Í‚Â‚¢‚Å‚ÉAƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚µ‚Ü‚·B
-'* ’ˆÓ–€GCDP-JsonƒRƒ}ƒ“ƒhŒ‹‰ÊID‚Ì•sˆê’v(ƒVƒ“ƒOƒ‹ƒXƒŒƒbƒh”z‰º‚È‚ç‘½•ª‚È‚¢‚Í‚¸...)‚Ìê‡‚ÍA•s®‡‚É‚æ‚è•sˆÀ’è‚É‚Â‚È‚ª‚é‚½‚ßAƒGƒ‰[‚Å’â~‚µ‚Ü‚·
+'* è©³ç´°èª¬æ˜ï¼šã‚¤ãƒ™ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿ or CDP-Jsonã‚³ãƒãƒ³ãƒ‰çµæœ or æ§‹æ–‡ã‚¨ãƒ©ãƒ¼ ã®ç¢ºèªã‚’ã—ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ™ãƒ³ãƒˆã®å ´åˆã¯ã¤ã„ã§ã«ã€ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ã—ã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼›CDP-Jsonã‚³ãƒãƒ³ãƒ‰çµæœIDã®ä¸ä¸€è‡´(ã‚·ãƒ³ã‚°ãƒ«ã‚¹ãƒ¬ãƒƒãƒ‰é…ä¸‹ãªã‚‰å¤šåˆ†ãªã„ã¯ãš...)ã®å ´åˆã¯ã€ä¸æ•´åˆã«ã‚ˆã‚Šä¸å®‰å®šã«ã¤ãªãŒã‚‹ãŸã‚ã€ã‚¨ãƒ©ãƒ¼ã§åœæ­¢ã—ã¾ã™
 '***************************************************************************************************
 Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
-    '======================================= ƒ`ƒFƒbƒNŠJn =======================================
+    '======================================= ãƒã‚§ãƒƒã‚¯é–‹å§‹ =======================================
     Dim FlagValue As Long
 
     Const resultCommand As Long = 2 ^ 0
@@ -1918,64 +1918,64 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
     Const mismatchID    As Long = 2 ^ 2
     Const oldSessionID  As Long = 2 ^ 3
 
-    '--------- 1. ƒuƒ‰ƒEƒU‚©‚ç‚ÌƒCƒxƒ“ƒg‚©H ---------
+    '--------- 1. ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰ã®ã‚¤ãƒ™ãƒ³ãƒˆã‹ï¼Ÿ ---------
     If returnCDPJson.Exists("method") Then
         FlagValue = FlagValue Or browserEvent
 
-        '--------- 2. `SessionID`€–Ú‚ª‚ ‚é‚©H ---------
+        '--------- 2. `SessionID`é …ç›®ãŒã‚ã‚‹ã‹ï¼Ÿ ---------
         If returnCDPJson.Exists("sessionId") Then
             printMsg Trace_, "This event is a PageContext.", FromProcedureName
 
-            '--------- 3. ‚»‚Ì`SessionID`‚ÍAƒNƒ‰ƒX“à•Ï”‚É‹L˜^‚µ‚Ä‚é’l‚Æˆê’v‚µ‚Ä‚é‚©H ---------
+            '--------- 3. ãã®`SessionID`ã¯ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«è¨˜éŒ²ã—ã¦ã‚‹å€¤ã¨ä¸€è‡´ã—ã¦ã‚‹ã‹ï¼Ÿ ---------
             If returnCDPJson("sessionId") = sessionID Then
-                'ƒy[ƒW‚Æ‚µ‚Ä‚ÌƒCƒxƒ“ƒgî•ñ‚Å‚·
+                'ãƒšãƒ¼ã‚¸ã¨ã—ã¦ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã§ã™
                 printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
             Else
-                '‹ŒƒZƒbƒVƒ‡ƒ“‚ªA‚¤‚Ü‚­”jŠü‚Å‚«‚È‚©‚Á‚½‚É”õ‚¦‚ÄA“ñdŠi”[‚ğ—}§‚·‚éƒtƒ‰ƒO‚ğ—§‚Ä‚Ü‚·BƒƒO‚É‚àc‚µ‚Ü‚·
+                'æ—§ã‚»ãƒƒã‚·ãƒ§ãƒ³ãŒã€ã†ã¾ãç ´æ£„ã§ããªã‹ã£ãŸæ™‚ã«å‚™ãˆã¦ã€äºŒé‡æ ¼ç´ã‚’æŠ‘åˆ¶ã™ã‚‹ãƒ•ãƒ©ã‚°ã‚’ç«‹ã¦ã¾ã™ã€‚ãƒ­ã‚°ã«ã‚‚æ®‹ã—ã¾ã™
                 FlagValue = FlagValue Or oldSessionID
                 printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & returnCDPJson("sessionId"), FromProcedureName
             End If
         Else
-            'ƒuƒ‰ƒEƒU©g‚Æ‚µ‚Ä‚ÌƒCƒxƒ“ƒgî•ñ‚Å‚·
+            'ãƒ–ãƒ©ã‚¦ã‚¶è‡ªèº«ã¨ã—ã¦ã®ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã§ã™
             printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
         End If
     Else
         FlagValue = FlagValue Or resultCommand
 
-        '--------- 2. `id`€–Ú‚ª‚ ‚é‚©H ---------
+        '--------- 2. `id`é …ç›®ãŒã‚ã‚‹ã‹ï¼Ÿ ---------
         If returnCDPJson.Exists("id") Then
             printMsg Trace_, "CDP-Json command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
 
-            '--------- 3. ‚»‚ÌID‚ÍAƒNƒ‰ƒX“à•Ï”‚É‹L˜^‚µ‚Ä‚éID‚Æˆê’v‚µ‚Ä‚é‚©H ---------
+            '--------- 3. ãã®IDã¯ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«è¨˜éŒ²ã—ã¦ã‚‹IDã¨ä¸€è‡´ã—ã¦ã‚‹ã‹ï¼Ÿ ---------
             If returnCDPJson.Item("id") = checkCommandID Then
-                '³‚µ‚¢ƒRƒ}ƒ“ƒhŒ‹‰Ê‚ª•Ô‚Á‚½‚Ì‚ÅŸ€‚ÉAóMƒ‹[ƒvI—¹ƒtƒ‰ƒO‚ğ•Ô‚·‚æ‚¤‚É‚·‚é
+                'æ­£ã—ã„ã‚³ãƒãƒ³ãƒ‰çµæœãŒè¿”ã£ãŸã®ã§æ¬¡é …ã«ã€å—ä¿¡ãƒ«ãƒ¼ãƒ—çµ‚äº†ãƒ•ãƒ©ã‚°ã‚’è¿”ã™ã‚ˆã†ã«ã™ã‚‹
                 printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
             Else
-                '‰½‚©‚Ì”q‚Å‚¸‚ê‚Ä‚é‚æ‚¤‚¾... ƒVƒ“ƒOƒ‹ƒXƒŒƒbƒh”z‰º‚È‚ç‘½•ª‚È‚¢‚Í‚¸... ‚¾‚ª‚¸‚ê‚Ä‚½‚çA•s®‡‚É‚Â‚È‚ª‚é‚½‚ßAƒGƒ‰[‚Å~‚ß‚é
+                'ä½•ã‹ã®æ‹å­ã§ãšã‚Œã¦ã‚‹ã‚ˆã†ã ... ã‚·ãƒ³ã‚°ãƒ«ã‚¹ãƒ¬ãƒƒãƒ‰é…ä¸‹ãªã‚‰å¤šåˆ†ãªã„ã¯ãš... ã ãŒãšã‚Œã¦ãŸã‚‰ã€ä¸æ•´åˆã«ã¤ãªãŒã‚‹ãŸã‚ã€ã‚¨ãƒ©ãƒ¼ã§æ­¢ã‚ã‚‹
                 FlagValue = FlagValue Or mismatchID
                 printMsg ERROR_, "The command result was received(id:" & returnCDPJson.Item("id") & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel. Processing will be stopped due to the inconsistency.", FromProcedureName, doRaiseError:=True
             End If
         Else
-            '`method`‚à`id`€–Ú‚à‚È‚¢ê‡ACDP-JsonƒRƒ}ƒ“ƒh‚Ì\•¶ƒGƒ‰[‚Æ‚µ‚Ä•Ô‚Á‚½‰Â”\«‚ª‚ ‚é‚Æ‚µŸ€‚ÉAóMƒ‹[ƒvI—¹ƒtƒ‰ƒO‚ğ•Ô‚·‚æ‚¤‚É‚·‚é
+            '`method`ã‚‚`id`é …ç›®ã‚‚ãªã„å ´åˆã€CDP-Jsonã‚³ãƒãƒ³ãƒ‰ã®æ§‹æ–‡ã‚¨ãƒ©ãƒ¼ã¨ã—ã¦è¿”ã£ãŸå¯èƒ½æ€§ãŒã‚ã‚‹ã¨ã—æ¬¡é …ã«ã€å—ä¿¡ãƒ«ãƒ¼ãƒ—çµ‚äº†ãƒ•ãƒ©ã‚°ã‚’è¿”ã™ã‚ˆã†ã«ã™ã‚‹
             printMsg WARN_, "Both the `id` and `method` fields are missing. This may be a syntax error.", FromProcedureName
         End If
     End If
 
 
-    '======================================= ‚±‚ÌƒvƒƒV[ƒWƒƒ‚©‚ç”²‚¯‚é‚©”»’è =======================================
+    '======================================= ã“ã®ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã‹ã‚‰æŠœã‘ã‚‹ã‹åˆ¤å®š =======================================
     Dim judgementBit As Long
 
-    '1. ‘—‚Á‚½ƒRƒ}ƒ“ƒh‚ÌŒ‹‰Ê‚Í—ˆ‚½‚Ì‚ÅAóMƒ‹[ƒv‚ğ~‚ß‚ÄA”²‚¯‚é‚©H
+    '1. é€ã£ãŸã‚³ãƒãƒ³ãƒ‰ã®çµæœã¯æ¥ãŸã®ã§ã€å—ä¿¡ãƒ«ãƒ¼ãƒ—ã‚’æ­¢ã‚ã¦ã€æŠœã‘ã‚‹ã‹ï¼Ÿ
     judgementBit = resultCommand
     If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
 
-    '2. óMƒ‹[ƒv‚Í~‚ß‚È‚¢‚ªAŒÃ‚¢SessionID‚È‚Ì‚Å”²‚¯‚é‚©H
+    '2. å—ä¿¡ãƒ«ãƒ¼ãƒ—ã¯æ­¢ã‚ãªã„ãŒã€å¤ã„SessionIDãªã®ã§æŠœã‘ã‚‹ã‹ï¼Ÿ
     judgementBit = browserEvent Or oldSessionID
     If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = False: Exit Function
 
 
-    '======================================= ƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚·‚éƒtƒF[ƒY‚Ö =======================================
-    'ƒpƒuƒŠƒbƒN(ŒÄ‚Ño‚µ‘¤g—p)—p
+    '======================================= ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ã™ã‚‹ãƒ•ã‚§ãƒ¼ã‚ºã¸ =======================================
+    'ãƒ‘ãƒ–ãƒªãƒƒã‚¯(å‘¼ã³å‡ºã—å´ä½¿ç”¨)ç”¨
     If objAllMessages Is Nothing Then
         printMsg Trace_, "Event capture mode is disabled.", FromProcedureName
     Else
@@ -1983,7 +1983,7 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
         OnNewEventReceived objAllMessages, returnCDPJson
     End If
 
-    'ƒvƒ‰ƒCƒx[ƒg(ƒNƒ‰ƒX“à•Ï”)—p
+    'ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆ(ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°)ç”¨
     If InternalUseMessages Is Nothing Then
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
@@ -1993,17 +1993,17 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒuƒ‰ƒEƒUƒCƒxƒ“ƒgî•ñ‚ğŠi”[‚·‚é‚½‚ß‚ÌƒtƒH[ƒ}ƒbƒgDictionary‚ğì¬‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ™ãƒ³ãƒˆæƒ…å ±ã‚’æ ¼ç´ã™ã‚‹ãŸã‚ã®ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆDictionaryã‚’ä½œæˆã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l  FƒtƒH[ƒ}ƒbƒgÏ‚İDictionary
+'* è¿”ã‚Šå€¤  ï¼šãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆæ¸ˆã¿Dictionary
 '***************************************************************************************************
 Private Function FormatDictionary_BrowserEvents() As Dictionary
-    'V‹KƒIƒuƒWƒFƒNƒgƒZƒbƒg
+    'æ–°è¦ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚»ãƒƒãƒˆ
     Set FormatDictionary_BrowserEvents = New Dictionary
 
-    '‰Šú\‘¢‚ğì¬‚µ‚Ü‚·
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '‡ŒvƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ”
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'ƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒDictionaryƒf[ƒ^
+    'åˆæœŸæ§‹é€ ã‚’ä½œæˆã—ã¾ã™
+    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 'åˆè¨ˆã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£æ•°
+    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£Dictionaryãƒ‡ãƒ¼ã‚¿
 End Function
 
 Private Function attachToSession() As Integer
@@ -2027,10 +2027,10 @@ Private Function attachToSession() As Integer
 
     On Error GoTo ifError
 
-    '`attachToSession`ŠÖ”ê—pAƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒDictionary‚ğì¬‚µ‚Ü‚·
+    '`attachToSession`é–¢æ•°å°‚ç”¨ã€ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£Dictionaryã‚’ä½œæˆã—ã¾ã™
     Dim EventMessageForAttachToSession As Dictionary: Set EventMessageForAttachToSession = FormatDictionary_BrowserEvents
 
-    'Às
+    'å®Ÿè¡Œ
 1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, EventMessageForAttachToSession)
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
@@ -2184,7 +2184,7 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
 
 
-    '1. ¡AExcel‚ª“®‚¢‚Ä‚éƒvƒƒZƒXID‚Æ‚»‚ÌƒƒOƒCƒ“ƒ†[ƒU[‚ÌƒZƒbƒVƒ‡ƒ“ID‚ğæ“¾‚µ‚Ü‚·
+    '1. ä»Šã€ExcelãŒå‹•ã„ã¦ã‚‹ãƒ—ãƒ­ã‚»ã‚¹IDã¨ãã®ãƒ­ã‚°ã‚¤ãƒ³ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®ã‚»ãƒƒã‚·ãƒ§ãƒ³IDã‚’å–å¾—ã—ã¾ã™
     Dim lProcessId As Long, lSessionId As Long
     lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
     ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
@@ -2193,17 +2193,17 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     Dim proc As Object
     On Error Resume Next
 
-    '2. ‘Oq‚Ì2‚Â‚Ìî•ñ‚ğŠî‚ÉA‹N“®’†‚ÌƒAƒvƒŠ‚½‚¿‚ğæ“¾‚·‚é
+    '2. å‰è¿°ã®2ã¤ã®æƒ…å ±ã‚’åŸºã«ã€èµ·å‹•ä¸­ã®ã‚¢ãƒ—ãƒªãŸã¡ã‚’å–å¾—ã™ã‚‹
     For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
-        '3. ‹N“®’†‚Ìƒuƒ‰ƒEƒU–¼‚Å‚ ‚é‚©Šm”F
+        '3. èµ·å‹•ä¸­ã®ãƒ–ãƒ©ã‚¦ã‚¶åã§ã‚ã‚‹ã‹ç¢ºèª
         If LCase$(proc.Name) = LCase$(brType) Then
-            '4. Killƒ^ƒCƒv”»’è
+            '4. Killã‚¿ã‚¤ãƒ—åˆ¤å®š
             If Not onlyCdpSessions Then
-                '5. ƒfƒoƒbƒOƒuƒ‰ƒEƒU(CdpSessions)‚Å‚ ‚é‚©–â‚í‚¸A’Êíƒuƒ‰ƒEƒU‚àKill‚µ‚Ü‚·
+                '5. ãƒ‡ãƒãƒƒã‚°ãƒ–ãƒ©ã‚¦ã‚¶(CdpSessions)ã§ã‚ã‚‹ã‹å•ã‚ãšã€é€šå¸¸ãƒ–ãƒ©ã‚¦ã‚¶ã‚‚Killã—ã¾ã™
                 proc.Terminate
 
             ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 0 And InStr(1, proc.CommandLine, brUser) > 0 Then
-                '5. ƒfƒoƒbƒOƒuƒ‰ƒEƒU(CdpSessions)‚Å‚ ‚é‚©‚ÂA‘ÎÛƒ†[ƒU[–¼‚È‚çAKill‚µ‚Ü‚·
+                '5. ãƒ‡ãƒãƒƒã‚°ãƒ–ãƒ©ã‚¦ã‚¶(CdpSessions)ã§ã‚ã‚‹ã‹ã¤ã€å¯¾è±¡ãƒ¦ãƒ¼ã‚¶ãƒ¼åãªã‚‰ã€Killã—ã¾ã™
                  proc.Terminate
             End If
         End If
@@ -2344,24 +2344,24 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Dim objWSHost As Object, reg As Object, strKeyPath As String
     Set reg = GetObject("winmgmts://./root/default:StdRegProv")
 
-    'ƒJƒXƒ^ƒ€ƒpƒX‚Ìw’è‚ª‚ ‚Á‚½‚ç‚»‚Á‚¿‚ğ—Dæ
+    'ã‚«ã‚¹ã‚¿ãƒ ãƒ‘ã‚¹ã®æŒ‡å®šãŒã‚ã£ãŸã‚‰ãã£ã¡ã‚’å„ªå…ˆ
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. ƒŒƒWƒXƒgƒŠ‚ÅAƒuƒ‰ƒEƒUƒCƒ“ƒXƒg[ƒ‹ƒpƒX‚ğ“Á’è
+            '1. ãƒ¬ã‚¸ã‚¹ãƒˆãƒªã§ã€ãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ãƒ‘ã‚¹ã‚’ç‰¹å®š
             Set objWSHost = CreateObject("WScript.Shell")
             strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & brType & "\Path"
             getBrowserPath = objWSHost.regread(strKeyPath) & "\" & brType
         Else
-            '1. ƒJƒXƒ^ƒ€ƒpƒX‚ğw’è(ƒ|[ƒ^ƒuƒ‹”Åƒuƒ‰ƒEƒU‚È‚Ç)
+            '1. ã‚«ã‚¹ã‚¿ãƒ ãƒ‘ã‚¹ã‚’æŒ‡å®š(ãƒãƒ¼ã‚¿ãƒ–ãƒ«ç‰ˆãƒ–ãƒ©ã‚¦ã‚¶ãªã©)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
         End If
     End With
 
-    'ƒŒƒWƒXƒgƒŠ‘€ì‚É‚ÄƒGƒ‰[ or ƒoƒX‚ª‹ó‚Ìê‡‚ÍAŸ‚Ì‘{õ‚Ö
+    'ãƒ¬ã‚¸ã‚¹ãƒˆãƒªæ“ä½œã«ã¦ã‚¨ãƒ©ãƒ¼ or ãƒã‚¹ãŒç©ºã®å ´åˆã¯ã€æ¬¡ã®æœç´¢ã¸
     If Err.Number <> 0 Or LenB(getBrowserPath) = 0 Then
         Err.Clear
 
-        '2. ƒfƒtƒHƒ‹ƒgƒCƒ“ƒXƒg[ƒ‹ƒpƒXƒ`ƒFƒbƒN
+        '2. ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ãƒ‘ã‚¹ãƒã‚§ãƒƒã‚¯
         Select Case brType
             Case brChrome
                 If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & brType)) > 0 Then
@@ -2380,7 +2380,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
         End If
 
-        '2’iŠK‚Ì‘{õ‚Å‚àƒpƒX‚ªŒ©‚Â‚©‚ç‚È‚¢ê‡‚ÍAƒuƒ‰ƒEƒU‚ª“ü‚Á‚Ä‚È‚¢ or ƒJƒXƒ^ƒ€ƒpƒXƒCƒ“ƒXƒg[ƒ‹ or ƒ|[ƒ^ƒuƒ‹”Åƒuƒ‰ƒEƒU or Canaryƒuƒ‰ƒEƒU‚Ì‰Â”\«
+        '2æ®µéšã®æœç´¢ã§ã‚‚ãƒ‘ã‚¹ãŒè¦‹ã¤ã‹ã‚‰ãªã„å ´åˆã¯ã€ãƒ–ãƒ©ã‚¦ã‚¶ãŒå…¥ã£ã¦ãªã„ or ã‚«ã‚¹ã‚¿ãƒ ãƒ‘ã‚¹ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ« or ãƒãƒ¼ã‚¿ãƒ–ãƒ«ç‰ˆãƒ–ãƒ©ã‚¦ã‚¶ or Canaryãƒ–ãƒ©ã‚¦ã‚¶ã®å¯èƒ½æ€§
         On Error GoTo 0
         If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & brType & " installation path.", FromProcedureName, doRaiseError:=True
     End If
@@ -2411,14 +2411,14 @@ End Sub
 Private Sub deleteCDPID()
 '----------------------------------------------------------------------------------
 ' By      : Eschamali
-' ‹@”\    FƒfƒoƒbƒOƒuƒ‰ƒEƒU‚ÌƒpƒCƒvƒnƒ“ƒhƒ‹/ƒZƒbƒVƒ‡ƒ“î•ñ‚ğÁ‹‚µ‚Ü‚·
+' æ©Ÿèƒ½    ï¼šãƒ‡ãƒãƒƒã‚°ãƒ–ãƒ©ã‚¦ã‚¶ã®ãƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«/ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±ã‚’æ¶ˆå»ã—ã¾ã™
 '----------------------------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
 
 
     With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = brUser  'ƒpƒCƒv’ÊMHandleî•ñ
-        .DeleteCDPToTable(2, FromProcedureName) = brUser  'ƒuƒ‰ƒEƒUƒZƒbƒVƒ‡ƒ“î•ñ
+        .DeleteCDPToTable(1, FromProcedureName) = brUser  'ãƒ‘ã‚¤ãƒ—é€šä¿¡Handleæƒ…å ±
+        .DeleteCDPToTable(2, FromProcedureName) = brUser  'ãƒ–ãƒ©ã‚¦ã‚¶ã‚»ãƒƒã‚·ãƒ§ãƒ³æƒ…å ±
     End With
 
 End Sub
@@ -2442,19 +2442,19 @@ Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@FURI‚ÌƒvƒƒgƒRƒ‹ƒ`ƒFƒbƒN‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šURIã®ãƒ—ãƒ­ãƒˆã‚³ãƒ«ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@Fˆø”‚Ì“à—e‚»‚Ì‚Ü‚ñ‚Ü
-'* ˆø”@@FURI   ƒuƒ‰ƒEƒU‚ÌURL‚É“n‚·—\’è‚Ì•¶š—ñ
+'* è¿”ã‚Šå€¤ã€€ï¼šå¼•æ•°ã®å†…å®¹ãã®ã¾ã‚“ã¾
+'* å¼•æ•°ã€€ã€€ï¼šURI   ãƒ–ãƒ©ã‚¦ã‚¶ã®URLã«æ¸¡ã™äºˆå®šã®æ–‡å­—åˆ—
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FEƒZƒLƒ…ƒŠƒeƒBd‹‚É‚æ‚èAƒzƒƒCƒgƒŠƒXƒgŠO‚ÌƒvƒƒgƒRƒ‹‚ª—ˆ‚½‚çAƒGƒ‰[‚Å~‚Ü‚è‚Ü‚·
-'            EŠù‚ÉŠJ‚¢‚Ä‚éURI‚ÉŠÖ‚µ‚Ä(`getTab`ƒƒ\ƒbƒh)‚Íƒ`ƒFƒbƒN‘ÎÛŠO‚Æ‚µ‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šãƒ»ã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£é‡è¦–ã«ã‚ˆã‚Šã€ãƒ›ãƒ¯ã‚¤ãƒˆãƒªã‚¹ãƒˆå¤–ã®ãƒ—ãƒ­ãƒˆã‚³ãƒ«ãŒæ¥ãŸã‚‰ã€ã‚¨ãƒ©ãƒ¼ã§æ­¢ã¾ã‚Šã¾ã™
+'            ãƒ»æ—¢ã«é–‹ã„ã¦ã‚‹URIã«é–¢ã—ã¦(`getTab`ãƒ¡ã‚½ãƒƒãƒ‰)ã¯ãƒã‚§ãƒƒã‚¯å¯¾è±¡å¤–ã¨ã—ã¾ã™
 '***************************************************************************************************
 Private Function checkURI(URI As String) As String
     Const FromProcedureName As String = ThisClassName & ".checkURI"
 
 
-    '0. ‹ó•¶š‚Ìê‡‚ÍAƒ`ƒFƒbƒN‚µ‚Ü‚¹‚ñ
+    '0. ç©ºæ–‡å­—ã®å ´åˆã¯ã€ãƒã‚§ãƒƒã‚¯ã—ã¾ã›ã‚“
     printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
     If URI = "" Then
         printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
@@ -2463,78 +2463,78 @@ Private Function checkURI(URI As String) As String
         Exit Function
     End If
 
-    '1. ƒzƒƒCƒgƒŠƒXƒg‚ÌƒvƒƒgƒRƒ‹‚ğæ“¾
+    '1. ãƒ›ãƒ¯ã‚¤ãƒˆãƒªã‚¹ãƒˆã®ãƒ—ãƒ­ãƒˆã‚³ãƒ«ã‚’å–å¾—
     With ShSetting01_StartBrowser
         Dim tmp, WhiteList
-        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.Ú“ª«)
+        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.æ¥é ­è¾)
 
-        '”z—ñ‚©H
+        'é…åˆ—ã‹ï¼Ÿ
         If IsArray(tmp) Then
-            '‚»‚Ì‚Ü‚ñ‚Ü
+            'ãã®ã¾ã‚“ã¾
             WhiteList = tmp
         Else
-            '”z—ñ‚¶‚á‚È‚¢ê‡‚Í”z—ñ‚É‚µ‚Ä‚¨‚­
+            'é…åˆ—ã˜ã‚ƒãªã„å ´åˆã¯é…åˆ—ã«ã—ã¦ãŠã
             ReDim WhiteList(1 To 1, 1 To 1)
             WhiteList(1, 1) = tmp
         End If
 
-        '‰ğ•ú
+        'è§£æ”¾
         tmp = vbNullString
     End With
 
-    '2. æ“ªn‚Ü‚è‚©ƒ`ƒFƒbƒN
+    '2. å…ˆé ­å§‹ã¾ã‚Šã‹ãƒã‚§ãƒƒã‚¯
     Dim i As Long
     For i = 1 To UBound(WhiteList)
-        'æ“ªn‚Ü‚è‚È‚çAˆø”‚Ì“à—e‚»‚Ì‚Ü‚ñ‚Ü‚ğ•Ô‚µ‚Ä”²‚¯‚é
+        'å…ˆé ­å§‹ã¾ã‚Šãªã‚‰ã€å¼•æ•°ã®å†…å®¹ãã®ã¾ã‚“ã¾ã‚’è¿”ã—ã¦æŠœã‘ã‚‹
         If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passedF" & WhiteList(i, 1), FromProcedureName
+            printMsg Debug_, "Protocol check passedï¼š" & WhiteList(i, 1), FromProcedureName
 
             checkURI = URI
             Exit Function
         End If
     Next
 
-    '3. ƒvƒƒgƒRƒ‹–¼‚ğƒ`ƒFƒbƒN
+    '3. ãƒ—ãƒ­ãƒˆã‚³ãƒ«åã‚’ãƒã‚§ãƒƒã‚¯
     Dim ProtocolName, ErrorMes As String
     ProtocolName = Split(URI, ":")
     If UBound(ProtocolName) = 0 Then
-        ErrorMes = "URL‚ÌŒ`®‚ª³‚µ‚­‚ ‚è‚Ü‚¹‚ñB" & vbCrLf & "ˆÀ‘S‚Ì‚½‚ßÈ—ª‚¹‚¸A`https://`‚â`file://`‚Ì‚æ‚¤‚ÈAƒvƒƒgƒRƒ‹–¼‚ğAURL‚Ìæ“ª‚É•t‚¯‚Ä‚­‚¾‚³‚¢B" & vbCrLf & vbCrLf & "[–â‘è‚ÌURL]" & vbCrLf & URI
+        ErrorMes = "URLã®å½¢å¼ãŒæ­£ã—ãã‚ã‚Šã¾ã›ã‚“ã€‚" & vbCrLf & "å®‰å…¨ã®ãŸã‚çœç•¥ã›ãšã€`https://`ã‚„`file://`ã®ã‚ˆã†ãªã€ãƒ—ãƒ­ãƒˆã‚³ãƒ«åã‚’ã€URLã®å…ˆé ­ã«ä»˜ã‘ã¦ãã ã•ã„ã€‚" & vbCrLf & vbCrLf & "[å•é¡Œã®URL]" & vbCrLf & URI
     Else
-        ErrorMes = "ƒvƒƒgƒRƒ‹`" & ProtocolName(0) & "`‚ÍAƒzƒƒCƒgƒŠƒXƒg‚É“o˜^‚³‚ê‚Ä‚¢‚Ü‚¹‚ñB" & vbCrLf & "ˆÓ}‚µ‚È‚¢ƒAƒvƒŠƒP[ƒVƒ‡ƒ“‚Ì‹N“®‚È‚Ç‚ğ–h‚®‚½‚ßAˆ—‚ğ’†’f‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & "y‰ğŒˆôz" & vbCrLf & "‚±‚ÌƒvƒƒgƒRƒ‹‚Ö‚ÌƒAƒNƒZƒX‚ªA–{“–‚É•K—v‚Å‚ ‚éê‡‚ÍAƒV[ƒguƒuƒ‰ƒEƒU‹N“®İ’èv‚Ìƒe[ƒuƒ‹uProtocolWhiteListv‚ÉA`" & ProtocolName(0) & "`‚ğ’Ç‰Á‚µ‚Ä‚©‚çA‚à‚¤ˆê“xA‚¨‚µ‚­‚¾‚³‚¢B"
+        ErrorMes = "ãƒ—ãƒ­ãƒˆã‚³ãƒ«`" & ProtocolName(0) & "`ã¯ã€ãƒ›ãƒ¯ã‚¤ãƒˆãƒªã‚¹ãƒˆã«ç™»éŒ²ã•ã‚Œã¦ã„ã¾ã›ã‚“ã€‚" & vbCrLf & "æ„å›³ã—ãªã„ã‚¢ãƒ—ãƒªã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã®èµ·å‹•ãªã©ã‚’é˜²ããŸã‚ã€å‡¦ç†ã‚’ä¸­æ–­ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & "ã€è§£æ±ºç­–ã€‘" & vbCrLf & "ã“ã®ãƒ—ãƒ­ãƒˆã‚³ãƒ«ã¸ã®ã‚¢ã‚¯ã‚»ã‚¹ãŒã€æœ¬å½“ã«å¿…è¦ã§ã‚ã‚‹å ´åˆã¯ã€ã‚·ãƒ¼ãƒˆã€Œãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®šã€ã®ãƒ†ãƒ¼ãƒ–ãƒ«ã€ŒProtocolWhiteListã€ã«ã€`" & ProtocolName(0) & "`ã‚’è¿½åŠ ã—ã¦ã‹ã‚‰ã€ã‚‚ã†ä¸€åº¦ã€ãŠè©¦ã—ãã ã•ã„ã€‚"
     End If
 
-    '4. ƒGƒ‰[‚Å’†’f
+    '4. ã‚¨ãƒ©ãƒ¼ã§ä¸­æ–­
     printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
 
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FƒŠƒ‚[ƒg ƒfƒoƒbƒO‚ÉŠÖ‚·‚éƒ|ƒŠƒV[ƒ`ƒFƒbƒN‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒªãƒ¢ãƒ¼ãƒˆ ãƒ‡ãƒãƒƒã‚°ã«é–¢ã™ã‚‹ãƒãƒªã‚·ãƒ¼ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”@@FBrowserExeName        "msedge.exe" ‚Æ‚©‚ğw’è‚µ‚Ü‚·B–{‰Æƒ‰ƒCƒuƒ‰ƒŠ‚É‰ˆ‚Á‚½Œ`‚Å‚·
+'* å¼•æ•°ã€€ã€€ï¼šBrowserExeName        "msedge.exe" ã¨ã‹ã‚’æŒ‡å®šã—ã¾ã™ã€‚æœ¬å®¶ãƒ©ã‚¤ãƒ–ãƒ©ãƒªã«æ²¿ã£ãŸå½¢ã§ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FEŠé‹Æ‚É‚æ‚Á‚Ä‚ÍAƒ|ƒŠƒV[İ’è‚ÅƒŠƒ‚[ƒgƒfƒoƒbƒO‚Å‚«‚È‚¢‚æ‚¤‚É‚µ‚Ä‚¢‚Ü‚·B
-'@@@@@@Eİ’è‚³‚ê‚Ä‚¢‚é‚ÆA‹N“®‚Í‚Å‚«‚½‚Ì‚ÉA‚È‚ñ‚©‘€ì‚Å‚«‚È‚¢‚Æ‚¢‚Á‚½¬—‚ª”­¶‚·‚é‚½‚ßA‚±‚Ìƒ`ƒFƒbƒN‚ğİ‚¯‚Ä‚¢‚Ü‚·
-'            EŒ»İ‚Í‰º‹L‚ÌŠm”F‚É‘Î‰‚µ‚Ä‚Ü‚·
-'               ERemoteDebuggingAllowed
-'               EUserDataDir
+'* è©³ç´°èª¬æ˜ï¼šãƒ»ä¼æ¥­ã«ã‚ˆã£ã¦ã¯ã€ãƒãƒªã‚·ãƒ¼è¨­å®šã§ãƒªãƒ¢ãƒ¼ãƒˆãƒ‡ãƒãƒƒã‚°ã§ããªã„ã‚ˆã†ã«ã—ã¦ã„ã¾ã™ã€‚
+'ã€€ã€€ã€€ã€€ã€€ã€€ãƒ»è¨­å®šã•ã‚Œã¦ã„ã‚‹ã¨ã€èµ·å‹•ã¯ã§ããŸã®ã«ã€ãªã‚“ã‹æ“ä½œã§ããªã„ã¨ã„ã£ãŸæ··ä¹±ãŒç™ºç”Ÿã™ã‚‹ãŸã‚ã€ã“ã®ãƒã‚§ãƒƒã‚¯ã‚’è¨­ã‘ã¦ã„ã¾ã™
+'            ãƒ»ç¾åœ¨ã¯ä¸‹è¨˜ã®ç¢ºèªã«å¯¾å¿œã—ã¦ã¾ã™
+'               ãƒ»RemoteDebuggingAllowed
+'               ãƒ»UserDataDir
 '***************************************************************************************************
 Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'ƒŒƒWƒXƒgƒŠ‘€ì‚É•K—v‚È’è”‚Ì’è‹`
+    'ãƒ¬ã‚¸ã‚¹ãƒˆãƒªæ“ä½œã«å¿…è¦ãªå®šæ•°ã®å®šç¾©
     Const HKEY_LOCAL_MACHINE = &H80000002
     Const HKEY_CURRENT_USER = &H80000001
-    Const ReadSuccess   As Long = 0                         '‘¶İ‚·‚é‚Æ‚«‚ÍA`0`‚ğ•Ô‚µ‚Ü‚·
-    Const DisableRemote As Long = 0                         '`0`‚ªAƒŠƒ‚[ƒg ƒfƒoƒbƒO‚ğg—p‚·‚é‚±‚Æ‚Í‚Å‚«‚Ü‚¹‚ñB
+    Const ReadSuccess   As Long = 0                         'å­˜åœ¨ã™ã‚‹ã¨ãã¯ã€`0`ã‚’è¿”ã—ã¾ã™
+    Const DisableRemote As Long = 0                         '`0`ãŒã€ãƒªãƒ¢ãƒ¼ãƒˆ ãƒ‡ãƒãƒƒã‚°ã‚’ä½¿ç”¨ã™ã‚‹ã“ã¨ã¯ã§ãã¾ã›ã‚“ã€‚
 
-    'ƒ`ƒFƒbƒN‚µ‚½‚¢ƒL[–¼‚ğ—ñ‹“
-    'Ehttps://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
-    'Ehttps://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
+    'ãƒã‚§ãƒƒã‚¯ã—ãŸã„ã‚­ãƒ¼åã‚’åˆ—æŒ™
+    'ãƒ»https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
+    'ãƒ»https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
     Dim CheckKeyNames: CheckKeyNames = Array("RemoteDebuggingAllowed", "UserDataDir")
 
-    'ƒuƒ‰ƒEƒU–¼‚É‰‚¶‚ÄAƒpƒX‚ğİ’è
+    'ãƒ–ãƒ©ã‚¦ã‚¶åã«å¿œã˜ã¦ã€ãƒ‘ã‚¹ã‚’è¨­å®š
     Dim RegPathBrowser As String
     Select Case BrowserExeName
         Case brEdge: RegPathBrowser = "Microsoft\Edge"
@@ -2542,72 +2542,72 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
 
-    'ƒ`ƒFƒbƒN‘Š‘ÎƒpƒX‚ğİ’è
+    'ãƒã‚§ãƒƒã‚¯ç›¸å¯¾ãƒ‘ã‚¹ã‚’è¨­å®š
     Dim regPath As String: regPath = "SOFTWARE\Policies\" & RegPathBrowser
 
-    '•K—v‚È•Ï”‚ğ—pˆÓ
+    'å¿…è¦ãªå¤‰æ•°ã‚’ç”¨æ„
     Dim regProvider As WbemScripting.SWbemObject: Set regProvider = GetObject("winmgmts:\\.\root\default:StdRegProv")
     Dim KeyName     As String
-    Dim KeyExists   As Long     '‘¶İ—L–³Œ‹‰Ê
-    Dim KeyValue    As Variant  '’l‚»‚Ì‚à‚Ì
+    Dim KeyExists   As Long     'å­˜åœ¨æœ‰ç„¡çµæœ
+    Dim KeyValue    As Variant  'å€¤ãã®ã‚‚ã®
 
 
     '------------ 1. RemoteDebuggingAllowed ------------
-    '¦‚±‚ê‚Éˆø‚Á‚©‚©‚é‚Æc”O‚Å‚·‚ªACDP§Œä‚Í‚Å‚«‚Ü‚¹‚ñ
+    'â€»ã“ã‚Œã«å¼•ã£ã‹ã‹ã‚‹ã¨æ®‹å¿µã§ã™ãŒã€CDPåˆ¶å¾¡ã¯ã§ãã¾ã›ã‚“
     KeyName = CheckKeyNames(0)
     
     
-    ' --- ƒ`ƒFƒbƒN‡@FyHKEY_LOCAL_MACHINEz---
-    ' "HKLM" ‚ÍA‚±‚ÌPC‚ÌA"‚·‚×‚Ä"‚Ìƒ†[ƒU[‚É‰e‹¿‚·‚éA‹­—Í‚Èİ’è
+    ' --- ãƒã‚§ãƒƒã‚¯â‘ ï¼šã€HKEY_LOCAL_MACHINEã€‘---
+    ' "HKLM" ã¯ã€ã“ã®PCã®ã€"ã™ã¹ã¦"ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å½±éŸ¿ã™ã‚‹ã€å¼·åŠ›ãªè¨­å®š
     KeyExists = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, KeyName, KeyValue)
     
-    ' ’l‚ªA“Ç‚İæ‚ê‚½ê‡
+    ' å€¤ãŒã€èª­ã¿å–ã‚ŒãŸå ´åˆ
     If KeyExists = ReadSuccess Then
-        ' ˆ—‚ªA¬Œ÷‚µ‚½ (ƒL[‚àA’l‚àA"‘¶İ‚µ‚½")
+        ' å‡¦ç†ãŒã€æˆåŠŸã—ãŸ (ã‚­ãƒ¼ã‚‚ã€å€¤ã‚‚ã€"å­˜åœ¨ã—ãŸ")
         If KeyValue = DisableRemote Then
-            ' ‚»‚µ‚ÄA‚»‚Ì’l‚ªu0v‚¾‚Á‚½
-            printMsg ERROR_, "‰ïĞ‚ÌƒZƒLƒ…ƒŠƒeƒBƒ|ƒŠƒV[‚É‚æ‚èAƒuƒ‰ƒEƒU‚ÌƒŠƒ‚[ƒgƒfƒoƒbƒO‚ªAƒuƒƒbƒN‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & vbCrLf & "CDP‹@”\‚ÍA—˜—p‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "î•ñƒVƒXƒeƒ€•”–å‚ÉA‚¨–â‚¢‡‚í‚¹‚­‚¾‚³‚¢B", FromProcedureName, doRaiseError:=True
-            Exit Sub ' šƒuƒƒbƒNŠm’èI
+            ' ãã—ã¦ã€ãã®å€¤ãŒã€Œ0ã€ã ã£ãŸ
+            printMsg ERROR_, "ä¼šç¤¾ã®ã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£ãƒãƒªã‚·ãƒ¼ã«ã‚ˆã‚Šã€ãƒ–ãƒ©ã‚¦ã‚¶ã®ãƒªãƒ¢ãƒ¼ãƒˆãƒ‡ãƒãƒƒã‚°ãŒã€ãƒ–ãƒ­ãƒƒã‚¯ã•ã‚Œã¦ã„ã¾ã™ã€‚" & vbCrLf & vbCrLf & "CDPæ©Ÿèƒ½ã¯ã€åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "æƒ…å ±ã‚·ã‚¹ãƒ†ãƒ éƒ¨é–€ã«ã€ãŠå•ã„åˆã‚ã›ãã ã•ã„ã€‚", FromProcedureName, doRaiseError:=True
+            Exit Sub ' â˜…ãƒ–ãƒ­ãƒƒã‚¯ç¢ºå®šï¼
         End If
     End If
 
-    ' --- ƒ`ƒFƒbƒN‡AFyHKEY_CURRENT_USERz---
-    ' "HKCU" ‚ÍA"¡AƒƒOƒCƒ“‚µ‚Ä‚¢‚éƒ†[ƒU["‚¾‚¯‚ÉA‰e‹¿‚·‚éİ’è
+    ' --- ãƒã‚§ãƒƒã‚¯â‘¡ï¼šã€HKEY_CURRENT_USERã€‘---
+    ' "HKCU" ã¯ã€"ä»Šã€ãƒ­ã‚°ã‚¤ãƒ³ã—ã¦ã„ã‚‹ãƒ¦ãƒ¼ã‚¶ãƒ¼"ã ã‘ã«ã€å½±éŸ¿ã™ã‚‹è¨­å®š
     KeyExists = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, KeyName, KeyValue)
 
-    ' ’l‚ªA“Ç‚İæ‚ê‚½ê‡
+    ' å€¤ãŒã€èª­ã¿å–ã‚ŒãŸå ´åˆ
     If KeyExists = ReadSuccess Then
         If KeyValue = DisableRemote Then
-            printMsg ERROR_, "Œ»İ‚ÌƒƒOƒCƒ“PCƒAƒJƒEƒ“ƒg‚Å‚ÍAƒuƒ‰ƒEƒU‚ÌƒŠƒ‚[ƒgƒfƒoƒbƒO‚ªAƒuƒƒbƒN‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & vbCrLf & "CDP‹@”\‚ÍA—˜—p‚Å‚«‚Ü‚¹‚ñB" & vbCrLf & "‚±‚ê‚ªŒÂl‚ÌPCƒAƒJƒEƒ“ƒg‚Ìê‡‚ÍAƒŒƒWƒXƒgƒŠ‘€ì‚É‚Ä`1`‚É‚µ‚Ä‰º‚³‚¢B", FromProcedureName, doRaiseError:=True
-            Exit Sub ' šƒuƒƒbƒNŠm’èI
+            printMsg ERROR_, "ç¾åœ¨ã®ãƒ­ã‚°ã‚¤ãƒ³PCã‚¢ã‚«ã‚¦ãƒ³ãƒˆã§ã¯ã€ãƒ–ãƒ©ã‚¦ã‚¶ã®ãƒªãƒ¢ãƒ¼ãƒˆãƒ‡ãƒãƒƒã‚°ãŒã€ãƒ–ãƒ­ãƒƒã‚¯ã•ã‚Œã¦ã„ã¾ã™ã€‚" & vbCrLf & vbCrLf & "CDPæ©Ÿèƒ½ã¯ã€åˆ©ç”¨ã§ãã¾ã›ã‚“ã€‚" & vbCrLf & "ã“ã‚ŒãŒå€‹äººã®PCã‚¢ã‚«ã‚¦ãƒ³ãƒˆã®å ´åˆã¯ã€ãƒ¬ã‚¸ã‚¹ãƒˆãƒªæ“ä½œã«ã¦`1`ã«ã—ã¦ä¸‹ã•ã„ã€‚", FromProcedureName, doRaiseError:=True
+            Exit Sub ' â˜…ãƒ–ãƒ­ãƒƒã‚¯ç¢ºå®šï¼
         End If
     End If
 
 
     '------------ 2. UserDataDir ------------
-    '¦‚±‚ê‚Éˆø‚Á‚©‚©‚é‚ÆCDP§Œä‚Í‚Å‚«‚Ü‚·‚ªAƒfƒoƒbƒOƒuƒ‰ƒEƒU‚Æ‚ÍŠÖŒW‚È‚¢•’Ê‚Ìƒuƒ‰ƒEƒU‚à—‚Æ‚³‚È‚¢‚Æ‚¢‚¯‚È‚¢§ŒÀ‚Æ‚È‚è‚Ü‚·
+    'â€»ã“ã‚Œã«å¼•ã£ã‹ã‹ã‚‹ã¨CDPåˆ¶å¾¡ã¯ã§ãã¾ã™ãŒã€ãƒ‡ãƒãƒƒã‚°ãƒ–ãƒ©ã‚¦ã‚¶ã¨ã¯é–¢ä¿‚ãªã„æ™®é€šã®ãƒ–ãƒ©ã‚¦ã‚¶ã‚‚è½ã¨ã•ãªã„ã¨ã„ã‘ãªã„åˆ¶é™ã¨ãªã‚Šã¾ã™
     KeyName = CheckKeyNames(1)
 
 
-    ' --- ƒ`ƒFƒbƒN‡@FyHKEY_LOCAL_MACHINEz---
-    ' "HKLM" ‚ÍA‚±‚ÌPC‚ÌA"‚·‚×‚Ä"‚Ìƒ†[ƒU[‚É‰e‹¿‚·‚éA‹­—Í‚Èİ’è
+    ' --- ãƒã‚§ãƒƒã‚¯â‘ ï¼šã€HKEY_LOCAL_MACHINEã€‘---
+    ' "HKLM" ã¯ã€ã“ã®PCã®ã€"ã™ã¹ã¦"ã®ãƒ¦ãƒ¼ã‚¶ãƒ¼ã«å½±éŸ¿ã™ã‚‹ã€å¼·åŠ›ãªè¨­å®š
     KeyExists = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, KeyName, KeyValue)
     
-    ' ’l‚ªA“Ç‚İæ‚ê‚½ê‡
+    ' å€¤ãŒã€èª­ã¿å–ã‚ŒãŸå ´åˆ
     If KeyExists = ReadSuccess Then
         Policy_UserDataDir = True
-        printMsg WARN_, "‰ïĞ‚ÌƒZƒLƒ…ƒŠƒeƒBƒ|ƒŠƒV[‚É‚æ‚èAƒuƒ‰ƒEƒUƒf[ƒ^‚Ì”z’uêŠ‚ª`" & KeyValue & "`‚ÉŒÅ’è‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & "‹N“®’†‚Ìƒuƒ‰ƒEƒU‚ğ‘S‚Ä—‚Æ‚µ‚Ü‚·B", FromProcedureName
+        printMsg WARN_, "ä¼šç¤¾ã®ã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£ãƒãƒªã‚·ãƒ¼ã«ã‚ˆã‚Šã€ãƒ–ãƒ©ã‚¦ã‚¶ãƒ‡ãƒ¼ã‚¿ã®é…ç½®å ´æ‰€ãŒ`" & KeyValue & "`ã«å›ºå®šã•ã‚Œã¦ã„ã¾ã™ã€‚" & vbCrLf & "èµ·å‹•ä¸­ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‚’å…¨ã¦è½ã¨ã—ã¾ã™ã€‚", FromProcedureName
         Exit Sub
     End If
 
-    ' --- ƒ`ƒFƒbƒN‡AFyHKEY_CURRENT_USERz---
-    ' "HKCU" ‚ÍA"¡AƒƒOƒCƒ“‚µ‚Ä‚¢‚éƒ†[ƒU["‚¾‚¯‚ÉA‰e‹¿‚·‚éİ’è
+    ' --- ãƒã‚§ãƒƒã‚¯â‘¡ï¼šã€HKEY_CURRENT_USERã€‘---
+    ' "HKCU" ã¯ã€"ä»Šã€ãƒ­ã‚°ã‚¤ãƒ³ã—ã¦ã„ã‚‹ãƒ¦ãƒ¼ã‚¶ãƒ¼"ã ã‘ã«ã€å½±éŸ¿ã™ã‚‹è¨­å®š
     KeyExists = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, KeyName, KeyValue)
 
-    ' ’l‚ªA“Ç‚İæ‚ê‚½ê‡
+    ' å€¤ãŒã€èª­ã¿å–ã‚ŒãŸå ´åˆ
     If KeyExists = ReadSuccess Then
         Policy_UserDataDir = True
-        printMsg WARN_, "Œ»İ‚ÌƒƒOƒCƒ“PCƒAƒJƒEƒ“ƒg‚Å‚ÍAƒuƒ‰ƒEƒUƒf[ƒ^‚Ì”z’uêŠ‚ª`" & KeyValue & "`‚ÉŒÅ’è‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & "‹N“®’†‚Ìƒuƒ‰ƒEƒU‚ğ‘S‚Ä—‚Æ‚µ‚Ü‚·B" & vbCrLf & "‚±‚ê‚ªŒÂl‚ÌPCƒAƒJƒEƒ“ƒg‚Ìê‡‚ÍAƒŒƒWƒXƒgƒŠ‘€ì‚É‚Äíœ‚µ‚Ä‰º‚³‚¢B", FromProcedureName
+        printMsg WARN_, "ç¾åœ¨ã®ãƒ­ã‚°ã‚¤ãƒ³PCã‚¢ã‚«ã‚¦ãƒ³ãƒˆã§ã¯ã€ãƒ–ãƒ©ã‚¦ã‚¶ãƒ‡ãƒ¼ã‚¿ã®é…ç½®å ´æ‰€ãŒ`" & KeyValue & "`ã«å›ºå®šã•ã‚Œã¦ã„ã¾ã™ã€‚" & vbCrLf & "èµ·å‹•ä¸­ã®ãƒ–ãƒ©ã‚¦ã‚¶ã‚’å…¨ã¦è½ã¨ã—ã¾ã™ã€‚" & vbCrLf & "ã“ã‚ŒãŒå€‹äººã®PCã‚¢ã‚«ã‚¦ãƒ³ãƒˆã®å ´åˆã¯ã€ãƒ¬ã‚¸ã‚¹ãƒˆãƒªæ“ä½œã«ã¦å‰Šé™¤ã—ã¦ä¸‹ã•ã„ã€‚", FromProcedureName
         Exit Sub
     End If
 End Sub
@@ -2623,32 +2623,32 @@ Private Sub Class_Initialize()
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
 
-    '------------------------- ƒNƒ‰ƒX“à•Ï”‚Ìˆê•”‚ğ‰Šú‰» -------------------------
-    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
+    '------------------------- ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã®ä¸€éƒ¨ã‚’åˆæœŸåŒ– -------------------------
+    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
     With ShSetting01_StartBrowser
-        '1. ‚¢‚­‚Â‚©‚Ìƒ|ƒŠƒV[ƒ`ƒFƒbƒN‚ğs‚¢‚Ü‚·B
-        '‚±‚ÌŠm”F‚ğg—p‚·‚é‚±‚Æ‚ÅAŒ´ˆö’²¸‚Ì’Z‚É‚Â‚È‚ª‚é‰Â”\«‚ª‚ ‚è‚Ü‚·B
-        '¦å—v‚Èƒuƒ‰ƒEƒU‚Ì‚İƒ`ƒFƒbƒN‚µ‚Ü‚·
+        '1. ã„ãã¤ã‹ã®ãƒãƒªã‚·ãƒ¼ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã„ã¾ã™ã€‚
+        'ã“ã®ç¢ºèªã‚’ä½¿ç”¨ã™ã‚‹ã“ã¨ã§ã€åŸå› èª¿æŸ»ã®æ™‚çŸ­ã«ã¤ãªãŒã‚‹å¯èƒ½æ€§ãŒã‚ã‚Šã¾ã™ã€‚
+        'â€»ä¸»è¦ãªãƒ–ãƒ©ã‚¦ã‚¶ã®ã¿ãƒã‚§ãƒƒã‚¯ã—ã¾ã™
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
 
-        '2. ƒCƒ~ƒfƒBƒGƒCƒg‚ÉŠÖ‚·‚éİ’è‚ğs‚¤
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
+        '2. ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«é–¢ã™ã‚‹è¨­å®šã‚’è¡Œã†
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰å—ä¿¡ã—ãŸç”Ÿã®JSONãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã‚‹ã‹ï¼Ÿ
     
-        '3. ƒpƒX‚ªİ’è‚³‚ê‚Ä‚½‚çAƒƒOƒtƒ@ƒCƒ‹•Û‘¶‚ğ—LŒø‰»
+        '3. ãƒ‘ã‚¹ãŒè¨­å®šã•ã‚Œã¦ãŸã‚‰ã€ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ä¿å­˜ã‚’æœ‰åŠ¹åŒ–
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "CDPBrowser.Class_Initialize")).value
         If LogFolderPath <> "" Then
-            doLog = True                'ƒƒOƒtƒ@ƒCƒ‹‚Æ‚µ‚Ä•Û‘¶‚·‚é‚©H
-            logPath = LogFolderPath     '•Û‘¶æ‚ÌƒtƒHƒ‹ƒ_ƒpƒX‚ğİ’è
+            doLog = True                'ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã¨ã—ã¦ä¿å­˜ã™ã‚‹ã‹ï¼Ÿ
+            logPath = LogFolderPath     'ä¿å­˜å…ˆã®ãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹ã‚’è¨­å®š
         End If
     End With
 
-    'ƒ^ƒCƒ€ƒAƒEƒgİ’è(ƒfƒtƒHƒ‹ƒg‚ÅA45s)
+    'ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆè¨­å®š(ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã§ã€45s)
     timerOut = 45
     '------------------------------------------------------------------------------
 
 
    'Determine project host type for compatibility
-    '¦‚±‚ÌƒtƒH[ƒNƒc[ƒ‹‚ÍAExcel“Á‰»‚É‰ü—Ç‚µ‚Ä‚é‚½‚ßAExcelˆÈŠO‚Í“®ì‚µ‚Ü‚¹‚ñ
+    'â€»ã“ã®ãƒ•ã‚©ãƒ¼ã‚¯ãƒ„ãƒ¼ãƒ«ã¯ã€Excelç‰¹åŒ–ã«æ”¹è‰¯ã—ã¦ã‚‹ãŸã‚ã€Excelä»¥å¤–ã¯å‹•ä½œã—ã¾ã›ã‚“
     Select Case True
         Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
         'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
