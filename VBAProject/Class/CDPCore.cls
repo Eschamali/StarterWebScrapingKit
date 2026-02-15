@@ -268,35 +268,35 @@ Public Function Init(strExec As String) As Long
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
     'stderr
     result = CreatePipe(hStderrOutRd, hStderrOutWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
    'Then the out pipe for the CDP Protocol
     result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
    'And finally the in pipe
     result = CreatePipe(hCDPInRd, hCDPInWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
