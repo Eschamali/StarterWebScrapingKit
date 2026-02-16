@@ -1957,12 +1957,13 @@ End Function
 ' 1. SHA256 Hash is performed on Verifier.
 ' 2. SHA256 Hash (raw bytes, not hex-encoded string) is Base64 encoded.
 ' 3. Base64 encode modified to be Base64URL encoded.
+' 4. Strip padding (=) from URL encoding.
 '
 ' @method CreateChallenge
 ' @param {String} Verifier | A random string between 43 and 128 characters long that consists of the characters A-Z, a-z, 0-9, and the punctuation -._~ (hyphen, period, underscore, and tilde).
 ''
 Public Function CreateChallenge(Verifier As String) As String
-    CreateChallenge = VBA.Replace(VBA.Replace(VBA.Replace(web_AnsiBytesToBase64(web_SHA256Hash(Verifier)), "+", "-"), "/", "_"), "=", vbNullString)
+    CreateChallenge = VBA.Replace(VBA.Replace(VBA.Replace(SHA256(Text:=Verifier, Format:="Base64"), "+", "-"), "/", "_"), "=", vbNullString)
 End Function
 
 ''
@@ -2011,33 +2012,6 @@ Private Function web_AnsiBytesToHex(web_Bytes() As Byte)
     Next web_i
 End Function
 #End If
-
-''
-' SHA256 Hash of given Text. Returns hash as raw bytes (not hex-encoded string).
-'
-' @method web_SHA256Hash
-' @param {String} Text
-' @return {Byte}
-''
-Private Function web_SHA256Hash(Text As String) As Byte()
-    Dim web_SHA256 As Object
-    Dim web_TextToHash() As Byte
-    
-    web_TextToHash = StringToAnsiBytes(Text)
-    
-    ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
-    On Error Resume Next
-        Set web_SHA256 = CreateObject("System.Security.Cryptography.SHA256Managed")
-    On Error GoTo 0
-    
-    If web_SHA256 Is Nothing Then
-        ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
-        Set web_SHA256 = New WebCrypto
-        web_SHA256Hash = web_SHA256.SHA256(web_TextToHash)
-    Else
-        web_SHA256Hash = web_SHA256.ComputeHash_2(web_TextToHash)
-    End If
-End Function
 
 ' ============================================= '
 ' 9. Converters
