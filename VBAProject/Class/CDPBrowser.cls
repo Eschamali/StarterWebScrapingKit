@@ -341,7 +341,7 @@ Private Sub serialize()
 
 End Sub
 
-Private Sub deserialize(UserName As String)
+Private Sub deserialize(UserName As String, detachCurrent As Boolean)
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -369,24 +369,32 @@ Private Sub deserialize(UserName As String)
 4   targetID = objSerialize.Item("targetID")
 
     '旧SessionIDの破棄を試みる
-    Dim ResultDetach As Dictionary, CDPparameters As Dictionary
-5   Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
-    Set CDPparameters = New Dictionary
+    '※`getTab`,`newTab`からの場合は破棄すると、親子関係Sessionの影響で道ずれ破棄されるので、破棄しないように引数で制御します
+    If detachCurrent Then
+        Dim ResultDetach As Dictionary, CDPparameters As Dictionary
+5       Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
+        Set CDPparameters = New Dictionary
 
-    CDPparameters.Add "sessionId", oldSessionID
-    printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
-6   Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, True)
+        CDPparameters.Add "sessionId", oldSessionID
+        printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
+6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters)
 
-    '結果を判定
-    '※エラーによるエラーメッセージは、`invokeMethod`が担います
-7   If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
+        '結果を判定
+        '※エラーによるエラーメッセージは、`invokeMethod`が担います
+7       If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
 
-    'SessionIDを再生成し、適用
-8   sessionID = attachToTab(targetID)
-    printMsg info_, "A new session ID has been assigned. - " & sessionID, FromProcedureName
+        'SessionIDを再生成し、適用
+8       sessionID = attachToTab(targetID)
+        printMsg info_, "A new session ID has been assigned. - " & sessionID, FromProcedureName
 
-    '記録しておく
-9   ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = sessionID
+        '記録しておく
+        '※旧SessionIDの破棄をしない場合は、上書きせずそのままにします
+9       ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = sessionID
+    Else
+        '旧SessionIDを再利用
+        sessionID = objSerialize.Item("sessionID")
+        printMsg info_, "Reattached by reusing the Session ID. - " & sessionID, FromProcedureName
+    End If
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -691,8 +699,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
     printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
     Set newTab = New CDPBrowser
-    newTab.reattach brUser
-    newTab.id = sessionID_
+    newTab.reattach brUser, False   '親子Session関係により、旧SessionIDは破棄しないようにする
+    newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
     If Url <> "" Then newTab.wait
 
    'Set as main session tab if required
@@ -825,7 +833,7 @@ searchfound:
    'Return the new CDP object
    '22/01/26 .reattach brUser is needed from v3.1 onwards to enable multi-instances automation
     Set getTab = New CDPBrowser
-    getTab.reattach brUser
+    getTab.reattach brUser, False   '親子Session関係により、旧SessionIDは破棄しないようにする
     getTab.id = sessionID_  'will also update the targetID
     sleep 'give some time so that the debugging session can switch to the new tab
 
@@ -1103,19 +1111,30 @@ Public Sub jsAddScript(strLocalScriptPath As String)
 
 End Sub
 
-Public Function reattach(userProfile As String) As Boolean
-'----------------------------------------------------------------------------------
-' Reattach to the target CPID file. This method enables the management of multiple
-' CDP instances at once under different Chrome/Edge user profiles. The benefit of
-' this is that if one instance fails/crashes, it does not affect the other ones.
-' and thus enables the possibility of running multiple CDP automation operations
-' on entirely different tasks simultaneously.
-'----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：成功可否論理値
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            detachCurrent  True ：Excelに記録してるSessionIDを破棄し、再更新したのに置き換えます(規定値-推奨)
+'                           False：SessionIDを再利用します。基本的に非推奨。内部クラスの処理都合で利用することがあります。
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
+'            CDP instances at once under different Chrome/Edge user profiles. The benefit of
+'            this is that if one instance fails/crashes, it does not affect the other ones.
+'            and thus enables the possibility of running multiple CDP automation operations
+'            on entirely different tasks simultaneously.
+'* 注意事項：`detachCurrent`の`False`は、下記の内部処理にて使用する想定です。
+'            親子関係SessionIDを維持するために破棄しないようにしてます。それ以外は基本的に`True`で、SessionIDの更新で`reattach`するようにしてください。
+'            ・newTab
+'            ・getTab
+'***************************************************************************************************
+Public Function reattach(userProfile As String, Optional detachCurrent As Boolean = True) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     brUser = userProfile
-    deserialize brUser
+    deserialize brUser, detachCurrent
 
     If isLive Then
         reattach = True
@@ -1597,7 +1616,9 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            BrowserContext         `True`で、ブラウザ自身を対象したコマンド実行モードとなります
+'            BrowserContext         `True` ：`sessionID`の有無問わず、必ずブラウザ自身を対象したコマンド実行モードとなります
+'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
+'
 '            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにもイベント情報を格納が出来ます
 '            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
 '---------------------------------------------------------------------------------------------------

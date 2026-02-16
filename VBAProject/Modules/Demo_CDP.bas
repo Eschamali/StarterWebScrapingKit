@@ -610,7 +610,7 @@ Sub demoReattachmentPart2()
 
     Dim c As New CDPBrowser
     With ShSetting01_StartBrowser
-        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value) = True Then c.navigate "https://wikipedia.com" _
+        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value, True) = True Then c.navigate "https://wikipedia.com" _
         Else Debug.Print "Failed to reattach. Perhaps the reattach profile CDP2 is incorrect?"
     End With
 
