@@ -298,6 +298,8 @@ Sub runHidden()
 '   2. Type "automate edge vba" and click Search
 '   3. Click on the first result to reach the CodeProject's article
 '   4. The vote count is seen there.
+'
+' ※日本国では、正しく機能しません。恐らく、検索地域の問題と思われます。
 '---------------------------------------------------------------------------------
  
     Dim chrome As CDPBrowser
@@ -325,7 +327,45 @@ Sub runHidden()
     If userChoice = vbYes Then chrome.show Else chrome.quit
     
 End Sub
- 
+
+Sub runHiddenForJapan()
+'---------------------------------------------------------------------------------
+' Demonstrate background running of an automated session.
+' This demo will try to open Google in the background, then search for an article
+' of CodeProject and retrieve its vote count. Once done, it will prompt a message
+' to display the browser window.
+' It is recommended to make Immediate Window visible so that you can see the
+' activity that is running in the background.
+' To confirm the result, you can perform the following steps:
+'   1. Go to Google.com
+'   2. Type "automate edge vba" and click Search
+'   3. Click on the first result to reach the CodeProject's article
+'   4. The vote count is seen there.
+'
+' ※日本国向けに改良します。
+'---------------------------------------------------------------------------------
+
+    Dim chrome As CDPBrowser
+
+    'Start and hide
+    Set chrome = 設定シートからの起動
+    chrome.hide
+
+    'Perform automation in the background
+    chrome.navigate "https://google.com", isInteractive
+    chrome.getElementByQuery("[name='q']").value = "automate edge vba"
+    chrome.getElementByQuery("[name='q']").submit
+
+    'Click the target result link
+    chrome.getElementByXPath("//h3[text()='Chrome DevTools ProtocolでEdgeを操作するVBAマクロ']").click      '2026/02/16 時点での、最上位結果
+
+    'Confirm result and display
+    Dim userChoice As Long
+    userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
+    If userChoice = vbYes Then chrome.show Else chrome.quit
+
+End Sub
+
 Sub runTabsAsOne()
 '--------------------------------------------------------------------------
 ' Demonstrate the automation of multiple tabs in a single browser instance.
@@ -343,6 +383,7 @@ Sub runTabsAsOne()
     chrome.newTab "https://bing.com"
  
    'Resize to complete
+    chrome.sleep    'ちょこっとクールタイムが必要みたい
     chrome.show xywh:="0 20 1000 700"
  
 End Sub
@@ -483,6 +524,8 @@ Sub fillReactForm()
 ' 2. Press submit.
 ' 3. If the field input is recognized by React, alert will tell its value.
 ' Updated: 07/01/26: .sendKeys has been replaced with .sendString
+'
+' ※残念ながら、404により検証不可
 '-------------------------------------------------------------------------
  
     Dim demoUrl As String
