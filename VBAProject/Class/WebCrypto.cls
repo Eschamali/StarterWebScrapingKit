@@ -30,6 +30,8 @@ Attribute VB_Exposed = False
 '' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
 Option Explicit
 
+#If Not Mac Then
+
 ' --------------------------------------------- '
 ' Windows API Headers
 ' --------------------------------------------- '
@@ -813,3 +815,5 @@ Private Sub Class_Initialize()
         End If
     End If
 End Sub
+
+#End If
