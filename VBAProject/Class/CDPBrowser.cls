@@ -1418,7 +1418,7 @@ Public Sub pageEnable()
 
 End Sub
 
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional BrowserContext As Boolean) As Scripting.Dictionary
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean) As Scripting.Dictionary
 '-----------------------------------------------------------------
 ' This function enables advanced method invocation under CDP.
 ' For a list of all methods available, see:
@@ -1438,7 +1438,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", BrowserContext)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext)
 
    'Print error if there is
     If invokeError(results) Then printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
@@ -1616,17 +1616,17 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            BrowserContext         `True` ：`sessionID`の有無問わず、必ずブラウザ自身を対象したコマンド実行モードとなります
+'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
 '                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
 '
-'            InternalUseMessages    クラス内部で使用したいときに、`New Dictionry`として、渡すことで、こっちにもイベント情報を格納が出来ます
-'            dbgMsg                 `True`でエラー時、イミディエイトに表示させます。
+'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            dbgMsg                 Allow the option to bypass error if intended
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional BrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1692,7 +1692,7 @@ RetrySend:
    'Send message to the browser
    '--------------------------------------------------
 9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-10  If sessionID <> "" And Not (BrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+10  If sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
@@ -1706,7 +1706,7 @@ RetrySend:
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
-    printMsg Trace_, "Processes incoming messages from the browser...", FromProcedureName
+    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '受信処理
 13      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
