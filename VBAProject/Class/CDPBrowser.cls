@@ -180,8 +180,10 @@ Private timerOut As Long                'Max timeout period in seconds, snapPage
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
-Private Policy_UserDataDir As Boolean   'ユーザーデータディレクトリが固定化されてるか判定
 Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
+
+Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
+Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -252,8 +254,8 @@ Public Sub start(Optional Name As String = "chrome", _
    'will result. For Chrome, v136 and later does not honor remote-debugging request if user profile is loaded from the Chrome\User Data\ folder.
    'As a result, here we set it to Chrome\CDP\ folder instead (auto-created if not exists).
     Select Case brType
-        Case brEdge: addProfile = IIf(Policy_UserDataDir, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")    '`Edge`の場合のみ、ポリシー状況に応じて、引数を変える
-        Case brChrome: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """"
+        Case brEdge: addProfile = IIf(Policy_UserDataDirExists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")      'ポリシー状況に応じて、引数を変える
+        Case brChrome: addProfile = IIf(Policy_UserDataDirExists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """")     'ポリシー状況に応じて、引数を変える
     End Select
     strCall = strCall & addProfile
     brUser = userProfile 'store the user profile name for cpid serialization
@@ -263,7 +265,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
    'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
    'PeekNamedPipe error will be thrown.
-    If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (Policy_UserDataDir)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
+    If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (Policy_UserDataDirExists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
     setCrashStateNormal 'Prevent "Restore Session" popup
    '------------------------------------------------------------------------------------------------------------------------------------
 
@@ -2290,19 +2292,19 @@ Private Sub setCrashStateNormal()
     Dim strContents As String, strNewContents As String
     Dim intF As Integer
 
-   '状況に応じたクラッシュパス情報を指定する
-    Select Case brType
-        Case brChrome
-            filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & brUser & "\Default\Preferences"        'user-data-dir
+    '状況に応じたクラッシュパス情報を指定する
+    '`UserDataDir`のポリシーがあったらそっちを優先
+    If Policy_UserDataDirExists Then
+        'Use this switch instead if your organization disables UserDataDir with policy
+        filePath_Preferences = Policy_UserDataDirContents & "\" & brUser & "\Preferences"
+    Else
+        'user-data-dir
+        Select Case brType
+            Case brChrome: filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & brUser & "\Default\Preferences"
+            Case brEdge: filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & brUser & "\Default\Preferences"
+        End Select
+    End If
 
-        Case brEdge
-            'Edgeの場合は、ポリシー状況に応じて分岐
-            If Policy_UserDataDir Then
-                filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\" & brUser & "\Preferences" 'Use this switch instead if your organization disables UserDataDir with policy
-            Else
-                filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & brUser & "\Default\Preferences"   'user-data-dir
-            End If
-    End Select
 
     'クラッシュ情報がない場合は、ここで抜ける
     If LenB(Dir(filePath_Preferences)) = 0 Then Exit Sub
@@ -2586,19 +2588,19 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
     Select Case BrowserExeName
-        Case brEdge: RegPathBrowser = "Microsoft\Edge"
-        Case brChrome: RegPathBrowser = "Google\Chrome"     'https://issues.chromium.org/issues/42323066
+        Case brEdge: RegPathBrowser = "\Microsoft\Edge"
+        Case brChrome: RegPathBrowser = "\Google\Chrome"     'https://issues.chromium.org/issues/42323066
         Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
 
     'ポリシー情報のあるパスを設定します
-    Dim BaseKeyPath As String: BaseKeyPath = "SOFTWARE\Policies\" & RegPathBrowser
+    Dim BaseKeyPath As String: BaseKeyPath = "SOFTWARE\Policies" & RegPathBrowser
 
 
     '必要な変数を用意
     Dim checkValueName  As String   '値の名前
     Dim ValueExists     As Long     '存在有無結果
-    Dim ValueContent    As Variant  '値の中身
+    Dim ValueContents   As Variant  '値の中身
 
     '"HKLM"と"HKCU"を確認する
     Dim i As Long, SetRegistryTree As Long
@@ -2615,12 +2617,15 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "RemoteDebuggingAllowed"
 
         '1-1. 32bit値としてチェックする
-        ValueExists = PolicyCheck.GetDWORDValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContent)
+        ValueExists = PolicyCheck.GetDWORDValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '1-2. そのデータ名があるか？
         If ValueExists = wbemNoErr Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+
             '1-3. リモートできない設定値になってるか？
-            If CLng(ValueContent) = DisableRemote Then
+            If CLng(ValueContents) = DisableRemote Then
                 '通達
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
                                   "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
@@ -2637,17 +2642,21 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "UserDataDir"
 
         '2-1. 文字列として、チェックする
-        ValueExists = PolicyCheck.GetStringValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContent)
+        ValueExists = PolicyCheck.GetStringValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '2-2. そのデータ名があるか？
         If ValueExists = wbemNoErr Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+
             'フラグ立て
             '※中身が空であっても、OUTです
-            Policy_UserDataDir = True
+            Policy_UserDataDirExists = True
+            Policy_UserDataDirContents = IIf(CStr(ValueContents) = "", Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", ValueContents)
 
             '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & CStr(ValueContent) & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & CStr(ValueContent) & "`に固定されています。起動中のブラウザを全て落とします。")
+            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & CStr(ValueContents) & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
+                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & CStr(ValueContents) & "`に固定されています。起動中のブラウザを全て落とします。")
 
             printMsg WARN_, ErrorMes, FromProcedureName
             Exit For
