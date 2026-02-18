@@ -2682,20 +2682,20 @@ Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        '1. いくつかのポリシーチェックを行います。
-        'この確認を使用することで、原因調査の時短につながる可能性があります。
-        '※主要なブラウザのみチェックします
-        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
-
-        '2. イミディエイトに関する設定を行う
+        '1. イミディエイトに関する設定を行う
         seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
-        '3. パスが設定されてたら、ログファイル保存を有効化
+        '2. パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "CDPBrowser.Class_Initialize")).value
         If LogFolderPath <> "" Then
             doLog = True                'ログファイルとして保存するか？
             logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If
+
+        '3. いくつかのポリシーチェックを行います。
+        'この確認を使用することで、原因調査の時短につながる可能性があります。
+        '※主要なブラウザのみチェックします
+        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
     End With
 
     'タイムアウト設定(デフォルトで、45s)
