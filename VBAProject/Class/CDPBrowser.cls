@@ -252,7 +252,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'will result. For Chrome, v136 and later does not honor remote-debugging request if user profile is loaded from the Chrome\User Data\ folder.
    'As a result, here we set it to Chrome\CDP\ folder instead (auto-created if not exists).
     Select Case brType
-        Case brEdge: addProfile = IIf(Policy_UserDataDir, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")
+        Case brEdge: addProfile = IIf(Policy_UserDataDir, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")    '`Edge`の場合のみ、ポリシー状況に応じて、引数を変える
         Case brChrome: addProfile = " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """"
     End Select
     strCall = strCall & addProfile
@@ -2576,18 +2576,14 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'レジストリ操作に必要な定数の定義
-    Const HKEY_LOCAL_MACHINE = &H80000002
-    Const HKEY_CURRENT_USER = &H80000001
-    Const ReadSuccess   As Long = 0                         '存在するときは、`0`を返します
-    Const DisableRemote As Long = 0                         '`0`が、リモート デバッグを使用することはできません。
+    'レジストリ操作に必要な定数/オブジェクトの定義
+    Dim PolicyCheck As Object: Set PolicyCheck = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    Const HKEY_LOCAL_MACHINE    As Long = &H80000002           'このPCの、"すべて"のユーザーに影響する、強力な設定
+    Const HKEY_CURRENT_USER     As Long = &H80000001           '"今、ログインしているユーザー"だけに、影響する設定
+    Const wbemNoErr             As Long = 0                    '存在するときは、`0`を返します。　https://learn.microsoft.com/ja-jp/windows/win32/api/wbemdisp/ne-wbemdisp-wbemerrorenum#constants
+    Const DisableRemote         As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
 
-    'チェックしたいキー名を列挙
-    '・https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
-    '・https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
-    Dim CheckKeyNames: CheckKeyNames = Array("RemoteDebuggingAllowed", "UserDataDir")
-
-    'ブラウザ名に応じて、パスを設定
+    'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
     Select Case BrowserExeName
         Case brEdge: RegPathBrowser = "Microsoft\Edge"
@@ -2595,74 +2591,68 @@ Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
 
-    'チェック相対パスを設定
-    Dim regPath As String: regPath = "SOFTWARE\Policies\" & RegPathBrowser
+    'ポリシー情報のあるパスを設定します
+    Dim BaseKeyPath As String: BaseKeyPath = "SOFTWARE\Policies\" & RegPathBrowser
+
 
     '必要な変数を用意
-    Dim regProvider As WbemScripting.SWbemObject: Set regProvider = GetObject("winmgmts:\\.\root\default:StdRegProv")
-    Dim KeyName     As String
-    Dim KeyExists   As Long     '存在有無結果
-    Dim KeyValue    As Variant  '値そのもの
+    Dim checkValueName  As String   '値の名前
+    Dim ValueExists     As Long     '存在有無結果
+    Dim ValueContent    As Variant  '値の中身
+
+    '"HKLM"と"HKCU"を確認する
+    Dim i As Long, SetRegistryTree As Long
+    Dim ErrorMes As String
+    For i = 0 To 1
+        'レジストリツリーを設定
+        '最初は、PC単位、次は、現在のログインユーザー単位で確認します
+        SetRegistryTree = IIf(i, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE)
 
 
-    '------------ 1. RemoteDebuggingAllowed ------------
-    '※これに引っかかると残念ですが、CDP制御はできません
-    KeyName = CheckKeyNames(0)
-    
-    
-    ' --- チェック①：【HKEY_LOCAL_MACHINE】---
-    ' "HKLM" は、このPCの、"すべて"のユーザーに影響する、強力な設定
-    KeyExists = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, KeyName, KeyValue)
-    
-    ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then
-        ' 処理が、成功した (キーも、値も、"存在した")
-        If KeyValue = DisableRemote Then
-            ' そして、その値が「0」だった
-            printMsg ERROR_, "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。", FromProcedureName, doRaiseError:=True
-            Exit Sub ' ★ブロック確定！
+        ' ------------ 1. RemoteDebuggingAllowed ------------
+        'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
+        '※これに引っかかると残念ですが、CDP制御はできません
+        checkValueName = "RemoteDebuggingAllowed"
+
+        '1-1. 32bit値としてチェックする
+        ValueExists = PolicyCheck.GetDWORDValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContent)
+
+        '1-2. そのデータ名があるか？
+        If ValueExists = wbemNoErr Then
+            '1-3. リモートできない設定値になってるか？
+            If CLng(ValueContent) = DisableRemote Then
+                '通達
+                ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
+                                  "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+
+                printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
+                Exit For
+            End If
         End If
-    End If
 
-    ' --- チェック②：【HKEY_CURRENT_USER】---
-    ' "HKCU" は、"今、ログインしているユーザー"だけに、影響する設定
-    KeyExists = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, KeyName, KeyValue)
 
-    ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then
-        If KeyValue = DisableRemote Then
-            printMsg ERROR_, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", FromProcedureName, doRaiseError:=True
-            Exit Sub ' ★ブロック確定！
+        '------------ 2. UserDataDir ------------
+        'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
+        '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも毎回、落とさないといけない制限となります
+        checkValueName = "UserDataDir"
+
+        '2-1. 文字列として、チェックする
+        ValueExists = PolicyCheck.GetStringValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContent)
+
+        '2-2. そのデータ名があるか？
+        If ValueExists = wbemNoErr Then
+            'フラグ立て
+            '※中身が空であっても、OUTです
+            Policy_UserDataDir = True
+
+            '通達
+            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & CStr(ValueContent) & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
+                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & CStr(ValueContent) & "`に固定されています。起動中のブラウザを全て落とします。")
+
+            printMsg WARN_, ErrorMes, FromProcedureName
+            Exit For
         End If
-    End If
-
-
-    '------------ 2. UserDataDir ------------
-    '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも落とさないといけない制限となります
-    KeyName = CheckKeyNames(1)
-
-
-    ' --- チェック①：【HKEY_LOCAL_MACHINE】---
-    ' "HKLM" は、このPCの、"すべて"のユーザーに影響する、強力な設定
-    KeyExists = regProvider.GetDWORDValue(HKEY_LOCAL_MACHINE, regPath, KeyName, KeyValue)
-    
-    ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then
-        Policy_UserDataDir = True
-        printMsg WARN_, "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & KeyValue & "`に固定されています。" & vbCrLf & "起動中のブラウザを全て落とします。", FromProcedureName
-        Exit Sub
-    End If
-
-    ' --- チェック②：【HKEY_CURRENT_USER】---
-    ' "HKCU" は、"今、ログインしているユーザー"だけに、影響する設定
-    KeyExists = regProvider.GetDWORDValue(HKEY_CURRENT_USER, regPath, KeyName, KeyValue)
-
-    ' 値が、読み取れた場合
-    If KeyExists = ReadSuccess Then
-        Policy_UserDataDir = True
-        printMsg WARN_, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & KeyValue & "`に固定されています。" & vbCrLf & "起動中のブラウザを全て落とします。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除して下さい。", FromProcedureName
-        Exit Sub
-    End If
+    Next
 End Sub
 
 
@@ -2675,6 +2665,10 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
+
+    'Assign an objID for easy debug identification
+    brID = "BRID" & Format(Rnd * 1000, "000")
+
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
@@ -2700,16 +2694,13 @@ Private Sub Class_Initialize()
     '------------------------------------------------------------------------------
 
 
-   'Determine project host type for compatibility
+    'Determine project host type for compatibility
     '※このフォークツールは、Excel特化に改良してるため、Excel以外は動作しません
     Select Case True
         Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
         'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
         'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
     End Select
-
-   'Assign an objID for easy debug identification
-    brID = "BRID" & Format(Rnd * 1000, "000")
 
 End Sub
 
