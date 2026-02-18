@@ -2286,26 +2286,29 @@ Private Sub setCrashStateNormal()
     Const FromProcedureName As String = ThisClassName & ".setCrashStateNormal"
 
 
-    Dim filePath As String, prefFolder As String, prefFile As Object, strContents As String, strNewContents As String, intF As Integer
+    Dim filePath_Preferences As String
+    Dim strContents As String, strNewContents As String
+    Dim intF As Integer
 
-   'Mark 'Normal' on the preference file to prevent Restore Page popup on start
-   'This file locates at %localappdata%/Google/User Data/Default/Preferences
+   '状況に応じたクラッシュパス情報を指定する
     Select Case brType
         Case brChrome
-            filePath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & prefFolder & "\Default\Preferences"
+            filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & brUser & "\Default\Preferences"        'user-data-dir
 
         Case brEdge
+            'Edgeの場合は、ポリシー状況に応じて分岐
             If Policy_UserDataDir Then
-                filePath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\" & brUser & "\Preferences"  'Use this switch instead if your organization disables UserDataDir with policy
+                filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\" & brUser & "\Preferences" 'Use this switch instead if your organization disables UserDataDir with policy
             Else
-                filePath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & prefFolder & "\Default\Preferences"
+                filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & brUser & "\Default\Preferences"   'user-data-dir
             End If
     End Select
 
-    If LenB(Dir(filePath)) = 0 Then Exit Sub
+    'クラッシュ情報がない場合は、ここで抜ける
+    If LenB(Dir(filePath_Preferences)) = 0 Then Exit Sub
 
     intF = FreeFile
-    Open filePath For Binary As #intF
+    Open filePath_Preferences For Binary As #intF
         strContents = Input$(LOF(intF), #intF)
     Close #intF
 
@@ -2314,7 +2317,7 @@ Private Sub setCrashStateNormal()
 
     If strNewContents <> strContents Then
         intF = FreeFile
-        Open filePath For Binary As #intF
+        Open filePath_Preferences For Binary As #intF
             Put #intF, 1, strNewContents
         Close #intF
     End If
