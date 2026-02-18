@@ -393,7 +393,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
@@ -408,7 +408,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
@@ -422,7 +422,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
@@ -536,13 +536,20 @@ Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行する�
 | :--- | :--- | :--- |
 | **引数: methodName** | String | 実行したい**CDPメソッド名**を指定します（例: `"Network.getCookies"`、`"Browser.getVersion"` など）。 |
 | **引数: params** | Scripting.Dictionary (Optional) | メソッドに渡す**オプションパラメータ**です。呼び出し側でJson-Dictionaryとして組み立てておく必要があります。 |
-| **引数: BrowserContext** | Boolean (Optional) | 実行対象を**ブラウザ自身にする**かを指定します。デフォルトは `False` で、タブセッションモードです。 |
+| **引数: BrowserContext** | Boolean (Optional) | 実行対象を**常にブラウザ自身にする**かを指定します。デフォルトは `False` で、タブセッションモードです。 |
+| **引数: StopError** | Boolean (Optional) | `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止め、予期せぬデータ破損を防ぎます。 |
 | **返り値** | Scripting.Dictionary | 実行結果のJSON応答に含まれる **`result` セクション**をDictionary形式で返します。 |
 
-#### 補足事項
+> [!TIP]
+> 実行に失敗した場合は内部関数 `invokeError` によってエラー内容が解析され、`LastCDPJsonError`プロパティで、エラー情報の取得が可能になります。  
+> そして返り値は、`Nothing`となります。  
+> 引数`StopError`にて、`False`にした際はこの手法で、エラーハンドリングが可能となります。  
+> 詳細はDemoプロシージャ`UseExtensions`をご覧ください。
 
-* **エラー処理**: 実行に失敗した場合は内部関数 `invokeError` によってエラー内容が解析され、イミディエイトウィンドウにメッセージが表示されます。
-* **内部動作**: 引数 `params` で渡されたDictionaryは、内部で `CDPJConv` を通じてJSON文字列に変換され、ブラウザへ送信されます。
+> [!IMPORTANT]
+> 非同期イベントの確認をする際は、空打ちによる継続確認が必要なのでこの場合は、`StopError`を`False`にしてください。  
+> これは、VBAのシングルスレッド制約の中での苦肉の策です。  
+> 詳細は先述の`デモ紹介2`をご覧ください。
 
 ---
 
