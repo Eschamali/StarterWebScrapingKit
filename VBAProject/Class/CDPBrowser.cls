@@ -1424,7 +1424,7 @@ End Sub
 '* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
-'* 引数　　：methodName             method名
+'* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
 '            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
 '                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
