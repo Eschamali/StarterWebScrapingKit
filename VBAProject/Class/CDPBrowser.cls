@@ -2574,7 +2574,7 @@ End Function
 '               ・RemoteDebuggingAllowed
 '               ・UserDataDir
 '***************************************************************************************************
-Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
+Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
