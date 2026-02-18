@@ -2650,13 +2650,13 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
             printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
 
             'フラグ立て
-            '※中身が空であっても、OUTです
+            '※中身が空の場合は、`User Data`配下になります。
             Policy_UserDataDirExists = True
-            Policy_UserDataDirContents = IIf(CStr(ValueContents) = "", Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", ValueContents)
+            Policy_UserDataDirContents = IIf(CStr(ValueContents) = "", Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", CStr(ValueContents))
 
             '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & CStr(ValueContents) & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & CStr(ValueContents) & "`に固定されています。起動中のブラウザを全て落とします。")
+            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & Policy_UserDataDirContents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
+                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & Policy_UserDataDirContents & "`に固定されています。起動中のブラウザを全て落とします。")
 
             printMsg WARN_, ErrorMes, FromProcedureName
             Exit For
