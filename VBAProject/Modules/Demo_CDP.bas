@@ -99,7 +99,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
@@ -114,7 +114,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
@@ -128,7 +128,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
     '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Set ResultCDP = Demo_NetworkEvent.invokeMethod("hoge")  '存在しないコマンドなので、ブラウザに影響なし
+    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
@@ -188,7 +188,8 @@ End Sub
 '* 機能　　：拡張機能を読み込むDemoコードです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：ブラウザ自身をターゲットとした`invokeMethod`の使用例です
-'* 注意次項：このテストを行う際は、シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御`をONにしてください
+'* 注意事項：・このテストを行う際は、シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御`をONにしてください
+'            ・`Extensions`は実験的ドメインですが、Class内Err.Raiseでは止めずに、ここの自力判定でエラーハンドリングします
 '***************************************************************************************************
 Sub UseExtensions()
     '必要な変換オブジェクトを用意
@@ -215,9 +216,10 @@ Sub UseExtensions()
     Dim CDPParams As Dictionary, ResultCDP As Dictionary
     Set CDPParams = New Dictionary
     CDPParams.Add "path", ExtensionsFolderPath
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True)
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True, False)   '今回は、エラー無視で設定
 
     '読み込まれたか確認する
+    '※コマンド実行に失敗すると、`nothing`で返るので、この仕様を利用します
     If ResultCDP Is Nothing Then
         'CDP-Json結果に`error`要素あり
         MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastCDPJsonError("code")
@@ -240,7 +242,7 @@ Sub UseExtensions()
     '拡張機能をアンインストール
     Set CDPParams = New Dictionary
     CDPParams.Add "id", ResultCDP("id")
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True)
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True, False)
 
     '消えたか確認する
     If ResultCDP Is Nothing Then
@@ -301,7 +303,7 @@ Sub runHidden()
 '
 ' ※日本国では、正しく機能しません。恐らく、検索地域の問題と思われます。
 '---------------------------------------------------------------------------------
- 
+
     Dim chrome As CDPBrowser
  
    'Start and hide
@@ -339,8 +341,7 @@ Sub runHiddenForJapan()
 ' To confirm the result, you can perform the following steps:
 '   1. Go to Google.com
 '   2. Type "automate edge vba" and click Search
-'   3. Click on the first result to reach the CodeProject's article
-'   4. The vote count is seen there.
+'   3. Click on the first result to reach
 '
 ' ※日本国向けに改良します。
 '---------------------------------------------------------------------------------
@@ -653,7 +654,7 @@ Sub demoReattachmentPart2()
 
     Dim c As New CDPBrowser
     With ShSetting01_StartBrowser
-        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value, True) = True Then c.navigate "https://wikipedia.com" _
+        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value) = True Then c.navigate "https://wikipedia.com" _
         Else Debug.Print "Failed to reattach. Perhaps the reattach profile CDP2 is incorrect?"
     End With
 

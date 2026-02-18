@@ -1418,19 +1418,37 @@ Public Sub pageEnable()
 
 End Sub
 
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean) As Scripting.Dictionary
-'-----------------------------------------------------------------
-' This function enables advanced method invocation under CDP.
-' For a list of all methods available, see:
-' https://chromedevtools.github.io/devtools-protocol/tot/Browser/
-' Error message will be prompted automatically by invokeError in
-' the Immediate Window.
-' The return object is Json String that has been converted to a
-' dictionary object.
-' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
-' Updated: 28/04/23 - Set this to Public as it is useful
-'          20/03/23 - Added printMsg msgs & set to Private
-'-----------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
+'* 引数　　：methodName             method名
+'            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
+'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
+'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
+'
+'            StopError              `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：This function enables advanced method invocation under CDP.
+'            For a list of all methods available, see:
+'               https://chromedevtools.github.io/devtools-protocol/tot/Browser/
+'            Error message will be prompted automatically by invokeError in the Immediate Window.
+'            The return object is Json String that has been converted to a dictionary object.
+'            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
+'
+'* 更新履歴：・18/02/26 - SessionIDがあっても、BrowserContext優先にコマンド実行できるように改良。エラーで止めるかのスイッチングを導入
+'            ・28/04/23 - Set this to Public as it is useful
+'            ・20/03/23 - Added printMsg msgs & set to Private
+'
+'* 注意事項：・CDPの運営思想の都合上、多数の`Deprecated`,`Experimental`が存在します。
+'              これらのタグのmethodを使用する際は、`StopError`を`True`にすることを推奨します。失敗時の以降の処理の予期せぬデータ破損などを防ぐためです。
+'
+'            ・非同期イベントの確認をする際は、空打ちによる継続確認が必要なのでこの場合は、`StopError`を`False`にしてください。
+'              これは、VBAのシングルスレッド制約の中での苦肉の策です。
+'
+'            ・`StopError`の規定値は、`True`なので、特別な理由がない限りは、省略推奨です
+'***************************************************************************************************
+Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".invokeMethod"
 
 
@@ -1441,7 +1459,16 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext)
 
    'Print error if there is
-    If invokeError(results) Then printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+    If invokeError(results) Then
+        'エラーによる`Err.Raise`で止めるか？
+        If StopError Then
+            'エラーになったmethod名と、結果生responseを表示して停止
+            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+        Else
+            'エラーになったmethod名だけログ出して続行
+            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+        End If
+    End If
 
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
@@ -1600,8 +1627,9 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'            ・`invokeMethod`の`StopError`が`Flase`だと実質機能しません。
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
     Set LastCDPJsonError = errorDetails
@@ -2130,13 +2158,14 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".invokeError"
 
 
+    Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
     If result Is Nothing Then
-        Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
         ErrorCode = -1 'arbitrary nonzero value, may change in future
         ErrorMessage = "Timeout or No results"
         ErrorData = vbEmpty
         printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         invokeError = True
+        Set errorDetails = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
     ElseIf result.Exists("error") Then
         Set errorDetails = result("error")
         ErrorCode = errorDetails("code")
