@@ -1796,14 +1796,11 @@ RetrySend:
                     '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
                     If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
                     If tmp <> "" Then
-                        '受信データを Json-Dictionary として変換
-23                      Set results = jsConverter.ParseJson(tmp)
-
                         '受信データのチェックを行うプロシージャへ遷移します。
-24                      If BrowserReceivedDataCheck(results, InternalUseMessages, lngCurrentId) Then
+23                      If BrowserReceivedDataCheck(tmp, InternalUseMessages, lngCurrentId) Then
                             '直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てて、コマンド結果も返す
                             ResultSendCommand = True
-25                          Set SendMessage = results
+24                          Set SendMessage = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
 
                             printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
                         End If
@@ -1818,10 +1815,10 @@ RetrySend:
             'データなしの場合は、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-26              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
+25              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-27              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
+26              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
                 'データがまだ、ない
                 printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
@@ -1842,7 +1839,7 @@ RetrySend:
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-28      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+27      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
     Loop Until ResultSendCommand And StrPtr(strBuffer) = 0
@@ -1944,70 +1941,84 @@ End Sub
 '* 機能　　：ブラウザからの受信データの構造をチェックします
 '---------------------------------------------------------------------------------------------------
 '* 返値    ：TRUE :受信ループを止める合図。
-'               例：・`returnCDPJson`に、ExcelからのCDP-Jsonコマンド結果がある。
-'                   ・構文エラーによる、ID項目なし
+'               ・`CDPJsonString`に、ExcelからのCDP-Jsonコマンド結果がある
+'               ・コマンド構文エラーによる、ID項目なし
 '
 '            FALSE:受信ループを継続する合図。
-'               例：・`returnCDPJson`は、ブラウザからのイベント情報である
+'               ・`CDPJsonString`は、ブラウザからのイベント情報である
 '
-'* 引数　　：returnCDPJson          1件分の`Json-Dictionary`形式済みのブラウザからのイベントやCDP-Jsonコマンド結果
+'* 引数　　：returnCDPJson          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
 '            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
 '            checkCommandID         確認するコマンドID
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、ブラウザイベントの場合はついでに、イベント情報を格納します。
 '* 注意事項；CDP-Jsonコマンド結果IDの不一致(シングルスレッド配下なら多分ないはず...)の場合は、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
-Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
+Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
     '======================================= チェック開始 =======================================
+    Dim ResultCommandID As Long, AsynchronousEventName As String
+    Dim JsonDictionaryObj As Dictionary
     Dim FlagValue As Long
 
-    Const resultCommand As Long = 2 ^ 0
-    Const browserEvent  As Long = 2 ^ 1
-    Const mismatchID    As Long = 2 ^ 2
-    Const oldSessionID  As Long = 2 ^ 3
+    Const resultCommand As Long = 2 ^ 0 'クラス内変数に記録してるIDのコマンド結果を検知出来た
+    Const mismatchID    As Long = 2 ^ 1 'クラス内変数に記録してるIDとは違うコマンド結果が検知された。※Err.Raiseで止めるのであまり意味ないかも
+    Const browserEvent  As Long = 2 ^ 2 '非同期イベントである
+    Const EventCapture  As Long = 2 ^ 3 '非同期イベントキャプチャモードである
+    Dim mask As Long: mask = resultCommand + mismatchID + browserEvent + EventCapture
+
 
     '--------- 1. ブラウザからのイベントか？ ---------
-    If returnCDPJson.Exists("method") Then
+    If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent
 
-        '--------- 2. `SessionID`項目があるか？ ---------
-        If returnCDPJson.Exists("sessionId") Then
-            printMsg Trace_, "This event is a PageContext.", FromProcedureName
-
-            '--------- 3. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
-            If returnCDPJson("sessionId") = sessionID Then
-                'ページとしてのイベント情報です
-                printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
-            Else
-                '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するフラグを立てます。ログにも残します
-                FlagValue = FlagValue Or oldSessionID
-                printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & returnCDPJson("sessionId"), FromProcedureName
-            End If
+        '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
+        If (objAllMessages Is Nothing) And (InternalUseMessages Is Nothing) Then
+            '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
+            printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
         Else
-            'ブラウザ自身としてのイベント情報です
-            printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+            'イベントキャプチャモードなので、JsonPurserを使用する
+             printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+            Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
+
+            '--------- 3. `SessionID`項目があるか？ ---------
+            If JsonDictionaryObj.Exists("sessionId") Then
+                printMsg Trace_, "This event is a PageContext.", FromProcedureName
+
+                '--------- 4. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
+                If JsonDictionaryObj("sessionId") = sessionID Then
+                    'ページとしてのイベント情報です
+                    FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
+                    printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
+                Else
+                    '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
+                    printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
+                End If
+            Else
+                'ブラウザ自身としてのイベント情報です
+                FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
+                printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+            End If
         End If
+
     Else
         FlagValue = FlagValue Or resultCommand
 
         '--------- 2. `id`項目があるか？ ---------
-        If returnCDPJson.Exists("id") Then
-            printMsg Trace_, "CDP-Json command results found. ID:" & returnCDPJson.Item("id"), FromProcedureName
-
+        If GetContentsID(CDPJsonString, ResultCommandID) Then
             '--------- 3. そのIDは、クラス内変数に記録してるIDと一致してるか？ ---------
-            If returnCDPJson.Item("id") = checkCommandID Then
+            If ResultCommandID = checkCommandID Then
                 '正しいコマンド結果が返ったので次項に、受信ループ終了フラグを返すようにする
                 printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
             Else
                 '何かの拍子でずれてるようだ... シングルスレッド配下なら多分ないはず... だがずれてたら、不整合につながるため、エラーで止める
                 FlagValue = FlagValue Or mismatchID
-                printMsg ERROR_, "The command result was received(id:" & returnCDPJson.Item("id") & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel. Processing will be stopped due to the inconsistency.", FromProcedureName, doRaiseError:=True
+                printMsg ERROR_, "The command result was received(id:" & ResultCommandID & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel. Processing will be stopped due to the inconsistency.", FromProcedureName, doRaiseError:=True
             End If
         Else
-            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし次項に、受信ループ終了フラグを返すようにする
+            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
             printMsg WARN_, "Both the `id` and `method` fields are missing. This may be a syntax error.", FromProcedureName
         End If
     End If
@@ -2018,28 +2029,113 @@ Private Function BrowserReceivedDataCheck(returnCDPJson As Dictionary, InternalU
 
     '1. 送ったコマンドの結果は来たので、受信ループを止めて、抜けるか？
     judgementBit = resultCommand
-    If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
+    If (FlagValue And mask) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
 
-    '2. 受信ループは止めないが、古いSessionIDなので抜けるか？
-    judgementBit = browserEvent Or oldSessionID
-    If (FlagValue And judgementBit) = judgementBit Then BrowserReceivedDataCheck = False: Exit Function
+    '2. 受信ループは止めないが、イベントキャプチャしないモード(格納用のDictionaryがどちらもNothing or 古いSessionID)なので、次項の格納処理はせず、抜けるか？
+    judgementBit = browserEvent
+    If (FlagValue And mask) = judgementBit Then BrowserReceivedDataCheck = False: Exit Function
 
 
     '======================================= イベント情報を格納するフェーズへ =======================================
     'パブリック(呼び出し側使用)用
     If objAllMessages Is Nothing Then
-        printMsg Trace_, "Event capture mode is disabled.", FromProcedureName
+        printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
-        printMsg Trace_, "Event capture mode is enabled. storing...", FromProcedureName
-        OnNewEventReceived objAllMessages, returnCDPJson
+        printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
+        OnNewEventReceived objAllMessages, JsonDictionaryObj
     End If
 
     'プライベート(クラス内変数)用
     If InternalUseMessages Is Nothing Then
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
-        printMsg Trace_, "Gets the event information required inside the class. storing...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, returnCDPJson
+        printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
+        OnNewEventReceived InternalUseMessages, JsonDictionaryObj
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`id`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
+'            idValueContents    コマンド結果のID値を格納する変数(参照渡しによって返します)
+'***************************************************************************************************
+Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
+
+
+    '検索設定
+    Const SearchKeyName     As String = "id"    '検索文字列
+    Const StartSearchPos    As Long = 3         'あるべき位置
+
+
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    '下記の例に基づき、3文字目にない場合は、コマンド結果ではないとして、扱います。
+    '・{"id":27,"result":{"result":...
+    '・{"id":57,"error":{"code":...
+    If StartPos = StartSearchPos Then
+        GetContentsID = True
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":") '「id":」分、ずらすイメージ
+
+        '4. ID値の終点を求める
+        Dim EndPos As Long
+        EndPos = InStr(StartPos, jsonString, ",")
+
+        '5. ID値を取り出す
+        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+        printMsg Trace_, "This response is the command result. ID:" & idValueContents, FromProcedureName
+    Else
+        GetContentsID = False
+        printMsg Trace_, "This response does not have an `id`.", FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString             CDPのレスポンス(Json文字列そのまんま)
+'            methodValueContents    非同期イベントのメソッド名(参照渡しによって返します)
+'***************************************************************************************************
+Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
+
+
+    '検索設定
+    Const SearchKeyName     As String = "method"    '検索文字列
+    Const StartSearchPos    As Long = 3             'あるべき位置
+
+
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    '下記の例に基づき、3文字目にない場合は、非同期イベントではないとして、扱います。
+    '・{"method":"Network.dataReceived","params":{"...
+    If StartPos = StartSearchPos Then
+        GetContentsMethod = True
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":""") '「method":"」分、ずらすイメージ
+
+        '4. method名の終点を求める
+        Dim EndPos As Long
+        EndPos = InStr(StartPos, jsonString, """,")
+
+        '5. method名を取り出す
+        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+        printMsg Trace_, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
+    Else
+        GetContentsMethod = False
+        printMsg Trace_, "This response does not have an `method`.", FromProcedureName
     End If
 End Function
 
