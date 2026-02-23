@@ -60,7 +60,11 @@ Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
 '                            ■■■ 必要なクラス変数/定数宣言 ■■■
 '***************************************************************************************************
 '------ 定数 ------
-Private Const CP_UTF8 As Long = 65001   ' CodePage constant for UTF-8
+Public Enum CodePageParam
+    Shift_JIS = 932
+    UTF8 = 65001       ' CodePage constant for UTF-8
+End Enum
+
 
 '------ 変数 ------
 Private UseCharacterCode As Long
@@ -78,7 +82,7 @@ Private UseCharacterCode As Long
 '* 機能説明：VBAの「Unicode」(UTF-16)文字列を、どんな文字コードに変換するか、あるいは外部から得たどんな文字コードをVBAの「Unicode」(UTF-16)文字列に戻すかを設定できます
 '* 注意事項：デフォルトは、65001(UTF-8)にしてるので基本的には変更する必要はないと思います
 '***************************************************************************************************
-Property Let CodePage(Code As Long)
+Property Let CodePage(Code As CodePageParam)
     UseCharacterCode = Code
 End Property
 
@@ -233,5 +237,5 @@ End Function
 '***************************************************************************************************
 Private Sub Class_Initialize()
     '変換先/変換元 のデフォルトコードページは、UTF-8にします
-    UseCharacterCode = CP_UTF8
+    UseCharacterCode = CodePageParam.UTF8
 End Sub
