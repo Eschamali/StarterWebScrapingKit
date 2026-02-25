@@ -65,9 +65,9 @@ Option Private Module
 ' === AutoProxy Headers
 #If Mac Then
 #ElseIf VBA7 Then
-
-Private Declare PtrSafe Sub AutoProxy_CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-    (ByVal AutoProxy_lpDest As LongPtr, ByVal AutoProxy_lpSource As LongPtr, ByVal AutoProxy_cbCopy As Long)
+Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
+Private Declare PtrSafe Function lstrcpyW Lib "kernel32" _
+    (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
 Private Declare PtrSafe Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" _
     (ByVal AutoProxy_pwsz As LongPtr) As LongPtr
 Private Declare PtrSafe Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" _
@@ -103,8 +103,9 @@ End Type
 
 #Else
 
-Private Declare Sub AutoProxy_CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-    (ByVal AutoProxy_lpDest As Long, ByVal AutoProxy_lpSource As Long, ByVal AutoProxy_cbCopy As Long)
+Private Declare Function lstrlenW Lib "kernel32" (ByVal lpString As Long) As Long
+Private Declare Function lstrcpyW Lib "kernel32" _
+    (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
 Private Declare Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" _
     (ByVal AutoProxy_pwsz As Long) As Long
 Private Declare Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" _
@@ -2178,15 +2179,27 @@ AutoProxy_TryIEFallback:
     End If
 
     ' If there's a proxy string, convert it to a Basic string
+    Dim lngLen As Long
     If (AutoProxy_ProxyStringPtr <> 0) Then
-        AutoProxy_ptr = AutoProxy_SysAllocString(AutoProxy_ProxyStringPtr)
-        AutoProxy_CopyMemory VarPtr(ProxyServer), VarPtr(AutoProxy_ptr), 4
+        ' 1. まず、ポインタ先の文字列の長さを測る
+        lngLen = lstrlenW(AutoProxy_ProxyStringPtr)
+
+        If lngLen > 0 Then
+            ' 2. 必要な長さ分だけバッファを確保
+            ProxyServer = String$(lngLen, 0)
+            ' 3. コピー実行
+            lstrcpyW StrPtr(ProxyServer), AutoProxy_ProxyStringPtr
+        End If
     End If
 
     ' Pick up any bypass string from the IEProxyConfig
     If (AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass <> 0) Then
-        AutoProxy_ptr = AutoProxy_SysAllocString(AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass)
-        AutoProxy_CopyMemory VarPtr(ProxyBypass), VarPtr(AutoProxy_ptr), 4
+        lngLen = lstrlenW(AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass)
+
+        If lngLen > 0 Then
+            ProxyBypass = String$(lngLen, 0)
+            lstrcpyW StrPtr(ProxyBypass), AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass
+        End If
     End If
 
     ' Ensure WinHttp session is closed, an error might have occurred
