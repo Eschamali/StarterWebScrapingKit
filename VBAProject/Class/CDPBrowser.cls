@@ -181,6 +181,8 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
+Private AccumulatedCommandResults As Dictionary
+Private MaxCommandResults As Long
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
@@ -1449,6 +1451,8 @@ End Sub
 '              これは、VBAのシングルスレッド制約の中での苦肉の策です。
 '
 '            ・`StopError`の規定値は、`True`なので、特別な理由がない限りは、省略推奨です
+'            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
+'              その場合は、後述の結果を待たないタイプのメソッド`invokeMethodAsync`をご利用ください。
 '***************************************************************************************************
 Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".invokeMethod"
@@ -1478,6 +1482,40 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
 
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`invokeMethod`の非同期実行(コマンド結果を待たない)バージョンです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
+'* 引数　　：※`invokeMethod`と一緒のため、省略
+'***************************************************************************************************
+Public Function invokeMethodAsync(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Long
+    Const FromProcedureName As String = ThisClassName & ".invokeMethodAsync"
+
+
+    Dim paramStr As String
+    Dim results As Scripting.Dictionary
+
+    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True)
+
+    '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
+    '※1件しかAddしてないので、直Index指定する
+    If results.Items(0) Then
+        'エラーによる`Err.Raise`で止めるか？
+        If StopError Then
+            'エラーになったmethod名と、`WriteFile`の実行エラーコードを表示して停止
+            printMsg ERROR_, "Failed to invokeAsync-WriteFile method """ & methodName & """" & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0)), FromProcedureName, doRaiseError:=True
+        Else
+            'エラーになったmethod名だけログ出して続行
+            printMsg WARN_, "Failed to invokeAsync-WriteFile method """ & methodName & """　ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
+        End If
+    End If
+
+    '実行したIDを返却
+    invokeMethodAsync = results.keys(0)
+    printMsg Debug_, "AsyncInvoked """ & methodName & """ with WriteFileResult: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
+
+End Function
 
 
 '=============================================================================
@@ -1644,19 +1682,26 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
+'
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
 '            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
 '                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
 '
 '            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
+'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
+'
 '            dbgMsg                 Allow the option to bypass error if intended
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1673,60 +1718,35 @@ RetrySend:
 
     On Error GoTo ifError
 
-   'Before sending a message the message-buffer is emptied
-   'All messages that we have received so far cannot be an answer to the message that we will send
-   'So they can be safely discarded
-1   If objAllMessages Is Nothing And InternalUseMessages Is Nothing Then
-        printMsg Trace_, "Starts discarding browser event information...", FromProcedureName
-
-        '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信破棄を行います
-        Do
-            '受信処理
-2           intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
-            printMsg Trace_, "Discard - ResSize = " & intRes, FromProcedureName
-
-            '返り値チェック
-            If intRes > 0 Then
-               'データありだが、あくまで破棄処理のため何もしない(強いていうなら、破棄するメッセージをそのまま出す)
-3               printMsg Trace_, "Emptying the message buffer...", FromProcedureName
-4               If seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
-
-            Else
-                'データなしの場合は、エラーコードチェックを行う
-                If ErrorCode_PeekNamedPipe Then
-                    'PeekNamedPipe にてエラーがあった場合
-5                   printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
-
-                ElseIf ErrorCode_ReadFile Then
-                    'ReadFile にてエラーがあった場合
-6                   printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
-
-                Else
-                    'データがまだ、ない。つまり、破棄完了
-                    printMsg Trace_, "Message queue destruction completed.", FromProcedureName
-                End If
-            End If
-        Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
-    End If
-
    '--------------------------------------------------
    'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
-7   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
+1   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
     If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
 
-8   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
+2   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
     If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-9   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-10  If sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
-11  strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
+3   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
+4   If sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+5   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
-12  core.writeProc strMessage                                                                    'Send message to the browser instance
+    
+6   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
+    printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
+
+    '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
+    If Async Then
+        Set SendMessage = New Dictionary
+
+        '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
+        SendMessage.Add lngCurrentId, WriteResult
+        Exit Function
+    End If
 
    '------------------------------------------------
    'Read message returned by browser
@@ -1739,92 +1759,28 @@ RetrySend:
     printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '受信処理
-13      intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+7       intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
         If intRes > 0 Then
-            'データあり。受信メッセージを活用するため、null文字区切りとしてスマートに分割
-14          Dim JsonMessages: JsonMessages = Split(strRes, vbNullChar)
-            printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
+            'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
+8           Set SendMessage = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)
 
-            'メモリを解放
-            If seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & strRes, FromProcedureName
-15          strRes = vbNullString
-
-            '分割した数分、処理
-            Dim i As Long
-            For i = LBound(JsonMessages) To UBound(JsonMessages)
-16              If seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
-
-                '最後の要素か？
-17              If i = UBound(JsonMessages) Then
-                    '空欄か？
-                    If JsonMessages(i) = "" Then
-                        '1回の受信で全て正しいJson形式として得れました
-                        printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
-                    Else
-                        'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                        printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
-                        printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
-18                      strBuffer = strBuffer & JsonMessages(i)
-                        printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
-
-                        printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
-                    End If
-                Else
-                    '1. 欠けたデータがあるか？
-                    Dim tmp As String
-                    If StrPtr(strBuffer) Then
-                        '空データじゃない場合は、結合する
-                        If JsonMessages(i) = "" Then
-                            tmp = strBuffer
-19                          printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
-                        Else
-20                          tmp = strBuffer & JsonMessages(i)
-                            printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
-                        End If
-
-                        '最後の要素ではないため、Jsonデータが完成されたとし、蓄積中のデータをクリアする
-21                      strBuffer = vbNullString
-                    Else
-                        'そのまんま使う
-22                      tmp = JsonMessages(i)
-                        printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
-                    End If
-
-                    '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
-                    If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
-                    If tmp <> "" Then
-                        '受信データのチェックを行うプロシージャへ遷移します。
-23                      If BrowserReceivedDataCheck(tmp, InternalUseMessages, lngCurrentId) Then
-                            '直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てて、コマンド結果も返す
-                            ResultSendCommand = True
-24                          Set SendMessage = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
-
-                            printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & lngCurrentId, FromProcedureName
-                        End If
-                    Else
-                        printMsg Debug_, "`vbnullchar` seems to be received with multiple characters.", FromProcedureName
-                    End If
-                End If
-
-                DoEvents
-            Next
+            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
+9           If Not (SendMessage Is Nothing) Then ResultSendCommand = True
         Else
-            'データなしの場合は、エラーコードチェックを行う
+            'データなしの場合は念のため、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-25              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
+10              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
-26              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
+11              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
                 'データがまだ、ない
-                printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
+12              printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
             End If
-
-            DoEvents
         End If
 
         'いくつかのログ表示
@@ -1839,7 +1795,8 @@ RetrySend:
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-27      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+13      If Timer - timerStart > timerOut Then Err.Raise ERR_TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+        DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
     Loop Until ResultSendCommand And StrPtr(strBuffer) = 0
@@ -1885,6 +1842,87 @@ ifError:
 
     Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, ERR_PIPE, ERR_PROTOCOL), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
 
+End Function
+
+'***************************************************************************************************
+'* 機能　　：1度の`ReadFile`で取り出した長文を、1件1件に分割し、状況に応じて内部で、イベントキャプチャしたり、コマンド結果の確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`checkCommandID`に対するCDP-Jsonコマンド結果Dictionary形式
+'* 引数　　：ReceiveRawString       パイプから得たそのまんまの文字列
+'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            checkCommandID         確認するコマンドID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedCommandResults`に蓄積されます
+'***************************************************************************************************
+Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
+
+
+    '受信メッセージを活用するため、null文字区切りとしてスマートに分割
+1   Dim JsonMessages: JsonMessages = Split(ReceiveRawString, vbNullChar)
+    printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
+
+    'メモリを解放
+    If seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & ReceiveRawString, FromProcedureName
+2   ReceiveRawString = vbNullString     '参照渡しにより、元の変数もクリアできる
+
+    '分割した数分、処理
+    Dim i As Long
+    For i = LBound(JsonMessages) To UBound(JsonMessages)
+3       If seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+
+        '最後の要素か？
+4       If i = UBound(JsonMessages) Then
+            '空欄か？
+            If JsonMessages(i) = "" Then
+                '1回の受信で全て正しいJson形式として得れました
+                printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
+            Else
+                'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+                printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
+                printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
+5               strBuffer = strBuffer & JsonMessages(i)
+                printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
+
+                printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+            End If
+        Else
+            '1. 欠けたデータがあるか？
+            Dim tmp As String
+            If StrPtr(strBuffer) Then
+                '空データじゃない場合は、結合する
+                If JsonMessages(i) = "" Then
+                    tmp = strBuffer
+6                   printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
+                Else
+7                   tmp = strBuffer & JsonMessages(i)
+                    printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
+                End If
+
+                '最後の要素ではないため、Jsonデータが完成されたとし、蓄積中のデータをクリアする
+8               strBuffer = vbNullString
+            Else
+                'そのまんま使う
+9               tmp = JsonMessages(i)
+                printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
+            End If
+
+            '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
+            If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
+            If tmp <> "" Then
+                '受信データのチェックを行うプロシージャへ遷移します。
+10              If BrowserReceivedDataCheck(tmp, InternalUseMessages, checkCommandID) Then
+                    '指定したコマンド結果であることを確認できたので、コマンド結果を返す
+11                  Set ReceiveFromPipeSplit = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
+                    printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
+                End If
+            Else
+                printMsg Debug_, "`vbnullchar` seems to be received with multiple characters.", FromProcedureName
+            End If
+        End If
+
+        DoEvents
+    Next
 End Function
 
 '***************************************************************************************************
@@ -1963,8 +2001,8 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     Dim JsonDictionaryObj As Dictionary
     Dim FlagValue As Long
 
-    Const resultCommand As Long = 2 ^ 0 'クラス内変数に記録してるIDのコマンド結果を検知出来た
-    Const mismatchID    As Long = 2 ^ 1 'クラス内変数に記録してるIDとは違うコマンド結果が検知された。※Err.Raiseで止めるのであまり意味ないかも
+    Const resultCommand As Long = 2 ^ 0 'IDのコマンド結果を検知出来た
+    Const mismatchID    As Long = 2 ^ 1 'クラス内変数に記録してるIDとは違うコマンド結果が検知された。恐らく以前、非同期で実行したときの結果と思われる
     Const browserEvent  As Long = 2 ^ 2 '非同期イベントである
     Const EventCapture  As Long = 2 ^ 3 '非同期イベントキャプチャモードである
     Dim mask As Long: mask = resultCommand + mismatchID + browserEvent + EventCapture
@@ -1972,7 +2010,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
     '--------- 1. ブラウザからのイベントか？ ---------
     If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
-        FlagValue = FlagValue Or browserEvent
+        FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
         If (objAllMessages Is Nothing) And (InternalUseMessages Is Nothing) Then
@@ -2004,7 +2042,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         End If
 
     Else
-        FlagValue = FlagValue Or resultCommand
+        FlagValue = FlagValue Or resultCommand  'IDのコマンド結果を検知出来たとして、フラグ付け
 
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(CDPJsonString, ResultCommandID) Then
@@ -2013,9 +2051,21 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                 '正しいコマンド結果が返ったので次項に、受信ループ終了フラグを返すようにする
                 printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
             Else
-                '何かの拍子でずれてるようだ... シングルスレッド配下なら多分ないはず... だがずれてたら、不整合につながるため、エラーで止める
-                FlagValue = FlagValue Or mismatchID
-                printMsg ERROR_, "The command result was received(id:" & ResultCommandID & "), but it does not match the ID(" & checkCommandID & ") recorded in Excel. Processing will be stopped due to the inconsistency.", FromProcedureName, doRaiseError:=True
+                '多分、非同期で実行したコマンド結果と思われる
+                'VBAによるシングルスレッドの制約上、上記以外のズレはありえないとおもう...
+                FlagValue = FlagValue Or mismatchID '現在のコマンド結果IDと返ったコマンド結果IDが異なる場合のフラグ付け
+                printMsg info_, "The command result (ID:" & ResultCommandID & ") was returned, but it does not match the command ID (" & checkCommandID & ") recorded in Excel. This is probably an asynchronous result. The results will be accumulated.", FromProcedureName
+
+                '受信Boxへ格納しておく
+                '※パーサー処理負荷を抑えるため、Json文字列まんまとします
+                AccumulatedCommandResults.Add ResultCommandID, CDPJsonString
+
+                '格納件数チェック
+                If AccumulatedCommandResults.Count > MaxCommandResults Then
+                    ' 一番古いキーを取得して削除
+                    AccumulatedCommandResults.Remove AccumulatedCommandResults.keys(0)
+                    printMsg info_, "The accumulation limit has exceeded " & MaxCommandResults & ", so the oldest has been deleted.", FromProcedureName
+                End If
             End If
         Else
             '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
@@ -2025,15 +2075,31 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
 
     '======================================= このプロシージャから抜けるか判定 =======================================
-    Dim judgementBit As Long
+    Select Case (FlagValue And mask)
+        '送ったコマンドの結果は来たので、受信ループを止めて、抜ける
+        Case resultCommand
+            BrowserReceivedDataCheck = True
+            Exit Function
 
-    '1. 送ったコマンドの結果は来たので、受信ループを止めて、抜けるか？
-    judgementBit = resultCommand
-    If (FlagValue And mask) = judgementBit Then BrowserReceivedDataCheck = True: Exit Function
+        'コマンド結果だがID不一致。以前、非同期で実行したときの結果と思われるので、まだ受信ループは止めずに、抜ける
+        Case resultCommand + mismatchID
+            BrowserReceivedDataCheck = False
+            Exit Function
 
-    '2. 受信ループは止めないが、イベントキャプチャしないモード(格納用のDictionaryがどちらもNothing or 古いSessionID)なので、次項の格納処理はせず、抜けるか？
-    judgementBit = browserEvent
-    If (FlagValue And mask) = judgementBit Then BrowserReceivedDataCheck = False: Exit Function
+        '受信ループは止めないが、イベントキャプチャしないモード(格納用のDictionaryがどちらもNothing or 古いSessionID)なので、次項の格納処理はせず、抜ける
+        Case browserEvent
+            BrowserReceivedDataCheck = False
+            Exit Function
+
+        'イベントキャプチャモードにより、Dictionaryオブジェクト格納フェーズへ行けるようにしておく。なお、受信ループは止めません
+        Case browserEvent + EventCapture
+            BrowserReceivedDataCheck = False
+
+        '未知の組み合わせ
+        Case Else
+            printMsg ERROR_, "An unknown flag was passed. (" & (FlagValue And mask) & ")", FromProcedureName, doRaiseError:=True
+
+    End Select
 
 
     '======================================= イベント情報を格納するフェーズへ =======================================
@@ -2796,6 +2862,10 @@ Private Sub Class_Initialize()
 
     'タイムアウト設定(デフォルトで、45s)
     timerOut = 45
+
+    '非同期でのコマンド結果を蓄積させる件数
+    Set AccumulatedCommandResults = New Dictionary
+    MaxCommandResults = 10
     '------------------------------------------------------------------------------
 
 
