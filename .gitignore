@@ -1,1 +1,2 @@
-VBAProject/Microsoft Excel Objects/Sheet*.cls
+VBAProject/Microsoft Excel Objects/Sheet[0-9].cls
+VBAProject/Modules/Module[0-9].bas
