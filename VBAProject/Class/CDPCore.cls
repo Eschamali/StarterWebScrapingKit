@@ -464,18 +464,22 @@ Public Function writeProc(ByVal strData As String) As Long
 '---------------------------------------------------------------------------------
  
     Dim lngWritten As Long
-    
+    Dim ResultCode As Long
+
     'UTF-8バイト配列を使用するか？
     If Utf8Converter Is Nothing Then
         'VBAの「Unicode」文字列そのまんまで、コマンドを送ります
-        writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
+        ResultCode = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
     Else
         'VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列を取得します
         Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData)
 
         'そのバイト配列として、コマンドを送ります
-        writeProc = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
+        ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
+
+    '失敗時は、実際のエラーコードで返します
+    If ResultCode = 0 Then writeProc = Err.LastDllError
 End Function
 
 
