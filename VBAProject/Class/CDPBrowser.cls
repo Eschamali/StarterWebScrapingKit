@@ -1717,16 +1717,71 @@ Property Let TimeOutSecond(TimeSec As Long)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：CDP-Json コマンド結果のうち、最後のエラー情報を取得します
+'* 機能　　：同期モードでの CDP-Json コマンド結果のうち、最後のエラー情報を取得します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
 '            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
 '            ・`invokeMethod`の`StopError`が`Flase`だと実質機能しません。
+'            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
     Set LastCDPJsonError = errorDetails
+End Property
+
+'***************************************************************************************************
+'* 機能　　：非同期で実行されたIDを取り出します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
+'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
+'
+'* 返値    ：そのIDの実行結果のJson-Dictionary
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
+'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
+'            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
+'***************************************************************************************************
+Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ResultCDPByAsync"
+
+
+    '1. 存在するか？
+    If AccumulatedCommandResults.Exists(CommandID) Then
+        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
+
+        '2. Jsonパーサーを施す
+        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedCommandResults(CommandID))
+
+        '3. `result`オブジェクトがあるか？
+        'ない場合は、そのまま返却
+        If tmp.Exists("result") Then
+            '正常に終了していると伝える
+            ErrorExist = False
+            printMsg Debug_, "This command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
+
+            Set ResultCDPForAsync = tmp("result")
+        Else
+            'エラーありとして伝える
+            ErrorExist = True
+            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedCommandResults(CommandID), FromProcedureName
+
+            Set ResultCDPForAsync = tmp
+        End If
+
+        '4. 取り出したので消しておく
+        AccumulatedCommandResults.Remove CommandID
+    Else
+        ErrorExist = True
+        printMsg WARN_, "The command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+
+        '2. カスタムエラーメッセージを作成
+        Dim ErrorCode As Long: ErrorCode = -2
+        Dim ErrorMessage As String: ErrorMessage = "The specified ID:" & CommandID & " does not exist."
+
+        '3. カスタムエラーメッセージJsonで返却
+        Set ResultCDPForAsync = jsConverter.ParseJson("{""error"":{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}}")
+    End If
 End Property
 
 
@@ -1908,7 +1963,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedCommandResults`に蓄積されます
 '***************************************************************************************************
-Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
+Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
 
 
