@@ -181,8 +181,8 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
-Private AccumulatedCommandResults As Dictionary
-Private MaxCommandResults As Long
+Private AccumulatedCommandResults As Dictionary '非同期によるコマンド結果情報
+Private MaxCommandResults As Long       '非同期によるコマンド結果の最大蓄積数
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
@@ -1517,6 +1517,60 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
 
 End Function
 
+'***************************************************************************************************
+'* 機能　　：パイプから、メッセージを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します
+'                          `False`:IDの解析やイベントの中身の解析を行います
+'***************************************************************************************************
+Public Sub TakeEvents(Optional destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
+
+    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
+    Dim intRes As Long
+    Dim strRes As String
+    printMsg Debug_, "Starts retrieving data from the pipe...", FromProcedureName
+
+    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信破棄を行います
+    Do
+        '受信処理
+        intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
+        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
+
+        '返り値チェック
+        If intRes > 0 Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                '※強いていうなら、破棄するメッセージをそのまま出す
+                printMsg Trace_, "Discarding data in pipe...", FromProcedureName
+                If seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
+            Else
+                '中身の解析をし、IDやイベントを取り出します
+                printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
+                Call ReceiveFromPipeSplit(strRes)
+            End If
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If ErrorCode_PeekNamedPipe Then
+                'PeekNamedPipe にてエラーがあった場合
+                printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
+
+            ElseIf ErrorCode_ReadFile Then
+                'ReadFile にてエラーがあった場合
+                printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
+            Else
+                'データがまだ、ない。つまり、破棄完了
+                printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+            End If
+        End If
+    Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
+
+    printMsg Debug_, "Finished getting data from the pipe.", FromProcedureName
+End Sub
+
+
 
 '=============================================================================
 ' PUBLIC PROPERTIES
@@ -2056,11 +2110,11 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                 FlagValue = FlagValue Or mismatchID '現在のコマンド結果IDと返ったコマンド結果IDが異なる場合のフラグ付け
                 printMsg info_, "The command result (ID:" & ResultCommandID & ") was returned, but it does not match the command ID (" & checkCommandID & ") recorded in Excel. This is probably an asynchronous result. The results will be accumulated.", FromProcedureName
 
-                '受信Boxへ格納しておく
+                'コマンド結果ID用受信Boxへ格納しておく
                 '※パーサー処理負荷を抑えるため、Json文字列まんまとします
                 AccumulatedCommandResults.Add ResultCommandID, CDPJsonString
 
-                '格納件数チェック
+                '格納件数チェックし、上限を超えたら、最古データを削除します
                 If AccumulatedCommandResults.Count > MaxCommandResults Then
                     ' 一番古いキーを取得して削除
                     AccumulatedCommandResults.Remove AccumulatedCommandResults.keys(0)
