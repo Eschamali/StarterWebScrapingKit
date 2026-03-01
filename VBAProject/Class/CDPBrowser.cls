@@ -1706,7 +1706,7 @@ End Property
 '* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、45sです。
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、10sです。
 '***************************************************************************************************
 Property Get TimeOutSecond() As Long
     TimeOutSecond = timerOut
@@ -1714,6 +1714,22 @@ End Property
 
 Property Let TimeOutSecond(TimeSec As Long)
     timerOut = TimeSec
+End Property
+
+'***************************************************************************************************
+'* 機能　　：非同期で実行した、CDP-Json コマンド結果を蓄積させる上限を決めます
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中の上限数
+'* LET引数 ：置き換える上限数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
+'***************************************************************************************************
+Property Get ResultBoxCDPForAsync() As Long
+    ResultBoxCDPForAsync = MaxCommandResults
+End Property
+
+Property Let ResultBoxCDPForAsync(Number As Long)
+    MaxCommandResults = Number
 End Property
 
 '***************************************************************************************************
@@ -2969,8 +2985,8 @@ Private Sub Class_Initialize()
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
     End With
 
-    'タイムアウト設定(デフォルトで、45s)
-    timerOut = 45
+    'タイムアウト設定(デフォルトで、10s)
+    timerOut = 10
 
     '非同期でのコマンド結果を蓄積させる件数
     Set AccumulatedCommandResults = New Dictionary
