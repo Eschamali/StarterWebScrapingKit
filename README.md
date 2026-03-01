@@ -518,9 +518,207 @@ End Sub
 **「全体を貫く、時系列の"正確さ"」**  
 という、**二つの"神"を、同時に、その手に収めた**のです。
 
-## `invokeMethod` メソッドについて
+## **メソッド/プロパティリファレンス："神々"との、対話術**
 
-Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行するための**低レベル操作用メソッド**です。
+ここでは、本家`Chromium-Automation-with-CDP-for-VBA`から改良/追加されたメソッドを説明します。  
+真の力は、 **主に8つの、根源的なメソッド（プロパティ）** に、集約されています。  
+これらを、マスターした時、あなたは、ブラウザという「宇宙」の、 **"時間"と"空間"** を、自在に、支配するでしょう。  
+
+### **1. `invokeMethod`** ― 同期的な、"神託"の要求
+
+**「答えが、"今"、欲しい」**  
+―――そんな、あなたのための、最も、基本的で、最も、強力な呪文です。  
+CDPコマンドを送信し、ブラウザからの **「返事」が、返ってくるまで、"待機"** します。
+
+```vb
+Public Function invokeMethod( _
+    methodName As String, _
+    Optional params As Scripting.Dictionary, _
+    Optional alwaysBrowserContext As Boolean, _
+    Optional StopError As Boolean = True _
+) As Scripting.Dictionary
+```
+
+| 引数 | 型 | 説明 |
+| :--- | :--- | :--- |
+| `methodName` | `String` | **【必須】** 実行したいCDPメソッド名。<br>（例: `"Browser.getVersion"`） |
+| `params` | `Dictionary` | **【任意】** メソッドに渡すパラメータを格納した`Dictionary`オブジェクト。 |
+| `alwaysBrowserContext` | `Boolean` | **【任意】** `True`にすると、タブ（セッション）ではなく、 **ブラウザ"本体"** に、コマンドを送信します。<br>`Extensions.loadUnpacked`などで使用します。 |
+| `StopError` | `Boolean` | **【任意】** デフォルトは **`True`** 。<br>コマンド失敗時に **`Err.Raise`** で処理を停止します。`False`にすると、エラーを発生させず、`Nothing`を返します。 |
+
+*   **返り値：**
+    *   **成功時：** 応答JSONをパースした`Dictionary`オブジェクト。
+    *   **失敗時：** `Nothing`（`StopError:=False`の場合）、または実行時エラー。
+
+> [!TIP]
+> 実行に失敗した場合は内部関数 `invokeError` によってエラー内容が解析され、`LastCDPJsonError`プロパティで、エラー情報の取得が可能になります。  
+> 引数`StopError`にて、`False`にした際はこの手法で、エラーハンドリングが可能となります。  
+> 詳細は`Demo_CDP.UseExtensions`をご覧ください。
+
+---
+
+### **2. `invokeMethodAsync`** ― 非同期の、"未来"への、問いかけ
+
+**「答えは、"後"でいい。今は、ただ、"引き金"を、引きたい」**  
+―――`alert`の"壁"を、越えるための、時を操る魔法。コマンドの**応答を、"待たず"に**、即座に、次の処理へ進みます。
+
+```vb
+Public Function invokeMethodAsync( ... ) As Long
+' ※引数は、invokeMethodと、全く同じです。
+```
+
+> [!NOTE]
+> 引数は、`invokeMethod`と同じです。
+
+*   **返り値：**
+    *   `Long`型の、**「整理券番号（コマンドID）」**。この番号を使い、後で`ResultCDPForAsync`から、結果を、受け取ります。
+
+---
+
+### **3. `LastCDPJsonError`** ― "最後の悲劇"を、記録する「石板」
+
+**「`invokeMethod`が、`Nothing`を返した…。しかし、"なぜ"だ…？」**  
+―――その、**最も、知りたい「答え」**が、ここに、刻まれています。
+
+```vb
+Property Get LastCDPJsonError() As Dictionary
+```
+
+| プロパティ | 説明 |
+| :--- | :--- |
+| **`Get`** | **同期的な`invokeMethod`**　が、最後に、失敗した時の、　**ブラウザから返された「生のエラー情報（JSONをパースした`Dictionary`）」** を、取得します。 |
+
+> [!IMPORTANT]
+> **目印は、`Nothing`：**
+> `invokeMethod`が、 **`Nothing`** を返した時。それは、 **「この石板を、読め」** という、合図です。  
+> *  **成功は、"上書き"しない：**
+> このプロパティは、**`Err.LastDllError`**の哲学に、準拠しています。
+> コマンドが**成功**しても、この石板の**内容は、クリアされません**。**"最後の"失敗**の記録が、そこに、残り続けます。  
+> *  **`StopError:=False`の、世界でのみ、意味を持つ：**
+> `invokeMethod`が、デフォルトの`StopError:=True`で、エラーを発生させた場合、このプロパティを読む前に、コードは、停止します。  
+> *  **"非同期"の涙は、拭わない：**
+> `invokeMethodAsync`の失敗は、この石板には、記録されません。
+> 彼の涙は、`ResultCDPForAsync`の、`ErrorExist`引数で、受け止めてあげてください。
+
+---
+
+### **4. `TakeEvents`** ― "時"の川から、"出来事"を、すくい上げる
+
+**「コマンドは、送りたくない。ただ、そこに、"流れて"いる、"声（イベント）"を、聞きたい」**  
+―――受信バッファに溜まった、すべてのメッセージを、**副作用なく**、`BrowserEvents`に、蓄積します。
+
+```vb
+Public Sub TakeEvents(Optional destruction As Boolean)
+```
+
+| 引数 | 型 | 説明 |
+| :--- | :--- | :--- |
+| `destruction` | `Boolean` | **【任意】** `True`にすると、**究極のパフォーマンスモード**に。JSON解析すら行わず、受信バッファを、高速に、空にします。 |
+
+---
+
+### **5. `ResultBoxCDPForAsync`** ― "未来"からの、返事を、受け取る「箱」
+
+`invokeMethodAsync`が、受け取るべき「結果」を、一時的に保管しておく、"箱"の、上限数を、設定・取得します。
+
+```vb
+Property Get ResultBoxCDPForAsync() As Long
+Property Let ResultBoxCDPForAsync(Number As Long)
+```
+
+| プロパティ | 型 | 説明 |
+| :--- | :--- | :--- |
+| `Get` / `Let` | `Long` | `invokeMethodAsync`の結果を、蓄積する、内部バッファの、最大件数を、設定/取得します。（デフォルト：`10`） |
+
+---
+
+### **6. `ResultCDPForAsync`** ― "整理券番号"で、"奇跡"を、手に入れる
+
+**「整理券『123番』の、お客様！」**  
+―――非同期で実行したコマンドの、"結果"を、あなたの「現在」に、呼び戻す、最後の呪文。
+
+```vb
+Property Get ResultCDPForAsync( _
+    CommandID As Long, _
+    ByRef ErrorExist As Boolean _
+) As Dictionary
+```
+
+| 引数 | 型 | 説明 |
+| :--- | :--- | :--- |
+| `CommandID` | `Long` | **【必須】** `invokeMethodAsync`が返した **「整理券番号」** を指定します。 |
+| `ErrorExist` | `Boolean` | **【参照渡し/出力】** もし、コマンドが失敗していた場合、ここが`True`になります。 |
+
+*   **返り値：**
+    *   **成功結果**が見つかれば、`Dictionary`の`Result`オブジェクト。
+    *   **エラー結果**が見つかれば、`Dictionary`のオブジェクトそのまんまが返り、`ErrorExist`が`True`になります。
+    *   **まだ、返事が届いていなければ**、`Nothing`が返り、`ErrorExist`は`True`のままです。
+
+> [!IMPORTANT]
+> このプロパティで、一度、取り出された「結果」は、**内部のバッファから、"自動で"、削除**されます。  
+> ここで検知されたエラーは、`LastCDPJsonError`プロパティには、**反映されません**。
+
+---
+
+### **7. `TimeOutSecond`** ― "待つ"ことの、"限界"を、定義する
+
+**「いつまでも、待てない」**
+―――その、あなたの**貴重な「時間」**を、守るための、**命綱**です。
+
+```vb
+Property Get TimeOutSecond() As Long
+Property Let TimeOutSecond(TimeSec As Long)
+```
+
+| プロパティ | 説明 |
+| :--- | :--- |
+| **`Get` / `Let`** | **同期的な**CDPコマンド（`invokeMethod`など）が、ブラウザからの**応答を、"何秒間"、待つか**を、設定します。（デフォルト：`10`秒） |
+
+---
+
+### **8. `BrowserEvents`** ― ブラウザの"魂"を、記録する「器」
+
+**ブラウザの"声（非同期イベント）"**を、聴くか、聴かざるか。  
+その**運命**を、このプロパティが、支配します。
+
+```vb
+Property Get BrowserEvents() As Dictionary
+Property Set BrowserEvents(ObjDic As Dictionary)
+```
+
+| プロパティ | 説明 |
+| :--- | :--- |
+| **`Get`** | 現在、イベントの記録に使われている`Dictionary`オブジェクトの**参照**を、返します。これを、別の変数に **退避（セーブ）** させることが可能です。 |
+| **`Set`** | イベントの**記録モード**を、切り替えます。 |
+
+#### **`Set BrowserEvents`の、"作法"**
+
+このプロパティは、あなたが渡す`Dictionary`の **"状態"** によって、その挙動を、インテリジェントに、変化させます。
+
+*   **`Set .BrowserEvents = New Dictionary`**
+    *   **【記録、開始】**
+    *   **まっさらな`Dictionary`** を渡すと、ライブラリは、 **新しい「記録の章」** を開始します。
+    *   内部で、`TotalEvents`や`EventMethods`といった、 **記録に必要な"構造"** が、自動的に、準備されます。
+
+*   **`Set .BrowserEvents = Nothing`**
+    *   **【記録、停止・破棄】**
+    *   `Nothing`を渡すと、イベントのキャプ-チャは、**完全に、停止**されます。
+    *   パフォーマンスを、最大化したい区間で、使用します。
+
+*   **`Set .BrowserEvents = (退避させたDictionary)`**
+    *   **【記録、"再開"（ロード）】**
+    *   以前に`Get`で**退避**させておいた`Dictionary`オブジェクトを、再び、セットすると。
+    *   ライブラリは、その **"歴史"の、"続き"** から、新しいイベントを、**追記**し始めます。
+
+> [!IMPORTANT]
+> このプロパティは、あなたが渡した`Dictionary`が、 **正しい「器」** であるかを、厳しく、チェックします。  
+> もし、**不正な構造**の`Dictionary`を渡そうとすると、あなたの **世界の"崩壊"** を防ぐため、警告メッセージ（`Err.Raise`）と共に、処理を、安全に、停止します。
+
+---
+
+## `invokeMethod`/`invokeMethodAsync` メソッドの取り扱いについて
+
+これらは、Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行するための**低レベル操作用メソッド**です。
 
 このライブラリには、`navigate`や`getElementByXPath`といった、日常的な操作のための、シンプルで強力なメソッドが、いくつか用意されています。
 しかし、もし、あなたが、 **ライブラリが提供する"定食メニュー"** に満足できず、**ブラウザの、より深く、より根源的な力を、意のままに操りたい**と願うなら。
@@ -530,54 +728,7 @@ Chrome DevTools Protocol (CDP) のコマンドを直接指定して実行する�
 * **ライブラリの基本セット**が、使いやすく調整された **「市販の魔法」** だとすれば、
 * **`invokeMethod`** は、あなたが、**自分だけの「オリジナルの魔法」を、ゼロから創造**するための、究極のツールなのです。
 
-### 1. invokeMethod の引数と返り値
-
-| 項目名 | 型 | 概要 |
-| :--- | :--- | :--- |
-| **引数: methodName** | String | 実行したい**CDPメソッド名**を指定します（例: `"Network.getCookies"`、`"Browser.getVersion"` など）。 |
-| **引数: params** | Scripting.Dictionary (Optional) | メソッドに渡す**オプションパラメータ**です。呼び出し側でJson-Dictionaryとして組み立てておく必要があります。 |
-| **引数: BrowserContext** | Boolean (Optional) | 実行対象を**常にブラウザ自身にする**かを指定します。デフォルトは `False` で、タブセッションモードです。 |
-| **引数: StopError** | Boolean (Optional) | `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止め、予期せぬデータ破損を防ぎます。 |
-| **返り値** | Scripting.Dictionary | 実行結果のJSON応答に含まれる **`result` セクション**をDictionary形式で返します。 |
-
-> [!TIP]
-> 実行に失敗した場合は内部関数 `invokeError` によってエラー内容が解析され、`LastCDPJsonError`プロパティで、エラー情報の取得が可能になります。  
-> そして返り値は、`Nothing`となります。  
-> 引数`StopError`にて、`False`にした際はこの手法で、エラーハンドリングが可能となります。  
-> 詳細はDemoプロシージャ`UseExtensions`をご覧ください。
-
-> [!IMPORTANT]
-> 非同期イベントの確認をする際は、空打ちによる継続確認が必要なのでこの場合は、`StopError`を`False`にしてください。  
-> これは、VBAのシングルスレッド制約の中での苦肉の策です。  
-> 詳細は先述の`デモ紹介2`をご覧ください。
-
----
-
-### 2. 何ができるのか？ ― "ほぼ、すべて"
-
-CDPが提供する、**数百にも及ぶ、ありとあらゆるコマンド**を、あなたは、この`invokeMethod`を通じて、直接、ブラウザの脳内に、送り込むことができます。
-
-* **直接的なメソッド指定：**
-    `"Network.getCookies"`や`"Browser.getVersion"`といった、**CDPの公式ドキュメントに書かれている呪文**を、文字列で、そのまま唱えることができます。
-
-* **柔軟なパラメータ送信：**
-    `Scripting.Dictionary`で組み立てた、複雑な**魔法陣（パラメータ）**を、引数`params`に渡すだけ。
-    ライブラリが、それを、完璧な**JSON**形式のテレパシーに変換し、ブラウザに送信します。
-
----
-
-### 3. 活用例：このライブラリ自身が、"証明"である
-
-このライブラリの**内部動作の、ほとんどすべて**が、この`invokeMethod`を、内部で、駆使することによって、実現されています。
-
-* **物理的なキー入力の模倣：**
-    `"DOM.focus"`で要素に魂を集中させ、`"Input.insertText"`で、神のタイプを叩き込む。
-* **ウィンドウの自在な操作：**
-    `"Browser.getWindowForTarget"`でウィンドウの魂を掴み、`"Browser.setWindowBounds"`で、ウィンドウサイズと位置を、決定する。
-* **ネットワークの完全な支配：**
-    前述のDemoコードの通り、`"Network.enable"`で監視の網を張り、ブラウザ内を流れる、すべての通信を、その手中に収める。
-
-### 4. **⚠️【最重要】`invokeMethod`を、使いこなすための、"唯一"の掟**
+### 1. **⚠️【最重要】`invokeMethod`を、使いこなすための、"唯一"の掟**
 
 `invokeMethod`は、あなたに、神の如き力を与えます。  
 しかし、**神々の世界には、神々の「作法」** があります。  
@@ -616,7 +767,7 @@ HelloWorldAutomationBrowser.invokeMethod "Network.getCookies", ...
 
 **この掟を、忘れるべからず。**
 
-### 5. **推奨プラクティス：不要なドメインの、`disable`**
+### 2. **推奨プラクティス：不要なドメインの、`disable`**
 
 `invokeMethod`で、特定のドメイン（例: `Network`）を **`enable`** した後は、そのドメインの機能が**不要になった時点**で、対応する **`disable`** コマンドを、呼び出すことを、**強く、推奨**します。
 
@@ -648,7 +799,7 @@ HelloWorldAutomationBrowser.invokeMethod "Network.disable"
 これにより、あなたのプログラムは、**不要なノイズ**から、完全に、解放され、  
 **"本当に"、重要な処理**だけに、その**すべての力**を、集中させることができるのです。
 
-### 6. **`WebDriver`との、比較：**
+### 3. **`WebDriver`との、比較：**
 
 `Selenium`などの、高レベルなWebDriverクライアントは、多くの場合、こういった**リソース管理を、内部で、自動的に**行っています。  
 しかし、CDPを**直接**操作する本ライブラリでは、その**きめ細やかなコントロールと、それに伴う「責任」は、利用者（あなた）に、委ねられています**。
