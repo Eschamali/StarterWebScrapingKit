@@ -1532,7 +1532,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     Dim strRes As String
     printMsg Debug_, "Starts retrieving data from the pipe...", FromProcedureName
 
-    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信破棄を行います
+    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
     Do
         '受信処理
         intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
