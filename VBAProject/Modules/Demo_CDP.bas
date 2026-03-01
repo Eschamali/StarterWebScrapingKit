@@ -258,6 +258,140 @@ Sub UseExtensions()
     controlExtensions.quit
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：JavaScript関数、`alert`処理に関するDemoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
+'* 注意事項：このライブラリのメソッドは、同期前提で組まれてる都合上、低レベル操作で記述します
+'***************************************************************************************************
+Sub TestAlert()
+    '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
+    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = 設定シートからの起動("https://www.selenium.dev/selenium/web/alerts.html")
+
+
+    '必要な変数を用意
+    Dim paramsCDP As New Scripting.Dictionary
+    Dim resCDP As Scripting.Dictionary
+    Dim searchId As String
+    Dim nodeId As Long
+    Dim x As Double, y As Double
+
+
+    With Demo_alerts
+        ' --- 1. 必要なドメインを有効化 ---
+        .invokeMethod ("DOM.enable")
+        .invokeMethod ("Page.enable")
+
+
+        ' --- 2. DOMツリーを同期させ、ID割り振りを行う ---
+        paramsCDP.RemoveAll
+        paramsCDP.Add "depth", 0        '返却時のDOM情報は不要なので、0にしておく
+        paramsCDP.Add "pierce", True    'Shadow DOMの中まで貫通させる
+        .invokeMethod "DOM.getDocument", paramsCDP
+        ' これでブラウザ内の全ノードにIDが割り振られます
+
+
+        ' --- 3. XPathで検索 (Shadow DOMの貫通も可) ---
+        paramsCDP.RemoveAll
+        paramsCDP.Add "query", "//*[@id='alert']"  '先頭のリンクを対象に
+        Set resCDP = .invokeMethod("DOM.performSearch", paramsCDP)
+        searchId = resCDP("searchId")
+
+
+        ' --- 4. nodeIdを取得 ---
+        paramsCDP.RemoveAll
+        paramsCDP.Add "searchId", searchId
+        paramsCDP.Add "fromIndex", 0   '先頭の件数から
+        paramsCDP.Add "toIndex", 1     '1件分のみ
+        Set resCDP = .invokeMethod("DOM.getSearchResults", paramsCDP)
+        nodeId = resCDP("nodeIds")(1)  '配列の先頭を取得
+
+
+        ' --- 5. 座標（BoxModel）を取得 ---
+        paramsCDP.RemoveAll
+        paramsCDP.Add "nodeId", nodeId
+        Set resCDP = .invokeMethod("DOM.getBoxModel", paramsCDP)
+
+        ' contentクアッド（[x1, y1, x2, y2, x3, y3, x4, y4]）から中心を計算
+        ' ※簡易的に四角形の対角線の中点を取ります
+        Dim Content As Collection
+        Set Content = resCDP("model")("content")
+        x = (Content(1) + Content(3)) / 2
+        y = (Content(2) + Content(6)) / 2
+
+
+        ' --- 5. 物理クリックを実行 (ここが非同期の出番！) ---
+        paramsCDP.RemoveAll
+
+        'マウスの位置や押下ボタン種類などを設定
+        paramsCDP.Add "x", x
+        paramsCDP.Add "y", y
+        paramsCDP.Add "button", "left"
+        paramsCDP.Add "clickCount", 1
+
+        '押すモードで、実行
+        paramsCDP.Add "type", "mousePressed"
+        .invokeMethod "Input.dispatchMouseEvent", paramsCDP, alwaysBrowserContext:=False
+
+
+        '離しモードに変更
+        paramsCDP("type") = "mouseReleased"
+
+        '非同期でコマンド実行
+        '※この瞬間、JavaScriptの`alert`関数が発動されます
+        Dim AsyncID As Long
+        AsyncID = .invokeMethodAsync("Input.dispatchMouseEvent", paramsCDP, alwaysBrowserContext:=False)
+
+
+        ' --- 6. イベントキャプチャを有効化 ---
+        Set .BrowserEvents = New Dictionary
+
+
+        ' --- 7. 特定のイベント名が出るまでループ ---
+        Const SearchEventName As String = "Page.javascriptDialogOpening"
+        Do
+            '非同期イベントを取り出す
+            .TakeEvents
+
+            'イベント名の確認
+            If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
+                '出ているダイアログの情報の確認
+                Dim tmp
+                For Each tmp In .BrowserEvents("EventMethods")(SearchEventName)
+                    Debug.Print "url    :"; tmp("params")("url")
+                    Debug.Print "message:"; tmp("params")("message")
+                    Debug.Print "type   :"; tmp("params")("type")
+                Next
+
+                '見つかったので抜ける
+                Exit Do
+            End If
+        Loop While True
+
+
+        ' --- 8. ダイアログに反応しておく ---
+        Debug.Print "wait 2second..."
+        .sleep 2
+        paramsCDP.RemoveAll
+        paramsCDP.Add "accept", True
+        Set resCDP = .invokeMethod("Page.handleJavaScriptDialog", paramsCDP)
+
+
+        ' --- 9. 以前、非同期で実行した結果も拝見する ---
+        Dim ErrorExist As Boolean
+        Dim resCDPAsync As Dictionary
+        Dim jsonconv As New WebJsonConverter
+        Set resCDPAsync = .ResultCDPForAsync(AsyncID, ErrorExist)
+        If Not (ErrorExist) Then Debug.Print "resCDPAsync - " & jsonconv.ConvertToJson(resCDPAsync)
+
+
+        ' --- 10. ブラウザを閉じる ---
+        Debug.Print "wait 2second..."
+        .sleep 2
+        .quit
+    End With
+End Sub
+
 Sub runEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
@@ -662,6 +796,8 @@ End Sub
 
 
 
+'***************************************************************************************************
+'                               ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
 '---------------------------------------------------------------------------------------------------
