@@ -392,8 +392,8 @@ Sub ネットワークイベントの確認()
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
-    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
+    '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
+    Demo_NetworkEvent.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
@@ -407,8 +407,8 @@ Sub ネットワークイベントの確認()
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
-    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させようと試みる
-    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
+    '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
+    Demo_NetworkEvent.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
@@ -421,8 +421,8 @@ Sub ネットワークイベントの確認()
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
-    '無意味なコマンドをあえて送り、先ほどのURL遷移から下記のinvokeMethodメソッド実行までに来たイベント情報を取得させる
-    Demo_NetworkEvent.invokeMethod "hoge", StopError:=False  '存在しないコマンドなので、ブラウザに影響なし
+    '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
+    Demo_NetworkEvent.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
