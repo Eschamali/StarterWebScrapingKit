@@ -1,5 +1,9 @@
 # Excel VBA Web Automation Starter Kit
 
+> [!IMPORTANT]
+> For English users  
+> This project focuses on pure VBA control of Chromium via CDP without chromedriver.exe. Please use a browser translator for details.
+
 ![イントロ画像](doc/Top.png)
 
 ## インターネットの世界を、その手に
