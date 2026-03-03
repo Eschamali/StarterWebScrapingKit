@@ -100,6 +100,10 @@ End Property
 '            ・同名ユーザーの場合は、上書きします
 '***************************************************************************************************
 Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
+    'テーブル追加時のアニメーション動作を止める
+    Application.ScreenUpdating = False
+
+
     '配列じゃないのはエラーにします
     If Not (IsArray(SetArray)) Then Err.Raise 3 + vbObjectError, ErrorSource, "データ挿入には、配列形式が必要です"
 
@@ -137,6 +141,10 @@ Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
         '存在するので、先頭セルを基準にリサイズして上書き
         StartPos.Resize(InsertDataRows, InsertDataColumns) = SetArray
     End If
+
+
+    '元に戻す
+    Application.ScreenUpdating = True
 End Property
 
 '***************************************************************************************************
@@ -202,6 +210,10 @@ End Property
 '            ・`UserName`を`vbnullstring`で指定すると、全データ消去として動作します。
 '***************************************************************************************************
 Property Let DeleteCDPToTable(TableID As Long, ErrorSource As String, UserName As String)
+    'テーブル削除時のアニメーション動作を止める
+    Application.ScreenUpdating = False
+
+
     '操作対象のテーブル名を取得
     Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
@@ -226,6 +238,10 @@ Property Let DeleteCDPToTable(TableID As Long, ErrorSource As String, UserName A
             If .ListRows.Count Then .DataBodyRange.Delete
         End With
     End If
+
+
+    '元に戻す
+    Application.ScreenUpdating = True
 End Property
 
 
