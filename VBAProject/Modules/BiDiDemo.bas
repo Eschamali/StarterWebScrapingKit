@@ -8,10 +8,12 @@ Option Explicit
 '--------------------------------------------------------------------------------------------------------------
 
 Public Sub TestBiDiCoreDemo()
+    Dim jsConverter As New WebJsonConverter
+
+
     ' 1. CDPBrowserの起動
-    Dim targetBrowser As New CDPBrowser
-    ' 設定シート等の起動引数がある場合はそちらに置き換えてください
-    targetBrowser.start "chrome"
+    Dim targetBrowser As CDPBrowser: Set targetBrowser = 設定シートからの起動
+    Set targetBrowser.BrowserEvents = New Dictionary
     
     ' 初期URLとして適当な空ページへ
     targetBrowser.navigate "about:blank#MAPPER_TARGET", isComplete
@@ -20,12 +22,7 @@ Public Sub TestBiDiCoreDemo()
     ' ※CDPBrowser.getTab() などで取得できる内部ターゲットIDが必要です
     Dim current_targetID As String
     ' テスト用に既存の deserializeFromTable 機構を呼ぶ例（実際のプロジェクトの作りに合わせて調整可）
-    On Error Resume Next
-    current_targetID = TargetBrowser.getTargetID() ' ★ CDPBrowser に getTargetID メソッドがある場合
-    If current_targetID = "" Then
-        current_targetID = ShSetting01_StartBrowser.deserializeFromTable("Chrome", 2, "TestBiDi")("targetID")
-    End If
-    On Error GoTo 0
+    current_targetID = ShSetting01_StartBrowser.deserializeFromTable("Automation Data", 2, "TestBiDi")("targetID")
     
     ' 2. BiDiCore の初期化
     Dim bidi As New BiDiCore
