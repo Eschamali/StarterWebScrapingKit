@@ -149,6 +149,11 @@ Private Const TIMEOUT_NAVIGATE As Single = 45
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
+'BiDiでのやりとりの核となるイベント名
+Private Const BiDiForEventName As String = "Runtime.bindingCalled"
+
+
+
 '===================================
 ' Global Variables
 '===================================
@@ -175,7 +180,6 @@ Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs fo
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private objAllMessages As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
 Private timerOut As Long                'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
@@ -186,6 +190,11 @@ Private MaxCommandResults As Long       '非同期によるコマンド結果の
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
+
+Private objAllMessages                      As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
+Private OnlyMessage__Runtime_bindingCalled  As Collection    'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます
+
+
 
 '=============================================================================
 ' PUBLIC FUNCTIONS
@@ -1661,7 +1670,7 @@ End Property
 '* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：呼び出した時点での、ブラウザイベント内容
-'* LET引数 ：置き換えるDictionary変数。基本は、New Dictionary を渡してのリセットです
+'* SET引数 ：置き換えるDictionary変数。基本は、New Dictionary を渡してのリセットです
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・`Set BrowserEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
 '            ・`Set BrowserEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
@@ -1698,6 +1707,20 @@ Property Set BrowserEvents(ObjDic As Dictionary)
     Else
         printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
     End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：BiDi用に実行したコマンド結果を格納するためのプロパティを行います
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：呼び出した時点での、BiDi関連の情報
+'* SET引数 ：置き換えるCollection変数。基本は、New Collection を渡してのリセットです
+'***************************************************************************************************
+Property Get BiDiCapture() As Collection
+    Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
+End Property
+
+Property Set BiDiCapture(BiDiCol As Dictionary)
+    Set OnlyMessage__Runtime_bindingCalled = BiDiCol
 End Property
 
 '***************************************************************************************************
@@ -2136,6 +2159,15 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     '--------- 1. ブラウザからのイベントか？ ---------
     If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
+
+        'BiDiモードなら、特定のイベント名を別途、格納しておく
+        '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
+        If Not (OnlyMessage__Runtime_bindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
+            OnlyMessage__Runtime_bindingCalled.Add CDPJsonString
+            printMsg Debug_, "BiDi mode usage detected. Store `" & BiDiForEventName & "`", FromProcedureName
+            If seeRawSendMsgDbg Then printMsg Debug_, "BiDi-Result = " & CDPJsonString, FromProcedureName
+        End If
+
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
         If (objAllMessages Is Nothing) And (InternalUseMessages Is Nothing) Then
