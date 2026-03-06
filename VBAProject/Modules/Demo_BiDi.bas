@@ -1,6 +1,9 @@
 Attribute VB_Name = "Demo_BiDi"
 Option Explicit
 
+Private Declare PtrSafe Sub sleep Lib "kernel32" Alias "Sleep" ( _
+    ByVal dwMilliseconds As Long)
+    
 '--------------------------------------------------------------------------------------------------------------
 ' Module      : BiDiDemo
 ' Description : BiDiCore.cls を用いて、ChromiumブラウザでのWebDriver BiDi通信を確認するデモプログラム。
@@ -10,26 +13,11 @@ Option Explicit
 Public Sub TestBiDiCoreDemo()
     Dim jsConverter As New WebJsonConverter
 
-
-    ' 1. CDPBrowserの起動
-    Dim targetBrowser As CDPBrowser: Set targetBrowser = 設定シートからの起動
-    Set targetBrowser.BrowserEvents = New Dictionary
-    
-    ' 初期URLとして適当な空ページへ
-    targetBrowser.navigate "about:blank#MAPPER_TARGET", isComplete
-
-    ' 現在のターゲットIDの取得 (CDPBrowserのプロパティまたは内部から取得する想定)
-    ' ※CDPBrowser.getTab() などで取得できる内部ターゲットIDが必要です
-    Dim current_targetID As String
-    ' テスト用に既存の deserializeFromTable 機構を呼ぶ例（実際のプロジェクトの作りに合わせて調整可）
-    current_targetID = ShSetting01_StartBrowser.deserializeFromTable("Automation Data", 2, "TestBiDi")("targetID")
     
     ' 2. BiDiCore の初期化
     Dim bidi As New BiDiCore
-    bidi.Init targetBrowser, current_targetID
+    bidi.Init
     
-    ' あとで遷移を確認するための新しいタブをCDP経由で開く
-    targetBrowser.newTab
     
     Dim result As Dictionary
     Dim params As Dictionary
@@ -113,12 +101,12 @@ Public Sub TestBiDiCoreDemo()
             Exit Do
         End If
         
-        targetBrowser.sleep
+        sleep 1000
         DoEvents
     Loop While True
     
     Debug.Print "--- BiDiDemo Finished ---"
-    
+
     ' クリーンアップ
-    targetBrowser.quit
+    'targetBrowser.quit
 End Sub

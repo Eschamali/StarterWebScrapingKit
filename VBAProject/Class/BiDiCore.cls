@@ -21,11 +21,13 @@ Option Explicit
 Private m_CDPBrowser As CDPBrowser
 Private m_TargetID As String
 Private m_CharConv As New CharacterCodeConversion
-Private m_JsonConverter As WebJsonConverter
+Private m_JsonConverter As New WebJsonConverter
 
 'ステート管理
 Private m_MessageID As Long
 Private m_Events As Dictionary
+
+
 
 '***************************************************************************************************
 '* 機能　　：初期化処理
@@ -35,31 +37,37 @@ Private m_Events As Dictionary
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiマッパーのスクリプトを読み込み、対象のコンテキストで実行可能にします。
 '***************************************************************************************************
-Public Sub Init(CDPInst As CDPBrowser, ByVal targetID As String)
-    Set m_CDPBrowser = CDPInst
-    m_TargetID = targetID
-    Set m_CharConv = New CharacterCodeConversion
-    Set m_JsonConverter = New WebJsonConverter
+Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
+    'セルから設定を適用
+    Set m_CDPBrowser = 設定シートからの起動(StartURL, SwitchUser)
+
+    '新規タブに対して、BiDiコンソールタブを準備し、メイン化
+    m_CDPBrowser.newTab , setMain:=True
+    m_TargetID = ShSetting01_StartBrowser.deserializeFromTable("Automation Data", 2, "TestBiDi")("targetID")    '犠牲先のTargetIDを取得
+
+    'イベント初期化
+    Set m_CDPBrowser.BiDiCapture = New Collection
     Set m_Events = New Dictionary
-    
+
+    'コマンドIDリセット
     m_MessageID = 0
-    
+
     '1. BiDi用バインディングの追加
     Dim paramsCDP As New Dictionary
     paramsCDP.Add "bindingName", "cdp"
     paramsCDP.Add "targetId", m_TargetID
     paramsCDP.Add "inheritPermissions", True
     m_CDPBrowser.invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
-    
-    'JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+
+    '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
     paramsCDP.RemoveAll
     paramsCDP.Add "name", "sendBidiResponse"
     m_CDPBrowser.invokeMethod "Runtime.addBinding", paramsCDP
-    
-    ' パースしたJavaScriptをブラウザ上で実行
+
+    '3. パースしたJavaScriptをブラウザ上で実行
     m_CDPBrowser.jsEval Take_mapperTabJSstring
-    
-    '3. ブートストラップ（初期化）JSの実行
+
+    '4. ブートストラップ（初期化）JSの実行
     m_CDPBrowser.jsEval "window.runMapperInstance('" & m_TargetID & "')"
 End Sub
 
@@ -141,15 +149,17 @@ Public Sub TakeEvents()
     
     Const SearchEventName As String = "Runtime.bindingCalled"
     
-    If m_CDPBrowser.BrowserEvents("EventMethods").Exists(SearchEventName) Then
+    If m_CDPBrowser.BiDiCapture.Count Then
         Dim tmp As Variant
+        Dim tmpJ As Object
         Dim eventList As Collection
-        Set eventList = m_CDPBrowser.BrowserEvents("EventMethods")(SearchEventName)
+        Set eventList = m_CDPBrowser.BiDiCapture
         
         For Each tmp In eventList
-            If tmp("params")("name") = "sendBidiResponse" Then
+            Set tmpJ = m_JsonConverter.ParseJson(tmp)
+            If tmpJ("params")("name") = "sendBidiResponse" Then
                 Dim payloadStr As String
-                payloadStr = tmp("params")("payload")
+                payloadStr = tmpJ("params")("payload")
                 
                 'BiDiレスポンスのパース
                 Dim bidiRes As Dictionary
@@ -181,7 +191,7 @@ Public Sub TakeEvents()
         Next
         
         ' 処理が終わったら、CDP側の蓄積済みイベントリストをクリアする(重複処理を防ぐため)
-        m_CDPBrowser.BrowserEvents("EventMethods").Remove SearchEventName
+        Set m_CDPBrowser.BiDiCapture = New Collection
     End If
 End Sub
 
