@@ -243,6 +243,9 @@ Private Sub InsertMapperTab(Code As String)
     '1セルごとの格納文字数上限
     Const LimitCellCharacter As Long = 32767
 
+    'テーブル追加時のアニメーション動作を止める
+    Application.ScreenUpdating = False
+
 
     '1. 分割数を確認
     Dim NumberOfSplit As Long: NumberOfSplit = Len(Code) / LimitCellCharacter
@@ -274,6 +277,10 @@ Private Sub InsertMapperTab(Code As String)
             TargetRange.value = JsCodeChunk
         End With
     End With
+
+
+    '元に戻す
+    Application.ScreenUpdating = True
 End Sub
 
 '***************************************************************************************************
