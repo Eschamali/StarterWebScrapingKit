@@ -1719,7 +1719,7 @@ Property Get BiDiCapture() As Collection
     Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
 End Property
 
-Property Set BiDiCapture(BiDiCol As Dictionary)
+Property Set BiDiCapture(BiDiCol As Collection)
     Set OnlyMessage__Runtime_bindingCalled = BiDiCol
 End Property
 
