@@ -9,7 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '==============================================================================================================
 ' Class       : BiDiCore
-' Author      : 
+' Author      :
 ' Created     : 2026/03/05
 ' Description : WebDriver BiDiの低レベル通信を担うクラス。
 '               CDPBrowser経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
@@ -20,7 +20,7 @@ Option Explicit
 '内部参照用オブジェクト
 Private m_CDPBrowser As CDPBrowser
 Private m_TargetID As String
-Private m_CharConv As CharacterCodeConversion
+Private m_CharConv As New CharacterCodeConversion
 Private m_JsonConverter As WebJsonConverter
 
 'ステート管理
@@ -32,11 +32,10 @@ Private m_Events As Dictionary
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：CDPInst        CDPBrowser インスタンス
 '*           targetID       紐づける対象タブのtargetID
-'*           mapperJSPath   mapperTab.js のフルパス
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiマッパーのスクリプトを読み込み、対象のコンテキストで実行可能にします。
 '***************************************************************************************************
-Public Sub Init(CDPInst As CDPBrowser, ByVal targetID As String, ByVal mapperJSPath As String)
+Public Sub Init(CDPInst As CDPBrowser, ByVal targetID As String)
     Set m_CDPBrowser = CDPInst
     m_TargetID = targetID
     Set m_CharConv = New CharacterCodeConversion
@@ -57,30 +56,11 @@ Public Sub Init(CDPInst As CDPBrowser, ByVal targetID As String, ByVal mapperJSP
     paramsCDP.Add "name", "sendBidiResponse"
     m_CDPBrowser.invokeMethod "Runtime.addBinding", paramsCDP
     
-    '2. mapperTab.js の読み込みと評価
-    Dim fso As Object
-    Set fso = CreateObject("Scripting.FileSystemObject")
-    If Not fso.FileExists(mapperJSPath) Then
-        Err.Raise vbObjectError + 1, "BiDiCore.Init", "指定された mapperTab.js が見つかりません: " & mapperJSPath
-    End If
-    
-    Dim jsCode As String
-    ' 文字コード(UTF-8)で読み込むためにADODB.Stream等を使うか、CharacterCodeConversionクラスの機能を使用
-    ' ここでは CharConv の機能を利用（引数仕様が FolderPath, FileName と想定）
-    Dim folderPath As String, fileName As String
-    folderPath = fso.GetParentFolderName(mapperJSPath)
-    fileName = fso.GetFileName(mapperJSPath)
-    Dim jsBytes() As Byte
-    jsBytes = m_CharConv.BytesFromSavedFile(folderPath, fileName)
-    jsCode = m_CharConv.BytesToString(jsBytes)
-    
     ' パースしたJavaScriptをブラウザ上で実行
-    m_CDPBrowser.jsEval jsCode
+    m_CDPBrowser.jsEval Take_mapperTabJSstring
     
     '3. ブートストラップ（初期化）JSの実行
     m_CDPBrowser.jsEval "window.runMapperInstance('" & m_TargetID & "')"
-    
-    Set fso = Nothing
 End Sub
 
 '***************************************************************************************************
@@ -213,3 +193,108 @@ End Sub
 Public Property Get Events() As Dictionary
     Set Events = m_Events
 End Property
+
+
+
+'***************************************************************************************************
+'                           ■■■ ワークシートからJS取得 ■■■
+'***************************************************************************************************
+'* 機能　　：指定のテーブルから、mapperTab.jsコードを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：mapperTab.jsコード
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：テーブルに格納した分割文字列を結合して返却します
+'***************************************************************************************************
+Function Take_mapperTabJSstring() As String
+    Dim tmp2
+    Dim chunkNum As Long
+
+    'JS置き場のワークシート制御へ
+    With ShLibrary01_JS
+        With .ListObjects(.UseTableName(1, "BiDiCore.InsertMapperTab"))
+            'データがそもそもない場合はここで抜ける
+            If .ListRows.Count = 0 Then Exit Function
+
+            '一旦、2次元配列で受け取る
+            tmp2 = .DataBodyRange
+            chunkNum = UBound(tmp2)
+        End With
+    End With
+
+    '1次元配列に変換
+    ReDim tmp1(1 To chunkNum)
+    Dim i As Long
+    For i = 1 To chunkNum
+        tmp1(i) = tmp2(i, 1)
+    Next
+
+    '返却
+    Take_mapperTabJSstring = Join(tmp1, "")
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ 更新関連 ■■■
+'***************************************************************************************************
+'* 機能　　：受け取った`mapperTab.js`のコードを、32,767文字ごとに分割し、テーブルに格納します
+'***************************************************************************************************
+Private Sub InsertMapperTab(Code As String)
+    '1セルごとの格納文字数上限
+    Const LimitCellCharacter As Long = 32767
+
+
+    '1. 分割数を確認
+    Dim NumberOfSplit As Long: NumberOfSplit = Len(Code) / LimitCellCharacter
+
+    '2. 配列確保
+    ReDim JsCodeChunk(NumberOfSplit, 0)
+
+    '3. 分割して格納する
+    Dim i As Long
+    For i = 0 To NumberOfSplit
+        JsCodeChunk(i, 0) = Mid(Code, LimitCellCharacter * i + 1, LimitCellCharacter)
+    Next
+
+    'JS置き場のワークシート制御へ
+    With ShLibrary01_JS
+        With .ListObjects(.UseTableName(1, "BiDiCore.InsertMapperTab"))
+
+            '4. テーブルの中身を全消去
+            If .ListRows.Count Then .DataBodyRange.Delete
+
+            '5. 挿入範囲の確定
+            Dim TargetRange As Range
+            Set TargetRange = .ListColumns(1).Range(2).Resize(NumberOfSplit + 1, 1)
+
+            '6. 挿入前に書式を「文字列(@)」に設定
+            TargetRange.NumberFormatLocal = "@"
+
+            '7. 挿入
+            TargetRange.value = JsCodeChunk
+        End With
+    End With
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ローカルファイルから、JSコードを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：成功論理値
+'* 引数　　：FolderPath     フォルダパス
+'            FileName       JSファイル名
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
+'***************************************************************************************************
+Public Function FromLocalFile(FolderPath As String, Optional FileName As String = "mapperTab.js") As Boolean
+    'ファイルから、Jsコードを取得
+    Dim JsCode As String
+    With m_CharConv
+        JsCode = .BytesToString(.BytesFromSavedFile(FolderPath, FileName))
+    End With
+
+    'テーブルに置く作業
+    InsertMapperTab JsCode
+
+    '正しく置けてるか確認
+    FromLocalFile = (Take_mapperTabJSstring = JsCode)
+End Function

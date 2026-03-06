@@ -1,4 +1,4 @@
-Attribute VB_Name = "BiDiDemo"
+Attribute VB_Name = "Demo_BiDi"
 Option Explicit
 
 '--------------------------------------------------------------------------------------------------------------
@@ -26,11 +26,7 @@ Public Sub TestBiDiCoreDemo()
     
     ' 2. BiDiCore の初期化
     Dim bidi As New BiDiCore
-    Dim mapperPath As String
-    ' mapperTab.js のパスを指定します。環境に合わせて変更してください。
-    mapperPath = "C:\Users\XXXX\Downloads\mapperTab.js"
-    
-    bidi.Init targetBrowser, current_targetID, mapperPath
+    bidi.Init targetBrowser, current_targetID
     
     ' あとで遷移を確認するための新しいタブをCDP経由で開く
     targetBrowser.newTab
