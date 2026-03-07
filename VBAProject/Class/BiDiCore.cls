@@ -19,7 +19,6 @@ Option Explicit
 
 '内部参照用オブジェクト
 Private m_CDPBrowser As CDPBrowser
-Private m_TargetID As String
 Private m_CharConv As New CharacterCodeConversion
 Private m_JsonConverter As New WebJsonConverter
 
@@ -35,7 +34,8 @@ Private m_Events As Dictionary
 '* 引数　　：CDPInst        CDPBrowser インスタンス
 '*           targetID       紐づける対象タブのtargetID
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：BiDiマッパーのスクリプトを読み込み、対象のコンテキストで実行可能にします。
+'* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
+'            ・新規立ち上げ用に使います。
 '***************************************************************************************************
 Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
     'セルから設定を適用
@@ -43,7 +43,6 @@ Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
 
     '新規タブに対して、BiDiコンソールタブを準備し、メイン化
     m_CDPBrowser.newTab , setMain:=True
-    m_TargetID = ShSetting01_StartBrowser.deserializeFromTable("Automation Data", 2, "TestBiDi")("targetID")    '犠牲先のTargetIDを取得
 
     'イベント初期化
     Set m_CDPBrowser.BiDiCapture = New Collection
@@ -55,7 +54,7 @@ Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
     '1. BiDi用バインディングの追加
     Dim paramsCDP As New Dictionary
     paramsCDP.Add "bindingName", "cdp"
-    paramsCDP.Add "targetId", m_TargetID
+    paramsCDP.Add "targetId", m_CDPBrowser.CurrentTargetID
     paramsCDP.Add "inheritPermissions", True
     m_CDPBrowser.invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
 
@@ -68,7 +67,7 @@ Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
     m_CDPBrowser.jsEval Take_mapperTabJSstring
 
     '4. ブートストラップ（初期化）JSの実行
-    m_CDPBrowser.jsEval "window.runMapperInstance('" & m_TargetID & "')"
+    m_CDPBrowser.jsEval "window.runMapperInstance('" & m_CDPBrowser.CurrentTargetID & "')"
 End Sub
 
 '***************************************************************************************************
