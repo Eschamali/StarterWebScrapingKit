@@ -39,6 +39,8 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 
 '***************************************************************************************************
+'                              ■■■ BiDiセッション確保関連 ■■■
+'***************************************************************************************************
 '* 機能　　：初期化処理
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：StartURL                   最初の起動時に遷移したいURL
@@ -49,7 +51,7 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
 Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
-    Const FromProcedureName As String = ThisClassName & ".Init"
+    Const FromProcedureName As String = ThisClassName & ".start"
 
 
     'セルから設定を適用
@@ -59,14 +61,9 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
         .newTab , setMain:=True
         printMsg Trace_, "Starting `BiDi-CDP Mapper`...", FromProcedureName
 
-        'イベント初期化
+        '`CDPBrowser`に、BiDiモードであると伝える
         Set .BiDiCapture = New Collection
-        Set m_AccumulatedCommandResults = New Dictionary
-        Set m_ErrorDetails = New Dictionary
-        m_MaxCommandResults = 100
 
-        'コマンドIDリセット
-        m_MessageID = 0
 
         '1. BiDi用バインディングの追加
         Dim paramsCDP As New Dictionary
@@ -101,6 +98,17 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
         Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
     End With
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：既存のBiDiセッションに再接続します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：
+'*
+'
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：あとから、再接続する際に使い、セッション確立まで担います。
+'***************************************************************************************************
+
 
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの送信 (非同期)
@@ -249,6 +257,7 @@ End Sub
 '***************************************************************************************************
 Private Function SendMessage(strMessage As String, Optional Async As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
+
 
     m_MessageID = m_MessageID + 1
     Dim lngCurrentId As Long
@@ -862,6 +871,14 @@ End Function
 
 
 Private Sub Class_Initialize()
-    'いくつかの初期設定をもうけます
-    timerOut = 60 '60秒待機
+    '------------ いくつかの初期設定をもうけます ------------
+    'タイムアウト設定(デフォルトで、10s)
+    timerOut = 10
+
+    '非同期でのコマンド結果を蓄積させる件数
+    m_MaxCommandResults = 10
+    Set m_AccumulatedCommandResults = New Dictionary
+
+    'コマンドIDリセット
+    m_MessageID = 0
 End Sub
