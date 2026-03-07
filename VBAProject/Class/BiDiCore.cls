@@ -190,6 +190,50 @@ Public Function invokeError(ResultsObj As Dictionary) As Boolean
     invokeError = False
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`CDPBrowser.BiDiCapture`にある`Runtime.bindingCalled`データをを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
+'                          `False`:IDの解析やイベントの中身の解析を行います
+'***************************************************************************************************
+Public Sub TakeEvents(Optional destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
+
+    Dim BiDiNum As Long
+
+    printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
+    Do
+        'CDPイベント受信処理
+        m_CDPBrowser.TakeEvents
+
+        '受信の過程で入った、`BiDi`用の受信コレクションを取得
+        Dim CurrentBiDiCol As Collection
+        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
+
+        BiDiNum = CurrentBiDiCol.Count
+        printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
+
+        '受信数check
+        If BiDiNum Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                '※Collectionのため、中身は直接見れません
+                printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
+            Else
+                '中身の解析をし、IDやイベントを取り出します
+                printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
+                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
+            End If
+        Else
+            printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+        End If
+    Loop Until BiDiNum = 0
+
+    printMsg Debug_, "Finished getting data from the BiDiCapture.", FromProcedureName
+End Sub
+
 
 
 '***************************************************************************************************
@@ -357,50 +401,6 @@ Public Property Get ResultBiDiForAsync(CommandID As Long) As Dictionary
         printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
     End If
 End Property
-
-'***************************************************************************************************
-'* 機能　　：`CDPBrowser.BiDiCapture`にある`Runtime.bindingCalled`データをを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
-'                          `False`:IDの解析やイベントの中身の解析を行います
-'***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
-
-
-    Dim BiDiNum As Long
-
-    printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
-    Do
-        'CDPイベント受信処理
-        m_CDPBrowser.TakeEvents
-
-        '受信の過程で入った、`BiDi`用の受信コレクションを取得
-        Dim CurrentBiDiCol As Collection
-        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
-
-        BiDiNum = CurrentBiDiCol.Count
-        printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
-
-        '受信数check
-        If BiDiNum Then
-            '破棄モードかの判定
-            If destruction Then
-                '解析などせず、そのまんま出して破棄します
-                '※Collectionのため、中身は直接見れません
-                printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
-            Else
-                '中身の解析をし、IDやイベントを取り出します
-                printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
-                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
-            End If
-        Else
-            printMsg Trace_, "Message queue destruction completed.", FromProcedureName
-        End If
-    Loop Until BiDiNum = 0
-
-    printMsg Debug_, "Finished getting data from the BiDiCapture.", FromProcedureName
-End Sub
 
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの受信データを高速にチェックし、仕分けます
