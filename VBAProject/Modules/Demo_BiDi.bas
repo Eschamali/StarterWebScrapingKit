@@ -94,12 +94,12 @@ Public Sub TestBiDiCoreDemo()
             Exit Do
         End If
         
-        sleep 1000
+        bidi.sleep
         DoEvents
     Loop While True
     
     Debug.Print "--- BiDiDemo Finished ---"
 
     ' クリーンアップ
-    'targetBrowser.quit
+    bidi.quit
 End Sub
