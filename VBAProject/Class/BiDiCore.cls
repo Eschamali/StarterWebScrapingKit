@@ -26,48 +26,69 @@ Private m_JsonConverter As New WebJsonConverter
 Private m_MessageID As Long
 Private m_Events As Dictionary
 
+Private Const ThisClassName As String = "BiDiCore"                'ログのトレース用
 
 
 '***************************************************************************************************
 '* 機能　　：初期化処理
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：CDPInst        CDPBrowser インスタンス
-'*           targetID       紐づける対象タブのtargetID
+'* 引数　　：StartURL                   最初の起動時に遷移したいURL
+'*           SwitchUser                 設定シートとは別のユーザディレクトリを指定するときに使います
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
-'            ・新規立ち上げ用に使います。
+'            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub Init(Optional StartURL As String, Optional SwitchUser As String)
+Public Sub Init(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".Init"
+
+
     'セルから設定を適用
     Set m_CDPBrowser = 設定シートからの起動(StartURL, SwitchUser)
+    With m_CDPBrowser
+        '新規タブに対して、BiDiコンソールタブを準備し、メイン化
+        .newTab , setMain:=True
+        m_CDPBrowser.printMsg Trace_, "Starting `BiDi-CDP Mapper`...", FromProcedureName
 
-    '新規タブに対して、BiDiコンソールタブを準備し、メイン化
-    m_CDPBrowser.newTab , setMain:=True
+        'イベント初期化
+        Set .BiDiCapture = New Collection
+        Set m_Events = New Dictionary
 
-    'イベント初期化
-    Set m_CDPBrowser.BiDiCapture = New Collection
-    Set m_Events = New Dictionary
+        'コマンドIDリセット
+        m_MessageID = 0
 
-    'コマンドIDリセット
-    m_MessageID = 0
+        '1. BiDi用バインディングの追加
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "bindingName", "cdp"
+        paramsCDP.Add "targetId", m_CDPBrowser.CurrentTargetID
+        paramsCDP.Add "inheritPermissions", True
+        m_CDPBrowser.invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
 
-    '1. BiDi用バインディングの追加
-    Dim paramsCDP As New Dictionary
-    paramsCDP.Add "bindingName", "cdp"
-    paramsCDP.Add "targetId", m_CDPBrowser.CurrentTargetID
-    paramsCDP.Add "inheritPermissions", True
-    m_CDPBrowser.invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+        '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+        paramsCDP.RemoveAll
+        paramsCDP.Add "name", "sendBidiResponse"
+        m_CDPBrowser.invokeMethod "Runtime.addBinding", paramsCDP
 
-    '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
-    paramsCDP.RemoveAll
-    paramsCDP.Add "name", "sendBidiResponse"
-    m_CDPBrowser.invokeMethod "Runtime.addBinding", paramsCDP
+        '3. パースしたJavaScriptをブラウザ上で実行
+        m_CDPBrowser.jsEval Take_mapperTabJSstring
 
-    '3. パースしたJavaScriptをブラウザ上で実行
-    m_CDPBrowser.jsEval Take_mapperTabJSstring
+        '4. ブートストラップ（初期化）JSの実行
+        m_CDPBrowser.jsEval "window.runMapperInstance('" & m_CDPBrowser.CurrentTargetID & "')"
+        m_CDPBrowser.printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
 
-    '4. ブートストラップ（初期化）JSの実行
-    m_CDPBrowser.jsEval "window.runMapperInstance('" & m_CDPBrowser.CurrentTargetID & "')"
+        '5. BiDi とのセッションを確立する
+        '※ここは、BiDi用のコマンドとして使用
+        Dim resultBiDi As Dictionary
+
+        '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+        If sessionCapabilitiesRequest Is Nothing Then
+            Set sessionCapabilitiesRequest = New Dictionary
+            sessionCapabilitiesRequest.Add "capabilities", New Dictionary
+        End If
+
+        '確立処理！
+        Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
+    End With
 End Sub
 
 '***************************************************************************************************

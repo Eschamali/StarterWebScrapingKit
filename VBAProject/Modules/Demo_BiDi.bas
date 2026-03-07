@@ -23,14 +23,6 @@ Public Sub TestBiDiCoreDemo()
     Dim params As Dictionary
     Dim tmp As Variant
     
-    ' 3. BiDiコマンド [session.new] の送信
-    Debug.Print "--- Sending session.new ---"
-    Set params = New Dictionary
-    params.Add "capabilities", New Dictionary
-    Set result = bidi.invokeMethod("session.new", params)
-    
-    Debug.Print "session.new result:"
-    Debug.Print jsConverter.ConvertToJson(result)
     
     ' 4. BiDiコマンド [browsingContext.getTree] の送信
     Debug.Print "--- Sending browsingContext.getTree ---"
