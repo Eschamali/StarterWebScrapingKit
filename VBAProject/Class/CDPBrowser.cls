@@ -1714,9 +1714,17 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：呼び出した時点での、BiDi関連の情報
 '* SET引数 ：置き換えるCollection変数。基本は、New Collection を渡してのリセットです
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：BiDiの結果を受け取りやすくする便利なプロパティです
+'* 注意事項：・BiDi用に公開してるもののため、BiDi用途以外は基本、使用しないでください
+'            ・`Get`による受け取り後は、無限蓄積を防ぐため、クリーン処理を行います
 '***************************************************************************************************
 Property Get BiDiCapture() As Collection
+    '現在のBiDi用の情報をプロパティへ反映
     Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
+
+    'クリーン処理
+    OnlyMessage__Runtime_bindingCalled = New Collection
 End Property
 
 Property Set BiDiCapture(BiDiCol As Collection)
