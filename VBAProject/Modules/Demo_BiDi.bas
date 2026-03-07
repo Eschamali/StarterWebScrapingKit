@@ -66,6 +66,7 @@ Public Sub TestBiDiCoreDemo()
     params.Add "events", eventsArray
     
     Set result = bidi.invokeMethod("session.subscribe", params)
+    Set bidi.BiDiEvents = New Dictionary
     Debug.Print "Subscribe result:"
     Debug.Print jsConverter.ConvertToJson(result)
     
@@ -78,18 +79,18 @@ Public Sub TestBiDiCoreDemo()
     Do
         bidi.TakeEvents
         
-        If bidi.Events.Exists(evName) Then
+        If bidi.BiDiEvents("EventMethods").Exists(evName) Then
             Debug.Print "--- " & evName & " Event triggerd! ---"
             
             Dim loggedEvents As Collection
-            Set loggedEvents = bidi.Events(evName)
+            Set loggedEvents = bidi.BiDiEvents("EventMethods")(evName)
             
             For Each tmp In loggedEvents
                 Debug.Print jsConverter.ConvertToJson(tmp)
             Next
             
             ' 取得後はキューから消す
-            bidi.Events.Remove evName
+            Set bidi.BiDiEvents = New Dictionary
             Exit Do
         End If
         

@@ -8,29 +8,34 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '==============================================================================================================
-' Class       : BiDiCore
-' Author      :
-' Created     : 2026/03/05
-' Description : WebDriver BiDiの低レベル通信を担うクラス。
-'               CDPBrowser経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
+'               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
+'--------------------------------------------------------------------------------------------------------------
+' WebDriver BiDiの低レベル通信を担うクラス。
+' CDPBrowser経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
+' なるべく、`CDPBrowser`の大幅な変更を行わずに、`CDPBrowser`←→`BiDiCore`の行き来で、実現していきます
+' 処理ロジックはほとんど、`CDPBrowser`を踏襲してます
 '==============================================================================================================
-
 Option Explicit
 
 '内部参照用オブジェクト
-Private m_CDPBrowser As CDPBrowser
-Private m_CharConv As New CharacterCodeConversion
+Private m_CDPBrowser    As CDPBrowser
+Private m_CharConv      As New CharacterCodeConversion
 Private m_JsonConverter As New WebJsonConverter
 
 'ステート管理
-Private m_MessageID As Long
-Private m_Events As Dictionary
-Private m_AccumulatedCommandResults As Dictionary
-Private m_MaxCommandResults As Long
-Private m_ErrorDetails As Dictionary
-Private timerOut As Long
+Private m_MessageID As Long                         'BiDiコマンド結果を確認するためのID管理
+Private m_Events As Dictionary                      'BiDi向けの非同期イベント蓄積
+Private m_AccumulatedCommandResults As Dictionary   '非同期で、BiDiコマンドを行った際の結果蓄積Dictionary
+Private m_MaxCommandResults As Long                 '非同期で、BiDiコマンドを行った際の結果蓄積の上限
+Private m_ErrorDetails As Dictionary                '同期BiDiコマンドした際の最後のエラー情報
+Private timerOut As Long                            '同期BiDiコマンドした際のタイムアウト設定
 
 Private Const ThisClassName As String = "BiDiCore"                'ログのトレース用
+
+'BiDiからのイベント情報を格納する際のDictionaryKey名設定
+Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
+Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+
 
 
 '***************************************************************************************************
@@ -56,7 +61,6 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
 
         'イベント初期化
         Set .BiDiCapture = New Collection
-        Set m_Events = New Dictionary
         Set m_AccumulatedCommandResults = New Dictionary
         Set m_ErrorDetails = New Dictionary
         m_MaxCommandResults = 100
@@ -189,7 +193,7 @@ End Function
 
 
 '***************************************************************************************************
-'                              ■■■ プライベートプロシージャ ■■■
+'                         ■■■ プライベートヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：`BiDiコマンド送信のコア処理
 '---------------------------------------------------------------------------------------------------
@@ -504,8 +508,85 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
 
 
     '======================================= イベント情報を格納するフェーズへ =======================================
-    Stop
+    'パブリック(呼び出し側使用)用
+    If m_Events Is Nothing Then
+        m_CDPBrowser.printMsg Trace_, "No event information is required on the module side.", FromProcedureName
+    Else
+        m_CDPBrowser.printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
+        OnNewEventReceived m_Events, JsonDictionaryObj
+    End If
 
+    'プライベート(クラス内変数)用
+    If InternalUseMessages Is Nothing Then
+        m_CDPBrowser.printMsg Trace_, "No event information needed inside the class.", FromProcedureName
+    Else
+        m_CDPBrowser.printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
+        OnNewEventReceived InternalUseMessages, JsonDictionaryObj
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
+'---------------------------------------------------------------------------------------------------
+'* 実質返値：Accumulator
+'* 引数　　：Accumulator    これまでの格納イベント。
+'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
+'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
+'            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
+'* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
+'***************************************************************************************************
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
+
+
+    'イベント名を取得
+    Dim EventMethodName As String: EventMethodName = eventData("method")
+
+    ' 合計イベントキャプチャ数をカウントする
+    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
+    m_CDPBrowser.printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
+
+    ' インデックスも付与(1始まり)
+    ' これにより、全体の時系列データも保持できます
+    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
+
+
+    '格納開始
+    ' 1.イベントメソッドデータがあるDictionaryに遷移
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
+
+    ' 2. このイベント名の`Collection`が、すでにあるか？
+    Dim eventList As Collection
+    If EventsDictionary.Exists(EventMethodName) Then
+        ' あれば、そのコレクションデータをセット
+        Set eventList = EventsDictionary(EventMethodName)
+        m_CDPBrowser.printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
+    Else
+        ' なければ、新しい`Collection`をセット
+        Set eventList = New Collection
+        EventsDictionary.Add EventMethodName, eventList
+
+        m_CDPBrowser.printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
+    End If
+
+    ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
+    eventList.Add eventData
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：BiDiイベント情報を格納するためのフォーマットDictionaryを作成します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：フォーマット済みDictionary
+'***************************************************************************************************
+Private Function FormatDictionary_BiDiEvents() As Dictionary
+    '新規オブジェクトセット
+    Set FormatDictionary_BiDiEvents = New Dictionary
+
+    '初期構造を作成します
+    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
 '***************************************************************************************************
@@ -604,12 +685,46 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
 End Function
 
 '***************************************************************************************************
-'* プロパティ：Events
+'* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：内部で蓄積したBiDi側のイベントキュー(Dictionary等)を取得します。
+'* GET返値 ：呼び出した時点での、ブラウザイベント内容
+'* SET引数 ：置き換えるDictionary変数。基本は、New Dictionary を渡してのリセットです
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・`Set BiDiEvents` に、`New Dictionary`を渡すと、イベント記録モードになります。
+'            ・`Set BiDiEvents` に、`Nothing`を渡すと、イベント破棄モードになります。
+'* 注意事項：Set プロパティ使用時、簡易的なDictionary構造のチェックを行います。構造が違うDictionaryを渡された場合、警告メッセージが出て、停止します。
 '***************************************************************************************************
-Public Property Get Events() As Dictionary
-    Set Events = m_Events
+Property Get BiDiEvents() As Dictionary
+    Set BiDiEvents = m_Events
+End Property
+
+Property Set BiDiEvents(ObjDic As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".BiDiEvents"
+
+
+    'SetされたDictionaryの構造をチェックします
+    '1. そもそもDictionary オブジェクトが備わっているか？
+    If ObjDic Is Nothing Then
+        'Nothing 処理。以降は、イベントキャプチャはされません。
+        Set m_Events = Nothing
+        m_CDPBrowser.printMsg info_, "Event capture save data has been discarded. Event capture will not be performed.", FromProcedureName
+
+    '2. まっさらの場合
+    ElseIf ObjDic.Count = 0 Then
+        '初期化処理。これにより、イベントキャプチャを開始します。
+        Set m_Events = FormatDictionary_BiDiEvents
+        m_CDPBrowser.printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
+
+    '3. 指定のKeyがあるか？
+    ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
+        '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
+        Set m_Events = ObjDic
+        m_CDPBrowser.printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
+
+    '4. 不正なDictionary 形式なのでエラーで止める
+    Else
+        m_CDPBrowser.printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
+    End If
 End Property
 
 
