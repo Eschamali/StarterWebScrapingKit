@@ -98,6 +98,7 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
 
         '確立処理！
         Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
+        ViewNewSession resultBiDi
     End With
 End Sub
 
@@ -110,6 +111,34 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：あとから、再接続する際に使い、セッション確立まで担います。
 '***************************************************************************************************
+
+
+'***************************************************************************************************
+'* 機能　　：BiDiセッション接続時のブラウザ情報を表示します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ResultSessionNew   `session.new`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
+'            ・ログレベル - DEBUG のみ表示します
+'***************************************************************************************************
+Private Sub ViewNewSession(ResultSessionNew As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
+
+
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, " BiDi Information", FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+
+    printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
+    printMsg Debug_, "acceptInsecureCerts   | " & ResultSessionNew("capabilities")("acceptInsecureCerts"), FromProcedureName
+    printMsg Debug_, "browserName           | " & ResultSessionNew("capabilities")("browserName"), FromProcedureName
+    printMsg Debug_, "browserVersion        | " & ResultSessionNew("capabilities")("browserVersion"), FromProcedureName
+    printMsg Debug_, "platformName          | " & ResultSessionNew("capabilities")("platformName"), FromProcedureName
+    printMsg Debug_, "setWindowRect         | " & ResultSessionNew("capabilities")("setWindowRect"), FromProcedureName
+    printMsg Debug_, "webSocketUrl          | " & ResultSessionNew("capabilities")("webSocketUrl"), FromProcedureName
+    printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
+End Sub
 
 
 
