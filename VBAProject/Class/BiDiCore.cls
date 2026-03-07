@@ -222,8 +222,11 @@ Function Take_mapperTabJSstring() As String
     'JS置き場のワークシート制御へ
     With ShLibrary01_JS
         With .ListObjects(.UseTableName(1, "BiDiCore.InsertMapperTab"))
-            'データがそもそもない場合はここで抜ける
-            If .ListRows.Count = 0 Then Exit Function
+            'データがそもそもない場合は、エラーで止める
+            If .ListRows.Count = 0 Then
+                Err.Raise vbObjectError, , "mapperTab.js がセットされていません"
+                Exit Function
+            End If
 
             '一旦、2次元配列で受け取る
             tmp2 = .DataBodyRange
