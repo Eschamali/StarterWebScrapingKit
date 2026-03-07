@@ -56,50 +56,25 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    'セルから設定を適用
+    '1. セルから設定を適用
     Set m_CDPBrowser = 設定シートからの起動(StartURL, SwitchUser)
-    With m_CDPBrowser
-        '新規タブに対して、BiDiコンソールタブを準備し、メイン化
-        .newTab , setMain:=True
-        printMsg Trace_, "Starting `BiDi-CDP Mapper`...", FromProcedureName
 
-        '`CDPBrowser`に、BiDiモードであると伝える
-        Set .BiDiCapture = New Collection
+    '2. BiDi-CDP Mapper を始動させます
+    Call StartBiDiCDPMapper
 
+    '3. BiDi とのセッションを確立する
+    '※ここは、BiDi用のコマンドとして使用
+    Dim resultBiDi As Dictionary
 
-        '1. BiDi用バインディングの追加
-        Dim paramsCDP As New Dictionary
-        paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", .CurrentTargetID
-        paramsCDP.Add "inheritPermissions", True
-        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    If sessionCapabilitiesRequest Is Nothing Then
+        Set sessionCapabilitiesRequest = New Dictionary
+        sessionCapabilitiesRequest.Add "capabilities", New Dictionary
+    End If
 
-        '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
-        paramsCDP.RemoveAll
-        paramsCDP.Add "name", "sendBidiResponse"
-        .invokeMethod "Runtime.addBinding", paramsCDP
-
-        '3. パースしたJavaScriptをブラウザ上で実行
-        .jsEval Take_mapperTabJSstring
-
-        '4. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
-        printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
-
-        '5. BiDi とのセッションを確立する
-        '※ここは、BiDi用のコマンドとして使用
-        Dim resultBiDi As Dictionary
-
-        '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
-        If sessionCapabilitiesRequest Is Nothing Then
-            Set sessionCapabilitiesRequest = New Dictionary
-            sessionCapabilitiesRequest.Add "capabilities", New Dictionary
-        End If
-
-        '確立処理！
-        Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
-        ViewNewSession resultBiDi
-    End With
+    '確立処理！
+    Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
+    ViewNewSession resultBiDi
 End Sub
 
 '***************************************************************************************************
@@ -120,43 +95,30 @@ Public Function reattach(userProfile As String) As Boolean
     ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
 
     '失敗時は、ここで抜ける
+    '※大抵は、デバックブラウザ自体がない
     If Not (ResultConnectionCDP) Then reattach = False: Exit Function
 
     '2. BiDiセッションに再接続
     With m_CDPBrowser
-        '`CDPBrowser`に、BiDiモードであると伝える
-        Set .BiDiCapture = New Collection
-
-        'すでに当該タブで BiDi マッパーが起動済みかを確認する
-        'typeof window.onBidiMessage === 'function' かどうかを調べる
+        '3. すでに当該タブで BiDi マッパーが起動済みかを確認する
+        '→ typeof window.onBidiMessage === 'function' かどうかを調べる
         Dim jsCheck As String
         jsCheck = "typeof window.onBidiMessage === 'function';"
-        
+
         Dim isMapperRunning As Boolean
         isMapperRunning = .jsEval(jsCheck)
 
         If isMapperRunning Then
             printMsg Debug_, "Mapper instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+
+            '4. `CDPBrowser`に、BiDiモードであると伝える
+            Set .BiDiCapture = New Collection
         Else
             printMsg Debug_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
-            
-            '1. BiDi用バインディングの追加
-            Dim paramsCDP As New Dictionary
-            paramsCDP.Add "bindingName", "cdp"
-            paramsCDP.Add "targetId", .CurrentTargetID
-            paramsCDP.Add "inheritPermissions", True
-            .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
-    
-            '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
-            paramsCDP.RemoveAll
-            paramsCDP.Add "name", "sendBidiResponse"
-            .invokeMethod "Runtime.addBinding", paramsCDP
-    
-            '3. パースしたJavaScriptをブラウザ上で実行
-            .jsEval Take_mapperTabJSstring
-    
-            '4. ブートストラップ（初期化）JSの実行
-            .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
+
+            '4. BiDi-CDP Mapper を再始動させます
+            Call StartBiDiCDPMapper
+
             printMsg Debug_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
         End If
 
@@ -164,7 +126,7 @@ Public Function reattach(userProfile As String) As Boolean
         ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
         Dim resultBiDi As Dictionary
         Set resultBiDi = invokeMethod("session.status")
-        
+
         If resultBiDi.Exists("ready") Then
             printMsg Debug_, "Successfully reattached to BiDi! Session status ready: " & CStr(resultBiDi("ready")), FromProcedureName
             reattach = True
@@ -174,6 +136,47 @@ Public Function reattach(userProfile As String) As Boolean
         End If
     End With
 End Function
+
+'***************************************************************************************************
+'* 機能　　：新規タブにて、BiDi-CDP Mapperを始動させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`CDPBrowser`を`New`してからご利用ください
+'***************************************************************************************************
+Private Sub StartBiDiCDPMapper()
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
+
+
+    With m_CDPBrowser
+        '1. 新規タブに対して、BiDiコンソールタブを準備し、メイン化
+        .newTab , setMain:=True
+        printMsg Trace_, "Starting `BiDi-CDP Mapper`...", FromProcedureName
+
+        '2. `CDPBrowser`に、BiDiモードであると伝える
+        Set .BiDiCapture = New Collection
+
+
+        '3. BiDi用バインディングの追加
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "bindingName", "cdp"
+        paramsCDP.Add "targetId", .CurrentTargetID
+        paramsCDP.Add "inheritPermissions", True
+        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+
+        '4. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+        paramsCDP.RemoveAll
+        paramsCDP.Add "name", "sendBidiResponse"
+        .invokeMethod "Runtime.addBinding", paramsCDP
+
+        '5. パースしたJavaScriptをブラウザ上で実行
+        .jsEval Take_mapperTabJSstring
+
+        '6. ブートストラップ（初期化）JSの実行
+        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
+        printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
+    End With
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：BiDiセッション接続時のブラウザ情報を表示します
