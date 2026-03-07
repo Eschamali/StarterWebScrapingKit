@@ -33,12 +33,12 @@ Public Sub TestBiDiCoreDemo()
     
     ' 取得したコンテキストの1つをターゲットとして抽出する例
     Dim targetContext As String
-    If result.Exists("result") Then
-        If result("result").Exists("contexts") Then
-            If result("result")("contexts").Count > 0 Then
+    If Not (result Is Nothing) Then
+        If result.Exists("contexts") Then
+            If result("contexts").Count > 0 Then
                 ' 例として配列の2番目（インデックス2、VBAは1列目からかもしれないので適切に抽出）
                 ' ここでは雑に最初のcontextを取得します。
-                targetContext = result("result")("contexts")(1)("context")
+                targetContext = result("contexts")(1)("context")
             End If
         End If
     End If
