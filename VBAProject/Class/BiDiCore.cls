@@ -110,6 +110,9 @@ End Sub
 '***************************************************************************************************
 
 
+
+'***************************************************************************************************
+'                              ■■■ BiDi送信準備関連 ■■■
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの送信 (非同期)
 '---------------------------------------------------------------------------------------------------
@@ -168,76 +171,10 @@ Public Function invokeMethod(ByVal methodName As String, Optional params As Dict
     printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
 End Function
 
-'***************************************************************************************************
-'* 機能　　：コマンドの結果にエラーが含まれているかチェックします
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：エラー有無
-'* 引数　　：ResultsObj    `invokeMethod`の生結果のDictionary
-'***************************************************************************************************
-Public Function invokeError(ResultsObj As Dictionary) As Boolean
-    'BiDiコマンドエラーは "type":"error" 等で返る
-    If ResultsObj.Exists("type") Then
-        If ResultsObj("type") = "error" Then
-            Set m_ErrorDetails = ResultsObj
-            invokeError = True
-            Exit Function
-        End If
-    ElseIf ResultsObj.Exists("error") Then
-        Set m_ErrorDetails = ResultsObj
-        invokeError = True
-        Exit Function
-    End If
-    invokeError = False
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`CDPBrowser.BiDiCapture`にある`Runtime.bindingCalled`データをを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
-'                          `False`:IDの解析やイベントの中身の解析を行います
-'***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
-
-
-    Dim BiDiNum As Long
-
-    printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
-    Do
-        'CDPイベント受信処理
-        m_CDPBrowser.TakeEvents
-
-        '受信の過程で入った、`BiDi`用の受信コレクションを取得
-        Dim CurrentBiDiCol As Collection
-        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
-
-        BiDiNum = CurrentBiDiCol.Count
-        printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
-
-        '受信数check
-        If BiDiNum Then
-            '破棄モードかの判定
-            If destruction Then
-                '解析などせず、そのまんま出して破棄します
-                '※Collectionのため、中身は直接見れません
-                printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
-            Else
-                '中身の解析をし、IDやイベントを取り出します
-                printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
-                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
-            End If
-        Else
-            printMsg Trace_, "Message queue destruction completed.", FromProcedureName
-        End If
-    Loop Until BiDiNum = 0
-
-    printMsg Debug_, "Finished getting data from the BiDiCapture.", FromProcedureName
-End Sub
-
 
 
 '***************************************************************************************************
-'                         ■■■ プライベートヘルパープロシージャ ■■■
+'                           ■■■ 核となるプロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：`BiDiコマンド送信のコア処理
 '---------------------------------------------------------------------------------------------------
@@ -325,6 +262,50 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean) As
 End Function
 
 '***************************************************************************************************
+'* 機能　　：`CDPBrowser.BiDiCapture`にある`Runtime.bindingCalled`データをを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
+'                          `False`:IDの解析やイベントの中身の解析を行います
+'***************************************************************************************************
+Public Sub TakeEvents(Optional destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
+
+    Dim BiDiNum As Long
+
+    printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
+    Do
+        'CDPイベント受信処理
+        m_CDPBrowser.TakeEvents
+
+        '受信の過程で入った、`BiDi`用の受信コレクションを取得
+        Dim CurrentBiDiCol As Collection
+        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
+
+        BiDiNum = CurrentBiDiCol.Count
+        printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
+
+        '受信数check
+        If BiDiNum Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                '※Collectionのため、中身は直接見れません
+                printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
+            Else
+                '中身の解析をし、IDやイベントを取り出します
+                printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
+                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
+            End If
+        Else
+            printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+        End If
+    Loop Until BiDiNum = 0
+
+    printMsg Debug_, "Finished getting data from the BiDiCapture.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：`CDPBrowser.BiDiCapture`に格納してあるコレクションを、1件1件処理し、状況に応じて内部で、イベントキャプチャしたり、コマンド結果の確認を行います
 '---------------------------------------------------------------------------------------------------
 '* 返値　　：`checkCommandID`に対するCDP-Jsonコマンド結果Dictionary形式
@@ -369,39 +350,6 @@ Private Function ReceiveFromCollectionPayload(ByRef ReceiveRuntimebindingCalledC
         DoEvents
     Next
 End Function
-
-
-
-
-
-'***************************************************************************************************
-'* プロパティ：LastBiDiJsonError
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：invokeErrorを通った際に保管した最後に起きたJSON形式の生エラーデータです
-'***************************************************************************************************
-Public Property Get LastBiDiJsonError() As Dictionary
-    Set LastBiDiJsonError = m_ErrorDetails
-End Property
-
-'***************************************************************************************************
-'* プロパティ：ResultBiDiForAsync
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：指定した引数コマンドIDの非同期実行したコマンド結果を得ます
-'***************************************************************************************************
-Public Property Get ResultBiDiForAsync(CommandID As Long) As Dictionary
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
-
-    If m_AccumulatedCommandResults.Exists(CommandID) Then
-        Set ResultBiDiForAsync = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(CommandID))
-        printMsg info_, "Acquired result log from execution command ID. - ID: " & CommandID, FromProcedureName
-
-        m_AccumulatedCommandResults.Remove CommandID
-        printMsg Trace_, "Deleted the resulting log corresponding to the execution command ID. - ID: " & CommandID, FromProcedureName
-    Else
-        Set ResultBiDiForAsync = Nothing
-        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
-    End If
-End Property
 
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの受信データを高速にチェックし、仕分けます
@@ -527,70 +475,6 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
 End Function
 
 '***************************************************************************************************
-'* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
-'---------------------------------------------------------------------------------------------------
-'* 実質返値：Accumulator
-'* 引数　　：Accumulator    これまでの格納イベント。
-'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
-'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
-'            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
-'* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
-'***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
-    Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
-
-
-    'イベント名を取得
-    Dim EventMethodName As String: EventMethodName = eventData("method")
-
-    ' 合計イベントキャプチャ数をカウントする
-    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
-    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
-
-    ' インデックスも付与(1始まり)
-    ' これにより、全体の時系列データも保持できます
-    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
-
-
-    '格納開始
-    ' 1.イベントメソッドデータがあるDictionaryに遷移
-    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
-
-    ' 2. このイベント名の`Collection`が、すでにあるか？
-    Dim eventList As Collection
-    If EventsDictionary.Exists(EventMethodName) Then
-        ' あれば、そのコレクションデータをセット
-        Set eventList = EventsDictionary(EventMethodName)
-        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
-    Else
-        ' なければ、新しい`Collection`をセット
-        Set eventList = New Collection
-        EventsDictionary.Add EventMethodName, eventList
-
-        printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
-    End If
-
-    ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
-    eventList.Add eventData
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：BiDiイベント情報を格納するためのフォーマットDictionaryを作成します
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：フォーマット済みDictionary
-'***************************************************************************************************
-Private Function FormatDictionary_BiDiEvents() As Dictionary
-    '新規オブジェクトセット
-    Set FormatDictionary_BiDiEvents = New Dictionary
-
-    '初期構造を作成します
-    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
-    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
-End Function
-
-'***************************************************************************************************
 '* 機能　　：ブラウザからの受信データの構造をチェックし、`id`を高速抽出します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：存在有無論理値
@@ -686,6 +570,37 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
 End Function
 
 '***************************************************************************************************
+'* 機能　　：コマンドの結果にエラーが含まれているかチェックします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無
+'* 引数　　：ResultsObj    `invokeMethod`の生結果のDictionary
+'***************************************************************************************************
+Private Function invokeError(ResultsObj As Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".invokeError"
+
+
+    'BiDiコマンドエラーは "type":"error" 等で返る
+    If ResultsObj.Exists("type") Then
+        If ResultsObj("type") = "error" Then
+            Set m_ErrorDetails = ResultsObj
+            invokeError = True
+            Exit Function
+        End If
+    ElseIf ResultsObj.Exists("error") Then
+        Set m_ErrorDetails = ResultsObj
+        invokeError = True
+        Exit Function
+    End If
+
+
+    invokeError = False
+End Function
+
+
+
+'***************************************************************************************************
+'                           ■■■ 非同期イベントに関する処理 ■■■
+'***************************************************************************************************
 '* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：呼び出した時点での、ブラウザイベント内容
@@ -725,6 +640,101 @@ Property Set BiDiEvents(ObjDic As Dictionary)
     '4. 不正なDictionary 形式なのでエラーで止める
     Else
         printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：BiDiイベント情報を格納するためのフォーマットDictionaryを作成します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：フォーマット済みDictionary
+'***************************************************************************************************
+Private Function FormatDictionary_BiDiEvents() As Dictionary
+    '新規オブジェクトセット
+    Set FormatDictionary_BiDiEvents = New Dictionary
+
+    '初期構造を作成します
+    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
+End Function
+
+'***************************************************************************************************
+'* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
+'---------------------------------------------------------------------------------------------------
+'* 実質返値：Accumulator
+'* 引数　　：Accumulator    これまでの格納イベント。
+'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
+'            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
+'            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
+'* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
+'***************************************************************************************************
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
+
+
+    'イベント名を取得
+    Dim EventMethodName As String: EventMethodName = eventData("method")
+
+    ' 合計イベントキャプチャ数をカウントする
+    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
+    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
+
+    ' インデックスも付与(1始まり)
+    ' これにより、全体の時系列データも保持できます
+    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
+
+
+    '格納開始
+    ' 1.イベントメソッドデータがあるDictionaryに遷移
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
+
+    ' 2. このイベント名の`Collection`が、すでにあるか？
+    Dim eventList As Collection
+    If EventsDictionary.Exists(EventMethodName) Then
+        ' あれば、そのコレクションデータをセット
+        Set eventList = EventsDictionary(EventMethodName)
+        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
+    Else
+        ' なければ、新しい`Collection`をセット
+        Set eventList = New Collection
+        EventsDictionary.Add EventMethodName, eventList
+
+        printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
+    End If
+
+    ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
+    eventList.Add eventData
+End Sub
+
+
+
+'***************************************************************************************************
+'* プロパティ：LastBiDiJsonError
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：invokeErrorを通った際に保管した最後に起きたJSON形式の生エラーデータです
+'***************************************************************************************************
+Public Property Get LastBiDiJsonError() As Dictionary
+    Set LastBiDiJsonError = m_ErrorDetails
+End Property
+
+'***************************************************************************************************
+'* プロパティ：ResultBiDiForAsync
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：指定した引数コマンドIDの非同期実行したコマンド結果を得ます
+'***************************************************************************************************
+Public Property Get ResultBiDiForAsync(CommandID As Long) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
+
+    If m_AccumulatedCommandResults.Exists(CommandID) Then
+        Set ResultBiDiForAsync = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(CommandID))
+        printMsg info_, "Acquired result log from execution command ID. - ID: " & CommandID, FromProcedureName
+
+        m_AccumulatedCommandResults.Remove CommandID
+        printMsg Trace_, "Deleted the resulting log corresponding to the execution command ID. - ID: " & CommandID, FromProcedureName
+    Else
+        Set ResultBiDiForAsync = Nothing
+        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
     End If
 End Property
 
