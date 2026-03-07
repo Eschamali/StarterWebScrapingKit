@@ -390,7 +390,7 @@ Private Sub deserialize(UserName As String, detachCurrent As Boolean)
 
         CDPparameters.Add "sessionId", oldSessionID
         printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
-6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters)
+6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, StopError:=False)
 
         '結果を判定
         '※エラーによるエラーメッセージは、`invokeMethod`が担います
