@@ -25,12 +25,13 @@ Private m_CharConv      As New CharacterCodeConversion
 Private m_JsonConverter As New WebJsonConverter
 
 'ステート管理
-Private m_MessageID As Long                         'BiDiコマンド結果を確認するためのID管理
-Private m_Events As Dictionary                      'BiDi向けの非同期イベント蓄積
+Private m_MessageID                 As Long         'BiDiコマンド結果を確認するためのID管理
+Private m_Events                    As Dictionary   'BiDi向けの非同期イベント蓄積
 Private m_AccumulatedCommandResults As Dictionary   '非同期で、BiDiコマンドを行った際の結果蓄積Dictionary
-Private m_MaxCommandResults As Long                 '非同期で、BiDiコマンドを行った際の結果蓄積の上限
-Private m_ErrorDetails As Dictionary                '同期BiDiコマンドした際の最後のエラー情報
-Private timerOut As Long                            '同期BiDiコマンドした際のタイムアウト設定
+Private m_MaxCommandResults         As Long         '非同期で、BiDiコマンドを行った際の結果蓄積の上限
+Private m_ErrorDetails              As Dictionary   '同期BiDiコマンドした際の最後のエラー情報
+Private timerOut                    As Long         '同期BiDiコマンドした際のタイムアウト設定
+Private ViewDebugTab                As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
 
 Private Const ThisClassName As String = "BiDiCore"  'ログのトレース用
 
@@ -141,20 +142,16 @@ End Function
 '***************************************************************************************************
 '* 機能　　：新規タブにて、BiDi-CDP Mapperを始動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：ViewTab    `True` ：「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示します
-'                       `False`：「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示させません。
-'                                 ただし、「edge://inspect/#other」で存在確認はできます。
-'---------------------------------------------------------------------------------------------------
 '* 注意事項：`CDPBrowser`を`New`してからご利用ください
 '***************************************************************************************************
-Private Sub StartBiDiCDPMapper(Optional ViewTab As Boolean)
+Private Sub StartBiDiCDPMapper()
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、メイン化
-        .newTab , setMain:=True
-        printMsg Trace_, "Booting `BiDi-CDP Mapper`...", FromProcedureName
+        .newTab , setMain:=True, isHidden:=Not (ViewDebugTab)
+        printMsg Trace_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(ViewDebugTab) & ")", FromProcedureName
 
         '2. `CDPBrowser`に、BiDiモードであると伝える
         Set .BiDiCapture = New Collection
@@ -1000,4 +997,9 @@ Private Sub Class_Initialize()
 
     'コマンドIDリセット
     m_MessageID = 0
+
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        ViewDebugTab = .Range(.UseRangeName(11, "BiDiCore.Class_Initialize")).value
+    End With
 End Sub
