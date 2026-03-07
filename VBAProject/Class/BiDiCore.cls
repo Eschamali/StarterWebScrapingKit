@@ -141,11 +141,13 @@ End Function
 '***************************************************************************************************
 '* 機能　　：新規タブにて、BiDi-CDP Mapperを始動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：
+'* 引数　　：ViewTab    `True` ：「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示します
+'                       `False`：「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示させません。
+'                                 ただし、「edge://inspect/#other」で存在確認はできます。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`CDPBrowser`を`New`してからご利用ください
 '***************************************************************************************************
-Private Sub StartBiDiCDPMapper()
+Private Sub StartBiDiCDPMapper(Optional ViewTab As Boolean)
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
