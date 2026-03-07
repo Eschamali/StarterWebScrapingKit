@@ -17,6 +17,8 @@ Attribute VB_Exposed = False
 '==============================================================================================================
 Option Explicit
 
+
+
 '内部参照用オブジェクト
 Private m_CDPBrowser    As CDPBrowser
 Private m_CharConv      As New CharacterCodeConversion
@@ -579,21 +581,26 @@ Private Function invokeError(ResultsObj As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".invokeError"
 
 
-    'BiDiコマンドエラーは "type":"error" 等で返る
-    If ResultsObj.Exists("type") Then
-        If ResultsObj("type") = "error" Then
-            Set m_ErrorDetails = ResultsObj
-            invokeError = True
-            Exit Function
-        End If
-    ElseIf ResultsObj.Exists("error") Then
+    'BiDiコマンドエラーは "type":"error" で返る
+    Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
+    If ResultsObj("type") = "error" Then
+        'エラーを残す
         Set m_ErrorDetails = ResultsObj
+
+        'ログを出しておく
+        ErrorType = ResultsObj("error")
+        ErrorMessage = ResultsObj("message")
+        printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
+
+        '`StackTrace`があったら別枠で表示
+        If ResultsObj.Exists("stacktrace") Then
+            ErrorStackTrace = ResultsObj("stacktrace")
+            printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
+        End If
+
+        'エラーフラグを立てる
         invokeError = True
-        Exit Function
     End If
-
-
-    invokeError = False
 End Function
 
 
