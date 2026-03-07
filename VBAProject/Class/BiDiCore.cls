@@ -355,40 +355,47 @@ Public Property Get ResultBiDiForAsync(CommandID As Long) As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：イベントの取得・パース
+'* 機能　　：`CDPBrowser.BiDiCapture`にある`Runtime.bindingCalled`データをを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：checkCommandID  確認するコマンドID (同期送信で結果を待つ際に指定)
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：CDP側のイベントを取り込み、BiDi（`Runtime.bindingCalled`）からのコールバックデータを
-'*           高速判定し、内部キューに仕分けます。
+'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
+'                          `False`:IDの解析やイベントの中身の解析を行います
 '***************************************************************************************************
-Public Sub TakeEvents(Optional checkCommandID As Long = -1)
+Public Sub TakeEvents(Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
-    m_CDPBrowser.TakeEvents
-    
-    If m_CDPBrowser.BiDiCapture.Count Then
-        Dim tmp As Variant
-        Dim payloadStr As String
-        Dim tmpJ As Dictionary
-        Dim eventList As Collection
-        Set eventList = m_CDPBrowser.BiDiCapture
-        
-        For Each tmp In eventList
-            'CDP側の形式 {"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","payload":"{...}"}}
-            'まずはペイロードを取り出す
-            Set tmpJ = m_JsonConverter.ParseJson(tmp)
-            If tmpJ("params")("name") = "sendBidiResponse" Then
-                payloadStr = tmpJ("params")("payload")
-                
-                'BiDiレスポンスを高速判定で振り分け
-                BrowserReceivedDataCheck payloadStr, checkCommandID
+
+    Dim BiDiNum As Long
+
+    m_CDPBrowser.printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
+    Do
+        'CDPイベント受信処理
+        m_CDPBrowser.TakeEvents
+
+        '受信の過程で入った、`BiDi`用の受信コレクションを取得
+        Dim CurrentBiDiCol As Collection
+        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
+
+        BiDiNum = CurrentBiDiCol.Count
+        m_CDPBrowser.printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
+
+        '受信数check
+        If BiDiNum Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                '※Collectionのため、中身は直接見れません
+                m_CDPBrowser.printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
+            Else
+                '中身の解析をし、IDやイベントを取り出します
+                m_CDPBrowser.printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
+                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
             End If
-        Next
-        
-        ' 処理が終わったら、CDP側の蓄積済みイベントリストをクリアする(重複処理を防ぐため)
-        Set m_CDPBrowser.BiDiCapture = New Collection
-    End If
+        Else
+            m_CDPBrowser.printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+        End If
+    Loop Until BiDiNum = 0
+
+    m_CDPBrowser.printMsg Debug_, "Finished getting data from the BiDiCapture.", FromProcedureName
 End Sub
 
 '***************************************************************************************************
