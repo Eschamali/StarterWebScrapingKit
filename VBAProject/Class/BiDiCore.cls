@@ -232,13 +232,14 @@ End Function
 '***************************************************************************************************
 '* 機能　　：`BiDiコマンド送信のコア処理
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strMessage     BiDi形式で送信するJsonプレーンテキスト
-'            Async          `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
-'                           `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
+'* 引数　　：strMessage             BiDi形式で送信するJsonプレーンテキスト
+'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
+'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
 '* 返値　　：Dictionary形式の結果。Async=Trueの場合は ID:StatusCode等の簡易結果
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional Async As Boolean) As Dictionary
+Private Function SendMessage(strMessage As String, Optional InternalUseMessages As Dictionary, Optional Async As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -295,7 +296,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean) As
         '受信数check
         If CurrentBiDiCol.Count Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Set SendMessage = ReceiveFromCollectionPayload(CurrentBiDiCol, checkCommandID:=lngCurrentId)
+            Set SendMessage = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
              ResultSendCommand = (Not (SendMessage Is Nothing))
