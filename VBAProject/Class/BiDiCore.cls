@@ -62,7 +62,7 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
     '2. BiDi-CDP Mapper を始動させます
     Call StartBiDiCDPMapper
 
-    '3. BiDi とのセッションを確立する
+    '3. BiDi との新しいセッションを確立する
     '※ここは、BiDi用のコマンドとして使用
     Dim resultBiDi As Dictionary
 
@@ -127,8 +127,9 @@ Public Function reattach(userProfile As String) As Boolean
         Dim resultBiDi As Dictionary
         Set resultBiDi = invokeMethod("session.status")
 
+        '6. mapperTab.js の仕様に沿った確認に従う
         If resultBiDi.Exists("ready") Then
-            printMsg Debug_, "Successfully reattached to BiDi! Session status ready: " & CStr(resultBiDi("ready")), FromProcedureName
+            printMsg Debug_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
             reattach = True
         Else
             printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName
@@ -151,7 +152,7 @@ Private Sub StartBiDiCDPMapper()
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、メイン化
         .newTab , setMain:=True
-        printMsg Trace_, "Starting `BiDi-CDP Mapper`...", FromProcedureName
+        printMsg Trace_, "Booting `BiDi-CDP Mapper`...", FromProcedureName
 
         '2. `CDPBrowser`に、BiDiモードであると伝える
         Set .BiDiCapture = New Collection
@@ -176,6 +177,8 @@ Private Sub StartBiDiCDPMapper()
         .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
         printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
     End With
+
+    printMsg Trace_, "Booted `BiDi-CDP Mapper`", FromProcedureName
 End Sub
 
 '***************************************************************************************************
