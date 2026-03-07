@@ -25,6 +25,9 @@ Private m_JsonConverter As New WebJsonConverter
 'ステート管理
 Private m_MessageID As Long
 Private m_Events As Dictionary
+Private m_AccumulatedCommandResults As Dictionary
+Private m_MaxCommandResults As Long
+Private m_ErrorDetails As Dictionary
 
 Private Const ThisClassName As String = "BiDiCore"                'ログのトレース用
 
@@ -53,6 +56,9 @@ Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Opt
         'イベント初期化
         Set .BiDiCapture = New Collection
         Set m_Events = New Dictionary
+        Set m_AccumulatedCommandResults = New Dictionary
+        Set m_ErrorDetails = New Dictionary
+        m_MaxCommandResults = 100
 
         'コマンドIDリセット
         m_MessageID = 0
@@ -100,35 +106,37 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
 '***************************************************************************************************
-Public Function invokeMethodAsync(ByVal methodName As String, Optional params As Dictionary = Nothing) As Long
-    m_MessageID = m_MessageID + 1
-    invokeMethodAsync = m_MessageID
-    
-    Dim bidiCmdObj As New Dictionary
-    bidiCmdObj.Add "id", invokeMethodAsync
-    bidiCmdObj.Add "method", methodName
-    
-    If params Is Nothing Then
-        bidiCmdObj.Add "params", New Dictionary
-    Else
-        bidiCmdObj.Add "params", params
+'***************************************************************************************************
+'* 機能　　：BiDiコマンドの送信 (非同期)
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName    メソッド名 (例: "session.new")
+'*           params        引数を持ったDictionary (省略可能)
+'*           StopError     実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
+'* 返値    ：送信したメッセージの ID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
+'***************************************************************************************************
+Public Function invokeMethodAsync(ByVal methodName As String, Optional params As Dictionary = Nothing, Optional StopError As Boolean = True) As Long
+    Const FromProcedureName As String = ThisClassName & ".invokeMethodAsync"
+
+    Dim paramStr As String
+    Dim results As Dictionary
+
+    If params Is Nothing Then paramStr = "{}" Else paramStr = m_JsonConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", Async:=True)
+
+    '非同期の場合は、`WriteFile`等のエラーをチェック
+    If results.Items(0) Then
+        If StopError Then
+            m_CDPBrowser.printMsg ERROR_, "Failed to invokeAsync method """ & methodName & """", FromProcedureName, doRaiseError:=True
+        Else
+            m_CDPBrowser.printMsg WARN_, "Failed to invokeAsync method """ & methodName & """", FromProcedureName
+        End If
     End If
-    
-    Dim bidiCmdJson As String
-    bidiCmdJson = m_JsonConverter.ConvertToJson(bidiCmdObj)
-    
-    'JSONのダブルクォートやエスケープ処理による構文乱れを防ぐため、単純な置換で対処するか、
-    'もしくは シングルクォート内で安全にエスケープするか、CDPのパラメータとして渡します。
-    'ここではPoCに倣い、シングルクォートで文字列化しJSに渡すため、シングルクォートとバックスラッシュをエスケープします。
-    Dim safeJson As String
-    safeJson = Replace(bidiCmdJson, "\", "\\")
-    safeJson = Replace(safeJson, "'", "\'")
-    
-    Dim paramsCDP As New Dictionary
-    paramsCDP.Add "expression", "window.onBidiMessage('" & safeJson & "');"
-    
-    ' コマンド送信
-    m_CDPBrowser.invokeMethod "Runtime.evaluate", paramsCDP
+
+    '実行したIDを返却
+    invokeMethodAsync = results.keys(0)
+    m_CDPBrowser.printMsg Debug_, "AsyncInvoked """ & methodName & """ with ID: " & invokeMethodAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -136,77 +144,184 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
+'*           StopError     実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
 '* 返値    ：ブラウザから返却されたBiDi結果 (パースされたDictionary)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、返却されるまでイベントを収集・待機します。
 '***************************************************************************************************
-Public Function invokeMethod(ByVal methodName As String, Optional params As Dictionary = Nothing) As Dictionary
-    Dim targetID As Long
-    targetID = invokeMethodAsync(methodName, params)
-    
-    Do
-        TakeEvents
-        
-        If m_Events.Exists(CStr(targetID)) Then
-            Set invokeMethod = m_Events(CStr(targetID))
-            m_Events.Remove CStr(targetID) '取得後はキューから消す
-            Exit Do
+Public Function invokeMethod(ByVal methodName As String, Optional params As Dictionary = Nothing, Optional StopError As Boolean = True) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".invokeMethod"
+
+    Dim paramStr As String
+    Dim results As Dictionary
+
+    If params Is Nothing Then paramStr = "{}" Else paramStr = m_JsonConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", Async:=False)
+
+    'Print error if there is
+    If invokeError(results) Then
+        If StopError Then
+            m_CDPBrowser.printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & m_JsonConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+        Else
+            m_CDPBrowser.printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
-        
-        m_CDPBrowser.sleep
-        DoEvents
-    Loop While True
+    End If
+
+    'Return result object (BiDiの場合はトップレベルか、resultの中身を返すかですが、そのまま返す設計とします)
+    Set invokeMethod = results
+    m_CDPBrowser.printMsg Debug_, "Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
 End Function
+
+'***************************************************************************************************
+'* 機能　　：コマンドの結果にエラーが含まれているかチェックします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無
+'* 引数　　：ResultsObj    `invokeMethod`の生結果のDictionary
+'***************************************************************************************************
+Public Function invokeError(ResultsObj As Dictionary) As Boolean
+    'BiDiコマンドエラーは "type":"error" 等で返る
+    If ResultsObj.Exists("type") Then
+        If ResultsObj("type") = "error" Then
+            Set m_ErrorDetails = ResultsObj
+            invokeError = True
+            Exit Function
+        End If
+    ElseIf ResultsObj.Exists("error") Then
+        Set m_ErrorDetails = ResultsObj
+        invokeError = True
+        Exit Function
+    End If
+    invokeError = False
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`BiDiコマンド送信のコア処理
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：Dictionary形式の結果。Async=Trueの場合は ID:StatusCode等の簡易結果
+'***************************************************************************************************
+Private Function SendMessage(strMessage As String, Optional Async As Boolean) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+
+    m_MessageID = m_MessageID + 1
+    Dim lngCurrentId As Long
+    lngCurrentId = m_MessageID
+
+    '末尾の「}」を削って id を付与する
+    strMessage = Left(strMessage, Len(strMessage) - 1)
+    strMessage = strMessage & ", ""id"":" & lngCurrentId & "}"
+
+    m_CDPBrowser.printMsg Debug_, "sendBiDi-JsonCommand = " & strMessage, FromProcedureName
+
+    'JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
+    Dim safeJson As String
+    safeJson = Replace(strMessage, "\", "\\")
+    safeJson = Replace(safeJson, "'", "\'")
+
+    Dim paramsCDP As New Dictionary
+    paramsCDP.Add "expression", "window.onBidiMessage('" & safeJson & "');"
+
+    'CDP経由でBiDiコマンド送信 (CDPのinvokeMethodを使う。同期実行して送信エラーがないか確認)
+    Dim cdpResult As Dictionary
+    Set cdpResult = m_CDPBrowser.invokeMethod("Runtime.evaluate", paramsCDP, StopError:=False)
+
+    If Async Then
+        Set SendMessage = New Dictionary
+        '簡易的な送信成否（本来はWriteFileの結果など）を格納して抜ける
+        If m_CDPBrowser.invokeError(cdpResult) Then
+            SendMessage.Add lngCurrentId, 1 'Error code 1
+        Else
+            SendMessage.Add lngCurrentId, 0 'Success code 0
+        End If
+        Exit Function
+    End If
+
+    '同期の場合は結果を待つ
+    Dim timerStart As Double: timerStart = Timer
+    Dim timerOut As Long: timerOut = 60 '60秒待機
+    Dim ResultSendCommand As Boolean
+
+    m_CDPBrowser.printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
+    Do
+        'イベントを取り込みながら目的のIDを探す
+        TakeEvents checkCommandID:=lngCurrentId
+
+        'm_EventsやAccumulatedの中で目的のIDが見つかったかのチェックを行う
+        If m_AccumulatedCommandResults.Exists(lngCurrentId) Then
+            'パースして結果オブジェクトとして返す
+            Set SendMessage = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(lngCurrentId))
+            m_AccumulatedCommandResults.Remove lngCurrentId
+            ResultSendCommand = True
+        End If
+
+        If Timer - timerStart > timerOut Then Err.Raise vbObjectError + 1, FromProcedureName, "Timeout waiting for BiDi to return message."
+        
+        If Not ResultSendCommand Then
+            m_CDPBrowser.sleep
+            DoEvents
+        End If
+    Loop Until ResultSendCommand
+
+    m_CDPBrowser.printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from BiDi-Json, so the receiving loop will end.", FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* プロパティ：LastBiDiJsonError
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：invokeErrorを通った際に保管した最後に起きたJSON形式の生エラーデータです
+'***************************************************************************************************
+Public Property Get LastBiDiJsonError() As Dictionary
+    Set LastBiDiJsonError = m_ErrorDetails
+End Property
+
+'***************************************************************************************************
+'* プロパティ：ResultBiDiForAsync
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：指定した引数コマンドIDの非同期実行したコマンド結果を得ます
+'***************************************************************************************************
+Public Property Get ResultBiDiForAsync(CommandID As Long) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
+
+    If m_AccumulatedCommandResults.Exists(CommandID) Then
+        Set ResultBiDiForAsync = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(CommandID))
+        m_CDPBrowser.printMsg info_, "Acquired result log from execution command ID. - ID: " & CommandID, FromProcedureName
+
+        m_AccumulatedCommandResults.Remove CommandID
+        m_CDPBrowser.printMsg Trace_, "Deleted the resulting log corresponding to the execution command ID. - ID: " & CommandID, FromProcedureName
+    Else
+        Set ResultBiDiForAsync = Nothing
+        m_CDPBrowser.printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
+    End If
+End Property
 
 '***************************************************************************************************
 '* 機能　　：イベントの取得・パース
 '---------------------------------------------------------------------------------------------------
+'* 引数　　：checkCommandID  確認するコマンドID (同期送信で結果を待つ際に指定)
+'---------------------------------------------------------------------------------------------------
 '* 機能説明：CDP側のイベントを取り込み、BiDi（`Runtime.bindingCalled`）からのコールバックデータを
-'*           JSONパースして内部キューに仕分けます。
+'*           高速判定し、内部キューに仕分けます。
 '***************************************************************************************************
-Public Sub TakeEvents()
+Public Sub TakeEvents(Optional checkCommandID As Long = -1)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
     m_CDPBrowser.TakeEvents
-    
-    Const SearchEventName As String = "Runtime.bindingCalled"
     
     If m_CDPBrowser.BiDiCapture.Count Then
         Dim tmp As Variant
-        Dim tmpJ As Object
+        Dim payloadStr As String
+        Dim tmpJ As Dictionary
         Dim eventList As Collection
         Set eventList = m_CDPBrowser.BiDiCapture
         
         For Each tmp In eventList
+            'CDP側の形式 {"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","payload":"{...}"}}
+            'まずはペイロードを取り出す
             Set tmpJ = m_JsonConverter.ParseJson(tmp)
             If tmpJ("params")("name") = "sendBidiResponse" Then
-                Dim payloadStr As String
                 payloadStr = tmpJ("params")("payload")
                 
-                'BiDiレスポンスのパース
-                Dim bidiRes As Dictionary
-                Set bidiRes = m_JsonConverter.ParseJson(payloadStr)
-                
-                '結果が id 付きのレスポンス（コマンド結果）か、イベントコールバックか判定
-                If bidiRes.Exists("id") Then
-                    ' コマンドの応答
-                    Dim resId As String
-                    resId = CStr(bidiRes("id"))
-                    ' 念のため Null判定
-                    If Not IsNull(bidiRes("id")) Then
-                        If Not m_Events.Exists(resId) Then
-                            m_Events.Add resId, bidiRes
-                        End If
-                    End If
-                ElseIf bidiRes.Exists("method") Then
-                    ' BiDiの非同期イベント (例: log.entryAdded など)
-                    Dim evName As String
-                    evName = bidiRes("method")
-                    
-                    ' イベント用のキューに保存（必要に応じてCollectionのリストにする）
-                    If Not m_Events.Exists(evName) Then
-                        m_Events.Add evName, New Collection
-                    End If
-                    m_Events(evName).Add bidiRes
-                End If
+                'BiDiレスポンスを高速判定で振り分け
+                BrowserReceivedDataCheck payloadStr, checkCommandID
             End If
         Next
         
@@ -214,6 +329,111 @@ Public Sub TakeEvents()
         Set m_CDPBrowser.BiDiCapture = New Collection
     End If
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンドの受信データを高速にチェックし、仕分けます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：BiDiJsonString    BiDiの生JSON文字列
+'*           checkCommandID    待ち受け中のコマンド結果ID
+'***************************************************************************************************
+Private Function BrowserReceivedDataCheck(BiDiJsonString As String, checkCommandID As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
+
+    Dim ResultCommandID As Long
+    Dim AsynchronousEventName As String
+    Dim bidiRes As Dictionary
+
+    '1. {"type":"success" または {"type":"error" ならコマンド結果
+    If Left(BiDiJsonString, 16) = "{""type"":""success" Or Left(BiDiJsonString, 14) = "{""type"":""error" Then
+        'IDを取得する
+        If GetContentsID(BiDiJsonString, ResultCommandID) Then
+            '現在待ち受け中のIDと一致するか？
+            If ResultCommandID = checkCommandID Then
+                '待ち受け中のIDだったので、この場ではパースせずに文字列のまま `m_AccumulatedCommandResults` に入れて終了（SendMessage側で取り出す）
+                m_AccumulatedCommandResults.Add ResultCommandID, BiDiJsonString
+                m_CDPBrowser.printMsg Trace_, "Matched expected Command ID: " & checkCommandID, FromProcedureName
+            Else
+                '非同期で実行したコマンドや、過去のタイムアウト済みの結果
+                m_AccumulatedCommandResults.Add ResultCommandID, BiDiJsonString
+                m_CDPBrowser.printMsg info_, "Received async Command ID: " & ResultCommandID, FromProcedureName
+
+                '蓄積上限を超えたら古いものを削除
+                If m_AccumulatedCommandResults.Count > m_MaxCommandResults Then
+                    m_AccumulatedCommandResults.Remove m_AccumulatedCommandResults.keys(0)
+                End If
+            End If
+        Else
+            m_CDPBrowser.printMsg WARN_, "Type is success/error but no ID found: " & BiDiJsonString, FromProcedureName
+        End If
+
+    '2. {"type":"event" なら非同期イベント
+    ElseIf Left(BiDiJsonString, 15) = "{""type"":""event""" Then
+        If GetContentsMethod(BiDiJsonString, AsynchronousEventName) Then
+            Set bidiRes = m_JsonConverter.ParseJson(BiDiJsonString)
+
+            If Not m_Events.Exists(AsynchronousEventName) Then
+                m_Events.Add AsynchronousEventName, New Collection
+            End If
+            m_Events(AsynchronousEventName).Add bidiRes
+            m_CDPBrowser.printMsg Trace_, "Stored BiDi Event: " & AsynchronousEventName, FromProcedureName
+        Else
+            m_CDPBrowser.printMsg WARN_, "Type is event but no method found: " & BiDiJsonString, FromProcedureName
+        End If
+
+    '未知のパターン
+    Else
+        m_CDPBrowser.printMsg WARN_, "Unknown BiDi JSON format: " & BiDiJsonString, FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックし、`id`を高速抽出します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：jsonString         BiDiのレスポンス(JSON文字列そのまま)
+'*            idValueContents   コマンド結果のID値を格納する変数(参照渡し)
+'***************************************************************************************************
+Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+    Const SearchKeyName As String = """id"":"
+    Dim StartPos As Long
+    Dim EndPos As Long
+    
+    StartPos = InStr(1, jsonString, SearchKeyName)
+    If StartPos > 0 Then
+        GetContentsID = True
+        StartPos = StartPos + Len(SearchKeyName)
+        EndPos = InStr(StartPos, jsonString, ",")
+        If EndPos = 0 Then EndPos = InStr(StartPos, jsonString, "}") ' 末尾にある場合
+        
+        idValueContents = CLng(Mid(jsonString, StartPos, EndPos - StartPos))
+    Else
+        GetContentsID = False
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックし、`method`を高速抽出します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有无论理値
+'* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
+'*            methodValueContents  非同期イベントのメソッド名(参照渡し)
+'***************************************************************************************************
+Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+    Const SearchKeyName As String = """method"":"""
+    Dim StartPos As Long
+    Dim EndPos As Long
+    
+    StartPos = InStr(1, jsonString, SearchKeyName)
+    If StartPos > 0 Then
+        GetContentsMethod = True
+        StartPos = StartPos + Len(SearchKeyName)
+        EndPos = InStr(StartPos, jsonString, """")
+        
+        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+    Else
+        GetContentsMethod = False
+    End If
+End Function
 
 '***************************************************************************************************
 '* プロパティ：Events
