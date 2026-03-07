@@ -105,13 +105,31 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：既存のBiDiセッションに再接続します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：
-'*
-'
+'* 返り値　：成功可否論理値
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：あとから、再接続する際に使い、セッション確立まで担います。
 '***************************************************************************************************
+Public Function reattach(userProfile As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".reattach"
 
+
+    '1. CDPセッションに再接続
+    Dim ResultConnectionCDP As Boolean
+    Set m_CDPBrowser = New CDPBrowser
+    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
+
+    '失敗時は、ここで抜ける
+    If Not (ResultConnectionCDP) Then reattach = False: Exit Function
+
+    '2. BiDiセッションに再接続
+
+
+
+
+
+
+End Function
 
 '***************************************************************************************************
 '* 機能　　：BiDiセッション接続時のブラウザ情報を表示します
