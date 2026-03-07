@@ -123,12 +123,56 @@ Public Function reattach(userProfile As String) As Boolean
     If Not (ResultConnectionCDP) Then reattach = False: Exit Function
 
     '2. BiDiセッションに再接続
+    With m_CDPBrowser
+        '`CDPBrowser`に、BiDiモードであると伝える
+        Set .BiDiCapture = New Collection
 
+        'すでに当該タブで BiDi マッパーが起動済みかを確認する
+        'typeof window.onBidiMessage === 'function' かどうかを調べる
+        Dim jsCheck As String
+        jsCheck = "typeof window.onBidiMessage === 'function';"
+        
+        Dim isMapperRunning As Boolean
+        isMapperRunning = .jsEval(jsCheck)
 
+        If isMapperRunning Then
+            printMsg Debug_, "Mapper instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+        Else
+            printMsg Debug_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
+            
+            '1. BiDi用バインディングの追加
+            Dim paramsCDP As New Dictionary
+            paramsCDP.Add "bindingName", "cdp"
+            paramsCDP.Add "targetId", .CurrentTargetID
+            paramsCDP.Add "inheritPermissions", True
+            .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+    
+            '2. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+            paramsCDP.RemoveAll
+            paramsCDP.Add "name", "sendBidiResponse"
+            .invokeMethod "Runtime.addBinding", paramsCDP
+    
+            '3. パースしたJavaScriptをブラウザ上で実行
+            .jsEval Take_mapperTabJSstring
+    
+            '4. ブートストラップ（初期化）JSの実行
+            .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
+            printMsg Debug_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+        End If
 
-
-
-
+        '5. セッション一覧を取得して、既存のものがあるか確認する
+        ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
+        Dim resultBiDi As Dictionary
+        Set resultBiDi = invokeMethod("session.status")
+        
+        If resultBiDi.Exists("ready") Then
+            printMsg Debug_, "Successfully reattached to BiDi! Session status ready: " & CStr(resultBiDi("ready")), FromProcedureName
+            reattach = True
+        Else
+            printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName
+            reattach = False
+        End If
+    End With
 End Function
 
 '***************************************************************************************************
