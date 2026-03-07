@@ -678,18 +678,21 @@ Public Function bringToForeground()
 
 End Function
 
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean) As CDPBrowser
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean) As CDPBrowser
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
 ' string indicates about:blank.
 ' newWindow: If true will open a separate window instead of a tab.
+' setMain: If true will set the new tab as the main session tab.
+' isBackground: If true, creates the new target in background.
 ' In the original CDP document, each new tab is called "Target" and
 ' the equivalence of this method is Target.createTarget
 ' This returns the Session ID of the newly created tab.
 ' Updated: 20/03/23 Return the result as a new Browser object
 '          26/04/23 Format url argument to accept simplified input
 '          22/01/26 Added .reattach where appropriate
+'          07/03/26 Added hidden argument
 '------------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".newTab"
 
@@ -699,6 +702,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     params("url") = CStr(checkURI(Url))
     If newWindow Then params("newWindow") = CBool(newWindow)
+    If isHidden Then params("hidden") = CBool(isHidden)
 
     Dim results As Scripting.Dictionary
     Set results = invokeMethod("Target.createTarget", params)
@@ -2783,6 +2787,8 @@ Private Sub getSessionInfo()
 ' Obtain session info on the fly for printParams.
 ' Updated: 22/03/2023
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
+
 
    'Activate to getHandle correctly
     activate
@@ -2791,7 +2797,11 @@ Private Sub getSessionInfo()
     brURL = Url
     brName = Name
     brHWnd = getHandle
-    brWID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+
+    '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
+    Dim tmp As Dictionary: Set tmp = invokeMethod("Browser.getWindowForTarget", StopError:=False)
+    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else brWID = tmp.Item("windowId")
+
     brType = invokeMethod("Browser.getVersion").Item("product")
     brVer = Split(brType, "/")(1)
     brPath = getBrowserPath(brType)
