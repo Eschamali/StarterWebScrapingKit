@@ -144,7 +144,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、ID返却されるまで待機します。
 '***************************************************************************************************
-Public Function invokeMethod(ByVal methodName As String, Optional params As Dictionary = Nothing, Optional StopError As Boolean = True) As Dictionary
+Public Function invokeMethod(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".invokeMethod"
 
 
@@ -163,9 +163,9 @@ Public Function invokeMethod(ByVal methodName As String, Optional params As Dict
         End If
     End If
 
-    'Return result object (BiDiの場合はトップレベルか、resultの中身を返すかですが、そのまま返す設計とします)
-    Set invokeMethod = results
-    printMsg Debug_, "Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
+    'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
+    If results.Exists("result") Then Set invokeMethod = results.Item("result")
+    printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
 End Function
 
 '***************************************************************************************************
