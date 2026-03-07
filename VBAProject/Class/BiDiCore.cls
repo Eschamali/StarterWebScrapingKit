@@ -115,13 +115,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
-'*           StopError     実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
 '* 返値    ：送信したメッセージの ID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
 '***************************************************************************************************
-Public Function invokeMethodAsync(ByVal methodName As String, Optional params As Dictionary = Nothing, Optional StopError As Boolean = True) As Long
+Public Function invokeMethodAsync(ByVal methodName As String, Optional params As Dictionary) As Long
     Const FromProcedureName As String = ThisClassName & ".invokeMethodAsync"
+
 
     Dim paramStr As String
     Dim results As Dictionary
@@ -129,18 +129,9 @@ Public Function invokeMethodAsync(ByVal methodName As String, Optional params As
     If params Is Nothing Then paramStr = "{}" Else paramStr = m_JsonConverter.ConvertToJson(params)
     Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", Async:=True)
 
-    '非同期の場合は、`WriteFile`等のエラーをチェック
-    If results.Items(0) Then
-        If StopError Then
-            printMsg ERROR_, "Failed to invokeAsync method """ & methodName & """", FromProcedureName, doRaiseError:=True
-        Else
-            printMsg WARN_, "Failed to invokeAsync method """ & methodName & """", FromProcedureName
-        End If
-    End If
-
     '実行したIDを返却
     invokeMethodAsync = results.keys(0)
-    printMsg Debug_, "AsyncInvoked """ & methodName & """ with ID: " & invokeMethodAsync, FromProcedureName
+    printMsg Debug_, "BiDi-AsyncInvoked """ & methodName & """ with ID: " & invokeMethodAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -155,6 +146,7 @@ End Function
 '***************************************************************************************************
 Public Function invokeMethod(ByVal methodName As String, Optional params As Dictionary = Nothing, Optional StopError As Boolean = True) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".invokeMethod"
+
 
     Dim paramStr As String
     Dim results As Dictionary
