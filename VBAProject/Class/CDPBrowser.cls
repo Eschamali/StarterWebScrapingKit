@@ -2174,7 +2174,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         If Not (OnlyMessage__Runtime_bindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
             OnlyMessage__Runtime_bindingCalled.Add CDPJsonString
             printMsg Debug_, "BiDi mode usage detected. Store `" & BiDiForEventName & "`", FromProcedureName
-            If seeRawSendMsgDbg Then printMsg Debug_, "BiDi-Result = " & CDPJsonString, FromProcedureName
+            If seeRawSendMsgDbg Then printMsg Debug_, "ForBiDiRes(RawCDPres) = " & CDPJsonString, FromProcedureName
         End If
 
 
