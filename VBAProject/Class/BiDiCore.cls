@@ -124,6 +124,7 @@ End Sub
 Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
+
     '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
     Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
     If pfName = "" Then pfName = Application.Name
@@ -636,6 +637,20 @@ Private Function invokeError(ResultsObj As Dictionary) As Boolean
     End If
 End Function
 
+'***************************************************************************************************
+'* 機能　　：同期モードでの BiDi-Json コマンド結果のうち、最後のエラー情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：最後のエラー情報
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'            ・`invokeMethod`の`StopError`が`False`だと実質機能しません。
+'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'***************************************************************************************************
+Public Property Get LastBiDiJsonError() As Dictionary
+    Set LastBiDiJsonError = m_ErrorDetails
+End Property
+
 
 
 '***************************************************************************************************
@@ -748,15 +763,6 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
 End Sub
 
 
-
-'***************************************************************************************************
-'* プロパティ：LastBiDiJsonError
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：invokeErrorを通った際に保管した最後に起きたJSON形式の生エラーデータです
-'***************************************************************************************************
-Public Property Get LastBiDiJsonError() As Dictionary
-    Set LastBiDiJsonError = m_ErrorDetails
-End Property
 
 '***************************************************************************************************
 '* プロパティ：ResultBiDiForAsync
