@@ -39,7 +39,7 @@ Private Const ThisClassName As String = "BiDiCore"                'ログのト�
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub Init(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".Init"
 
 

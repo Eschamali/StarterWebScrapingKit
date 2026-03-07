@@ -16,7 +16,7 @@ Public Sub TestBiDiCoreDemo()
     
     ' 2. BiDiCore の初期化
     Dim bidi As New BiDiCore
-    bidi.Init
+    bidi.start
     
     
     Dim result As Dictionary
