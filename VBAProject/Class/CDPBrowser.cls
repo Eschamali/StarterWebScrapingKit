@@ -1724,7 +1724,7 @@ Property Get BiDiCapture() As Collection
     Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
 
     'クリーン処理
-    OnlyMessage__Runtime_bindingCalled = New Collection
+    Set OnlyMessage__Runtime_bindingCalled = New Collection
 End Property
 
 Property Set BiDiCapture(BiDiCol As Collection)
@@ -2192,7 +2192,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
             printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
         Else
             'イベントキャプチャモードなので、JsonPurserを使用する
-             printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+            printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
             Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
 
             '--------- 3. `SessionID`項目があるか？ ---------
