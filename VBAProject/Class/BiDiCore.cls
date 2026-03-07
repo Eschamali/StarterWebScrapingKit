@@ -162,9 +162,9 @@ Public Function invokeMethod(ByVal methodName As String, Optional params As Dict
     'Print error if there is
     If invokeError(results) Then
         If StopError Then
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & m_JsonConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & m_JsonConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
         Else
-            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, "Failed to BiDi-invoke method """ & methodName & """", FromProcedureName
         End If
     End If
 
@@ -522,10 +522,10 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 
         '6. ID値を取り出す
         idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, "This response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
+        printMsg Trace_, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
     Else
         GetContentsID = False
-        printMsg Trace_, "This response does not have an `id`.", FromProcedureName
+        printMsg Trace_, "This BiDi response does not have an `id`.", FromProcedureName
     End If
 End Function
 
@@ -564,10 +564,10 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
 
         '5. method名を取り出す
         methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, "This BiDiresponse is an asynchronous event: " & methodValueContents, FromProcedureName
+        printMsg Trace_, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
     Else
         GetContentsMethod = False
-        printMsg Trace_, "This BiDiresponse does not have an `method`.", FromProcedureName
+        printMsg Trace_, "This BiDi response does not have an `method`.", FromProcedureName
     End If
 End Function
 
