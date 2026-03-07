@@ -124,7 +124,11 @@ End Sub
 Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
+    '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
+    Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
+    If pfName = "" Then pfName = Application.Name
 
+    'ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
     printMsg Debug_, " BiDi Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
@@ -133,7 +137,7 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     printMsg Debug_, "acceptInsecureCerts   | " & ResultSessionNew("capabilities")("acceptInsecureCerts"), FromProcedureName
     printMsg Debug_, "browserName           | " & ResultSessionNew("capabilities")("browserName"), FromProcedureName
     printMsg Debug_, "browserVersion        | " & ResultSessionNew("capabilities")("browserVersion"), FromProcedureName
-    printMsg Debug_, "platformName          | " & ResultSessionNew("capabilities")("platformName"), FromProcedureName
+    printMsg Debug_, "platformName          | " & pfName, FromProcedureName
     printMsg Debug_, "setWindowRect         | " & ResultSessionNew("capabilities")("setWindowRect"), FromProcedureName
     printMsg Debug_, "webSocketUrl          | " & ResultSessionNew("capabilities")("webSocketUrl"), FromProcedureName
     printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
