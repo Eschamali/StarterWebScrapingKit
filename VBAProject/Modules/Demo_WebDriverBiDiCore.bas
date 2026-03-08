@@ -1,4 +1,4 @@
-Attribute VB_Name = "Demo_BiDi"
+Attribute VB_Name = "Demo_WebDriverBiDiCore"
 '==============================================================================================================
 '               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
 '--------------------------------------------------------------------------------------------------------------
@@ -6,19 +6,20 @@ Attribute VB_Name = "Demo_BiDi"
 '==============================================================================================================
 Option Explicit
 
-    
+
+
 '--------------------------------------------------------------------------------------------------------------
-' Module      : BiDiDemo
-' Description : BiDiCore.cls を用いて、ChromiumブラウザでのWebDriver BiDi通信を確認するデモプログラム。
-'               BiDiPoC.basの内容を、新設したBiDiCore.clsを利用してリファクタリングしたものです。
+' Module      : Demo_WebDriverBiDiCore
+' Description : WebDriverBiDiCore.cls を用いて、ChromiumブラウザでのWebDriver BiDi通信を確認するデモプログラム。
+'               BiDiPoC.basの内容を、新設したWebDriverBiDiCore.clsを利用してリファクタリングしたものです。
 '--------------------------------------------------------------------------------------------------------------
 
-Public Sub TestBiDiCoreDemo()
+Public Sub TestWebDriverBiDiCoreDemo()
     Dim jsConverter As New WebJsonConverter
 
     
-    ' 2. BiDiCore の初期化
-    Dim bidi As New BiDiCore
+    ' 2. WebDriverBiDiCore の初期化
+    Dim bidi As New WebDriverBiDiCore
     bidi.start
     
     
@@ -118,8 +119,8 @@ Sub ネットワークイベントの確認()
     Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion
     
-    'BiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_NetworkEvent As New BiDiCore
+    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
+    Dim Demo_NetworkEvent As New WebDriverBiDiCore
     Demo_NetworkEvent.start
     
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
@@ -207,8 +208,8 @@ Sub TestAlert()
     '必要な変換オブジェクトを用意
     Dim JsonDicObj As New WebJsonConverter
 
-    'BiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_alerts As New BiDiCore
+    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
+    Dim Demo_alerts As New WebDriverBiDiCore
     
     '---- JavaScriptによる自動アラート処理を無効化するオプションを作成 ---
     Dim caps As New Dictionary
