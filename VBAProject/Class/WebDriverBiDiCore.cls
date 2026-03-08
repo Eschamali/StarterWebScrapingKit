@@ -813,7 +813,7 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
         printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
 
         '2. カスタムエラーメッセージJsonで返却
-        Set ResultCDPForAsync = jsConverter.ParseJson("{""type"":""error"",""id"":" & CommandID & ",""error"":-2,""message"":""There is no target command ID result log.""}")
+        Set ResultBiDiForAsync = m_JsonConverter.ParseJson("{""type"":""error"",""id"":" & CommandID & ",""error"":-2,""message"":""There is no target command ID result log.""}")
     End If
 End Property
 
