@@ -637,6 +637,8 @@ End Function
 '* 返り値  ：存在有無論理値
 '* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
 '*            methodValueContents  非同期イベントのメソッド名(参照渡し)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：前方一致、後方一致を確認します
 '***************************************************************************************************
 Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
@@ -647,12 +649,12 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
     Const StartSearchPos    As Long = 10        'あるべき位置
 
 
-    '1. 文字列を探索
-    Dim StartPos As Long
+    '1. 前方文字列を探索
+    Dim StartPos As Long, EndPos As Long
     StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
 
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、10文字目にない場合は、非同期イベントではないとして、扱います。
+    '2. 所定の位置あるか確認する
+    '下記の例に基づき、10文字目にない場合は、次に後方一致を確認
     '・{"type":"event","method":...
     If StartPos = StartSearchPos Then
         GetContentsMethod = True
@@ -661,12 +663,27 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
         StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""method"":""") '「","method":"」分、ずらすイメージ
 
         '4. method名の終点を求める
-        Dim EndPos As Long
         EndPos = InStr(StartPos, jsonString, """,")
 
         '5. method名を取り出す
         methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
         printMsg Trace_, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+    
+    '下記の例に基づき、後方にない場合は、非同期イベントではないとして、扱います。
+    '・{"method":"network.beforeRequestSent", ... (中略) ..., "type":"event"}
+    ElseIf Right(jsonString, Len(SearchKeyName) + Len("""}")) = SearchKeyName & """}" Then
+        GetContentsMethod = True
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
+
+        '4. method名の終点を求める
+        EndPos = InStr(StartPos, jsonString, """,")
+
+        '5. method名を取り出す
+        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+        printMsg Trace_, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+
     Else
         GetContentsMethod = False
         printMsg Trace_, "This BiDi response does not have an `method`.", FromProcedureName
