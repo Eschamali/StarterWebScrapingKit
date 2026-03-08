@@ -678,7 +678,7 @@ Public Function bringToForeground()
 
 End Function
 
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean) As CDPBrowser
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional isBackground As Boolean) As CDPBrowser
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -703,6 +703,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     params("url") = CStr(checkURI(Url))
     If newWindow Then params("newWindow") = CBool(newWindow)
     If isHidden Then params("hidden") = CBool(isHidden)
+    If isBackground Then params("background") = CBool(isBackground)
 
     Dim results As Scripting.Dictionary
     Set results = invokeMethod("Target.createTarget", params)
@@ -1395,7 +1396,7 @@ Public Sub sleep(Optional seconds As Double = 0.5)
 
 End Sub
 
-Public Sub activate()
+Public Sub activate(Optional focus As Boolean = True)
 '----------------------------------------------------------------------------------
 ' Switch focus to the current tab being attached to under the current BRID.
 ' Updated: 02/03/2023
@@ -1403,7 +1404,7 @@ Public Sub activate()
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    invokeMethod "Target.activateTarget", params
+    If focus Then invokeMethod "Target.activateTarget", params
 
 End Sub
 
@@ -2791,7 +2792,7 @@ Private Sub getSessionInfo()
 
 
    'Activate to getHandle correctly
-    activate
+    activate False
 
    'Get infos
     brURL = Url
