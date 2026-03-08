@@ -197,3 +197,138 @@ Sub ネットワークイベントの確認()
     'ブラウザを閉じる。demo終了
     Demo_NetworkEvent.quit
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：JavaScript関数、`alert`処理に関するBiDi版のDemoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
+'***************************************************************************************************
+Sub TestAlert()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New WebJsonConverter
+
+    'BiDiCoreの初期化とブラウザ立ち上げ
+    Dim Demo_alerts As New BiDiCore
+    
+    Dim caps As New Dictionary
+    
+    Dim alwaysMatch As New Dictionary
+    alwaysMatch.Add "unhandledPromptBehavior", "ignore"
+    
+    caps.Add "capabilities", New Dictionary
+    caps("capabilities").Add "alwaysMatch", alwaysMatch
+    
+    Demo_alerts.start , , caps
+    
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    
+    '現在のコンテキストIDを取得する
+    Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")
+    End If
+    
+    '設定シートからの起動("https://www.selenium.dev/selenium/web/alerts.html")相当の遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "https://www.selenium.dev/selenium/web/alerts.html"
+    paramsBiDi.Add "wait", "complete"
+    Demo_alerts.invokeMethod "browsingContext.navigate", paramsBiDi
+
+    'テスト入力文字列
+    Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
+    
+    With Demo_alerts
+        ' --- 1. 必要なドメイン(イベント)をサブスクライブ ---
+        Set paramsBiDi = New Dictionary
+        Dim eventsArray As New Collection
+        eventsArray.Add "browsingContext.userPromptOpened"
+        paramsBiDi.Add "events", eventsArray
+        .invokeMethod "session.subscribe", paramsBiDi
+        
+        Dim i As Long
+        For i = 1 To 3
+            Dim targetID As String
+            Select Case i
+                Case 1: targetID = "alert"
+                Case 2: targetID = "empty-alert"
+                Case 3: targetID = "prompt"
+            End Select
+
+            ' --- 2. イベントキャプチャを新しく有効化 ---
+            ' 過去のイベントをリセット
+            Set .BiDiEvents = New Dictionary
+            
+            ' --- 3. 非同期でコマンド準備/実行(Jsのクリック処理) ---
+            ' 対象の要素をクリックするJSを評価する
+            Set paramsBiDi = New Dictionary
+            paramsBiDi.Add "expression", "document.getElementById('" & targetID & "').click()"
+            Dim targetDict As Dictionary
+            Set targetDict = New Dictionary
+            targetDict.Add "context", targetContext
+            paramsBiDi.Add "target", targetDict
+            paramsBiDi.Add "awaitPromise", False
+            
+            Dim AsyncID As Long
+            'この瞬間、JavaScriptの`alert`関数が非同期で発動されます
+            AsyncID = .invokeMethodAsync("script.evaluate", paramsBiDi)
+    
+            ' --- 4. 特定のイベント名が出るまでループ ---
+            Const SearchEventName As String = "browsingContext.userPromptOpened"
+            Do
+                '非同期イベントを取り出す
+                .TakeEvents
+    
+                'イベント名の確認
+                If .BiDiEvents("EventMethods").Exists(SearchEventName) Then
+                    '出ているダイアログの情報の確認
+                    Dim tmp
+                    For Each tmp In .BiDiEvents("EventMethods")(SearchEventName)
+                        Debug.Print "message:"; tmp("params")("message")
+                        Debug.Print "type   :"; tmp("type") & vbCrLf
+                    Next
+    
+                    '見つかったので抜ける
+                    Exit Do
+                End If
+            Loop While True
+    
+            ' --- 5. ダイアログに反応しておく ---
+            Set paramsBiDi = New Dictionary
+            paramsBiDi.Add "context", targetContext
+            paramsBiDi.Add "accept", True
+            paramsBiDi.Add "userText", 入力文字内容
+            Set resultBiDi = .invokeMethod("browsingContext.handleUserPrompt", paramsBiDi)
+    
+            ' --- 6. 以前、非同期で実行した結果も拝見する ---
+            Dim resBiDiAsync As Dictionary
+            .sleep 0.5 ' 結果取得のためのディレイ
+            .TakeEvents ' 受信キューを消化
+            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID)
+            If Not (resBiDiAsync Is Nothing) Then Debug.Print "resBiDiAsync - " & JsonDicObj.ConvertToJson(resBiDiAsync)
+            
+        Next
+
+        ' --- 7. ブラウザを閉じる ---
+        ' DOM経由のテキスト取得を、script.evaluateで代替
+        Set paramsBiDi = New Dictionary
+        paramsBiDi.Add "expression", "document.querySelector('#text > p') ? document.querySelector('#text > p').innerText : 'Not Found'"
+        Set targetDict = New Dictionary
+        targetDict.Add "context", targetContext
+        paramsBiDi.Add "target", targetDict
+        paramsBiDi.Add "awaitPromise", True
+        Set resultBiDi = .invokeMethod("script.evaluate", paramsBiDi)
+        
+        Dim Htmlの表示内容 As String
+        If Not (resultBiDi Is Nothing) Then
+            If resultBiDi.Exists("result") Then
+                If resultBiDi("result").Exists("value") Then Htmlの表示内容 = resultBiDi("result")("value")
+            End If
+        End If
+        
+        Debug.Print "htmlの出力文字列：" & Htmlの表示内容
+        Debug.Assert Htmlの表示内容 = 入力文字内容
+        .quit
+    End With
+End Sub
