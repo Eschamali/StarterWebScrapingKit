@@ -1,4 +1,4 @@
-Attribute VB_Name = "Demo_WebDriverBiDiCore"
+Attribute VB_Name = "Demo_WebDriverBiDi"
 '==============================================================================================================
 '               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
 '--------------------------------------------------------------------------------------------------------------
