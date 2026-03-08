@@ -335,6 +335,63 @@ Sub TestAlert()
     End With
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：BiDi+ (Chromium独自拡張) の `goog:cdp.sendCommand` を試すDemoコードです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebDriver BiDi プロトコルにまだ存在しない詳細な機能を、従来のCDPコマンドを
+'*           トンネリング（中継）して呼び出す「BiDi+」の機能デモンストレーションです。
+'***************************************************************************************************
+Sub TestBiDiPlus_CDPTunnel()
+    Dim JsonDicObj As New WebJsonConverter
+    Dim bidiPlus As New WebDriverBiDiCore
+    
+    ' ブラウザ起動
+    bidiPlus.start
+
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+
+    '-----------------------------------------------------------------------
+    ' 1. CDPのセッションIDを取得する (goog:cdp.getSession)
+    '-----------------------------------------------------------------------
+    ' まず現在のBiDiコンテキストを取得
+    Dim targetContext As String
+    Set resultBiDi = bidiPlus.invokeMethod("browsingContext.getTree")
+    If Not resultBiDi Is Nothing Then
+        targetContext = resultBiDi("contexts")(1)("context")
+        
+        Set paramsBiDi = New Dictionary
+        paramsBiDi.Add "context", targetContext
+        Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.getSession", paramsBiDi)
+        
+        If Not resultBiDi Is Nothing Then
+             MsgBox "現在のタブ(Context)に紐づく、裏側の『CDPセッションID』を取得しました！" & vbCrLf & vbCrLf & _
+                    "【SessionID】" & resultBiDi("session"), vbInformation, "BiDi+ GetSession"
+                    
+             Dim cdpSessionId As String
+             cdpSessionId = resultBiDi("session")
+        End If
+    End If
+
+    '-----------------------------------------------------------------------
+    ' 2. goog:cdp.sendCommand を使って、CDPの「Browser.getVersion」を実行してみる
+    '-----------------------------------------------------------------------
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "method", "Browser.getVersion"
+    paramsBiDi.Add "params", New Dictionary
+    If cdpSessionId <> "" Then paramsBiDi.Add "session", cdpSessionId
+    
+    Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.sendCommand", paramsBiDi)
+    
+    If Not resultBiDi Is Nothing Then
+        MsgBox "CDPコマンド(Browser.getVersion)をBiDi経由で実行できました！" & vbCrLf & vbCrLf & _
+               "【Browser】" & resultBiDi("result")("userAgent") & vbCrLf & _
+               "【Protocol-Version】" & resultBiDi("result")("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
+    End If
+
+    '終了
+    bidiPlus.quit
+End Sub
+
 
 
 '***************************************************************************************************
