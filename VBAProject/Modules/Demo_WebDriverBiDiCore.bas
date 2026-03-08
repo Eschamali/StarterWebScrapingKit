@@ -310,7 +310,9 @@ Sub TestAlert()
             Dim resBiDiAsync As Dictionary
             .sleep 0.5 ' 結果取得のためのディレイ
             .TakeEvents ' 受信キューを消化
-            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID)
+            
+            Dim エラー確認 As Boolean
+            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID, エラー確認)
             If Not (resBiDiAsync Is Nothing) Then Debug.Print "resBiDiAsync - " & JsonDicObj.ConvertToJson(resBiDiAsync)
             
         Next

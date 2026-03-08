@@ -784,7 +784,7 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
 
     '1. 存在するか？
     If m_AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
+        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & m_AccumulatedCommandResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary
@@ -802,7 +802,7 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
             ErrorExist = False
             printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error.", FromProcedureName
 
-            Set ResultCDPForAsync = tmp             'そのまんま返却
+            Set ResultBiDiForAsync = tmp            'そのまんま返却
         End If
 
         '4. 取り出したので消しておく
