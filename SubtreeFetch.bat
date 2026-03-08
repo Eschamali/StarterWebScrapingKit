@@ -11,3 +11,4 @@ git subtree pull --prefix=Original/SeleniumVBA https://github.com/GCuser99/Selen
 
 REM asset“à‚ÌXV
 curl https://cdn.jsdelivr.net/npm/chromium-bidi@latest/lib/iife/mapperTab.js > assset\mapperTab.js
+curl https://data.jsdelivr.com/v1/package/npm/chromium-bidi
