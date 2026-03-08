@@ -200,6 +200,106 @@ Sub ネットワークイベントの確認()
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：拡張機能を読み込むDemoコード(BiDi版)です
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：BiDiプロトコルの `webExtension` モジュールを使用した拡張機能のインストール・アンインストールのデモです。
+'* 注意事項：・このテストを行う際は、事前シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御` をONにしてください
+'***************************************************************************************************
+Sub UseExtensions()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New WebJsonConverter
+    
+    '拡張機能があるアンパックフォルダパスを、ダイアログで指定
+    Dim ExtensionsFolderPath As String
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
+        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
+
+        If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
+    End With
+
+    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
+    Dim controlExtensions As New WebDriverBiDiCore
+    
+    '---- 拡張機能制御を有効化するオプションを作成 ---
+    Dim caps As New Dictionary
+    Dim alwaysMatch As New Dictionary
+    
+    ' BiDiでは、セッション確立時の引数として渡すか、WebDriver側のCapabilityで有効にする必要がありますが、
+    ' CDPBrowserの仕組み（引数渡し）を利用するためそのまま起動します。
+    caps.Add "capabilities", New Dictionary
+    caps("capabilities").Add "alwaysMatch", alwaysMatch
+    '-------------------------------------------------
+
+    ' 起動
+    controlExtensions.start , , caps
+
+    '現在のコンテキストIDを取得する
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = controlExtensions.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+    End If
+
+    '拡張機能のテストページ（もしくは任意のページ）へ遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "edge://extensions/"
+    paramsBiDi.Add "wait", "complete"
+    controlExtensions.invokeMethod "browsingContext.navigate", paramsBiDi
+
+    '-----------------------------------------------------------------------
+    '拡張機能を読み込む (BiDi `webExtension.install`)
+    '-----------------------------------------------------------------------
+    Dim extData As New Dictionary
+    extData.Add "type", "path"
+    extData.Add "path", ExtensionsFolderPath
+    paramsBiDi.Add "extensionData", extData
+    
+    ' 今回はエラー無視で設定 (StopError:=False)
+    Set resultBiDi = controlExtensions.invokeMethod("webExtension.install", paramsBiDi, False)
+
+    '読み込まれたか確認する
+    If resultBiDi Is Nothing Then
+        ' コマンド実行に失敗した場合、LastBiDiJsonError からエラー情報を取得する
+        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastBiDiJsonError("error")
+
+        'ブラウザを閉じる。demo終了
+        controlExtensions.quit
+        Exit Sub
+
+    ElseIf resultBiDi.Exists("extension") Then
+        ' BiDiの webExtension.install は `extension` キーで IDを返します。
+        MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & resultBiDi("extension")
+    
+    Else
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(resultBiDi), vbExclamation, "Not found id"
+
+        'ブラウザを閉じる。demo終了
+        controlExtensions.quit
+        Exit Sub
+    End If
+
+    '-----------------------------------------------------------------------
+    '拡張機能をアンインストール (BiDi `webExtension.uninstall`)
+    '-----------------------------------------------------------------------
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "extension", resultBiDi("extension")
+    Set resultBiDi = controlExtensions.invokeMethod("webExtension.uninstall", paramsBiDi, False)
+
+    '消えたか確認する
+    If resultBiDi Is Nothing Then
+        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.LastBiDiJsonError("error")
+    Else
+        MsgBox "拡張機能のアンインストールに成功しました。ブラウザをご確認ください。", vbInformation, "Uninstall Done!"
+    End If
+
+    'ブラウザを閉じる。demo終了
+    controlExtensions.quit
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：JavaScript関数、`alert`処理に関するBiDi版のDemoです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
@@ -233,13 +333,6 @@ Sub TestAlert()
     If Not (resultBiDi Is Nothing) Then
         targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
-
-'    'ページ遷移の場合のコード
-'    Set paramsBiDi = New Dictionary
-'    paramsBiDi.Add "context", targetContext
-'    paramsBiDi.Add "url", "https://www.selenium.dev/selenium/web/alerts.html"
-'    paramsBiDi.Add "wait", "complete"
-'    Demo_alerts.invokeMethod "browsingContext.navigate", paramsBiDi
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
