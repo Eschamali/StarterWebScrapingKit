@@ -149,8 +149,9 @@ Private Sub StartBiDiCDPMapper()
 
 
     With m_CDPBrowser
-        '1. 新規タブに対して、BiDiコンソールタブを準備し、メイン化
-        .newTab , setMain:=True, isHidden:=Not (ViewDebugTab)
+        '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
+        '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
+        .newTab , setMain:=True, isHidden:=Not (ViewDebugTab), isBackground:=True
         printMsg Trace_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(ViewDebugTab) & ")", FromProcedureName
 
         '2. `CDPBrowser`に、BiDiモードであると伝える
