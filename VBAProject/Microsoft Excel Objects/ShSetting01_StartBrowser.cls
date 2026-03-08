@@ -70,6 +70,7 @@ Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
         Case 9: UseRangeName = "ログファイル保存"
         Case 10: UseRangeName = "常にUTF8で送信"
         Case 11: UseRangeName = "BiDi_CDP_Mapperタブを表示"
+        Case 12: UseRangeName = "起動モード"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Property

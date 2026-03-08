@@ -173,6 +173,7 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
+Private setShowWindow As Integer
 Public dwProcessId As LongPtr 'プロセスID
 Private Utf8Converter As CharacterCodeConversion
 
@@ -326,7 +327,7 @@ Public Function Init(strExec As String) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = SW_SHOWMINIMIZED 'minimize the window at start
+        .wShowWindow = setShowWindow
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -494,5 +495,6 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
+        setShowWindow = .Range(.UseRangeName(12, "CDPCore.Class_Initialize")).value
     End With
 End Sub
