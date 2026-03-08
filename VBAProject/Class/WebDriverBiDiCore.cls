@@ -766,6 +766,54 @@ Public Property Get LastBiDiJsonError() As Dictionary
     Set LastBiDiJsonError = m_ErrorDetails
 End Property
 
+'***************************************************************************************************
+'* 機能　　：非同期で実行されたIDを取り出します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
+'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
+'
+'* 返値    ：そのIDの実行結果のJson-Dictionary
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
+'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
+'            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
+'***************************************************************************************************
+Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean) As Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
+
+
+    '1. 存在するか？
+    If m_AccumulatedCommandResults.Exists(CommandID) Then
+        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
+
+        '2. Jsonパーサーを施す
+        Dim tmp As Dictionary
+        Set tmp = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(CommandID))
+
+        '3. 成功か？
+        If tmp("type") = "success" Then
+            '正常に終了していると伝える
+            ErrorExist = False
+            printMsg Debug_, "This BiDi-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
+
+            Set ResultBiDiForAsync = tmp("result")  '`result`オブジェクトとして返却
+        Else
+            'エラーありとして伝える
+            ErrorExist = False
+            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error.", FromProcedureName
+
+            Set ResultCDPForAsync = tmp             'そのまんま返却
+        End If
+
+        '4. 取り出したので消しておく
+        m_AccumulatedCommandResults.Remove CommandID
+        printMsg Trace_, "Deleted the resulting log corresponding to the execution BiDi-command ID. - ID: " & CommandID, FromProcedureName
+    Else
+        ErrorExist = True
+        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
+    End If
+End Property
+
 
 
 '***************************************************************************************************
@@ -876,56 +924,6 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
     eventList.Add eventData
 End Sub
-
-
-
-'***************************************************************************************************
-'* 機能　　：非同期で実行されたIDを取り出します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
-'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
-'
-'* 返値    ：そのIDの実行結果のJson-Dictionary
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
-'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
-'***************************************************************************************************
-Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean) As Dictionary
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
-
-
-    '1. 存在するか？
-    If m_AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
-
-        '2. Jsonパーサーを施す
-        Dim tmp As Dictionary
-        Set tmp = m_JsonConverter.ParseJson(m_AccumulatedCommandResults(CommandID))
-
-        '3. 成功か？
-        If tmp("type") = "success" Then
-            '正常に終了していると伝える
-            ErrorExist = False
-            printMsg Debug_, "This BiDi-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
-
-            Set ResultBiDiForAsync = tmp("result")  '`result`オブジェクトとして返却
-        Else
-            'エラーありとして伝える
-            ErrorExist = False
-            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error.", FromProcedureName
-
-            Set ResultCDPForAsync = tmp             'そのまんま返却
-        End If
-
-        '4. 取り出したので消しておく
-        m_AccumulatedCommandResults.Remove CommandID
-        printMsg Trace_, "Deleted the resulting log corresponding to the execution BiDi-command ID. - ID: " & CommandID, FromProcedureName
-    Else
-        ErrorExist = True
-        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
-    End If
-End Property
 
 
 
