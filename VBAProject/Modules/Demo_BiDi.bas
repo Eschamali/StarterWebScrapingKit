@@ -210,6 +210,7 @@ Sub TestAlert()
     'BiDiCoreの初期化とブラウザ立ち上げ
     Dim Demo_alerts As New BiDiCore
     
+    '---- JavaScriptによる自動アラート処理を無効化するオプションを作成 ---
     Dim caps As New Dictionary
     
     Dim alwaysMatch As New Dictionary
@@ -217,24 +218,27 @@ Sub TestAlert()
     
     caps.Add "capabilities", New Dictionary
     caps("capabilities").Add "alwaysMatch", alwaysMatch
-    
-    Demo_alerts.start , , caps
-    
+    '---------------------------------------------------------------------
+
+    'オプションを適用させて、指定URLから直接起動
+    Demo_alerts.start "https://www.selenium.dev/selenium/web/alerts.html", , caps
+
+    '結果とBiDiパラメーター変数を用意
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    
+
     '現在のコンテキストIDを取得する
     Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
-    
-    '設定シートからの起動("https://www.selenium.dev/selenium/web/alerts.html")相当の遷移
-    Set paramsBiDi = New Dictionary
-    paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://www.selenium.dev/selenium/web/alerts.html"
-    paramsBiDi.Add "wait", "complete"
-    Demo_alerts.invokeMethod "browsingContext.navigate", paramsBiDi
+
+'    'ページ遷移の場合のコード
+'    Set paramsBiDi = New Dictionary
+'    paramsBiDi.Add "context", targetContext
+'    paramsBiDi.Add "url", "https://www.selenium.dev/selenium/web/alerts.html"
+'    paramsBiDi.Add "wait", "complete"
+'    Demo_alerts.invokeMethod "browsingContext.navigate", paramsBiDi
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
