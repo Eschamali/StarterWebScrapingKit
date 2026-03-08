@@ -430,29 +430,58 @@ Private Function ReceiveFromCollectionPayload(ByRef ReceiveRuntimebindingCalledC
     For Each resBiDi In ReceiveRuntimebindingCalledCol
         'ログ用に、カウント
         i = i + 1
-        printMsg Trace_, "Raw - BiDiRes(" & i & ") = " & CStr(resBiDi), FromProcedureName
+        printMsg Trace_, "Raw - BiDiRes(" & i & ") = " & resBiDi, FromProcedureName
 
-        '`payload`が、JsonOfJsonという厄介な格納になってるので、パーサーを行う
-        Dim BiDiJsonObj As Dictionary
-        Set BiDiJsonObj = m_JsonConverter.ParseJson(CStr(resBiDi))("params")
-
-        'メインとなるBiDi内容を抽出
+        '【最適化】CDPのラッパーJSONをパースせず、文字列操作でpayloadを直接抜き出す（JsonOfJsonの1回目を回避）
         Dim payloadBiDi As String
-        payloadBiDi = BiDiJsonObj("payload")
+        payloadBiDi = ExtractPayload(resBiDi)
+        printMsg Debug_, "BiDiRes(" & i & ")-`payload` = " & payloadBiDi, FromProcedureName
 
-        '`Runtime.bindingCalled`の中身を、必要に応じてログ出力
-        printMsg Debug_, "BiDiRes(" & i & ")-`name`               = " & BiDiJsonObj("name"), FromProcedureName
-        printMsg Debug_, "BiDiRes(" & i & ")-`payload`            = " & payloadBiDi, FromProcedureName
-        printMsg Debug_, "BiDiRes(" & i & ")-`executionContextId` = " & BiDiJsonObj("executionContextId"), FromProcedureName
-
-        '受信データのチェックを行うプロシージャへ遷移します。
-        If BrowserReceivedDataCheck(payloadBiDi, InternalUseMessages, checkCommandID) Then
-            Set ReceiveFromCollectionPayload = m_JsonConverter.ParseJson(CStr(payloadBiDi))         'JsonPurserして、コマンド結果を返却
-            printMsg Debug_, "The BiDicommand result was obtained from `Runtime.bindingCalled`! - ID:" & checkCommandID, FromProcedureName
+        '空文字はそもそも受け付けないようにする
+        If payloadBiDi <> "" Then
+            '受信データのチェックを行うプロシージャへ遷移します。
+            If BrowserReceivedDataCheck(payloadBiDi, InternalUseMessages, checkCommandID) Then
+                'ここでcheckCommandID一致時のみ、パース（BiDi本体）を行う。
+                Set ReceiveFromCollectionPayload = m_JsonConverter.ParseJson(CStr(payloadBiDi))
+                printMsg Debug_, "The BiDicommand result was obtained from `Runtime.bindingCalled`! - ID:" & checkCommandID, FromProcedureName
+            End If
+        Else
+            printMsg Debug_, "The payload is empty", FromProcedureName
         End If
 
         DoEvents
     Next
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
+'***************************************************************************************************
+Private Function ExtractPayload(ByVal resCDP As String) As String
+    Const SearchKey As String = """payload"":"""
+    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
+    If StartPos = 0 Then Exit Function
+    
+    StartPos = StartPos + Len(SearchKey)
+    
+    ' payloadの終了位置を探す。通常はexecutionContextIdの前
+    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
+    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
+    
+    If EndPos > StartPos Then
+        ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
+        ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
+        ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
+        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+        
+        ' 文字列内のエスケープ（\" -> "）を復元
+        ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
+        ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
+        ' なので、ここでは「JSONとしての文字列値」を取得するにとどめ、
+        ' クラス内のパース処理にそのまま渡す。
+        ' ただし、CDPのJSONエンコードにより \" になっているものを " に戻す必要がある。
+        ExtractPayload = Replace(ExtractPayload, "\""", """")
+        ExtractPayload = Replace(ExtractPayload, "\\", "\")
+    End If
 End Function
 
 '***************************************************************************************************
