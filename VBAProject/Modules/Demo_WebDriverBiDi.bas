@@ -8,106 +8,8 @@ Option Explicit
 
 
 
-'--------------------------------------------------------------------------------------------------------------
-' Module      : Demo_WebDriverBiDiCore
-' Description : WebDriverBiDiCore.cls を用いて、ChromiumブラウザでのWebDriver BiDi通信を確認するデモプログラム。
-'               BiDiPoC.basの内容を、新設したWebDriverBiDiCore.clsを利用してリファクタリングしたものです。
-'--------------------------------------------------------------------------------------------------------------
-
-Public Sub TestWebDriverBiDiCoreDemo()
-    Dim jsConverter As New WebJsonConverter
-
-    
-    ' 2. WebDriverBiDiCore の初期化
-    Dim bidi As New WebDriverBiDiCore
-    bidi.start
-    
-    
-    Dim result As Dictionary
-    Dim params As Dictionary
-    Dim tmp As Variant
-    
-    
-    ' 4. BiDiコマンド [browsingContext.getTree] の送信
-    Debug.Print "--- Sending browsingContext.getTree ---"
-    Set result = bidi.invokeMethod("browsingContext.getTree")
-    
-    Debug.Print "browsingContext.getTree result:"
-    Debug.Print jsConverter.ConvertToJson(result)
-    
-    ' 取得したコンテキストの1つをターゲットとして抽出する例
-    Dim targetContext As String
-    If Not (result Is Nothing) Then
-        If result.Exists("contexts") Then
-            If result("contexts").Count > 0 Then
-                ' 例として配列の2番目（インデックス2、VBAは1列目からかもしれないので適切に抽出）
-                ' ここでは雑に最初のcontextを取得します。
-                targetContext = result("contexts")(1)("context")
-            End If
-        End If
-    End If
-    
-    If targetContext <> "" Then
-        ' 5. コンテキストのナビゲート [browsingContext.navigate]
-        Debug.Print "--- Navigating context: " & targetContext & " ---"
-        Set params = New Dictionary
-        params.Add "context", targetContext
-        params.Add "url", "https://www.google.com"
-        params.Add "wait", "complete"
-        
-        Set result = bidi.invokeMethod("browsingContext.navigate", params)
-        Debug.Print "Navigation result:"
-        Debug.Print jsConverter.ConvertToJson(result)
-    Else
-        Debug.Print "Could not extract a target context from getTree."
-    End If
-    
-    ' 6. イベント付きのサブスクライブ [session.subscribe]
-    Debug.Print "--- Subscribing to log.entryAdded ---"
-    Set params = New Dictionary
-    Dim eventsArray As New Collection
-    eventsArray.Add "log.entryAdded"
-    params.Add "events", eventsArray
-    
-    Set result = bidi.invokeMethod("session.subscribe", params)
-    Set bidi.BiDiEvents = New Dictionary
-    Debug.Print "Subscribe result:"
-    Debug.Print jsConverter.ConvertToJson(result)
-    
-    Debug.Print ">>> Waiting for console.log in the browser... (type console.log('Hello BiDi!'))"
-    
-    ' 7. 非同期イベントの待機
-    Dim evName As String
-    evName = "log.entryAdded"
-    ' 無限ループでイベントを捕まえるデモ
-    Do
-        bidi.TakeEvents
-        
-        If bidi.BiDiEvents("EventMethods").Exists(evName) Then
-            Debug.Print "--- " & evName & " Event triggerd! ---"
-            
-            Dim loggedEvents As Collection
-            Set loggedEvents = bidi.BiDiEvents("EventMethods")(evName)
-            
-            For Each tmp In loggedEvents
-                Debug.Print jsConverter.ConvertToJson(tmp)
-            Next
-            
-            ' 取得後はキューから消す
-            Set bidi.BiDiEvents = New Dictionary
-            Exit Do
-        End If
-        
-        bidi.sleep
-        DoEvents
-    Loop While True
-    
-    Debug.Print "--- BiDiDemo Finished ---"
-
-    ' クリーンアップ
-    bidi.quit
-End Sub
-
+'***************************************************************************************************
+'                               ■■■ Demoプロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：イベントキャプチャに関するDemoコード(BiDi版)です
 '---------------------------------------------------------------------------------------------------
@@ -430,5 +332,50 @@ Sub TestAlert()
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
         .quit
+    End With
+End Sub
+
+
+
+'***************************************************************************************************
+'                               ■■■ アップデートDemo ■■■
+'***************************************************************************************************
+Private Sub ローカルファイルで更新()
+    '1. ファイルパスを、ダイアログで指定
+    Dim UpdateFilePath As String
+    UpdateFilePath = Application.GetOpenFilename("mapperTab File, *.js", , "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください")
+    If UpdateFilePath = CStr(False) Then Exit Sub
+
+    '2. 一旦、パスごとに分割
+    Dim tmp: tmp = Split(UpdateFilePath, "\")
+    Dim SplitNum As Long: SplitNum = UBound(tmp)
+
+    '3. 分けて格納
+    Dim FolderName As String, FileName As String
+    FileName = tmp(SplitNum): tmp(SplitNum) = ""
+    FolderName = Join(tmp, "\")
+
+    '4. 更新処理
+    Dim UpdateBiDi As New WebDriverBiDiCore
+    If (UpdateBiDi.UpdateFromLocalFile(FolderName, FileName)) Then MsgBox "アップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
+
+    '5. ローカルファイルで更新した旨を記録
+    With ShLibrary01_JS
+        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value = " Local"
+    End With
+End Sub
+
+Private Sub npm経由で更新()
+    Dim UpdateBiDi As New WebDriverBiDiCore
+    With ShLibrary01_JS
+        '1. 現在のバージョン確認
+        Dim mapperTab_Version As String: mapperTab_Version = UpdateBiDi.UpdateCheckNPMVersion
+        If mapperTab_Version = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です": Exit Sub
+
+        '2. npmで更新
+        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
+
+        '3. バージョンを記録
+        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value = mapperTab_Version
     End With
 End Sub
