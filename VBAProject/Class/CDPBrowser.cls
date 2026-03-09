@@ -185,8 +185,8 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
-Private AccumulatedCommandResults As Dictionary '非同期によるコマンド結果情報
-Private MaxCommandResults As Long       '非同期によるコマンド結果の最大蓄積数
+Private AccumulatedAsyncResults As Dictionary '非同期によるコマンド結果情報
+Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド結果の最大蓄積数
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
@@ -1751,7 +1751,7 @@ End Property
 '* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、10sです。
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
 Property Get TimeOutSecond() As Long
     TimeOutSecond = timerOut
@@ -1769,12 +1769,12 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
 '***************************************************************************************************
-Property Get ResultBoxCDPForAsync() As Long
-    ResultBoxCDPForAsync = MaxCommandResults
+Property Get ResultAccumulatedLimitCDPForAsync() As Long
+    ResultAccumulatedLimitCDPForAsync = AccumulatedAsyncResultsLimit
 End Property
 
-Property Let ResultBoxCDPForAsync(Number As Long)
-    MaxCommandResults = Number
+Property Let ResultAccumulatedLimitCDPForAsync(Number As Long)
+    AccumulatedAsyncResultsLimit = Number
 End Property
 
 '***************************************************************************************************
@@ -1808,11 +1808,11 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
 
 
     '1. 存在するか？
-    If AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
+    If AccumulatedAsyncResults.Exists(CommandID) Then
+        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedAsyncResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedCommandResults(CommandID))
+        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedAsyncResults(CommandID))
 
         '3. `result`オブジェクトがあるか？
         'ない場合は、そのまま返却
@@ -1825,13 +1825,13 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
         Else
             'エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedCommandResults(CommandID), FromProcedureName
+            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedAsyncResults(CommandID), FromProcedureName
 
             Set ResultCDPForAsync = tmp
         End If
 
         '4. 取り出したので消しておく
-        AccumulatedCommandResults.Remove CommandID
+        AccumulatedAsyncResults.Remove CommandID
     Else
         ErrorExist = True
         printMsg WARN_, "The command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
@@ -2022,7 +2022,7 @@ End Function
 '            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
 '            checkCommandID         確認するコマンドID
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedCommandResults`に蓄積されます
+'* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedAsyncResults`に蓄積されます
 '***************************************************************************************************
 Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
@@ -2237,13 +2237,13 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
                 'コマンド結果ID用受信Boxへ格納しておく
                 '※パーサー処理負荷を抑えるため、Json文字列まんまとします
-                AccumulatedCommandResults.Add ResultCommandID, CDPJsonString
+                AccumulatedAsyncResults.Add ResultCommandID, CDPJsonString
 
                 '格納件数チェックし、上限を超えたら、最古データを削除します
-                If AccumulatedCommandResults.Count > MaxCommandResults Then
+                If AccumulatedAsyncResults.Count > AccumulatedAsyncResultsLimit Then
                     ' 一番古いキーを取得して削除
-                    AccumulatedCommandResults.Remove AccumulatedCommandResults.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & MaxCommandResults & ", so the oldest has been deleted.", FromProcedureName
+                    AccumulatedAsyncResults.Remove AccumulatedAsyncResults.keys(0)
+                    printMsg info_, "The accumulation limit has exceeded " & AccumulatedAsyncResultsLimit & ", so the oldest has been deleted.", FromProcedureName
                 End If
             End If
         Else
@@ -3045,12 +3045,12 @@ Private Sub Class_Initialize()
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
     End With
 
-    'タイムアウト設定(デフォルトで、10s)
+    'タイムアウト設定(デフォルトで、30s)
     timerOut = 30
 
     '非同期でのコマンド結果を蓄積させる件数
-    Set AccumulatedCommandResults = New Dictionary
-    MaxCommandResults = 10
+    Set AccumulatedAsyncResults = New Dictionary
+    AccumulatedAsyncResultsLimit = 10
     '------------------------------------------------------------------------------
 
 
