@@ -1,0 +1,169 @@
+window.docsContent = window.docsContent || {};
+
+window.docsContent['cdp-demos'] = `
+    <h1>オリジナルでは出来なかった<span style="color:var(--accent-color)">新機能の紹介</span></h1>
+
+    <h2>デモ紹介1：【🎌日本語よ、こんにちは！🎌】もう、"\\uXXXX"の呪縛からは、さようなら。</h2>
+    <p>海外の優れたライブラリ群における長年の課題であった「マルチバイト（日本語）文字化け問題」を克服しました。</p>
+    
+    <div class="alert success">
+        <div class="alert-icon">✨</div>
+        <div class="alert-content">
+            <strong>UTF-8 直通ブリッジ</strong>
+            <p>シート上の設定（「常にUTF-8でCDP-Json送信」）を <code>ON</code> にするだけで、VBAとChromiumの間にUTF-8の安全な通信路を確立します。<br>
+            <code>\\u3046...</code> のような古代のUnicodeエスケープ呪文は不要になり、<code>"うみねこ！"</code> や絵文字 <code>"🐱"</code> まで、ありのままの文字列で送受信・要素検索できるようになります。</p>
+        </div>
+    </div>
+
+    <ul>
+        <li><strong>日本語のIDを持つ要素を探したい？</strong> 👉 <code>.getElementByID("var_身長")</code> と書くだけ。</li>
+        <li><strong>日本語の文字列を送りたい？</strong> 👉 <code>.notify "身長を入力しました"</code> と書くだけ。</li>
+        <li><strong>なんなら、絵文字だって？</strong> 👉 サロゲートペア絵文字を含め、何の問題もなく送受信可能！</li>
+    </ul>
+    
+    <details style="margin: 1.5rem 0; cursor: pointer;">
+    <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る</summary>
+    <pre><code class="language-vbnet">Sub JapaneseElementTest()
+    '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
+    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからの起動("https://keisan.site/exec/system/1161228728")
+    
+    ' 身長をセット
+    Dim height As CDPElement
+    Set height = Demo_Japanese.getElementByID("var_身長")
+    
+    '日本語と絵文字入力テスト
+    height.sendString "うみねこ！" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "みゃ～お！" & WorksheetFunction.Unichar(129442)  '日本語＋サロゲート・あ絵文字入力テスト(U+1F636 U+200D U+1F32B U+FE0F、U+1F9A2)
+    Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(129418)       '日本語＋絵文字通知表示テスト(U+1F98A)
+    Demo_Japanese.sleep 3
+
+    'ちゃんと数字で入力しなおす
+    height.sendString "170.5"
+    Demo_Japanese.notify "身長を入力し直しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語＋サロゲート・あ絵文字通知表示テスト(U+1F58D U+FE0F)
+    Demo_Japanese.sleep 3
+    
+    ' 体重をセット
+    Dim weight As CDPElement
+    Set weight = Demo_Japanese.getElementByID("var_体重")
+    weight.sendString "48.5"
+    Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語＋サロゲート・あ絵文字通知表示テスト(U+2696 U+FE0F)
+    Demo_Japanese.sleep 3
+
+    ' ボタンクリック
+    Demo_Japanese.getElementByID("executebtn").click
+    Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語＋絵文字通知表示テスト(U+1F9EE)
+    Demo_Japanese.sleep 3
+
+    ' 体脂肪率を取得
+    Dim 体脂肪率 As Double
+    体脂肪率 = Demo_Japanese.getElementByID("ans1").innerText
+    Debug.Print "体脂肪率は、" & 体脂肪率 & "% です。"
+
+    'ブラウザを閉じる。Demo終了
+    Demo_Japanese.quit
+End Sub</code></pre>
+    </details>
+
+    <hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+    <h2>デモ紹介2：<code>BrowserEvents</code> プロパティによる非同期イベントのキャプチャ機能</h2>
+    <p>ブラウザが絶え間なく発する「非同期イベント」という名の"魂のつぶやき"。<br>
+    本家の設計ではこれらは破棄されていましたが、当プロジェクトでは <code>BrowserEvents</code> プロパティによってすべてを完全にキャプチャ可能にしました。</p>
+
+    <div style="text-align: center; margin: 2rem 0;">
+        <img src="img/CDPイベントキャプチャのイメージ.png" alt="イベントキャプチャの図解" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+    </div>
+
+    <p>この機能により、<strong>「状態のセーブ＆ロード」</strong> を自由に行うことができます。<br>
+    イベントキャプチャを有効化、無効化（退避）、そして退避した状態からの再開といったダイナミックな制御が可能です。</p>
+
+    <details style="margin: 2rem 0; cursor: pointer;">
+    <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る</summary>
+    <pre><code class="language-vbnet">Sub ネットワークイベントの確認()
+    '必要な変換オブジェクトを用意
+    Dim JsonDicObj As New WebJsonConverter
+    Dim CharConvObj As New CharacterCodeConversion:
+    
+    '設定シートに基づくブラウザ立ち上げ
+    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動    
+    
+    // -------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = New Dictionary        ' "New Dictionary"を渡すことで、新規イベントキャプチャが可能になる。
+    
+    'ネットワークイベント受信を有効化する
+    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.invokeMethod("Network.enable")
+    
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
+
+    '先ほどのURL遷移で発生した非同期イベントを取り出し処理を行う
+    Demo_NetworkEvent.TakeEvents
+
+    'イベント情報をDownloadsフォルダに保存
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\\Downloads", "Event.json"
+
+    '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BrowserEvents  'セーブデータ作成
+    Set Demo_NetworkEvent.BrowserEvents = Nothing               ' "Nothing"を渡すことで、イベントを破棄するようになる
+
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
+
+    '先ほどのURL遷移で発生した非同期イベントを取り出し処理を行う
+    Demo_NetworkEvent.TakeEvents
+
+    'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\\Downloads", "NotEvent.json"
+
+    '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
+    Set Demo_NetworkEvent.BrowserEvents = SaveDataEvents        '既存のセーブデータを読み込む
+    
+    'URL遷移して、読み込み終わるまで待機
+    Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
+
+    '先ほどのURL遷移で発生した非同期イベントを取り出し処理を行う
+    Demo_NetworkEvent.TakeEvents
+
+    'イベント情報をDownloadsフォルダに保存
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\\Downloads", "EventFromSaveData.json"
+
+    'ブラウザを閉じる。Demo終了
+    Demo_NetworkEvent.quit
+End Sub</code></pre>
+    </details>
+
+    <h3 style="margin-top: 3rem;">Event.JSON構造解説：ブラウザの"記憶"を収めた巨大な「図書館」だ</h3>
+    <p>キャプチャで手に入るJSONデータは単なる羅列ではなく、綺麗に整理された図書館です。</p>
+
+    <div style="text-align: center; margin: 2rem 0;">
+        <img src="img/CDPのイベント格納イメージ.png" alt="保存されたJsonの構造イメージ" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+    </div>
+
+    <details style="margin: 1.5rem 0; cursor: pointer;">
+    <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Jsonの文字列の整形状態を見る場合はここをクリック</summary>
+    <div style="padding-top: 0.5rem; text-align: center;">
+        <img src="img/実際のCDPのイベント格納状態.png" alt="保存されたJsonの中身の構造イメージ" style="max-width:100%; height:auto; border-radius:8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+    </div>
+    </details>
+
+    <ul>
+        <li><strong><code>TotalEvents</code> (蔵書管理司書)</strong>: 全イベントの総数</li>
+        <li><strong><code>EventMethods</code> (索引の管理人)</strong>: イベントの種類（メソッド名）ごとの配列。
+            <ul>
+                <li>例: <code>"Network.requestWillBeSent": [ ... ]</code> (通信関係の本棚)</li>
+                <li>例: <code>"Target.targetInfoChanged": [ ... ]</code> (タブ状態変化の本棚)</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="alert">
+        <div class="alert-icon">⏱️</div>
+        <div class="alert-content">
+            <strong>【神の一手】 <code>__index__</code> (失われなかった時系列)</strong>
+            <p>各イベントには <code>__index__</code> という「全体で何番目に発生したか」を示すタイムスタンプ（蔵書番号）が付与されます。これにより、科目別に検索する"速さ"と、全体を貫く時系列の"正確さ"の両立を実現しました。</p>
+        </div>
+    </div>
+
+    <p style="margin-top: 2rem; text-align: center;">
+        <a href="#cdp-methods" onclick="loadContent('cdp-methods')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">独自の追加メソッドを見る →</a>
+    </p>
+`;
