@@ -780,11 +780,28 @@ Sub demoReattachmentPart2()
 '----------------------------------------------------------------------------------------
 
     Dim c As New CDPBrowser
+
+    '設定セルから、ユーザ名を取得
     With ShSetting01_StartBrowser
-        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value) = True Then c.navigate "https://wikipedia.com" _
-        Else Debug.Print "Failed to reattach. Perhaps the reattach profile CDP2 is incorrect?"
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
     End With
 
+    '1. まずは、既存のTargetIDに接続できるか？
+    If c.reattach(UserName) Then
+        '接続できたので、別ページに遷移して終了
+        c.navigate "https://wikipedia.com"
+        Exit Sub
+    Else
+        '既存のTargetIDが消えちゃったので、次のフェーズへ
+        Debug.Print "Failed to reattach. Connecting to the nearest unconnected tab from `Target.getTargets`."
+    End If
+
+    '2. 最も近い未接続のタブに接続します
+    c.getTab setMain:=True
+
+    '3．再接続できたので、別ページに遷移して終了
+    c.navigate "https://wikipedia.com"
 End Sub
 
 
