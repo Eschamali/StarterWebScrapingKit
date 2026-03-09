@@ -240,6 +240,9 @@ Public Sub deserialize(UserName As String)
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
+    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    If PipeInfo Is Nothing Then Exit Sub
+
     'クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
     hStderrOutRd = PipeInfo("hStderrOutRd")
