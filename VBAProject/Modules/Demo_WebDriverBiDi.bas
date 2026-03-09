@@ -9,6 +9,50 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                               ■■■ 設定プロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiCore
+'* 引数　　：StartURL                       ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'            SwtchUser                      マルチインスタンス用に別ユーザーを指定するときに使用します
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'***************************************************************************************************
+Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        '起動ブラウザ種類の設定
+        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
+
+        'ブラウザ起動
+        Set 設定シートからのBiDi起動 = New WebDriverBiDiCore
+        設定シートからのBiDi起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, sessionCapabilitiesRequest
+    End With
+End Function
+
+Sub BiDiによる冒険の始まり()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
+
+    '↓ここから、あなたのイメージをコードに落とし込む↓
+
+
+
+
+    'ブラウザを正常に閉じる
+    HelloWorldAutomationBrowser.quit
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ Demoプロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：イベントキャプチャに関するDemoコード(BiDi版)です
@@ -22,8 +66,8 @@ Sub ネットワークイベントの確認()
     Dim CharConvObj As New CharacterCodeConversion
     
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_NetworkEvent As New WebDriverBiDiCore
-    Demo_NetworkEvent.start
+    Dim Demo_NetworkEvent As WebDriverBiDiCore
+    Set Demo_NetworkEvent = 設定シートからのBiDi起動
     
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
     
@@ -121,7 +165,7 @@ Sub UseExtensions()
     End With
 
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim controlExtensions As New WebDriverBiDiCore
+    Dim controlExtensions As WebDriverBiDiCore
     
     '---- 拡張機能制御を有効化するオプションを作成 ---
     Dim caps As New Dictionary
@@ -134,14 +178,14 @@ Sub UseExtensions()
     '-------------------------------------------------
 
     ' 起動
-    controlExtensions.start , , caps
+    Set controlExtensions = 設定シートからのBiDi起動(sessionCapabilitiesRequest:=caps)
 
     '現在のコンテキストIDを取得する
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
     Set resultBiDi = controlExtensions.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
     '拡張機能のテストページ（もしくは任意のページ）へ遷移
@@ -224,7 +268,7 @@ Sub TestAlert()
     '---------------------------------------------------------------------
 
     'オプションを適用させて、指定URLから直接起動
-    Demo_alerts.start "https://www.selenium.dev/selenium/web/alerts.html", , caps
+    Set Demo_alerts = 設定シートからのBiDi起動("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
@@ -233,7 +277,7 @@ Sub TestAlert()
     Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザタブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
     'テスト入力文字列
@@ -343,10 +387,10 @@ End Sub
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
     Dim JsonDicObj As New WebJsonConverter
-    Dim bidiPlus As New WebDriverBiDiCore
+    Dim bidiPlus As WebDriverBiDiCore
     
     ' ブラウザ起動
-    bidiPlus.start
+    Set bidiPlus = 設定シートからのBiDi起動
 
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
 

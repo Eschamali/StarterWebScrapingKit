@@ -50,35 +50,40 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 '***************************************************************************************************
 '* 機能　　：初期化処理
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：StartURL                   最初の起動時に遷移したいURL
-'*           SwitchUser                 設定シートとは別のユーザディレクトリを指定するときに使います
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'            appUrl                         最初の起動時に遷移したいURL
+'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
+'                                           `False`:起動チェックをせずに、ブラウザを起動します
+'
+'            userProfile                    UserDataDir名を指定します
+'            addArgs                        追加の起動引数を設けます
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub start(Optional Name As String = "chrome", _
+    Optional appUrl As String, _
+    Optional cleanActive As Boolean = True, _
+    Optional userProfile As String, Optional addArgs As String, _
+    Optional sessionCapabilitiesRequest As Dictionary)
+
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. セルから設定を適用
-    Set m_CDPBrowser = 設定シートからの起動(StartURL, SwitchUser)
+    '1. 引数から設定を適用し、まずはCDPとして起動
+    Set m_CDPBrowser = New CDPBrowser
+    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs
 
     '2. BiDi-CDP Mapper を始動させます
-    Call StartBiDiCDPMapper
+    StartBiDiCDPMapper
 
     '3. BiDi との新しいセッションを確立する
     '※ここは、BiDi用のコマンドとして使用
     Dim resultBiDi As Dictionary
+    Set resultBiDi = BiDi_sessionNew(sessionCapabilitiesRequest)
 
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
-    If sessionCapabilitiesRequest Is Nothing Then
-        Set sessionCapabilitiesRequest = New Dictionary
-        sessionCapabilitiesRequest.Add "capabilities", New Dictionary
-    End If
-
-    '確立処理！
-    Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
+    '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
 
@@ -216,6 +221,24 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
     printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.new`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ResultSessionNew   `session.new`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`BiDi-CDP Mapper`を始動後は、これを必ず実行しないと、BiDiコマンドの結果が返りません
+'***************************************************************************************************
+Private Function BiDi_sessionNew(Optional params As Dictionary) As Dictionary
+    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    If params Is Nothing Then
+        Set params = New Dictionary
+        params.Add "capabilities", New Dictionary
+    End If
+
+    '確立処理！
+    Set BiDi_sessionNew = invokeMethod("session.new", params)
+End Function
 
 
 
@@ -960,7 +983,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テーブルに格納した分割文字列を結合して返却します
 '***************************************************************************************************
-Function Take_mapperTabJSstring() As String
+Private Function Take_mapperTabJSstring() As String
     Dim tmp2
     Dim chunkNum As Long
 
