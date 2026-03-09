@@ -441,6 +441,10 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ アップデートDemo ■■■
 '***************************************************************************************************
+'* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：ローカルファイル(オフライン) or NPM(jsdelivr-オンライン)経由による2パターンを提供します
+'***************************************************************************************************
 Private Sub ローカルファイルで更新()
     '1. ファイルパスを、ダイアログで指定
     Dim UpdateFilePath As String
@@ -470,13 +474,14 @@ Private Sub npm経由で更新()
     Dim UpdateBiDi As New WebDriverBiDiCore
     With ShLibrary01_JS
         '1. 現在のバージョン確認
-        Dim mapperTab_Version As String: mapperTab_Version = UpdateBiDi.UpdateCheckNPMVersion
-        If mapperTab_Version = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です": Exit Sub
+        Dim mapperTab_npmVersion        As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
+        Dim mapperTab_WorkSheetVersion  As Range: Set mapperTab_WorkSheetVersion = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新"))
+        If mapperTab_npmVersion = mapperTab_WorkSheetVersion.value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetVersion & ")": Exit Sub
 
         '2. npmで更新
-        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
+        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
 
-        '3. バージョンを記録
-        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value = mapperTab_Version
+        '3. バージョンをワークシートに記録
+        mapperTab_WorkSheetVersion.value = mapperTab_npmVersion
     End With
 End Sub
