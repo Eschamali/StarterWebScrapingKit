@@ -439,6 +439,67 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ リアタッチDemo ■■■
+'***************************************************************************************************
+'* 機能　　：複数プロシージャをまたがった段階的な処理を行う際の再接続Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
+'            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'***************************************************************************************************
+Sub demoReattachmentPart1()
+    ' 起動
+    Dim First As WebDriverBiDiCore
+    Set First = 設定シートからのBiDi起動
+
+    '現在のコンテキストIDを取得する
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = First.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+    End If
+
+    'GoogleTopページへ遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "https://www.google.com/"
+    paramsBiDi.Add "wait", "complete"
+    First.invokeMethod "browsingContext.navigate", paramsBiDi
+End Sub
+
+Sub demoReattachmentPart2()
+    '設定セルから、ユーザ名を取得
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+    End With
+
+    ' リアタッチとして起動
+    Dim Reattachment As New WebDriverBiDiCore
+    Dim ResultReattach As Boolean
+    ResultReattach = Reattachment.reattach(UserName)
+
+    If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+
+    '現在のコンテキストIDを取得する
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = Reattachment.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+    End If
+
+    'wikipediaページへ遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "https://wikipedia.com"
+    paramsBiDi.Add "wait", "complete"
+    Reattachment.invokeMethod "browsingContext.navigate", paramsBiDi
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ アップデートDemo ■■■
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
