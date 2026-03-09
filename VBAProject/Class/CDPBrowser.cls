@@ -3046,7 +3046,7 @@ Private Sub Class_Initialize()
     End With
 
     'タイムアウト設定(デフォルトで、10s)
-    timerOut = 10
+    timerOut = 30
 
     '非同期でのコマンド結果を蓄積させる件数
     Set AccumulatedCommandResults = New Dictionary
