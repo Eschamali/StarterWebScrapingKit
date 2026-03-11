@@ -34,7 +34,7 @@ Private timerOut                    As Long         '同期BiDiコマンドし�
 Private ViewDebugTab                As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
 
 
-Private Const ThisClassName As String = "BiDiCore"                      'ログのトレース用
+Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
 Private Const MapperURL     As String = "about:blank#WebDriverBiDiCore" '`BiDi-CDP Mapper`の目印URL
 
 'nmp情報
@@ -44,6 +44,9 @@ Private Const npmName       As String = "chromium-bidi"
 'BiDiからのイベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+
+'非同期イベント発火
+Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
 
 
 
@@ -577,6 +580,8 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
     If GetContentsMethod(BiDiJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
+        'VBAでのイベント発火を行う
+        RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
         If (m_Events Is Nothing) And (InternalUseMessages Is Nothing) Then
