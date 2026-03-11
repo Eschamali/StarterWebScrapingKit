@@ -149,6 +149,9 @@ Private Const TIMEOUT_NAVIGATE As Single = 45
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
+'非同期イベント発火
+Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
+
 'BiDiでのやりとりの核となるイベント名
 Private Const BiDiForEventName As String = "Runtime.bindingCalled"
 
@@ -2185,6 +2188,9 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     '--------- 1. ブラウザからのイベントか？ ---------
     If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
+
+        'VBAでのイベント発火を行う
+        RaiseEvent detectionCDPEvent(AsynchronousEventName, CDPJsonString)
 
         'BiDiモードなら、特定のイベント名を別途、格納しておく
         '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
