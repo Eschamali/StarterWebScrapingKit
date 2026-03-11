@@ -1935,10 +1935,14 @@ RetrySend:
         '返り値チェック
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-8           Set SendMessage = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)
+            Dim tmp As Dictionary
+8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
-            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
-9           If Not (SendMessage Is Nothing) Then ResultSendCommand = True
+            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
+9           If Not (tmp Is Nothing) Then
+                ResultSendCommand = True
+                Set SendMessage = tmp
+            End If
         Else
             'データなしの場合は念のため、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then

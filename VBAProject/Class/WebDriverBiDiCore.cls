@@ -402,10 +402,14 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         '受信数check
         If CurrentBiDiCol.Count Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Set SendMessage = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)
+            Dim tmp As Dictionary
+            Set tmp = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
-            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
-             ResultSendCommand = (Not (SendMessage Is Nothing))
+            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
+            If Not (tmp Is Nothing) Then
+                ResultSendCommand = True
+                Set SendMessage = tmp
+            End If
         Else
             printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
         End If
