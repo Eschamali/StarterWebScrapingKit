@@ -790,9 +790,20 @@ Private Function invokeError(ResultsObj As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".invokeError"
 
 
-    'BiDiコマンドエラーは "type":"error" で返る
     Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
-    If ResultsObj("type") = "error" Then
+    '結果が空っぽになってる場合は、タイムアウトエラーか、コードのミスの可能性
+    If ResultsObj Is Nothing Then
+        'ログを出しておく
+        ErrorType = "error" 'arbitrary nonzero value, may change in future
+        ErrorMessage = "Timeout or No results"
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
+
+        'エラーフラグを立てる
+        invokeError = True
+        Set m_ErrorDetails = m_JsonConverter.ParseJson("{""type"":" & ErrorType & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
+
+    'BiDiコマンドエラーは "type":"error" で返る
+    ElseIf ResultsObj("type") = "error" Then
         'エラーを残す
         Set m_ErrorDetails = ResultsObj
 
