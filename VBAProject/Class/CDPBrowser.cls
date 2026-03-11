@@ -1848,6 +1848,42 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
     End If
 End Property
 
+'***************************************************************************************************
+'* 機能　　：このClassで起動したブラウザのウィンドウハンドルを取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：requestUpdate      `True` :必ずウィンドウハンドルを調査したうえで、ウィンドウハンドルを取得します
+'                               `False`:既存の値があればそれを流用し、なければ再調査します
+'* 返値    ：ブラウザのウィンドウハンドル
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このハンドルを使った高度なウィンドウの調整などができます
+'***************************************************************************************************
+Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
+    If alwaysRequest Then
+        BrowserWindowHandle = getHandle
+    Else
+        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
+        If brHWnd Then BrowserWindowHandle = brHWnd Else BrowserWindowHandle = getHandle
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassで起動したブラウザのウィンドウIDを取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：requestUpdate      `True` :必ずウィンドウIDを調査したうえで、ウィンドウIDを取得します
+'                               `False`:既存の値があればそれを流用し、なければ再調査します
+'* 返値    ：ブラウザのウィンドウID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このIDを使ったCDP-Jsonとしてのウィンドウ調整("Browser.setWindowBounds"等)ができます
+'***************************************************************************************************
+Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
+    If alwaysRequest Then
+        BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+    Else
+        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
+        If brWID Then BrowserWindowID = brWID Else BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+    End If
+End Property
+
 
 
 '***************************************************************************************************
