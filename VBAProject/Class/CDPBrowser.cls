@@ -285,7 +285,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
     'Edge特有のキオスクモードを設定します -------------------------------------------------------------------------------------------------------------
     '※Chromeは、Edgeほど調整できないため、同じ引数にします
-    Select Case StartMode
+    Select Case KioskMode
         Case edgeKioskType.fullscreen: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
         Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
     End Select

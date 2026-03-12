@@ -57,7 +57,7 @@ Public Function 設定シートからのCDP起動(Optional StartURL As String, O
 
         'ブラウザ起動
         Set 設定シートからのCDP起動 = New CDPBrowser
-        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, edgeKioskType
+        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
     End With
 End Function
 
