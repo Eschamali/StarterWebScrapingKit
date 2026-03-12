@@ -132,9 +132,9 @@ Public Enum TargetgetTargetsType
 End Enum
 
 Public Enum edgeKioskType
-    none
-    fullscreen
-    publicBrowsing
+    none            'キオスクモードなしの通常起動
+    fullscreen      'キオスクモード デジタル/対話型サイネージ
+    publicBrowsing  'キオスクモードのパブリック ブラウジング
 End Enum
 
 
@@ -307,7 +307,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Set core = New CDPCore
     brCallString = strCall
     printMsg Debug_, "Starting pipe communication... → " & brCallString, FromProcedureName
-    intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
+    intRes = core.Init(brCallString, KioskMode) 'Serializable is set to True by default for ease of accessibility
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     lngLastID = 1 'reset the pipe message ID
    '-----------------------------------------------------------------------------------------------------------------------------------

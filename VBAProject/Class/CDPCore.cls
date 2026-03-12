@@ -154,9 +154,7 @@ End Type
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
 Private Const STARTF_USESHOWWINDOW As Long = &H1&
-Private Const SW_SHOWMINIMIZED = 2
-Private Const SW_SHOWMAXIMIZED = 3
-Private Const SW_RESTORE = 9
+Private Const SW_SHOWMINNOACTIVE = 7
 
 '===================================
 ' Shared Variables
@@ -253,7 +251,7 @@ Public Sub deserialize(UserName As String)
 
 End Sub
 
-Public Function Init(strExec As String) As Long
+Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -330,7 +328,7 @@ Public Function Init(strExec As String) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = setShowWindow
+        .wShowWindow = IIf(KioskMode, SW_SHOWMINNOACTIVE, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
