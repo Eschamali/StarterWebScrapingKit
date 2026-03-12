@@ -389,6 +389,31 @@ Sub TestAlert()
     End With
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：WebView2を使わず、ブラウザそのものを、ExcelUserFromに埋め込み、疑似WebView2を表現します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2らしさを追及するべく、キオスクモードで立ち上げ、URL遷移のみのユーザーフォームを起動します
+'* 注意事項：Edgeへの入力フォーカスが正しく認識できないため現状は、特定領域でのマウスフォーカスで妥協してます
+'***************************************************************************************************
+Sub ExcelのユーザーフォームにEdgeを埋め込む()
+    '1. CDPでEdgeを起動
+    Dim 実質WebView2 As CDPBrowser: Set 実質WebView2 = 設定シートからのCDP起動(KioskMode:=fullscreen)
+    実質WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"      'このツールのリポジトリURLとして、遷移します
+
+    '2. フォームをロード（まだ表示はしない）
+    Load EdgeInExcelForm
+
+    '3. 誘拐（ドッキング）処理を実行させる！
+    実質WebView2.sleep  'ちょこっとクールタイム
+    If Not (EdgeInExcelForm.AttachEdge(実質WebView2)) Then MsgBox "Edgeのハンドル情報の取得に失敗しました", vbCritical: Exit Sub
+
+    '4. フォームを表示
+    EdgeInExcelForm.show
+
+    '5. ブラウザを正常に閉じる
+    実質WebView2.quit
+End Sub
+
 Sub runEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
