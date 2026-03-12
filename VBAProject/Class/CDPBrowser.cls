@@ -131,6 +131,14 @@ Public Enum TargetgetTargetsType
     iFrame
 End Enum
 
+Public Enum edgeKioskType
+    none
+    fullscreen
+    publicBrowsing
+End Enum
+
+
+
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
@@ -206,7 +214,7 @@ Private OnlyMessage__Runtime_bindingCalled  As Collection    'ブラウザから
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
-    Optional userProfile As String, Optional addArgs As String)
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
 '--------------------------------------------------------------------------------------------------------------
 ' This function initiates a new browser instance.
 ' By default, this function initializes chrome as the default choice.
@@ -273,6 +281,14 @@ Public Sub start(Optional Name As String = "chrome", _
     End Select
     strCall = strCall & addProfile
     brUser = userProfile 'store the user profile name for cpid serialization
+   '-----------------------------------------------------------------------------------------------------------------------------------------
+
+    'Edge特有のキオスクモードを設定します -------------------------------------------------------------------------------------------------------------
+    '※Chromeは、Edgeほど調整できないため、同じ引数にします
+    Select Case StartMode
+        Case edgeKioskType.fullscreen: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
+        Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
+    End Select
    '-----------------------------------------------------------------------------------------------------------------------------------------
 
    'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------

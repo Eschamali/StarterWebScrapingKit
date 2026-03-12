@@ -62,6 +62,10 @@ Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
 '
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
+'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
+'                                           1      ：キオスクモード デジタル/対話型サイネージ
+'                                           2      ：キオスクモード パブリック ブラウジング
+'
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
@@ -70,7 +74,7 @@ Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
-    Optional userProfile As String, Optional addArgs As String, _
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
     Const FromProcedureName As String = ThisClassName & ".start"
@@ -78,7 +82,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
     '1. 引数から設定を適用し、まずはCDPとして起動
     Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs
+    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
 
     '2. BiDi-CDP Mapper を始動させます
     StartBiDiCDPMapper

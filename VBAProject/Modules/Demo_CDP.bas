@@ -37,11 +37,15 @@ Option Explicit
 '                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
 '
 '            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します
+'            KioskMode  0(省略)：通常モード(キオスクモードは使いません)
+'                       1      ：キオスクモード デジタル/対話型サイネージ
+'                       2      ：キオスクモード パブリック ブラウジング
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'            ・Chromeにもキオスクモードはありますが、Edgeほど引数での調整はありません
 '***************************************************************************************************
-Public Function 設定シートからのCDP起動(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
+Public Function 設定シートからのCDP起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
@@ -53,7 +57,7 @@ Public Function 設定シートからのCDP起動(Optional StartURL As String, O
 
         'ブラウザ起動
         Set 設定シートからのCDP起動 = New CDPBrowser
-        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value
+        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, edgeKioskType
     End With
 End Function
 
