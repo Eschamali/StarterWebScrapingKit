@@ -390,16 +390,24 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
 
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer As String
-        Dim L As Long
+        Dim Buffer() As Byte
         Dim bSuccess As Long
-        Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
 
         '0以外なら成功です
         If bSuccess Then
-            strData = Buffer
-            readProcCDP = Len(strData)
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
+            readProcCDP = lPeekData
         Else
             'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
             Err_ReadFile = Err.LastDllError
