@@ -1450,12 +1450,12 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
 End Sub
 
-Public Sub pageEnable()
+Public Sub pageEnable(Optional enable As Boolean = True)
 '----------------------------------------------------------------------------------
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    invokeMethod "Page.enable"
+    invokeMethod IIf(enable, "Page.enable", "Page.disable")
 
 End Sub
 
