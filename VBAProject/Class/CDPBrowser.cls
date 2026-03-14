@@ -2162,20 +2162,18 @@ End Function
 '* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
 '---------------------------------------------------------------------------------------------------
 '* 実質返値：Accumulator
-'* 引数　　：Accumulator    これまでの格納イベント。
-'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'* 引数　　：Accumulator        これまでの格納イベント。
+'            eventData          Json-Dictionry済みのブラウザからのイベントデータ
+'            EventMethodName    イベント名
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
 '            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, EventMethodName As String)
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
-
-    'イベント名を取得
-    Dim EventMethodName As String: EventMethodName = eventData("method")
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
@@ -2353,7 +2351,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
         printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived objAllMessages, JsonDictionaryObj
+        OnNewEventReceived objAllMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 
     'プライベート(クラス内変数)用
@@ -2361,7 +2359,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
         printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj
+        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 End Function
 
