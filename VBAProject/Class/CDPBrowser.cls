@@ -101,6 +101,10 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, _
     ByRef pSessionId As Long) As Long
 
+Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
+    ByVal hWnd As LongPtr, _
+    lpdwProcessId As Long) As Long
+
 '===================================
 ' Constants
 '===================================
@@ -2610,8 +2614,16 @@ Private Function getHandle() As LongPtr
     'Both Edge and Chrome use the same class chromeWindowClass
     hWnd = FindWindowEx(0&, 0&, StrPtr(chromeWindowClass), 0&)        'To return Chrome / Edge window handles
     Do
+        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
+        Dim currentPID As Long
+        GetWindowThreadProcessId hWnd, currentPID
 
-        'Get Window Title based on specified handles
+        '2. プロセスIDが、探しているブラウザのものと一致するか？
+        If currentPID = core.dwProcessId Then
+            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
+            getHandle = hWnd
+
+            '3. Get Window Title based on specified handles
             'Requires string buffering declaration as string
             bufferString = String(1024, " ")
             titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
@@ -2619,12 +2631,12 @@ Private Function getHandle() As LongPtr
 
             'Verify if matching with the sessionTitle and is really an edge/chrome window
             If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+        End If
 
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)      'Continue with the next handle value
+        'Continue with the next handle value
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)
 
     Loop Until hWnd = 0 ' no more matching windows
-
-    getHandle = hWnd
 
 End Function
 
