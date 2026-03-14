@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} EdgeInExcelForm 
    Caption         =   "EdgeInUserForm"
-   ClientHeight    =   8280.001
+   ClientHeight    =   8295.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   14745
+   ClientWidth     =   15000
    OleObjectBlob   =   "EdgeInExcelForm.frx":0000
    StartUpPosition =   1  'オーナー フォームの中央
 End
@@ -180,7 +180,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Frameの外周にあたるUserformに、マウスが触れると、Edgeにフォーカスがあたります
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：前者は、Frame枠周辺全域、後者は特定のラベルエリアのみとなります
+'* 詳細説明：前者は、Frame枠外周全域、後者は特定のラベルエリアのみとなります
 '* 注意事項：・利用ユーザーが「電流イライラ棒裏技wazappu」のプロフェッショナルで、光速で堀(UserForm領域イベント)をすり抜けて城(Edge)をクリックした場合、フォーカス移動検知が間に合わず「文字が入力できない」という現象が発生することを懸念してください
 '            ・イベント検知領域が、別ウィンドウと重なって、直でEdge領域に行っても失敗します
 '***************************************************************************************************
@@ -190,6 +190,7 @@ End Sub
 
 Private Sub Notice_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal x As Single, ByVal y As Single)
     Call attachToEdgeFocus
+    Call FocusNotify        'ついでに通知もしておく
 End Sub
 
 '***************************************************************************************************
@@ -249,6 +250,22 @@ Private Sub bringToForeground(ByVal hWndTop As LongPtr)
     SetActiveWindow hWndTop  ' アクティブ化（前面でないと効かないことがある）
 
     If tidFG <> tidMe Then AttachThreadInput tidMe, tidFG, 0
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：フォーカスした旨のステータスを表示させます
+'***************************************************************************************************
+Private Sub FocusNotify()
+    Me.focusNotice.Visible = True
+    DoEvents
+
+    Dim endTime As Single
+    endTime = Timer + 1
+    Do While Timer < endTime
+        DoEvents ' これを入れないとExcelがフリーズしてイベントが拾えない！
+    Loop
+
+    Me.focusNotice.Visible = False
 End Sub
 
 
