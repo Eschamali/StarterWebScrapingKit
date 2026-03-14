@@ -35,11 +35,11 @@ Private ViewDebugTab                As Boolean      '「BiDi-CDP Mapper is contr
 
 
 Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
-Private Const MapperURL     As String = "about:blank#WebDriverBiDiCore" '`BiDi-CDP Mapper`の目印URL
+Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
 
 'nmp情報
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
-Private Const npmName       As String = "chromium-bidi"
+Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
 'BiDiからのイベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
@@ -90,7 +90,7 @@ Public Sub start(Optional Name As String = "chrome", _
     '3. BiDi との新しいセッションを確立する
     '※ここは、BiDi用のコマンドとして使用
     Dim resultBiDi As Dictionary
-    Set resultBiDi = BiDi_sessionNew(sessionCapabilitiesRequest)
+    Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
     '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
@@ -141,7 +141,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
                 '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
                 printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
-                ViewNewSession BiDi_sessionNew(sessionCapabilitiesRequest)
+                ViewNewSession sessionNew(sessionCapabilitiesRequest)
             End If
 
         Else
@@ -156,7 +156,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
             '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
             printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
-            ViewNewSession BiDi_sessionNew(sessionCapabilitiesRequest)
+            ViewNewSession sessionNew(sessionCapabilitiesRequest)
         End If
     Else
         '2. 既知タブ自体が失ってるので、新規タブで始動しなおす
@@ -165,13 +165,13 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
         '3. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
         printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
-        ViewNewSession BiDi_sessionNew(sessionCapabilitiesRequest)
+        ViewNewSession sessionNew(sessionCapabilitiesRequest)
     End If
 
     '6. セッション一覧を取得して、既存のものがあるか確認する
     ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
     Dim resultBiDi As Dictionary
-    Set resultBiDi = invokeMethod("session.status")
+    Set resultBiDi = sessionStatus
 
     '7. mapperTab.js の仕様に沿った確認に従う
     If resultBiDi.Exists("ready") Then
@@ -261,11 +261,14 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：BiDiコマンド、`session.new`を実行します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：ResultSessionNew   `session.new`時の結果Dictionaryオブジェクト
+'* 返値　　：`session.new`時の結果Dictionaryオブジェクト
+'* 引数    ：params     `session.new`の`Parameters`
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`BiDi-CDP Mapper`を始動後は、これを必ず実行しないと、BiDiコマンドの結果が返りません
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
-Private Function BiDi_sessionNew(Optional params As Dictionary) As Dictionary
+Private Function sessionNew(Optional params As Dictionary) As Dictionary
     '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
@@ -273,7 +276,21 @@ Private Function BiDi_sessionNew(Optional params As Dictionary) As Dictionary
     End If
 
     '確立処理！
-    Set BiDi_sessionNew = invokeMethod("session.new", params)
+    Set sessionNew = invokeMethod("session.new", params)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.status`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.status`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ソースコード上、結果は常に、「{ready: false, message: 'already connected'}」となります
+'            →src\bidiMapper\modules\session\SessionProcessor.ts:47
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
+'***************************************************************************************************
+Private Function sessionStatus() As Dictionary
+    Set sessionStatus = invokeMethod("session.status")
 End Function
 
 
