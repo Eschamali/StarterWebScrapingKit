@@ -127,20 +127,6 @@ Private Sub AdjustEdgeSize()
     ' APIを使って、EdgeのウィンドウをFrameの左上(0,0)にピッタリはめ込む！
     ' (Frameの中にSetParentされているので、0,0はFrameの左上を意味します)
     MoveWindow EdgeHwnd, 0, 0, pxWidth, pxHeight, 1
-    'MoveWindow EdgeHwnd, -7, -31, pxWidth + 14, pxHeight + 31 + 7, 1
-End Sub
-
-Public Sub AdjustEdgeSizeMemo()
-    ' 係数 1.333 は ポイント(VBA) → ピクセル(API) の標準的な変換レートです
-    ' 画面のDPI設定によってはズレる場合があるので、微調整してください
-    Dim pxWidth As Long
-    Dim pxHeight As Long
-    
-    pxWidth = Me.InsideWidth * 1.333
-    pxHeight = Me.InsideHeight * 1.333
-
-    ' Edgeを左上(0,0)に配置し、フォームの大きさに合わせる
-    MoveWindow EdgeHwnd, -7, -31, pxWidth + 14, pxHeight + 31 + 7, 1
 End Sub
 
 
