@@ -263,7 +263,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
     Dim pipes As STDIO_BUFFER
     Dim pipes2 As STDIO_BUFFER2
  
-   'First we create all 4 pipes
+   'First we create all 5 pipes
    'We start with stdout of the edge process
     sa.nLength = LenB(sa)
     sa.bInheritHandle = 1&
