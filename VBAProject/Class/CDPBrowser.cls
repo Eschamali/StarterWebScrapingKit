@@ -1427,7 +1427,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
 End Sub
 
-Public Sub handleDialog(Accept As Boolean, Optional promptText As Variant)
+Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 '----------------------------------------------------------------------------------
 ' Accepts or dismisses a JavaScript initiated dialog (alert, confirm, prompt, or
 ' onbeforeunload). accept = True to accept the dialog, else dimiss it. promptText
@@ -1441,7 +1441,7 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As Variant)
     Dim params As New Scripting.Dictionary
 
     params("accept") = CBool(Accept)
-    If Not IsMissing(promptText) Then params("promptText") = CStr(promptText)
+    If StrPtr(promptText) Then params("promptText") = promptText
     invokeMethod "Page.handleJavaScriptDialog", params
 
 End Sub
@@ -2612,13 +2612,13 @@ Private Function getHandle() As LongPtr
     Do
 
         'Get Window Title based on specified handles
-        'Requires string buffering declaration as string
-        bufferString = String(1024, " ")
-        titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
-        windowTitle = Left(bufferString, titleLen)
+            'Requires string buffering declaration as string
+            bufferString = String(1024, " ")
+            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
+            windowTitle = Left(bufferString, titleLen)
 
-        'Verify if matching with the sessionTitle and is really an edge/chrome window
-        If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+            'Verify if matching with the sessionTitle and is really an edge/chrome window
+            If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
 
         hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)      'Continue with the next handle value
 
