@@ -68,7 +68,9 @@ Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
         Case 7: UseRangeName = "イミディエイトに表示"
         Case 8: UseRangeName = "ブラウザから受信した生のJSONをイミディエイトに表示"
         Case 9: UseRangeName = "ログファイル保存"
-        Case 10: UseRangeName = "常にUTF8で送信"
+        Case 10: UseRangeName = "常にUTF8で送受信"
+        Case 11: UseRangeName = "BiDi_CDP_Mapperタブを表示"
+        Case 12: UseRangeName = "起動モード"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Property
@@ -96,6 +98,7 @@ End Property
 '            ErrorSource    この関数を呼び出したソース
 '            SetArray       追加するデータ配列
 '---------------------------------------------------------------------------------------------------
+'* 機能説明：`lngLastID`,`sessionID`,`targetID`といった順番で、ブラウザセッションテーブルに一括記録します
 '* 注意事項：・`SetArray`は、2次元配列にする必要があります
 '            ・同名ユーザーの場合は、上書きします
 '***************************************************************************************************
@@ -155,6 +158,7 @@ End Property
 '            ErrorSource    この関数を呼び出したソース
 '            SetValue       上書きするデータ
 '---------------------------------------------------------------------------------------------------
+'* 機能説明：UserNameに紐づく、`lngLastID`,`sessionID`,`targetID`のいずれかを指定して、ブラウザセッションテーブルを更新します
 '* 注意事項：・新規追加はできません。既存データのみ有効です
 '            ・ハンドル情報管理テーブルは非対応です
 '***************************************************************************************************

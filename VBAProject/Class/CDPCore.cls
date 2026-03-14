@@ -154,9 +154,7 @@ End Type
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
 Private Const STARTF_USESHOWWINDOW As Long = &H1&
-Private Const SW_SHOWMINIMIZED = 2
-Private Const SW_SHOWMAXIMIZED = 3
-Private Const SW_RESTORE = 9
+Private Const SW_SHOWMINNOACTIVE = 7
 
 '===================================
 ' Shared Variables
@@ -173,6 +171,7 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
+Private setShowWindow As Integer
 Public dwProcessId As LongPtr 'プロセスID
 Private Utf8Converter As CharacterCodeConversion
 
@@ -239,6 +238,9 @@ Public Sub deserialize(UserName As String)
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
+    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    If PipeInfo Is Nothing Then Exit Sub
+
     'クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
     hStderrOutRd = PipeInfo("hStderrOutRd")
@@ -249,7 +251,7 @@ Public Sub deserialize(UserName As String)
 
 End Sub
 
-Public Function Init(strExec As String) As Long
+Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -261,7 +263,7 @@ Public Function Init(strExec As String) As Long
     Dim pipes As STDIO_BUFFER
     Dim pipes2 As STDIO_BUFFER2
  
-   'First we create all 4 pipes
+   'First we create all 5 pipes
    'We start with stdout of the edge process
     sa.nLength = LenB(sa)
     sa.bInheritHandle = 1&
@@ -326,7 +328,7 @@ Public Function Init(strExec As String) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = SW_SHOWMINIMIZED 'minimize the window at start
+        .wShowWindow = IIf(KioskMode, SW_SHOWMINNOACTIVE, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -388,16 +390,24 @@ Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As 
 
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer As String
-        Dim L As Long
+        Dim Buffer() As Byte
         Dim bSuccess As Long
-        Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
 
         '0以外なら成功です
         If bSuccess Then
-            strData = Buffer
-            readProcCDP = Len(strData)
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
+            readProcCDP = lPeekData
         Else
             'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
             Err_ReadFile = Err.LastDllError
@@ -494,5 +504,6 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
+        setShowWindow = .Range(.UseRangeName(12, "CDPCore.Class_Initialize")).value
     End With
 End Sub
