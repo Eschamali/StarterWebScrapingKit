@@ -4,7 +4,7 @@ window.docsContent['bidi-story'] = `
   <article class="story-article">
     <header class="story-header">
       <div class="story-tag">👾 登場秘話</div>
-      <h1>なぜ <code>WebDriver.exe</code> なしで<br>ブラウザ自動化ができると<span class="story-highlight">わかったのか</span></h1>
+      <h1>なぜ <code>WebDriverBiDi.exe</code> なしで<br>ブラウザ自動化ができると<span class="story-highlight">わかったのか</span></h1>
       <p class="story-subtitle">〜公式ドライバーの闇を暴いた、土日の記録〜</p>
     </header>
 
