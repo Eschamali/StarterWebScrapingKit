@@ -254,9 +254,10 @@ Public Sub ProcessMessages(Optional ByVal iterations As Long = 100)
     Next i
     DoEvents
 
-    ' State 1: Environment が揃ったら Controller 作成をここ（VBA メインスレッド）で実行
-    ' ※コールバック内から呼ぶと再入問題が起きるため、メインループから呼ぶ
+    ' State 1: Environment → Controller 作成
     If m_State = 1 Then BeginControllerCreation
+    ' State 2: Controller → 表示・WebView2取得
+    If m_State = 2 Then FinishWebViewSetup
 End Sub
 
 Public Sub SetVisible(ByVal isVisible As Boolean)
@@ -354,6 +355,9 @@ End Sub
 '----------------------------------------------------------------------
 ' CB_ControllerCreated
 '   WV2_CtrlCB_Invoke → ここへ委譲。
+'   ※ コールバック内での COM 呼び出しは VBE7.DLL クラッシュの原因になるため、
+'     pCtrl を保存して m_State=2 をセットするだけにする。
+'     実際の表示処理は ProcessMessages → FinishWebViewSetup で行う。
 '----------------------------------------------------------------------
 Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
     Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & errorCode & ", pCtrl=" & Hex(pCtrl)
@@ -363,29 +367,33 @@ Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
         RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
         Exit Sub
     End If
-
     COM_AddRef pCtrl
     m_pController = pCtrl
+    m_State = 2     ' → FinishWebViewSetup へのシグナル
+End Sub
 
-    ' 表示領域設定
-    COM_SetBounds pCtrl, m_Bounds
+'----------------------------------------------------------------------
+' FinishWebViewSetup（ProcessMessages から呼ばれる）
+'   put_Bounds / put_IsVisible / get_CoreWebView2 を VBA メインスレッドで実行
+'----------------------------------------------------------------------
+Private Sub FinishWebViewSetup()
+    m_State = 99    ' 二重呼び出し防止
+    Debug.Print "[WV2] FinishWebViewSetup: pController=0x" & Hex(m_pController)
 
-    ' 表示ON
-    COM_DispCallLong1 pCtrl, OFF_CTRL_put_IsVisible, 1
+    ' 表示領域設定 / 表示ON
+    COM_SetBounds m_pController, m_Bounds
+    COM_DispCallLong1 m_pController, OFF_CTRL_put_IsVisible, 1
 
     ' ICoreWebView2 本体を取得
     Dim pWV2 As LongPtr
-    Dim argT(0) As Integer
-    Dim argP(0) As LongPtr
-    argT(0) = vbLongLong: argP(0) = VarPtr(pWV2)
+    Dim argT(0) As Integer: argT(0) = vbLongLong
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(pWV2)
     Dim retV As Variant
-    DispCallFunc pCtrl, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
+    DispCallFunc m_pController, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
     m_pWebView2 = pWV2
-    m_State = 2
-    Debug.Print "[WV2] WebView2 ready! pWV2=" & Hex(m_pWebView2)
+    Debug.Print "[WV2] WebView2 ready! pWV2=0x" & Hex(m_pWebView2)
 
     RaiseEvent Ready
-
     If Len(m_InitialUrl) > 0 Then Navigate m_InitialUrl
 End Sub
 
