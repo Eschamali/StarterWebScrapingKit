@@ -100,13 +100,17 @@ Private Const PTR_SIZE    As Long = 8   ' 64bit ポインタ = 8バイト
 Private Const PM_REMOVE   As Long = 1   ' PeekMessage フラグ
 
 ' --- ICoreWebView2Environment vtable オフセット (index × PTR_SIZE) ---
-Private Const OFF_ENV_CreateController As Long = 3 * 8   ' = 24
+Private Const OFF_ENV_CreateController As Long = 3 * 8   ' = 24  index 3
 
 ' --- ICoreWebView2Controller vtable オフセット ---
-Private Const OFF_CTRL_get_CoreWebView2 As Long = 3 * 8  ' = 24
-Private Const OFF_CTRL_put_IsVisible    As Long = 5 * 8  ' = 40
-Private Const OFF_CTRL_put_Bounds       As Long = 7 * 8  ' = 56 (x64ではポインタ渡し)
-Private Const OFF_CTRL_Close            As Long = 25 * 8 ' = 200
+' 正規 ICoreWebView2Controller vtable (IUnknown 3本 + 以下の順):
+'   [3] get_IsVisible  [4] put_IsVisible  [5] get_Bounds   [6] put_Bounds
+'   [7] get_ZoomFactor [8] put_ZoomFactor [9] add_ZoomFactorChanged ...
+'   [24] Close         [25] get_CoreWebView2
+Private Const OFF_CTRL_get_CoreWebView2 As Long = 25 * 8 ' = 200  index 25
+Private Const OFF_CTRL_put_IsVisible    As Long = 4 * 8  ' = 32   index 4
+Private Const OFF_CTRL_put_Bounds       As Long = 6 * 8  ' = 48   index 6 (x64: RECT 16byte → ポインタ渡し)
+Private Const OFF_CTRL_Close            As Long = 24 * 8 ' = 192  index 24
 
 ' --- ICoreWebView2 vtable オフセット ---
 Private Const OFF_WV2_Navigate             As Long = 5 * 8  ' = 40
