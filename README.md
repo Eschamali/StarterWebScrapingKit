@@ -33,7 +33,7 @@
 *   🔌 **BiDi+ による CDP トンネリング**（標準機能では足りない部分を柔軟にカバー）
 
 **📖 詳細な技術ドキュメントや使い方は、公式ドキュメント（GitHub Pages）をご覧ください。**
-*   ➡️ **[公式ドキュメントトップ (使い方・技術アーキテクチャ)](https://<user-name>.github.io/StarterWebScrapingKit/)** または [docs/index.md](docs/index.md)
+*   ➡️ **[公式ドキュメントトップ (使い方・技術アーキテクチャ)](https://eschamali.github.io/StarterWebScrapingKit/)**
 
 ---
 
@@ -63,6 +63,9 @@
 * **ログレベルの基礎部分**
   * [VBA-Log](https://github.com/VBA-tools/VBA-Log)
     * 製作者：timhall氏
+* **ChromiumブラウザをBiDi化するためのコアロジック**
+  * [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
+    * 製作者：GoogleChromeLabsチーム
 
 ※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
 
@@ -177,12 +180,6 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 | homepage              | ブラウザ起動時の最初のURLを指定しますが余計な通信を抑えるため、`about:blank`で空白ページにしてます。<br>ただし、次項の`app`に任意のURLが渡されるとこれは、付与しなくなります。                                                                                                                                                                                                                                                                       | 
 | app                   | `start`メソッドの第2引数にあたります。ブラウザ起動時の最初のURLを指定したい場合は、ここを指定することになります。<br>ここにURLを渡して起動すると<br>・任意のURLへの変更不可<br>・タブ生成不可<br><br>といったユーザー側による自動化を妨げる行為をある程度防ぐことが可能です。ちょっとしたキオスクモードです。                                                                                                                                                                                                                                                     | 
 
-### [キオスクモードについて](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-configure-kiosk-mode)
-
-ワークシートにある`クイック引数オプション`欄にてONにすると使うことが出来ます。  
-先述の`app`よりもネイティブなキオスクモードでの起動ができます。  
-デフォルトでは、フルスクリーン起動になるため、追加の起動引数欄で、`edge-kiosk-type=public-browsing`を加えることをおすすめします。
-
 ## ブラウザ起動方法について
 
 基本的な起動のテンプレートは下記になります。  
@@ -218,4 +215,3 @@ Sub 冒険の始まり()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
-
