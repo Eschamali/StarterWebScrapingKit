@@ -1,38 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} WebView2Frame
-   Caption         =   "WebView2 Browser"
-   ClientHeight    =   9600
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} WebView2InExcelForm 
+   Caption         =   "WebView2InExcelForm"
+   ClientHeight    =   8295.001
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   14400
+   ClientWidth     =   15000
+   OleObjectBlob   =   "WebView2InExcelForm.frx":0000
    StartUpPosition =   1  'オーナー フォームの中央
-   Begin {8BD21D10-EC42-11CE-9E0D-00AA006002F3} txtUrl
-      Height         = 276
-      Left           = 6
-      Top            = 6
-      Width          = 12000
-      TabIndex       = 0
-      Text           = "https://eschamali.github.io/StarterWebScrapingKit/"
-   End
-   Begin {D7053240-CE69-11CD-A777-00DD01143C57} btnGo
-      Caption        = "移動"
-      Height         = 276
-      Left           = 12120
-      Top            = 6
-      Width          = 2160
-      TabIndex       = 1
-   End
-   Begin {6E182020-FE86-11D0-8965-00A0C9110057} wv2Container
-      Height         = 9180
-      Left           = 0
-      Top            = 300
-      Width          = 14400
-      BorderStyle    = 0
-      Caption        = ""
-      TabIndex       = 2
-   End
 End
-Attribute VB_Name = "WebView2Frame"
+Attribute VB_Name = "WebView2InExcelForm"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -77,6 +53,7 @@ Private Const PT2PX As Double = 1.3333
 
 ' WebView2Core インスタンス（WithEvents でイベントを受け取る）
 Private WithEvents m_wv2 As WebView2Core
+Attribute m_wv2.VB_VarHelpID = -1
 
 ' 状態フラグ
 Private m_Ready       As Boolean
@@ -117,18 +94,18 @@ Private Sub UserForm_Resize()
     Const BTN_W  As Single = 48
     Const MARGIN As Single = 3
 
-    Me.btnGo.Left   = Me.InsideWidth - BTN_W - MARGIN
-    Me.btnGo.Width  = BTN_W
+    Me.btnGo.Left = Me.InsideWidth - BTN_W - MARGIN
+    Me.btnGo.Width = BTN_W
     Me.txtUrl.Width = Me.btnGo.Left - MARGIN * 2
 
     ' wv2Container のサイズ追従
-    Me.wv2Container.Width  = Me.InsideWidth
-    Me.wv2Container.Height = Me.InsideHeight - TOOLBAR_H
+    Me.wv2Container.Width = Me.InsideWidth
+    Me.wv2Container.height = Me.InsideHeight - TOOLBAR_H
 
     ' WebView2 のサイズも更新
     If m_Ready And Not m_wv2 Is Nothing Then
         Dim pxW As Long, pxH As Long
-        pxW = Me.wv2Container.InsideWidth  * PT2PX
+        pxW = Me.wv2Container.InsideWidth * PT2PX
         pxH = Me.wv2Container.InsideHeight * PT2PX
         m_wv2.Resize 0, 0, pxW, pxH
     End If
@@ -136,7 +113,7 @@ End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If Not m_wv2 Is Nothing Then
-        m_wv2.Quit
+        m_wv2.quit
         Set m_wv2 = Nothing
     End If
     m_Ready = False
@@ -151,12 +128,12 @@ Private Sub btnGo_Click()
         MsgBox "WebView2 がまだ準備中です。しばらくお待ちください。", vbInformation
         Exit Sub
     End If
-    Dim url As String: url = Trim(Me.txtUrl.Text)
-    If Len(url) = 0 Then Exit Sub
+    Dim Url As String: Url = Trim(Me.txtUrl.Text)
+    If Len(Url) = 0 Then Exit Sub
     ' プロトコルが無ければ https:// を補完
-    If InStr(url, "://") = 0 Then url = "https://" & url
-    Me.txtUrl.Text = url
-    m_wv2.Navigate url
+    If InStr(Url, "://") = 0 Then Url = "https://" & Url
+    Me.txtUrl.Text = Url
+    m_wv2.navigate Url
 End Sub
 
 Private Sub txtUrl_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
@@ -182,9 +159,9 @@ Private Sub m_wv2_NavigationCompleted(ByVal isSuccess As Boolean, ByVal webError
     End If
 End Sub
 
-Private Sub m_wv2_InitializeFailed(ByVal errorCode As Long, ByVal description As String)
-    MsgBox "WebView2 初期化失敗:" & vbCrLf & description & vbCrLf & _
-           "(HRESULT: 0x" & Hex(errorCode) & ")", vbCritical, "WebView2Frame"
+Private Sub m_wv2_InitializeFailed(ByVal ErrorCode As Long, ByVal Description As String)
+    MsgBox "WebView2 初期化失敗:" & vbCrLf & Description & vbCrLf & _
+           "(HRESULT: 0x" & Hex(ErrorCode) & ")", vbCritical, "WebView2Frame"
     Unload Me
 End Sub
 
@@ -210,7 +187,7 @@ Private Sub StartWebView2()
 
     ' Frame のピクセルサイズを計算
     Dim pxW As Long, pxH As Long
-    pxW = Me.wv2Container.InsideWidth  * PT2PX
+    pxW = Me.wv2Container.InsideWidth * PT2PX
     pxH = Me.wv2Container.InsideHeight * PT2PX
 
     Debug.Print "[WebView2Frame] StartWebView2"
@@ -247,6 +224,6 @@ End Sub
 ' FindFormHwnd
 '   UserForm の Win32 hWnd を ThunderDFrame クラス名で検索する。
 '----------------------------------------------------------------------
-Private Function FindFormHwnd(ByVal caption As String) As LongPtr
-    FindFormHwnd = FindWindow(StrPtr("ThunderDFrame"), StrPtr(caption))
+Private Function FindFormHwnd(ByVal Caption As String) As LongPtr
+    FindFormHwnd = FindWindow(StrPtr("ThunderDFrame"), StrPtr(Caption))
 End Function

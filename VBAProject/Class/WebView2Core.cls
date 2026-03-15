@@ -53,24 +53,24 @@ End Type
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions _
     Lib "WebView2Loader.dll" ( _
     ByVal browserExecutableFolder As LongPtr, _
-    ByVal userDataFolder          As LongPtr, _
-    ByVal environmentOptions      As LongPtr, _
-    ByVal handler                 As LongPtr) As Long
+    ByVal userDataFolder As LongPtr, _
+    ByVal environmentOptions As LongPtr, _
+    ByVal handler As LongPtr) As Long
 
 ' OleAut32 ─ COM vtable メソッドを番号（オフセット）で呼ぶ
 Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
-    ByVal pvInstance  As LongPtr, _
-    ByVal oVft        As LongPtr, _
-    ByVal lCc         As Long, _
-    ByVal vtReturn    As Integer, _
-    ByVal cActuals    As Long, _
-    prgvt             As Any, _
-    prgpvarg          As Any, _
-    pvargResult       As Variant) As Long
+    ByVal pvInstance As LongPtr, _
+    ByVal oVft As LongPtr, _
+    ByVal lCc As Long, _
+    ByVal vtReturn As Integer, _
+    ByVal cActuals As Long, _
+    prgvt As Any, _
+    prgpvarg As Any, _
+    pvargResult As Variant) As Long
 
 ' Kernel32 ─ メモリ操作・DLLロード
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    Destination As Any, Source As Any, ByVal Length As Long)
+    Destination As Any, Source As Any, ByVal length As Long)
 Private Declare PtrSafe Function LoadLibrary Lib "kernel32" Alias "LoadLibraryW" ( _
     ByVal lpLibFileName As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetProcAddress Lib "kernel32" ( _
@@ -84,7 +84,7 @@ Private Declare PtrSafe Function SetWindowPos Lib "user32" ( _
 
 ' User32 ─ メッセージポンプ（COM STA コールバックの配送に必要）
 Private Declare PtrSafe Function PeekMessage Lib "user32" Alias "PeekMessageW" ( _
-    lpMsg As Any, ByVal hwnd As LongPtr, _
+    lpMsg As Any, ByVal hWnd As LongPtr, _
     ByVal wMsgFilterMin As Long, ByVal wMsgFilterMax As Long, _
     ByVal wRemoveMsg As Long) As Long
 Private Declare PtrSafe Function TranslateMessage Lib "user32" (lpMsg As Any) As Long
@@ -154,7 +154,7 @@ Private m_State As Long
 ' =====================================================================
 Public Event Ready()
 Public Event NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
-Public Event InitializeFailed(ByVal errorCode As Long, ByVal description As String)
+Public Event InitializeFailed(ByVal ErrorCode As Long, ByVal Description As String)
 
 ' =====================================================================
 ' Public Interface
@@ -168,18 +168,18 @@ Public Event InitializeFailed(ByVal errorCode As Long, ByVal description As Stri
 '   戻り値 : True = 初期化コマンド送信成功（Ready イベント待ち）
 '----------------------------------------------------------------------
 Public Function Initialize( _
-    ByVal hWndParent  As LongPtr, _
-    ByVal boundsLeft  As Long, _
-    ByVal boundsTop   As Long, _
+    ByVal hwndParent As LongPtr, _
+    ByVal boundsLeft As Long, _
+    ByVal boundsTop As Long, _
     ByVal boundsWidth As Long, _
     ByVal boundsHeight As Long, _
     Optional ByVal initialUrl As String = "https://www.google.com") As Boolean
 
-    m_hWndParent   = hWndParent
-    m_InitialUrl   = initialUrl
-    m_Bounds.Left  = boundsLeft
-    m_Bounds.Top   = boundsTop
-    m_Bounds.Right  = boundsLeft + boundsWidth
+    m_hWndParent = hwndParent
+    m_InitialUrl = initialUrl
+    m_Bounds.Left = boundsLeft
+    m_Bounds.Top = boundsTop
+    m_Bounds.Right = boundsLeft + boundsWidth
     m_Bounds.Bottom = boundsTop + boundsHeight
 
     ' グローバル参照をセット（コールバックから Me へ戻るため）
@@ -197,7 +197,7 @@ Public Function Initialize( _
     userDataPath = Environ("LOCALAPPDATA") & "\WebView2_VBA_Profile"
 
     Dim pUserData   As LongPtr: pUserData = StrPtr(userDataPath)
-    Dim pHandler    As LongPtr: pHandler  = VarPtr(m_EnvHandlerThis)
+    Dim pHandler    As LongPtr: pHandler = VarPtr(m_EnvHandlerThis)
 
     hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, 0, pHandler)
 
@@ -214,10 +214,10 @@ End Function
 '----------------------------------------------------------------------
 ' Navigate : 指定 URL へ遷移
 '----------------------------------------------------------------------
-Public Sub Navigate(ByVal url As String)
+Public Sub navigate(ByVal Url As String)
     If m_pWebView2 = 0 Then Exit Sub
     Dim hr As Long
-    hr = COM_Navigate(m_pWebView2, url)
+    hr = COM_Navigate(m_pWebView2, Url)
 End Sub
 
 '----------------------------------------------------------------------
@@ -233,9 +233,9 @@ End Sub
 '----------------------------------------------------------------------
 Public Sub Resize(ByVal newLeft As Long, ByVal newTop As Long, _
                   ByVal newWidth As Long, ByVal newHeight As Long)
-    m_Bounds.Left   = newLeft
-    m_Bounds.Top    = newTop
-    m_Bounds.Right  = newLeft + newWidth
+    m_Bounds.Left = newLeft
+    m_Bounds.Top = newTop
+    m_Bounds.Right = newLeft + newWidth
     m_Bounds.Bottom = newTop + newHeight
     If m_pController <> 0 Then COM_SetBounds m_pController, m_Bounds
 End Sub
@@ -273,15 +273,15 @@ End Sub
 '----------------------------------------------------------------------
 ' Quit : リソース解放
 '----------------------------------------------------------------------
-Public Sub Quit()
+Public Sub quit()
     On Error Resume Next
     If m_pController <> 0 Then
         Dim retV As Variant
         DispCallFunc m_pController, OFF_CTRL_Close, CC_STDCALL, vbLong, 0, 0, 0, retV
     End If
-    m_pWebView2     = 0
-    m_pController   = 0
-    m_pEnvironment  = 0
+    m_pWebView2 = 0
+    m_pController = 0
+    m_pEnvironment = 0
     Set g_WebView2Core = Nothing
 End Sub
 
@@ -303,12 +303,12 @@ Public Property Get IsReady() As Boolean:           IsReady = (m_pWebView2 <> 0)
 '     pEnv を保存して m_State=1 をセットするだけにする。
 '     実際の Controller 作成は ProcessMessages → BeginControllerCreation で行う。
 '----------------------------------------------------------------------
-Friend Sub CB_EnvironmentCreated(ByVal errorCode As Long, ByVal pEnv As LongPtr)
-    Debug.Print "[WV2] CB_EnvironmentCreated: errorCode=" & errorCode & ", pEnv=" & Hex(pEnv)
-    If errorCode <> 0 Or pEnv = 0 Then
-        m_LastErrorCode = errorCode
-        m_LastErrorDesc = "Environment creation failed: 0x" & Hex(errorCode)
-        RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
+Friend Sub CB_EnvironmentCreated(ByVal ErrorCode As Long, ByVal pEnv As LongPtr)
+    Debug.Print "[WV2] CB_EnvironmentCreated: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
+    If ErrorCode <> 0 Or pEnv = 0 Then
+        m_LastErrorCode = ErrorCode
+        m_LastErrorDesc = "Environment creation failed: 0x" & Hex(ErrorCode)
+        RaiseEvent InitializeFailed(ErrorCode, m_LastErrorDesc)
         Exit Sub
     End If
     COM_AddRef pEnv
@@ -363,12 +363,12 @@ End Sub
 '     pCtrl を保存して m_State=2 をセットするだけにする。
 '     実際の表示処理は ProcessMessages → FinishWebViewSetup で行う。
 '----------------------------------------------------------------------
-Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
-    Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & errorCode & ", pCtrl=" & Hex(pCtrl)
-    If errorCode <> 0 Or pCtrl = 0 Then
-        m_LastErrorCode = errorCode
-        m_LastErrorDesc = "Controller creation failed: 0x" & Hex(errorCode)
-        RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
+Friend Sub CB_ControllerCreated(ByVal ErrorCode As Long, ByVal pCtrl As LongPtr)
+    Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
+    If ErrorCode <> 0 Or pCtrl = 0 Then
+        m_LastErrorCode = ErrorCode
+        m_LastErrorDesc = "Controller creation failed: 0x" & Hex(ErrorCode)
+        RaiseEvent InitializeFailed(ErrorCode, m_LastErrorDesc)
         Exit Sub
     End If
     ' AddRef（0引数 DispCallFunc）はコールバック内でも安全（山引数ありの呼び出しがクラッシュするのでこちらだけ残す）
@@ -421,7 +421,7 @@ Private Sub FinishWebViewSetup()
 
     ' Ready 通知
     RaiseEvent Ready
-    If Len(m_InitialUrl) > 0 Then Navigate m_InitialUrl
+    If Len(m_InitialUrl) > 0 Then navigate m_InitialUrl
 End Sub
 
 ' =====================================================================
@@ -459,8 +459,8 @@ Private Sub COM_AddRef(ByVal pObj As LongPtr)
 End Sub
 
 ' Navigate(url: LPCWSTR)
-Private Function COM_Navigate(ByVal pWV2 As LongPtr, ByVal url As String) As Long
-    Dim pUrl As LongPtr: pUrl = StrPtr(url)
+Private Function COM_Navigate(ByVal pWV2 As LongPtr, ByVal Url As String) As Long
+    Dim pUrl As LongPtr: pUrl = StrPtr(Url)
     Dim argT(0) As Integer: argT(0) = vbLongLong
     Dim argP(0) As LongPtr: argP(0) = VarPtr(pUrl)
     Dim retV As Variant
@@ -478,20 +478,20 @@ Private Sub COM_SetBounds(ByVal pCtrl As LongPtr, ByRef bounds As RECT_T)
 End Sub
 
 ' 引数が LongPtr 1個の汎用DispCallFunc
-Private Sub COM_DispCallPtr1(ByVal pObj As LongPtr, ByVal offset As Long, ByVal arg0 As LongPtr)
+Private Sub COM_DispCallPtr1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal arg0 As LongPtr)
     Dim pArg As LongPtr: pArg = arg0
     Dim argT(0) As Integer: argT(0) = vbLongLong
     Dim argP(0) As LongPtr: argP(0) = VarPtr(pArg)
     Dim retV As Variant
-    DispCallFunc pObj, offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
+    DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
 
 ' 引数が Long 1個の汎用DispCallFunc（put_IsVisible など）
-Private Sub COM_DispCallLong1(ByVal pObj As LongPtr, ByVal offset As Long, ByVal arg0 As Long)
+Private Sub COM_DispCallLong1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal arg0 As Long)
     Dim argT(0) As Integer: argT(0) = vbLong
     Dim argP(0) As LongPtr: argP(0) = VarPtr(arg0)
     Dim retV As Variant
-    DispCallFunc pObj, offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
+    DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
 
 ' =====================================================================
@@ -538,13 +538,13 @@ End Function
 ' Class lifecycle
 ' =====================================================================
 Private Sub Class_Initialize()
-    m_pEnvironment  = 0
-    m_pController   = 0
-    m_pWebView2     = 0
+    m_pEnvironment = 0
+    m_pController = 0
+    m_pWebView2 = 0
     m_LastErrorCode = 0
-    m_State         = 0
+    m_State = 0
 End Sub
 
 Private Sub Class_Terminate()
-    Quit
+    quit
 End Sub

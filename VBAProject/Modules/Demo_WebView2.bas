@@ -18,7 +18,7 @@ Option Explicit
 '----------------------------------------------------------------------
 Public Sub TestWebView2Simple()
     Dim wv2 As New WebView2Core
-
+Dim hwndParent
     ' Excel のメインウィンドウハンドルを取得
     Dim hWnd As LongPtr
     hWnd = Application.hWnd
@@ -47,7 +47,7 @@ Public Sub TestWebView2Simple()
         MsgBox "タイムアウト。LastError: 0x" & Hex(wv2.LastErrorCode) & vbCrLf & wv2.LastErrorDescription, vbCritical
     End If
 
-    wv2.Quit
+    wv2.quit
     Set wv2 = Nothing
 End Sub
 
@@ -59,7 +59,7 @@ End Sub
 '   ★ Application.hWnd を親にするとクラッシュする問題の解決版 ★
 '----------------------------------------------------------------------
 Public Sub TestWebView2Form()
-    WebView2Frame.Show vbModeless
+    WebView2InExcelForm.show vbModeless
 End Sub
 
 '----------------------------------------------------------------------
@@ -67,5 +67,5 @@ End Sub
 '   モーダル版（Excel 操作をブロックして WebView2 を表示）
 '----------------------------------------------------------------------
 Public Sub TestWebView2FormModal()
-    WebView2Frame.Show
+    WebView2InExcelForm.show
 End Sub

@@ -10,7 +10,7 @@ Option Explicit
 ' QueryInterface の ppvObject 書き込みに使用する
 #If VBA7 Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    Destination As Any, Source As Any, ByVal Length As Long)
+    Destination As Any, Source As Any, ByVal length As Long)
 #End If
 
 ' グローバル参照
@@ -37,10 +37,10 @@ Public Function WV2_EnvCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByVa
 End Function
 Public Function WV2_EnvCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_EnvCB_AddRef = 1:  End Function
 Public Function WV2_EnvCB_Release(ByVal pThis As LongPtr) As Long: WV2_EnvCB_Release = 1: End Function
-Public Function WV2_EnvCB_Invoke(ByVal pThis As LongPtr, ByVal errorCode As Long, ByVal pEnv As LongPtr) As Long
-    Debug.Print "[WV2] EnvCB_Invoke fired: errorCode=" & errorCode & ", pEnv=" & Hex(pEnv)
+Public Function WV2_EnvCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long, ByVal pEnv As LongPtr) As Long
+    Debug.Print "[WV2] EnvCB_Invoke fired: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
     On Error Resume Next
-    If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_EnvironmentCreated errorCode, pEnv
+    If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_EnvironmentCreated ErrorCode, pEnv
     WV2_EnvCB_Invoke = 0    ' S_OK
 End Function
 
@@ -54,10 +54,10 @@ Public Function WV2_CtrlCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByV
 End Function
 Public Function WV2_CtrlCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_CtrlCB_AddRef = 1:  End Function
 Public Function WV2_CtrlCB_Release(ByVal pThis As LongPtr) As Long: WV2_CtrlCB_Release = 1: End Function
-Public Function WV2_CtrlCB_Invoke(ByVal pThis As LongPtr, ByVal errorCode As Long, ByVal pCtrl As LongPtr) As Long
-    Debug.Print "[WV2] CtrlCB_Invoke fired: errorCode=" & errorCode & ", pCtrl=" & Hex(pCtrl)
+Public Function WV2_CtrlCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long, ByVal pCtrl As LongPtr) As Long
+    Debug.Print "[WV2] CtrlCB_Invoke fired: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
     On Error Resume Next
-    If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_ControllerCreated errorCode, pCtrl
+    If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_ControllerCreated ErrorCode, pCtrl
     WV2_CtrlCB_Invoke = 0   ' S_OK
 End Function
 
