@@ -1,18 +1,31 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5CW3LKTJWH"></script>
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-5CW3LKTJWH');
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+        gtag('config', 'G-5CW3LKTJWH');
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StarterWebScrapingKit | Docs</title>
+    <meta charset="UTF-8">
+
+    <title>Excelでブラウザ制御 (CDP / WebDriver BiDi)</title>
+
+    <meta property="og:title" content="Excelでブラウザ制御 (CDP / WebDriver BiDi)">
+    <meta property="og:description" content="ExcelからCDPやWebDriver BiDiを使ってブラウザを操作する方法">
+    <meta property="og:image" content="https://eschamali.github.io/StarterWebScrapingKit/img/browser-control.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://eschamali.github.io/StarterWebScrapingKit/">
     <link rel="stylesheet" href="css/style.css">
+
     <!-- Google Fonts for modern typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -26,6 +39,7 @@
     <!-- コンテンツルーター (HTMLアセットのfetch管理) -->
     <script src="js/content-router.js"></script>
 </head>
+
 <body class="dark-theme">
 
     <!-- Background Animated Shapes -->
@@ -47,9 +61,9 @@
                 <details open class="nav-details">
                     <summary class="nav-category">CDP-Jsonコーナー</summary>
                     <div class="nav-sub">
-                        <a href="#cdp-intro"    class="nav-item" onclick="loadContent('cdp-intro')">独自の追加・改良点 (目的)</a>
-                        <a href="#cdp-demos"    class="nav-item" onclick="loadContent('cdp-demos')">Demoコードコーナー</a>
-                        <a href="#cdp-methods"  class="nav-item" onclick="loadContent('cdp-methods')">独自の、追加method</a>
+                        <a href="#cdp-intro" class="nav-item" onclick="loadContent('cdp-intro')">独自の追加・改良点 (目的)</a>
+                        <a href="#cdp-demos" class="nav-item" onclick="loadContent('cdp-demos')">Demoコードコーナー</a>
+                        <a href="#cdp-methods" class="nav-item" onclick="loadContent('cdp-methods')">独自の、追加method</a>
                         <a href="#cdp-advanced" class="nav-item" onclick="loadContent('cdp-advanced')">CDPの高度な制御</a>
                     </div>
                 </details>
@@ -57,11 +71,11 @@
                 <details open class="nav-details">
                     <summary class="nav-category">WebDriverBiDiコーナー</summary>
                     <div class="nav-sub">
-                        <a href="#bidi-story"        class="nav-item" onclick="loadContent('bidi-story')">&#x1F4D6; 登場秘話 ― exeなしの真実</a>
+                        <a href="#bidi-story" class="nav-item" onclick="loadContent('bidi-story')">&#x1F4D6; 登場秘話 ― exeなしの真実</a>
                         <a href="#technical-journey" class="nav-item" onclick="loadContent('technical-journey')">技術的な仕組み (No-EXEの実現)</a>
-                        <a href="#bidi-intro"         class="nav-item" onclick="loadContent('bidi-intro')">Demoコードコーナー</a>
-                        <a href="#bidi-methods"       class="nav-item" onclick="loadContent('bidi-methods')">methodの使い方</a>
-                        <a href="#bidi-update"        class="nav-item" onclick="loadContent('bidi-update')">🔄 mapperTab.js の更新方法</a>
+                        <a href="#bidi-intro" class="nav-item" onclick="loadContent('bidi-intro')">Demoコードコーナー</a>
+                        <a href="#bidi-methods" class="nav-item" onclick="loadContent('bidi-methods')">methodの使い方</a>
+                        <a href="#bidi-update" class="nav-item" onclick="loadContent('bidi-update')">🔄 mapperTab.js の更新方法</a>
                     </div>
                 </details>
 
@@ -89,4 +103,5 @@
     <!-- Main Logic -->
     <script src="js/main.js"></script>
 </body>
+
 </html>
