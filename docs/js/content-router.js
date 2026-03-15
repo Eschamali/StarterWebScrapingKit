@@ -16,6 +16,7 @@ const PAGE_ASSETS = {
   'technical-journey': 'js/asset/technical-journey.html',
   'bidi-update':        'js/asset/bidi-update.html',
   'bidi-story':        'js/asset/bidi-story.html',
+  'userform-edge':     'js/asset/userform-edge.html',
 };
 
 /**
