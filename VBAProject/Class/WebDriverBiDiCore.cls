@@ -1196,9 +1196,10 @@ End Sub
 '***************************************************************************************************
 Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
     'ファイルから、Jsコードを取得
+    '※Windows方式の改行コード(CRLF)だと、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
     Dim JsCode As String
     With m_CharConv
-        JsCode = .BytesToString(.BytesFromSavedFile(FolderPath, FileName))
+        JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
     End With
 
     'テーブルに置く作業
