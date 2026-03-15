@@ -141,6 +141,10 @@ Private m_InitialUrl As String
 Private m_LastErrorCode As Long
 Private m_LastErrorDesc As String
 
+' 初期化ステート管理
+'   0 = 初期 / 1 = Environment取得済み(Controller未作成) / 2 = Ready
+Private m_State As Long
+
 ' =====================================================================
 ' Public Events
 ' =====================================================================
@@ -234,12 +238,10 @@ End Sub
 
 '----------------------------------------------------------------------
 ' ProcessMessages  ― COM STA コールバック層に必要なメッセージの処理
-'   DoEvents だけでは COM STA の callback が層に届かないことがあるため、
-'   PeekMessage/TranslateMessage/DispatchMessage で直接メッセージキューを消化する。
-'   前提 : IsReady になるまでの待機ループ内で呼び出すこと。
+'   IsReady になるまでの待機ループ内で繰り返し呼ぶ。
+'   State 1（Environment取得済み）を検出したら Controller 作成を開始する。
 '----------------------------------------------------------------------
 Public Sub ProcessMessages(Optional ByVal iterations As Long = 100)
-    ' MSG 構造体用バッファ（64bit: 48 bytes）
     Dim msg(0 To 5) As LongPtr
     Dim i As Long
     For i = 1 To iterations
@@ -247,10 +249,14 @@ Public Sub ProcessMessages(Optional ByVal iterations As Long = 100)
             TranslateMessage msg(0)
             DispatchMessage msg(0)
         Else
-            Exit For    ' キューにメッセージがなければ即退 (無駄なループを避ける)
+            Exit For
         End If
     Next i
-    DoEvents    ' 併用で VBA 内部イベントも履ける
+    DoEvents
+
+    ' State 1: Environment が揃ったら Controller 作成をここ（VBA メインスレッド）で実行
+    ' ※コールバック内から呼ぶと再入問題が起きるため、メインループから呼ぶ
+    If m_State = 1 Then BeginControllerCreation
 End Sub
 
 Public Sub SetVisible(ByVal isVisible As Boolean)
@@ -287,21 +293,30 @@ Public Property Get IsReady() As Boolean:           IsReady = (m_pWebView2 <> 0)
 
 '----------------------------------------------------------------------
 ' CB_EnvironmentCreated
-'   WV2_EnvCB_Invoke → ここへ委譲。環境取得後にコントローラー作成を要求。
+'   WV2_EnvCB_Invoke → ここへ委譲。
+'   ※ コールバック内で CreateCoreWebView2Controller を呼ぶと再入問題が起きるため、
+'     pEnv を保存して m_State=1 をセットするだけにする。
+'     実際の Controller 作成は ProcessMessages → BeginControllerCreation で行う。
 '----------------------------------------------------------------------
 Friend Sub CB_EnvironmentCreated(ByVal errorCode As Long, ByVal pEnv As LongPtr)
+    Debug.Print "[WV2] CB_EnvironmentCreated: errorCode=" & errorCode & ", pEnv=" & Hex(pEnv)
     If errorCode <> 0 Or pEnv = 0 Then
         m_LastErrorCode = errorCode
         m_LastErrorDesc = "Environment creation failed: 0x" & Hex(errorCode)
         RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
         Exit Sub
     End If
-
-    ' AddRef して保持
     COM_AddRef pEnv
     m_pEnvironment = pEnv
+    m_State = 1     ' → BeginControllerCreation へのシグナル
+End Sub
 
-    ' コントローラーハンドラを引数に CreateCoreWebView2Controller を呼ぶ
+'----------------------------------------------------------------------
+' BeginControllerCreation（ProcessMessages から呼ばれる）
+'----------------------------------------------------------------------
+Private Sub BeginControllerCreation()
+    m_State = 9     ' 「作成中」マーク（二重呼び出し防止）
+    Debug.Print "[WV2] BeginControllerCreation: hWnd=" & Hex(m_hWndParent)
     Dim pCtrlHandler As LongPtr: pCtrlHandler = VarPtr(m_CtrlHandlerThis)
 
     Dim argT(1) As Integer
@@ -310,14 +325,17 @@ Friend Sub CB_EnvironmentCreated(ByVal errorCode As Long, ByVal pEnv As LongPtr)
     argT(1) = vbLongLong: argP(1) = VarPtr(pCtrlHandler)
 
     Dim retV As Variant
-    DispCallFunc pEnv, OFF_ENV_CreateController, CC_STDCALL, vbLong, 2, argT(0), argP(0), retV
+    Dim hr As Long
+    hr = DispCallFunc(m_pEnvironment, OFF_ENV_CreateController, CC_STDCALL, vbLong, 2, argT(0), argP(0), retV)
+    Debug.Print "[WV2] CreateCoreWebView2Controller hr=" & Hex(hr) & ", result=" & Hex(CLng(retV))
 End Sub
 
 '----------------------------------------------------------------------
 ' CB_ControllerCreated
-'   WV2_CtrlCB_Invoke → ここへ委譲。表示設定後に Ready イベントを発火。
+'   WV2_CtrlCB_Invoke → ここへ委譲。
 '----------------------------------------------------------------------
 Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
+    Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & errorCode & ", pCtrl=" & Hex(pCtrl)
     If errorCode <> 0 Or pCtrl = 0 Then
         m_LastErrorCode = errorCode
         m_LastErrorDesc = "Controller creation failed: 0x" & Hex(errorCode)
@@ -328,7 +346,7 @@ Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
     COM_AddRef pCtrl
     m_pController = pCtrl
 
-    ' 表示領域設定（x64 では RECT は ポインタ渡し）
+    ' 表示領域設定
     COM_SetBounds pCtrl, m_Bounds
 
     ' 表示ON
@@ -342,11 +360,11 @@ Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
     Dim retV As Variant
     DispCallFunc pCtrl, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
     m_pWebView2 = pWV2
+    m_State = 2
+    Debug.Print "[WV2] WebView2 ready! pWV2=" & Hex(m_pWebView2)
 
-    ' Ready 通知 → ユーザーが Navigate を呼べる状態に
     RaiseEvent Ready
 
-    ' 初期 URL へ遷移
     If Len(m_InitialUrl) > 0 Then Navigate m_InitialUrl
 End Sub
 
@@ -468,6 +486,7 @@ Private Sub Class_Initialize()
     m_pController   = 0
     m_pWebView2     = 0
     m_LastErrorCode = 0
+    m_State         = 0
 End Sub
 
 Private Sub Class_Terminate()
