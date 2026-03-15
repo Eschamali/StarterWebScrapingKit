@@ -313,21 +313,42 @@ End Sub
 
 '----------------------------------------------------------------------
 ' BeginControllerCreation（ProcessMessages から呼ばれる）
+' 注: DispCallFunc の prgpvarg は VARIANTARG*(16byte構造体) へのポインタ配列
 '----------------------------------------------------------------------
 Private Sub BeginControllerCreation()
     m_State = 9     ' 「作成中」マーク（二重呼び出し防止）
-    Debug.Print "[WV2] BeginControllerCreation: hWnd=" & Hex(m_hWndParent)
+
+    ' --- 診断ログ ---
     Dim pCtrlHandler As LongPtr: pCtrlHandler = VarPtr(m_CtrlHandlerThis)
+    Debug.Print "[WV2] BeginControllerCreation"
+    Debug.Print "  hWnd          = 0x" & Hex(m_hWndParent)
+    Debug.Print "  pEnvironment  = 0x" & Hex(m_pEnvironment)
+    Debug.Print "  pCtrlHandler  = 0x" & Hex(pCtrlHandler)
+    Debug.Print "  vtable ptr    = 0x" & Hex(m_CtrlHandlerThis.pVTable)
+
+    ' --- VARIANT 構造体ベースで引数を渡す ---
+    ' VARIANTARG: vt(2)+予約(6)+value(8) = 16 bytes
+    ' DispCallFunc が *prgpvarg[i] の offset+8 から値を読む場合に対応
+    Dim vHwnd(0 To 1) As LongPtr    ' [0]=vt+pad(8bytes), [1]=value(8bytes)
+    Dim vHandler(0 To 1) As LongPtr
+
+    ' vt フィールド (下位2バイト) に vbLongLong=20 をセット、残りは0
+    Dim vtLongLong As Integer: vtLongLong = 20  ' VT_I8
+    CopyMemory vHwnd(0), vtLongLong, 2
+    vHwnd(1) = m_hWndParent
+
+    CopyMemory vHandler(0), vtLongLong, 2
+    vHandler(1) = pCtrlHandler
 
     Dim argT(1) As Integer
     Dim argP(1) As LongPtr
-    argT(0) = vbLongLong: argP(0) = VarPtr(m_hWndParent)
-    argT(1) = vbLongLong: argP(1) = VarPtr(pCtrlHandler)
+    argT(0) = vbLongLong: argP(0) = VarPtr(vHwnd(0))
+    argT(1) = vbLongLong: argP(1) = VarPtr(vHandler(0))
 
     Dim retV As Variant
     Dim hr As Long
     hr = DispCallFunc(m_pEnvironment, OFF_ENV_CreateController, CC_STDCALL, vbLong, 2, argT(0), argP(0), retV)
-    Debug.Print "[WV2] CreateCoreWebView2Controller hr=" & Hex(hr) & ", result=" & Hex(CLng(retV))
+    Debug.Print "  hr(DispCallFunc)=" & Hex(hr) & "  result(HRESULT)=" & Hex(CLng(retV))
 End Sub
 
 '----------------------------------------------------------------------
