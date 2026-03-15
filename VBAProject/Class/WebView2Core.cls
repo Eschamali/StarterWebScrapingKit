@@ -367,7 +367,8 @@ Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
         RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
         Exit Sub
     End If
-    ' AddRef はコールバック内で呼ぶとクラッシュするため FinishWebViewSetup に移動
+    ' AddRef（0引数 DispCallFunc）はコールバック内でも安全（山引数ありの呼び出しがクラッシュするのでこちらだけ残す）
+    COM_AddRef pCtrl
     m_pController = pCtrl
     m_State = 2
 End Sub
@@ -379,9 +380,6 @@ End Sub
 Private Sub FinishWebViewSetup()
     m_State = 99
     Debug.Print "[WV2] FinishWebViewSetup: pController=0x" & Hex(m_pController)
-
-    ' AddRef（コールバックの外で安全に実行）
-    COM_AddRef m_pController
 
     ' VARIANTARGバッファ: [0]=vt+予約(8bytes) [1]=value(8bytes)
     Dim vtII As Integer: vtII = 20  ' VT_I8
