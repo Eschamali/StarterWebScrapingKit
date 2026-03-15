@@ -43,10 +43,19 @@ Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowL
     ByVal hWnd As LongPtr, ByVal nIndex As Long) As LongPtr
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
     ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+Private Declare PtrSafe Function SetWindowPos Lib "user32" ( _
+    ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
+    ByVal x As Long, ByVal y As Long, ByVal cx As Long, ByVal cy As Long, _
+    ByVal uFlags As Long) As Long
 #End If
 
 Private Const GWL_STYLE     As Long = -16
-Private Const WS_THICKFRAME As Long = &H40000  ' ユーザーリサイズ許可
+Private Const WS_THICKFRAME As Long = &H40000   ' ユーザーリサイズ許可
+' SetWindowPos フラグ
+Private Const SWP_NOSIZE       As Long = &H1
+Private Const SWP_NOMOVE       As Long = &H2
+Private Const SWP_NOZORDER     As Long = &H4
+Private Const SWP_FRAMECHANGED As Long = &H20   ' ノンクライアント領域を強制再描画
 
 ' VBAポイント → ピクセル変換係数（96DPI標準）
 Private Const PT2PX As Double = 1.3333
@@ -74,14 +83,7 @@ Private Sub UserForm_Activate()
     m_Initialized = True
 
     ' ① WS_THICKFRAME を付与してリサイズ可能にする
-    '    Activate 内で呼ぶことで、hWnd を確実に取得できる
-    Dim hForm As LongPtr
-    hForm = FindFormHwnd(Me.Caption)
-    If hForm <> 0 Then
-        Dim sty As LongPtr
-        sty = GetWindowLongPtr(hForm, GWL_STYLE)
-        SetWindowLongPtr hForm, GWL_STYLE, sty Or WS_THICKFRAME
-    End If
+    ApplyThickFrame
 
     ' ② WebView2 初期化
     StartWebView2
@@ -150,6 +152,10 @@ Private Sub m_wv2_Ready()
     m_Ready = True
     Me.Caption = "WebView2 Browser - 準備完了"
     Debug.Print "[WebView2Frame] m_wv2_Ready: WebView2 の初期化が完了しました"
+
+    ' WebView2 初期化中に DoEvents ループがスタイルをリセットした場合に備えて
+    ' WS_THICKFRAME を再適用する
+    ApplyThickFrame
 End Sub
 
 Private Sub m_wv2_NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
@@ -228,3 +234,22 @@ End Sub
 Private Function FindFormHwnd(ByVal Caption As String) As LongPtr
     FindFormHwnd = FindWindow(StrPtr("ThunderDFrame"), StrPtr(Caption))
 End Function
+
+'----------------------------------------------------------------------
+' ApplyThickFrame
+'   WS_THICKFRAME を付与し、SWP_FRAMECHANGED でノンクライアント領域を強制再描画する。
+'   WebView2 初期化後にスタイルがリセットされる問題への対策。
+'----------------------------------------------------------------------
+Private Sub ApplyThickFrame()
+    Dim hForm As LongPtr
+    hForm = FindFormHwnd(Me.Caption)
+    If hForm = 0 Then Exit Sub
+
+    Dim sty As LongPtr
+    sty = GetWindowLongPtr(hForm, GWL_STYLE)
+    SetWindowLongPtr hForm, GWL_STYLE, sty Or WS_THICKFRAME
+
+    ' SWP_FRAMECHANGED でノンクライアント領域（ボーダー）を強制再描画する
+    SetWindowPos hForm, 0, 0, 0, 0, 0, _
+        SWP_NOSIZE Or SWP_NOMOVE Or SWP_NOZORDER Or SWP_FRAMECHANGED
+End Sub
