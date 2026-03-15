@@ -14,6 +14,7 @@ const PAGE_ASSETS = {
   'bidi-intro':        'js/asset/bidi-intro.html',
   'bidi-methods':      'js/asset/bidi-methods.html',
   'technical-journey': 'js/asset/technical-journey.html',
+  'bidi-update':        'js/asset/bidi-update.html',
   'bidi-story':        'js/asset/bidi-story.html',
 };
 
