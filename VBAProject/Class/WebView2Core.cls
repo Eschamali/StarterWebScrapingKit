@@ -110,6 +110,7 @@ Private Const OFF_ENV_CreateController As Long = 3 * 8   ' = 24  index 3
 Private Const OFF_CTRL_get_CoreWebView2 As Long = 25 * 8 ' = 200  index 25
 Private Const OFF_CTRL_put_IsVisible    As Long = 4 * 8  ' = 32   index 4
 Private Const OFF_CTRL_put_Bounds       As Long = 6 * 8  ' = 48   index 6 (x64: RECT 16byte → ポインタ渡し)
+Private Const OFF_CTRL_NotifyParentPos  As Long = 23 * 8 ' = 184  index 23 NotifyParentWindowPositionChanged
 Private Const OFF_CTRL_Close            As Long = 24 * 8 ' = 192  index 24
 
 ' --- ICoreWebView2 vtable オフセット ---
@@ -238,6 +239,18 @@ Public Sub Resize(ByVal newLeft As Long, ByVal newTop As Long, _
     m_Bounds.Right = newLeft + newWidth
     m_Bounds.Bottom = newTop + newHeight
     If m_pController <> 0 Then COM_SetBounds m_pController, m_Bounds
+End Sub
+
+'----------------------------------------------------------------------
+' NotifyPositionChanged
+'   親ウィンドウが移動またはリサイズされたときに呼び出す。
+'   WebView2 内部の IME 位置・ドロップダウン位置などを正しく再計算させる。
+'   Resize の後に呼び出すことを推奨。
+'----------------------------------------------------------------------
+Public Sub NotifyPositionChanged()
+    If m_pController = 0 Then Exit Sub
+    Dim retV As Variant
+    DispCallFunc m_pController, OFF_CTRL_NotifyParentPos, CC_STDCALL, vbLong, 0, 0, 0, retV
 End Sub
 
 '----------------------------------------------------------------------

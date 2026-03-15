@@ -64,7 +64,17 @@ Private m_Initialized As Boolean  ' StartWebView2 の二度呼び防止
 ' =====================================================================
 
 Private Sub UserForm_Initialize()
-    ' UserForm に WS_THICKFRAME を付与してリサイズ可能にする
+    ' WebView2Core インスタンス生成（hWnd取得は Activate で行う）
+    Set m_wv2 = New WebView2Core
+End Sub
+
+Private Sub UserForm_Activate()
+    ' フォームが画面に出てから初期化する（コントロールが描画済みになる）
+    If m_Initialized Then Exit Sub
+    m_Initialized = True
+
+    ' ① WS_THICKFRAME を付与してリサイズ可能にする
+    '    Activate 内で呼ぶことで、hWnd を確実に取得できる
     Dim hForm As LongPtr
     hForm = FindFormHwnd(Me.Caption)
     If hForm <> 0 Then
@@ -73,41 +83,32 @@ Private Sub UserForm_Initialize()
         SetWindowLongPtr hForm, GWL_STYLE, sty Or WS_THICKFRAME
     End If
 
-    ' WebView2Core インスタンス生成
-    Set m_wv2 = New WebView2Core
-End Sub
-
-Private Sub UserForm_Activate()
-    ' フォームが画面に出てから初期化する（コントロールが描画済みになる）
-    If m_Initialized Then Exit Sub
-    m_Initialized = True
+    ' ② WebView2 初期化
     StartWebView2
 End Sub
 
 Private Sub UserForm_Resize()
-    ' wv2Container を InsideWidth/Height に追従
     Const TOOLBAR_H As Single = 21  ' ツールバー行の高さ（ポイント）
-
+    Const BTN_W     As Single = 48
+    Const MARGIN    As Single = 3
     On Error Resume Next
 
-    ' txtUrl / btnGo のリサイズ追従
-    Const BTN_W  As Single = 48
-    Const MARGIN As Single = 3
-
-    Me.btnGo.Left = Me.InsideWidth - BTN_W - MARGIN
+    ' --- ツールバーのリサイズ追従 ---
+    Me.btnGo.Left  = Me.InsideWidth - BTN_W - MARGIN
     Me.btnGo.Width = BTN_W
     Me.txtUrl.Width = Me.btnGo.Left - MARGIN * 2
 
-    ' wv2Container のサイズ追従
-    Me.wv2Container.Width = Me.InsideWidth
-    Me.wv2Container.height = Me.InsideHeight - TOOLBAR_H
+    ' --- wv2Container（Frame）のリサイズ追従 ---
+    Me.wv2Container.Width  = Me.InsideWidth
+    Me.wv2Container.Height = Me.InsideHeight - TOOLBAR_H
 
-    ' WebView2 のサイズも更新
+    ' --- WebView2 のバウンドを更新し、位置変化を通知する ---
     If m_Ready And Not m_wv2 Is Nothing Then
         Dim pxW As Long, pxH As Long
-        pxW = Me.wv2Container.InsideWidth * PT2PX
+        pxW = Me.wv2Container.InsideWidth  * PT2PX
         pxH = Me.wv2Container.InsideHeight * PT2PX
         m_wv2.Resize 0, 0, pxW, pxH
+        m_wv2.NotifyPositionChanged  ' IME位置・ポップアップ位置を再計算させる
     End If
 End Sub
 
