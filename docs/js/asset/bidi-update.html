@@ -43,28 +43,18 @@
 <pre><code class="language-vbnet">Private Sub npm経由で更新()
     Dim UpdateBiDi As New WebDriverBiDiCore
     With ShLibrary01_JS
-        ' 1. NPMの最新バージョンを取得し、現在のシート記録バージョンと比較
-        Dim mapperTab_npmVersion       As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
-        Dim mapperTab_WorkSheetVersion As Range:  Set mapperTab_WorkSheetVersion = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新"))
+        '1. 現在のバージョン確認
+        Dim mapperTab_npmVersion        As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
+        Dim mapperTab_WorkSheetVersion  As Range: Set mapperTab_WorkSheetVersion = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新"))
+        If mapperTab_npmVersion = mapperTab_WorkSheetVersion.value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetVersion & ")": Exit Sub
 
-        ' バージョンが同じなら更新不要
-        If mapperTab_npmVersion = mapperTab_WorkSheetVersion.Value Then
-            MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, _
-                   "既に最新です(" &amp; mapperTab_WorkSheetVersion &amp; ")"
-            Exit Sub
-        End If
+        '2. npmで更新
+        Dim UpdateSuccess As Boolean: UpdateSuccess = UpdateBiDi.UpdateFromNPMFile
+        If UpdateSuccess Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。Excelに埋め込んだJavaScript文字列とnpm経由での一致が確認できませんでした。", vbCritical, "failure"
 
-        ' 2. NPMから mapperTab.js をダウンロードしてワークシートへ書き込み
-        If UpdateBiDi.UpdateFromNPMFile Then
-            MsgBox "npm経由で、アップデートに成功しました。", vbInformation, _
-                   "Success(" &amp; mapperTab_WorkSheetVersion &amp; " → " &amp; mapperTab_npmVersion &amp; ")"
-        Else
-            MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure"
-            Exit Sub
-        End If
-
-        ' 3. バージョン番号をワークシートに記録
-        mapperTab_WorkSheetVersion.Value = mapperTab_npmVersion
+        '3. バージョンをワークシートに記録
+        '※ミスの場合は、空欄にする
+        mapperTab_WorkSheetVersion.value = IIf(UpdateSuccess, mapperTab_npmVersion, "")
     End With
 End Sub</code></pre>
 </details>
@@ -118,33 +108,23 @@ End Sub</code></pre>
 <details style="margin: 1.5rem 0; cursor: pointer;">
 <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">コードを見る（ローカルファイルで更新）</summary>
 <pre><code class="language-vbnet">Private Sub ローカルファイルで更新()
-    ' 1. ファイル選択ダイアログを表示
+    '1. ファイルパスを、ダイアログで指定
     Dim UpdateFilePath As String
-    UpdateFilePath = Application.GetOpenFilename( _
-        "mapperTab File, *.js", , _
-        "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください")
-    If UpdateFilePath = CStr(False) Then Exit Sub   ' キャンセル時は終了
+    UpdateFilePath = Application.GetOpenFilename("mapperTab File, *.js", , "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください")
+    If UpdateFilePath = CStr(False) Then Exit Sub
 
-    ' 2. パスをフォルダ名とファイル名に分割
+    '2. 一旦、パスごとに分割
     Dim tmp: tmp = Split(UpdateFilePath, "\")
     Dim SplitNum As Long: SplitNum = UBound(tmp)
 
+    '3. 分けて格納
     Dim FolderName As String, FileName As String
     FileName = tmp(SplitNum): tmp(SplitNum) = ""
     FolderName = Join(tmp, "\")
 
-    ' 3. ローカルファイルからワークシートへ書き込み
+    '4. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then
-        MsgBox "アップデートに成功しました。" &amp; vbCrLf &amp; UpdateFilePath, vbInformation, "Success"
-    Else
-        MsgBox "アップデートに失敗しました。" &amp; vbCrLf &amp; UpdateFilePath, vbCritical, "failure"
-    End If
-
-    ' 4. ローカルファイルで更新した旨をバージョン欄に記録
-    With ShLibrary01_JS
-        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).Value = " Local"
-    End With
+    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "アップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub</code></pre>
 </details>
 
