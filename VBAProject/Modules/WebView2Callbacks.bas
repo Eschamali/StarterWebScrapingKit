@@ -7,6 +7,12 @@ Option Explicit
 ' WebView2Core.cls からの指示で動作し、すべての実ロジックは WebView2Core に委譲する。
 '***
 
+' QueryInterface の ppvObject 書き込みに使用する
+#If VBA7 Then
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
+    Destination As Any, Source As Any, ByVal Length As Long)
+#End If
+
 ' グローバル参照
 Public g_WebView2Core As WebView2Core
 
@@ -24,8 +30,10 @@ End Function
 ' vtable[0] QueryInterface / [1] AddRef / [2] Release / [3] Invoke
 '---------------------------------------------------------------------
 Public Function WV2_EnvCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByVal ppvObject As LongPtr) As Long
-    ' E_NOINTERFACE (未実装。Invoke だけ動けばよい)
-    WV2_EnvCB_QI = &H80004002
+    ' WebView2 は内部で QueryInterface を呼んで handler を検証する。
+    ' 自分自身を改めて返す（全インターフェースを受け入れる）
+    If ppvObject <> 0 Then CopyMemory ByVal ppvObject, pThis, LenB(pThis)
+    WV2_EnvCB_QI = 0   ' S_OK
 End Function
 Public Function WV2_EnvCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_EnvCB_AddRef = 1:  End Function
 Public Function WV2_EnvCB_Release(ByVal pThis As LongPtr) As Long: WV2_EnvCB_Release = 1: End Function
@@ -41,7 +49,8 @@ End Function
 ' vtable[0] QueryInterface / [1] AddRef / [2] Release / [3] Invoke
 '---------------------------------------------------------------------
 Public Function WV2_CtrlCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByVal ppvObject As LongPtr) As Long
-    WV2_CtrlCB_QI = &H80004002
+    If ppvObject <> 0 Then CopyMemory ByVal ppvObject, pThis, LenB(pThis)
+    WV2_CtrlCB_QI = 0   ' S_OK
 End Function
 Public Function WV2_CtrlCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_CtrlCB_AddRef = 1:  End Function
 Public Function WV2_CtrlCB_Release(ByVal pThis As LongPtr) As Long: WV2_CtrlCB_Release = 1: End Function
