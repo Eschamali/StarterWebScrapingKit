@@ -1,46 +1,331 @@
-<h1>WebDriver BiDi コーナー：<span style="color:var(--accent-color)">未来的な思考</span></h1>
+<h1>BiDi デモコード集：<span style="color:var(--accent-color)">WebDriverBiDiCore の実力を見る</span></h1>
+<p>
+  <code>WebDriverBiDiCore.cls</code> を使った実際の動くデモコードを紹介します。<br>
+  ソースは <code>VBAProject/Modules/Demo_WebDriverBiDi.bas</code> に収録されています。
+</p>
 
-<h2>技術的な仕組み：何故、WebDriverBiDi.exe なしで動くのか？</h2>
-<p>外部ツールの <code>chromedriver.exe</code> や Selenium を <strong>一切使用せずに</strong>、VBA 単体で「WebDriver BiDi プロトコル」によるブラウザ操作を実現している驚くべきアーキテクチャの裏側を解説します。</p>
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
-<h3>1. そもそも WebDriver BiDi とは？</h3>
-<p>従来の自動化では、同期通信中心の「Selenium (WebDriver)」と、強力だがGoogle独自の「CDP」という2つのアプローチがありました。<br>
-<strong>WebDriver BiDi</strong> は、これら両者の「いいとこ取り」をした次世代の W3C 標準プロトコルです。双方向のイベント通信（Bidirectional）を標準化し、すべての主要ブラウザで等しく動作する高速な非同期通信を目指しています。</p>
+<!-- Demo 1 -->
+<h2>🌐 Demo 1：ネットワークイベントのキャプチャ</h2>
+<p>
+  CDP版の「ネットワークイベント監視」を、BiDi の <code>network</code> ドメインで再現したデモです。<br>
+  <strong>イベントの「セーブ＆ロード」</strong>機能（有効化・無効化・再開）を段階的に実演します。
+</p>
 
-<h3>2. WebDriver レスの実現方法（パイプライン）</h3>
-<p>本来、WebDriver BiDi を使うためには専用の「仲介サーバー（chromedriver 等）」を立ち上げるのが一般的ですが、当プロジェクトの <code>WebDriverBiDiCore.cls</code> では以下の手法により <strong>VBA からブラウザへ完全に直結</strong> しています。</p>
-
-<div class="alert success">
-    <div class="alert-icon">1️⃣</div>
-    <div class="alert-content">
-        <strong>CDP パイプ通信による初期接続</strong>
-        <p>起動時に <code>--remote-debugging-pipe</code> を付与し、OS標準機能の「標準入出力のパイプ通信」を通じて直接対話できる経路を作ります。</p>
-    </div>
+<div class="alert">
+  <div class="alert-icon">💡</div>
+  <div class="alert-content">
+    <strong>BiDiEvents プロパティの使い方（3パターン）</strong>
+    <ul style="margin:0.5rem 0 0; padding-left:1.2rem;">
+      <li><code>Set .BiDiEvents = New Dictionary</code> → イベント記録を<strong>開始</strong></li>
+      <li><code>Set .BiDiEvents = Nothing</code> → イベントを<strong>破棄（無効化）</strong></li>
+      <li><code>Set .BiDiEvents = 変数</code> → セーブデータから<strong>再開</strong></li>
+    </ul>
+  </div>
 </div>
 
-<div class="alert success">
-    <div class="alert-icon">2️⃣</div>
-    <div class="alert-content">
-        <strong>BiDi マッパー (mapperTab.js) の注入</strong>
-        <p>Google公式が提供する「CDP ↔ BiDi」変換スクリプトを、作成した裏側のタブ空間にインジェクト（注入）し、専用の直通メッセージラインを構築します。</p>
-    </div>
+<details style="margin: 1.5rem 0; cursor: pointer;">
+<summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る（ネットワークイベントの確認）</summary>
+<pre><code class="language-vbnet">Sub ネットワークイベントの確認()
+    Dim JsonDicObj As New WebJsonConverter
+    Dim CharConvObj As New CharacterCodeConversion
+
+    Dim Demo_NetworkEvent As New WebDriverBiDiCore
+    Demo_NetworkEvent.start
+
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+
+    ' コンテキストIDを取得
+    Set resultBiDi = Demo_NetworkEvent.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")
+    End If
+
+    ' ---- 機能1：イベントキャプチャ 有効化 ----
+    Set Demo_NetworkEvent.BiDiEvents = New Dictionary    ' New Dictionary を渡す → 記録開始
+
+    ' ネットワークイベントを購読
+    Set paramsBiDi = New Dictionary
+    Dim eventsArray As New Collection
+    eventsArray.Add "network.beforeRequestSent"
+    eventsArray.Add "network.responseCompleted"
+    paramsBiDi.Add "events", eventsArray
+    Demo_NetworkEvent.invokeMethod "session.subscribe", paramsBiDi
+
+    ' ページ遷移して読み込み完了まで待機
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "http://officetanaka.net/excel/vba/file/file11.htm"
+    paramsBiDi.Add "wait", "complete"
+    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+
+    Demo_NetworkEvent.TakeEvents                         ' イベントをバッファから取り出す
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BiDiEvents)), _
+        Environ("UserProfile") &amp; "\Downloads", "BiDi_Event.json"
+
+    ' ---- 機能2：セーブデータ作成 → キャプチャ 無効化 ----
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.BiDiEvents  ' セーブ
+    Set Demo_NetworkEvent.BiDiEvents = Nothing           ' Nothing → 記録破棄
+
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "http://officetanaka.net/youtube/20200714b.htm"
+    paramsBiDi.Add "wait", "complete"
+    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+    Demo_NetworkEvent.TakeEvents
+    ' ↓ 無効中なので BiDiEvents が Nothing のまま → 0バイトのファイルになる
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BiDiEvents)), _
+        Environ("UserProfile") &amp; "\Downloads", "BiDi_NotEvent.json"
+
+    ' ---- 機能3：セーブデータから キャプチャ 再開 ----
+    Set Demo_NetworkEvent.BiDiEvents = SaveDataEvents    ' セーブデータを復元 → 記録再開
+
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "http://officetanaka.net/index.stm"
+    paramsBiDi.Add "wait", "complete"
+    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+    Demo_NetworkEvent.TakeEvents
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BiDiEvents)), _
+        Environ("UserProfile") &amp; "\Downloads", "BiDi_EventFromSaveData.json"
+
+    Demo_NetworkEvent.quit
+End Sub</code></pre>
+</details>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<!-- Demo 2 -->
+<h2>🧩 Demo 2：拡張機能のインストール ／ アンインストール</h2>
+<p>
+  BiDiプロトコルの <code>webExtension</code> ドメインを使い、ローカルフォルダにある拡張機能を動的に読み込み、アンインストールするデモです。
+</p>
+
+<div class="alert warning">
+  <div class="alert-icon">⚠️</div>
+  <div class="alert-content">
+    <strong>事前設定が必要</strong>
+    <p>「ブラウザ起動設定」シートで <strong>「CDP-Jsonで拡張機能を制御」をON</strong> にしてから実行してください。</p>
+  </div>
 </div>
 
-<div class="alert success">
-    <div class="alert-icon">3️⃣</div>
-    <div class="alert-content">
-        <strong>VBA ↔ BiDi の完全通信の確立</strong>
-        <p>以降、VBA からマッパーに対して <code>browsingContext.navigate</code> 等の標準 BiDi の JSON を直接流し込むことが可能になります。</p>
-    </div>
+<details style="margin: 1.5rem 0; cursor: pointer;">
+<summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る（UseExtensions）</summary>
+<pre><code class="language-vbnet">Sub UseExtensions()
+    Dim JsonDicObj As New WebJsonConverter
+
+    ' 拡張機能フォルダをダイアログで選択
+    Dim ExtensionsFolderPath As String
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
+        .InitialFileName = Environ("UserProfile") &amp; "\AppData\Local"
+        If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
+    End With
+
+    Dim controlExtensions As New WebDriverBiDiCore
+    controlExtensions.start     ' ブラウザ起動
+
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+
+    ' コンテキスト取得 &amp; 拡張機能ページへ遷移
+    Set resultBiDi = controlExtensions.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then targetContext = resultBiDi("contexts")(1)("context")
+
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "edge://extensions/"
+    paramsBiDi.Add "wait", "complete"
+    controlExtensions.invokeMethod "browsingContext.navigate", paramsBiDi
+
+    ' ---- 拡張機能をインストール (webExtension.install) ----
+    Set paramsBiDi = New Dictionary
+    Dim extData As New Dictionary
+    extData.Add "type", "path"
+    extData.Add "path", ExtensionsFolderPath
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "extensionData", extData
+    Set resultBiDi = controlExtensions.invokeMethod("webExtension.install", paramsBiDi, StopError:=False)
+
+    If resultBiDi Is Nothing Then
+        MsgBox "インストール失敗：" &amp; controlExtensions.LastBiDiJsonError("message"), vbCritical
+        controlExtensions.quit: Exit Sub
+    End If
+
+    MsgBox "インストール成功！　OKでアンインストールします。", vbInformation, "ExtID：" &amp; resultBiDi("extension")
+
+    ' ---- 拡張機能をアンインストール (webExtension.uninstall) ----
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "extension", resultBiDi("extension")
+    Set resultBiDi = controlExtensions.invokeMethod("webExtension.uninstall", paramsBiDi, StopError:=False)
+
+    If resultBiDi Is Nothing Then
+        MsgBox "アンインストール失敗：" &amp; controlExtensions.LastBiDiJsonError("message"), vbCritical
+    Else
+        MsgBox "アンインストール成功！", vbInformation
+    End If
+
+    controlExtensions.quit
+End Sub</code></pre>
+</details>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<!-- Demo 3 -->
+<h2>💬 Demo 3：JavaScriptダイアログの自動応答</h2>
+<p>
+  <code>alert</code> / <code>prompt</code> ダイアログを BiDi の <strong>非同期コマンド</strong>＋<strong>イベント監視</strong>で自動処理するデモです。<br>
+  イベントが来るまでポーリングし、確認後に <code>browsingContext.handleUserPrompt</code> で応答します。
+</p>
+
+<div class="alert">
+  <div class="alert-icon">🔍</div>
+  <div class="alert-content">
+    <strong>ポイント：非同期実行 + イベント待ち受けパターン</strong>
+    <p>JS の <code>click()</code> を <code>invokeMethodAsync</code> で非同期発火 → <code>TakeEvents</code> ループで <code>browsingContext.userPromptOpened</code> が来るまで待機 → ダイアログへ応答、という流れです。</p>
+  </div>
 </div>
 
-<h2 style="margin-top: 3rem;">圧倒的なメリット</h2>
-<ul>
-    <li><strong>環境非依存（完全ポータブル）</strong>: Excelさえ動けば、追加インストール不要ですぐに動きます。</li>
-    <li><strong>超低レイテンシ</strong>: 中間サーバーを経由しないため、極限まで素早いレスポンスを誇ります。</li>
-    <li><strong>JSONの高速フィルタリング</strong>: <code>BiDiCore.cls</code> 内部で高負荷な ParseJson 前に <code>InStr</code> 判定を行うことで、VBA 特有の遅さをスマートに克服しました。</li>
-</ul>
+<details style="margin: 1.5rem 0; cursor: pointer;">
+<summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る（TestAlert）</summary>
+<pre><code class="language-vbnet">Sub TestAlert()
+    Dim Demo_alerts As New WebDriverBiDiCore
+
+    ' unhandledPromptBehavior を "ignore" にしてダイアログを自動処理させない
+    Dim caps As New Dictionary
+    Dim alwaysMatch As New Dictionary
+    alwaysMatch.Add "unhandledPromptBehavior", "ignore"
+    caps.Add "capabilities", New Dictionary
+    caps("capabilities").Add "alwaysMatch", alwaysMatch
+
+    Demo_alerts.start "https://www.selenium.dev/selenium/web/alerts.html", , caps
+
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then targetContext = resultBiDi("contexts")(1)("context")
+
+    Dim 入力文字内容 As String
+    入力文字内容 = "VBAから入力したテスト文字列です！" &amp; WorksheetFunction.Unichar(129418)
+
+    With Demo_alerts
+        ' userPromptOpened イベントを購読
+        Set paramsBiDi = New Dictionary
+        Dim eventsArray As New Collection
+        eventsArray.Add "browsingContext.userPromptOpened"
+        paramsBiDi.Add "events", eventsArray
+        .invokeMethod "session.subscribe", paramsBiDi
+
+        Dim i As Long
+        For i = 1 To 3     ' alert / empty-alert / prompt の3種
+            Dim targetID As String
+            Select Case i
+                Case 1: targetID = "alert"
+                Case 2: targetID = "empty-alert"
+                Case 3: targetID = "prompt"
+            End Select
+
+            ' イベントバッファをリセット
+            Set .BiDiEvents = New Dictionary
+
+            ' JS の click() を非同期で実行 → alert が発火する
+            Set paramsBiDi = New Dictionary
+            paramsBiDi.Add "expression", "document.getElementById('" &amp; targetID &amp; "').click()"
+            Dim targetDict As New Dictionary
+            targetDict.Add "context", targetContext
+            paramsBiDi.Add "target", targetDict
+            paramsBiDi.Add "awaitPromise", False
+            Dim AsyncID As Long
+            AsyncID = .invokeMethodAsync("script.evaluate", paramsBiDi)
+
+            ' browsingContext.userPromptOpened が来るまでポーリング
+            Const SearchEventName As String = "browsingContext.userPromptOpened"
+            Do
+                .TakeEvents
+                If .BiDiEvents("EventMethods").Exists(SearchEventName) Then Exit Do
+            Loop While True
+
+            ' ダイアログへ応答
+            Set paramsBiDi = New Dictionary
+            paramsBiDi.Add "context", targetContext
+            paramsBiDi.Add "accept", True
+            paramsBiDi.Add "userText", 入力文字内容
+            .invokeMethod "browsingContext.handleUserPrompt", paramsBiDi
+
+            ' 非同期コマンドの結果も確認
+            .sleep 0.5: .TakeEvents
+            Dim エラー確認 As Boolean
+            Dim resBiDiAsync As Dictionary
+            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID, エラー確認)
+        Next i
+
+        .quit
+    End With
+End Sub</code></pre>
+</details>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<!-- Demo 4 -->
+<h2>🔌 Demo 4：BiDi+ — CDP コマンドのトンネリング</h2>
+<p>
+  WebDriver BiDi にまだ存在しない機能は <strong>「BiDi+」</strong>（Chromium独自拡張）を使うことで、
+  従来のCDPコマンドを <code>goog:cdp.sendCommand</code> 経由でトンネリング実行できます。
+</p>
+
+<div class="alert success">
+  <div class="alert-icon">🚀</div>
+  <div class="alert-content">
+    <strong>BiDi と CDP の「いいとこ取り」が可能</strong>
+    <p>BiDi がカバーしていない領域も、同じ <code>WebDriverBiDiCore</code> インスタンスのまま CDP コマンドを呼び出せます。移行期における強力な逃げ道です。</p>
+  </div>
+</div>
+
+<details style="margin: 1.5rem 0; cursor: pointer;">
+<summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る（TestBiDiPlus_CDPTunnel）</summary>
+<pre><code class="language-vbnet">Sub TestBiDiPlus_CDPTunnel()
+    Dim bidiPlus As New WebDriverBiDiCore
+    bidiPlus.start
+
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+
+    ' 1. BiDiコンテキストから CDP セッションIDを取得 (goog:cdp.getSession)
+    Dim targetContext As String
+    Set resultBiDi = bidiPlus.invokeMethod("browsingContext.getTree")
+    If Not resultBiDi Is Nothing Then
+        targetContext = resultBiDi("contexts")(1)("context")
+
+        Set paramsBiDi = New Dictionary
+        paramsBiDi.Add "context", targetContext
+        Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.getSession", paramsBiDi)
+
+        Dim cdpSessionId As String
+        If Not resultBiDi Is Nothing Then
+            cdpSessionId = resultBiDi("session")
+            MsgBox "CDPセッションIDを取得：" &amp; cdpSessionId, vbInformation, "BiDi+ GetSession"
+        End If
+    End If
+
+    ' 2. CDPコマンド「Browser.getVersion」を BiDi 経由で実行 (goog:cdp.sendCommand)
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "method", "Browser.getVersion"
+    paramsBiDi.Add "params", New Dictionary
+    If cdpSessionId &lt;&gt; "" Then paramsBiDi.Add "session", cdpSessionId
+
+    Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.sendCommand", paramsBiDi)
+
+    If Not resultBiDi Is Nothing Then
+        MsgBox "Browser.getVersion を BiDi 経由で実行成功！" &amp; vbCrLf &amp; _
+               "UserAgent：" &amp; resultBiDi("result")("userAgent") &amp; vbCrLf &amp; _
+               "Protocol：" &amp; resultBiDi("result")("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
+    End If
+
+    bidiPlus.quit
+End Sub</code></pre>
+</details>
 
 <p style="margin-top: 2rem; text-align: center;">
-    <a href="#bidi-methods" onclick="loadContent('bidi-methods')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">BiDiのメソッドの使い方を見る →</a>
+  <a href="#bidi-methods" onclick="loadContent('bidi-methods')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">メソッドリファレンスを見る →</a>
 </p>
