@@ -367,32 +367,57 @@ Friend Sub CB_ControllerCreated(ByVal errorCode As Long, ByVal pCtrl As LongPtr)
         RaiseEvent InitializeFailed(errorCode, m_LastErrorDesc)
         Exit Sub
     End If
-    COM_AddRef pCtrl
+    ' AddRef はコールバック内で呼ぶとクラッシュするため FinishWebViewSetup に移動
     m_pController = pCtrl
-    m_State = 2     ' → FinishWebViewSetup へのシグナル
+    m_State = 2
 End Sub
 
 '----------------------------------------------------------------------
 ' FinishWebViewSetup（ProcessMessages から呼ばれる）
-'   put_Bounds / put_IsVisible / get_CoreWebView2 を VBA メインスレッドで実行
+'   BeginControllerCreation と同じ VARIANT構造体ベースの引数渡しで COM を呼ぶ。
 '----------------------------------------------------------------------
 Private Sub FinishWebViewSetup()
-    m_State = 99    ' 二重呼び出し防止
+    m_State = 99
     Debug.Print "[WV2] FinishWebViewSetup: pController=0x" & Hex(m_pController)
 
-    ' 表示領域設定 / 表示ON
-    COM_SetBounds m_pController, m_Bounds
-    COM_DispCallLong1 m_pController, OFF_CTRL_put_IsVisible, 1
+    ' AddRef（コールバックの外で安全に実行）
+    COM_AddRef m_pController
 
-    ' ICoreWebView2 本体を取得
-    Dim pWV2 As LongPtr
-    Dim argT(0) As Integer: argT(0) = vbLongLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(pWV2)
+    ' VARIANTARGバッファ: [0]=vt+予約(8bytes) [1]=value(8bytes)
+    Dim vtII As Integer: vtII = 20  ' VT_I8
     Dim retV As Variant
-    DispCallFunc m_pController, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
-    m_pWebView2 = pWV2
-    Debug.Print "[WV2] WebView2 ready! pWV2=0x" & Hex(m_pWebView2)
 
+    ' --- put_Bounds (RECT ポインタ渡し) ---
+    Dim vBounds(0 To 1) As LongPtr
+    CopyMemory vBounds(0), vtII, 2
+    Dim pBoundsArg As LongPtr: pBoundsArg = VarPtr(m_Bounds)
+    vBounds(1) = pBoundsArg
+    Dim aT1(0) As Integer: aT1(0) = 20
+    Dim aP1(0) As LongPtr: aP1(0) = VarPtr(vBounds(0))
+    DispCallFunc m_pController, OFF_CTRL_put_Bounds, CC_STDCALL, vbLong, 1, aT1(0), aP1(0), retV
+    Debug.Print "  put_Bounds HRESULT=0x" & Hex(CLng(retV))
+
+    ' --- put_IsVisible (BOOL=1) ---
+    Dim vVis(0 To 1) As LongPtr
+    CopyMemory vVis(0), vtII, 2
+    vVis(1) = 1
+    Dim aT2(0) As Integer: aT2(0) = 20
+    Dim aP2(0) As LongPtr: aP2(0) = VarPtr(vVis(0))
+    DispCallFunc m_pController, OFF_CTRL_put_IsVisible, CC_STDCALL, vbLong, 1, aT2(0), aP2(0), retV
+    Debug.Print "  put_IsVisible HRESULT=0x" & Hex(CLng(retV))
+
+    ' --- get_CoreWebView2 (出力: ICoreWebView2*) ---
+    Dim pWV2 As LongPtr
+    Dim vWV2(0 To 1) As LongPtr
+    CopyMemory vWV2(0), vtII, 2
+    vWV2(1) = VarPtr(pWV2)
+    Dim aT3(0) As Integer: aT3(0) = 20
+    Dim aP3(0) As LongPtr: aP3(0) = VarPtr(vWV2(0))
+    DispCallFunc m_pController, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, aT3(0), aP3(0), retV
+    m_pWebView2 = pWV2
+    Debug.Print "  get_CoreWebView2 HRESULT=0x" & Hex(CLng(retV)) & ", pWV2=0x" & Hex(m_pWebView2)
+
+    ' Ready 通知
     RaiseEvent Ready
     If Len(m_InitialUrl) > 0 Then Navigate m_InitialUrl
 End Sub
