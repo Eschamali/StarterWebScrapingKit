@@ -1,64 +1,111 @@
-<h1>技術的な道のり：<span style="color:var(--accent-color)">EXEレスBiDiの実現</span></h1>
+<h1>技術仕様サマリー：<span style="color:var(--accent-color)">EXEレス BiDi の仕組み</span></h1>
 
-<p>なぜ、WebDriverBiDi.exe なしで動くことがわかったのか。その「生々しい」実現の記録です。</p>
+<p>
+  <a href="#bidi-story" onclick="loadContent('bidi-story')" style="color:var(--accent-color);">📖 登場秘話</a>
+  で語られた「発見の旅」を経て、なぜこの構成が機能するのか——その技術的なエッセンスを簡潔にまとめます。
+</p>
 
-<div class="card mb-4">
-    <h3>1. 従来の常識と「壁」</h3>
-    <p>通常、Selenium や初期の WebDriver BiDi 実装では、ブラウザを操作するために <code>chromedriver.exe</code> や <code>WebDriverBiDi.exe</code> といった「中間バイナリ（EXE）」が必要でした。これらは：</p>
-    <ul>
-        <li>HTTPやWebSocketのプロトコル変換を行う代理人（Proxy）として機能</li>
-        <li>ブラウザの起動オプションやセッション管理を統括</li>
-    </ul>
-    <p>という役割を担っていましたが、VBA環境においては「外部EXEの配布・管理」が最大のネックとなっていました。</p>
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<!-- アーキテクチャ全体像 -->
+<h2>🗺️ アーキテクチャ全体像</h2>
+<p>外部 exe も Node.js も不要。VBA ↔ ブラウザ内JS の2者間で完結します。</p>
+
+<div style="text-align:center; padding: 1.5rem 0;">
+  <div style="display:inline-grid; grid-template-columns:auto auto auto; gap: 0.3rem 0.8rem; align-items:center; text-align:left; border:1px solid rgba(255,255,255,0.1); padding:1.2rem 2rem; border-radius:10px; background:rgba(255,255,255,0.02);">
+    <span style="color:var(--accent-color); font-size:1.3rem;">📊</span>
+    <strong>VBA</strong>
+    <span style="color:var(--text-dim); font-size:0.9rem;">BiDi JSON を組み立て・送信</span>
+
+    <span style="color:var(--accent-color); text-align:center;">↕</span>
+    <span style="color:var(--text-dim); font-size:0.8rem;">標準入出力パイプ<br><code>--remote-debugging-pipe</code></span>
+    <span></span>
+
+    <span style="color:var(--accent-color); font-size:1.3rem;">🌐</span>
+    <strong>mapperTab.js <small>(隠しタブ)</small></strong>
+    <span style="color:var(--text-dim); font-size:0.9rem;">BiDi ↔ CDP を翻訳するエンジン</span>
+
+    <span style="color:var(--accent-color); text-align:center;">↕</span>
+    <span style="color:var(--text-dim); font-size:0.8rem;"><code>window.cdp</code> (特権オブジェクト)</span>
+    <span></span>
+
+    <span style="color:var(--accent-color); font-size:1.3rem;">⚙️</span>
+    <strong>Chromium エンジン</strong>
+    <span style="color:var(--text-dim); font-size:0.9rem;">実際のブラウザ操作を実行</span>
+  </div>
 </div>
 
-<div class="card mb-4">
-    <h3>2. 突破口：BiDiPoc.bas が証明した「セルフ・プロキシ」</h3>
-    <p>本プロジェクトの核心は、<strong>「EXEがやっている変換処理を、ブラウザ内部のJavaScriptに行わせる」</strong>という逆転の発想にあります。</p>
-    <p>この着想の原型は、リポジトリ直下の <code>BiDiPoc.bas</code>（Proof of Concept）に記録されています。</p>
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
-    <h4 style="margin-top:1.5rem;">実現のための「3つの神器」</h4>
+<!-- 初期セットアップの3ステップ -->
+<h2>🔧 初期セットアップ（3つの CDP コマンド）</h2>
+<p>起動時に以下を順番に実行することで、VBA ↔ mapperTab.js の通信路が確立されます。</p>
 
-    <div class="alert">
-        <div class="alert-content">
-            <strong>① Target.exposeDevToolsProtocol</strong>
-            <p>ブラウザ内部の特定のタブ（Mapper用タブ）に対して、JSから直接CDPを叩ける特別なオブジェクト <code>window.cdp</code> を露出させます。</p>
-        </div>
-    </div>
+<table class="method-table">
+  <thead>
+    <tr><th>#</th><th>CDP コマンド</th><th>役割</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>①</td>
+      <td><code>Target.exposeDevToolsProtocol</code></td>
+      <td>隠しタブに <code>window.cdp</code> という「CDP特権オブジェクト」を露出。mapperTab.js が自分自身へCDP命令を打てるようになる。</td>
+    </tr>
+    <tr>
+      <td>②</td>
+      <td><code>Runtime.addBinding</code></td>
+      <td><code>sendBidiResponse</code> という関数をJSに登録。mapperTab.js の結果を VBA 側へ「逆流」させるブリッジを構築する。</td>
+    </tr>
+    <tr>
+      <td>③</td>
+      <td><code>Runtime.evaluate</code></td>
+      <td>Excelのセルに格納した <code>mapperTab.js</code> のソースを注入・起動。翻訳エンジンが稼働開始する。</td>
+    </tr>
+  </tbody>
+</table>
 
-    <div class="alert">
-        <div class="alert-content">
-            <strong>② Runtime.addBinding</strong>
-            <p>JSからVBA（ホスト側）へメッセージを「逆流」させるためのブリッジ関数を作ります。これにより、BiDiのイベントがVBAへ通知されるようになります。</p>
-        </div>
-    </div>
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
-    <div class="alert">
-        <div class="alert-content">
-            <strong>③ Runtime.evaluate による mapperTab.js の注入</strong>
-            <p>Chromium公式チームが開発している <code>chromium-bidi</code> のコアロジックをJS文字列としてブラウザに流し込み、インスタンスを起動します。</p>
-        </div>
-    </div>
+<!-- 通信フロー -->
+<h2>🔄 コマンド送受信のフロー</h2>
+<p>セットアップ完了後、各 BiDi コマンドは以下のサイクルで処理されます。</p>
+
+<div class="alert">
+  <div class="alert-content" style="display:grid; gap:0.4rem;">
+    <div><strong>① VBA →</strong> <code>Runtime.evaluate</code> で <code>onBidiMessage(jsonStr)</code> を呼び出す</div>
+    <div style="color:var(--accent-color); padding-left:1rem;">↓ mapperTab.js がBiDiコマンドを受信</div>
+    <div><strong>② JS →</strong> <code>window.cdp</code> を通じてChromiumへCDP命令を発行</div>
+    <div style="color:var(--accent-color); padding-left:1rem;">↓ Chromiumがコマンドを実行</div>
+    <div><strong>③ JS →</strong> <code>sendBidiResponse(resultJson)</code> (Binding) で結果を返却</div>
+    <div style="color:var(--accent-color); padding-left:1rem;">↓ Runtime.bindingCalled イベントが発火</div>
+    <div><strong>④ VBA →</strong> <code>TakeEvents</code> でバッファを回収・解析して完了</div>
+  </div>
 </div>
 
-<div class="card mb-4">
-    <h3>3. 実現のメカニズム</h3>
-    <div style="text-align:center; padding: 1rem;">
-        <div style="display:inline-block; text-align:left; border:1px solid rgba(255,255,255,0.1); padding:1rem; border-radius:8px; background:rgba(255,255,255,0.02);">
-            <p><strong>1. VBA側:</strong> BiDi形式のJSONを <code>evaluate</code> でJSへ投下</p>
-            <div style="text-align:center; color:var(--accent-color)">↓</div>
-            <p><strong>2. ブラウザ内(JS):</strong> <code>window.cdp</code> を通じて自分自身へCDP命令</p>
-            <div style="text-align:center; color:var(--accent-color)">↓</div>
-            <p><strong>3. ブラウザ内(JS):</strong> 結果を <code>sendBidiResponse</code> (Binding) で返却</p>
-            <div style="text-align:center; color:var(--accent-color)">↓</div>
-            <p><strong>4. VBA側:</strong> <code>TakeEvents</code> でメッセージを回収</p>
-        </div>
-    </div>
-</div>
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<!-- mapperTab.js の調達 -->
+<h2>📦 mapperTab.js の調達方法</h2>
+<p>翻訳エンジン本体は Chromium公式チームが提供しており、VBAから自動取得できます。</p>
 
 <div class="alert success">
-    <div class="alert-content">
-        <strong>結論：ポータビリティの極致へ</strong>
-        <p>この方法の確立により、「Excelファイル1つとブラウザさえあれば、世界標準の次世代プロトコルをフルパワーで扱える」という環境が誕生しました。<code>BiDiPoc.bas</code> での生々しい実験こそが、技術的ブレイクスルーの瞬間でした。</p>
-    </div>
+  <div class="alert-content">
+    <strong>jsDelivr CDN 経由で自動ダウンロード</strong>
+    <p><code>https://cdn.jsdelivr.net/npm/chromium-bidi/...</code> のAPIを <code>WinHTTP 5.1</code> で叩き、最新バージョンを取得。テキストデータなのでExcelのセルに格納できます。</p>
+    <p>バイナリ（exe）ではなく<strong>テキストデータなので情シスのウイルスチェックをすり抜け</strong>、配布・更新が容易です。</p>
+  </div>
 </div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<!-- 検証済みの事実 -->
+<h2>✅ 公式ドライバーとの同一性（検証済み）</h2>
+<p><code>msedgedriver.exe</code> をバイナリエディタで開いたところ、内部に <code>&lt;!DOCTYPE html&gt;&lt;title&gt;BiDi-CDP Mapper&lt;/title&gt;...</code> という文字列がハードコードされていることが確認できました。</p>
+<p>つまり、公式ドライバーも <strong>内部で全く同じアプローチ（mapperTab.js を隠しタブに注入）を採用しています</strong>。詳細は
+  <a href="#bidi-story" onclick="loadContent('bidi-story')" style="color:var(--accent-color);">📖 登場秘話</a>
+  をご覧ください。
+</p>
+
+<p style="margin-top: 2rem; text-align: center;">
+  <a href="#bidi-intro" onclick="loadContent('bidi-intro')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">BiDi の使い方コーナーへ →</a>
+</p>
