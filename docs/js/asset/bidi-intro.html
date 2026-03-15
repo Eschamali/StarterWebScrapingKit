@@ -1,0 +1,46 @@
+<h1>WebDriver BiDi コーナー：<span style="color:var(--accent-color)">未来的な思考</span></h1>
+
+<h2>技術的な仕組み：何故、WebDriverBiDi.exe なしで動くのか？</h2>
+<p>外部ツールの <code>chromedriver.exe</code> や Selenium を <strong>一切使用せずに</strong>、VBA 単体で「WebDriver BiDi プロトコル」によるブラウザ操作を実現している驚くべきアーキテクチャの裏側を解説します。</p>
+
+<h3>1. そもそも WebDriver BiDi とは？</h3>
+<p>従来の自動化では、同期通信中心の「Selenium (WebDriver)」と、強力だがGoogle独自の「CDP」という2つのアプローチがありました。<br>
+<strong>WebDriver BiDi</strong> は、これら両者の「いいとこ取り」をした次世代の W3C 標準プロトコルです。双方向のイベント通信（Bidirectional）を標準化し、すべての主要ブラウザで等しく動作する高速な非同期通信を目指しています。</p>
+
+<h3>2. WebDriver レスの実現方法（パイプライン）</h3>
+<p>本来、WebDriver BiDi を使うためには専用の「仲介サーバー（chromedriver 等）」を立ち上げるのが一般的ですが、当プロジェクトの <code>WebDriverBiDiCore.cls</code> では以下の手法により <strong>VBA からブラウザへ完全に直結</strong> しています。</p>
+
+<div class="alert success">
+    <div class="alert-icon">1️⃣</div>
+    <div class="alert-content">
+        <strong>CDP パイプ通信による初期接続</strong>
+        <p>起動時に <code>--remote-debugging-pipe</code> を付与し、OS標準機能の「標準入出力のパイプ通信」を通じて直接対話できる経路を作ります。</p>
+    </div>
+</div>
+
+<div class="alert success">
+    <div class="alert-icon">2️⃣</div>
+    <div class="alert-content">
+        <strong>BiDi マッパー (mapperTab.js) の注入</strong>
+        <p>Google公式が提供する「CDP ↔ BiDi」変換スクリプトを、作成した裏側のタブ空間にインジェクト（注入）し、専用の直通メッセージラインを構築します。</p>
+    </div>
+</div>
+
+<div class="alert success">
+    <div class="alert-icon">3️⃣</div>
+    <div class="alert-content">
+        <strong>VBA ↔ BiDi の完全通信の確立</strong>
+        <p>以降、VBA からマッパーに対して <code>browsingContext.navigate</code> 等の標準 BiDi の JSON を直接流し込むことが可能になります。</p>
+    </div>
+</div>
+
+<h2 style="margin-top: 3rem;">圧倒的なメリット</h2>
+<ul>
+    <li><strong>環境非依存（完全ポータブル）</strong>: Excelさえ動けば、追加インストール不要ですぐに動きます。</li>
+    <li><strong>超低レイテンシ</strong>: 中間サーバーを経由しないため、極限まで素早いレスポンスを誇ります。</li>
+    <li><strong>JSONの高速フィルタリング</strong>: <code>BiDiCore.cls</code> 内部で高負荷な ParseJson 前に <code>InStr</code> 判定を行うことで、VBA 特有の遅さをスマートに克服しました。</li>
+</ul>
+
+<p style="margin-top: 2rem; text-align: center;">
+    <a href="#bidi-methods" onclick="loadContent('bidi-methods')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">BiDiのメソッドの使い方を見る →</a>
+</p>

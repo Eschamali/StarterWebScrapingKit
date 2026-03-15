@@ -7,7 +7,6 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-5CW3LKTJWH');
     </script>
     <meta charset="UTF-8">
@@ -22,20 +21,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/vbnet.min.js"></script>
-    
-    <!-- Load Content Modules -->
-    <script src="js/content-top.js"></script>
-    <script src="js/content-cdp-intro.js"></script>
-    <script src="js/content-cdp-demos.js"></script>
-    <script src="js/content-cdp-methods.js"></script>
-    <script src="js/content-cdp-advanced.js"></script>
-    <script src="js/content-bidi-intro.js"></script>
-    <script src="js/content-bidi-methods.js"></script>
-    <script src="js/content-technical-journey.js"></script>
-    <script src="js/content-bidi-story.js"></script>
+
+    <!-- コンテンツルーター (HTMLアセットのfetch管理) -->
+    <script src="js/content-router.js"></script>
 </head>
 <body class="dark-theme">
-    
+
     <!-- Background Animated Shapes -->
     <div class="bg-shape shape-1"></div>
     <div class="bg-shape shape-2"></div>
@@ -48,16 +39,16 @@
                 <div class="logo">🚀</div>
                 <h2>Starter Kit Docs</h2>
             </div>
-            
+
             <div class="nav-tree">
                 <a href="#top" class="nav-item" onclick="loadContent('top')">Topページ</a>
-                
+
                 <details open class="nav-details">
                     <summary class="nav-category">CDP-Jsonコーナー</summary>
                     <div class="nav-sub">
-                        <a href="#cdp-intro" class="nav-item" onclick="loadContent('cdp-intro')">独自の追加・改良点 (目的)</a>
-                        <a href="#cdp-demos" class="nav-item" onclick="loadContent('cdp-demos')">Demoコードコーナー</a>
-                        <a href="#cdp-methods" class="nav-item" onclick="loadContent('cdp-methods')">独自の、追加method</a>
+                        <a href="#cdp-intro"    class="nav-item" onclick="loadContent('cdp-intro')">独自の追加・改良点 (目的)</a>
+                        <a href="#cdp-demos"    class="nav-item" onclick="loadContent('cdp-demos')">Demoコードコーナー</a>
+                        <a href="#cdp-methods"  class="nav-item" onclick="loadContent('cdp-methods')">独自の、追加method</a>
                         <a href="#cdp-advanced" class="nav-item" onclick="loadContent('cdp-advanced')">CDPの高度な制御</a>
                     </div>
                 </details>
@@ -65,13 +56,13 @@
                 <details open class="nav-details">
                     <summary class="nav-category">WebDriverBiDiコーナー</summary>
                     <div class="nav-sub">
-                        <a href="#bidi-story" class="nav-item" onclick="loadContent('bidi-story')">&#x1F4D6; 登場秘話 ― exeなしの真実</a>
+                        <a href="#bidi-story"        class="nav-item" onclick="loadContent('bidi-story')">&#x1F4D6; 登場秘話 ― exeなしの真実</a>
                         <a href="#technical-journey" class="nav-item" onclick="loadContent('technical-journey')">技術的な仕組み (No-EXEの実現)</a>
-                        <a href="#bidi-intro" class="nav-item" onclick="loadContent('bidi-intro')">技術的な仕組みコーナー</a>
-                        <a href="#bidi-methods" class="nav-item" onclick="loadContent('bidi-methods')">methodの使い方</a>
+                        <a href="#bidi-intro"         class="nav-item" onclick="loadContent('bidi-intro')">技術的な仕組みコーナー</a>
+                        <a href="#bidi-methods"       class="nav-item" onclick="loadContent('bidi-methods')">methodの使い方</a>
                     </div>
                 </details>
-                
+
                 <a href="https://github.com/Eschamali/StarterWebScrapingKit" target="_blank" class="nav-item external" style="margin-top: 2rem;">GitHubを開く ↗</a>
             </div>
         </nav>
