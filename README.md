@@ -22,7 +22,7 @@
 
 ---
 
-## ⭐️ 新機能：WebDriver BiDi 完全対応！（VBA初*）
+## ⭐️ 新機能：WebDriver BiDi 完全対応！（VBA初🦊）
 
 従来の CDP (Chrome DevTools Protocol) 操作に加え、現在 W3C で世界標準として次世代プロトコル策定が進められている **「WebDriver BiDi」** にいち早く対応しました（`WebDriverBiDiCore.cls` を実装）。
 
