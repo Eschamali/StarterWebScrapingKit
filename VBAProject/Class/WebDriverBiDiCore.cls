@@ -1142,11 +1142,11 @@ Private Sub InsertMapperTab(Code As String)
 
     'JS置き場のワークシート制御へ
     With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "BiDiCore.InsertMapperTab"))
+        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.InsertMapperTab"))
 
             '4. テーブルの中身を全消去
             If .ListRows.Count Then .DataBodyRange.Delete
-
+            
             '5. 挿入範囲の確定
             Dim TargetRange As Range
             Set TargetRange = .ListColumns(1).Range(2).Resize(NumberOfSplit + 1, 1)
@@ -1156,6 +1156,27 @@ Private Sub InsertMapperTab(Code As String)
 
             '7. 挿入
             TargetRange.value = JsCodeChunk
+        End With
+    End With
+
+
+    '元に戻す
+    Application.ScreenUpdating = True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`mapperTab.js`置き場のExcelテーブルの中身を削除します
+'***************************************************************************************************
+Private Sub DeleteMapperTab()
+    'テーブル削除時のアニメーション動作を止める
+    Application.ScreenUpdating = False
+
+
+    'JS置き場のワークシート制御へ
+    With ShLibrary01_JS
+        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.DeleteMapperTab"))
+            'テーブルの中身を全消去
+            If .ListRows.Count Then .DataBodyRange.Delete
         End With
     End With
 
@@ -1175,9 +1196,10 @@ End Sub
 '***************************************************************************************************
 Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
     'ファイルから、Jsコードを取得
+    '※Windows方式の改行コード(CRLF)だと、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
     Dim JsCode As String
     With m_CharConv
-        JsCode = .BytesToString(.BytesFromSavedFile(FolderPath, FileName))
+        JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
     End With
 
     'テーブルに置く作業
@@ -1185,6 +1207,15 @@ Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As S
 
     '正しく置けてるか確認
     UpdateFromLocalFile = (Take_mapperTabJSstring = JsCode)
+
+    'ミスの場合はテーブルの中身を削除
+    If Not (UpdateFromLocalFile) Then DeleteMapperTab
+
+    'ローカルファイルで更新した旨を記録
+    '※ミスの場合は、空欄にする
+    With ShLibrary01_JS
+        .Range(.UseRangeName(1, "WebDriverBiDiCore.UpdateFromLocalFile")).value = IIf(UpdateFromLocalFile, " Local", "")
+    End With
 End Function
 
 '***************************************************************************************************
@@ -1222,6 +1253,10 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
 
             '正しく置けてるか確認
             UpdateFromNPMFile = (Take_mapperTabJSstring = .Content)
+
+            'ミスの場合はテーブルの中身を削除
+            If Not (UpdateFromNPMFile) Then DeleteMapperTab
+
         Else
             MsgBox "npm経由による`" & MapperJSName & "`の取得に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .Content, vbCritical, "ErrorCode:" & .StatusCode
             UpdateFromNPMFile = False
@@ -1301,6 +1336,6 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        ViewDebugTab = .Range(.UseRangeName(11, "BiDiCore.Class_Initialize")).value
+        ViewDebugTab = .Range(.UseRangeName(11, "WebDriverBiDiCore.Class_Initialize")).value
     End With
 End Sub
