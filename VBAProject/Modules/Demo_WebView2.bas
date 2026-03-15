@@ -50,3 +50,22 @@ Public Sub TestWebView2Simple()
     wv2.Quit
     Set wv2 = Nothing
 End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2Form  ★推奨★
+'   UserForm の Frame hWnd を親として WebView2 を埋め込むデモ。
+'   vbModeless なので Excel の操作を維持しながら使える。
+'
+'   ★ Application.hWnd を親にするとクラッシュする問題の解決版 ★
+'----------------------------------------------------------------------
+Public Sub TestWebView2Form()
+    WebView2Frame.Show vbModeless
+End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2FormModal
+'   モーダル版（Excel 操作をブロックして WebView2 を表示）
+'----------------------------------------------------------------------
+Public Sub TestWebView2FormModal()
+    WebView2Frame.Show
+End Sub
