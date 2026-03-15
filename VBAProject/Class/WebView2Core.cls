@@ -90,6 +90,15 @@ Private Declare PtrSafe Function PeekMessage Lib "user32" Alias "PeekMessageW" (
 Private Declare PtrSafe Function TranslateMessage Lib "user32" (lpMsg As Any) As Long
 Private Declare PtrSafe Function DispatchMessage Lib "user32" Alias "DispatchMessageW" (lpMsg As Any) As LongPtr
 
+' User32 ― WebView2 子 HWND 取得
+Private Declare PtrSafe Function GetWindow Lib "user32" ( _
+    ByVal hWnd As LongPtr, ByVal uCmd As Long) As LongPtr
+Private Declare PtrSafe Function MoveWindow Lib "user32" ( _
+    ByVal hWnd As LongPtr, ByVal x As Long, ByVal y As Long, _
+    ByVal nWidth As Long, ByVal nHeight As Long, ByVal bRepaint As Long) As Long
+Private Declare PtrSafe Function GetClientRect Lib "user32" ( _
+    ByVal hWnd As LongPtr, lpRect As RECT_T) As Long
+
 #End If
 
 ' =====================================================================
@@ -136,8 +145,17 @@ Private m_pWebView2     As LongPtr   ' ICoreWebView2
 ' 親ウィンドウ
 Private m_hWndParent As LongPtr
 
+' リサイズ時に DoTimerResize が GetClientRect するための Frame HWND
+Private m_hWndFrame As LongPtr
+
 ' 表示領域
 Private m_Bounds As RECT_T
+
+' フィードバックループ防止：前回 put_Bounds に渡した値
+' put_Bounds → WM_SIZE → UserForm_Resize → ScheduleResize → DoTimerResize → put_Bounds...
+' の無限ループを、「同じ bounds ならスキップ」で断ち切る。
+Private m_LastAppliedRight  As Long
+Private m_LastAppliedBottom As Long
 
 ' 初期遷移 URL
 Private m_InitialUrl As String
@@ -281,6 +299,100 @@ Public Sub SetVisible(ByVal isVisible As Boolean)
     If m_pController = 0 Then Exit Sub
     Dim visVal As Long: visVal = IIf(isVisible, 1, 0)
     COM_DispCallLong1 m_pController, OFF_CTRL_put_IsVisible, visVal
+End Sub
+
+'----------------------------------------------------------------------
+' ResizeDirect  ― MoveWindow で WebView2 子 HWND を直接リサイズ
+'   EdgeInExcelForm.frm と同じ方式（put_Bounds の代わり）。
+'   m_hWndParent（= Frame hWnd）の最初の子ウィンドウが WebView2 HWND。
+'----------------------------------------------------------------------
+Public Sub ResizeDirect(ByVal pxWidth As Long, ByVal pxHeight As Long)
+    If m_hWndParent = 0 Then Exit Sub
+    Const GW_CHILD As Long = 5
+    Dim hWv2 As LongPtr
+    hWv2 = GetWindow(m_hWndParent, GW_CHILD)
+    If hWv2 = 0 Then Exit Sub
+    MoveWindow hWv2, 0, 0, pxWidth, pxHeight, 1
+End Sub
+
+'----------------------------------------------------------------------
+' ResizeToParent  ― Frame HWND の GetClientRect 実ピクセルで put_Bounds
+'   hWndFrame : UserForm 側で取得したフレッシュな Frame hWnd
+'   ★ WM_SIZE ハンドラの内側から呼ぶと EmbeddedBrowserWebView.dll がクラッシュする
+'     → 安全な呼び切りは ScheduleResize を使くこと
+'----------------------------------------------------------------------
+Public Sub ResizeToParent(ByVal hWndFrame As LongPtr)
+    If m_pController = 0 Then Exit Sub
+    If hWndFrame = 0 Then Exit Sub
+
+    Dim rc As RECT_T
+    Dim gcResult As Long
+    gcResult = GetClientRect(hWndFrame, rc)
+    Debug.Print "[WV2] ResizeToParent: hFrame=0x" & Hex(hWndFrame) & _
+                ", GetClientRect=" & gcResult & _
+                ", rect={" & rc.Left & "," & rc.Top & "," & rc.Right & "," & rc.Bottom & "}"
+
+    If gcResult = 0 Then Exit Sub
+    If rc.Right <= 0 Or rc.Bottom <= 0 Then Exit Sub
+
+    m_Bounds.Left = 0
+    m_Bounds.Top = 0
+    m_Bounds.Right = rc.Right
+    m_Bounds.Bottom = rc.Bottom
+
+    Dim argT(0) As Integer: argT(0) = vbLongLong
+    Dim pBounds As LongPtr: pBounds = VarPtr(m_Bounds)
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(pBounds)
+    Dim retV As Variant
+    DispCallFunc m_pController, OFF_CTRL_put_Bounds, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
+    Debug.Print "  put_Bounds({0,0," & rc.Right & "," & rc.Bottom & "}) HRESULT=0x" & Hex(CLng(retV))
+End Sub
+
+'----------------------------------------------------------------------
+' ScheduleResize  ― UserForm_Resize から呼ぶ。
+'   hWndFrame(Frame の HWND)を保存し、1ms タイマーをセットするだけ。
+'   GetClientRect は WM_SIZE 完了後のタイマーコールバック（DoTimerResize）で
+'   実行するため、このメソッド内では Win32 サイズ取得を行わない。
+'----------------------------------------------------------------------
+Public Sub ScheduleResize(ByVal hWndFrame As LongPtr)
+    If m_pController = 0 Then Exit Sub
+    If hWndFrame = 0 Then Exit Sub
+    m_hWndFrame = hWndFrame      ' タイマー内で GetClientRect するために保存
+    WV2_ScheduleResize
+End Sub
+
+'----------------------------------------------------------------------
+' DoTimerResize  ― WV2_ResizeTimerProc から呼ばれる。
+'   WM_SIZE が完全に処理された後（タイマーコールバック）に GetClientRect を
+'   呼び出すことで、遷移中の古い値ではなく確定サイズを取得できる。
+'   「前回と同じ bounds」なら put_Bounds をスキップしてフィードバックループを防ぐ。
+'----------------------------------------------------------------------
+Friend Sub DoTimerResize()
+    If m_pController = 0 Then Exit Sub
+    If m_hWndFrame = 0 Then Exit Sub
+
+    Dim rc As RECT_T
+    If GetClientRect(m_hWndFrame, rc) = 0 Then Exit Sub
+    If rc.Right <= 0 Or rc.Bottom <= 0 Then Exit Sub
+
+    ' 「前回と同じ値」なら put_Bounds を呼ばない（フィードバックループ防止）
+    '   put_Bounds → WM_SIZE → UserForm_Resize → ScheduleResize → DoTimerResize → ...
+    If rc.Right = m_LastAppliedRight And rc.Bottom = m_LastAppliedBottom Then
+        Debug.Print "[WV2] DoTimerResize: スキップ (bounds 変化なし: {0,0," & rc.Right & "," & rc.Bottom & "})"
+        Exit Sub
+    End If
+
+    m_Bounds.Left = 0
+    m_Bounds.Top = 0
+    m_Bounds.Right = rc.Right
+    m_Bounds.Bottom = rc.Bottom
+
+    Debug.Print "[WV2] DoTimerResize: bounds={0,0," & m_Bounds.Right & "," & m_Bounds.Bottom & "}"
+    COM_SetBounds m_pController, m_Bounds
+
+    ' 適用済み値を記録（次回のループ検出用）
+    m_LastAppliedRight = rc.Right
+    m_LastAppliedBottom = rc.Bottom
 End Sub
 
 '----------------------------------------------------------------------
@@ -474,35 +586,55 @@ End Sub
 ' Navigate(url: LPCWSTR)
 Private Function COM_Navigate(ByVal pWV2 As LongPtr, ByVal Url As String) As Long
     Dim pUrl As LongPtr: pUrl = StrPtr(Url)
-    Dim argT(0) As Integer: argT(0) = vbLongLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(pUrl)
+    Dim vUrl(0 To 1) As LongPtr
+    Dim vtII As Integer: vtII = 20  ' VT_I8
+    CopyMemory vUrl(0), vtII, 2     ' vt(2) + pad(6)
+    vUrl(1) = pUrl                  ' value(8)
+    
+    Dim argT(0) As Integer: argT(0) = 20 ' vbLongLong
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vUrl(0))
     Dim retV As Variant
     DispCallFunc pWV2, OFF_WV2_Navigate, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
     COM_Navigate = CLng(retV)
 End Function
 
 ' put_Bounds(RECT)  ─ x64 ABI では 16バイト構造体はポインタ渡し
+'   重要: x64 の DispCallFunc にはポインタを VARIANT(16bytes) 形式で渡す必要がある
 Private Sub COM_SetBounds(ByVal pCtrl As LongPtr, ByRef bounds As RECT_T)
     Dim pBounds As LongPtr: pBounds = VarPtr(bounds)
-    Dim argT(0) As Integer: argT(0) = vbLongLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(pBounds)
+    Dim vBounds(0 To 1) As LongPtr
+    Dim vtII As Integer: vtII = 20  ' VT_I8
+    CopyMemory vBounds(0), vtII, 2
+    vBounds(1) = pBounds            ' RECT構造体へのポインタを詰める
+
+    Dim argT(0) As Integer: argT(0) = 20 ' vbLongLong
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vBounds(0))
     Dim retV As Variant
     DispCallFunc pCtrl, OFF_CTRL_put_Bounds, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
 
 ' 引数が LongPtr 1個の汎用DispCallFunc
 Private Sub COM_DispCallPtr1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal arg0 As LongPtr)
-    Dim pArg As LongPtr: pArg = arg0
-    Dim argT(0) As Integer: argT(0) = vbLongLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(pArg)
+    Dim vArg(0 To 1) As LongPtr
+    Dim vtII As Integer: vtII = 20  ' VT_I8
+    CopyMemory vArg(0), vtII, 2
+    vArg(1) = arg0
+    
+    Dim argT(0) As Integer: argT(0) = 20
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vArg(0))
     Dim retV As Variant
     DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
 
 ' 引数が Long 1個の汎用DispCallFunc（put_IsVisible など）
 Private Sub COM_DispCallLong1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal arg0 As Long)
-    Dim argT(0) As Integer: argT(0) = vbLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(arg0)
+    Dim vArg(0 To 1) As LongPtr
+    Dim vtII As Integer: vtII = 3   ' VT_I4 / vbLong
+    CopyMemory vArg(0), vtII, 2
+    CopyMemory vArg(1), arg0, 4     ' value (lower 4 bytes of LongPtr slot)
+    
+    Dim argT(0) As Integer: argT(0) = 3 ' vbLong
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vArg(0))
     Dim retV As Variant
     DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
@@ -554,6 +686,9 @@ Private Sub Class_Initialize()
     m_pEnvironment = 0
     m_pController = 0
     m_pWebView2 = 0
+    m_hWndFrame = 0
+    m_LastAppliedRight = 0
+    m_LastAppliedBottom = 0
     m_LastErrorCode = 0
     m_State = 0
 End Sub

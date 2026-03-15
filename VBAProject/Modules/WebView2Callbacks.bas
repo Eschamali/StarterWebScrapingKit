@@ -11,10 +11,19 @@ Option Explicit
 #If VBA7 Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
     Destination As Any, Source As Any, ByVal length As Long)
+' リサイズ用タイマー
+Private Declare PtrSafe Function SetTimer Lib "user32" ( _
+    ByVal hWnd As LongPtr, ByVal nIDEvent As LongPtr, _
+    ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
+Private Declare PtrSafe Function KillTimer Lib "user32" ( _
+    ByVal hWnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
 #End If
 
 ' グローバル参照
 Public g_WebView2Core As WebView2Core
+
+' リサイズタイマー ID（1ms ワンショット）
+Public g_ResizeTimerId As LongPtr
 
 '----------------------------------------------------------------------
 ' GetFuncAddr
@@ -25,13 +34,36 @@ Public Function GetFuncAddr(ByVal pfn As LongPtr) As LongPtr
     GetFuncAddr = pfn
 End Function
 
+'----------------------------------------------------------------------
+' WV2_ScheduleResize
+'   UserForm_Resize から呼ばれ、1ms 後にタイマーコールバックを発火させる。
+'   put_Bounds は WM_SIZE ハンドラの外側（TimerProc）で呼ぶ必要があるため。
+'----------------------------------------------------------------------
+Public Sub WV2_ScheduleResize()
+    If g_ResizeTimerId <> 0 Then KillTimer 0, g_ResizeTimerId  ' 既存タイマーをキャンセル
+    g_ResizeTimerId = SetTimer(0, 0, 1, GetFuncAddr(AddressOf WV2_ResizeTimerProc))
+End Sub
+
+'----------------------------------------------------------------------
+' WV2_ResizeTimerProc
+'   SetTimer のコールバック。WM_SIZE 処理完了後、Excel のメッセージループ
+'   内の DispatchMessage から呼ばれる。このコンテキストは put_Bounds に安全。
+'   FinishWebViewSetup の put_Bounds も同様のコンテキストで動作している。
+'----------------------------------------------------------------------
+Public Function WV2_ResizeTimerProc(ByVal hWndTimer As LongPtr, ByVal uMsg As Long, _
+                                     ByVal nIDEvent As LongPtr, ByVal dwTime As Long) As Long
+    KillTimer hWndTimer, nIDEvent  ' ワンショット：即キャンセル
+    g_ResizeTimerId = 0
+    On Error Resume Next
+    If Not g_WebView2Core Is Nothing Then g_WebView2Core.DoTimerResize
+    WV2_ResizeTimerProc = 0
+End Function
+
 '---------------------------------------------------------------------
 ' ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler
 ' vtable[0] QueryInterface / [1] AddRef / [2] Release / [3] Invoke
 '---------------------------------------------------------------------
 Public Function WV2_EnvCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByVal ppvObject As LongPtr) As Long
-    ' WebView2 は内部で QueryInterface を呼んで handler を検証する。
-    ' 自分自身を改めて返す（全インターフェースを受け入れる）
     If ppvObject <> 0 Then CopyMemory ByVal ppvObject, pThis, LenB(pThis)
     WV2_EnvCB_QI = 0   ' S_OK
 End Function

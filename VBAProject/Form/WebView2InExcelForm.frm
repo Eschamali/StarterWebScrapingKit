@@ -43,10 +43,6 @@ Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowL
     ByVal hWnd As LongPtr, ByVal nIndex As Long) As LongPtr
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
     ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-Private Declare PtrSafe Function SetWindowPos Lib "user32" ( _
-    ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
-    ByVal x As Long, ByVal y As Long, ByVal cx As Long, ByVal cy As Long, _
-    ByVal uFlags As Long) As Long
 #End If
 
 Private Const GWL_STYLE     As Long = -16
@@ -67,6 +63,7 @@ Attribute m_wv2.VB_VarHelpID = -1
 ' 状態フラグ
 Private m_Ready       As Boolean
 Private m_Initialized As Boolean  ' StartWebView2 の二度呼び防止
+Private m_InResize    As Boolean  ' UserForm_Resize の再入防止
 
 'Frameのマージン
 Private fRightMargin As Long
@@ -105,10 +102,14 @@ Private Sub UserForm_Activate()
 End Sub
 
 Private Sub UserForm_Resize()
+    ' 再入防止（put_Bounds が WM_SIZE を発火させてもループしない）
+    If m_InResize Then Exit Sub
+    m_InResize = True
+    On Error GoTo ResizeCleanup
+
     Const TOOLBAR_H As Single = 21  ' ツールバー行の高さ（ポイント）
     Const BTN_W     As Single = 48
     Const MARGIN    As Single = 3
-    On Error Resume Next
 
     ' --- ツールバーのリサイズ追従 ---
     Me.btnGo.Left = Me.InsideWidth - BTN_W - MARGIN
@@ -124,14 +125,17 @@ Private Sub UserForm_Resize()
     tmp = Me.InsideHeight - fBottomMargin - Me.wv2Container.Top
     If tmp >= 0 Then Me.wv2Container.height = tmp
 
-    ' --- WebView2 のバウンドを更新し、位置変化を通知する ---
+    ' --- WebView2 リサイズ： SetTimer で put_Bounds を WM_SIZE 完了後に実行 ---
+    '     WM_SIZE ハンドラ内で put_Bounds を呼ぶと EmbeddedBrowserWebView.dll がクラッシュするため、
+    '     hFrame を渡してタイマーコールバック（DoTimerResize）内で GetClientRect + put_Bounds する。
     If m_Ready And Not m_wv2 Is Nothing Then
-        Dim pxW As Long, pxH As Long
-        pxW = Me.wv2Container.InsideWidth * PT2PX
-        pxH = Me.wv2Container.InsideHeight * PT2PX
-        m_wv2.Resize 0, 0, pxW, pxH
-        m_wv2.NotifyPositionChanged  ' IME位置・ポップアップ位置を再計算させる
+        Dim hFrame As LongPtr
+        hFrame = Me.wv2Container.[_GethWnd]
+        m_wv2.ScheduleResize hFrame  ' タイマーで先送り（1ms）
     End If
+
+ResizeCleanup:
+    m_InResize = False
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
@@ -255,8 +259,12 @@ End Function
 
 '----------------------------------------------------------------------
 ' ApplyThickFrame
-'   WS_THICKFRAME を付与し、SWP_FRAMECHANGED でノンクライアント領域を強制再描画する。
-'   WebView2 初期化後にスタイルがリセットされる問題への対策。
+'   WS_THICKFRAME を付与してリサイズ可能にする。
+'   ★ SetWindowPos(SWP_FRAMECHANGED) は使わない ★
+'     SWP_FRAMECHANGED → WM_NCCALCSIZE → WM_SIZE → UserForm_Resize → m_wv2.Resize
+'     の連鎖で WebView2 が枠外に飛ぶ原因になる。
+'     WS_THICKFRAME ビットだけで WM_NCHITTEST が正しく返るため、
+'     スタイル設定だけでドラッグリサイズは機能する。（EdgeInExcelForm.frm と同じ方法）
 '----------------------------------------------------------------------
 Private Sub ApplyThickFrame()
     Dim hForm As LongPtr
@@ -266,8 +274,5 @@ Private Sub ApplyThickFrame()
     Dim sty As LongPtr
     sty = GetWindowLongPtr(hForm, GWL_STYLE)
     SetWindowLongPtr hForm, GWL_STYLE, sty Or WS_THICKFRAME
-
-    ' SWP_FRAMECHANGED でノンクライアント領域（ボーダー）を強制再描画する
-    SetWindowPos hForm, 0, 0, 0, 0, 0, _
-    SWP_NOSIZE Or SWP_NOMOVE Or SWP_NOZORDER Or SWP_FRAMECHANGED
+    ' ← SetWindowPos / SWP_FRAMECHANGED は呼ばない
 End Sub
