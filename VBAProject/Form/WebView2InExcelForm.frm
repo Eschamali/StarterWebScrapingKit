@@ -68,11 +68,21 @@ Attribute m_wv2.VB_VarHelpID = -1
 Private m_Ready       As Boolean
 Private m_Initialized As Boolean  ' StartWebView2 の二度呼び防止
 
+'Frameのマージン
+Private fRightMargin As Long
+Private fBottomMargin As Long
+
+
+
 ' =====================================================================
 ' UserForm ライフサイクル
 ' =====================================================================
 
 Private Sub UserForm_Initialize()
+    'フレームの右下マージン計算
+    fRightMargin = Me.InsideWidth - Me.wv2Container.Width - Me.wv2Container.Left
+    fBottomMargin = Me.InsideHeight - Me.wv2Container.height - Me.wv2Container.Top
+
     ' WebView2Core インスタンス生成（hWnd取得は Activate で行う）
     Set m_wv2 = New WebView2Core
 End Sub
@@ -85,8 +95,13 @@ Private Sub UserForm_Activate()
     ' ① WS_THICKFRAME を付与してリサイズ可能にする
     ApplyThickFrame
 
-    ' ② WebView2 初期化
+    ' ② WebView2 初期化（ループ内で Ready まで待機する）
     StartWebView2
+
+    ' ③ WebView2 初期化完了後に WS_THICKFRAME を再適用する
+    '    （DoEvents ループ中に Excel がスタイルをリセットするため、完了後に再適用）
+    '    StartWebView2 が返った後なので再入なしで安全
+    ApplyThickFrame
 End Sub
 
 Private Sub UserForm_Resize()
@@ -96,18 +111,23 @@ Private Sub UserForm_Resize()
     On Error Resume Next
 
     ' --- ツールバーのリサイズ追従 ---
-    Me.btnGo.Left  = Me.InsideWidth - BTN_W - MARGIN
+    Me.btnGo.Left = Me.InsideWidth - BTN_W - MARGIN
     Me.btnGo.Width = BTN_W
     Me.txtUrl.Width = Me.btnGo.Left - MARGIN * 2
 
     ' --- wv2Container（Frame）のリサイズ追従 ---
-    Me.wv2Container.Width  = Me.InsideWidth
-    Me.wv2Container.Height = Me.InsideHeight - TOOLBAR_H
+    Dim tmp As Long
+
+    tmp = Me.InsideWidth - fRightMargin - Me.wv2Container.Left
+    If tmp >= 0 Then Me.wv2Container.Width = tmp
+
+    tmp = Me.InsideHeight - fBottomMargin - Me.wv2Container.Top
+    If tmp >= 0 Then Me.wv2Container.height = tmp
 
     ' --- WebView2 のバウンドを更新し、位置変化を通知する ---
     If m_Ready And Not m_wv2 Is Nothing Then
         Dim pxW As Long, pxH As Long
-        pxW = Me.wv2Container.InsideWidth  * PT2PX
+        pxW = Me.wv2Container.InsideWidth * PT2PX
         pxH = Me.wv2Container.InsideHeight * PT2PX
         m_wv2.Resize 0, 0, pxW, pxH
         m_wv2.NotifyPositionChanged  ' IME位置・ポップアップ位置を再計算させる
@@ -152,10 +172,8 @@ Private Sub m_wv2_Ready()
     m_Ready = True
     Me.Caption = "WebView2 Browser - 準備完了"
     Debug.Print "[WebView2Frame] m_wv2_Ready: WebView2 の初期化が完了しました"
-
-    ' WebView2 初期化中に DoEvents ループがスタイルをリセットした場合に備えて
-    ' WS_THICKFRAME を再適用する
-    ApplyThickFrame
+    ' ? ここは ProcessMessages ループの中なので ApplyThickFrame を呼び出さない。
+    '    WS_THICKFRAME 再適用は UserForm_Activate の StartWebView2 完了後で行う。
 End Sub
 
 Private Sub m_wv2_NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
@@ -251,5 +269,5 @@ Private Sub ApplyThickFrame()
 
     ' SWP_FRAMECHANGED でノンクライアント領域（ボーダー）を強制再描画する
     SetWindowPos hForm, 0, 0, 0, 0, 0, _
-        SWP_NOSIZE Or SWP_NOMOVE Or SWP_NOZORDER Or SWP_FRAMECHANGED
+    SWP_NOSIZE Or SWP_NOMOVE Or SWP_NOZORDER Or SWP_FRAMECHANGED
 End Sub
