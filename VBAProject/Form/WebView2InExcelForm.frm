@@ -125,13 +125,21 @@ Private Sub UserForm_Resize()
     tmp = Me.InsideHeight - fBottomMargin - Me.wv2Container.Top
     If tmp >= 0 Then Me.wv2Container.height = tmp
 
-    ' --- WebView2 リサイズ： SetTimer で put_Bounds を WM_SIZE 完了後に実行 ---
-    '     WM_SIZE ハンドラ内で put_Bounds を呼ぶと EmbeddedBrowserWebView.dll がクラッシュするため、
-    '     hFrame を渡してタイマーコールバック（DoTimerResize）内で GetClientRect + put_Bounds する。
+    ' --- WebView2 リサイズ（ハイブリッド方式：Win32 API で即リサイズ ＋ タイマーで COM 同期） ---
+    '     EdgeInExcelForm と同様の方式。ResizeDirect で Win32 レベルの追従性を確保し、
+    '     ScheduleResize (Timer) で COM 側の内部状態を安全に更新する。
     If m_Ready And Not m_wv2 Is Nothing Then
         Dim hFrame As LongPtr
         hFrame = Me.wv2Container.[_GethWnd]
-        m_wv2.ScheduleResize hFrame  ' タイマーで先送り（1ms）
+        
+        ' 1. Win32 API (MoveWindow) で子ウィンドウを即座にリサイズ（爆速追従）
+        Dim pxW As Long, pxH As Long
+        pxW = CLng(Me.wv2Container.InsideWidth * PT2PX)
+        pxH = CLng(Me.wv2Container.InsideHeight * PT2PX)
+        m_wv2.ResizeDirect pxW, pxH
+        
+        ' 2. タイマー経由で COM (put_Bounds) を実行（内部状態の確定）
+        m_wv2.ScheduleResize hFrame
     End If
 
 ResizeCleanup:
