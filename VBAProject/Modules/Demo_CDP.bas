@@ -30,36 +30,40 @@ Option Explicit
 '***************************************************************************************************
 '                               ■■■ 設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：設定シートから、パラメーターを読み込んで、ブラウザを起動するヘルパーモジュールです
+'* 機能　　：設定シートから、パラメーターを読み込んで、CDPモードでブラウザを起動するヘルパープロシージャです
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - CDPBrowser
 '* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
 '                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
 '
 '            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します
+'            KioskMode  0(省略)：通常モード(キオスクモードは使いません)
+'                       1      ：キオスクモード デジタル/対話型サイネージ
+'                       2      ：キオスクモード パブリック ブラウジング
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'            ・Chromeにもキオスクモードはありますが、Edgeほど引数での調整はありません
 '***************************************************************************************************
-Public Function 設定シートからの起動(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
+Public Function 設定シートからのCDP起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからの起動")).value, "chrome", "edge")
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動")).value, "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからの起動")).value, SwitchUser)
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動")).value, SwitchUser)
 
         'ブラウザ起動
-        Set 設定シートからの起動 = New CDPBrowser
-        設定シートからの起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからの起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからの起動")).value
+        Set 設定シートからのCDP起動 = New CDPBrowser
+        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
     End With
 End Function
 
-Sub 冒険の始まり()
+Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからの起動
+    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -86,7 +90,7 @@ Sub ネットワークイベントの確認()
     Dim CharConvObj As New CharacterCodeConversion:
     
     '設定シートに基づくブラウザ立ち上げ
-    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからの起動
+    Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからのCDP起動
     
     
     '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
@@ -147,7 +151,7 @@ End Sub
 '***************************************************************************************************
 Sub JapaneseElementTest()
     '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
-    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからの起動("https://keisan.site/exec/system/1161228728")
+    Dim Demo_Japanese As CDPBrowser: Set Demo_Japanese = 設定シートからのCDP起動("https://keisan.site/exec/system/1161228728")
     
     ' 身長をセット
     Dim height As CDPElement
@@ -208,7 +212,7 @@ Sub UseExtensions()
 
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim controlExtensions As CDPBrowser: Set controlExtensions = 設定シートからの起動
+    Dim controlExtensions As CDPBrowser: Set controlExtensions = 設定シートからのCDP起動
     
     '拡張機能のページへ遷移
     controlExtensions.navigate "edge://extensions/"
@@ -267,7 +271,7 @@ End Sub
 '***************************************************************************************************
 Sub TestAlert()
     '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
-    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = 設定シートからの起動("https://www.selenium.dev/selenium/web/alerts.html")
+    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = 設定シートからのCDP起動("https://www.selenium.dev/selenium/web/alerts.html")
 
 
     '必要な変数を用意
@@ -277,7 +281,7 @@ Sub TestAlert()
     Dim nodeId As Long
     Dim x As Double, y As Double
     
-    '
+    'テキスト入力用のAlertに入力させる文字列の指定
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
     
 
@@ -385,6 +389,31 @@ Sub TestAlert()
     End With
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：WebView2を使わず、ブラウザそのものを、ExcelUserFromに埋め込み、疑似WebView2を表現します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2らしさを追及するべく、キオスクモードで立ち上げ、URL遷移のみのユーザーフォームを起動します
+'* 注意事項：Edgeへの入力フォーカスが正しく認識できないため現状は、特定領域でのマウスフォーカスで妥協してます
+'***************************************************************************************************
+Sub ExcelのユーザーフォームにEdgeを埋め込む()
+    '1. CDPでEdgeを起動
+    Dim 実質WebView2 As CDPBrowser: Set 実質WebView2 = 設定シートからのCDP起動(KioskMode:=fullscreen)
+    実質WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"      'このツールのリポジトリURLとして、遷移します
+
+    '2. フォームをロード（まだ表示はしない）
+    Load EdgeInExcelForm
+
+    '3. 誘拐（ドッキング）処理を実行させる！
+    実質WebView2.sleep  'ちょこっとクールタイム
+    If Not (EdgeInExcelForm.AttachEdge(実質WebView2)) Then MsgBox "Edgeのハンドル情報の取得に失敗しました", vbCritical: Exit Sub
+
+    '4. フォームを表示
+    EdgeInExcelForm.show
+
+    '5. ブラウザを正常に閉じる
+    実質WebView2.quit
+End Sub
+
 Sub runEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
@@ -401,7 +430,7 @@ Sub runEdge()
    'If reAttach = False, .start will not automatically try to reattach
    'to previous instances open by CDP but will start a brand new instead.
     Dim edge As CDPBrowser
-    Set edge = 設定シートからの起動
+    Set edge = 設定シートからのCDP起動
  
    'Navigate and wait
    'If till argument is omitted, will by default wait until ReadyState = complete
@@ -434,7 +463,7 @@ Sub runHidden()
     Dim chrome As CDPBrowser
  
    'Start and hide
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.hide
  
    'Perform automation in the background
@@ -476,7 +505,7 @@ Sub runHiddenForJapan()
     Dim chrome As CDPBrowser
 
     'Start and hide
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.hide
 
     'Perform automation in the background
@@ -502,7 +531,7 @@ Sub runTabsAsOne()
 '--------------------------------------------------------------------------
  
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.show
     
    'Automate Tabs
@@ -526,7 +555,7 @@ Sub runTabsAsMany()
 '-------------------------------------------------------------------------------
  
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.show
  
    'Create and assign tabs
@@ -564,7 +593,7 @@ Sub runNewTab()
  
    'Init browser with custom arguments
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
     chrome.show asMaximized
     
@@ -605,7 +634,7 @@ Sub runIFrame()
     demoUrl = "https://www.w3schools.com/html/tryit.asp?filename=tryhtml_iframe_height_width"
     
     Dim chrome As New CDPBrowser
-    Set chrome = 設定シートからの起動(demoUrl)
+    Set chrome = 設定シートからのCDP起動(demoUrl)
     
     Dim iFrame1 As CDPElement
     Dim iFrame2 As CDPElement
@@ -630,7 +659,7 @@ Sub getSnapShot()
     demoUrl = "https://www.google.com/search?q=1sgd+to+vnd"
     
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動   'not App Mode as sometimes Chrome App Mode does not allow file downloading
+    Set chrome = 設定シートからのCDP起動   'not App Mode as sometimes Chrome App Mode does not allow file downloading
     chrome.navigate demoUrl
 
    'Snap a portion of the page based on the element indicator
@@ -660,7 +689,7 @@ Sub fillReactForm()
     demoUrl = "https://cdpn.io/gaearon/fullpage/VmmPgp?anon=true&editors=0010&view="
     
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.navigate demoUrl
         
    'Get the target fields
@@ -697,7 +726,7 @@ Sub switchMain()
 '---------------------------------------------------------------
 
     Dim chrome As CDPBrowser
-    Set chrome = 設定シートからの起動
+    Set chrome = 設定シートからのCDP起動
     chrome.newTab "http://google.com", setMain:=True   'the chrome object will now directly refer to the Google tab
     chrome.getTab("about:blank").closeTab       'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
@@ -737,7 +766,7 @@ Function execBot1()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 started."
     
     Dim e1 As CDPBrowser
-    Set e1 = 設定シートからの起動
+    Set e1 = 設定シートからのCDP起動
     e1.navigate "https://yahoo.com"
     
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 completed."
@@ -752,7 +781,7 @@ Function execBot2()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 started."
 
     Dim e2 As CDPBrowser
-    Set e2 = 設定シートからの起動(, "CDP2")
+    Set e2 = 設定シートからのCDP起動(, "CDP2")
     e2.navigate "https://finance.yahoo.com"
     
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
@@ -769,7 +798,7 @@ Sub demoReattachmentPart1()
 '----------------------------------------------------------------------------------------
 
     Dim c As CDPBrowser
-    Set c = 設定シートからの起動
+    Set c = 設定シートからのCDP起動
     c.navigate "https://google.com"
 
 End Sub
@@ -780,11 +809,28 @@ Sub demoReattachmentPart2()
 '----------------------------------------------------------------------------------------
 
     Dim c As New CDPBrowser
+
+    '設定セルから、ユーザ名を取得
     With ShSetting01_StartBrowser
-        If c.reattach(.Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value) = True Then c.navigate "https://wikipedia.com" _
-        Else Debug.Print "Failed to reattach. Perhaps the reattach profile CDP2 is incorrect?"
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
     End With
 
+    '1. まずは、既存のTargetIDに接続できるか？
+    If c.reattach(UserName) Then
+        '接続できたので、別ページに遷移して終了
+        c.navigate "https://wikipedia.com"
+        Exit Sub
+    Else
+        '既存のTargetIDが消えちゃったので、次のフェーズへ
+        Debug.Print "Failed to reattach. Connecting to the nearest unconnected tab from `Target.getTargets`."
+    End If
+
+    '2. 最も近い未接続のタブに接続します
+    c.getTab setMain:=True
+
+    '3．再接続できたので、別ページに遷移して終了
+    c.navigate "https://wikipedia.com"
 End Sub
 
 

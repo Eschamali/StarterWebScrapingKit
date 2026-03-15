@@ -33,15 +33,20 @@ Private m_ErrorDetails              As Dictionary   '同期BiDiコマンドし�
 Private timerOut                    As Long         '同期BiDiコマンドした際のタイムアウト設定
 Private ViewDebugTab                As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
 
-Private Const ThisClassName As String = "BiDiCore"  'ログのトレース用
+
+Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
+Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
 
 'nmp情報
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
-Private Const npmName       As String = "chromium-bidi"
+Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
 'BiDiからのイベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+
+'非同期イベント発火
+Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
 
 
 
@@ -50,35 +55,44 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 '***************************************************************************************************
 '* 機能　　：初期化処理
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：StartURL                   最初の起動時に遷移したいURL
-'*           SwitchUser                 設定シートとは別のユーザディレクトリを指定するときに使います
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'            appUrl                         最初の起動時に遷移したいURL
+'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
+'                                           `False`:起動チェックをせずに、ブラウザを起動します
+'
+'            userProfile                    UserDataDir名を指定します
+'            addArgs                        追加の起動引数を設けます
+'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
+'                                           1      ：キオスクモード デジタル/対話型サイネージ
+'                                           2      ：キオスクモード パブリック ブラウジング
+'
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub start(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub start(Optional Name As String = "chrome", _
+    Optional appUrl As String, _
+    Optional cleanActive As Boolean = True, _
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
+    Optional sessionCapabilitiesRequest As Dictionary)
+
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. セルから設定を適用
-    Set m_CDPBrowser = 設定シートからの起動(StartURL, SwitchUser)
+    '1. 引数から設定を適用し、まずはCDPとして起動
+    Set m_CDPBrowser = New CDPBrowser
+    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
 
     '2. BiDi-CDP Mapper を始動させます
-    Call StartBiDiCDPMapper
+    StartBiDiCDPMapper
 
     '3. BiDi との新しいセッションを確立する
     '※ここは、BiDi用のコマンドとして使用
     Dim resultBiDi As Dictionary
+    Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
-    If sessionCapabilitiesRequest Is Nothing Then
-        Set sessionCapabilitiesRequest = New Dictionary
-        sessionCapabilitiesRequest.Add "capabilities", New Dictionary
-    End If
-
-    '確立処理！
-    Set resultBiDi = invokeMethod("session.new", sessionCapabilitiesRequest)
+    '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
 
@@ -87,87 +101,114 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：あとから、再接続する際に使い、セッション確立まで担います。
+'* 注意事項：ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
 '***************************************************************************************************
-Public Function reattach(userProfile As String) As Boolean
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. CDPセッションに再接続
+    '1. CDPタブセッションに再接続
     Dim ResultConnectionCDP As Boolean
     Set m_CDPBrowser = New CDPBrowser
     ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
 
-    '失敗時は、ここで抜ける
-    '※大抵は、デバックブラウザ自体がない
-    If Not (ResultConnectionCDP) Then reattach = False: Exit Function
+    'CDPタブセッション有無に応じた分岐
+    If ResultConnectionCDP Then
+        printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
-    '2. BiDiセッションに再接続
-    With m_CDPBrowser
-        '3. すでに当該タブで BiDi マッパーが起動済みかを確認する
-        '→ typeof window.onBidiMessage === 'function' かどうかを調べる
-        Dim jsCheck As String
-        jsCheck = "typeof window.onBidiMessage === 'function';"
+        '2. そのタブURLは、このクラスで用意した専用URLか？
+        If MapperURL = m_CDPBrowser.Url Then
+            '3. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
+            '→ typeof window.onBidiMessage === 'function' かどうかを調べる
+            Dim jsCheck As String
+            jsCheck = "typeof window.onBidiMessage === 'function';"
 
-        Dim isMapperRunning As Boolean
-        isMapperRunning = .jsEval(jsCheck)
+            Dim isMapperRunning As Boolean
+            isMapperRunning = m_CDPBrowser.jsEval(jsCheck)
 
-        If isMapperRunning Then
-            printMsg Debug_, "Mapper instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+            '`BiDi-CDP Mapper`の起動状況に応じた分岐
+            If isMapperRunning Then
+                '4. `BiDi-CDP Mapper`が生きてるので、BiDiの結果を受け取るCollectionの付与をしておく
+                printMsg Debug_, "`BiDi-CDP Mapper` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+                Set m_CDPBrowser.BiDiCapture = New Collection
+            Else
+                '4. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
+                printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
+                StartBiDiCDPMapper True
 
-            '4. `CDPBrowser`に、BiDiモードであると伝える
-            Set .BiDiCapture = New Collection
+                '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+                printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+                ViewNewSession sessionNew(sessionCapabilitiesRequest)
+            End If
+
         Else
-            printMsg Debug_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
+            '3. 別URL状態なので、空ページに遷移させる
+            '※`Target.exposeDevToolsProtocol`が有効の状態でのネットサーフィンは、危険なのでこの措置をとる
+            '　超端的に言うと、ネット上のvbsコードがIEで実行されちゃって大変なことになるあれ
+            printMsg WARN_, "The URL is not suitable for `Target.exposeDevToolsProtocol`. You will be redirected to an empty page.", FromProcedureName
+            m_CDPBrowser.Url = MapperURL
 
-            '4. BiDi-CDP Mapper を再始動させます
-            Call StartBiDiCDPMapper
+            '4. `BiDi-CDP Mapper`を始動させる
+            StartBiDiCDPMapper True
 
-            printMsg Debug_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+            '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+            printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+            ViewNewSession sessionNew(sessionCapabilitiesRequest)
         End If
+    Else
+        '2. 既知タブ自体が失ってるので、新規タブで始動しなおす
+        printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
+        StartBiDiCDPMapper
 
-        '5. セッション一覧を取得して、既存のものがあるか確認する
-        ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-        Dim resultBiDi As Dictionary
-        Set resultBiDi = invokeMethod("session.status")
+        '3. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+        printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+        ViewNewSession sessionNew(sessionCapabilitiesRequest)
+    End If
 
-        '6. mapperTab.js の仕様に沿った確認に従う
-        If resultBiDi.Exists("ready") Then
-            printMsg Debug_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
-            reattach = True
-        Else
-            printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName
-            reattach = False
-        End If
-    End With
+    '6. セッション一覧を取得して、既存のものがあるか確認する
+    ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
+    Dim resultBiDi As Dictionary
+    Set resultBiDi = sessionStatus
+
+    '7. mapperTab.js の仕様に沿った確認に従う
+    If resultBiDi.Exists("ready") Then
+        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
+        reattach = True
+    Else
+        printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+        reattach = False
+    End If
 End Function
 
 '***************************************************************************************************
 '* 機能　　：新規タブにて、BiDi-CDP Mapperを始動させます
+'* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`CDPBrowser`を`New`してからご利用ください
+'* 注意事項：・`CDPBrowser`を`New`してからご利用ください
+'            ・Excelテーブルにある`targetID`のタブ自体が閉じられてると、
 '***************************************************************************************************
-Private Sub StartBiDiCDPMapper()
+Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
         '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
-        .newTab , setMain:=True, isHidden:=Not (ViewDebugTab), isBackground:=True
+        If Not (ReConnect) Then .newTab MapperURL, setMain:=True, isHidden:=Not (ViewDebugTab), isBackground:=True
         printMsg Trace_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(ViewDebugTab) & ")", FromProcedureName
 
         '2. `CDPBrowser`に、BiDiモードであると伝える
         Set .BiDiCapture = New Collection
-
 
         '3. BiDi用バインディングの追加
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "bindingName", "cdp"
         paramsCDP.Add "targetId", .CurrentTargetID
         paramsCDP.Add "inheritPermissions", True
-        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not (ReConnect)
 
         '4. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
         paramsCDP.RemoveAll
@@ -216,6 +257,41 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
     printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.new`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.new`時の結果Dictionaryオブジェクト
+'* 引数    ：params     `session.new`の`Parameters`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`BiDi-CDP Mapper`を始動後は、これを必ず実行しないと、BiDiコマンドの結果が返りません
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
+'***************************************************************************************************
+Private Function sessionNew(Optional params As Dictionary) As Dictionary
+    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    If params Is Nothing Then
+        Set params = New Dictionary
+        params.Add "capabilities", New Dictionary
+    End If
+
+    '確立処理！
+    Set sessionNew = invokeMethod("session.new", params)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.status`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.status`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ソースコード上、結果は常に、「{ready: false, message: 'already connected'}」となります
+'            →src\bidiMapper\modules\session\SessionProcessor.ts:47
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
+'***************************************************************************************************
+Private Function sessionStatus() As Dictionary
+    Set sessionStatus = invokeMethod("session.status")
+End Function
 
 
 
@@ -350,10 +426,14 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         '受信数check
         If CurrentBiDiCol.Count Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Set SendMessage = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)
+            Dim tmp As Dictionary
+            Set tmp = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
-            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
-             ResultSendCommand = (Not (SendMessage Is Nothing))
+            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
+            If Not (tmp Is Nothing) Then
+                ResultSendCommand = True
+                Set SendMessage = tmp
+            End If
         Else
             printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
         End If
@@ -521,6 +601,8 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
     If GetContentsMethod(BiDiJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
+        'VBAでのイベント発火を行う
+        RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
         If (m_Events Is Nothing) And (InternalUseMessages Is Nothing) Then
@@ -600,7 +682,7 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
         printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
         printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived m_Events, JsonDictionaryObj
+        OnNewEventReceived m_Events, JsonDictionaryObj, AsynchronousEventName
     End If
 
     'プライベート(クラス内変数)用
@@ -608,7 +690,7 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
         printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj
+        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 End Function
 
@@ -734,9 +816,20 @@ Private Function invokeError(ResultsObj As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".invokeError"
 
 
-    'BiDiコマンドエラーは "type":"error" で返る
     Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
-    If ResultsObj("type") = "error" Then
+    '結果が空っぽになってる場合は、タイムアウトエラーか、コードのミスの可能性
+    If ResultsObj Is Nothing Then
+        'ログを出しておく
+        ErrorType = "error" 'arbitrary nonzero value, may change in future
+        ErrorMessage = "Timeout or No results"
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
+
+        'エラーフラグを立てる
+        invokeError = True
+        Set m_ErrorDetails = m_JsonConverter.ParseJson("{""type"":" & ErrorType & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
+
+    'BiDiコマンドエラーは "type":"error" で返る
+    ElseIf ResultsObj("type") = "error" Then
         'エラーを残す
         Set m_ErrorDetails = ResultsObj
 
@@ -821,6 +914,38 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
     End If
 End Property
 
+'***************************************************************************************************
+'* 機能　　：非同期で実行した、BiDi-Json コマンド結果を蓄積させる上限を決めます
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中の上限数
+'* LET引数 ：置き換える上限数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
+'***************************************************************************************************
+Property Get ResultAccumulatedLimitBiDiForAsync() As Long
+    ResultAccumulatedLimitBiDiForAsync = m_MaxCommandResults
+End Property
+
+Property Let ResultAccumulatedLimitBiDiForAsync(Number As Long)
+    m_MaxCommandResults = Number
+End Property
+
+'***************************************************************************************************
+'* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中のタイムアウト秒数
+'* LET引数 ：置き換えるタイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
+'***************************************************************************************************
+Property Get TimeOutSecond() As Long
+    TimeOutSecond = timerOut
+End Property
+
+Property Let TimeOutSecond(TimeSec As Long)
+    timerOut = TimeSec
+End Property
+
 
 
 '***************************************************************************************************
@@ -886,20 +1011,18 @@ End Function
 '* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
 '---------------------------------------------------------------------------------------------------
 '* 実質返値：Accumulator
-'* 引数　　：Accumulator    これまでの格納イベント。
-'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'* 引数　　：Accumulator        これまでの格納イベント。
+'            eventData          Json-Dictionry済みのブラウザからのイベントデータ
+'            EventMethodName    イベント名
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
 '            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, EventMethodName As String)
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
-
-    'イベント名を取得
-    Dim EventMethodName As String: EventMethodName = eventData("method")
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
@@ -960,7 +1083,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テーブルに格納した分割文字列を結合して返却します
 '***************************************************************************************************
-Function Take_mapperTabJSstring() As String
+Private Function Take_mapperTabJSstring() As String
     Dim tmp2
     Dim chunkNum As Long
 
@@ -1166,8 +1289,8 @@ End Function
 
 Private Sub Class_Initialize()
     '------------ いくつかの初期設定をもうけます ------------
-    'タイムアウト設定(デフォルトで、10s)
-    timerOut = 10
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = 30
 
     '非同期でのコマンド結果を蓄積させる件数
     m_MaxCommandResults = 10

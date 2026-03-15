@@ -101,6 +101,10 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, _
     ByRef pSessionId As Long) As Long
 
+Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
+    ByVal hWnd As LongPtr, _
+    lpdwProcessId As Long) As Long
+
 '===================================
 ' Constants
 '===================================
@@ -131,6 +135,14 @@ Public Enum TargetgetTargetsType
     iFrame
 End Enum
 
+Public Enum edgeKioskType
+    none            'キオスクモードなしの通常起動
+    fullscreen      'キオスクモード デジタル/対話型サイネージ
+    publicBrowsing  'キオスクモードのパブリック ブラウジング
+End Enum
+
+
+
 Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
@@ -148,6 +160,9 @@ Private Const TIMEOUT_NAVIGATE As Single = 45
 'ブラウザからのイベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+
+'非同期イベント発火
+Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
 'BiDiでのやりとりの核となるイベント名
 Private Const BiDiForEventName As String = "Runtime.bindingCalled"
@@ -185,8 +200,8 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
-Private AccumulatedCommandResults As Dictionary '非同期によるコマンド結果情報
-Private MaxCommandResults As Long       '非同期によるコマンド結果の最大蓄積数
+Private AccumulatedAsyncResults As Dictionary '非同期によるコマンド結果情報
+Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド結果の最大蓄積数
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
@@ -203,7 +218,7 @@ Private OnlyMessage__Runtime_bindingCalled  As Collection    'ブラウザから
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
-    Optional userProfile As String, Optional addArgs As String)
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
 '--------------------------------------------------------------------------------------------------------------
 ' This function initiates a new browser instance.
 ' By default, this function initializes chrome as the default choice.
@@ -272,6 +287,14 @@ Public Sub start(Optional Name As String = "chrome", _
     brUser = userProfile 'store the user profile name for cpid serialization
    '-----------------------------------------------------------------------------------------------------------------------------------------
 
+    'Edge特有のキオスクモードを設定します -------------------------------------------------------------------------------------------------------------
+    '※Chromeは、Edgeほど調整できないため、同じ引数にします
+    Select Case KioskMode
+        Case edgeKioskType.fullscreen: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
+        Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(brType = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
+    End Select
+   '-----------------------------------------------------------------------------------------------------------------------------------------
+
    'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------
    'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
    'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
@@ -288,7 +311,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Set core = New CDPCore
     brCallString = strCall
     printMsg Debug_, "Starting pipe communication... → " & brCallString, FromProcedureName
-    intRes = core.Init(brCallString)  'Serializable is set to True by default for ease of accessibility
+    intRes = core.Init(brCallString, KioskMode) 'Serializable is set to True by default for ease of accessibility
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     lngLastID = 1 'reset the pipe message ID
    '-----------------------------------------------------------------------------------------------------------------------------------
@@ -1408,7 +1431,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
 End Sub
 
-Public Sub handleDialog(Accept As Boolean, Optional promptText As Variant)
+Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 '----------------------------------------------------------------------------------
 ' Accepts or dismisses a JavaScript initiated dialog (alert, confirm, prompt, or
 ' onbeforeunload). accept = True to accept the dialog, else dimiss it. promptText
@@ -1422,17 +1445,17 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As Variant)
     Dim params As New Scripting.Dictionary
 
     params("accept") = CBool(Accept)
-    If Not IsMissing(promptText) Then params("promptText") = CStr(promptText)
+    If StrPtr(promptText) Then params("promptText") = promptText
     invokeMethod "Page.handleJavaScriptDialog", params
 
 End Sub
 
-Public Sub pageEnable()
+Public Sub pageEnable(Optional enable As Boolean = True)
 '----------------------------------------------------------------------------------
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    invokeMethod "Page.enable"
+    invokeMethod IIf(enable, "Page.enable", "Page.disable")
 
 End Sub
 
@@ -1751,7 +1774,7 @@ End Property
 '* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、10sです。
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
 Property Get TimeOutSecond() As Long
     TimeOutSecond = timerOut
@@ -1769,12 +1792,12 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
 '***************************************************************************************************
-Property Get ResultBoxCDPForAsync() As Long
-    ResultBoxCDPForAsync = MaxCommandResults
+Property Get ResultAccumulatedLimitCDPForAsync() As Long
+    ResultAccumulatedLimitCDPForAsync = AccumulatedAsyncResultsLimit
 End Property
 
-Property Let ResultBoxCDPForAsync(Number As Long)
-    MaxCommandResults = Number
+Property Let ResultAccumulatedLimitCDPForAsync(Number As Long)
+    AccumulatedAsyncResultsLimit = Number
 End Property
 
 '***************************************************************************************************
@@ -1808,11 +1831,11 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
 
 
     '1. 存在するか？
-    If AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedCommandResults(CommandID), FromProcedureName
+    If AccumulatedAsyncResults.Exists(CommandID) Then
+        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedAsyncResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedCommandResults(CommandID))
+        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedAsyncResults(CommandID))
 
         '3. `result`オブジェクトがあるか？
         'ない場合は、そのまま返却
@@ -1825,13 +1848,13 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
         Else
             'エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedCommandResults(CommandID), FromProcedureName
+            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedAsyncResults(CommandID), FromProcedureName
 
             Set ResultCDPForAsync = tmp
         End If
 
         '4. 取り出したので消しておく
-        AccumulatedCommandResults.Remove CommandID
+        AccumulatedAsyncResults.Remove CommandID
     Else
         ErrorExist = True
         printMsg WARN_, "The command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
@@ -1842,6 +1865,42 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
 
         '3. カスタムエラーメッセージJsonで返却
         Set ResultCDPForAsync = jsConverter.ParseJson("{""error"":{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}}")
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassで起動したブラウザのウィンドウハンドルを取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：requestUpdate      `True` :必ずウィンドウハンドルを調査したうえで、ウィンドウハンドルを取得します
+'                               `False`:既存の値があればそれを流用し、なければ再調査します
+'* 返値    ：ブラウザのウィンドウハンドル
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このハンドルを使った高度なウィンドウの調整などができます
+'***************************************************************************************************
+Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
+    If alwaysRequest Then
+        BrowserWindowHandle = getHandle
+    Else
+        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
+        If brHWnd Then BrowserWindowHandle = brHWnd Else BrowserWindowHandle = getHandle
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassで起動したブラウザのウィンドウIDを取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：requestUpdate      `True` :必ずウィンドウIDを調査したうえで、ウィンドウIDを取得します
+'                               `False`:既存の値があればそれを流用し、なければ再調査します
+'* 返値    ：ブラウザのウィンドウID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このIDを使ったCDP-Jsonとしてのウィンドウ調整("Browser.setWindowBounds"等)ができます
+'***************************************************************************************************
+Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
+    If alwaysRequest Then
+        BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+    Else
+        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
+        If brWID Then BrowserWindowID = brWID Else BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
     End If
 End Property
 
@@ -1935,10 +1994,14 @@ RetrySend:
         '返り値チェック
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-8           Set SendMessage = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)
+            Dim tmp As Dictionary
+8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
-            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立てる
-9           If Not (SendMessage Is Nothing) Then ResultSendCommand = True
+            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
+9           If Not (tmp Is Nothing) Then
+                ResultSendCommand = True
+                Set SendMessage = tmp
+            End If
         Else
             'データなしの場合は念のため、エラーコードチェックを行う
             If ErrorCode_PeekNamedPipe Then
@@ -2022,7 +2085,7 @@ End Function
 '            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
 '            checkCommandID         確認するコマンドID
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedCommandResults`に蓄積されます
+'* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedAsyncResults`に蓄積されます
 '***************************************************************************************************
 Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
@@ -2099,20 +2162,18 @@ End Function
 '* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
 '---------------------------------------------------------------------------------------------------
 '* 実質返値：Accumulator
-'* 引数　　：Accumulator    これまでの格納イベント。
-'            eventData      Json-Dictionry済みのブラウザからのイベントデータ
+'* 引数　　：Accumulator        これまでの格納イベント。
+'            eventData          Json-Dictionry済みのブラウザからのイベントデータ
+'            EventMethodName    イベント名
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：メソッド名をキーにし、それぞれの中では、時系列が保つように追加していきます。
 '            これにより、「特定の"種類"のイベント」を、個別にチェックしやすくなります。
 '            時系列データ(Index値)と合計キャプチャ数もおまけとして残しておきます。
 '* 注意事項；このプロシージャを呼び出す前に、イベントデータであるかのチェックを済ませてください
 '***************************************************************************************************
-Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary)
+Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionary, EventMethodName As String)
     Const FromProcedureName As String = ThisClassName & ".OnNewEventReceived"
 
-
-    'イベント名を取得
-    Dim EventMethodName As String: EventMethodName = eventData("method")
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
@@ -2182,6 +2243,9 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
+        'VBAでのイベント発火を行う
+        RaiseEvent detectionCDPEvent(AsynchronousEventName, CDPJsonString)
+
         'BiDiモードなら、特定のイベント名を別途、格納しておく
         '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
         If Not (OnlyMessage__Runtime_bindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
@@ -2237,13 +2301,13 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
                 'コマンド結果ID用受信Boxへ格納しておく
                 '※パーサー処理負荷を抑えるため、Json文字列まんまとします
-                AccumulatedCommandResults.Add ResultCommandID, CDPJsonString
+                AccumulatedAsyncResults.Add ResultCommandID, CDPJsonString
 
                 '格納件数チェックし、上限を超えたら、最古データを削除します
-                If AccumulatedCommandResults.Count > MaxCommandResults Then
+                If AccumulatedAsyncResults.Count > AccumulatedAsyncResultsLimit Then
                     ' 一番古いキーを取得して削除
-                    AccumulatedCommandResults.Remove AccumulatedCommandResults.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & MaxCommandResults & ", so the oldest has been deleted.", FromProcedureName
+                    AccumulatedAsyncResults.Remove AccumulatedAsyncResults.keys(0)
+                    printMsg info_, "The accumulation limit has exceeded " & AccumulatedAsyncResultsLimit & ", so the oldest has been deleted.", FromProcedureName
                 End If
             End If
         Else
@@ -2287,7 +2351,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
         printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived objAllMessages, JsonDictionaryObj
+        OnNewEventReceived objAllMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 
     'プライベート(クラス内変数)用
@@ -2295,7 +2359,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
         printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj
+        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 End Function
 
@@ -2548,21 +2612,29 @@ Private Function getHandle() As LongPtr
     'Both Edge and Chrome use the same class chromeWindowClass
     hWnd = FindWindowEx(0&, 0&, StrPtr(chromeWindowClass), 0&)        'To return Chrome / Edge window handles
     Do
+        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
+        Dim currentPID As Long
+        GetWindowThreadProcessId hWnd, currentPID
 
-        'Get Window Title based on specified handles
-        'Requires string buffering declaration as string
-        bufferString = String(1024, " ")
-        titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
-        windowTitle = Left(bufferString, titleLen)
+        '2. プロセスIDが、探しているブラウザのものと一致するか？
+        If currentPID = core.dwProcessId Then
+            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
+            getHandle = hWnd
 
-        'Verify if matching with the sessionTitle and is really an edge/chrome window
-        If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+            '3. Get Window Title based on specified handles
+            'Requires string buffering declaration as string
+            bufferString = String(1024, " ")
+            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
+            windowTitle = Left(bufferString, titleLen)
 
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)      'Continue with the next handle value
+            'Verify if matching with the sessionTitle and is really an edge/chrome window
+            If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+        End If
+
+        'Continue with the next handle value
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)
 
     Loop Until hWnd = 0 ' no more matching windows
-
-    getHandle = hWnd
 
 End Function
 
@@ -3045,12 +3117,12 @@ Private Sub Class_Initialize()
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
     End With
 
-    'タイムアウト設定(デフォルトで、10s)
-    timerOut = 10
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = 30
 
     '非同期でのコマンド結果を蓄積させる件数
-    Set AccumulatedCommandResults = New Dictionary
-    MaxCommandResults = 10
+    Set AccumulatedAsyncResults = New Dictionary
+    AccumulatedAsyncResultsLimit = 10
     '------------------------------------------------------------------------------
 
 

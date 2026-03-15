@@ -9,6 +9,54 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                               ■■■ 設定プロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiCore
+'* 引数　　：StartURL                       ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'            SwtchUser                      マルチインスタンス用に別ユーザーを指定するときに使用します
+'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
+'                                           1      ：キオスクモード デジタル/対話型サイネージ
+'                                           2      ：キオスクモード パブリック ブラウジング
+'
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'***************************************************************************************************
+Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        '起動ブラウザ種類の設定
+        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
+
+        'ブラウザ起動
+        Set 設定シートからのBiDi起動 = New WebDriverBiDiCore
+        設定シートからのBiDi起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+    End With
+End Function
+
+Sub BiDiによる冒険の始まり()
+    '設定シートに基づくブラウザ立ち上げ
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
+
+    '↓ここから、あなたのイメージをコードに落とし込む↓
+
+
+
+
+    'ブラウザを正常に閉じる
+    HelloWorldAutomationBrowser.quit
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ Demoプロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：イベントキャプチャに関するDemoコード(BiDi版)です
@@ -22,8 +70,8 @@ Sub ネットワークイベントの確認()
     Dim CharConvObj As New CharacterCodeConversion
     
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_NetworkEvent As New WebDriverBiDiCore
-    Demo_NetworkEvent.start
+    Dim Demo_NetworkEvent As WebDriverBiDiCore
+    Set Demo_NetworkEvent = 設定シートからのBiDi起動
     
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
     
@@ -121,7 +169,7 @@ Sub UseExtensions()
     End With
 
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim controlExtensions As New WebDriverBiDiCore
+    Dim controlExtensions As WebDriverBiDiCore
     
     '---- 拡張機能制御を有効化するオプションを作成 ---
     Dim caps As New Dictionary
@@ -134,14 +182,14 @@ Sub UseExtensions()
     '-------------------------------------------------
 
     ' 起動
-    controlExtensions.start , , caps
+    Set controlExtensions = 設定シートからのBiDi起動(sessionCapabilitiesRequest:=caps)
 
     '現在のコンテキストIDを取得する
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
     Set resultBiDi = controlExtensions.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
     '拡張機能のテストページ（もしくは任意のページ）へ遷移
@@ -224,7 +272,7 @@ Sub TestAlert()
     '---------------------------------------------------------------------
 
     'オプションを適用させて、指定URLから直接起動
-    Demo_alerts.start "https://www.selenium.dev/selenium/web/alerts.html", , caps
+    Set Demo_alerts = 設定シートからのBiDi起動("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
@@ -233,7 +281,7 @@ Sub TestAlert()
     Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザタブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
     'テスト入力文字列
@@ -343,10 +391,10 @@ End Sub
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
     Dim JsonDicObj As New WebJsonConverter
-    Dim bidiPlus As New WebDriverBiDiCore
+    Dim bidiPlus As WebDriverBiDiCore
     
     ' ブラウザ起動
-    bidiPlus.start
+    Set bidiPlus = 設定シートからのBiDi起動
 
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
 
@@ -395,7 +443,72 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ リアタッチDemo ■■■
+'***************************************************************************************************
+'* 機能　　：複数プロシージャをまたがった段階的な処理を行う際の再接続Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
+'            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'***************************************************************************************************
+Sub demoReattachmentPart1()
+    ' 起動
+    Dim First As WebDriverBiDiCore
+    Set First = 設定シートからのBiDi起動
+
+    '現在のコンテキストIDを取得する
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = First.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+    End If
+
+    'GoogleTopページへ遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "https://www.google.com/"
+    paramsBiDi.Add "wait", "complete"
+    First.invokeMethod "browsingContext.navigate", paramsBiDi
+End Sub
+
+Sub demoReattachmentPart2()
+    '設定セルから、ユーザ名を取得
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+    End With
+
+    ' リアタッチとして起動
+    Dim Reattachment As New WebDriverBiDiCore
+    Dim ResultReattach As Boolean
+    ResultReattach = Reattachment.reattach(UserName)
+
+    If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+
+    '現在のコンテキストIDを取得する
+    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Set resultBiDi = Reattachment.invokeMethod("browsingContext.getTree")
+    Dim targetContext As String
+    If Not (resultBiDi Is Nothing) Then
+        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+    End If
+
+    'wikipediaページへ遷移
+    Set paramsBiDi = New Dictionary
+    paramsBiDi.Add "context", targetContext
+    paramsBiDi.Add "url", "https://wikipedia.com"
+    paramsBiDi.Add "wait", "complete"
+    Reattachment.invokeMethod "browsingContext.navigate", paramsBiDi
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ アップデートDemo ■■■
+'***************************************************************************************************
+'* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：ローカルファイル(オフライン) or NPM(jsdelivr-オンライン)経由による2パターンを提供します
 '***************************************************************************************************
 Private Sub ローカルファイルで更新()
     '1. ファイルパスを、ダイアログで指定
@@ -426,13 +539,14 @@ Private Sub npm経由で更新()
     Dim UpdateBiDi As New WebDriverBiDiCore
     With ShLibrary01_JS
         '1. 現在のバージョン確認
-        Dim mapperTab_Version As String: mapperTab_Version = UpdateBiDi.UpdateCheckNPMVersion
-        If mapperTab_Version = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です": Exit Sub
+        Dim mapperTab_npmVersion        As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
+        Dim mapperTab_WorkSheetVersion  As Range: Set mapperTab_WorkSheetVersion = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新"))
+        If mapperTab_npmVersion = mapperTab_WorkSheetVersion.value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetVersion & ")": Exit Sub
 
         '2. npmで更新
-        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
+        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
 
-        '3. バージョンを記録
-        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value = mapperTab_Version
+        '3. バージョンをワークシートに記録
+        mapperTab_WorkSheetVersion.value = mapperTab_npmVersion
     End With
 End Sub
