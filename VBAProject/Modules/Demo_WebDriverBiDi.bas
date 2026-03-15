@@ -527,12 +527,7 @@ Private Sub ローカルファイルで更新()
 
     '4. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If (UpdateBiDi.UpdateFromLocalFile(FolderName, FileName)) Then MsgBox "アップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
-
-    '5. ローカルファイルで更新した旨を記録
-    With ShLibrary01_JS
-        .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新")).value = " Local"
-    End With
+    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "アップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
 
 Private Sub npm経由で更新()
@@ -544,9 +539,11 @@ Private Sub npm経由で更新()
         If mapperTab_npmVersion = mapperTab_WorkSheetVersion.value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetVersion & ")": Exit Sub
 
         '2. npmで更新
-        If UpdateBiDi.UpdateFromNPMFile Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。", vbCritical, "failure": Exit Sub
+        Dim UpdateSuccess As Boolean: UpdateSuccess = UpdateBiDi.UpdateFromNPMFile
+        If UpdateSuccess Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。Excelに埋め込んだJavaScript文字列とnpm経由での一致が確認できませんでした。", vbCritical, "failure"
 
         '3. バージョンをワークシートに記録
-        mapperTab_WorkSheetVersion.value = mapperTab_npmVersion
+        '※ミスの場合は、空欄にする
+        mapperTab_WorkSheetVersion.value = IIf(UpdateSuccess, mapperTab_npmVersion, "")
     End With
 End Sub
