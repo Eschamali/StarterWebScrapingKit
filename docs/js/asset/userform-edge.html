@@ -1,8 +1,7 @@
 <h1><span style="color:var(--accent-color)">🖥️ msedge.exe</span> を UserForm に直接埋め込む</h1>
 
 <p style="font-style: italic; color: var(--accent-light, #93c5fd); border-left: 3px solid var(--accent-color); padding-left: 1rem; margin: 1.5rem 0; line-height: 1.6;">
-    WebView2は、極端な話、Edgeから、URLバーやウィンドウ枠がない状態にしたものみたいなもの。<br>
-    実はある引数を足してちょこっと簡単なAPIを使えば簡単に実現可能だ。
+    WebView2は、極端な話、Edgeから、URLバーやウィンドウ枠がない状態にしたものみたいなもの。<br> 実はある引数を足してちょこっと簡単なAPIを使えば簡単に実現可能だ。
 </p>
 
 <p>
@@ -108,58 +107,6 @@ End Sub</code></pre>
             VBAの <code>UserForm_Activate</code> イベントは、<strong>UserForm同士の切り替え</strong>でしか動作しません。<br> そのため、他のWindowsアプリからUserForm（の中にあるEdge）にフォーカスを戻した際、正しくフォーカスが当たらないことがあります。
             <br> 現状は「特定領域にマウスを当てて強制的にフォーカス処理を走らせる」という泥臭い工夫で対処しています。
         </p>
-    </div>
-</div>
-
-<!-- 比較表 -->
-<h2>📊 WebView2 との比較</h2>
-<table class="method-table">
-    <thead>
-        <tr>
-            <th>項目</th>
-            <th>🖥️ この方式（Edge 埋め込み）</th>
-            <th>WebView2 コントロール</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><strong>追加インストール</strong></td>
-            <td>不要（Edge は標準搭載）</td>
-            <td>WebView2 Runtime が必要</td>
-        </tr>
-        <tr>
-            <td><strong>配布の容易さ</strong></td>
-            <td>◎ xlsm ファイルだけで完結</td>
-            <td>△ インストーラーが必要な場合あり</td>
-        </tr>
-        <tr>
-            <td><strong>CDP 連携</strong></td>
-            <td>◎ フルアクセス</td>
-            <td>△ 一部制限あり</td>
-        </tr>
-        <tr>
-            <td><strong>フォーカス制御</strong></td>
-            <td>△ 要フォーカス処理</td>
-            <td>◎ ネイティブ統合</td>
-        </tr>
-        <tr>
-            <td><strong>見た目</strong></td>
-            <td>◎ WebView2 とほぼ同等</td>
-            <td>◎ 完全ネイティブ</td>
-        </tr>
-        <tr>
-            <td><strong>実装複雑度</strong></td>
-            <td>中（Windows API を使用）</td>
-            <td>低（コントロール追加のみ）</td>
-        </tr>
-    </tbody>
-</table>
-
-<div class="alert">
-    <div class="alert-icon">💡</div>
-    <div class="alert-content">
-        <strong>どんなケースに向いているか？</strong>
-        <p>「WebView2 Runtimeを配布先にインストールできない」「IT部門の審査が通らない」「Excelファイル1つで完結させたい」——そんな <strong>企業内利用シナリオ</strong> に最適です。</p>
     </div>
 </div>
 

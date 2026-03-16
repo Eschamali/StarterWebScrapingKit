@@ -20,6 +20,7 @@ const PAGE_ASSETS = {
   'userform-edge':      'js/asset/userform-edge.html',
   'userform-powershell': 'js/asset/userform-powershell.html',
   'userform-vba-only':  'js/asset/userform-vba-only.html',
+  'userform-summary':   'js/asset/userform-summary.html',
 };
 
 /**

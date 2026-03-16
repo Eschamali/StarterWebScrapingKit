@@ -1,0 +1,110 @@
+<h1>⚖️ UserFormへのモダンブラウザ埋め込み：<span style="color:var(--accent-color)">3つの手法の総括</span></h1>
+
+<p>
+    本セクションでは、Excel VBAのUserFormにモダンなブラウザ（WebView2/Edge）を配置する3つのアプローチを紹介しました。<br> 最後に、それぞれの特性を比較し、実務でどの方針を採用すべきかの指針をまとめます。
+</p>
+
+<!-- 比較表 -->
+<div style="overflow-x: auto; margin: 2rem 0;">
+    <table class="method-table" style="min-width: 800px;">
+        <thead>
+            <tr>
+                <th>項目</th>
+                <th>🖥️ Lv.1 Edge 埋め込み</th>
+                <th>🐚 Lv.10 PowerShell 経由</th>
+                <th>👑 Lv.99 Excel 単体</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>実務での堅牢性</strong></td>
+                <td>△ (フォーカスに難あり)</td>
+                <td>◎ (非常に安定)</td>
+                <td>〇 (高度だが繊細)</td>
+            </tr>
+            <tr>
+                <td><strong>追加インストール</strong></td>
+                <td>不要</td>
+                <td>不要 (標準DLL流用)</td>
+                <td>不要 (標準DLL流用)</td>
+            </tr>
+            <tr>
+                <td><strong>配布の容易さ</strong></td>
+                <td>◎ (xlsmファイルのみ)</td>
+                <td>〇 (ps1同梱または動的生成)</td>
+                <td>◎ (xlsmファイルのみ)</td>
+            </tr>
+            <tr>
+                <td><strong>フォーカス制御</strong></td>
+                <td>△ (泥臭い工夫が必要)</td>
+                <td>◎ (ネイティブ同等)</td>
+                <td>◎ (ネイティブ同等)</td>
+            </tr>
+            <tr>
+                <td><strong>見た目</strong></td>
+                <td>〇 (Edgeそのまま)</td>
+                <td>◎ (真のWebView2)</td>
+                <td>◎ (真のWebView2)</td>
+            </tr>
+            <tr>
+                <td><strong>実装複雑度</strong></td>
+                <td>低 (Win32 APIの知識)</td>
+                <td>中 (PowerShell & 名前付きパイプの知識)</td>
+                <td>極高 (COM/vtableハック)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🎯 ユースケース別 推奨ガイド</h2>
+
+<div class="alert" style="margin-bottom: 1.5rem;">
+    <div class="alert-icon">🛠️</div>
+    <div class="alert-content">
+        <strong>とにかく「手軽に・すぐに」実現したい場合</strong>
+        <p>➔ <strong>Lv.1 Edge 埋め込み</strong></p>
+        <p style="font-size: 0.9rem; margin-top: 0.3rem;">
+            複雑な外部通信はせず、単に「UserFormの中にブラウザを表示したい」だけなら、EdgeのKioskモードを利用するのが最も近道です。<br>このツールでは既に、Demoコードとして実装されているので、コードをコピペしてすぐに試せます。
+        </p><br>
+        <p>「WebView2 Runtimeを配布先にインストールできない」「IT部門の審査が通らない」「Excelファイル1つで完結させたい」——そんな <strong>企業内利用シナリオ</strong> にも最適です。</p>
+
+    </div>
+</div>
+
+<div class="alert success" style="margin-bottom: 1.5rem;">
+    <div class="alert-icon">🚀</div>
+    <div class="alert-content">
+        <strong>実務ツールとして「安定性」を最優先する場合</strong>
+        <p>➔ <strong>Lv.10 PowerShell 経由</strong></p>
+        <p style="font-size: 0.9rem; margin-top: 0.3rem;">
+            最も推奨される方式です。PowerShellが面倒なCOM制御を肩代わりしてくれるため、VBA側のコードが肥大化せず、WebView2の機能を最も安定して利用できます。<br><br> 現在のWindowsにはほぼ、WebView2環境があるので、WebView2の機能も活かしつつ、安定した動作を求めるならこの方式がベストバランスです。
+        </p>
+    </div>
+</div>
+
+<div class="alert warning" style="margin-bottom: 1.5rem;">
+    <div class="alert-icon">👑</div>
+    <div class="alert-content">
+        <strong>外部依存をゼロにし「究極のロマン」を求める場合</strong>
+        <p>➔ <strong>Lv.99 Excel 単体</strong></p>
+        <p style="font-size: 0.9rem; margin-top: 0.3rem;">
+            「PowerShellすら叩かせてもらえない」厳しい制限環境、あるいはVBAの限界に挑戦したいプロフェッショナル向けです。
+        </p>
+    </div>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🏁 おわりに</h2>
+<p>
+    以前は「VBAにはIE（WebBrowserコントロール）しかない」と絶望視されていました。<br> しかし、現在ではこれらの手法により、VBAでも最新のWeb技術（React, Vue, SPA, etc.）を駆使したリッチなUIを構築することが可能です。
+</p>
+<p>
+    プロジェクトの要件や環境に合わせて最適な手法を選び、Excel VBAの枠を超えた体験を是非作り上げてください！
+</p>
+
+<p style="margin-top: 3rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 2rem;">
+    Happy Coding with Modern Web in VBA! 🦊🚀
+</p>
