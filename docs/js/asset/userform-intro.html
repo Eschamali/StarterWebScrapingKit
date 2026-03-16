@@ -1,0 +1,59 @@
+<h1>Excelに取り残された<span style="color:var(--accent-color)">「負の遺産」</span></h1>
+
+<p>
+  Internet Explorer（IE）のサポートが完全終了して早数年。世の中のWeb技術は劇的に進化しましたが、Excel VBAのUserFormには、いまだに「Microsoft Web Browser」というIEベースの化石のようなコントロールが存在しています。
+</p>
+
+<div style="text-align:center; margin: 2rem 0;">
+  <img src="img/化石コントロール.png" alt="化石コントロール" style="max-width: 100%; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+</div>
+
+<p>
+  「いつになったらExcelにもWebView2（モダンブラウザコントロール）が来るんだろう……」と待ち焦がれていましたが、なぜかAccessには先行してWebView2コントロールが登場するという理不尽な事態に直面。
+</p>
+
+<div style="text-align:center; margin: 2rem 0;">
+  <img src="img/Access先行.png" alt="Access先行" style="max-width: 100%; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+</div>
+
+<p>
+  「Excelには権限がないのか！？」という嫉妬と絶望の中、私は決意しました。
+</p>
+
+<p>
+  <strong>「公式が用意してくれないなら、今のExcel環境だけでWebView2を埋め込んで、自力で完全制御する仕組みを作ってやる！」</strong>
+</p>
+
+<p>
+  今回は、その執念の末に見つけ出した「3つのパターン」を公開します。<br>
+  ページを進めるごとに真の目的達成に近づくとともに、デメリットが肥大化するというトレードオフがありますが、執筆時点ではどうしても発生してしまいます。
+</p>
+
+<div class="alert">
+  <div class="alert-icon">🦊</div>
+  <div class="alert-content">
+    <p>IEのサポートは2029年ごろで完全に終わるそうなので、きっとその時にExcelにも公式でWebView2が使える日が来ると願っています。それまで待てない、今すぐUserFormにモダンブラウザを埋めたい！という方は、ぜひ読み進めてください。</p>
+  </div>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🚨 前提条件：絶対の「プリインストール環境」縛り</h2>
+<p>
+  企業のセキュリティが厳しい昨今、外部のexeツールや有志の怪しいDLLを勝手にダウンロードして組み込むことはご法度です。そのため、今回は以下の縛りプレイで挑みました。
+</p>
+
+<ul class="story-list">
+  <li><strong>追加ダウンロード一切禁止（完全外部依存ゼロ）</strong></li>
+  <li><strong>Windows標準機能と、Officeのプリインストール環境のみを使用</strong></li>
+</ul>
+
+<p style="font-size: 0.9rem; color: var(--text-muted);">
+  （※Excel自体は後入れソフトですが、業務PCにはほぼ100%プリインストールされているため「標準環境」とみなします）
+</p>
+
+<div class="alert warning">
+  <div class="alert-content" style="font-size: 0.9rem;">
+    ※現在は2パターンのページ（Edge編 / PowerShell編）しかありませんが、3パターン目も作成予定です。
+  </div>
+</div>
