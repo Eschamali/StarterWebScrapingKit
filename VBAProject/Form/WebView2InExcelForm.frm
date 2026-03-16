@@ -109,12 +109,7 @@ Private Sub UserForm_Resize()
 
     Const TOOLBAR_H As Single = 21  ' ツールバー行の高さ（ポイント）
     Const BTN_W     As Single = 48
-    Const MARGIN    As Single = 3
-
-    ' --- ツールバーのリサイズ追従 ---
-    Me.btnGo.Left = Me.InsideWidth - BTN_W - MARGIN
-    Me.btnGo.Width = BTN_W
-    Me.txtUrl.Width = Me.btnGo.Left - MARGIN * 2
+    Const MARGIN    As Single = 50
 
     ' --- wv2Container（Frame）のリサイズ追従 ---
     Dim tmp As Long
