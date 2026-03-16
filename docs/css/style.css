@@ -89,7 +89,6 @@ body.dark-theme {
     display: flex;
     flex-direction: column;
     z-index: 10;
-    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -149,9 +148,11 @@ body.dark-theme {
 }
 
 .nav-item.external {
-    margin-top: auto;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
     border: 1px solid var(--panel-border);
     text-align: center;
+    flex-shrink: 0;
 }
 
 .nav-item.external:hover {
@@ -346,6 +347,18 @@ p code, li code {
 /* Sidebar Tree Navigation */
 .nav-tree {
     flex: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    margin-right: -0.5rem; /* スクロールバーのスペース調整 */
+}
+
+.nav-tree::-webkit-scrollbar {
+    width: 4px;
+}
+
+.nav-tree::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 }
 
 .nav-tree details {
