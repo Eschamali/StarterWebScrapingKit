@@ -28,6 +28,20 @@ async function loadContent(pageId) {
 		}
 	});
 
+	// タイトルと各メタタグを更新 (SEO対策)
+	const pageTitle = PAGE_TITLES[pageId] || 'Starter Kit Docs';
+	document.title = pageTitle;
+
+	// OGPタイトル/URLの更新
+	const ogTitle = document.querySelector('meta[property="og:title"]');
+	if (ogTitle) ogTitle.setAttribute('content', pageTitle);
+
+	const ogUrl = document.querySelector('meta[property="og:url"]');
+	if (ogUrl) ogUrl.setAttribute('content', window.location.href);
+
+	const canonical = document.querySelector('link[rel="canonical"]');
+	if (canonical) canonical.setAttribute('href', window.location.href);
+
 	// フェードアウト → コンテンツ差し替え → フェードイン
 	contentContainer.style.opacity = '0';
 	setTimeout(() => {

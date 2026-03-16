@@ -23,6 +23,25 @@ const PAGE_ASSETS = {
   'userform-summary':   'js/asset/userform-summary.html',
 };
 
+/** 各ページ固有のタイトル定義 (SEO用) */
+const PAGE_TITLES = {
+  'top':               'Excelでブラウザ制御 (CDP / WebDriver BiDi) | Starter Web Scraping Kit',
+  'cdp-intro':         'CDP-Jsonの改良点と目的 - Excel VBA',
+  'cdp-demos':         'VBA CDP実装デモコードコーナー',
+  'cdp-methods':       '独自のCDPメソッドリファレンス',
+  'cdp-advanced':      'CDPの高度な制御手法 (インジェクション)',
+  'bidi-story':        'WebDriver BiDi 採用の裏話 - No-EXEの真実',
+  'technical-journey': 'No-EXEでBiDiを実現する仕組み',
+  'bidi-intro':        'WebDriver BiDi デモコードコーナー',
+  'bidi-methods':      'BiDiメソッドの使い方とリファレンス',
+  'bidi-update':       'mapperTab.js の更新手順',
+  'userform-intro':    'UserFormにWebView2を導入する意義',
+  'userform-edge':     'Lv.1: EdgeをUserFormに直接埋め込む方法',
+  'userform-powershell': 'Lv.10: PowerShell経由でWebView2を召喚する',
+  'userform-vba-only': 'Lv.99: VBAのみでWebView2を完全制御する',
+  'userform-summary':  '使い分けガイド: UserFormブラウザ実装の比較',
+};
+
 /**
  * 指定ページのHTMLをfetch()で取得し、window.docsContentにキャッシュします。
  * @param {string} pageId - ロードするページID
