@@ -17,6 +17,7 @@ const PAGE_ASSETS = {
   'bidi-update':        'js/asset/bidi-update.html',
   'bidi-story':        'js/asset/bidi-story.html',
   'userform-edge':     'js/asset/userform-edge.html',
+  'userform-powershell': 'js/asset/userform-powershell.html',
 };
 
 /**
