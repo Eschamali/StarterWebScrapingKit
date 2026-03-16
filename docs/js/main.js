@@ -41,6 +41,11 @@ async function loadContent(pageId) {
 		contentContainer.style.opacity = '1';
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 
+		// Twitterウィジェットの再読み込み (SPA対応)
+		if (window.twttr && window.twttr.widgets) {
+			window.twttr.widgets.load(contentContainer);
+		}
+
 		// Google Analytics にページ遷移を記録
 		if (typeof gtag === 'function') {
 			gtag('event', 'page_view', {

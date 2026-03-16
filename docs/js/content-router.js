@@ -19,6 +19,7 @@ const PAGE_ASSETS = {
   'userform-intro':     'js/asset/userform-intro.html',
   'userform-edge':      'js/asset/userform-edge.html',
   'userform-powershell': 'js/asset/userform-powershell.html',
+  'userform-vba-only':  'js/asset/userform-vba-only.html',
 };
 
 /**
