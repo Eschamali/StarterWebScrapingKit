@@ -89,6 +89,7 @@ body.dark-theme {
     display: flex;
     flex-direction: column;
     z-index: 10;
+    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -98,6 +99,7 @@ body.dark-theme {
     margin-bottom: 3rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
 }
 
 .sidebar-header .logo {
@@ -342,6 +344,10 @@ p code, li code {
 }
 
 /* Sidebar Tree Navigation */
+.nav-tree {
+    flex: 1;
+}
+
 .nav-tree details {
     margin-bottom: 0.5rem;
 }
