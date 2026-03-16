@@ -43,16 +43,23 @@ async function loadContent(pageId) {
 
 		// Google Analytics にページ遷移を記録
 		if (typeof gtag === 'function') {
-			gtag('config', 'G-5CW3LKTJWH', {
+			gtag('event', 'page_view', {
 				page_title: pageId,
+				page_location: location.href,
 				page_path: location.pathname + location.hash
 			});
 		}
 	}, 200);
 }
 
-// 初回ロード：URLハッシュに基づいてページを表示
-window.addEventListener('DOMContentLoaded', () => {
+/**
+ * URLのハッシュに基づいてコンテンツを切り替えます。
+ */
+function handleHashChange() {
 	const hash = window.location.hash.replace('#', '');
 	loadContent(hash && PAGE_ASSETS[hash] ? hash : 'top');
-});
+}
+
+// 初回ロード時およびハッシュ変更時にコンテンツを更新
+window.addEventListener('hashchange', handleHashChange);
+window.addEventListener('DOMContentLoaded', handleHashChange);
