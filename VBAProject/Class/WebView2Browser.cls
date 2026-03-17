@@ -56,6 +56,7 @@ Private core        As WebView2Core         'Must be initialized for CDP engine
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
 Private brID                    As String
+Private sessionID               As String
 Private doLog                   As Boolean  'ログファイルにも、デバッグメッセージを残すか
 Private logPath                 As String   'ログファイルの保存フォルダパス
 Private seeRawSendMsgDbg        As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
@@ -204,6 +205,10 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
 
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ CDP送信準備関連 ■■■
 '***************************************************************************************************
 '* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
 '---------------------------------------------------------------------------------------------------
@@ -243,8 +248,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
 
     '関数内部で、結果が返るまで待つようにします
-    printMsg Debug_, "sendCDP-Command：method = `" & methodName & "` , paramsJson = `" & paramStr & "`", FromProcedureName
-    Set results = jsConverter.ParseJson(core.CallDevToolsProtocolMethod(methodName, paramStr))
+    Set results = SendMessage(methodName, paramStr, alwaysBrowserContext, Async:=False)
 
    'Print error if there is
     If invokeError(results) Then
@@ -263,6 +267,59 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
+
+
+
+'***************************************************************************************************
+'                           ■■■ 核となるプロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：CDPコマンド送信のコア処理
+'***************************************************************************************************
+'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
+'
+'* 引数　　：methodName             CDP-Jsonコマンドのうち、メソッド名のみを指定します
+'            paramsJsonString       WebView2に送るCDP-Jsonコマンドのうち、パラメーターJson部分(プレーンテキスト)
+'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
+'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
+'
+'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
+'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
+'***************************************************************************************************
+Private Function SendMessage(methodName As String, paramsJsonString As String, Optional alwaysBrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional Async As Boolean) As Scripting.Dictionary
+    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+
+
+    Dim strRes As String
+    printMsg Debug_, "sendCDP-Command：method = `" & methodName & "` , paramsJson = `" & paramsJsonString & "`", FromProcedureName
+
+    'コマンド結果が来るまで待機するか？
+    If Async Then
+        '投げっぱなしにして、即次へ
+
+    Else
+        '内部で、コマンド結果のコールバックが来るまで待ち続けます
+        strRes = core.CallDevToolsProtocolMethod(methodName, paramsJsonString)
+        
+        'ついでに、非同期イベント情報も回収しておく
+        
+
+        '結果を返却
+        Set SendMessage = jsConverter.ParseJson(strRes)
+    End If
+End Function
+
+
+
+
+
+
+
 
 
 
