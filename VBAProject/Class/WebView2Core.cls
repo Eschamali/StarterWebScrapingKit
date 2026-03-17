@@ -811,6 +811,11 @@ Private Sub Class_Initialize()
     m_LastAppliedBottom = 0
     m_LastErrorCode = 0
     m_State = 0
+
+    '------------------------- 設定シートの各セルから設定値を取得し、クラス内変数に適用します -------------------------
+    With ShSetting01_StartBrowser
+        m_CDPMethodVTableIndex = 36   ' 既定。環境でずれる場合は CDPMethodVTableIndex で 22,37,39 等を指定
+    End With
 End Sub
 
 Private Sub Class_Terminate()
