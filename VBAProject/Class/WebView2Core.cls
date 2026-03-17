@@ -21,6 +21,11 @@ Option Explicit
 ' 基本フロー:
 '   Initialize → OnEnvironmentCreated（CB） → OnControllerCreated（CB）
 '   → Ready イベント → Navigate でページ遷移
+'
+' CDP: CallDevToolsProtocolMethod の vtable index はランタイムでずれるため
+'   CDPMethodVTableIndex で上書き可（既定 36）。QueryInterface で「CDP 専用
+'   インターフェース」を取る方式は WebView2 に存在しないため不可。将来は
+'   ランタイム版取得＋テーブルで自動設定が現実的。
 '***
 
 ' =====================================================================
@@ -33,6 +38,10 @@ End Type
 ' 4エントリの vtable（QI / AddRef / Release / Invoke）
 Private Type VtblData4
     fn(0 To 3) As LongPtr
+End Type
+' ICoreWebView2EnvironmentOptions + Options2 用 13 エントリ
+Private Type VtblData13
+    fn(0 To 12) As LongPtr
 End Type
 
 Private Type RECT_T
@@ -68,14 +77,15 @@ Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
     prgpvarg As Any, _
     pvargResult As Variant) As Long
 
-' Kernel32 ─ メモリ操作・DLLロード
+' Kernel32 ─ メモリ操作・DLLロード・環境変数
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" ( _
+    ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
     Destination As Any, Source As Any, ByVal length As Long)
 Private Declare PtrSafe Function LoadLibrary Lib "kernel32" Alias "LoadLibraryW" ( _
     ByVal lpLibFileName As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetProcAddress Lib "kernel32" ( _
     ByVal hModule As LongPtr, ByVal lpProcName As String) As LongPtr
-
 ' User32 ─ ウィンドウ操作
 Private Declare PtrSafe Function SetWindowPos Lib "user32" ( _
     ByVal hWnd As LongPtr, ByVal hWndInsertAfter As LongPtr, _
@@ -127,15 +137,27 @@ Private Const OFF_WV2_Navigate             As Long = 5 * 8  ' = 40
 Private Const OFF_WV2_NavigateToString     As Long = 6 * 8  ' = 48
 Private Const OFF_WV2_add_NavCompleted     As Long = 15 * 8 ' = 120
 Private Const OFF_WV2_ExecuteScript        As Long = 38 * 8 ' ※要検証
+' CallDevToolsProtocolMethod の vtable index。ランタイム/SDK でずれるためプロパティで上書き可（既定 36）
+Private m_CDPMethodVTableIndex As Long
+
+'ベースとなる作業フォルダパス
+Const WorkSpaceFolderName As String = "WebView2FromVBA"
+
+
 
 ' =====================================================================
 ' プライベート状態
 ' =====================================================================
-' vtable 偽造オブジェクト（2つ: 環境ハンドラ / コントローラーハンドラ）
+' vtable 偽造オブジェクト（環境 / コントローラ / CDP完了ハンドラ）
 Private m_EnvHandlerThis  As VtblObj
 Private m_EnvHandlerVT    As VtblData4
 Private m_CtrlHandlerThis As VtblObj
 Private m_CtrlHandlerVT   As VtblData4
+Private m_CDPHandlerThis  As VtblObj
+Private m_CDPHandlerVT    As VtblData4
+' ICoreWebView2EnvironmentOptions 偽装（追加ブラウザ引数用）
+Private m_EnvOptionsThis  As VtblObj
+Private m_EnvOptionsVT    As VtblData13
 
 ' COM オブジェクトポインタ
 Private m_pEnvironment  As LongPtr   ' ICoreWebView2Environment
@@ -168,12 +190,24 @@ Private m_LastErrorDesc As String
 '   0 = 初期 / 1 = Environment取得済み(Controller未作成) / 2 = Ready
 Private m_State As Long
 
+
+
 ' =====================================================================
 ' Public Events
 ' =====================================================================
 Public Event Ready()
 Public Event NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
 Public Event InitializeFailed(ByVal ErrorCode As Long, ByVal Description As String)
+
+
+' =====================================================================
+' Public Properties（CDP vtable の動的対応用）
+' =====================================================================
+' CDPMethodVTableIndex: CallDevToolsProtocolMethod の vtable index（既定 36）。
+' ランタイム版でずれた場合は 22,37,39 等を設定。バージョン検出＋テーブルで自動設定する拡張も可。
+Public Property Get CDPMethodVTableIndex() As Long: CDPMethodVTableIndex = m_CDPMethodVTableIndex: End Property
+Public Property Let CDPMethodVTableIndex(ByVal idx As Long): m_CDPMethodVTableIndex = idx: End Property
+
 
 ' =====================================================================
 ' Public Interface
@@ -184,6 +218,7 @@ Public Event InitializeFailed(ByVal ErrorCode As Long, ByVal Description As Stri
 '   hWndParent : WebView2 を埋め込む親ウィンドウハンドル
 '   boundsLeft/Top/Width/Height : 表示領域（ピクセル）
 '   initialUrl : 最初に遷移するURL（省略可）
+'   additionalBrowserArguments : 追加ブラウザ引数（省略可）。例: "--disable-web-security"
 '   戻り値 : True = 初期化コマンド送信成功（Ready イベント待ち）
 '----------------------------------------------------------------------
 Public Function Initialize( _
@@ -192,7 +227,7 @@ Public Function Initialize( _
     ByVal boundsTop As Long, _
     ByVal boundsWidth As Long, _
     ByVal boundsHeight As Long, _
-    Optional ByVal initialUrl As String = "https://www.google.com") As Boolean
+    Optional ByVal initialUrl As String = "about:blank", Optional UserDataName As String, Optional additionalBrowserArguments As String) As Boolean
 
     m_hWndParent = hwndParent
     m_InitialUrl = initialUrl
@@ -208,21 +243,47 @@ Public Function Initialize( _
     BuildVtables
 
     ' WebView2Loader.dll が見つからない環境用に Edge フォルダから明示ロード
-    EnsureWebView2LoaderDll
+    'EnsureWebView2LoaderDll
 
     ' 環境作成開始（非同期; WV2_EnvCB_Invoke が呼ばれると CB_EnvironmentCreated が動く）
     Dim hr As Long
     Dim userDataPath As String
-    userDataPath = Environ("LOCALAPPDATA") & "\WebView2_VBA_Profile"
+    
+    'Excelが使うWebView2の作業ディレクトリに合わせる
+    userDataPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\" & Application.Version & "\" & WorkSpaceFolderName & "\" & UserDataName
+
+    Dim pOptions As LongPtr
+    Dim useOptions As Boolean
+    If Len(additionalBrowserArguments) > 0 Then
+        g_EnvOptions_AdditionalArgs = additionalBrowserArguments
+        BuildEnvOptionsVtable
+        pOptions = VarPtr(m_EnvOptionsThis)
+        useOptions = True
+    Else
+        pOptions = 0
+        useOptions = False
+        ' この起動では追加引数を使わないので、前回のフォールバック設定をクリア
+        SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), 0
+    End If
 
     Dim pUserData   As LongPtr: pUserData = StrPtr(userDataPath)
     Dim pHandler    As LongPtr: pHandler = VarPtr(m_EnvHandlerThis)
 
-    hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, 0, pHandler)
+    hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, pOptions, pHandler)
+
+    ' E_INVALIDARG: 偽装 COM がマーシャリング等で拒否される。環境変数でフォールバック。
+    ' pOptions=0 のとき、ローダーは WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS を参照する。
+    If hr <> 0 And useOptions And hr = &H80070057 Then
+        SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), StrPtr(additionalBrowserArguments)
+        Debug.Print "追加引数: 環境変数でフォールバック"
+        hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, 0, pHandler)
+        ' この時点で環境作成は開始されたので、他の Excel 内 WebView2 への影響を避けるため即座にクリア
+        SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), 0
+    End If
 
     If hr <> 0 Then
         m_LastErrorCode = hr
-        m_LastErrorDesc = "CreateCoreWebView2EnvironmentWithOptions failed: 0x" & Hex(hr)
+        If Len(m_LastErrorDesc) = 0 Then m_LastErrorDesc = "CreateCoreWebView2EnvironmentWithOptions failed: 0x" & Hex(hr)
         RaiseEvent InitializeFailed(hr, m_LastErrorDesc)
         Initialize = False
     Else
@@ -246,6 +307,34 @@ Public Sub NavigateToString(ByVal htmlContent As String)
     If m_pWebView2 = 0 Then Exit Sub
     COM_DispCallPtr1 m_pWebView2, OFF_WV2_NavigateToString, StrPtr(htmlContent)
 End Sub
+
+'----------------------------------------------------------------------
+' CallDevToolsProtocolMethod : CDP メソッド実行。結果 JSON を同期待ちで返す
+'   methodName: "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
+'   paramsJson: パラメータ JSON（例: "{}" または "{""expression"":""1+1""}"）
+'   診断: Immediate に [CDP] Invoke が出なければコールバック未呼び出し（vtable 要確認）
+'----------------------------------------------------------------------
+Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal paramsJson As String) As String
+    If m_pWebView2 = 0 Then CallDevToolsProtocolMethod = "": Exit Function
+    g_CDPCompleted = False
+    g_CDPResultJson = ""
+    g_CDPErrorCode = 0
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        CallDevToolsProtocolMethod = "": Exit Function
+    End If
+    Dim t As Single: t = Timer
+    Do While Not g_CDPCompleted And (Timer - t) < 30
+        ProcessMessages
+        DoEvents
+    Loop
+    If Not g_CDPCompleted Then Debug.Print "[CDP] timeout: handler never called (try other vtable index 22,36,37,39)"
+    If g_CDPCompleted And g_CDPErrorCode <> 0 Then Debug.Print "[CDP] errorCode=" & g_CDPErrorCode
+    CallDevToolsProtocolMethod = g_CDPResultJson
+    If g_CDPErrorCode <> 0 Then m_LastErrorCode = g_CDPErrorCode
+End Function
 
 '----------------------------------------------------------------------
 ' Resize : 表示領域を変更
@@ -571,6 +660,22 @@ Private Sub BuildVtables()
     m_CtrlHandlerVT.fn(2) = ctrlFn(2)
     m_CtrlHandlerVT.fn(3) = ctrlFn(3)
     m_CtrlHandlerThis.pVTable = VarPtr(m_CtrlHandlerVT.fn(0))
+    Dim cdpFn() As LongPtr
+    WV2_FillCDPFunctionPointers cdpFn
+    m_CDPHandlerVT.fn(0) = cdpFn(0): m_CDPHandlerVT.fn(1) = cdpFn(1)
+    m_CDPHandlerVT.fn(2) = cdpFn(2): m_CDPHandlerVT.fn(3) = cdpFn(3)
+    m_CDPHandlerThis.pVTable = VarPtr(m_CDPHandlerVT.fn(0))
+End Sub
+
+' ICoreWebView2EnvironmentOptions 偽装 vtable を組み立て（追加ブラウザ引数用、Options2 含む）
+Private Sub BuildEnvOptionsVtable()
+    Dim fn() As LongPtr
+    WV2_FillEnvOptionsFunctionPointers fn
+    Dim i As Long
+    For i = 0 To 12
+        m_EnvOptionsVT.fn(i) = fn(i)
+    Next
+    m_EnvOptionsThis.pVTable = VarPtr(m_EnvOptionsVT.fn(0))
 End Sub
 
 ' =====================================================================
@@ -638,6 +743,21 @@ Private Sub COM_DispCallLong1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal
     Dim retV As Variant
     DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
+
+' CallDevToolsProtocolMethod(methodName, parametersAsJson, handler) ? 3 引数ともポインタ
+Private Function COM_CallDevToolsProtocolMethod(ByVal pWV2 As LongPtr, ByVal methodName As String, _
+    ByVal paramsJson As String, ByVal pHandler As LongPtr) As Long
+    Dim vtII As Integer: vtII = 20
+    Dim vMethod(0 To 1) As LongPtr, vParams(0 To 1) As LongPtr, vHandler(0 To 1) As LongPtr
+    CopyMemory vMethod(0), vtII, 2: vMethod(1) = StrPtr(methodName)
+    CopyMemory vParams(0), vtII, 2: vParams(1) = StrPtr(paramsJson)
+    CopyMemory vHandler(0), vtII, 2: vHandler(1) = pHandler
+    Dim argT(0 To 2) As Integer: argT(0) = 20: argT(1) = 20: argT(2) = 20
+    Dim argP(0 To 2) As LongPtr: argP(0) = VarPtr(vMethod(0)): argP(1) = VarPtr(vParams(0)): argP(2) = VarPtr(vHandler(0))
+    Dim retV As Variant
+    DispCallFunc pWV2, m_CDPMethodVTableIndex * PTR_SIZE, CC_STDCALL, vbLong, 3, argT(0), argP(0), retV
+    COM_CallDevToolsProtocolMethod = CLng(retV)
+End Function
 
 ' =====================================================================
 ' Private ─ WebView2Loader.dll の検索とロード
