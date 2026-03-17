@@ -11,6 +11,36 @@ Option Explicit
 ' 3. ExcelウィンドウのhWndを使う最小デモ → Sub TestWebView2Simple を実行
 '***
 
+
+
+'***************************************************************************************************
+'                               ■■■ 設定プロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、WebView2を起動するヘルパープロシージャです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebView2Browser
+'* 引数　　：StartURL                       ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'            SwtchUser                      マルチインスタンス用に別ユーザーを指定するときに使用します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'***************************************************************************************************
+Public Function 設定シートからのWebView2起動(Optional StartURL As String, Optional SwitchUser As String) As WebView2Browser
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebView2.設定シートからのWebView2起動")).value, SwitchUser)
+
+        'ブラウザ起動
+        Set 設定シートからのWebView2起動 = New WebView2Browser
+        設定シートからのWebView2起動.start UseDataDir, .Range(.UseRangeName(12, "Demo_WebView2.設定シートからのWebView2起動")).value, StartURL, .Range(.UseRangeName(3, "Demo_WebView2.設定シートからのWebView2起動")).value
+    End With
+End Function
+
+
+
+
+
 '----------------------------------------------------------------------
 ' TestWebView2Simple
 '   最もシンプルなデモ。Excelウィンドウに WebView2 を重ねて表示。
@@ -69,3 +99,47 @@ End Sub
 Public Sub TestWebView2FormModal()
     WebView2InExcelForm.show
 End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2CDP ? CDP (CallDevToolsProtocolMethod) の動作確認
+' Immediate に [CDP] Invoke が出ればコールバックは呼ばれている。出なければ OFF_WV2_CallDevToolsProtocolMethod の index を 22,36,37,39 などに変更して再試行
+'----------------------------------------------------------------------
+Public Sub TestWebView2CDP()
+    Dim wv2 As New WebView2Core
+    Dim hWnd As LongPtr: hWnd = Application.hWnd
+    If Not wv2.Initialize(hWnd, 0, 0, 600, 400, "about:blank", "Automation Data") Then
+        MsgBox "Initialize 失敗: " & wv2.LastErrorDescription, vbCritical
+        Exit Sub
+    End If
+    Dim t As Single: t = Timer
+    Do While Not wv2.IsReady And Timer - t < 15
+        wv2.ProcessMessages
+    Loop
+    If Not wv2.IsReady Then
+        MsgBox "Ready タイムアウト", vbCritical
+        wv2.quit
+        Exit Sub
+    End If
+    Dim params As String: params = "{""expression"":""1+1""}"
+    Dim result As String: result = wv2.CallDevToolsProtocolMethod("Runtime.evaluate", params)
+    Debug.Print "[CDP] Runtime.evaluate result: " & result
+    MsgBox "CDP 結果（Immediate を確認）: " & Left$(result, 200) & IIf(Len(result) > 200, "...", ""), vbInformation
+    wv2.quit
+    Set wv2 = Nothing
+End Sub
+
+
+Sub WebView2Browserクラスで起動するDemo()
+    Dim test As WebView2Browser: Set test = 設定シートからのWebView2起動("https://discord.com/app")
+    Dim paramCDP As New Dictionary, ResultCDP As New Dictionary
+    paramCDP.Add "expression", "1+1"
+    Set ResultCDP = test.invokeMethod("Runtime.evaluate", paramCDP)
+    Dim JsonConv As New WebJsonConverter
+
+    MsgBox "CDP 結果: " & JsonConv.ConvertToJson(ResultCDP), vbInformation
+
+    test.quit
+    
+End Sub
+
+
