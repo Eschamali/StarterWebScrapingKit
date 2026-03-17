@@ -154,57 +154,6 @@ Public Sub start(userProfile As String, Optional StartMode As StartWebView2Mode,
     End Select
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：同期モードでの CDP-Json コマンド結果のうち、最後のエラー情報を取得します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：最後のエラー情報
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
-'            ・`invokeMethod`の`StopError`が`False`だと実質機能しません。
-'            ・非同期によるあとで取り出したパターンとは、連動しません。
-'***************************************************************************************************
-Property Get LastCDPJsonError() As Dictionary
-    Set LastCDPJsonError = errorDetails
-End Property
-
-Private Function invokeError(result As Scripting.Dictionary) As Boolean
-'-----------------------------------------------------------------------------------
-' Check if InvokeMethod fails and what the error message returned is.
-' Error message will be shown via printMsg
-' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
-'-----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
-
-
-    Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
-    If result Is Nothing Then
-        ErrorCode = -1 'arbitrary nonzero value, may change in future
-        ErrorMessage = "Timeout or No results"
-        ErrorData = vbEmpty
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        invokeError = True
-        Set errorDetails = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
-    ElseIf result.Exists("error") Then
-        Set errorDetails = result("error")
-        ErrorCode = errorDetails("code")
-        ErrorMessage = errorDetails("message")
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        If errorDetails.Exists("data") Then
-            ErrorData = errorDetails("data")
-            printMsg WARN_, "       " & ErrorData, FromProcedureName
-        Else
-            ErrorData = vbEmpty ' vbNullString? is errorDetails("data") a string or object?
-        End If
-        invokeError = True
-    Else
-        ErrorCode = 0
-        ErrorMessage = vbNullString
-        ErrorData = vbEmpty
-    End If
-
-End Function
-
 
 
 '***************************************************************************************************
@@ -314,26 +263,62 @@ Private Function SendMessage(methodName As String, paramsJsonString As String, O
     End If
 End Function
 
+'***************************************************************************************************
+'* 機能　　：コマンドの結果にエラーが含まれているかチェックします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無
+'* 引数　　：ResultsObj    `invokeMethod`の生結果のDictionary
+'***************************************************************************************************
+Private Function invokeError(result As Scripting.Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".invokeError"
 
 
+    Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
+    If result Is Nothing Then
+        ErrorCode = -1 'arbitrary nonzero value, may change in future
+        ErrorMessage = "Timeout or No results"
+        ErrorData = vbEmpty
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+        invokeError = True
+        Set errorDetails = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
+    ElseIf result.Exists("error") Then
+        Set errorDetails = result("error")
+        ErrorCode = errorDetails("code")
+        ErrorMessage = errorDetails("message")
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+        If errorDetails.Exists("data") Then
+            ErrorData = errorDetails("data")
+            printMsg WARN_, "       " & ErrorData, FromProcedureName
+        Else
+            ErrorData = vbEmpty ' vbNullString? is errorDetails("data") a string or object?
+        End If
+        invokeError = True
+    Else
+        ErrorCode = 0
+        ErrorMessage = vbNullString
+        ErrorData = vbEmpty
+    End If
 
+End Function
 
+'***************************************************************************************************
+'* 機能　　：同期モードでの CDP-Json コマンド結果のうち、最後のエラー情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：最後のエラー情報
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'            ・`invokeMethod`の`StopError`が`False`だと実質機能しません。
+'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'***************************************************************************************************
+Property Get LastCDPJsonError() As Dictionary
+    Set LastCDPJsonError = errorDetails
+End Property
 
-
-
-
-
+'***************************************************************************************************
+'* 機能　　：ログレベル付きのスマートなログをイミディエイトへ出力させるヘルパーメソッドです
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
     Dim logName As String, strFormattedMsg As String
 
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
@@ -363,14 +348,18 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
 
 End Sub
 
-
-
-
-
-
+'***************************************************************************************************
+'* 機能　　：WebView2を終了させます
+'***************************************************************************************************
 Public Sub quit()
+    Const FromProcedureName As String = ThisClassName & ".invokeError"
+
+
+    printMsg info_, "WebView2を終了します...", FromProcedureName
     core.quit
+    printMsg info_, "WebView2を終了しました", FromProcedureName
 End Sub
+
 
 
 Private Sub Class_Initialize()
