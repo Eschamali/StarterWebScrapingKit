@@ -59,18 +59,17 @@ End Enum
 '***************************************************************************************************
 Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
     Select Case RangeID
-        Case 1: UseRangeName = "ブラウザexeパス"
         Case 2: UseRangeName = "ユーザーデータフォルダ名"
         Case 3: UseRangeName = "追加の起動引数一式"
-        Case 4: UseRangeName = "Chromeで使用"
         Case 5: UseRangeName = "LogLevel"
-        Case 6: UseRangeName = "常にブラウザを新規で起動"
         Case 7: UseRangeName = "イミディエイトに表示"
         Case 8: UseRangeName = "ブラウザから受信した生のJSONをイミディエイトに表示"
         Case 9: UseRangeName = "ログファイル保存"
         Case 10: UseRangeName = "常にUTF8で送受信"
         Case 11: UseRangeName = "BiDi_CDP_Mapperタブを表示"
         Case 12: UseRangeName = "起動モード"
+        Case 13: UseRangeName = "内部解像度_横"
+        Case 14: UseRangeName = "内部解像度_縦"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Property
