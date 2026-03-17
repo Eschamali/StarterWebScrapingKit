@@ -101,6 +101,7 @@ Public Sub start(userProfile As String, Optional StartMode As StartWebView2Mode,
         Case StartWebView2Mode.UserFormModeless
             '1. モードレスの場合は、処理は続行されます
             ' WebView2Core を UserForm 側に渡して初期化・表示してもらう
+            printMsg info_, "モードレスウィンドウ上で、WebView2を起動します...", FromProcedureName
             With WebView2InExcelForm
                 .AttachCore core, FirstURL, addArgs, userProfile
                 .show vbModeless
@@ -123,6 +124,7 @@ Public Sub start(userProfile As String, Optional StartMode As StartWebView2Mode,
 
         Case StartWebView2Mode.UserFormModal
             'モーダル表示の場合は仕様上、ウィンドウを閉じるまで、ここで止まります
+            printMsg info_, "モーダルウィンドウ上で、WebView2を起動します...", FromProcedureName
             With WebView2InExcelForm
                 .AttachCore core, FirstURL, addArgs, userProfile
                 .show vbModal
@@ -130,6 +132,7 @@ Public Sub start(userProfile As String, Optional StartMode As StartWebView2Mode,
 
         Case StartWebView2Mode.Background
             '1. WebView2 初期化
+            printMsg info_, "バックグラウンドで、WebView2を起動します...", FromProcedureName
             If core.Initialize(Application.hWnd, 0, 0, InternalResolutionWidth, InternalResolutionHight, FirstURL, userProfile, addArgs) Then
                 printMsg info_, "WebView2 の初期化、成功", FromProcedureName
             Else
