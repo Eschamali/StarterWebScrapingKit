@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} WebView2InExcelForm 
-   Caption         =   "WebView2InExcelForm"
+   Caption         =   "EdgeInUserForm"
    ClientHeight    =   8295.001
    ClientLeft      =   120
    ClientTop       =   465
@@ -69,6 +69,10 @@ Private m_InResize    As Boolean  ' UserForm_Resize の再入防止
 Private fRightMargin As Long
 Private fBottomMargin As Long
 
+' 初期 URL / 追加引数（外部から WebView2Core を渡された場合に使用）
+Private m_InitialUrl    As String
+Private m_AdditionalArg As String
+Private m_UserDataName  As String
 
 
 ' =====================================================================
@@ -81,7 +85,10 @@ Private Sub UserForm_Initialize()
     fBottomMargin = Me.InsideHeight - Me.wv2Container.height - Me.wv2Container.Top
 
     ' WebView2Core インスタンス生成（hWnd取得は Activate で行う）
-    Set m_wv2 = New WebView2Core
+    ' 既に外部から AttachCore で渡されている場合は、新しく作らない
+    If m_wv2 Is Nothing Then
+        Set m_wv2 = New WebView2Core
+    End If
 End Sub
 
 Private Sub UserForm_Activate()
@@ -231,10 +238,18 @@ Private Sub StartWebView2()
     ' WebView2Core を初期化
     '   ★ 親hWnd = hFrame（UserForm上のFrameコントロール）★
     Dim ok As Boolean
-    ok = m_wv2.Initialize(hFrame, 0, 0, pxW, pxH, "https://eschamali.github.io/StarterWebScrapingKit/")
+    Dim initUrl As String
+    Dim addArgs As String
+
+    ' 外部から指定された URL / 引数があればそれを使い、無ければ従来の既定値を使う
+    If Len(m_InitialUrl) > 0 Then initUrl = m_InitialUrl
+
+    addArgs = m_AdditionalArg
+
+    ok = m_wv2.Initialize(hFrame, 0, 0, pxW, pxH, initUrl, m_UserDataName, addArgs)
 
     If Not ok Then
-        MsgBox "WebView2 Initialize 失敗:" & vbCrLf & m_wv2.LastErrorDescription, vbCritical
+        ' エラーは InitializeFailed で既に表示済み。Unload 後は m_wv2 が無効になるため参照しない
         Exit Sub
     End If
 
@@ -246,10 +261,26 @@ Private Sub StartWebView2()
     Loop
 
     If Not m_wv2.IsReady Then
+        On Error Resume Next
+        Dim errCode As Long, errDesc As String
+        errCode = m_wv2.LastErrorCode: errDesc = m_wv2.LastErrorDescription
+        On Error GoTo 0
         MsgBox "初期化タイムアウト" & vbCrLf & _
-               "LastError: 0x" & Hex(m_wv2.LastErrorCode) & vbCrLf & _
-               m_wv2.LastErrorDescription, vbCritical
+               "LastError: 0x" & Hex(errCode) & vbCrLf & _
+               errDesc, vbCritical
     End If
+End Sub
+
+'----------------------------------------------------------------------
+' AttachCore
+'   外部（例: WebView2Browser クラス）で生成済みの WebView2Core を注入する。
+'   必要に応じて初期 URL / 追加引数も一緒に渡す。
+'----------------------------------------------------------------------
+Public Sub AttachCore(ByVal core As WebView2Core, Optional ByVal initialUrl As String, Optional ByVal additionalArgs As String, Optional ByVal UserDataName As String)
+    Set m_wv2 = core
+    m_InitialUrl = initialUrl
+    m_AdditionalArg = additionalArgs
+    m_UserDataName = UserDataName
 End Sub
 
 '----------------------------------------------------------------------
