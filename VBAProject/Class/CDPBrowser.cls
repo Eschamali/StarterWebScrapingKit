@@ -207,6 +207,7 @@ Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレ�
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
 
 Private objAllMessages               As Dictionary       'ブラウザからのイベントデータを蓄積するための変数です。このクラス外で使用します
+Private FilterEvents                 As New Dictionary   'ブラウザからのイベントデータのうち、登録したイベント名のみ、蓄積させるフィルター情報です
 Private BiDiForRuntimeBindingCalled  As Collection       'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます。なお、あくまでもWebDriverBiDi用なので、それ以外の用途では使わないでね
 
 
@@ -1738,6 +1739,59 @@ Property Set BrowserEvents(ObjDic As Dictionary)
 End Property
 
 '***************************************************************************************************
+'* 機能　　：ブラウザからのイベントのうち、指定のイベントメソッド名のみ、Jsonパース、蓄積をさせる設定です
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：DelMode    `True`  指定イベントメソッド名のフィルターを削除し以後、そのイベントメソッド名の蓄積はしません
+'                       `False` 指定イベントメソッド名のフィルターを追加し以後、フィルターに追加された分のイベントメソッド名のみ蓄積できます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：特に`Network`イベントは、大量のイベントが来てJsonパース処理の負荷を抑えるのに効果的です
+'* 注意事項：フィルター数が0の場合は、フィルター機能は果たしません
+'***************************************************************************************************
+Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
+    Const FromProcedureName As String = ThisClassName & ".SetFilterEvents"
+
+
+    '1. イベント名が空欄か？
+    If EventName = "" Then
+        '1-2. 削除モードか？
+        If DelMode Then
+            'LETのイベントメソッド名が空欄の場合は、全削除します
+            FilterEvents.RemoveAll
+            printMsg info_, "All event method filters have been removed.", FromProcedureName
+        Else
+            printMsg WARN_, "Event method names that are left blank cannot be added to the filter.", FromProcedureName
+        End If
+
+    Else
+        '2. 既にイベントメソッド名を持ってるか
+        If FilterEvents.Exists(EventName) Then
+            '2-2. 削除モードか？
+            If DelMode Then
+                'LETで指定したイベントメソッド名を削除します
+                FilterEvents.Remove (EventName)
+                printMsg info_, "The specified event method name `" & EventName & "` has been removed from the filter.", FromProcedureName
+            Else
+                printMsg WARN_, "The specified event method name `" & EventName & "` has already been added to the filter.", FromProcedureName
+            End If
+        Else
+            '2-2. 削除モードか？
+            If DelMode Then
+                printMsg WARN_, "The specified event method name `" & EventName & "` is not registered in the filter.", FromProcedureName
+            Else
+                'LETで指定したイベントメソッドを追加します
+                FilterEvents.Add EventName, True
+                printMsg info_, "The specified event method name `" & EventName & "` has been added to the filter.", FromProcedureName
+            End If
+        End If
+    End If
+
+    '3. ログ用に表示
+    Dim FilterCount As Long: FilterCount = FilterEvents.Count
+    printMsg Debug_, "Current number of filters: " & FilterCount, FromProcedureName
+    If FilterCount = 0 Then printMsg info_, "Because no filter is applied, all event methods are captured.", FromProcedureName
+End Property
+
+'***************************************************************************************************
 '* 機能　　：BiDi用に実行したコマンド結果を格納するためのプロパティを行います
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：呼び出した時点での、BiDi関連の情報
@@ -2260,15 +2314,17 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
             '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
             printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
         Else
+            '--------- 3. その非同期イベント名称は、フィルターに含まれてるか？ ---------
+            If checkFilterEvent(FilterEvents, AsynchronousEventName) Then
                 'イベントキャプチャモードなので、JsonPurserを使用する
                 printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
                 Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
     
-            '--------- 3. `SessionID`項目があるか？ ---------
+                '--------- 4. `SessionID`項目があるか？ ---------
                 If JsonDictionaryObj.Exists("sessionId") Then
                     printMsg Trace_, "This event is a PageContext.", FromProcedureName
     
-                '--------- 4. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
+                    '--------- 5. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
                     If JsonDictionaryObj("sessionId") = sessionID Then
                         'ページとしてのイベント情報です
                         FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
@@ -2281,6 +2337,9 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                     'ブラウザ自身としてのイベント情報です
                     FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
                     printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+                End If
+            Else
+                printMsg Trace_, "Due to performance improvements, event names `" & AsynchronousEventName & "` that are not included in the filter will not be parsed in the JSON.", FromProcedureName
             End If
         End If
 
@@ -2445,6 +2504,39 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
     Else
         GetContentsMethod = False
         printMsg Trace_, "This response does not have an `method`.", FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザイベント情報を格納する前に、フィルター情報を取得して、イベント蓄積させるか判定させます
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：蓄積可否論理値
+'* 引数　　：FilterDictionary   対象のフィルターDictionary
+'            EventMethodName    非同期イベント名称
+'***************************************************************************************************
+Private Function checkFilterEvent(FilterDictionary As Dictionary, EventMethodName As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".checkFilterEvent"
+
+
+    '0. オブジェクト自体が設定されてない場合も、全てキャプチャさせます
+    If FilterDictionary Is Nothing Then checkFilterEvent = True: printMsg Trace_, "Since no filter object is set, all event methods will be captured.", FromProcedureName: Exit Function
+
+    '1. フィルター情報があるか？
+    If FilterDictionary.Count Then
+        '2. そのイベントメソッド名があるか？
+        If FilterDictionary.Exists(EventMethodName) Then
+            'あれば、capture対象
+            checkFilterEvent = True
+            printMsg Trace_, "Filter registration detection: " & EventMethodName, FromProcedureName
+        Else
+            'なければ、captureしない
+            checkFilterEvent = False
+            printMsg Trace_, "Filter not registered: " & EventMethodName, FromProcedureName
+        End If
+    Else
+        'フィルター情報がない場合は、全てキャプチャさせます
+        checkFilterEvent = True
+        printMsg Trace_, "Since no filter is set, all event methods will be captured.", FromProcedureName
     End If
 End Function
 
