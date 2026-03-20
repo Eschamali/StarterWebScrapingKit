@@ -2603,7 +2603,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession(EventsDictionaryKeyName02)("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession(EventsDictionaryKeyName02)(needEventMethod)
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
