@@ -206,8 +206,8 @@ Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド�
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
 
-Private objAllMessages                      As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
-Private OnlyMessage__Runtime_bindingCalled  As Collection    'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます
+Private objAllMessages               As Dictionary       'ブラウザからのイベントデータを蓄積するための変数です。このクラス外で使用します
+Private BiDiForRuntimeBindingCalled  As Collection       'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます。なお、あくまでもWebDriverBiDi用なので、それ以外の用途では使わないでね
 
 
 
@@ -1749,14 +1749,14 @@ End Property
 '***************************************************************************************************
 Property Get BiDiCapture() As Collection
     '現在のBiDi用の情報をプロパティへ反映
-    Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
+    Set BiDiCapture = BiDiForRuntimeBindingCalled
 
     'クリーン処理
-    Set OnlyMessage__Runtime_bindingCalled = New Collection
+    Set BiDiForRuntimeBindingCalled = New Collection
 End Property
 
 Property Set BiDiCapture(BiDiCol As Collection)
-    Set OnlyMessage__Runtime_bindingCalled = BiDiCol
+    Set BiDiForRuntimeBindingCalled = BiDiCol
 End Property
 
 '***************************************************************************************************
@@ -2248,8 +2248,8 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
         'BiDiモードなら、特定のイベント名を別途、格納しておく
         '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
-        If Not (OnlyMessage__Runtime_bindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
-            OnlyMessage__Runtime_bindingCalled.Add CDPJsonString
+        If Not (BiDiForRuntimeBindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
+            BiDiForRuntimeBindingCalled.Add CDPJsonString
             printMsg Debug_, "BiDi mode usage detected. Store `" & BiDiForEventName & "`", FromProcedureName
             If seeRawSendMsgDbg Then printMsg Debug_, "ForBiDiRes(RawCDPres) = " & CDPJsonString, FromProcedureName
         End If
@@ -2260,27 +2260,27 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
             '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
             printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
         Else
-            'イベントキャプチャモードなので、JsonPurserを使用する
-            printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-            Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
-
+                'イベントキャプチャモードなので、JsonPurserを使用する
+                printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+                Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
+    
             '--------- 3. `SessionID`項目があるか？ ---------
-            If JsonDictionaryObj.Exists("sessionId") Then
-                printMsg Trace_, "This event is a PageContext.", FromProcedureName
-
+                If JsonDictionaryObj.Exists("sessionId") Then
+                    printMsg Trace_, "This event is a PageContext.", FromProcedureName
+    
                 '--------- 4. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
-                If JsonDictionaryObj("sessionId") = sessionID Then
-                    'ページとしてのイベント情報です
-                    FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
-                    printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
+                    If JsonDictionaryObj("sessionId") = sessionID Then
+                        'ページとしてのイベント情報です
+                        FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
+                        printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
+                    Else
+                        '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
+                        printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
+                    End If
                 Else
-                    '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
-                    printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
-                End If
-            Else
-                'ブラウザ自身としてのイベント情報です
-                FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
-                printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+                    'ブラウザ自身としてのイベント情報です
+                    FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
+                    printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
             End If
         End If
 
