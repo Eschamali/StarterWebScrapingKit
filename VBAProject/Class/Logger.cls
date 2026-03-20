@@ -166,22 +166,23 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         ' comment out the above Application.Run code to fix compilation issues
         ' and manually insert the logging functionality here
         '
-        Dim log_LevelValue As String
+        Dim log_LevelValue As String * 5
         Select Case Level
         Case 1
             log_LevelValue = "TRACE"
         Case 2
             log_LevelValue = "DEBUG"
         Case 3
-            log_LevelValue = "INFO "
+            log_LevelValue = "INFO"
         Case 4
-            log_LevelValue = "WARN "
+            log_LevelValue = "WARN"
         Case 5
             log_LevelValue = "ERROR"
         End Select
 
         '文字列生成
-        Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " " & message & IIf(From <> "", " | " & From & " |", "")
+        Dim fromFixedLength As String * 50: fromFixedLength = From  '固定長文字列に変換して、ログの見た目を整える
+        Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " | " & fromFixedLength & " " & message
 
         'イミディエイトへ表示
         If doPrintDbgMsg Then Debug.Print LogString
