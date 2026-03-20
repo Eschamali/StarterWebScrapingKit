@@ -91,8 +91,13 @@ Sub ネットワークイベントの確認()
     
     '設定シートに基づくブラウザ立ち上げ
     Dim Demo_NetworkEvent As CDPBrowser: Set Demo_NetworkEvent = 設定シートからのCDP起動
-    
-    
+
+    '一部の非同期イベントのみキャプチャするようにフィルターを設定
+    '※未設定の場合は、全キャプチャとなります。今回のDemoの場合は、下記2つをコメントアウトすると、全キャプチャとなります
+    Demo_NetworkEvent.SetFilterEvents = "Network.requestWillBeSent"
+    Demo_NetworkEvent.SetFilterEvents = "Network.loadingFinished"
+
+
     '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
     Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`を渡すことで、新規イベントキャプチャが可能になる。
 
