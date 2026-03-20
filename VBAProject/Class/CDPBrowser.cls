@@ -2416,7 +2416,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
     '======================================= イベント情報を格納するフェーズへ =======================================
     'パブリック(呼び出し側使用)用
-    If objAllMessages Is Nothing Then
+    If objAllMessages Is Nothing Or Not (ExistEventInFilter_Public) Then
         printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
         printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -2424,7 +2424,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     End If
 
     'プライベート(クラス内変数)用
-    If InternalUseMessages Is Nothing Then
+    If InternalUseMessages Is Nothing Or Not (ExistEventInFilter_Private) Then
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
         printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
