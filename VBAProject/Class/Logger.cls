@@ -282,10 +282,10 @@ Public Sub LogError(message As String, Optional From As String, Optional FolderP
             log_ErrorValue = log_ErrorValue & " (" & (ErrNumber - vbObjectError) & " / " & VBA.LCase$(VBA.Hex$(ErrNumber)) & ")"
         End If
         
-        log_ErrorValue = log_ErrorValue & ", "
+        log_ErrorValue = " | ErrorCode: " & log_ErrorValue
     End If
 
-    Log 5, log_ErrorValue & message, From, FolderPath, FileName
+    Log 5, message & log_ErrorValue, From, FolderPath, FileName
 End Sub
 
 
