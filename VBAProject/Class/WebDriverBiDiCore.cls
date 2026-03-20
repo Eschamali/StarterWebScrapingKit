@@ -791,7 +791,7 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
         GetContentsMethod = True
 
         '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
+        StartPos = 1 + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
 
         '4. method名の終点を求める
         EndPos = InStr(StartPos, jsonString, """,")
