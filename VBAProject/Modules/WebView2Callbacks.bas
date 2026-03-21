@@ -37,6 +37,10 @@ Private Declare PtrSafe Function CoTaskMemAlloc Lib "ole32" (ByVal cb As LongPtr
 Private Declare PtrSafe Function IsEqualGUID Lib "ole32" (guid1 As Any, guid2 As Any) As Long
 #End If
 
+Public WV2logView As Boolean
+
+
+
 ' IID 比較用（QI で EnvironmentOptions2 等の拡張を要求されたら E_NOINTERFACE）
 Private Type Guid16
     d(0 To 15) As Byte
@@ -132,7 +136,7 @@ End Function
 Public Function WV2_EnvCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_EnvCB_AddRef = 1:  End Function
 Public Function WV2_EnvCB_Release(ByVal pThis As LongPtr) As Long: WV2_EnvCB_Release = 1: End Function
 Public Function WV2_EnvCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long, ByVal pEnv As LongPtr) As Long
-    Debug.Print "[WV2] EnvCB_Invoke fired: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
+    If WV2logView Then Debug.Print "[WV2] EnvCB_Invoke fired: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
     On Error Resume Next
     If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_EnvironmentCreated ErrorCode, pEnv
     WV2_EnvCB_Invoke = 0    ' S_OK
@@ -149,7 +153,7 @@ End Function
 Public Function WV2_CtrlCB_AddRef(ByVal pThis As LongPtr) As Long:  WV2_CtrlCB_AddRef = 1:  End Function
 Public Function WV2_CtrlCB_Release(ByVal pThis As LongPtr) As Long: WV2_CtrlCB_Release = 1: End Function
 Public Function WV2_CtrlCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long, ByVal pCtrl As LongPtr) As Long
-    Debug.Print "[WV2] CtrlCB_Invoke fired: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
+    If WV2logView Then Debug.Print "[WV2] CtrlCB_Invoke fired: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
     On Error Resume Next
     If Not g_WebView2Core Is Nothing Then g_WebView2Core.CB_ControllerCreated ErrorCode, pCtrl
     WV2_CtrlCB_Invoke = 0   ' S_OK
@@ -223,7 +227,7 @@ Public Function WV2_CDPCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long
     g_CDPErrorCode = ErrorCode
     g_CDPResultJson = PtrToStrW(pResultJson)
     g_CDPCompleted = True
-    Debug.Print "[CDP] Invoke: errorCode=" & ErrorCode & " pResult=0x" & Hex(pResultJson) & " len=" & Len(g_CDPResultJson)
+    If WV2logView Then Debug.Print "[CDP] Invoke: errorCode=" & ErrorCode & " pResult=0x" & Hex(pResultJson) & " len=" & Len(g_CDPResultJson)
 
     'WebView2Core 側でイベント/結果キューに振り分ける
     On Error Resume Next

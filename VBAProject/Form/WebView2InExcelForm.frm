@@ -185,7 +185,7 @@ End Sub
 Private Sub m_wv2_Ready()
     m_Ready = True
     Me.Caption = "WebView2 Browser - 準備完了"
-    Debug.Print "[WebView2Frame] m_wv2_Ready: WebView2 の初期化が完了しました"
+    If WV2logView Then Debug.Print "[WebView2Frame] m_wv2_Ready: WebView2 の初期化が完了しました"
     ' ? ここは ProcessMessages ループの中なので ApplyThickFrame を呼び出さない。
     '    WS_THICKFRAME 再適用は UserForm_Activate の StartWebView2 完了後で行う。
 End Sub
@@ -229,9 +229,9 @@ Private Sub StartWebView2()
     pxW = Me.wv2Container.InsideWidth * PT2PX
     pxH = Me.wv2Container.InsideHeight * PT2PX
 
-    Debug.Print "[WebView2Frame] StartWebView2"
-    Debug.Print "  hFrame = 0x" & Hex(hFrame)
-    Debug.Print "  Size   = " & pxW & " x " & pxH & " px"
+    If WV2logView Then Debug.Print "[WebView2Frame] StartWebView2"
+    If WV2logView Then Debug.Print "  hFrame = 0x" & Hex(hFrame)
+    If WV2logView Then Debug.Print "  Size   = " & pxW & " x " & pxH & " px"
 
     Me.Caption = "WebView2 Browser - 初期化中..."
 

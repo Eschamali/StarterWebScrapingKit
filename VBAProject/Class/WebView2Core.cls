@@ -400,7 +400,7 @@ Public Function Initialize( _
     ' pOptions=0 のとき、ローダーは WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS を参照する。
     If hr <> 0 And useOptions And hr = &H80070057 Then
         SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), StrPtr(additionalBrowserArguments)
-        Debug.Print "追加引数: 環境変数でフォールバック"
+        If WV2logView Then Debug.Print "追加引数: 環境変数でフォールバック"
         hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, 0, pHandler)
         ' この時点で環境作成は開始されたので、他の Excel 内 WebView2 への影響を避けるため即座にクリア
         SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), 0
@@ -470,7 +470,7 @@ Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal par
         End If
     Loop While (Timer - t) < 30
 
-    Debug.Print "[CDP] timeout: command result not received from queue (try other vtable index 22,36,37,39)"
+    If WV2logView Then Debug.Print "[CDP] timeout: command result not received from queue (try other vtable index 22,36,37,39)"
     CallDevToolsProtocolMethod = ""
 End Function
 
@@ -1006,7 +1006,7 @@ Public Sub ResizeToParent(ByVal hWndFrame As LongPtr)
     Dim rc As RECT_T
     Dim gcResult As Long
     gcResult = GetClientRect(hWndFrame, rc)
-    Debug.Print "[WV2] ResizeToParent: hFrame=0x" & Hex(hWndFrame) & _
+    If WV2logView Then Debug.Print "[WV2] ResizeToParent: hFrame=0x" & Hex(hWndFrame) & _
                 ", GetClientRect=" & gcResult & _
                 ", rect={" & rc.Left & "," & rc.Top & "," & rc.Right & "," & rc.Bottom & "}"
 
@@ -1023,7 +1023,7 @@ Public Sub ResizeToParent(ByVal hWndFrame As LongPtr)
     Dim argP(0) As LongPtr: argP(0) = VarPtr(pBounds)
     Dim retV As Variant
     DispCallFunc m_pController, OFF_CTRL_put_Bounds, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
-    Debug.Print "  put_Bounds({0,0," & rc.Right & "," & rc.Bottom & "}) HRESULT=0x" & Hex(CLng(retV))
+    If WV2logView Then Debug.Print "  put_Bounds({0,0," & rc.Right & "," & rc.Bottom & "}) HRESULT=0x" & Hex(CLng(retV))
 End Sub
 
 '----------------------------------------------------------------------
@@ -1056,7 +1056,7 @@ Friend Sub DoTimerResize()
     ' 「前回と同じ値」なら put_Bounds を呼ばない（フィードバックループ防止）
     '   put_Bounds → WM_SIZE → UserForm_Resize → ScheduleResize → DoTimerResize → ...
     If rc.Right = m_LastAppliedRight And rc.Bottom = m_LastAppliedBottom Then
-        Debug.Print "[WV2] DoTimerResize: スキップ (bounds 変化なし: {0,0," & rc.Right & "," & rc.Bottom & "})"
+        If WV2logView Then Debug.Print "[WV2] DoTimerResize: スキップ (bounds 変化なし: {0,0," & rc.Right & "," & rc.Bottom & "})"
         Exit Sub
     End If
 
@@ -1065,7 +1065,7 @@ Friend Sub DoTimerResize()
     m_Bounds.Right = rc.Right
     m_Bounds.Bottom = rc.Bottom
 
-    Debug.Print "[WV2] DoTimerResize: bounds={0,0," & m_Bounds.Right & "," & m_Bounds.Bottom & "}"
+    If WV2logView Then Debug.Print "[WV2] DoTimerResize: bounds={0,0," & m_Bounds.Right & "," & m_Bounds.Bottom & "}"
     COM_SetBounds m_pController, m_Bounds
 
     ' 適用済み値を記録（次回のループ検出用）
@@ -1117,7 +1117,7 @@ Public Property Get IsReady() As Boolean:           IsReady = (m_pWebView2 <> 0)
 '     実際の Controller 作成は ProcessMessages → BeginControllerCreation で行う。
 '----------------------------------------------------------------------
 Friend Sub CB_EnvironmentCreated(ByVal ErrorCode As Long, ByVal pEnv As LongPtr)
-    Debug.Print "[WV2] CB_EnvironmentCreated: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
+    If WV2logView Then Debug.Print "[WV2] CB_EnvironmentCreated: errorCode=" & ErrorCode & ", pEnv=" & Hex(pEnv)
     If ErrorCode <> 0 Or pEnv = 0 Then
         m_LastErrorCode = ErrorCode
         m_LastErrorDesc = "Environment creation failed: 0x" & Hex(ErrorCode)
@@ -1138,11 +1138,11 @@ Private Sub BeginControllerCreation()
 
     ' --- 診断ログ ---
     Dim pCtrlHandler As LongPtr: pCtrlHandler = VarPtr(m_CtrlHandlerThis)
-    Debug.Print "[WV2] BeginControllerCreation"
-    Debug.Print "  hWnd          = 0x" & Hex(m_hWndParent)
-    Debug.Print "  pEnvironment  = 0x" & Hex(m_pEnvironment)
-    Debug.Print "  pCtrlHandler  = 0x" & Hex(pCtrlHandler)
-    Debug.Print "  vtable ptr    = 0x" & Hex(m_CtrlHandlerThis.pVTable)
+    If WV2logView Then Debug.Print "[WV2] BeginControllerCreation"
+    If WV2logView Then Debug.Print "  hWnd          = 0x" & Hex(m_hWndParent)
+    If WV2logView Then Debug.Print "  pEnvironment  = 0x" & Hex(m_pEnvironment)
+    If WV2logView Then Debug.Print "  pCtrlHandler  = 0x" & Hex(pCtrlHandler)
+    If WV2logView Then Debug.Print "  vtable ptr    = 0x" & Hex(m_CtrlHandlerThis.pVTable)
 
     ' --- VARIANT 構造体ベースで引数を渡す ---
     ' VARIANTARG: vt(2)+予約(6)+value(8) = 16 bytes
@@ -1166,7 +1166,7 @@ Private Sub BeginControllerCreation()
     Dim retV As Variant
     Dim hr As Long
     hr = DispCallFunc(m_pEnvironment, OFF_ENV_CreateController, CC_STDCALL, vbLong, 2, argT(0), argP(0), retV)
-    Debug.Print "  hr(DispCallFunc)=" & Hex(hr) & "  result(HRESULT)=" & Hex(CLng(retV))
+    If WV2logView Then Debug.Print "  hr(DispCallFunc)=" & Hex(hr) & "  result(HRESULT)=" & Hex(CLng(retV))
 End Sub
 
 '----------------------------------------------------------------------
@@ -1177,7 +1177,7 @@ End Sub
 '     実際の表示処理は ProcessMessages → FinishWebViewSetup で行う。
 '----------------------------------------------------------------------
 Friend Sub CB_ControllerCreated(ByVal ErrorCode As Long, ByVal pCtrl As LongPtr)
-    Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
+    If WV2logView Then Debug.Print "[WV2] CB_ControllerCreated: errorCode=" & ErrorCode & ", pCtrl=" & Hex(pCtrl)
     If ErrorCode <> 0 Or pCtrl = 0 Then
         m_LastErrorCode = ErrorCode
         m_LastErrorDesc = "Controller creation failed: 0x" & Hex(ErrorCode)
@@ -1196,7 +1196,7 @@ End Sub
 '----------------------------------------------------------------------
 Private Sub FinishWebViewSetup()
     m_State = 99
-    Debug.Print "[WV2] FinishWebViewSetup: pController=0x" & Hex(m_pController)
+    If WV2logView Then Debug.Print "[WV2] FinishWebViewSetup: pController=0x" & Hex(m_pController)
 
     ' VARIANTARGバッファ: [0]=vt+予約(8bytes) [1]=value(8bytes)
     Dim vtII As Integer: vtII = 20  ' VT_I8
@@ -1210,7 +1210,7 @@ Private Sub FinishWebViewSetup()
     Dim aT1(0) As Integer: aT1(0) = 20
     Dim aP1(0) As LongPtr: aP1(0) = VarPtr(vBounds(0))
     DispCallFunc m_pController, OFF_CTRL_put_Bounds, CC_STDCALL, vbLong, 1, aT1(0), aP1(0), retV
-    Debug.Print "  put_Bounds HRESULT=0x" & Hex(CLng(retV))
+    If WV2logView Then Debug.Print "  put_Bounds HRESULT=0x" & Hex(CLng(retV))
 
     ' --- put_IsVisible (BOOL=1) ---
     Dim vVis(0 To 1) As LongPtr
@@ -1219,7 +1219,7 @@ Private Sub FinishWebViewSetup()
     Dim aT2(0) As Integer: aT2(0) = 20
     Dim aP2(0) As LongPtr: aP2(0) = VarPtr(vVis(0))
     DispCallFunc m_pController, OFF_CTRL_put_IsVisible, CC_STDCALL, vbLong, 1, aT2(0), aP2(0), retV
-    Debug.Print "  put_IsVisible HRESULT=0x" & Hex(CLng(retV))
+    If WV2logView Then Debug.Print "  put_IsVisible HRESULT=0x" & Hex(CLng(retV))
 
     ' --- get_CoreWebView2 (出力: ICoreWebView2*) ---
     Dim pWV2 As LongPtr
@@ -1230,7 +1230,7 @@ Private Sub FinishWebViewSetup()
     Dim aP3(0) As LongPtr: aP3(0) = VarPtr(vWV2(0))
     DispCallFunc m_pController, OFF_CTRL_get_CoreWebView2, CC_STDCALL, vbLong, 1, aT3(0), aP3(0), retV
     m_pWebView2 = pWV2
-    Debug.Print "  get_CoreWebView2 HRESULT=0x" & Hex(CLng(retV)) & ", pWV2=0x" & Hex(m_pWebView2)
+    If WV2logView Then Debug.Print "  get_CoreWebView2 HRESULT=0x" & Hex(CLng(retV)) & ", pWV2=0x" & Hex(m_pWebView2)
 
     ' Ready 通知
     RaiseEvent Ready
@@ -1465,6 +1465,7 @@ Private Sub Class_Initialize()
     Set m_DevToolsProtocolEventReceiverHexToName = Nothing
     Set m_DevToolsProtocolHandlerThisToEventName = Nothing
     m_DTPEventHandlerThisCount = 0
+
 
     '------------------------- 設定シートの各セルから設定値を取得し、クラス内変数に適用します(予定 ToDo) -------------------------
     With ShSetting01_StartBrowser
