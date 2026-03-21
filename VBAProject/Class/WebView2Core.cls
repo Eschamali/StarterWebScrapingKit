@@ -60,7 +60,7 @@ End Type
 ' Edge インストールフォルダ（通常は自動的に PATH に含まれないため、
 ' Initialize 内で LoadLibrary を用いてフルパスからロードする）
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions _
-    Lib "WebView2Loader.dll" ( _
+    Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
     ByVal userDataFolder As LongPtr, _
     ByVal environmentOptions As LongPtr, _
@@ -137,6 +137,7 @@ Private Const OFF_WV2_Navigate             As Long = 5 * 8  ' = 40
 Private Const OFF_WV2_NavigateToString     As Long = 6 * 8  ' = 48
 Private Const OFF_WV2_add_NavCompleted     As Long = 15 * 8 ' = 120
 Private Const OFF_WV2_ExecuteScript        As Long = 38 * 8 ' ※要検証
+Private Const OFF_WV2_get_BrowserProcessId As Long = 37 * 8 ' = 296  [propget] UINT32* value
 ' CallDevToolsProtocolMethod の vtable index。ランタイム/SDK でずれるためプロパティで上書き可（既定 36）
 Private m_CDPMethodVTableIndex As Long
 
@@ -253,6 +254,11 @@ Public Property Let CDPMethodVTableIndex(ByVal idx As Long): m_CDPMethodVTableIn
 ' GetDevToolsProtocolEventReceiver の vtable index（ランタイム/SDK 差異調整用）
 Public Property Get DevToolsProtocolEventReceiverVTableIndex() As Long: DevToolsProtocolEventReceiverVTableIndex = m_DevToolsProtocolEventReceiverVTableIndex: End Property
 Public Property Let DevToolsProtocolEventReceiverVTableIndex(ByVal idx As Long): m_DevToolsProtocolEventReceiverVTableIndex = idx: End Property
+
+' 親ウィンドウ HWND を外部から参照するためのプロパティ
+Public Property Get ParentHwnd() As LongPtr
+    ParentHwnd = m_hWndParent
+End Property
 
 ' WebView2 ブラウザプロセス ID（ICoreWebView2::get_BrowserProcessId）。未作成時は 0。
 Public Property Get dwProcessId() As Long
