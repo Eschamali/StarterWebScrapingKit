@@ -12,6 +12,20 @@ Option Explicit
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
     Destination As Any, Source As Any, ByVal length As Long)
 Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
+
+' oleaut32 ─ COM vtable メソッド呼び出し用
+Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
+    ByVal pvInstance As LongPtr, _
+    ByVal oVft As LongPtr, _
+    ByVal lCc As Long, _
+    ByVal vtReturn As Integer, _
+    ByVal cActuals As Long, _
+    prgvt As Any, _
+    prgpvarg As Any, _
+    pvargResult As Variant) As Long
+
+' ole32 ─ get_ParameterObjectAsJson が返す文字列の解放
+Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal pv As LongPtr)
 ' リサイズ用タイマー
 Private Declare PtrSafe Function SetTimer Lib "user32" ( _
     ByVal hWnd As LongPtr, ByVal nIDEvent As LongPtr, _
@@ -44,6 +58,13 @@ Public g_CDPErrorCode   As Long
 
 ' ICoreWebView2EnvironmentOptions 偽装用。追加ブラウザ引数（Initialize で設定し get_ で返す）
 Public g_EnvOptions_AdditionalArgs As String
+
+'---------------------------------------------------------------------
+' ICoreWebView2DevToolsProtocolEventReceivedEventHandler の vtable シム
+'---------------------------------------------------------------------
+Private Const OFF_DTPArgs_get_ParameterObjectAsJson As Long = 3 * 8 'index 3
+Private Const CC_STDCALL As Long = 4
+
 
 Private Sub InitEnvOptIID()
     If IID_EnvOpt.d(0) = 0 And IID_EnvOpt.d(1) = 0 Then
@@ -203,6 +224,14 @@ Public Function WV2_CDPCB_Invoke(ByVal pThis As LongPtr, ByVal ErrorCode As Long
     g_CDPResultJson = PtrToStrW(pResultJson)
     g_CDPCompleted = True
     Debug.Print "[CDP] Invoke: errorCode=" & ErrorCode & " pResult=0x" & Hex(pResultJson) & " len=" & Len(g_CDPResultJson)
+
+    'WebView2Core 側でイベント/結果キューに振り分ける
+    On Error Resume Next
+    If Not g_WebView2Core Is Nothing Then
+        g_WebView2Core.CB_OnCDPMessage g_CDPErrorCode, g_CDPResultJson, pThis
+    End If
+    On Error GoTo 0
+
     WV2_CDPCB_Invoke = 0
 End Function
 
@@ -214,6 +243,57 @@ Private Function PtrToStrW(ByVal pWStr As LongPtr) As String
     CopyMemory ByVal StrPtr(buf), ByVal pWStr, length * 2
     PtrToStrW = buf
 End Function
+
+Private Function GetDTPParameterObjectAsJson(ByVal pArgs As LongPtr) As String
+    If pArgs = 0 Then Exit Function
+
+    Dim pWStr As LongPtr: pWStr = 0
+
+    '引数: LPWSTR* value（戻り文字列ポインタを受け取る）
+    Dim vOut(0 To 1) As LongPtr
+    Dim vtII As Integer: vtII = 20 'VT_I8
+    CopyMemory vOut(0), vtII, 2
+    vOut(1) = VarPtr(pWStr)
+
+    Dim argT(0) As Integer: argT(0) = vbLongLong
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vOut(0))
+
+    Dim retV As Variant
+    Dim hr As Long
+    hr = DispCallFunc(pArgs, OFF_DTPArgs_get_ParameterObjectAsJson, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV)
+    If hr <> 0 Then Exit Function
+    If pWStr = 0 Then Exit Function
+
+    GetDTPParameterObjectAsJson = PtrToStrW(pWStr)
+    'get_ParameterObjectAsJson は返却後に CoTaskMemFree が必要
+    CoTaskMemFree pWStr
+End Function
+
+Public Function WV2_DTPEventCB_QI(ByVal pThis As LongPtr, ByVal riid As LongPtr, ByVal ppvObject As LongPtr) As Long
+    If ppvObject <> 0 Then CopyMemory ByVal ppvObject, pThis, LenB(pThis)
+    WV2_DTPEventCB_QI = 0
+End Function
+Public Function WV2_DTPEventCB_AddRef(ByVal pThis As LongPtr) As Long: WV2_DTPEventCB_AddRef = 1: End Function
+Public Function WV2_DTPEventCB_Release(ByVal pThis As LongPtr) As Long: WV2_DTPEventCB_Release = 1: End Function
+
+Public Function WV2_DTPEventCB_Invoke(ByVal pThis As LongPtr, ByVal pSender As LongPtr, ByVal pArgs As LongPtr) As Long
+    On Error Resume Next
+    Dim jsonParam As String
+    jsonParam = GetDTPParameterObjectAsJson(pArgs)
+    If Not g_WebView2Core Is Nothing Then
+        ' pThis = 登録した handler の this。イベントごとに異なるので、これで振り分けする
+        g_WebView2Core.CB_OnDevToolsProtocolEvent jsonParam, pThis
+    End If
+    WV2_DTPEventCB_Invoke = 0
+End Function
+
+Public Sub WV2_FillDevToolsProtocolEventFunctionPointers(ByRef dtpFn() As LongPtr)
+    ReDim dtpFn(0 To 3)
+    dtpFn(0) = GetFuncAddr(AddressOf WV2_DTPEventCB_QI)
+    dtpFn(1) = GetFuncAddr(AddressOf WV2_DTPEventCB_AddRef)
+    dtpFn(2) = GetFuncAddr(AddressOf WV2_DTPEventCB_Release)
+    dtpFn(3) = GetFuncAddr(AddressOf WV2_DTPEventCB_Invoke)
+End Sub
 
 '--- AddressOf テーブルを WebView2Core に渡すヘルパー ----------------
 Public Sub WV2_FillFunctionPointers(ByRef envFn() As LongPtr, ByRef ctrlFn() As LongPtr)
