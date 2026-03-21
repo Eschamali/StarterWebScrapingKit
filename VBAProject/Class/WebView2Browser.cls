@@ -1396,8 +1396,9 @@ End Function
 '
 '* 引数　　：methodName             CDP-Jsonコマンドのうち、メソッド名のみを指定します
 '            paramsJsonString       WebView2に送るCDP-Jsonコマンドのうち、パラメーターJson部分(プレーンテキスト)
-'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
-'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
+'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります→CallDevToolsProtocolMethodAsync or CallDevToolsProtocolMethod
+'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。→CallDevToolsProtocolMethodForSessionAsync or CallDevToolsProtocolMethodForSession
+'                                            なければ、ブラウザ自身を対象したコマンド実行となります。→CallDevToolsProtocolMethodAsync or CallDevToolsProtocolMethod
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
@@ -1420,13 +1421,31 @@ Private Function SendMessage(methodName As String, paramsJsonString As String, O
         CommandID = lngLastID
         lngLastID = lngLastID + 1
 
-        hrAsync = core.CallDevToolsProtocolMethodAsync(methodName, paramsJsonString)
+        If alwaysBrowserContext Then
+            hrAsync = core.CallDevToolsProtocolMethodAsync(methodName, paramsJsonString)
+        Else
+            If Len(sessionID) > 0 Then
+                hrAsync = core.CallDevToolsProtocolMethodForSessionAsync(sessionID, methodName, paramsJsonString)
+            Else
+                hrAsync = core.CallDevToolsProtocolMethodAsync(methodName, paramsJsonString)
+            End If
+        End If
+        
         Set SendMessage = New Dictionary
         SendMessage.Add CommandID, hrAsync
 
     Else
         '内部で、コマンド結果のコールバックが来るまで待ち続けます
-        strRes = core.CallDevToolsProtocolMethod(methodName, paramsJsonString)
+        If alwaysBrowserContext Then
+            strRes = core.CallDevToolsProtocolMethod(methodName, paramsJsonString)
+        Else
+            If Len(sessionID) > 0 Then
+                strRes = core.CallDevToolsProtocolMethodForSession(sessionID, methodName, paramsJsonString)
+            Else
+                strRes = core.CallDevToolsProtocolMethod(methodName, paramsJsonString)
+            End If
+        End If
+
         If seeRawSendMsgDbg Then printMsg Debug_, "strRes = " & strRes, FromProcedureName
 
         '結果を返却

@@ -138,8 +138,10 @@ Private Const OFF_WV2_NavigateToString     As Long = 6 * 8  ' = 48
 Private Const OFF_WV2_add_NavCompleted     As Long = 15 * 8 ' = 120
 Private Const OFF_WV2_ExecuteScript        As Long = 38 * 8 ' ※要検証
 Private Const OFF_WV2_get_BrowserProcessId As Long = 37 * 8 ' = 296  [propget] UINT32* value
+
 ' CallDevToolsProtocolMethod の vtable index。ランタイム/SDK でずれるためプロパティで上書き可（既定 36）
 Private m_CDPMethodVTableIndex As Long
+Private m_CDPMethodForSessionVTableIndex As Long
 
 'ベースとなる作業フォルダパス
 Const WorkSpaceFolderName As String = "WebView2FromVBA"
@@ -241,19 +243,6 @@ End Type
 Public Event Ready()
 Public Event NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
 Public Event InitializeFailed(ByVal ErrorCode As Long, ByVal Description As String)
-
-
-' =====================================================================
-' Public Properties（CDP vtable の動的対応用）
-' =====================================================================
-' CDPMethodVTableIndex: CallDevToolsProtocolMethod の vtable index（既定 36）。
-' ランタイム版でずれた場合は 22,37,39 等を設定。バージョン検出＋テーブルで自動設定する拡張も可。
-Public Property Get CDPMethodVTableIndex() As Long: CDPMethodVTableIndex = m_CDPMethodVTableIndex: End Property
-Public Property Let CDPMethodVTableIndex(ByVal idx As Long): m_CDPMethodVTableIndex = idx: End Property
-
-' GetDevToolsProtocolEventReceiver の vtable index（ランタイム/SDK 差異調整用）
-Public Property Get DevToolsProtocolEventReceiverVTableIndex() As Long: DevToolsProtocolEventReceiverVTableIndex = m_DevToolsProtocolEventReceiverVTableIndex: End Property
-Public Property Let DevToolsProtocolEventReceiverVTableIndex(ByVal idx As Long): m_DevToolsProtocolEventReceiverVTableIndex = idx: End Property
 
 ' 親ウィンドウ HWND を外部から参照するためのプロパティ
 Public Property Get ParentHwnd() As LongPtr
@@ -490,6 +479,57 @@ Public Function CallDevToolsProtocolMethodAsync(ByVal methodName As String, ByVa
     hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPAsyncHandlerThis))
     If hr <> 0 Then m_LastErrorCode = hr
     CallDevToolsProtocolMethodAsync = hr
+End Function
+
+'----------------------------------------------------------------------
+' CallDevToolsProtocolMethodForSession : セッション指定で CDP メソッド実行。結果 JSON を同期待ちで返す
+'----------------------------------------------------------------------
+Public Function CallDevToolsProtocolMethodForSession(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String) As String
+    If m_pWebView2 = 0 Then CallDevToolsProtocolMethodForSession = "": Exit Function
+    If m_CDPResultQueue Is Nothing Then
+        Set m_CDPResultQueue = New Collection
+    Else
+        Set m_CDPResultQueue = New Collection
+    End If
+    m_LastCDPResultErrorCode = 0
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        CallDevToolsProtocolMethodForSession = "": Exit Function
+    End If
+    Dim t As Single: t = Timer
+    Do
+        ProcessMessages
+        DoEvents
+
+        If Not m_CDPResultQueue Is Nothing Then
+            If m_CDPResultQueue.Count > 0 Then
+                CallDevToolsProtocolMethodForSession = CStr(m_CDPResultQueue(1))
+                m_CDPResultQueue.Remove 1
+                If m_LastCDPResultErrorCode <> 0 Then m_LastErrorCode = m_LastCDPResultErrorCode
+                Exit Function
+            End If
+        End If
+    Loop While (Timer - t) < 30
+
+    If WV2logView Then Debug.Print "[CDP] timeout: CallDevToolsProtocolMethodForSession (vtable index might be incorrect)"
+    CallDevToolsProtocolMethodForSession = ""
+End Function
+
+'----------------------------------------------------------------------
+' CallDevToolsProtocolMethodForSessionAsync : セッション指定で CDP メソッド実行（結果待ちしない）
+'----------------------------------------------------------------------
+Public Function CallDevToolsProtocolMethodForSessionAsync(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String) As Long
+    If m_pWebView2 = 0 Then
+        CallDevToolsProtocolMethodForSessionAsync = &H80004005 'E_FAIL
+        Exit Function
+    End If
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, VarPtr(m_CDPAsyncHandlerThis))
+    If hr <> 0 Then m_LastErrorCode = hr
+    CallDevToolsProtocolMethodForSessionAsync = hr
 End Function
 
 '----------------------------------------------------------------------
@@ -1370,6 +1410,23 @@ Private Function COM_CallDevToolsProtocolMethod(ByVal pWV2 As LongPtr, ByVal met
     COM_CallDevToolsProtocolMethod = CLng(retV)
 End Function
 
+' CallDevToolsProtocolMethodForSession(sessionId, methodName, parametersAsJson, handler)
+Private Function COM_CallDevToolsProtocolMethodForSession(ByVal pWV2 As LongPtr, ByVal sessionID As String, _
+    ByVal methodName As String, ByVal paramsJson As String, ByVal pHandler As LongPtr) As Long
+    Dim vtII As Integer: vtII = 20
+    Dim vSession(0 To 1) As LongPtr, vMethod(0 To 1) As LongPtr, vParams(0 To 1) As LongPtr, vHandler(0 To 1) As LongPtr
+    CopyMemory vSession(0), vtII, 2: vSession(1) = StrPtr(sessionID)
+    CopyMemory vMethod(0), vtII, 2: vMethod(1) = StrPtr(methodName)
+    CopyMemory vParams(0), vtII, 2: vParams(1) = StrPtr(paramsJson)
+    CopyMemory vHandler(0), vtII, 2: vHandler(1) = pHandler
+    
+    Dim argT(0 To 3) As Integer: argT(0) = 20: argT(1) = 20: argT(2) = 20: argT(3) = 20
+    Dim argP(0 To 3) As LongPtr: argP(0) = VarPtr(vSession(0)): argP(1) = VarPtr(vMethod(0)): argP(2) = VarPtr(vParams(0)): argP(3) = VarPtr(vHandler(0))
+    Dim retV As Variant
+    DispCallFunc pWV2, m_CDPMethodForSessionVTableIndex * PTR_SIZE, CC_STDCALL, vbLong, 4, argT(0), argP(0), retV
+    COM_CallDevToolsProtocolMethodForSession = CLng(retV)
+End Function
+
 '----------------------------------------------------------------------
 ' COM helper: ICoreWebView2::GetDevToolsProtocolEventReceiver
 '----------------------------------------------------------------------
@@ -1470,6 +1527,7 @@ Private Sub Class_Initialize()
     '------------------------- 設定シートの各セルから設定値を取得し、クラス内変数に適用します(予定 ToDo) -------------------------
     With ShSetting01_StartBrowser
         m_CDPMethodVTableIndex = 36   ' 既定。環境でずれる場合は CDPMethodVTableIndex で 22,37,39 等を指定
+        m_CDPMethodForSessionVTableIndex = 99
     
         ' GetDevToolsProtocolEventReceiver の vtable index（推定値。環境差が出る場合は変更用プロパティを使って調整）
         m_DevToolsProtocolEventReceiverVTableIndex = 42
