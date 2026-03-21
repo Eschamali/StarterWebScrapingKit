@@ -135,8 +135,6 @@ Private Const OFF_CTRL_Close            As Long = 24 * 8 ' = 192  index 24
 ' --- ICoreWebView2 vtable オフセット ---
 Private Const OFF_WV2_Navigate             As Long = 5 * 8  ' = 40
 Private Const OFF_WV2_NavigateToString     As Long = 6 * 8  ' = 48
-Private Const OFF_WV2_add_NavCompleted     As Long = 15 * 8 ' = 120
-Private Const OFF_WV2_ExecuteScript        As Long = 38 * 8 ' ※要検証
 Private Const OFF_WV2_get_BrowserProcessId As Long = 37 * 8 ' = 296  [propget] UINT32* value
 
 ' CallDevToolsProtocolMethod の vtable index。ランタイム/SDK でずれるためプロパティで上書き可（既定 36）
