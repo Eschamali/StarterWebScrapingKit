@@ -2633,7 +2633,7 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages), FromProcedureName
+    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(EventMessageForAttachToSession), FromProcedureName
     printMsg Debug_, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
     printMsg Debug_, "results_ = " & jsConverter.ConvertToJson(results_), FromProcedureName
     printMsg Debug_, "results__ = " & jsConverter.ConvertToJson(results__), FromProcedureName
