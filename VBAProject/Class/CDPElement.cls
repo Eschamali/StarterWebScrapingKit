@@ -33,7 +33,7 @@ Option Explicit
 
 Private Const ThisClassName As String = "CDPElement"
 
-Private main As CDPBrowser
+Private main As WebView2Browser
 Private varIDs As Scripting.Dictionary
 Private varID As String
 Private varJS As String
@@ -51,7 +51,7 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
 
 End Enum
 
-Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
+Public Sub Init(targetObjMain As WebView2Browser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
 '----------------------------------------------------------------------------------
 ' Initialize element object that has properties and methods useful for quickly
 ' interact with the target object in the browser. The varID name can also be used
@@ -70,8 +70,8 @@ Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictio
 ' Too many variables in the browser can cause memory leak and slow.
 '----------------------------------------------------------------------------------
 
-    Set main = targetObjMain        'Needed to use public methods of the active CDPBrowser
-    Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from CDPBrowser
+    Set main = targetObjMain        'Needed to use public methods of the active WebView2Browser
+    Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from WebView2Browser
     varID = varID_
     varJS = varJS_
     VarType = varType_
