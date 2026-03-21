@@ -767,18 +767,27 @@ End Property
 ' TakeEvents
 '   CDP callback から積まれた「イベントキュー」を Dictionary に反映します。
 '----------------------------------------------------------------------
-Public Sub TakeEvents(Optional ByVal destruction As Boolean = False)
+Public Sub TakeEvents(Optional InternalUseMessages As Dictionary)
     If m_CDPEventQueue Is Nothing Then Exit Sub
     If m_CDPEventQueue.Count = 0 Then Exit Sub
 
     'キャプチャ無効なら破棄（キューだけは膨らませない）
-    If m_BrowserEvents Is Nothing Then
+    If m_BrowserEvents Is Nothing And InternalUseMessages Is Nothing Then
         Set m_CDPEventQueue = New Collection
         Exit Sub
     End If
 
-    Dim eventsDict As Dictionary
-    Set eventsDict = m_BrowserEvents(EventsDictionaryKeyName02)
+    If Not m_BrowserEvents Is Nothing Then
+        Dim eventsDict As Dictionary
+        Set eventsDict = m_BrowserEvents(EventsDictionaryKeyName02)
+    End If
+
+    If Not InternalUseMessages Is Nothing Then
+        Set InternalUseMessages = FormatDictionary_BrowserEvents()
+
+        Dim eventsDictForInternal As Dictionary
+        Set eventsDictForInternal = InternalUseMessages(EventsDictionaryKeyName02)
+    End If
 
     Dim i As Long
     For i = 1 To m_CDPEventQueue.Count
@@ -824,23 +833,45 @@ Public Sub TakeEvents(Optional ByVal destruction As Boolean = False)
 '        End If
 
         Dim total As Long
-        total = CLng(m_BrowserEvents(EventsDictionaryKeyName01)) + 1
-        m_BrowserEvents(EventsDictionaryKeyName01) = total
-
-        If eventData.Exists(EventsDictionaryKeyIndex) Then
-            eventData(EventsDictionaryKeyIndex) = total
-        Else
-            eventData.Add EventsDictionaryKeyIndex, total
-        End If
-
         Dim eventList As Collection
-        If eventsDict.Exists(methodName) Then
-            Set eventList = eventsDict(methodName)
-        Else
-            Set eventList = New Collection
-            eventsDict.Add methodName, eventList
+        
+        If Not m_BrowserEvents Is Nothing Then
+            total = CLng(m_BrowserEvents(EventsDictionaryKeyName01)) + 1
+            m_BrowserEvents(EventsDictionaryKeyName01) = total
+
+            If eventData.Exists(EventsDictionaryKeyIndex) Then
+                eventData(EventsDictionaryKeyIndex) = total
+            Else
+                eventData.Add EventsDictionaryKeyIndex, total
+            End If
+
+            If eventsDict.Exists(methodName) Then
+                Set eventList = eventsDict(methodName)
+            Else
+                Set eventList = New Collection
+                eventsDict.Add methodName, eventList
+            End If
+            eventList.Add eventData
         End If
-        eventList.Add eventData
+
+        If Not InternalUseMessages Is Nothing Then
+            total = CLng(InternalUseMessages(EventsDictionaryKeyName01)) + 1
+            InternalUseMessages(EventsDictionaryKeyName01) = total
+
+            If eventsDictForInternal.Exists(EventsDictionaryKeyIndex) Then
+                eventData(EventsDictionaryKeyIndex) = total
+            Else
+                eventsDictForInternal.Add EventsDictionaryKeyIndex, total
+            End If
+
+            If eventsDictForInternal.Exists(methodName) Then
+                Set eventList = eventsDictForInternal(methodName)
+            Else
+                Set eventList = New Collection
+                eventsDictForInternal.Add methodName, eventList
+            End If
+            eventList.Add eventData
+        End If
 
 parseContinue:
         On Error GoTo 0
