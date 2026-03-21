@@ -469,6 +469,24 @@ Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal par
 End Function
 
 '----------------------------------------------------------------------
+' CallDevToolsProtocolMethodAsync : CDP メソッド実行（結果待ちしない）
+'   methodName: "Domain.method"（例: "Runtime.callFunctionOn"）
+'   paramsJson: パラメータ JSON（例: "{}"）
+'   返り値: COM 呼び出し HRESULT（0=成功）
+'----------------------------------------------------------------------
+Public Function CallDevToolsProtocolMethodAsync(ByVal methodName As String, ByVal paramsJson As String) As Long
+    If m_pWebView2 = 0 Then
+        CallDevToolsProtocolMethodAsync = &H80004005 'E_FAIL
+        Exit Function
+    End If
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPAsyncHandlerThis))
+    If hr <> 0 Then m_LastErrorCode = hr
+    CallDevToolsProtocolMethodAsync = hr
+End Function
+
+'----------------------------------------------------------------------
 ' SubscribeDevToolsProtocolEvent
 '   WebView2 の DevToolsProtocol event を購読します。
 '   現状は「1種類の eventName のみ」フォールバックする実装です。
