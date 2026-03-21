@@ -155,6 +155,8 @@ Private m_CtrlHandlerThis As VtblObj
 Private m_CtrlHandlerVT   As VtblData4
 Private m_CDPHandlerThis  As VtblObj
 Private m_CDPHandlerVT    As VtblData4
+Private m_CDPAsyncHandlerThis  As VtblObj
+Private m_CDPAsyncHandlerVT    As VtblData4
 ' ICoreWebView2EnvironmentOptions 偽装（追加ブラウザ引数用）
 Private m_EnvOptionsThis  As VtblObj
 Private m_EnvOptionsVT    As VtblData13
@@ -433,9 +435,14 @@ End Sub
 '----------------------------------------------------------------------
 Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal paramsJson As String) As String
     If m_pWebView2 = 0 Then CallDevToolsProtocolMethod = "": Exit Function
-    g_CDPCompleted = False
-    g_CDPResultJson = ""
-    g_CDPErrorCode = 0
+    '同期呼び出しは「次に届くコマンド結果」だけを返す
+    '（イベントが混ざって届いても誤判定しないよう、キューで分離します）
+    If m_CDPResultQueue Is Nothing Then
+        Set m_CDPResultQueue = New Collection
+    Else
+        Set m_CDPResultQueue = New Collection
+    End If
+    m_LastCDPResultErrorCode = 0
     Dim hr As Long
     hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
     If hr <> 0 Then
@@ -443,7 +450,7 @@ Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal par
         CallDevToolsProtocolMethod = "": Exit Function
     End If
     Dim t As Single: t = Timer
-    Do While Not g_CDPCompleted And (Timer - t) < 30
+    Do
         ProcessMessages
         DoEvents
 
@@ -1202,6 +1209,11 @@ Private Sub BuildVtables()
     m_CDPHandlerVT.fn(0) = cdpFn(0): m_CDPHandlerVT.fn(1) = cdpFn(1)
     m_CDPHandlerVT.fn(2) = cdpFn(2): m_CDPHandlerVT.fn(3) = cdpFn(3)
     m_CDPHandlerThis.pVTable = VarPtr(m_CDPHandlerVT.fn(0))
+
+    ' Async 用も同じ関数テーブルを使うが、this を分離して判別できるようにする
+    m_CDPAsyncHandlerVT.fn(0) = cdpFn(0): m_CDPAsyncHandlerVT.fn(1) = cdpFn(1)
+    m_CDPAsyncHandlerVT.fn(2) = cdpFn(2): m_CDPAsyncHandlerVT.fn(3) = cdpFn(3)
+    m_CDPAsyncHandlerThis.pVTable = VarPtr(m_CDPAsyncHandlerVT.fn(0))
 
     ' DevToolsProtocol event handler vtable
     Dim dtpFn() As LongPtr
