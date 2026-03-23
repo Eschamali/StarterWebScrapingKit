@@ -89,6 +89,30 @@ Property Set BrowserEvents(ObjDic As Scripting.Dictionary)</code></pre>
     </tbody>
 </table>
 
+<h3>9. <code>SetFilterEvents</code> ― "必要な声"だけを聞き届ける、叡智の耳</h3>
+<p>非同期イベントのうち、特定のメソッド名のみを JSON パース・蓄積させる設定です。大量の <code>Network</code> イベントが発生する際の負荷を劇的に軽減します。</p>
+<pre><code class="language-vb">Property Let SetFilterEvents( _
+    Optional DelMode As Boolean = False, _
+    EventName As String _
+)</code></pre>
+
+<table class="method-table">
+    <thead>
+        <tr><th>引数</th><th>型</th><th>説明</th></tr>
+    </thead>
+    <tbody>
+        <tr><td><code>DelMode</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> <code>True</code> でフィルター削除、<code>False</code> で追加。</td></tr>
+        <tr><td><code>EventName</code></td><td><code>String</code></td><td><strong>【必須】</strong> 対象のイベントメソッド名。空欄で <code>DelMode:=True</code> なら全削除。</td></tr>
+    </tbody>
+</table>
+
+<div class="alert tip">
+    <div class="alert-icon">💡</div>
+    <div class="alert-content">
+        <p>フィルター数が 0 の場合は、すべてのイベントをキャプチャします。必要なイベントが分かっている場合は、これらを明示的に登録することで、スクレイピングのパフォーマンスを最大限に引き出すことができます。</p>
+    </div>
+</div>
+
 <p style="margin-top: 2rem; text-align: center;">
     <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">CDPの高度な制御へ →</a>
 </p>
