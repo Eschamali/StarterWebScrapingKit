@@ -88,6 +88,9 @@
 * **ChromiumブラウザをBiDi化するためのコアロジック**
   * [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
     * 製作者：GoogleChromeLabsチーム
+* **UserFormにWebView2を追加DLなしで埋め込んだすごい方**
+  * [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)
+    * 製作者：[たーぼー氏](https://x.com/fenblen_puyo)
 
 ※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
 
