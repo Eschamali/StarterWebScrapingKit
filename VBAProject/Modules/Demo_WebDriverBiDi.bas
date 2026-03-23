@@ -91,6 +91,7 @@ Sub ネットワークイベントの確認()
     Dim eventsArray As New Collection
     eventsArray.Add "network.beforeRequestSent"
     eventsArray.Add "network.responseCompleted"
+    eventsArray.Add "log.entryAdded"
     paramsBiDi.Add "events", eventsArray
     
     Demo_NetworkEvent.invokeMethod "session.subscribe", paramsBiDi

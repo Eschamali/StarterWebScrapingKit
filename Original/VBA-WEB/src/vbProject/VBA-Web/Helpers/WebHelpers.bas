@@ -1,6 +1,6 @@
 Attribute VB_Name = "WebHelpers"
 ''
-' WebHelpers v4.2.1
+' WebHelpers v4.3.0
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-Web
 '
 ' Contains general-purpose helpers that are used throughout VBA-Web. Includes:
@@ -50,8 +50,6 @@ Option Private Module
 ' 7. Mac
 ' 8. Cryptography
 ' 9. Converters
-' VBA-JSON
-' VBA-UTC
 ' AutoProxy
 ' --------------------------------------------- '
 
@@ -63,23 +61,15 @@ Option Private Module
 #Const EnableCustomFormatting = True
 
 ' === AutoProxy Headers
-#If Mac Then
-#ElseIf VBA7 Then
+#If Not Mac Then
 
-Private Declare PtrSafe Sub AutoProxy_CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-    (ByVal AutoProxy_lpDest As LongPtr, ByVal AutoProxy_lpSource As LongPtr, ByVal AutoProxy_cbCopy As Long)
-Private Declare PtrSafe Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" _
-    (ByVal AutoProxy_pwsz As LongPtr) As LongPtr
-Private Declare PtrSafe Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" _
-    (ByVal AutoProxy_p As LongPtr) As LongPtr
-Private Declare PtrSafe Function AutoProxy_GetIEProxy Lib "WinHTTP.dll" Alias "WinHttpGetIEProxyConfigForCurrentUser" _
-    (ByRef AutoProxy_proxyConfig As AUTOPROXY_IE_PROXY_CONFIG) As Long
-Private Declare PtrSafe Function AutoProxy_GetProxyForUrl Lib "WinHTTP.dll" Alias "WinHttpGetProxyForUrl" _
-    (ByVal AutoProxy_hSession As LongPtr, ByVal AutoProxy_pszUrl As LongPtr, ByRef AutoProxy_pAutoProxyOptions As AUTOPROXY_OPTIONS, ByRef AutoProxy_pProxyInfo As AUTOPROXY_INFO) As Long
-Private Declare PtrSafe Function AutoProxy_HttpOpen Lib "WinHTTP.dll" Alias "WinHttpOpen" _
-    (ByVal AutoProxy_pszUserAgent As LongPtr, ByVal AutoProxy_dwAccessType As Long, ByVal AutoProxy_pszProxyName As LongPtr, ByVal AutoProxy_pszProxyBypass As LongPtr, ByVal AutoProxy_dwFlags As Long) As LongPtr
-Private Declare PtrSafe Function AutoProxy_HttpClose Lib "WinHTTP.dll" Alias "WinHttpCloseHandle" _
-    (ByVal AutoProxy_hInternet As LongPtr) As Long
+Private Declare PtrSafe Sub AutoProxy_CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal AutoProxy_lpDest As LongPtr, ByVal AutoProxy_lpSource As LongPtr, ByVal AutoProxy_cbCopy As Long)
+Private Declare PtrSafe Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" (ByVal AutoProxy_pwsz As LongPtr) As LongPtr
+Private Declare PtrSafe Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" (ByVal AutoProxy_p As LongPtr) As LongPtr
+Private Declare PtrSafe Function AutoProxy_GetIEProxy Lib "WinHTTP.dll" Alias "WinHttpGetIEProxyConfigForCurrentUser" (ByRef AutoProxy_proxyConfig As AUTOPROXY_IE_PROXY_CONFIG) As Long
+Private Declare PtrSafe Function AutoProxy_GetProxyForUrl Lib "WinHTTP.dll" Alias "WinHttpGetProxyForUrl" (ByVal AutoProxy_hSession As LongPtr, ByVal AutoProxy_pszUrl As LongPtr, ByRef AutoProxy_pAutoProxyOptions As AUTOPROXY_OPTIONS, ByRef AutoProxy_pProxyInfo As AUTOPROXY_INFO) As Long
+Private Declare PtrSafe Function AutoProxy_HttpOpen Lib "WinHTTP.dll" Alias "WinHttpOpen" (ByVal AutoProxy_pszUserAgent As LongPtr, ByVal AutoProxy_dwAccessType As Long, ByVal AutoProxy_pszProxyName As LongPtr, ByVal AutoProxy_pszProxyBypass As LongPtr, ByVal AutoProxy_dwFlags As Long) As LongPtr
+Private Declare PtrSafe Function AutoProxy_HttpClose Lib "WinHTTP.dll" Alias "WinHttpCloseHandle" (ByVal AutoProxy_hInternet As LongPtr) As Long
 
 Private Type AUTOPROXY_IE_PROXY_CONFIG
     AutoProxy_fAutoDetect As Long
@@ -101,47 +91,6 @@ Private Type AUTOPROXY_INFO
     AutoProxy_lpszProxyBypass As LongPtr
 End Type
 
-#Else
-
-Private Declare Sub AutoProxy_CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-    (ByVal AutoProxy_lpDest As Long, ByVal AutoProxy_lpSource As Long, ByVal AutoProxy_cbCopy As Long)
-Private Declare Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" _
-    (ByVal AutoProxy_pwsz As Long) As Long
-Private Declare Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" _
-    (ByVal AutoProxy_p As Long) As Long
-Private Declare Function AutoProxy_GetIEProxy Lib "WinHTTP.dll" Alias "WinHttpGetIEProxyConfigForCurrentUser" _
-    (ByRef AutoProxy_proxyConfig As AUTOPROXY_IE_PROXY_CONFIG) As Long
-Private Declare Function AutoProxy_GetProxyForUrl Lib "WinHTTP.dll" Alias "WinHttpGetProxyForUrl" _
-    (ByVal AutoProxy_hSession As Long, ByVal AutoProxy_pszUrl As Long, ByRef AutoProxy_pAutoProxyOptions As AUTOPROXY_OPTIONS, ByRef AutoProxy_pProxyInfo As AUTOPROXY_INFO) As Long
-Private Declare Function AutoProxy_HttpOpen Lib "WinHTTP.dll" Alias "WinHttpOpen" _
-    (ByVal AutoProxy_pszUserAgent As Long, ByVal AutoProxy_dwAccessType As Long, ByVal AutoProxy_pszProxyName As Long, ByVal AutoProxy_pszProxyBypass As Long, ByVal AutoProxy_dwFlags As Long) As Long
-Private Declare Function AutoProxy_HttpClose Lib "WinHTTP.dll" Alias "WinHttpCloseHandle" _
-    (ByVal AutoProxy_hInternet As Long) As Long
-
-Private Type AUTOPROXY_IE_PROXY_CONFIG
-    AutoProxy_fAutoDetect As Long
-    AutoProxy_lpszAutoConfigUrl As Long
-    AutoProxy_lpszProxy As Long
-    AutoProxy_lpszProxyBypass As Long
-End Type
-Private Type AUTOPROXY_OPTIONS
-    AutoProxy_dwFlags As Long
-    AutoProxy_dwAutoDetectFlags As Long
-    AutoProxy_lpszAutoConfigUrl As Long
-    AutoProxy_lpvReserved As Long
-    AutoProxy_dwReserved As Long
-    AutoProxy_fAutoLogonIfChallenged As Long
-End Type
-Private Type AUTOPROXY_INFO
-    AutoProxy_dwAccessType As Long
-    AutoProxy_lpszProxy As Long
-    AutoProxy_lpszProxyBypass As Long
-End Type
-
-#End If
-
-#If Mac Then
-#Else
 ' Constants for dwFlags of AUTOPROXY_OPTIONS
 Const AUTOPROXY_AUTO_DETECT = 1
 Const AUTOPROXY_CONFIG_URL = 2
@@ -149,21 +98,16 @@ Const AUTOPROXY_CONFIG_URL = 2
 ' Constants for dwAutoDetectFlags
 Const AUTOPROXY_DETECT_TYPE_DHCP = 1
 Const AUTOPROXY_DETECT_TYPE_DNS = 2
+
 #End If
 ' === End AutoProxy
 
 #If Mac Then
-#If VBA7 Then
-Private Declare PtrSafe Function web_popen Lib "/usr/lib/libc.dylib" Alias "popen" (ByVal web_Command As String, ByVal web_Mode As String) As LongPtr
-Private Declare PtrSafe Function web_pclose Lib "/usr/lib/libc.dylib" Alias "pclose" (ByVal web_File As LongPtr) As LongPtr
-Private Declare PtrSafe Function web_fread Lib "/usr/lib/libc.dylib" Alias "fread" (ByVal web_OutStr As String, ByVal web_Size As LongPtr, ByVal web_Items As LongPtr, ByVal web_Stream As LongPtr) As LongPtr
-Private Declare PtrSafe Function web_feof Lib "/usr/lib/libc.dylib" Alias "feof" (ByVal web_File As LongPtr) As LongPtr
-#Else
-Private Declare Function web_popen Lib "libc.dylib" Alias "popen" (ByVal web_Command As String, ByVal web_Mode As String) As Long
-Private Declare Function web_pclose Lib "libc.dylib" Alias "pclose" (ByVal web_File As Long) As Long
-Private Declare Function web_fread Lib "libc.dylib" Alias "fread" (ByVal web_OutStr As String, ByVal web_Size As Long, ByVal web_Items As Long, ByVal web_Stream As Long) As Long
-Private Declare Function web_feof Lib "libc.dylib" Alias "feof" (ByVal web_File As Long) As Long
-#End If
+Private Declare PtrSafe Function web_popen Lib "/usr/lib/system/libSystem.B.dylib" Alias "popen" (ByVal web_Command As String, ByVal web_Mode As String) As LongPtr
+Private Declare PtrSafe Function web_pclose Lib "/usr/lib/system/libSystem.B.dylib" Alias "pclose" (ByVal web_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function web_fread Lib "/usr/lib/system/libSystem.B.dylib" Alias "fread" (ByVal web_OutStr As String, ByVal web_Size As LongPtr, ByVal web_Items As LongPtr, ByVal web_Stream As LongPtr) As LongPtr
+Private Declare PtrSafe Function web_feof Lib "/usr/lib/system/libSystem.B.dylib" Alias "feof" (ByVal web_File As LongPtr) As LongPtr
+Private Declare PtrSafe Sub web_ccMd5 Lib "/usr/lib/system/libcommonCrypto.dylib" Alias "CC_MD5" (ByVal web_Data As LongPtr, ByVal web_Len As Long, ByVal web_Hash As LongPtr)
 #End If
 
 Public Const WebUserAgent As String = "VBA-Web v4.1.6 (https://github.com/VBA-tools/VBA-Web)"
@@ -1443,62 +1387,6 @@ Public Sub AddOrReplaceInKeyValues(KeyValues As Collection, Key As Variant, Valu
     KeyValues.Add web_NewKeyValue
 End Sub
 
-''
-' Method to join collection.
-'
-' @method JoinCollection
-' @param {Collection} SourceCollection
-' @param {Variant} Delimiter
-' @return {String}
-''
-Public Function JoinCollection(ByVal SourceCollection As Collection, Optional ByVal Delimiter As Variant = ",") As String
-    Dim web_Item As Variant
-    
-    For Each web_Item In SourceCollection
-        JoinCollection = JoinCollection & Delimiter & web_Item
-    Next web_Item
-    
-    If VBA.Len(JoinCollection) >= VBA.Len(Delimiter) And Not Delimiter = vbNullString Then
-        JoinCollection = VBA.Right$(JoinCollection, VBA.Len(JoinCollection) - VBA.Len(Delimiter))
-    End If
-End Function
-
-''
-' Convert string to a collection.
-'
-' @method StringToCollection
-' @param {String} SourceString
-' @param {Variant} Delimiter
-' @return {Collection}
-''
-Public Function StringToCollection(ByVal SourceString As String, Optional ByVal Delimiter As Variant = ",") As Collection
-    Dim web_Item As Variant
-    Dim web_Collection As Collection
-    Set web_Collection = New Collection
-
-    For Each web_Item In VBA.Split(SourceString, Delimiter)
-        web_Collection.Add web_Item
-    Next web_Item
-    
-    Set StringToCollection = web_Collection
-End Function
-
-''
-' Check if given Key exists in Collection.
-'
-' @param {Collection} TargetCollection
-' @param {Variant} Key
-' @return {Boolean}
-''
-Public Function ExistsInCollection(ByVal TargetCollection As Collection, ByVal Key As Variant) As Boolean
-    Dim web_Item As Variant
-    
-    On Error Resume Next
-    web_Item = VBA.IsObject(TargetCollection.Item(Key))
-    ExistsInCollection = Not VBA.IsEmpty(web_Item)
-    
-End Function
-
 ' ============================================= '
 ' 5. Request preparation / handling
 ' ============================================= '
@@ -1837,27 +1725,33 @@ End Function
 ' ```
 '
 ' @method MD5
-' @param {String} Text
+' @param {Byte()|String} BytesOrText
 ' @param {String} [Format="Hex"] "Hex" or "Base64" encoding for result
 ' @return {String} MD5 Hash
 ''
-Public Function MD5(Text As String, Optional Format As String = "Hex") As String
-#If Mac Then
-    Dim web_Command As String
-    web_Command = "printf " & PrepareTextForPrintf(Text) & " | openssl dgst -md5"
-
-    If Format = "Base64" Then
-        web_Command = web_Command & " -binary | openssl enc -base64"
-    End If
-
-    MD5 = VBA.Replace(ExecuteInShell(web_Command).Output, vbLf, "")
-#Else
+Public Function MD5(BytesOrText As Variant, Optional Format As String = "Hex") As String
     Dim web_Crypto As Object
-    Dim web_TextBytes() As Byte
-    Dim web_Bytes() As Byte
-
-    web_TextBytes = VBA.StrConv(Text, vbFromUnicode)
-
+    Dim web_InputBytes() As Byte
+    Dim web_HashBytes() As Byte
+    
+    ' Normalise input.
+    Select Case VBA.VarType(BytesOrText)
+    Case VBA.vbArray + VBA.vbByte
+        web_InputBytes = BytesOrText
+    Case VBA.vbString
+        web_InputBytes = VBA.StrConv(VBA.CStr(BytesOrText), vbFromUnicode)
+    Case Else
+        Err.Raise 5, "MD5", "'BytesOrText' variable must be of type {Byte()} or {String}."  ' Invalid procedure call or argument
+    End Select
+    
+    ' Hash bytes.
+#If Mac Then
+    If UBound(web_InputBytes) >= 0 Then
+        web_ccMd5 VarPtr(web_InputBytes(0)), UBound(web_InputBytes) - LBound(web_InputBytes) + 1, VarPtr(web_HashBytes(0))
+    Else
+        web_ccMd5 0, 0, VarPtr(web_HashBytes(0))    ' Hash empty input.
+    End If
+#Else
     ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
     On Error Resume Next
         Set web_Crypto = CreateObject("System.Security.Cryptography.MD5CryptoServiceProvider")
@@ -1866,18 +1760,19 @@ Public Function MD5(Text As String, Optional Format As String = "Hex") As String
     If web_Crypto Is Nothing Then
         ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
         Set web_Crypto = New WebCrypto
-        web_Bytes = web_Crypto.MD5(web_TextBytes)
+        web_HashBytes = web_Crypto.MD5(web_InputBytes)
     Else
-        web_Bytes = web_Crypto.ComputeHash_2(web_TextBytes)
+        web_HashBytes = web_Crypto.ComputeHash_2(web_InputBytes)
     End If
-
+#End If
+    
+    ' Output in desired format.
     Select Case Format
     Case "Base64"
-        MD5 = web_AnsiBytesToBase64(web_Bytes)
+        MD5 = web_AnsiBytesToBase64(web_HashBytes)
     Case Else
-        MD5 = web_AnsiBytesToHex(web_Bytes)
+        MD5 = web_AnsiBytesToHex(web_HashBytes)
     End Select
-#End If
 End Function
 
 ''
@@ -1996,13 +1891,40 @@ Public Function StringToAnsiBytes(web_Text As String) As Byte()
     StringToAnsiBytes = web_AnsiBytes
 End Function
 
-#If Not Mac Then
 Private Function web_AnsiBytesToBase64(web_Bytes() As Byte)
-    ' Use XML to convert to Base64
-    Dim web_Crypto As WebCrypto
-    Set web_Crypto = New WebCrypto
-    web_AnsiBytesToBase64 = web_Crypto.Encode(web_Bytes, edfBase64, efNoFolding)
-    Set web_Crypto = Nothing
+    Const web_Table As String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    
+    Dim web_Index As Long
+    Dim web_Base64 As String
+    Dim web_Byte0 As Long: Dim web_Byte1 As Long: Dim web_Byte2 As Long
+    Dim web_Packed24 As Long
+    
+    For web_Index = LBound(web_Bytes) To UBound(web_Bytes) Step 3
+        web_Byte0 = web_Bytes(web_Index)
+        If web_Index + 1 <= UBound(web_Bytes) Then web_Byte1 = web_Bytes(web_Index + 1) Else web_Byte1 = -1
+        If web_Index + 2 <= UBound(web_Bytes) Then web_Byte2 = web_Bytes(web_Index + 2) Else web_Byte2 = -1
+        
+        web_Packed24 = (web_Byte0 And &HFF) * &H10000
+        If web_Byte1 >= 0 Then web_Packed24 = web_Packed24 Or (web_Byte1 And &HFF) * &H100
+        If web_Byte2 >= 0 Then web_Packed24 = web_Packed24 Or (web_Byte2 And &HFF)
+        
+        web_Base64 = web_Base64 & VBA.Mid$(web_Table, ((web_Packed24 \ &H40000) And &H3F) + 1, 1)
+        web_Base64 = web_Base64 & VBA.Mid$(web_Table, ((web_Packed24 \ &H1000) And &H3F) + 1, 1)
+        
+        If web_Byte1 >= 0 Then
+            web_Base64 = web_Base64 & VBA.Mid$(web_Table, ((web_Packed24 \ &H40) And &H3F) + 1, 1)
+        Else
+            web_Base64 = web_Base64 & "="
+        End If
+        
+        If web_Byte2 >= 0 Then
+            web_Base64 = web_Base64 & VBA.Mid$(web_Table, (web_Packed24 And &H3F) + 1, 1)
+        Else
+            web_Base64 = web_Base64 & "="
+        End If
+    Next web_Index
+    
+    web_AnsiBytesToBase64 = web_Base64
 End Function
 
 Private Function web_AnsiBytesToHex(web_Bytes() As Byte)
@@ -2011,7 +1933,6 @@ Private Function web_AnsiBytesToHex(web_Bytes() As Byte)
         web_AnsiBytesToHex = web_AnsiBytesToHex & VBA.LCase$(VBA.Right$("0" & VBA.Hex$(web_Bytes(web_i)), 2))
     Next web_i
 End Function
-#End If
 
 ' ============================================= '
 ' 9. Converters

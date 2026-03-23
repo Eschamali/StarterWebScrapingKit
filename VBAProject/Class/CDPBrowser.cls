@@ -206,8 +206,9 @@ Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド�
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
 Private Policy_UserDataDirContents  As String   'ポリシーによって設定されたデータディレクトリパス
 
-Private objAllMessages                      As Dictionary    'ブラウザからのイベントデータを蓄積するための変数です
-Private OnlyMessage__Runtime_bindingCalled  As Collection    'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます
+Private objAllMessages               As Dictionary  'ブラウザからのイベントデータを蓄積するための変数です。このクラス外で使用します
+Private FilterEvents                 As Dictionary  'ブラウザからのイベントデータのうち、登録したイベント名のみ、蓄積させるフィルター情報です
+Private BiDiForRuntimeBindingCalled  As Collection  'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます。なお、あくまでもWebDriverBiDi用なので、それ以外の用途では使わないでね
 
 
 
@@ -1586,7 +1587,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
             Else
                 '中身の解析をし、IDやイベントを取り出します
                 printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
-                Call ReceiveFromPipeSplit(strRes)
+                Call ReceiveFromPipeSplit(strRes)   '単なるイベント収集のため、コマンドIDによる確認はしないように設定
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -1738,6 +1739,59 @@ Property Set BrowserEvents(ObjDic As Dictionary)
 End Property
 
 '***************************************************************************************************
+'* 機能　　：ブラウザからのイベントのうち、指定のイベントメソッド名のみ、Jsonパース、蓄積をさせる設定です
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：DelMode    `True`  指定イベントメソッド名のフィルターを削除し以後、そのイベントメソッド名の蓄積はしません
+'                       `False` 指定イベントメソッド名のフィルターを追加し以後、フィルターに追加された分のイベントメソッド名のみ蓄積できます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：特に`Network`イベントは、大量のイベントが来てJsonパース処理の負荷を抑えるのに効果的です
+'* 注意事項：フィルター数が0の場合は、フィルター機能は果たしません
+'***************************************************************************************************
+Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
+    Const FromProcedureName As String = ThisClassName & ".SetFilterEvents"
+
+
+    '1. イベント名が空欄か？
+    If EventName = "" Then
+        '1-2. 削除モードか？
+        If DelMode Then
+            'LETのイベントメソッド名が空欄の場合は、全削除します
+            FilterEvents.RemoveAll
+            printMsg info_, "All event method filters have been removed.", FromProcedureName
+        Else
+            printMsg WARN_, "Event method names that are left blank cannot be added to the filter.", FromProcedureName
+        End If
+
+    Else
+        '2. 既にイベントメソッド名を持ってるか
+        If FilterEvents.Exists(EventName) Then
+            '2-2. 削除モードか？
+            If DelMode Then
+                'LETで指定したイベントメソッド名を削除します
+                FilterEvents.Remove (EventName)
+                printMsg info_, "The specified event method name `" & EventName & "` has been removed from the filter.", FromProcedureName
+            Else
+                printMsg WARN_, "The specified event method name `" & EventName & "` has already been added to the filter.", FromProcedureName
+            End If
+        Else
+            '2-2. 削除モードか？
+            If DelMode Then
+                printMsg WARN_, "The specified event method name `" & EventName & "` is not registered in the filter.", FromProcedureName
+            Else
+                'LETで指定したイベントメソッドを追加します
+                FilterEvents.Add EventName, True
+                printMsg info_, "The specified event method name `" & EventName & "` has been added to the filter.", FromProcedureName
+            End If
+        End If
+    End If
+
+    '3. ログ用に表示
+    Dim FilterCount As Long: FilterCount = FilterEvents.Count
+    printMsg Debug_, "Current number of filters: " & FilterCount, FromProcedureName
+    If FilterCount = 0 Then printMsg info_, "Because no filter is applied, all event methods are captured.", FromProcedureName
+End Property
+
+'***************************************************************************************************
 '* 機能　　：BiDi用に実行したコマンド結果を格納するためのプロパティを行います
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：呼び出した時点での、BiDi関連の情報
@@ -1749,14 +1803,14 @@ End Property
 '***************************************************************************************************
 Property Get BiDiCapture() As Collection
     '現在のBiDi用の情報をプロパティへ反映
-    Set BiDiCapture = OnlyMessage__Runtime_bindingCalled
+    Set BiDiCapture = BiDiForRuntimeBindingCalled
 
     'クリーン処理
-    Set OnlyMessage__Runtime_bindingCalled = New Collection
+    Set BiDiForRuntimeBindingCalled = New Collection
 End Property
 
 Property Set BiDiCapture(BiDiCol As Collection)
-    Set OnlyMessage__Runtime_bindingCalled = BiDiCol
+    Set BiDiForRuntimeBindingCalled = BiDiCol
 End Property
 
 '***************************************************************************************************
@@ -1918,9 +1972,11 @@ End Property
 '            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
 '                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
 '
-'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
+'
+'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            InternalFilterMessage  非同期イベントをクラス内部で後程、フィルタリングする際に渡して有効化します
 '
 '            dbgMsg                 Allow the option to bypass error if intended
 '---------------------------------------------------------------------------------------------------
@@ -1930,7 +1986,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional Async As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional InternalFilterMessage As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1995,7 +2051,7 @@ RetrySend:
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
             Dim tmp As Dictionary
-8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
+8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, InternalFilterMessage, lngCurrentId)  'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
 9           If Not (tmp Is Nothing) Then
@@ -2083,11 +2139,12 @@ End Function
 '* 返値　　：`checkCommandID`に対するCDP-Jsonコマンド結果Dictionary形式
 '* 引数　　：ReceiveRawString       パイプから得たそのまんまの文字列
 '            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'            InternalFilterMessage  非同期イベントをクラス内部で後程、フィルタリングする際に渡して有効化します
 '            checkCommandID         確認するコマンドID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedAsyncResults`に蓄積されます
 '***************************************************************************************************
-Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
+Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef InternalFilterMessage As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
 
 
@@ -2144,7 +2201,7 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
             If seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
             If tmp <> "" Then
                 '受信データのチェックを行うプロシージャへ遷移します。
-10              If BrowserReceivedDataCheck(tmp, InternalUseMessages, checkCommandID) Then
+10              If BrowserReceivedDataCheck(tmp, InternalUseMessages, InternalFilterMessage, checkCommandID) Then
                     '指定したコマンド結果であることを確認できたので、コマンド結果を返す
 11                  Set ReceiveFromPipeSplit = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
                     printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
@@ -2218,12 +2275,13 @@ End Sub
 '
 '* 引数　　：returnCDPJson          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
 '            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
+'            InternalFilterMessage  クラス内プロシージャで、イベント内容をフィルタリングする際の参照変数
 '            checkCommandID         確認するコマンドID
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、ブラウザイベントの場合はついでに、イベント情報を格納します。
 '* 注意事項；CDP-Jsonコマンド結果IDの不一致(シングルスレッド配下なら多分ないはず...)の場合は、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
-Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
+Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMessages As Dictionary, InternalFilterMessage As Dictionary, checkCommandID As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
@@ -2248,8 +2306,8 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
         'BiDiモードなら、特定のイベント名を別途、格納しておく
         '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
-        If Not (OnlyMessage__Runtime_bindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
-            OnlyMessage__Runtime_bindingCalled.Add CDPJsonString
+        If Not (BiDiForRuntimeBindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
+            BiDiForRuntimeBindingCalled.Add CDPJsonString
             printMsg Debug_, "BiDi mode usage detected. Store `" & BiDiForEventName & "`", FromProcedureName
             If seeRawSendMsgDbg Then printMsg Debug_, "ForBiDiRes(RawCDPres) = " & CDPJsonString, FromProcedureName
         End If
@@ -2260,27 +2318,38 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
             '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
             printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
         Else
-            'イベントキャプチャモードなので、JsonPurserを使用する
-            printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-            Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
+            '--------- 3. その非同期イベント名称は、フィルターに含まれてるか？ ---------
+            printMsg Trace_, "Checking public event filter settings...", FromProcedureName
+            Dim ExistEventInFilter_Public   As Boolean: ExistEventInFilter_Public = checkFilterEvent(FilterEvents, AsynchronousEventName)
 
-            '--------- 3. `SessionID`項目があるか？ ---------
-            If JsonDictionaryObj.Exists("sessionId") Then
-                printMsg Trace_, "This event is a PageContext.", FromProcedureName
+            printMsg Trace_, "Checking private event filter settings...", FromProcedureName
+            Dim ExistEventInFilter_Private  As Boolean: ExistEventInFilter_Private = checkFilterEvent(InternalFilterMessage, AsynchronousEventName)
 
-                '--------- 4. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
-                If JsonDictionaryObj("sessionId") = sessionID Then
-                    'ページとしてのイベント情報です
-                    FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
-                    printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
+            If ExistEventInFilter_Public Or ExistEventInFilter_Private Then
+                'イベントキャプチャモードなので、JsonPurserを使用する
+                printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+                Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
+    
+                '--------- 4. `SessionID`項目があるか？ ---------
+                If JsonDictionaryObj.Exists("sessionId") Then
+                    printMsg Trace_, "This event is a PageContext.", FromProcedureName
+    
+                    '--------- 5. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
+                    If JsonDictionaryObj("sessionId") = sessionID Then
+                        'ページとしてのイベント情報です
+                        FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
+                        printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & sessionID, FromProcedureName
+                    Else
+                        '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
+                        printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
+                    End If
                 Else
-                    '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
-                    printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
+                    'ブラウザ自身としてのイベント情報です
+                    FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
+                    printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
                 End If
             Else
-                'ブラウザ自身としてのイベント情報です
-                FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
-                printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
+                printMsg Trace_, "Due to performance improvements, event names `" & AsynchronousEventName & "` that are not included in the filter will not be parsed in the JSON.", FromProcedureName
             End If
         End If
 
@@ -2347,7 +2416,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
 
     '======================================= イベント情報を格納するフェーズへ =======================================
     'パブリック(呼び出し側使用)用
-    If objAllMessages Is Nothing Then
+    If objAllMessages Is Nothing Or Not (ExistEventInFilter_Public) Then
         printMsg Trace_, "No event information is required on the module side.", FromProcedureName
     Else
         printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -2355,7 +2424,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
     End If
 
     'プライベート(クラス内変数)用
-    If InternalUseMessages Is Nothing Then
+    If InternalUseMessages Is Nothing Or Not (ExistEventInFilter_Private) Then
         printMsg Trace_, "No event information needed inside the class.", FromProcedureName
     Else
         printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -2449,6 +2518,39 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
 End Function
 
 '***************************************************************************************************
+'* 機能　　：ブラウザイベント情報を格納する前に、フィルター情報を取得して、イベント蓄積させるか判定させます
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：蓄積可否論理値
+'* 引数　　：FilterDictionary   対象のフィルターDictionary
+'            EventMethodName    非同期イベント名称
+'***************************************************************************************************
+Private Function checkFilterEvent(FilterDictionary As Dictionary, EventMethodName As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".checkFilterEvent"
+
+
+    '0. オブジェクト自体が設定されてない場合は一律、キャプチャしない判定とします
+    If FilterDictionary Is Nothing Then checkFilterEvent = False: printMsg Trace_, "Since no filter object is set, capturing all event methods is disabled.", FromProcedureName: Exit Function
+
+    '1. フィルター情報があるか？
+    If FilterDictionary.Count Then
+        '2. そのイベントメソッド名があるか？
+        If FilterDictionary.Exists(EventMethodName) Then
+            'あれば、capture対象
+            checkFilterEvent = True
+            printMsg Trace_, "Filter registration detection: " & EventMethodName, FromProcedureName
+        Else
+            'なければ、captureしない
+            checkFilterEvent = False
+            printMsg Trace_, "Filter not registered: " & EventMethodName, FromProcedureName
+        End If
+    Else
+        'フィルター情報がない場合は、全てキャプチャさせます
+        checkFilterEvent = True
+        printMsg Trace_, "Since no filter is set, all event methods will be captured.", FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
 '* 機能　　：ブラウザイベント情報を格納するためのフォーマットDictionaryを作成します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：フォーマット済みDictionary
@@ -2486,8 +2588,13 @@ Private Function attachToSession() As Integer
     '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
     Dim EventMessageForAttachToSession As Dictionary: Set EventMessageForAttachToSession = FormatDictionary_BrowserEvents
 
+    '欲しいイベントメソッド名を記述
+    Const needEventMethod As String = "Target.targetCreated"
+    Dim EventFilterForAttachToSession As Dictionary: Set EventFilterForAttachToSession = New Dictionary
+    EventFilterForAttachToSession.Add needEventMethod, True
+
     '実行
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, EventMessageForAttachToSession)
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, False, EventMessageForAttachToSession, EventFilterForAttachToSession)
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -2496,7 +2603,7 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession(EventsDictionaryKeyName02)("Target.targetCreated")
+    For Each results In EventMessageForAttachToSession(EventsDictionaryKeyName02)(needEventMethod)
         Set results_ = results.Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
@@ -2526,7 +2633,7 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(objAllMessages), FromProcedureName
+    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(EventMessageForAttachToSession), FromProcedureName
     printMsg Debug_, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
     printMsg Debug_, "results_ = " & jsConverter.ConvertToJson(results_), FromProcedureName
     printMsg Debug_, "results__ = " & jsConverter.ConvertToJson(results__), FromProcedureName
@@ -3120,9 +3227,12 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = 30
 
-    '非同期でのコマンド結果を蓄積させる件数
+    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、10件)
     Set AccumulatedAsyncResults = New Dictionary
     AccumulatedAsyncResultsLimit = 10
+
+    'public用イベントメソッドフィルターを有効化
+    Set FilterEvents = New Dictionary
     '------------------------------------------------------------------------------
 
 
