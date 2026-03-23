@@ -34,3 +34,29 @@ HelloWorldAutomationBrowser.invokeMethod "Network.getCookies", ...</code></pre>
 
 <p><strong>理由:</strong> <code>enable</code> コマンドを実行するとブラウザはイベントの生成を開始します。VBA側で受け取らなくても、バックグラウンドでの受信・破棄によるオーバーヘッドが発生し続けます。<br>
 用が済んだら「もうよい、休んでおれ」と慈悲を与えることで、不要なノイズから解放されたクリーンなライフサイクル管理を実現してください。</p>
+
+<hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+<div class="alert note">
+    <div class="alert-icon">🚀</div>
+    <div class="alert-content">
+        <strong>パフォーマンス最適化：イベントフィルタリング</strong>
+        <p><code>Network</code> ドメインなどは大量の非同期イベントを発生させます。すべてのイベントを律儀に受診・解析していると、VBA側の処理がボトルネックになることがあります。</p>
+        <p>v1.6.1より導入された <code>SetFilterEvents</code> プロパティを使用することで、<strong>「特定のイベントだけをJSONパース＆蓄積する」</strong>という、知的な省エネ運転が可能になりました。</p>
+    </div>
+</div>
+
+<h3><code>SetFilterEvents</code> の使い方</h3>
+<p>このプロパティにイベント名をセットすることで、フィルタリングリストに追加されます。リストが1つ以上存在する場合、そのリストにあるイベントのみが記録対象となります。</p>
+
+<pre><code class="language-vb">' 収集したいイベントのみを登録する（複数追加可能）
+HelloWorldAutomationBrowser.SetFilterEvents = "Network.requestWillBeSent"
+HelloWorldAutomationBrowser.SetFilterEvents = "Network.loadingFinished"
+
+' (オプション) 特定の環境だけフィルターから削除したい場合
+HelloWorldAutomationBrowser.SetFilterEvents(DelMode:=True) = "Network.loadingFinished"
+
+' 全削除（フィルター解除 ＝ 全キャプチャに戻る）
+HelloWorldAutomationBrowser.SetFilterEvents(DelMode:=True) = ""</code></pre>
+
+<p><strong>メリット:</strong> 不要なイベントのJSONパース処理がスキップされるため、高負荷なサイトのスクレイピングや、大量の通信が発生する状況で劇的なパフォーマンス向上が期待できます。</p>
