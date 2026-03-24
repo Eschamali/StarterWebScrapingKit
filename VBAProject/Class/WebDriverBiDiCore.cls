@@ -312,10 +312,17 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         paramsCDP.Add "inheritPermissions", True
         .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not (ReConnect)
 
-        '4. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+        '3. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.RemoveAll
-        paramsCDP.Add "name", "sendBidiResponse"
+        paramsCDP.Add "name", BiDiResMain
         .invokeMethod "Runtime.addBinding", paramsCDP
+
+        '4. JSからVBAへ、Mapper側で発生したログ（状況説明、警告、エラー寄り情報）を返す経路を設定
+        If DiagnosticLog Then
+            paramsCDP.RemoveAll
+            paramsCDP.Add "name", BiDiResDebug
+            .invokeMethod "Runtime.addBinding", paramsCDP
+        End If
 
         '5. パースしたJavaScriptをブラウザ上で実行
         .jsEval Take_mapperTabJSstring
@@ -1406,6 +1413,8 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        ViewDebugTab = .Range(.UseRangeName(11, "WebDriverBiDiCore.Class_Initialize")).value
+        ViewDebugTab = .Range(.UseRangeName(11, "WebDriverBiDiCore.Class_Initialize")).value    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "WebDriverBiDiCore.Class_Initialize")).value 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        DiagnosticLog = .Range(.UseRangeName(13, "WebDriverBiDiCore.Class_Initialize")).value   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
