@@ -164,8 +164,6 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 '非同期イベント発火
 Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
-'BiDiでのやりとりの核となるイベント名
-Private Const BiDiForEventName As String = "Runtime.bindingCalled"
 
 
 
@@ -208,7 +206,6 @@ Private Policy_UserDataDirContents  As String   'ポリシーによって設定�
 
 Private objAllMessages               As Dictionary  'ブラウザからのイベントデータを蓄積するための変数です。このクラス外で使用します
 Private FilterEvents                 As Dictionary  'ブラウザからのイベントデータのうち、登録したイベント名のみ、蓄積させるフィルター情報です
-Private BiDiForRuntimeBindingCalled  As Collection  'ブラウザからのイベントデータのうち、`Runtime.bindingCalled`のみ蓄積させます。なお、あくまでもWebDriverBiDi用なので、それ以外の用途では使わないでね
 
 
 
@@ -1599,8 +1596,8 @@ Public Sub TakeEvents(Optional destruction As Boolean)
                 'ReadFile にてエラーがあった場合
                 printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
-                'データがまだ、ない。つまり、破棄完了
-                printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+                'パイプ内は空
+                printMsg Trace_, "The message queue is currently empty.", FromProcedureName
             End If
         End If
     Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
@@ -1789,28 +1786,6 @@ Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
     Dim FilterCount As Long: FilterCount = FilterEvents.Count
     printMsg Debug_, "Current number of filters: " & FilterCount, FromProcedureName
     If FilterCount = 0 Then printMsg info_, "Because no filter is applied, all event methods are captured.", FromProcedureName
-End Property
-
-'***************************************************************************************************
-'* 機能　　：BiDi用に実行したコマンド結果を格納するためのプロパティを行います
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：呼び出した時点での、BiDi関連の情報
-'* SET引数 ：置き換えるCollection変数。基本は、New Collection を渡してのリセットです
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：BiDiの結果を受け取りやすくする便利なプロパティです
-'* 注意事項：・BiDi用に公開してるもののため、BiDi用途以外は基本、使用しないでください
-'            ・`Get`による受け取り後は、無限蓄積を防ぐため、クリーン処理を行います
-'***************************************************************************************************
-Property Get BiDiCapture() As Collection
-    '現在のBiDi用の情報をプロパティへ反映
-    Set BiDiCapture = BiDiForRuntimeBindingCalled
-
-    'クリーン処理
-    Set BiDiForRuntimeBindingCalled = New Collection
-End Property
-
-Property Set BiDiCapture(BiDiCol As Collection)
-    Set BiDiForRuntimeBindingCalled = BiDiCol
 End Property
 
 '***************************************************************************************************
@@ -2302,15 +2277,8 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
         'VBAでのイベント発火を行う
+        '※これについては、負荷の高いJsonパース処理自体はしないため一旦、フィルター機能は対象外とする
         RaiseEvent detectionCDPEvent(AsynchronousEventName, CDPJsonString)
-
-        'BiDiモードなら、特定のイベント名を別途、格納しておく
-        '※格納はJsonプレーンテキストなので、取り出す際はパースしてください
-        If Not (BiDiForRuntimeBindingCalled Is Nothing) And AsynchronousEventName = BiDiForEventName Then
-            BiDiForRuntimeBindingCalled.Add CDPJsonString
-            printMsg Debug_, "BiDi mode usage detected. Store `" & BiDiForEventName & "`", FromProcedureName
-            If seeRawSendMsgDbg Then printMsg Debug_, "ForBiDiRes(RawCDPres) = " & CDPJsonString, FromProcedureName
-        End If
 
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
