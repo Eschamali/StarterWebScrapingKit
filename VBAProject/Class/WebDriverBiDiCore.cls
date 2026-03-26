@@ -299,6 +299,7 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
+    Dim paramsCDP As New Dictionary
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
         '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
@@ -306,11 +307,12 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         printMsg Trace_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(ViewDebugTab) & ")", FromProcedureName
 
         '2. BiDi用バインディングの追加
-        Dim paramsCDP As New Dictionary
-        paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", .CurrentTargetID
-        paramsCDP.Add "inheritPermissions", True
-        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not (ReConnect)
+        If Not (ReConnect) Then
+            paramsCDP.Add "bindingName", "cdp"
+            paramsCDP.Add "targetId", .CurrentTargetID
+            paramsCDP.Add "inheritPermissions", True
+            .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+        End If
 
         '3. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.RemoveAll
@@ -332,7 +334,6 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
     End With
 
-    printMsg Trace_, "Booted `BiDi-CDP Mapper`", FromProcedureName
 End Sub
 
 '***************************************************************************************************
