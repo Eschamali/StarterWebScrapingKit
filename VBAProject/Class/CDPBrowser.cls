@@ -197,7 +197,9 @@ Private timerOut As Long                'Max timeout period in seconds, snapPage
 Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw json msg received from the browser for debugging
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
-Private errorDetails As Dictionary      'CDP-Jsonコマンド実行時の最後のエラー情報
+
+Private lastErrorDetailsCDP As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
+
 Private AccumulatedAsyncResults As Dictionary '非同期によるコマンド結果情報
 Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド結果の最大蓄積数
 
@@ -2647,17 +2649,17 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
         ErrorData = vbEmpty
         printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         invokeError = True
-        Set errorDetails = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
+        Set lastErrorDetailsCDP = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
     ElseIf result.Exists("error") Then
-        Set errorDetails = result("error")
-        ErrorCode = errorDetails("code")
-        ErrorMessage = errorDetails("message")
+        Set lastErrorDetailsCDP = result("error")
+        ErrorCode = lastErrorDetailsCDP("code")
+        ErrorMessage = lastErrorDetailsCDP("message")
         printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        If errorDetails.Exists("data") Then
-            ErrorData = errorDetails("data")
+        If lastErrorDetailsCDP.Exists("data") Then
+            ErrorData = lastErrorDetailsCDP("data")
             printMsg WARN_, "       " & ErrorData, FromProcedureName
         Else
-            ErrorData = vbEmpty ' vbNullString? is errorDetails("data") a string or object?
+            ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
         End If
         invokeError = True
     Else
