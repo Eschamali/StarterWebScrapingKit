@@ -223,10 +223,10 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPParams As Dictionary, ResultCDP As Dictionary
-    Set CDPParams = New Dictionary
-    CDPParams.Add "path", ExtensionsFolderPath
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True, False)   '今回は、エラー無視で設定
+    Dim CDPparams As Dictionary, ResultCDP As Dictionary
+    Set CDPparams = New Dictionary
+    CDPparams.Add "path", ExtensionsFolderPath
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPparams, True, False)   '今回は、エラー無視で設定
 
     '読み込まれたか確認する
     '※コマンド実行に失敗すると、`nothing`で返るので、この仕様を利用します
@@ -250,9 +250,9 @@ Sub UseExtensions()
 
 
     '拡張機能をアンインストール
-    Set CDPParams = New Dictionary
-    CDPParams.Add "id", ResultCDP("id")
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True, False)
+    Set CDPparams = New Dictionary
+    CDPparams.Add "id", ResultCDP("id")
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPparams, True, False)
 
     '消えたか確認する
     If ResultCDP Is Nothing Then
