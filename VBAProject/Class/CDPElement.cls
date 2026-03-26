@@ -126,7 +126,7 @@ Private Function getVarID() As String
     Dim varID_ As String: varID_ = newVarID
 
    'Assign the new varID using varJS
-    main.jsEval varID_ & " = " & varJS, printDbgMsg
+    main.jsEval varID_ & " = " & varJS, dbgMsg:=printDbgMsg
 
     varID = varID_  'Store the new ID to the main ID var
     getVarID = varID_
@@ -163,7 +163,7 @@ Property Get value() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    value = main.jsEval(getVarID & ".value", printDbgMsg)
+    value = main.jsEval(getVarID & ".value", dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -187,13 +187,13 @@ Property Let value(strTextVal As String)
     If checkExist Then If Not isExist Then Exit Property
 
    'Help devs know if the field is a React field
-    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
+    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
     If isReact Then main.printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
    'Perform inputing using all the methods
     If Not isReact Then
-        main.jsEval getVarID & ".value = """ & strTextVal & """", printDbgMsg
+        main.jsEval getVarID & ".value = """ & strTextVal & """", dbgMsg:=printDbgMsg
     Else
         main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(" & getVarID & ", '" & strTextVal & "')"
         main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, ""value"").set.call(" & getVarID & ", """ & strTextVal & """)"
@@ -211,7 +211,7 @@ Property Get innerText() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    innerText = main.jsEval(getVarID & ".innerText", printDbgMsg)
+    innerText = main.jsEval(getVarID & ".innerText", dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -222,13 +222,13 @@ Property Let innerText(strTextVal As String)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval getVarID & ".scrollIntoView(false)", dbgMsg:=False
 
    'Escape quotation and apostrophe
     strTextVal = Replace(strTextVal, "'", "\'")
     strTextVal = Replace(strTextVal, """", "\""")
 
-    main.jsEval getVarID & ".innerText = " & "'" & strTextVal & "'", printDbgMsg
+    main.jsEval getVarID & ".innerText = " & "'" & strTextVal & "'", dbgMsg:=printDbgMsg
 
 End Property
 
@@ -239,7 +239,7 @@ Property Get innerHTML() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    innerHTML = main.jsEval(getVarID & ".innerHTML", printDbgMsg)
+    innerHTML = main.jsEval(getVarID & ".innerHTML", dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -250,13 +250,13 @@ Property Let innerHTML(strTextVal As String)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval getVarID & ".scrollIntoView(false)", dbgMsg:=False
 
    'Escape quotation and apostrophe
     strTextVal = Replace(strTextVal, "'", "\'")
     strTextVal = Replace(strTextVal, """", "\""")
 
-    main.jsEval getVarID & ".innerHTML = " & "'" & strTextVal & "'", printDbgMsg
+    main.jsEval getVarID & ".innerHTML = " & "'" & strTextVal & "'", dbgMsg:=printDbgMsg
 
 End Property
 
@@ -267,7 +267,7 @@ Property Let checked(boolChecked As Boolean)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".checked = " & LCase(boolChecked), False
+    main.jsEval getVarID & ".checked = " & LCase(boolChecked), dbgMsg:=False
 
 End Property
 
@@ -278,7 +278,7 @@ Property Get checked() As Boolean
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    checked = CBool(main.jsEval(getVarID & ".checked", printDbgMsg))
+    checked = CBool(main.jsEval(getVarID & ".checked", dbgMsg:=printDbgMsg))
 
 End Property
 
@@ -290,7 +290,7 @@ Property Let selected(selectedOption As String)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".selectedIndex = " & selectedOption, False
+    main.jsEval getVarID & ".selectedIndex = " & selectedOption, dbgMsg:=False
     fireEvent "change"
 
 End Property
@@ -302,7 +302,7 @@ Property Get selected() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    selected = main.jsEval(getVarID & ".selectedOptions[0]", printDbgMsg)
+    selected = main.jsEval(getVarID & ".selectedOptions[0]", dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -321,7 +321,7 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
    'Scroll into the view for better visibility of the automation
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval getVarID & ".scrollIntoView(false)", dbgMsg:=False
 
    'Some fields require the browser to manually focus before allowing
    'the click action, such as the input type 'file' field. The below
@@ -333,7 +333,7 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
     main.invokeMethod "Input.insertText", params
 
    'Perform click
-    main.jsEval getVarID & ".dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true}))", printDbgMsg
+    main.jsEval getVarID & ".dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true}))", dbgMsg:=printDbgMsg
     main.wait till:=till
     click = True
 
@@ -351,7 +351,7 @@ Public Function submit(Optional till As ReadyState = isComplete) As Boolean
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    main.jsEval getVarID & ".form.submit()", printDbgMsg
+    main.jsEval getVarID & ".form.submit()", dbgMsg:=printDbgMsg
     main.wait till:=till
     submit = True
 
@@ -366,7 +366,7 @@ Public Function getAttribute(strAttributeName As String) As String
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """)", printDbgMsg)
+    getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """)", dbgMsg:=printDbgMsg)
 
 End Function
 
@@ -382,7 +382,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    main.jsEval getVarID & ".setAttribute(""" & strAttributeName & """, """ & strValue & """)", printDbgMsg
+    main.jsEval getVarID & ".setAttribute(""" & strAttributeName & """, """ & strValue & """)", dbgMsg:=printDbgMsg
 
 End Function
 
@@ -395,7 +395,7 @@ Public Function setSelection(strOptionName As String)
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval getVarID & ".scrollIntoView(false)", dbgMsg:=False
     Me.value = strOptionName
     fireEvent "change"
 
@@ -410,8 +410,8 @@ Public Function selectText()
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    main.jsEval "r = document.createRange()", False
-    main.jsEval "s = window.getSelection()", False
+    main.jsEval "r = document.createRange()", dbgMsg:=False
+    main.jsEval "s = window.getSelection()", dbgMsg:=False
     main.jsEval "r.selectNodeContents(" & getVarID & ")"
     main.jsEval "s.removeAllRanges()"
     main.jsEval "s.addRange(r)"
@@ -425,7 +425,7 @@ Public Function focus()
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
-    main.jsEval getVarID & ".focus()", False
+    main.jsEval getVarID & ".focus()", dbgMsg:=False
 
 End Function
 
@@ -444,7 +444,7 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
     strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
-    main.jsEval getVarID & ".dispatchEvent(new Event('" & strEventName & "', { bubbles: true, simulated: true }))", printDbg
+    main.jsEval getVarID & ".dispatchEvent(new Event('" & strEventName & "', { bubbles: true, simulated: true }))", dbgMsg:=printDbg
 
    'Wait till applied
     main.wait till:=till, dbgState:=printDbg
@@ -469,7 +469,7 @@ Public Function sendString(textToSend As String) As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
    'First clear the current text of the field
-    main.jsEval getVarID & ".value = ''", False
+    main.jsEval getVarID & ".value = ''", dbgMsg:=False
 
    'Get objectId
     Dim params As New Scripting.Dictionary
@@ -593,15 +593,15 @@ Public Function clearValue() As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
    'Scroll into view
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval getVarID & ".scrollIntoView(false)", dbgMsg:=False
 
    'Help devs know if the field might is a React field
-    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
+    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
 
    'Perform inputing using all the methods
     If Not isReact Then
-        main.jsEval getVarID & ".value = """"""", printDbgMsg
+        main.jsEval getVarID & ".value = """"""", dbgMsg:=printDbgMsg
     Else
         main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(" & getVarID & ", '')"
         main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(" & getVarID & ", '')"
@@ -659,7 +659,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, False)
+        VarType = main.jsEval(varJS, dbgMsg:=False)
         main.sleep 0.1
     Loop
 
@@ -687,7 +687,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
             main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, False)
+        VarType = main.jsEval(varJS, dbgMsg:=False)
         main.sleep 0.1
     Loop
 
@@ -720,7 +720,7 @@ Public Function getParent() As CDPElement
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".parentElement"
-    result = main.jsEval(varJS_, printDbgMsg)
+    result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getParent = New CDPElement
@@ -748,7 +748,7 @@ Public Function getNextSibling() As CDPElement
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".nextElementSibling"
-    result = main.jsEval(varJS_, printDbgMsg)
+    result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getNextSibling = New CDPElement
@@ -776,7 +776,7 @@ Public Function getPrevSibling() As CDPElement
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".previousElementSibling"
-    result = main.jsEval(varJS_, printDbgMsg)
+    result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getPrevSibling = New CDPElement
@@ -804,7 +804,7 @@ Public Function getFirstChild() As CDPElement
    'Get the object and assign to the new ID in the browser
     Dim varJS_ As String: Dim result As String
     varJS_ = varID_ & " = " & getVarID & ".firstElementChild"
-    result = main.jsEval(varJS_, printDbgMsg)
+    result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getFirstChild = New CDPElement

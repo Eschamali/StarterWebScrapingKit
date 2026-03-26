@@ -461,11 +461,11 @@ step1:
     strMessage = jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
 
-   'Send and check result -------------------------------------------------------------------------------------------
+    'Send and check result -------------------------------------------------------------------------------------------
     Set results = SendMessage(strMessage, dbgMsg:=dbgMsg)
     If results Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
     If Not results.Exists("error") Then GoTo step2
-   '-----------------------------------------------------------------------------------------------------------------
+    '-----------------------------------------------------------------------------------------------------------------
 
    'Handle errors ---------------------------------------------------------------------------------------------------
     Dim errMsg As String, retried As Boolean
@@ -500,7 +500,7 @@ step2:
 
 step3:
 
-   'Output to Immediate Window if enabled -------------------------------------------------------------------
+'Output to Immediate Window if enabled -------------------------------------------------------------------
     Dim strResult As String
     If Not jsEval = "" Then strResult = " | Returned: " & jsEval Else strResult = ""
     strResult = Replace(strResult, vbNewLine, "")
@@ -1617,7 +1617,7 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    brURL = jsEval("document.URL", False)
+    brURL = jsEval("document.URL", dbgMsg:=False)
     Url = brURL
 
 End Property
@@ -1639,7 +1639,7 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    brName = jsEval("document.title", False)
+    brName = jsEval("document.title", dbgMsg:=False)
     Name = brName
 
 End Property
@@ -1652,7 +1652,7 @@ Property Let Name(newName As String)
     Const FromProcedureName As String = ThisClassName & ".Name"
 
 
-    jsEval "document.title = '" & newName & "'", False
+    jsEval "document.title = '" & newName & "'", dbgMsg:=False
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
     brName = newName
 
@@ -2680,7 +2680,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", False)
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False)
     If InStr(sessionTitle, "TypeError") Then sessionTitle = "about:blank"
 
     'Obtain handles to the correct browser window
