@@ -1484,9 +1484,6 @@ End Sub
 '* 注意事項：・CDPの運営思想の都合上、多数の`Deprecated`,`Experimental`が存在します。
 '              これらのタグのmethodを使用する際は、`StopError`を`True`にすることを推奨します。失敗時の以降の処理の予期せぬデータ破損などを防ぐためです。
 '
-'            ・非同期イベントの確認をする際は、空打ちによる継続確認が必要なのでこの場合は、`StopError`を`False`にしてください。
-'              これは、VBAのシングルスレッド制約の中での苦肉の策です。
-'
 '            ・`StopError`の規定値は、`True`なので、特別な理由がない限りは、省略推奨です
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`invokeMethodAsync`をご利用ください。
@@ -1515,7 +1512,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
 
    'Return result object
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If seeRawSendMsgDbg Then printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
@@ -1550,7 +1547,7 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
 
     '実行したIDを返却
     invokeMethodAsync = results.keys(0)
-    printMsg Debug_, "AsyncInvoked """ & methodName & """ with WriteFileResult: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
+    printMsg Debug_, "Async invoked """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
 
 End Function
 
@@ -1997,7 +1994,8 @@ RetrySend:
 5   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
-    
+    printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
+
 6   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
     printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
 
