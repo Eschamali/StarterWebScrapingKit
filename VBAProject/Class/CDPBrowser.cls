@@ -198,9 +198,10 @@ Private seeRawSendMsgDbg As Boolean     'set to True if needing to see the raw j
 Private doLog As Boolean                'ログファイルにも、デバッグメッセージを残すか
 Private logPath As String               'ログファイルの保存フォルダパス
 
-Private lastErrorDetailsCDP As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
+Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
+Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後のエラー情報
 
-Private AccumulatedAsyncResults As Dictionary '非同期によるコマンド結果情報
+Private AccumulatedAsyncResults As Dictionary   '非同期によるコマンド結果情報
 Private AccumulatedAsyncResultsLimit As Long    '非同期によるコマンド結果の最大蓄積数
 
 Private Policy_UserDataDirExists    As Boolean  'ユーザーデータディレクトリが固定化されてるか判定
@@ -439,77 +440,354 @@ iferr: 'if deserialize fails, simply move on to starting anew
 
 End Sub
 
-Public Function jsEval(strString As String, Optional dbgMsg As Boolean = True) As Variant
-'------------------------------------------------------------
-' This function commands the attached browser instance to
-' execute a Javascript expression to perform required tasks.
-' Note: the original function has a bool retry variable which
-' was removed for simplicity.
-' Added dbgMsg to read debug line on the go when needed.
-'------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
+'            Webスクレイピングに関わる引数は全て設けています。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFERROR に依存します。
+'* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
+'
+'            objectId                       これを指定すると`Runtime.callFunctionOn`として優先実行されます。
+'                                           省略時は、`Runtime.evaluate`となります。
+'
+'            objectArguments                `objectId`に対する実行引数を渡します※`objectId`が指定されてない場合は、無視されます
+'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'
+'            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
+'            ifError                        JavaScript実行中にエラーが出た場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
+'
+'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。
+'                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'
+'            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
+'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
+'
+'            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'                                           False：特に施しません
+'
+'            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します
+'                                           False：サイトの外部JavaScript実行規制に従います
+'
+'            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
+'                                           このパラメーターがあると、`returnByValue`の引数は無視されます。
+'
+'            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
+'                                           False：結果を待つCDPで実行します。基本はこれでOK
+'
+'            StopError                      `True`で、JavaScriptコード内でエラーが起こった場合、VBAエラーで止まります。基本は、開発時のみ使用する想定です
+'
+'            dbgMsg                         Allow the option to bypass error if intended
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：This function commands the attached browser instance to execute a Javascript expression to perform required tasks.
+'            Note: the original function has a bool retry variable which was removed for simplicity.
+'            Added dbgMsg to read debug line on the go when needed.
+'
+'* 注意事項：・利用時は、「名前付き引数`xxx:=yyy`」として運用することをお勧めします
+'            ・JavaScript実行中のエラー確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFERROR`を活用してください。
+'            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります
+'
+'            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
+'               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
+'
+'            ・`objectId`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
+'
+'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
+'              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
+'
+'            ・JavaScriptの場合、エラーを利用した処理が多々あるため、運用時は`StopError`を省略しておくことを推奨します
+'            ・CDP実行自体のエラーキャッチは常に`True`となります
+'---------------------------------------------------------------------------------------------------
+'* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
+'***************************************************************************************************
+Public Function jsEval(strString As String, Optional objectId As String, Optional contextId As Long, Optional ifError As Variant, _
+                       Optional objectArguments As Collection, _
+                       Optional returnByValue As Boolean, _
+                       Optional awaitPromise As Boolean, _
+                       Optional userGesture As Boolean, _
+                       Optional allowUnsafeEvalBlockedByCSP As Boolean, _
+                       Optional serializationOptions As Dictionary, _
+                       Optional RunAsyncCDP As Boolean, _
+                       Optional StopError As Boolean, _
+                       Optional dbgMsg As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
-    Dim results As Scripting.Dictionary
-    Dim strMessage As String
-    Dim objMessage As Scripting.Dictionary
+    Dim CDPresults  As Scripting.Dictionary
+    Dim strMessage  As String
+    Dim objMessage  As New Scripting.Dictionary
+    Dim CDPparams   As New Scripting.Dictionary
 
 step1:
 
    'Construct message for sending ----------------------------------------------------------
-    strMessage = "{""method"":""Runtime.evaluate"",""params"":{""expression"":""1+1;""}}"
-    Set objMessage = jsConverter.ParseJson(strMessage)
-    objMessage.Item("params").Item("expression") = strString & ";"
+    CDPparams.RemoveAll
+
+    '`objectId`があったら、`Runtime.callFunctionOn`としてパラメーター構築するように調整
+    Dim UseJsMethod As String
+    If StrPtr(objectId) Then
+        UseJsMethod = "Runtime.callFunctionOn"
+
+        'For Runtime.callFunctionOn
+        CDPparams.Add "functionDeclaration", strString
+        CDPparams.Add "objectId", objectId
+        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments
+    Else
+        UseJsMethod = "Runtime.evaluate"
+
+        'For Runtime.evaluate
+        CDPparams.Add "expression", strString
+        If contextId > 0 Then CDPparams.Add "contextId", contextId
+    End If
+
+    '以降は、共通設定を施す
+    '※文字数節約により、IF文をかます
+    If returnByValue Then CDPparams.Add "returnByValue", returnByValue
+    If awaitPromise Then CDPparams.Add "awaitPromise", awaitPromise
+    If userGesture Then CDPparams.Add "userGesture", userGesture
+    If allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
+    If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
+
+    'CDP-Jsonを組み立て
+    objMessage.RemoveAll
+    objMessage.Add "method", UseJsMethod
+    objMessage.Add "params", CDPparams
+
     strMessage = jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
 
-    'Send and check result -------------------------------------------------------------------------------------------
-    Set results = SendMessage(strMessage, dbgMsg:=dbgMsg)
-    If results Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
-    If Not results.Exists("error") Then GoTo step2
+    'Send and check CDPresult -------------------------------------------------------------------------------------------
+    '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
+    Set CDPresults = SendMessage(strMessage, Async:=RunAsyncCDP, dbgMsg:=dbgMsg)
+    If RunAsyncCDP Then
+        '`WriteFile`のエラーをチェック
+        If CDPresults.Items(0) Then
+            printMsg ERROR_, "Failed to AsyncCDP-WriteFile JavaScript: " & strString & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0)), FromProcedureName, doRaiseError:=True
+        Else
+            'ID返却して抜ける
+            jsEval = CLng(CDPresults.keys(0))
+        End If
+
+        printMsg Debug_, "Async CDP JavaScript with WriteFile Result: " & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0), "kernel32") & " ID: " & CDPresults.keys(0), FromProcedureName
+        Exit Function
+    Else
+        If seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & jsConverter.ConvertToJson(CDPresults), FromProcedureName
+        If CDPresults Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
+        If Not CDPresults.Exists("error") Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
+    End If
     '-----------------------------------------------------------------------------------------------------------------
 
    'Handle errors ---------------------------------------------------------------------------------------------------
     Dim errMsg As String, retried As Boolean
-    errMsg = results("error")("message")
+    errMsg = CDPresults("error")("message")
     printMsg WARN_, "jsEval Error: " & errMsg, FromProcedureName
-    If errMsg = "'Runtime.evaluate' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
+    If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
         printMsg info_, "Attempting to update Session ID " & sessionID, FromProcedureName
         sessionID = "": sessionID = attachToTab(targetID)
         printMsg info_, "New Session ID obtained: " & sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
-    printMsg ERROR_, "The Browser was unable to evaluate the JS expression: " & strString, FromProcedureName, doRaiseError:=True
+    printMsg ERROR_, "The Browser was unable to evaluate the JS expression: " & strString & vbCrLf & vbCrLf & "<ErrorDetail>" & vbCrLf & errMsg, FromProcedureName, doRaiseError:=True
    '-----------------------------------------------------------------------------------------------------------------
 
 step2:
 
+    'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
+    Dim RemoteObject As Dictionary
+    Set RemoteObject = CDPresults.Item("result").Item("result")
+    If seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & jsConverter.ConvertToJson(RemoteObject), FromProcedureName
+
+    '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
+    If CDPresults.Item("result").Exists("exceptionDetails") Then
+        '最後の詳細エラー情報を記録
+        Set lastExceptionDetailsJS = CDPresults("result")("exceptionDetails")
+
+        'エラーによる`Err.Raise`で止めるか？
+        If StopError Then
+            'ログ表示用に、詳細の方を文字列化
+            Dim exceptionDetails As String: exceptionDetails = jsConverter.ConvertToJson(lastExceptionDetailsJS)
+            printMsg ERROR_, "An exception occurred while executing JavaScript: " & strString & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
+        Else
+            If IsMissing(ifError) Then
+                '省略時は、エラー型として返します。https://learn.microsoft.com/ja-jp/office/vba/excel/Concepts/Cells-and-Ranges/cell-error-values
+                '※エラーの種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中にエラーが起きた」という目印として判断してください
+                jsEval = CVErr(xlErrValue)
+                printMsg WARN_, "An exception occurred while executing JavaScript: " & strString & "  It was returned as an error type.", FromProcedureName
+            Else
+                '引数:IFERROR が指定されてる場合はそっちを優先して返します
+                If IsObject(ifError) Then Set jsEval = ifError Else jsEval = ifError
+                printMsg WARN_, "An exception occurred while executing JavaScript: " & strString & " The argument `IFERROR` was specified, so it was returned.", FromProcedureName
+            End If
+
+            '簡易部分のエラー内容を出す
+            printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+        End If
+
+        Exit Function
+    End If
+
    'If the return type has a specific type we can return the result -------------------------------------------
-    Dim result As Object
-    Set result = results.Item("result").Item("result")
-    Select Case True
-        Case result.Item("subtype") = "error"
-            jsEval = Split(result.Item("description"), vbNewLine)(0)
-        Case result.Item("type") = "string", result.Item("type") = "boolean", result.Item("type") = "number"
-            jsEval = result.Item("value")
-        Case result.Item("subtype") = "node"
-            jsEval = result.Item("className") & " (class='" & result.Item("description") & "')"
-        Case result.Item("subtype") = "null"
-            jsEval = "null"
-    End Select
+    Dim tmp
+    If JSresultAnalysis(RemoteObject, Not returnByValue, tmp) Then
+        Set jsEval = tmp
+    Else
+        jsEval = tmp
+    End If
    '-----------------------------------------------------------------------------------------------------------
 
 step3:
 
 'Output to Immediate Window if enabled -------------------------------------------------------------------
-    Dim strResult As String
-    If Not jsEval = "" Then strResult = " | Returned: " & jsEval Else strResult = ""
-    strResult = Replace(strResult, vbNewLine, "")
-    If Len(jsEval) > 200 Then strResult = Left(strResult, 200) & "(showing 200/" & Len(jsEval) & " chars)"
-    printMsg Debug_, "Script executed: " & strString & strResult, FromProcedureName
+    Dim strLogValue As String
+
+    ' VarTypeを使って型ごとにログ用の文字列を作る
+    Select Case VarType(jsEval)
+        Case vbDouble
+            strLogValue = "[Double] " & jsEval
+
+        Case vbString
+            strLogValue = "[String] " & jsEval
+
+        Case vbBoolean
+            strLogValue = "[Boolean] " & jsEval
+
+        Case Else
+            strLogValue = "[" & TypeName(jsEval) & "]"
+    End Select
+
+    ' 改行を消して、長すぎる場合はカットする（整形）
+    strLogValue = Replace(strLogValue, vbNewLine, " ")
+    If Len(strLogValue) > 200 Then
+        strLogValue = Left(strLogValue, 200) & "... (Total: " & Len(strLogValue) & " chars)"
+    End If
+
+    ' 最終的なデバッグ出力
+    printMsg Debug_, "Script executed: " & strString & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
+End Function
+
+'***************************************************************************************************
+'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：RemoteObject               `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
+'            PriorityReturn_objectId    `objectId`があったらそっちを優先に返すようにします。`returnByValue`に依存します。
+'            ReturnValue                結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'
+'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
+'***************************************************************************************************
+Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_objectId As Boolean, ByRef ReturnValue As Variant) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
+
+
+    '`objectId`を返す優先になってたら、まずはそっちを確認します
+    If PriorityReturn_objectId Then
+        printMsg Trace_, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
+
+        '`objectId`があるか？
+        If RemoteObject.Exists("objectId") Then
+            '見つかったので、`objectId`を返して、ここで抜ける
+            ReturnValue = CStr(RemoteObject("objectId"))
+            printMsg Debug_, "`objectId` was found: " & ReturnValue, FromProcedureName
+
+            Exit Function
+        Else
+            printMsg Debug_, "`objectId` was not found. Attempting to retrieve primitive value.", FromProcedureName
+        End If
+    Else
+        printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
+    End If
+
+    'primitive values の可能性があるので、それの取得を試みます
+    ' 格納変数の型情報を取得
+    Dim ValueType As String: ValueType = RemoteObject.Item("type")
+    Dim ValueSubtype As String: ValueSubtype = RemoteObject.Item("subtype")
+    printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+
+    '型に応じた分岐処理
+    Select Case ValueType
+        Case "object"
+            ' object型の場合はsubtypeで更に細かく分岐
+            Select Case ValueSubtype
+                Case "array"
+                    ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
+                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
+                    If RemoteObject.Exists("value") Then
+                        Set ReturnValue = RemoteObject.Item("value")
+                    Else
+                        ReturnValue = RemoteObject.Item("description")
+                    End If
+
+                Case "null"
+                    ReturnValue = Null
+
+                Case "node"
+                   ReturnValue = RemoteObject.Item("className") & " (class='" & RemoteObject.Item("description") & "')"
+
+                Case "error"
+                    ' JS側で throw new Error() された場合など
+                    ' `exceptionDetails`判定で前もって通さないようにしているが念のため
+                    printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+                    ReturnValue = CVErr(xlErrValue)
+
+                Case Else
+                    ' subtypeがない、あるいは未知のobject（通常のJSONオブジェクトなど）
+                    ' returnByValue=True なら value に Dictionary が入っているはず
+                    printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+
+                    '返せる物があれば、返しておく
+                    If RemoteObject.Exists("value") Then
+                        ' オブジェクト(Dictionary)を返す場合は Set が必要
+                        If IsObject(RemoteObject.Item("value")) Then
+                            Set ReturnValue = RemoteObject.Item("value")
+                        Else
+                            ReturnValue = RemoteObject.Item("value")
+                        End If
+                    Else
+                        ReturnValue = RemoteObject.Item("description")
+                    End If
+            End Select
+
+        Case "function"
+            ' 関数が返ってきた場合は、実行できないので説明文だけ返す
+            ReturnValue = "[Function] " & RemoteObject.Item("description")
+
+        Case "undefined"
+            ' JSの undefined は VBAでは Empty が一番近い
+            ReturnValue = Empty
+
+        Case "string"
+            ' 文字列として認識するように返す
+            ReturnValue = CStr(RemoteObject.Item("value"))
+
+        Case "number"
+            ' Double型として認識するように返す
+            ' ※JavaScriptは、整数専用等の型がないため
+            ReturnValue = CDbl(RemoteObject.Item("value"))
+
+        Case "boolean"
+            ' boolean型として認識するように返す
+            ReturnValue = CBool(RemoteObject.Item("value"))
+
+        Case Else
+            ' bigint, symbol 等、VBAで扱えない未知の型
+            printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName
+
+            '返せる物があれば、返しておく
+            If RemoteObject.Exists("value") Then
+                ' オブジェクト(Dictionary)を返す場合は Set が必要
+                If IsObject(RemoteObject.Item("value")) Then
+                    Set ReturnValue = RemoteObject.Item("value")
+                Else
+                    ReturnValue = RemoteObject.Item("value")
+                End If
+            Else
+                ReturnValue = RemoteObject.Item("description")
+            End If
+    End Select
+
+    'SETステートメントするかの判定を用意する
+    JSresultAnalysis = IsObject(ReturnValue)
 End Function
 
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
@@ -522,7 +800,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
    'Check if already navigated
     Dim curURL As String
-    curURL = jsEval("window.location.href", False)
+    curURL = jsEval("window.location.href", dbgMsg:=False)
     If curURL = checkURI(strURL) Then
         printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
@@ -1839,7 +2117,19 @@ End Property
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
-    Set LastCDPJsonError = errorDetails
+    Set LastCDPJsonError = lastErrorDetailsCDP
+End Property
+
+'***************************************************************************************************
+'* 機能　　：同期モードでの JavaScript結果のうち、最後のエラー情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：最後のエラー情報
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'***************************************************************************************************
+Property Get LastJavaScriptException() As Dictionary
+    Set LastJavaScriptException = lastExceptionDetailsJS
 End Property
 
 '***************************************************************************************************
@@ -2680,8 +2970,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False)
-    If InStr(sessionTitle, "TypeError") Then sessionTitle = "about:blank"
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False, ifError:="about:blank")
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass

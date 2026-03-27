@@ -334,14 +334,10 @@ Sub TestAlert()
             Set resCDP = .invokeMethod("DOM.resolveNode", paramsCDP)
 
 
-            ' --- 6. 非同期でコマンド準備/実行(Jsのクリック処理) ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "objectId", resCDP("object")("objectId")
-            paramsCDP.Add "functionDeclaration", "function() { this.click(); }"
-            Dim AsyncID As Long
-
+            ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
-            AsyncID = .invokeMethodAsync("Runtime.callFunctionOn", paramsCDP, alwaysBrowserContext:=False)
+            Dim AsyncID As Long
+            AsyncID = .jsEval("function() { this.click(); }", CStr(resCDP("object")("objectId")), RunAsyncCDP:=True)
     
     
             ' --- 7. イベントキャプチャを有効化 ---
@@ -417,6 +413,95 @@ Sub ExcelのユーザーフォームにEdgeを埋め込む()
 
     '5. ブラウザを正常に閉じる
     実質WebView2.quit
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：リニューアルした`.jsEval`の動作確認用です
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：ブラウザ内で直接実行するJavaScriptは様々な返り値が届きます。それに対応できるかの動作確認です
+'            ぜひ、ログレベル：DEBUG　にして実行してみてね。
+'***************************************************************************************************
+Sub jsEval動作確認()
+    ' 設定シートに基づくブラウザ立ち上げ
+    Dim jsEvalTest As CDPBrowser
+    Set jsEvalTest = 設定シートからのCDP起動("https://news.google.com/")
+
+    ' JSON変換用オブジェクト（ログ出力用）
+    Dim JsonConv As New WebJsonConverter
+    Dim res As Variant
+
+    With jsEvalTest
+        Debug.Print "============================================="
+        Debug.Print "  jsEval 限界突破 ＆ 新機能テスト 開始"
+        Debug.Print "============================================="
+        
+        Debug.Print vbCrLf & "--- [1] 基本的な型（Primitives） ---"
+        res = .jsEval("'Hello VBA!'")            ' String
+        Debug.Print res
+        
+        res = .jsEval("123.45")                  ' Number (Double)
+        Debug.Print res
+        
+        res = .jsEval("true")                    ' Boolean
+        Debug.Print res
+        
+        Debug.Print vbCrLf & "--- [2] JS特有の「無（む）」 ---"
+        res = .jsEval("null")                    ' Null (VBAでは Null)
+        Debug.Print res
+        
+        res = .jsEval("undefined")               ' Undefined (VBAでは Empty)
+        Debug.Print res
+        
+        Debug.Print vbCrLf & "--- [3] コレクション（returnByValue = True） ---"
+        ' 配列は Dictionary (0,1,2...キー) になる
+        Set res = .jsEval("[10, 20, 30]", returnByValue:=True)
+        If IsObject(res) Then Debug.Print " Array Count: " & res.Count ' 3
+        
+        ' オブジェクトは Dictionary (キー名) になる
+        Set res = .jsEval("({ name: 'Taro', age: 20 })", returnByValue:=True)
+        If IsObject(res) Then Debug.Print " Name: " & res("name")      ' Taro
+        
+        Debug.Print vbCrLf & "--- [4] DOM要素の参照取得（returnByValue = False） ---"
+        ' 値ではなく objectId (住所) を取得する
+        Dim bodyId As String
+        res = .jsEval("document.querySelector('body')", returnByValue:=False)
+        bodyId = CStr(res)
+        Debug.Print " Body objectId: " & bodyId
+        
+        Debug.Print vbCrLf & "--- [5] 新機能！ objectId 指定の callFunctionOn テスト ---"
+        ' 取得した bodyId を指定して、その中身のテキストを取得する
+        ' ※callFunctionOn の仕様上、function() { ... } 形式で記述する必要があります
+        res = .jsEval("function() { return this.tagName;}", objectId:=bodyId, returnByValue:=True)
+        Debug.Print " TagName of objectId: " & res ' BODY と出れば大成功！
+
+        Debug.Print vbCrLf & "--- [6] エラー制御（StopError = False） ---"
+        ' わざとエラーを発生させ、マクロが止まらずに CVErr が返るかチェック
+        res = .jsEval("this_is_error()", StopError:=False)
+        If IsError(res) Then
+            Debug.Print " 【成功】エラーを検知し、マクロは止まらずに CVErr を返しました！"
+        End If
+        
+        Debug.Print vbCrLf & "--- [7] 新機能！ IFERROR 代替値のテスト ---"
+        ' エラー時に、指定した代替値（IFERROR）が返るかチェック
+        res = .jsEval("document.querySelector('#unknown_element').innerText", StopError:=False, ifError:="要素が見つかりません")
+        Debug.Print " IFERRORの結果: " & res ' 「要素が見つかりません」と出れば大成功！
+        
+        Debug.Print vbCrLf & "--- [8] 非同期処理（awaitPromise = True） ---"
+        ' 1秒待ってから値を返すPromise。VBA側でちゃんと待機できるか？
+        res = .jsEval("new Promise(r => setTimeout(() => r('非同期待機、大成功！'), 1000))", awaitPromise:=True)
+        Debug.Print " Promise Result: " & res
+        
+        Debug.Print vbCrLf & "--- [9] 非同期CDP（RunAsyncCDP = True） ---"
+        ' VBA側は結果を待たずに即座にIDを返して次へ進む
+        res = .jsEval("alert('このアラートはVBAを止めません！')", RunAsyncCDP:=True)
+        Debug.Print " Async Command ID: " & res
+
+        Debug.Print vbCrLf & "============================================="
+        Debug.Print "  全テスト完了！！"
+        Debug.Print "============================================="
+    End With
+
+    jsEvalTest.quit
 End Sub
 
 Sub runEdge()
