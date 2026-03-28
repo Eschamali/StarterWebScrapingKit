@@ -462,7 +462,7 @@ Public Function invokeMethod(ByVal methodName As String, Optional params As Dict
 
     'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
+    If seeRawSendMsgDbg Then printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
 End Function
 
 
