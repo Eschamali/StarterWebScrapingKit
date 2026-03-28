@@ -724,6 +724,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     'primitive values の可能性があるので、それの取得を試みます
     ' 格納変数の型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
+    Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
     Dim ValueSubtype    As String: ValueSubtype = RemoteObject.Item("subtype")
     printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
@@ -759,7 +760,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                     printMsg info_, "JS-Return type: object-error", FromProcedureName
 
                 Case Else
-                    ' subtypeがない、あるいは未知のobject（通常のJSONオブジェクトなど）
+                    ' regexp, date, map, set, weakmap, weakset, iterator, generator, proxy, promise, typedarray, arraybuffer, dataview, webassemblymemory, wasmvalue, trustedtype
+                    ' subtypeがない、あるいは未知のobject（通常のJSONオブジェクト）
                     ' returnByValue=True なら value に Dictionary が入っているはず
                     printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
@@ -771,6 +773,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                         Else
                             ReturnValue = RemoteObject.Item("value")
                         End If
+                    ElseIf RemoteObject.Exists("unserializableValue") Then
+                        ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
                     Else
                         ReturnValue = RemoteObject.Item("description")
                     End If
@@ -792,18 +796,38 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             printMsg info_, "JS-Return type: string", FromProcedureName
 
         Case "number"
-            ' Double型として認識するように返す
-            ' ※JavaScriptは、整数専用等の型がないため
-            ReturnValue = CDbl(RemoteObject.Item("value"))
+            'VBAで扱える型か？
+            If RemoteObject.Exists("unserializableValue") Then
+                'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
+                'ロジック上、このエラータイプの場合は、
+                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue"), FromProcedureName
+                ReturnValue = CVErr(xlErrNum)
+            Else
+                ' Double型として認識するように返す
+                ' ※JavaScriptは、整数専用等の型がないため
+                ReturnValue = CDbl(RemoteObject.Item("value"))
+            End If
+
             printMsg info_, "JS-Return type: number", FromProcedureName
 
         Case "boolean"
             ' boolean型として認識するように返す
             ReturnValue = CBool(RemoteObject.Item("value"))
             printMsg info_, "JS-Return type: boolean", FromProcedureName
+        
+        Case "symbol"
+            '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というエラーで返るので通らないと思うが念のため。その際は、説明文の方で返却
+            ReturnValue = CStr(RemoteObject.Item("description"))
+            printMsg info_, "JS-Return type: symbol", FromProcedureName
+
+        Case "bigint"
+            ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま返却します
+            ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
+            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
+            printMsg info_, "JS-Return type: bigint", FromProcedureName
 
         Case Else
-            ' bigint, symbol 等、VBAで扱えない未知の型
+            'ドキュメント化されてない型にも備えておく
             printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName
 
             '返せる物があれば、返しておく
@@ -814,6 +838,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                 Else
                     ReturnValue = RemoteObject.Item("value")
                 End If
+            ElseIf RemoteObject.Exists("unserializableValue") Then
+                ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
             Else
                 ReturnValue = RemoteObject.Item("description")
             End If
@@ -2154,11 +2180,12 @@ Property Get LastCDPJsonError() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：同期モードでの JavaScript結果のうち、最後のエラー情報を取得します
+'* 機能　　：同期モードでの JavaScript結果のうち、最後の例外情報を取得します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・これはあくまでも、`例外`のみ扱います。エラー情報部分は別枠``で用意してます
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
 Property Get LastJavaScriptException() As Dictionary
@@ -3003,7 +3030,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False, ifError:="about:blank")
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False, IFEXCEPTION:="about:blank")
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
