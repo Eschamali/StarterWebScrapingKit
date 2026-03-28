@@ -722,6 +722,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
     '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
+    '以降は、`returnByValue:=True`の前提、要するに何としても、値として取得するようにコーディングしてます
     ' 格納変数の型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
     Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
@@ -781,8 +782,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             End Select
 
         Case "function"
-            ' 関数が返ってきた場合は、実行できないので説明文だけ返す
-            ReturnValue = "[Function] " & RemoteObject.Item("description")
+            ' 関数が返ってきた場合は、「{"type":"function","value":{}}」なので、`SET`
+            Set ReturnValue = RemoteObject.Item("value")
             printMsg info_, "JS-Return type: function", FromProcedureName
 
         Case "undefined"
@@ -814,7 +815,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             ' boolean型として認識するように返す
             ReturnValue = CBool(RemoteObject.Item("value"))
             printMsg info_, "JS-Return type: boolean", FromProcedureName
-        
+
         Case "symbol"
             '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というエラーで返るので通らないと思うが念のため。その際は、説明文の方で返却
             ReturnValue = CStr(RemoteObject.Item("description"))
