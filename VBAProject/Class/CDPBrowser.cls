@@ -628,7 +628,7 @@ step2:
 
    'If the return type has a specific type we can return the result -------------------------------------------
     Dim tmp
-    If JSresultAnalysis(RemoteObject, Not returnByValue, tmp) Then
+    If JSresultAnalysis(RemoteObject, serializationOptions, Not returnByValue, tmp) Then
         Set jsEval = tmp
     Else
         jsEval = tmp
@@ -670,17 +670,37 @@ End Function
 '***************************************************************************************************
 '* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：RemoteObject               `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            PriorityReturn_objectId    `objectId`があったらそっちを優先に返すようにします。`returnByValue`に依存します。
-'            ReturnValue                結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'* 引数　　：RemoteObject                       `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
+'            PriorityReturn_deepSerializedValue `deepSerializedValue`があったら、そっちを最優先 に返すようにします。`serializationOptions`に依存します。
+'            PriorityReturn_objectId            `objectId`           があったら、そっちを第2優先に返すようにします。`returnByValue`に依存します。
+'            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_objectId As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
 
 
-    '`objectId`を返す優先になってたら、まずはそっちを確認します
+    '------------------------ 1. 特定項目有無チェック ------------------------
+    '`serializationOptions`が指定されてたら、`deepSerializedValue`を最優先に返します
+    If Not PriorityReturn_deepSerializedValue Is Nothing Then
+        printMsg info_, "The parameter `serializationOptions` is specified. Check if `deepSerializedValue` exists.", FromProcedureName
+
+        '`deepSerializedValue`があるか？
+        If RemoteObject.Exists("deepSerializedValue") Then
+            '見つかったので、`deepSerializedValue`を返して、ここで抜ける
+            Set ReturnValue = RemoteObject("deepSerializedValue")
+            printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
+
+            'Objectで返したのでその目印もつけておく
+            JSresultAnalysis = True
+            Exit Function
+        Else
+            printMsg WARN_, "`The parameter `serializationOptions` was specified, but `deepSerializedValue` was missing.", FromProcedureName
+        End If
+    End If
+
+    '`objectId`を返す優先になってたら、こっちを返します
     If PriorityReturn_objectId Then
         printMsg Trace_, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
 
@@ -689,6 +709,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_obj
             '見つかったので、`objectId`を返して、ここで抜ける
             ReturnValue = CStr(RemoteObject("objectId"))
             printMsg Debug_, "`objectId` was found: " & ReturnValue, FromProcedureName
+            printMsg info_, "JS-Return type: objectId", FromProcedureName
 
             Exit Function
         Else
@@ -698,10 +719,12 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_obj
         printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
     End If
 
+
+    '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
     ' 格納変数の型情報を取得
-    Dim ValueType As String: ValueType = RemoteObject.Item("type")
-    Dim ValueSubtype As String: ValueSubtype = RemoteObject.Item("subtype")
+    Dim ValueType       As String: ValueType = RemoteObject.Item("type")
+    Dim ValueSubtype    As String: ValueSubtype = RemoteObject.Item("subtype")
     printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
     '型に応じた分岐処理
@@ -718,17 +741,22 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_obj
                         ReturnValue = RemoteObject.Item("description")
                     End If
 
+                    printMsg info_, "JS-Return type: object-array", FromProcedureName
+
                 Case "null"
                     ReturnValue = Null
+                    printMsg info_, "JS-Return type: object-null", FromProcedureName
 
                 Case "node"
-                   ReturnValue = RemoteObject.Item("className") & " (class='" & RemoteObject.Item("description") & "')"
+                    ReturnValue = RemoteObject.Item("className") & " (class='" & RemoteObject.Item("description") & "')"
+                    printMsg info_, "JS-Return type: object-node", FromProcedureName
 
                 Case "error"
                     ' JS側で throw new Error() された場合など
                     ' `exceptionDetails`判定で前もって通さないようにしているが念のため
                     printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
                     ReturnValue = CVErr(xlErrValue)
+                    printMsg info_, "JS-Return type: object-error", FromProcedureName
 
                 Case Else
                     ' subtypeがない、あるいは未知のobject（通常のJSONオブジェクトなど）
@@ -751,23 +779,28 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_obj
         Case "function"
             ' 関数が返ってきた場合は、実行できないので説明文だけ返す
             ReturnValue = "[Function] " & RemoteObject.Item("description")
+            printMsg info_, "JS-Return type: function", FromProcedureName
 
         Case "undefined"
             ' JSの undefined は VBAでは Empty が一番近い
             ReturnValue = Empty
+            printMsg info_, "JS-Return type: undefined", FromProcedureName
 
         Case "string"
             ' 文字列として認識するように返す
             ReturnValue = CStr(RemoteObject.Item("value"))
+            printMsg info_, "JS-Return type: string", FromProcedureName
 
         Case "number"
             ' Double型として認識するように返す
             ' ※JavaScriptは、整数専用等の型がないため
             ReturnValue = CDbl(RemoteObject.Item("value"))
+            printMsg info_, "JS-Return type: number", FromProcedureName
 
         Case "boolean"
             ' boolean型として認識するように返す
             ReturnValue = CBool(RemoteObject.Item("value"))
+            printMsg info_, "JS-Return type: boolean", FromProcedureName
 
         Case Else
             ' bigint, symbol 等、VBAで扱えない未知の型
