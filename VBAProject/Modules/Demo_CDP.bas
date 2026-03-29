@@ -476,14 +476,14 @@ Sub jsEval動作確認()
 
         Debug.Print vbCrLf & "--- [6] エラー制御（StopError = False） ---"
         ' わざとエラーを発生させ、マクロが止まらずに CVErr が返るかチェック
-        res = .jsEval("this_is_error()", StopError:=False)
+        res = .jsEval("this_is_error()", StopException:=False)
         If IsError(res) Then
             Debug.Print " 【成功】エラーを検知し、マクロは止まらずに CVErr を返しました！"
         End If
         
         Debug.Print vbCrLf & "--- [7] 新機能！ IFERROR 代替値のテスト ---"
         ' エラー時に、指定した代替値（IFERROR）が返るかチェック
-        res = .jsEval("document.querySelector('#unknown_element').innerText", StopError:=False, ifError:="要素が見つかりません")
+        res = .jsEval("document.querySelector('#unknown_element').innerText", StopException:=False, IFEXCEPTION:="要素が見つかりません")
         Debug.Print " IFERRORの結果: " & res ' 「要素が見つかりません」と出れば大成功！
         
         Debug.Print vbCrLf & "--- [8] 非同期処理（awaitPromise = True） ---"
@@ -673,7 +673,7 @@ Sub jsEval高度な引数検証()
         If iframeContextId > 0 Then
             Debug.Print vbCrLf & "--- [②-3] iFrame contextId(" & iframeContextId & ") 内での JS 実行テスト ---"
             ' そのコンテキストで window.location.href を取得することで、iFrame内のURLが返るはず
-            res = .jsEval("window.location.href", contextId:=iframeContextId, StopError:=False)
+            res = .jsEval("window.location.href", contextId:=iframeContextId, StopException:=False)
             Debug.Print "  contextId=" & iframeContextId & " での URL: " & res
             If VarType(res) = vbString And InStr(res, "http") > 0 Then
                 Debug.Print "  ←iFrame コンテキスト内での実行に成功！"
