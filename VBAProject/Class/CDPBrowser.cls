@@ -1364,7 +1364,7 @@ Public Function getElementByID(strID As String) As CDPElement
 
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varIDs, varID, varJS, TypeName(result)
+    getElementByID.Init Me, varIDs, varID, varJS, VarType(result)
 
 End Function
 
@@ -1398,7 +1398,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varIDs, varID, varJS, TypeName(result)
+    getElementByXPath.Init Me, varIDs, varID, varJS, VarType(result)
 
 End Function
 
@@ -1479,7 +1479,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varIDs, varID, varJS, TypeName(result)
+    getElementByQuery.Init Me, varIDs, varID, varJS, VarType(result)
 
 End Function
 
@@ -1537,7 +1537,7 @@ Public Sub jsAddLib(strURL As String)
 
 
    'Check if already loaded, if so then no need to add again
-    If getElementByQuery("script[src='" & strURL & "']").varResult <> "Null" Then
+    If getElementByQuery("script[src='" & strURL & "']").varResult <> vbNull Then
         printMsg WARN_, "The HTML already contains the JS Library: """ & strURL & """", FromProcedureName
         Exit Sub
     End If

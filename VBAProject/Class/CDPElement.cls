@@ -37,7 +37,7 @@ Private main As CDPBrowser
 Private varIDs As Scripting.Dictionary
 Private varID As String
 Private varJS As String
-Private VarType As String
+Private elemVarType As Long  ' CDPのJS評価結果の型（VBA VarType定数: vbNull=1, vbString=8 等）
 Private checkExist As Boolean       'Needed for the isExist check
 Private Const printDbgMsg = True
 
@@ -51,7 +51,7 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
 
 End Enum
 
-Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
+Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As Long)
 '----------------------------------------------------------------------------------
 ' Initialize element object that has properties and methods useful for quickly
 ' interact with the target object in the browser. The varID name can also be used
@@ -60,21 +60,16 @@ Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictio
 ' command that can be parsed to the browser. This alternative method is useful
 ' for getElementsBy methods wherein not all elements in a returned collection need
 ' to be accessed immediately and should save considerable amount of execution time.
-' varType is used by onExists/onNonExists method to wait until the element is found.
-' varType stores the returned result of getElement methods.
+' varType stores the VarType() code of the result from getElement methods.
+' (vbNull=1: element not found / vbString=8: objectId obtained / vbEmpty=0: not yet checked)
 ' Updated: 02/03/2023
-' Note ----------------------------------------------------------------------------
-' At initialization, it is ideal to have only varID or varJS indicated. varID is
-' most useful when the element is the target element that needs to be interacted
-' with while varJS is most useful where only its path of access is needed for now.
-' Too many variables in the browser can cause memory leak and slow.
 '----------------------------------------------------------------------------------
 
     Set main = targetObjMain        'Needed to use public methods of the active CDPBrowser
     Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from CDPBrowser
     varID = varID_
     varJS = varJS_
-    VarType = varType_
+    elemVarType = varType_
 
 End Sub
 
@@ -100,15 +95,16 @@ Property Get varPath() As String
 
 End Property
 
-Property Get varResult() As String
+Property Get varResult() As Long
 '----------------------------------------------------------------------------------
-' Retrieve the type of variable returned by getElement method. If the return is
-' nothing, varResult will be "null". This method is in exchange for "If element Is
-' Nothing" check as the getElement has to be returned for onExist and onExistNot.
+' Retrieve the VarType code of the result returned by getElement method.
+' vbNull (1): element was not found (JS null)
+' vbString (8): element was found (objectId obtained)
+' vbEmpty (0): not yet evaluated (e.g. initialized via varJS only)
 ' Updated: 27/04/2023
 '----------------------------------------------------------------------------------
 
-    varResult = VarType
+    varResult = elemVarType
 
 End Property
 
@@ -620,7 +616,7 @@ Public Function isExist() As Boolean
 ' Updated: 06/06/2023
 '----------------------------------------------------------
 
-    If VarType = "Null" Then isExist = False Else isExist = True
+    If elemVarType = vbNull Then isExist = False Else isExist = True
 
 End Function
 
@@ -654,12 +650,12 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType = "Null"
+    Do While elemVarType = vbNull
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = TypeName(main.jsEval(varJS, dbgMsg:=False))
+        elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
@@ -682,12 +678,12 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType <> "Null"
+    Do While elemVarType <> vbNull
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = TypeName(main.jsEval(varJS, dbgMsg:=False))
+        elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
@@ -808,7 +804,7 @@ Public Function getFirstChild() As CDPElement
 
    'Return result
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, varIDs, varID_, varJS_, TypeName(result)
+    getFirstChild.Init main, varIDs, varID_, varJS_, VarType(result)
 
 End Function
 
@@ -879,7 +875,7 @@ Public Function getElementByID(strID As String) As CDPElement
 
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.Init main, varIDs, varID_, varJS_, TypeName(result)
+    getElementByID.Init main, varIDs, varID_, varJS_, VarType(result)
 
 End Function
 
@@ -917,7 +913,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, varIDs, varID_, varJS_, TypeName(result)
+    getElementByQuery.Init main, varIDs, varID_, varJS_, VarType(result)
 
 End Function
 
@@ -1013,7 +1009,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, varIDs, varID_, varJS_, TypeName(result)
+    getElementByXPath.Init main, varIDs, varID_, varJS_, VarType(result)
 
 End Function
 
@@ -1115,6 +1111,6 @@ Public Function getIFrame() As CDPElement
 
    'Return result
     Set getIFrame = New CDPElement
-    getIFrame.Init main, varIDs, varID_, varJS_, TypeName(result)
+    getIFrame.Init main, varIDs, varID_, varJS_, VarType(result)
 
 End Function
