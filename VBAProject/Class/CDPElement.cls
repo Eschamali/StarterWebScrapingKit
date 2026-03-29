@@ -187,7 +187,7 @@ Property Let value(strTextVal As String)
     If checkExist Then If Not isExist Then Exit Property
 
    'Help devs know if the field is a React field
-    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", dbgMsg:=False)
+    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", IFEXCEPTION:="", dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
     If isReact Then main.printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
@@ -366,8 +366,8 @@ Public Function getAttribute(strAttributeName As String) As String
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-    getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """)", dbgMsg:=printDbgMsg)
-
+    getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """) || ''", dbgMsg:=printDbgMsg)
+    
 End Function
 
 Public Function setAttribute(strAttributeName As String, strValue As String)
