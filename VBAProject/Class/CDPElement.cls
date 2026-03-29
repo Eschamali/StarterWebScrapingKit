@@ -620,7 +620,7 @@ Public Function isExist() As Boolean
 ' Updated: 06/06/2023
 '----------------------------------------------------------
 
-    If VarType = "null" Then isExist = False Else isExist = True
+    If VarType = "Null" Then isExist = False Else isExist = True
 
 End Function
 
@@ -654,12 +654,12 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType = "null"
+    Do While VarType = "Null"
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, dbgMsg:=False)
+        VarType = TypeName(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
@@ -682,12 +682,12 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType <> "null"
+    Do While VarType <> "Null"
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, dbgMsg:=False)
+        VarType = TypeName(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
@@ -718,13 +718,13 @@ Public Function getParent() As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".parentElement"
     result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getParent = New CDPElement
-    getParent.Init main, varIDs, varID_, varJS_, result
+    getParent.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -746,13 +746,13 @@ Public Function getNextSibling() As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".nextElementSibling"
     result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getNextSibling = New CDPElement
-    getNextSibling.Init main, varIDs, varID_, varJS_, result
+    getNextSibling.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -774,13 +774,13 @@ Public Function getPrevSibling() As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".previousElementSibling"
     result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getPrevSibling = New CDPElement
-    getPrevSibling.Init main, varIDs, varID_, varJS_, result
+    getPrevSibling.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -802,13 +802,13 @@ Public Function getFirstChild() As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".firstElementChild"
     result = main.jsEval(varJS_, dbgMsg:=printDbgMsg)
 
    'Return result
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, varIDs, varID_, varJS_, result
+    getFirstChild.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -830,12 +830,12 @@ Public Function getChildren() As Collection
     Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
 
    'Get the object and assign to the varID in the browser
-    Dim result As String
+    Dim result As Variant
     result = main.jsEval(varID_ & " = " & getVarID & ".children")
 
    'Return result
     Dim elements As Collection
-    If result = "null" Then Exit Function Else Set elements = New Collection
+    If IsNull(result) Then Exit Function Else Set elements = New Collection
 
    'Assign IDs to each of the element in the collection
     Dim varJS__ As String                                'Store each new member's JS access string
@@ -873,13 +873,13 @@ Public Function getElementByID(strID As String) As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".getElementById(""" & strID & """)"
     result = main.jsEval(varJS_)
 
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.Init main, varIDs, varID_, varJS_, result
+    getElementByID.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -911,13 +911,13 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     Dim varID_ As String: varID_ = newVarID
 
    'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".querySelector(""" & strQuery & """)"
     result = main.jsEval(varJS_)
 
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, varIDs, varID_, varJS_, result
+    getElementByQuery.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -929,7 +929,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
 
-    Dim result As String
+    Dim result As Variant
     Dim elements As Collection
     Dim N As Long, length_ As Long
     Dim tElement As CDPElement
@@ -949,7 +949,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     result = main.jsEval(varID_ & " = " & getVarID & ".querySelectorAll(""" & strQuery & """)")
 
    'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
+    If IsNull(result) Then Exit Function Else Set elements = New Collection
 
    'Assign IDs to each of the element in the collection
     Dim varJS__ As String                                'Store each new member's JS access string
@@ -1007,13 +1007,13 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     End If
 
    'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
     result = main.jsEval(varJS_)
 
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, varIDs, varID_, varJS_, result
+    getElementByXPath.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function
 
@@ -1028,7 +1028,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
 
 
-    Dim result As String
+    Dim result As Variant
     Dim elements As Collection
     Dim N As Long, length_ As Long
     Dim tElement As CDPElement
@@ -1060,7 +1060,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     result = main.jsEval(varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)")
 
    'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
+    If IsNull(result) Then Exit Function Else Set elements = New Collection
 
    'Store element members to the collection
     Dim varJS__ As String                                    'Store each new member access JS string
@@ -1109,12 +1109,12 @@ Public Function getIFrame() As CDPElement
     If InStr(src, "http") Then main.printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
 
    'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
+    Dim varJS_ As String: Dim result As Variant
     varJS_ = varID_ & " = " & getVarID & ".contentDocument"
     result = main.jsEval(varJS_)
 
    'Return result
     Set getIFrame = New CDPElement
-    getIFrame.Init main, varIDs, varID_, varJS_, result
+    getIFrame.Init main, varIDs, varID_, varJS_, TypeName(result)
 
 End Function

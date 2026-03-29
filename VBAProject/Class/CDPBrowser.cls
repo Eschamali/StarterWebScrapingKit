@@ -737,7 +737,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
             Exit Function
         Else
-            printMsg Debug_, "`objectId` was not found. Attempting to retrieve primitive value.", FromProcedureName
+            'primitive values OR Objectがnullの可能性あり
+            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `null`, so we will try to retrieve it.", FromProcedureName
         End If
     Else
         printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
@@ -747,6 +748,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
     '以降は基本的に、`returnByValue:=True`でないと通りません
+    'Objectとして返そうとしたが`null`の場合もここを通って、null返却します
+
     ' 格納型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
     Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
@@ -1355,13 +1358,13 @@ Public Function getElementByID(strID As String) As CDPElement
     Dim varID As String: varID = newVarID
 
    'Get the object and assign to the varID in the browser
-    Dim varJS As String: Dim result As String
+    Dim varJS As String: Dim result As Variant
     varJS = varID & " = document.getElementById(""" & strID & """)"
     result = jsEval(varJS)
 
    'Return result
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varIDs, varID, varJS, result
+    getElementByID.Init Me, varIDs, varID, varJS, TypeName(result)
 
 End Function
 
@@ -1389,13 +1392,13 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     strXPath = Replace(strXPath, "\", "/")
 
    'Get the object and assign to the varID in the browser
-    Dim varJS As String: Dim result As String
+    Dim varJS As String: Dim result
     varJS = varID & " = document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
     result = jsEval(varJS)
 
    'Return result
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varIDs, varID, varJS, result
+    getElementByXPath.Init Me, varIDs, varID, varJS, TypeName(result)
 
 End Function
 
@@ -1421,7 +1424,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     result = jsEval(varID & " = document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)")
 
    'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
+    If IsNull(result) Then Exit Function Else Set elements = New Collection
    'Store element members to the collection
     Dim varJS As String                                 'Store each new member access JS string
     Dim length_ As Long
@@ -1470,13 +1473,13 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     Dim varID As String: varID = newVarID
 
    'Get the object and assign to the varID in the browser
-    Dim varJS As String: Dim result As String
+    Dim varJS As String: Dim result As Variant
     varJS = varID & " = document.querySelector(""" & strQuery & """)"
     result = jsEval(varJS)
 
    'Return result
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varIDs, varID, varJS, result
+    getElementByQuery.Init Me, varIDs, varID, varJS, TypeName(result)
 
 End Function
 
@@ -1496,7 +1499,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     result = jsEval(varID & " = document.querySelectorAll(""" & strQuery & """)")
 
    'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
+    If IsNull(result) Then Exit Function Else Set elements = New Collection
 
    'Store element members to the collection
     Dim tElement As CDPElement
@@ -1534,7 +1537,7 @@ Public Sub jsAddLib(strURL As String)
 
 
    'Check if already loaded, if so then no need to add again
-    If getElementByQuery("script[src='" & strURL & "']").varResult <> "null" Then
+    If getElementByQuery("script[src='" & strURL & "']").varResult <> "Null" Then
         printMsg WARN_, "The HTML already contains the JS Library: """ & strURL & """", FromProcedureName
         Exit Sub
     End If
