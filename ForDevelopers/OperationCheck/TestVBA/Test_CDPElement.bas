@@ -24,7 +24,7 @@ Public Sub RunAll_CDPElement_Tests()
     Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
 
     '--- ブラウザ起動 & HTMLページへナビゲート ---
-    br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")
+    br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")
     br.wait
 
     passCount = 0
