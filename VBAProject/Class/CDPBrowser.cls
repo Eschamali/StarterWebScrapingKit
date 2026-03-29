@@ -454,7 +454,7 @@ End Sub
 '                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
 '
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
-'            ifError                        JavaScript実行中にエラーが出た場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
+'            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
 '
 '            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
 '                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
@@ -476,7 +476,7 @@ End Sub
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
 '
-'            StopError                      `True`で、JavaScriptコード内でエラーが起こった場合、VBAエラーで止まります。基本は、開発時のみ使用する想定です
+'            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
 '
 '            dbgMsg                         Allow the option to bypass error if intended
 '---------------------------------------------------------------------------------------------------
@@ -485,7 +485,7 @@ End Sub
 '            Added dbgMsg to read debug line on the go when needed.
 '
 '* 注意事項：・利用時は、「名前付き引数`xxx:=yyy`」として運用することをお勧めします
-'            ・JavaScript実行中のエラー確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFERROR`を活用してください。
+'            ・JavaScript実行中の例外確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFEXCEPTION`を活用してください。
 '            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります
 '
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
@@ -496,12 +496,13 @@ End Sub
 '            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
 '              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
 '
-'            ・JavaScriptの場合、エラーを利用した処理が多々あるため、運用時は`StopError`を省略しておくことを推奨します
+'            ・JavaScriptの場合、例外を利用した処理が多々あるため、運用時は`StopException`を省略しておくことを推奨します
 '            ・CDP実行自体のエラーキャッチは常に`True`となります
+'            ・`IFEXCEPTION`はあくまでも、「例外」時のみ機能します。JavaScript自体は成功してるけど、結果がエラーの場合はISERROR関数で対処する必要があります。
 '---------------------------------------------------------------------------------------------------
 '* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(strString As String, Optional objectId As String, Optional contextId As Long, Optional ifError As Variant, _
+Public Function jsEval(strString As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
                        Optional objectArguments As Collection, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -510,7 +511,7 @@ Public Function jsEval(strString As String, Optional objectId As String, Optiona
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
-                       Optional StopError As Boolean, _
+                       Optional StopException As Boolean, _
                        Optional dbgMsg As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
@@ -603,27 +604,27 @@ step2:
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If CDPresults.Item("result").Exists("exceptionDetails") Then
-        '最後の詳細エラー情報を記録
+        '最後の詳細例外情報を記録
         Set lastExceptionDetailsJS = CDPresults("result")("exceptionDetails")
 
-        'エラーによる`Err.Raise`で止めるか？
-        If StopError Then
+        '例外による`Err.Raise`で止めるか？
+        If StopException Then
             'ログ表示用に、詳細の方を文字列化
             Dim exceptionDetails As String: exceptionDetails = jsConverter.ConvertToJson(lastExceptionDetailsJS)
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strString & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
-            If IsMissing(ifError) Then
+            If IsMissing(IFEXCEPTION) Then
                 '省略時は、エラー型として返します。https://learn.microsoft.com/ja-jp/office/vba/excel/Concepts/Cells-and-Ranges/cell-error-values
-                '※エラーの種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中にエラーが起きた」という目印として判断してください
+                '※例外の種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中に例外が起きた」という目印として判断してください
                 jsEval = CVErr(xlErrValue)
                 printMsg WARN_, "An exception occurred while executing JavaScript: " & strString & "  It was returned as an error type.", FromProcedureName
             Else
-                '引数:IFERROR が指定されてる場合はそっちを優先して返します
-                If IsObject(ifError) Then Set jsEval = ifError Else jsEval = ifError
+                '引数:IFEXCEPTION が指定されてる場合はそっちを優先して返します
+                If IsObject(IFEXCEPTION) Then Set jsEval = IFEXCEPTION Else jsEval = IFEXCEPTION
                 printMsg WARN_, "An exception occurred while executing JavaScript: " & strString & " The argument `IFERROR` was specified, so it was returned.", FromProcedureName
             End If
 
-            '簡易部分のエラー内容を出す
+            '簡易部分の例外内容を出す
             printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
         End If
 
@@ -2273,10 +2274,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：同期モードでの JavaScript結果のうち、最後の例外情報を取得します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：最後のエラー情報
+'* GET返値 ：最後の「例外（Exception）」情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            ・これはあくまでも、`例外`のみ扱います。エラー情報部分は別枠``で用意してます
+'* 注意事項：・あくまでも、「最後」の例外情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
+'            ・これはあくまでも、`例外`のみ扱います。「try { ... } catch(e) { return e }」系統の取得は対象外です。
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
 Property Get LastJavaScriptException() As Dictionary
