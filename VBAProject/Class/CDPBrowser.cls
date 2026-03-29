@@ -471,6 +471,8 @@ End Sub
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
 '                                           このパラメーターがあると、`returnByValue`の引数は無視されます。
 '
+'            generatePreview                `objectId`で返った中身をプレーンテキスト化して、プレビューします。予め、ログレベルを`DEBUG`以下にしてください。基本は、開発時のみ`True`にしてください。
+'
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
 '
@@ -506,6 +508,7 @@ Public Function jsEval(strString As String, Optional objectId As String, Optiona
                        Optional userGesture As Boolean, _
                        Optional allowUnsafeEvalBlockedByCSP As Boolean, _
                        Optional serializationOptions As Dictionary, _
+                       Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopError As Boolean, _
                        Optional dbgMsg As Boolean = True) As Variant
@@ -545,6 +548,7 @@ step1:
     If awaitPromise Then CDPparams.Add "awaitPromise", awaitPromise
     If userGesture Then CDPparams.Add "userGesture", userGesture
     If allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
+    If generatePreview Then CDPparams.Add "generatePreview", generatePreview
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
     'CDP-Jsonを組み立て
@@ -628,7 +632,7 @@ step2:
 
    'If the return type has a specific type we can return the result -------------------------------------------
     Dim tmp
-    If JSresultAnalysis(RemoteObject, serializationOptions, Not returnByValue, tmp) Then
+    If JSresultAnalysis(RemoteObject, serializationOptions, Not returnByValue, generatePreview, tmp) Then
         Set jsEval = tmp
     Else
         jsEval = tmp
@@ -676,8 +680,10 @@ End Function
 '            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：返す値は、`value` OR `objectId` OR `deepSerializedValue` に限ります。`description`等といった補助情報やエラー情報は返しません。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
     Const ErrorLandmark     As String = "error"
 
@@ -707,9 +713,26 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
         '`objectId`があるか？
         If RemoteObject.Exists("objectId") Then
-            '見つかったので、`objectId`を返して、ここで抜ける
+            '見つかったので、`objectId`を返す
             ReturnValue = CStr(RemoteObject("objectId"))
             printMsg info_, "JS-Return type: objectId", FromProcedureName
+
+            '返ったObjectID情報を列挙する
+            Dim objectSubtype As String: objectSubtype = RemoteObject("subtype")
+            printMsg Debug_, String(100, "="), FromProcedureName
+            printMsg Debug_, "objectId information", FromProcedureName
+            printMsg Debug_, String(100, "="), FromProcedureName
+            printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
+            printMsg Debug_, "objectType        : " & RemoteObject("type"), FromProcedureName
+            printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
+            printMsg Debug_, "objectClassName   : " & RemoteObject("className"), FromProcedureName
+            printMsg Debug_, "objectDescription : " & RemoteObject("description"), FromProcedureName
+            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
+            printMsg Debug_, String(100, "="), FromProcedureName
+
+            'エラー情報があればそのログを出しておく
+            '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
+            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
 
             Exit Function
         Else
