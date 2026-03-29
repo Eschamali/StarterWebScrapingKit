@@ -1354,17 +1354,15 @@ Public Function getElementByID(strID As String) As CDPElement
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get a new unique varID
-    Dim varID As String: varID = newVarID
-
-   'Get the object and assign to the varID in the browser
+   'Get the object (no global variable assignment - objectId only)
     Dim varJS As String: Dim result As Variant
-    varJS = varID & " = document.getElementById(""" & strID & """)"
-    result = jsEval(varJS)
+    varJS = "document.getElementById(""" & strID & """)"
+    result = jsEval(varJS, returnByValue:=False)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varIDs, varID, varJS, VarType(result)
+    getElementByID.Init Me, varIDs, , varJS, VarType(result), oid
 
 End Function
 
@@ -1384,21 +1382,19 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '---------------------------------------------------------------------------------------
 
-   'Get a new unique varID
-    Dim varID As String: varID = newVarID
-
    'Verify double slash syntax
    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the object and assign to the varID in the browser
-    Dim varJS As String: Dim result
-    varJS = varID & " = document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    result = jsEval(varJS)
+   'Get the object (no global variable assignment - objectId only)
+    Dim varJS As String: Dim result As Variant
+    varJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
+    result = jsEval(varJS, returnByValue:=False)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varIDs, varID, varJS, VarType(result)
+    getElementByXPath.Init Me, varIDs, , varJS, VarType(result), oid
 
 End Function
 
@@ -1411,29 +1407,34 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get a new unique varID
-    Dim varID As String: varID = newVarID & "s"     's to signify a collection varID
-
    'Verify double slash syntax
    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the object and assign to the varID in the browser
-    Dim result As Variant
-    Dim elements As Collection
-    result = jsEval(varID & " = document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)")
+   'Get the XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE)
+    Dim collResult As Variant
+    collResult = jsEval("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", returnByValue:=False)
+    If VarType(collResult) <> vbString Then Exit Function
+    Dim collOid As String: collOid = CStr(collResult)
 
-   'Return result
-    If IsNull(result) Then Exit Function Else Set elements = New Collection
-   'Store element members to the collection
-    Dim varJS As String                                 'Store each new member access JS string
-    Dim length_ As Long
-    length_ = jsEval(varID & ".snapshotLength")
-    Dim tElement As CDPElement, N As Long
-    For N = 0 To length_ - 1                            'HTML index starts at zero
-        varJS = varID & ".snapshotItem(" & N & ")"
+   'Get snapshotLength via callFunctionOn
+    Dim elements As Collection: Set elements = New Collection
+    Dim length_ As Long, N As Long
+    length_ = jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
+
+   'Get each item's objectId via callFunctionOn
+    Dim tElement As CDPElement
+    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemResult As Variant, itemOid As String
+    For N = 0 To length_ - 1
+        Set itemArgs = New Collection
+        Set itemArg = New Scripting.Dictionary
+        itemArg.Add "value", N
+        itemArgs.Add itemArg
+        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
+        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init Me, varIDs, varJS_:=varJS
+        tElement.Init Me, varIDs, , , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -1469,17 +1470,15 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' child's children for the first element with id containing 'invoiceno'.
 '----------------------------------------------------------------------------------
 
-   'Get a new unique varID
-    Dim varID As String: varID = newVarID
-
-   'Get the object and assign to the varID in the browser
+   'Get the object (no global variable assignment - objectId only)
     Dim varJS As String: Dim result As Variant
-    varJS = varID & " = document.querySelector(""" & strQuery & """)"
-    result = jsEval(varJS)
+    varJS = "document.querySelector(""" & strQuery & """)"
+    result = jsEval(varJS, returnByValue:=False)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varIDs, varID, varJS, VarType(result)
+    getElementByQuery.Init Me, varIDs, , varJS, VarType(result), oid
 
 End Function
 
@@ -1491,25 +1490,30 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get a new unique varID
-    Dim varID As String: varID = newVarID & "s"     's to signify a collection varID
+   'Get the NodeList objectId
+    Dim collResult As Variant
+    collResult = jsEval("document.querySelectorAll(""" & strQuery & """)", returnByValue:=False)
+    If VarType(collResult) <> vbString Then Exit Function
+    Dim collOid As String: collOid = CStr(collResult)
 
-   'Get the object and assign to the varID in the browser
-    Dim result As Variant, elements As Collection
-    result = jsEval(varID & " = document.querySelectorAll(""" & strQuery & """)")
-
-   'Return result
-    If IsNull(result) Then Exit Function Else Set elements = New Collection
-
-   'Store element members to the collection
-    Dim tElement As CDPElement
-    Dim varJS As String                                 'Store each new member access JS string
+   'Get length via callFunctionOn
+    Dim result As Variant, elements As Collection: Set elements = New Collection
     Dim length_ As Long, N As Long
-    length_ = jsEval(varID & ".length")
-    For N = 0 To length_ - 1                            'HTML index starts at zero
-        varJS = varID & ".item(" & N & ")"
+    length_ = jsEval("function(){ return this.length }", objectId:=collOid)
+
+   'Get each item's objectId via callFunctionOn
+    Dim tElement As CDPElement
+    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemResult As Variant, itemOid As String
+    For N = 0 To length_ - 1
+        Set itemArgs = New Collection
+        Set itemArg = New Scripting.Dictionary
+        itemArg.Add "value", N
+        itemArgs.Add itemArg
+        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
+        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init Me, varIDs, varJS_:=varJS
+        tElement.Init Me, varIDs, , , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -3058,23 +3062,23 @@ ifError:
 
 End Function
 
-Private Function searchNull() As Long
-'------------------------------------------------------------
-' CDP messages received from chrome are null-terminated
-' Updated: 25/10/25: Daniel Polak - new faster version
-'------------------------------------------------------------
-
-    Dim lngPos As Long
-
-    If Len(strBuffer) = 0 Then Exit Function
-    lngPos = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
-    If lngPos > 0 Then
-        searchNull = lngPos
-    Else
-        searchNull = 0
-    End If
-
-End Function
+'Private Function searchNull() As Long
+''------------------------------------------------------------
+'' CDP messages received from chrome are null-terminated
+'' Updated: 25/10/25: Daniel Polak - new faster version
+''------------------------------------------------------------
+'
+'    Dim lngPos As Long
+'
+'    If Len(strBuffer) = 0 Then Exit Function
+'    lngPos = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
+'    If lngPos > 0 Then
+'        searchNull = lngPos
+'    Else
+'        searchNull = 0
+'    End If
+'
+'End Function
 
 Private Function invokeError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
@@ -3290,25 +3294,25 @@ Private Function getTargetID() As String
 
 End Function
 
-Private Function newVarID() As String
-'----------------------------------------------------------------------------------
-' Create a unique varID for element reference with CDPElement. If the ID is not
-' unique, it is possible that new element assignment will override existing ones
-' under the same ID by chance if working on a large number of elements.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-   'Init the ID collection
-    If varIDs Is Nothing Then Set varIDs = New Scripting.Dictionary
-    Dim newID As String
-    Do: newID = "varID" & Format(Rnd * 100000, "000000")
-    Loop Until Not varIDs.Exists(newID)
-    varIDs.Add newID, newID
-
-   'Return the new varID
-    newVarID = newID
-
-End Function
+'Private Function newVarID() As String
+''----------------------------------------------------------------------------------
+'' Create a unique varID for element reference with CDPElement. If the ID is not
+'' unique, it is possible that new element assignment will override existing ones
+'' under the same ID by chance if working on a large number of elements.
+'' Updated: 02/03/2023
+''----------------------------------------------------------------------------------
+'
+'   'Init the ID collection
+'    If varIDs Is Nothing Then Set varIDs = New Scripting.Dictionary
+'    Dim newID As String
+'    Do: newID = "varID" & Format(Rnd * 100000, "000000")
+'    Loop Until Not varIDs.Exists(newID)
+'    varIDs.Add newID, newID
+'
+'   'Return the new varID
+'    newVarID = newID
+'
+'End Function
 
 Private Function getBrowserPath(strBrowserType As String) As String
 '----------------------------------------------------------------------------------
