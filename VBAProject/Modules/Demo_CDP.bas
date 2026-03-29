@@ -1069,8 +1069,8 @@ Sub fillReactForm()
     Set sb = chrome.getElementByID("result").getIFrame.getElementByQuery("input[type='submit']")
         
    'This traditional input method will fail as this is a React field
-    chrome.jsEval ip.varName & ".value = 'TEST1'"
-    chrome.jsEval ip.varName & ".dispatchEvent(new Event('input', { bubbles: true, simulated: true }))"
+'    chrome.jsEval ip.varName & ".value = 'TEST1'"
+'    chrome.jsEval ip.varName & ".dispatchEvent(new Event('input', { bubbles: true, simulated: true }))"
     sb.click 'you will not see "TEST1" in the alert result
  
    'This will succeed by using 2.6-enhanced .value property
