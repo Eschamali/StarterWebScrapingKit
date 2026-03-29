@@ -658,7 +658,7 @@ Public Function getParent() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getParent = New CDPElement
-    getParent.Init main, , , VarType(result), oid
+    getParent.Init main, , VarType(result), oid
 
 End Function
 
@@ -683,7 +683,7 @@ Public Function getNextSibling() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getNextSibling = New CDPElement
-    getNextSibling.Init main, , , VarType(result), oid
+    getNextSibling.Init main, , VarType(result), oid
 
 End Function
 
@@ -708,7 +708,7 @@ Public Function getPrevSibling() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getPrevSibling = New CDPElement
-    getPrevSibling.Init main, , , VarType(result), oid
+    getPrevSibling.Init main, , VarType(result), oid
 
 End Function
 
@@ -733,7 +733,7 @@ Public Function getFirstChild() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, , , VarType(result), oid
+    getFirstChild.Init main, , VarType(result), oid
 
 End Function
 
@@ -774,7 +774,7 @@ Public Function getChildren() As Collection
         itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, , , VarType(itemResult), itemOid
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -807,7 +807,7 @@ Public Function getElementByID(strID As String) As CDPElement
     result = main.jsEval("function(id){ return this.getElementById(id) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
-    getElementByID.Init main, , , VarType(result), oid
+    getElementByID.Init main, , VarType(result), oid
 
 End Function
 
@@ -844,7 +844,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     result = main.jsEval("function(sel){ return this.querySelector(sel) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, , , VarType(result), oid
+    getElementByQuery.Init main, , VarType(result), oid
 
 End Function
 
@@ -881,7 +881,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, , , VarType(itemResult), itemOid
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -933,7 +933,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     result = main.jsEval("function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, , , VarType(result), oid
+    getElementByXPath.Init main, , VarType(result), oid
 
 End Function
 
@@ -992,7 +992,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, , , VarType(itemResult), itemOid
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -1032,6 +1032,6 @@ Public Function getIFrame() As CDPElement
     result = main.jsEval("function(){ return this.contentDocument }", objectId:=getObjectId(), returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getIFrame = New CDPElement
-    getIFrame.Init main, , , VarType(result), oid
+    getIFrame.Init main, , VarType(result), oid
 
 End Function
