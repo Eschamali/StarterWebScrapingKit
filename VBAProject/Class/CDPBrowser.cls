@@ -456,7 +456,7 @@ End Sub
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '            ifError                        JavaScript実行中にエラーが出た場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
 '
-'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。
+'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
 '                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -679,6 +679,7 @@ End Function
 '***************************************************************************************************
 Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
+    Const ErrorLandmark     As String = "error"
 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
@@ -708,7 +709,6 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
         If RemoteObject.Exists("objectId") Then
             '見つかったので、`objectId`を返して、ここで抜ける
             ReturnValue = CStr(RemoteObject("objectId"))
-            printMsg Debug_, "`objectId` was found: " & ReturnValue, FromProcedureName
             printMsg info_, "JS-Return type: objectId", FromProcedureName
 
             Exit Function
@@ -722,8 +722,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
     '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
-    '以降は、`returnByValue:=True`の前提、要するに何としても、値として取得するようにコーディングしてます
-    ' 格納変数の型情報を取得
+    '以降は基本的に、`returnByValue:=True`でないと通りません
+    ' 格納型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
     Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
     Dim ValueSubtype    As String: ValueSubtype = RemoteObject.Item("subtype")
@@ -734,50 +734,118 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
         Case "object"
             ' object型の場合はsubtypeで更に細かく分岐
             Select Case ValueSubtype
-                Case "array"
-                    ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                    If RemoteObject.Exists("value") Then
-                        Set ReturnValue = RemoteObject.Item("value")
-                    Else
-                        ReturnValue = RemoteObject.Item("description")
-                    End If
-
-                    printMsg info_, "JS-Return type: object-array", FromProcedureName
-
                 Case "null"
                     ReturnValue = Null
                     printMsg info_, "JS-Return type: object-null", FromProcedureName
 
+                Case "array"
+                    ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
+                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
+                    '※誇らしげに説明してますが、`returnByValue:=True`で、`array`だと、subtype そのものがなくなります...が一応書いておきます。
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-array", FromProcedureName
+
                 Case "node"
-                    ReturnValue = RemoteObject.Item("className") & " (class='" & RemoteObject.Item("description") & "')"
+                    '多分、来ない...が一応書いておきます。
+                    '`returnByValue:=True`で、`node`も、subtype そのものがなくなります...
+                    Set ReturnValue = RemoteObject.Item("value")
                     printMsg info_, "JS-Return type: object-node", FromProcedureName
 
-                Case "error"
-                    ' JS側で throw new Error() された場合など
-                    ' `exceptionDetails`判定で前もって通さないようにしているが念のため
-                    printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+                Case "regexp"
+                    '以下同文
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-regexp", FromProcedureName
+
+                Case "map"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-map", FromProcedureName
+
+                Case "date"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-date", FromProcedureName
+
+                Case "set"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-set", FromProcedureName
+
+                Case "weakmap"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-weakmap", FromProcedureName
+
+                Case "weakset"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-weakset", FromProcedureName
+
+                Case "iterator"     '※ObjectIDモードでも空欄です?!
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-iterator", FromProcedureName
+                
+                Case "generator"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-generator", FromProcedureName
+
+                Case "promise"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-promise", FromProcedureName
+
+                Case "proxy"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-proxy", FromProcedureName
+
+                Case "typedarray"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-typedarray", FromProcedureName
+
+                Case "arraybuffer"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-arraybuffer", FromProcedureName
+
+                Case "dataview"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-dataview", FromProcedureName
+
+                Case "webassemblymemory"
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-webassemblymemory", FromProcedureName
+
+                Case "trustedtype"  '※ObjectIDモードでも空欄です?!
+                    Set ReturnValue = RemoteObject.Item("value")
+                    printMsg info_, "JS-Return type: object-trustedtype", FromProcedureName
+
+                Case ErrorLandmark
+                    '`returnByValue:=True`では意味をなさないようです...が念のため
+                    printMsg WARN_, "This value contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
                     ReturnValue = CVErr(xlErrValue)
                     printMsg info_, "JS-Return type: object-error", FromProcedureName
 
                 Case Else
-                    ' regexp, date, map, set, weakmap, weakset, iterator, generator, proxy, promise, typedarray, arraybuffer, dataview, webassemblymemory, wasmvalue, trustedtype
-                    ' subtypeがない、あるいは未知のobject（通常のJSONオブジェクト）
-                    ' returnByValue=True なら value に Dictionary が入っているはず
-                    printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+                    '"subtype"自体がない場合は、`array`として扱います
+                    '`array`,`typedarray`が機能してます。他は空({})です
+                    If Not ExistsSubtype Then
+                        ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
+                        ' 配列の場合は Scripting.Dictionary (連番) が入ります
+                        ' returnByValue=True なら value に Dictionary が入っているはず
+                        printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
+                        Set ReturnValue = RemoteObject.Item("value")
+                        printMsg info_, "JS-Return type: object-array", FromProcedureName
 
-                    '返せる物があれば、返しておく
-                    If RemoteObject.Exists("value") Then
-                        ' オブジェクト(Dictionary)を返す場合は Set が必要
-                        If IsObject(RemoteObject.Item("value")) Then
-                            Set ReturnValue = RemoteObject.Item("value")
-                        Else
-                            ReturnValue = RemoteObject.Item("value")
-                        End If
-                    ElseIf RemoteObject.Exists("unserializableValue") Then
-                        ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
                     Else
-                        ReturnValue = RemoteObject.Item("description")
+                        'ドキュメント化されてない型にも備えておく
+                        printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+    
+                        '返せる物があれば、返しておく
+                        If RemoteObject.Exists("value") Then
+                            ' オブジェクト(Dictionary)を返す場合は Set が必要
+                            If IsObject(RemoteObject.Item("value")) Then
+                                Set ReturnValue = RemoteObject.Item("value")
+                            Else
+                                ReturnValue = RemoteObject.Item("value")
+                            End If
+                        ElseIf RemoteObject.Exists("unserializableValue") Then
+                            ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
+                        Else
+                            ReturnValue = RemoteObject.Item("description")
+                        End If
                     End If
             End Select
 
@@ -800,8 +868,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             'VBAで扱える型か？
             If RemoteObject.Exists("unserializableValue") Then
                 'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
-                'ロジック上、このエラータイプの場合は、
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue"), FromProcedureName
+                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
                 ReturnValue = CVErr(xlErrNum)
             Else
                 ' Double型として認識するように返す
@@ -817,14 +884,14 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             printMsg info_, "JS-Return type: boolean", FromProcedureName
 
         Case "symbol"
-            '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というエラーで返るので通らないと思うが念のため。その際は、説明文の方で返却
-            ReturnValue = CStr(RemoteObject.Item("description"))
+            '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というCDPエラーで返るので通らないと思うが念のため。
+            ReturnValue = RemoteObject.Item("value")
             printMsg info_, "JS-Return type: symbol", FromProcedureName
 
         Case "bigint"
             ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま返却します
             ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
+            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
             printMsg info_, "JS-Return type: bigint", FromProcedureName
 
         Case Else
