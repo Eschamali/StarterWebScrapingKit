@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>CDPElement 全機能テスト</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d2e; --surface2: #252840;
+      --border: #2e3160; --accent: #6c63ff; --accent2: #00d4aa;
+      --text: #e2e8f0; --text2: #8892a4; --pass: #00d4aa; --fail: #ff6b6b; --info: #ffd93d;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
+    /* ── 左パネル：テスト要素 ── */
+    #test-panel { flex: 1; padding: 20px; overflow-y: auto; max-width: 680px; }
+    /* ── 右パネル：ログ ── */
+    #log-panel { width: 380px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    #log-panel h2 { color: var(--accent); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    #log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .log-entry { font-size: 12px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--border); background: var(--surface2); word-break: break-all; }
+    .log-pass  { border-left-color: var(--pass);  color: var(--pass); }
+    .log-fail  { border-left-color: var(--fail);  color: var(--fail); }
+    .log-info  { border-left-color: var(--info);  color: var(--info); }
+    .log-head  { border-left-color: var(--accent); color: var(--accent); font-weight: bold; }
+    #btn-clear-log { margin-top: 8px; background: #2e1f4a; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+    #btn-clear-log:hover { background: var(--accent); color: #fff; }
+    /* ── セクション ── */
+    h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 12px; }
+    label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
+    input[type=text], input[type=email], textarea, select {
+      width: 100%; padding: 8px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; outline: none; transition: border .2s;
+    }
+    input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    button.test-btn {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .2s;
+    }
+    button.test-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .status-box { margin-top: 8px; padding: 6px 10px; border-radius: 5px; font-size: 12px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); min-height: 30px; transition: all .3s; }
+    .status-box.changed { border-color: var(--pass); color: var(--pass); }
+    .row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+    .flex-1 { flex: 1 }
+    /* 親子ツリー表示 */
+    #traversal-tree { display: flex; flex-direction: column; gap: 6px; }
+    .tree-parent { background: var(--surface2); border: 1px solid var(--accent); border-radius: 6px; padding: 10px; }
+    .tree-children { display: flex; gap: 6px; margin-top: 6px; padding-left: 16px; }
+    .tree-child { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; font-size: 12px; }
+    .tree-child:hover { border-color: var(--accent2); }
+    /* コレクションリスト */
+    #collection-list { list-style: none; }
+    #collection-list li { padding: 6px 10px; margin-bottom: 4px; background: var(--surface2); border-radius: 5px; border-left: 3px solid var(--border); font-size: 12px; transition: border .3s; }
+    #collection-list li:hover { border-left-color: var(--accent2); }
+    /* iframe */
+    #testIFrame { width: 100%; height: 120px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+    /* dynamic */
+    #dynamic-target { min-height: 30px; padding: 8px; background: var(--surface2); border-radius: 5px; border: 1px dashed var(--border); font-size: 12px; color: var(--text2); }
+  </style>
+</head>
+<body>
+
+<!-- ═══ 右ログパネル ═══ -->
+<div id="log-panel">
+  <h2>🧪 テストログ</h2>
+  <div id="log-list"></div>
+  <button id="btn-clear-log" onclick="document.getElementById('log-list').innerHTML=''">ログクリア</button>
+</div>
+
+<!-- ═══ 左テストパネル ═══ -->
+<div id="test-panel">
+  <h1>🚀 CDPElement 全機能テスト</h1>
+
+  <!-- ─── value / sendString / clearValue ─── -->
+  <section>
+    <h3>① value / sendString / clearValue</h3>
+    <label>テキストInput (#testInput)</label>
+    <input type="text" id="testInput" value="initial-value">
+    <div class="status-box" id="s-value">待機中...</div>
+  </section>
+
+  <!-- ─── innerText ─── -->
+  <section>
+    <h3>② innerText</h3>
+    <label>編集対象Div (#testInnerText)</label>
+    <div id="testInnerText" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);">Hello World! これが innerText のデフォルト値です。</div>
+    <div class="status-box" id="s-innertext">待機中...</div>
+  </section>
+
+  <!-- ─── innerHTML ─── -->
+  <section>
+    <h3>③ innerHTML</h3>
+    <label>編集対象Div (#testInnerHTML)</label>
+    <div id="testInnerHTML" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);"><b>太字テキスト</b> と <em>斜体</em></div>
+    <div class="status-box" id="s-innerhtml">待機中...</div>
+  </section>
+
+  <!-- ─── checked ─── -->
+  <section>
+    <h3>④ checked (CheckBox)</h3>
+    <div class="row" style="align-items:center;gap:12px;">
+      <input type="checkbox" id="testCheckbox">
+      <label style="margin:0">チェックボックス (#testCheckbox)</label>
+    </div>
+    <div class="status-box" id="s-checked">待機中...</div>
+  </section>
+
+  <!-- ─── selected / setSelection ─── -->
+  <section>
+    <h3>⑤ selected / setSelection</h3>
+    <label>セレクトボックス (#testSelect)</label>
+    <select id="testSelect">
+      <option value="opt-a">Option Alpha</option>
+      <option value="opt-b">Option Beta</option>
+      <option value="opt-c">Option Gamma</option>
+    </select>
+    <div class="status-box" id="s-selected">待機中...</div>
+  </section>
+
+  <!-- ─── click / fireEvent / sendClick ─── -->
+  <section>
+    <h3>⑥ click / fireEvent / sendClick</h3>
+    <div class="row" style="margin-bottom:8px">
+      <button class="test-btn" id="testButton" onclick="document.getElementById('s-click').textContent='click() / fireEvent() が確認されました ✅'; document.getElementById('s-click').classList.add('changed')">通常のクリック (#testButton)</button>
+      <button class="test-btn" id="testSendClickBtn" onclick="document.getElementById('s-click').textContent='sendClick() で押されました ✅'; document.getElementById('s-click').classList.add('changed')">sendClick (#testSendClickBtn)</button>
+    </div>
+    <div class="status-box" id="s-click">待機中...</div>
+  </section>
+
+  <!-- ─── getAttribute / setAttribute ─── -->
+  <section>
+    <h3>⑦ getAttribute / setAttribute</h3>
+    <div id="testAttr" data-custom="original-attr" data-info="unchanged" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);">
+      data-custom="<span id="attrDisplay">original-attr</span>"
+    </div>
+    <div class="status-box" id="s-attr">待機中...</div>
+  </section>
+
+  <!-- ─── focus / selectText ─── -->
+  <section>
+    <h3>⑧ focus / selectText</h3>
+    <input type="text" id="testFocusInput" value="このテキストを選択します" style="margin-bottom:6px;">
+    <textarea id="testTextArea" rows="3" style="margin-top:2px;">selectText のターゲットになるテキストエリアです。VBAからこの文字を全選択します。</textarea>
+    <div class="status-box" id="s-focus">待機中...</div>
+  </section>
+
+  <!-- ─── sendKey ─── -->
+  <section>
+    <h3>⑨ sendKey (Tab / Enter / Backspace)</h3>
+    <div class="row">
+      <div class="flex-1"><label>Field A (#keyInput1)</label><input type="text" id="keyInput1" value="Field_A"></div>
+      <div class="flex-1"><label>Field B (#keyInput2)</label><input type="text" id="keyInput2" value="Field_B"></div>
+    </div>
+    <div class="status-box" id="s-sendkey">待機中...</div>
+  </section>
+
+  <!-- ─── submit ─── -->
+  <section>
+    <h3>⑩ submit</h3>
+    <form id="testForm" onsubmit="event.preventDefault(); document.getElementById('s-submit').textContent='フォームがサブミットされました ✅'; document.getElementById('s-submit').classList.add('changed')">
+      <input type="text" id="testFormInput" value="テスト入力" style="margin-bottom:8px;">
+      <button type="submit" id="testSubmitBtn" class="test-btn">Submit (#testSubmitBtn)</button>
+    </form>
+    <div class="status-box" id="s-submit">待機中...</div>
+  </section>
+
+  <!-- ─── getParent / getSibling / getFirstChild ─── -->
+  <section>
+    <h3>⑪ トラバーサル: getParent / getNextSibling / getPrevSibling / getFirstChild</h3>
+    <div id="traversal-tree">
+      <div class="tree-parent" id="traversalParent">
+        🏠 Parent (#traversalParent)
+        <div class="tree-children">
+          <div class="tree-child" id="traversalChild1">Child 1️⃣</div>
+          <div class="tree-child" id="traversalChild2">Child 2️⃣</div>
+          <div class="tree-child" id="traversalChild3">Child 3️⃣</div>
+        </div>
+      </div>
+    </div>
+    <div class="status-box" id="s-traversal">待機中...</div>
+  </section>
+
+  <!-- ─── getChildren / getElementsByQuery / getElementsByXPath ─── -->
+  <section>
+    <h3>⑫ コレクション: getChildren / getElementsByQuery / getElementsByXPath</h3>
+    <ul id="collection-list" class="list-items">
+      <li class="list-item" data-n="1">🍎 アイテム 1</li>
+      <li class="list-item" data-n="2">🍊 アイテム 2</li>
+      <li class="list-item" data-n="3">🍋 アイテム 3</li>
+      <li class="list-item" data-n="4">🍇 アイテム 4</li>
+      <li class="list-item" data-n="5">🍓 アイテム 5</li>
+    </ul>
+    <div class="status-box" id="s-collection">待機中...</div>
+  </section>
+
+  <!-- ─── isExist / ifExist / onExist / onExistNot ─── -->
+  <section>
+    <h3>⑬ isExist / ifExist / onExist / onExistNot</h3>
+    <div class="row" style="gap:8px;margin-bottom:8px;">
+      <button class="test-btn" onclick="addDynamic()">➕ 動的要素を追加</button>
+      <button class="test-btn" onclick="removeDynamic()">➖ 動的要素を削除</button>
+    </div>
+    <div id="dynamic-container">
+      <div id="dynamic-target">（動的要素はここに追加されます）</div>
+    </div>
+    <div class="status-box" id="s-exist">待機中...</div>
+  </section>
+
+  <!-- ─── getIFrame ─── -->
+  <section>
+    <h3>⑭ getIFrame</h3>
+    <iframe id="testIFrame" srcdoc="<!DOCTYPE html><html><body style='background:#1a1d2e;color:#e2e8f0;font-family:system-ui;padding:16px;'><div id='iframeContent' style='border:1px solid #6c63ff;border-radius:6px;padding:10px;'>🖼️ iFrame コンテンツ（初期値）</div></body></html>"></iframe>
+    <div class="status-box" id="s-iframe">待機中...</div>
+  </section>
+
+</div><!-- /test-panel -->
+
+<script>
+  // ─── ログ追加ヘルパー ───
+  function addLog(msg, type) {
+    var el = document.createElement('div');
+    el.className = 'log-entry log-' + (type || 'info');
+    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    var list = document.getElementById('log-list');
+    list.appendChild(el);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  // VBA側から呼び出し可能なグローバルヘルパー
+  window.cdpLog = addLog;
+
+  // 動的要素追加/削除
+  function addDynamic() {
+    var c = document.getElementById('dynamic-container');
+    if (!document.getElementById('dynamicElement')) {
+      var el = document.createElement('div');
+      el.id = 'dynamicElement';
+      el.style.cssText = 'margin-top:8px;padding:10px;background:#1a2e1f;border:1px solid #00d4aa;border-radius:5px;color:#00d4aa;font-size:12px;';
+      el.textContent = '✅ 動的要素が追加されました (id=dynamicElement)';
+      c.appendChild(el);
+      addLog('dynamicElement を追加しました', 'pass');
+    }
+  }
+  function removeDynamic() {
+    var el = document.getElementById('dynamicElement');
+    if (el) { el.remove(); addLog('dynamicElement を削除しました', 'info'); }
+  }
+
+  // ステータスBOXを更新
+  window.updateStatus = function(id, msg, ok) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-box' + (ok !== false ? ' changed' : '');
+  };
+</script>
+</body>
+</html>
