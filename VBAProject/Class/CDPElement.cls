@@ -34,8 +34,6 @@ Option Explicit
 Private Const ThisClassName As String = "CDPElement"
 
 Private main As CDPBrowser
-Private varIDs As Scripting.Dictionary
-Private varID As String                  ' 廃止予定（互換性のため残置）
 Private varJS As String                  ' DOM検索式（ポーリング用 & objectId 未取得時の lazy 取得用）
 Private elemVarType As Long              ' VBA VarType定数: vbNull=1: 未発見 / vbString=8: objectId取得済み / vbEmpty=0: 未評価
 Private elementObjectId As String        ' CDPのobjectId（StrPtr=0:未取得 / StrPtr≠0:取得済み）
@@ -52,7 +50,7 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
 
 End Enum
 
-Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
+Public Sub Init(targetObjMain As CDPBrowser, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
 '----------------------------------------------------------------------------------
 ' varType_ : VarType()定数 - vbNull(1)=未発見 / vbString(8)=objectId取得済み / vbEmpty(0)=未評価
 ' objectId_ : CDPのobjectId文字列。StrPtr(objectId_)≠0の場合のみ代入（空文字との区別のため）
@@ -60,24 +58,11 @@ Public Sub Init(targetObjMain As CDPBrowser, targetObjIdColl As Scripting.Dictio
 '----------------------------------------------------------------------------------
 
     Set main = targetObjMain
-    Set varIDs = targetObjIdColl
-    varID = varID_
     varJS = varJS_
     elemVarType = varType_
     If StrPtr(objectId_) <> 0 Then elementObjectId = objectId_  '空文字も含め「代入された」ことを記録
 
 End Sub
-
-Property Get varName() As String
-'----------------------------------------------------------------------------------
-' Retrieve the name of this variable initialized. The same name can also be used
-' directly in the browser console window if the element is assigned successfully.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    varName = varID
-
-End Property
 
 Property Get varPath() As String
 '----------------------------------------------------------------------------------
@@ -103,45 +88,6 @@ Property Get varResult() As Long
 
 End Property
 
-Private Function getVarID() As String
-'----------------------------------------------------------------------------------
-' Convert varJS to varID for ease of access when needed to further interact with
-' the element post using varJS to initially access it in the browser
-' Updated: 26/04/2023
-'----------------------------------------------------------------------------------
-
-   'If varID already assigned
-    getVarID = varID: If getVarID <> "" Then Exit Function
-
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
-   'Assign the new varID using varJS
-    main.jsEval varID_ & " = " & varJS, dbgMsg:=printDbgMsg
-
-    varID = varID_  'Store the new ID to the main ID var
-    getVarID = varID_
-
-End Function
-
-Private Function newVarID() As String
-'----------------------------------------------------------------------------------
-' Create a unique varID for element reference with CDPElement. If the ID is not
-' unique, it is possible that new element assignment will override existing ones
-' under the same ID by chance if working on a large number of elements.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    Dim newID As String
-
-    Do: newID = "varID" & Format(Rnd * 100000, "000000")
-    Loop Until Not varIDs.Exists(newID)
-    varIDs.Add newID, newID
-
-   'Return the new varID
-    newVarID = newID
-
-End Function
 
 Private Function getObjectId() As String
 '-----------------------------------------------------------------------------------
@@ -655,7 +601,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Loop
 
     Set onExist = Me
-    main.printMsg info_, "onExists satisfied: " & getVarID & " is now available for interaction", FromProcedureName
+    main.printMsg info_, "onExists satisfied: [" & varJS & "] is now available for interaction", FromProcedureName
 
 End Function
 
@@ -683,7 +629,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Loop
 
     onExistNot = True
-    main.printMsg info_, "onExistsNot satisfied: " & getVarID & " is no longer available for interaction", FromProcedureName
+    main.printMsg info_, "onExistsNot satisfied: [" & varJS & "] is no longer available for interaction", FromProcedureName
 
 End Function
 
@@ -712,7 +658,7 @@ Public Function getParent() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getParent = New CDPElement
-    getParent.Init main, varIDs, , , VarType(result), oid
+    getParent.Init main, , , VarType(result), oid
 
 End Function
 
@@ -737,7 +683,7 @@ Public Function getNextSibling() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getNextSibling = New CDPElement
-    getNextSibling.Init main, varIDs, , , VarType(result), oid
+    getNextSibling.Init main, , , VarType(result), oid
 
 End Function
 
@@ -762,7 +708,7 @@ Public Function getPrevSibling() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getPrevSibling = New CDPElement
-    getPrevSibling.Init main, varIDs, , , VarType(result), oid
+    getPrevSibling.Init main, , , VarType(result), oid
 
 End Function
 
@@ -787,7 +733,7 @@ Public Function getFirstChild() As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, varIDs, , , VarType(result), oid
+    getFirstChild.Init main, , , VarType(result), oid
 
 End Function
 
@@ -828,7 +774,7 @@ Public Function getChildren() As Collection
         itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, , , VarType(itemResult), itemOid
+        tElement.Init main, , , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -861,7 +807,7 @@ Public Function getElementByID(strID As String) As CDPElement
     result = main.jsEval("function(id){ return this.getElementById(id) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
-    getElementByID.Init main, varIDs, , , VarType(result), oid
+    getElementByID.Init main, , , VarType(result), oid
 
 End Function
 
@@ -898,7 +844,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     result = main.jsEval("function(sel){ return this.querySelector(sel) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, varIDs, , , VarType(result), oid
+    getElementByQuery.Init main, , , VarType(result), oid
 
 End Function
 
@@ -935,7 +881,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, , , VarType(itemResult), itemOid
+        tElement.Init main, , , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -987,7 +933,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     result = main.jsEval("function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, varIDs, , , VarType(result), oid
+    getElementByXPath.Init main, , , VarType(result), oid
 
 End Function
 
@@ -1046,7 +992,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, , , VarType(itemResult), itemOid
+        tElement.Init main, , , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -1086,6 +1032,6 @@ Public Function getIFrame() As CDPElement
     result = main.jsEval("function(){ return this.contentDocument }", objectId:=getObjectId(), returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getIFrame = New CDPElement
-    getIFrame.Init main, varIDs, , , VarType(result), oid
+    getIFrame.Init main, , , VarType(result), oid
 
 End Function

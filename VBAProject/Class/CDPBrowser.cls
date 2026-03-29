@@ -189,7 +189,6 @@ Private brURL As String                 'The focused tab url of the active CDPBr
 Private brVer As String                 'The current browser version
 Private brReAttach As Boolean           'Remember reAttach preference from .reattach method - updated by Long 22/01/2026
 Private brCallString As String          'The initial call string used by .start
-Private varIDs As Scripting.Dictionary  'Collection of all unique element IDs for CDPElement reference - Added 02/03/2023
 Private sessionID As String             'The ID to the current session tab.
 Private targetID As String              'The targetID of the current tab for InvokeMethod
 Private thisApp As Object               'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
@@ -1362,7 +1361,7 @@ Public Function getElementByID(strID As String) As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varIDs, , varJS, VarType(result), oid
+    getElementByID.Init Me, varJS, VarType(result), oid
 
 End Function
 
@@ -1394,7 +1393,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varIDs, , varJS, VarType(result), oid
+    getElementByXPath.Init Me, varJS, VarType(result), oid
 
 End Function
 
@@ -1434,7 +1433,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init Me, varIDs, , , VarType(itemResult), itemOid
+        tElement.Init Me, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -1478,7 +1477,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
    'Return result
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varIDs, , varJS, VarType(result), oid
+    getElementByQuery.Init Me, varJS, VarType(result), oid
 
 End Function
 
@@ -1513,7 +1512,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
         itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init Me, varIDs, , , VarType(itemResult), itemOid
+        tElement.Init Me, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -3294,25 +3293,7 @@ Private Function getTargetID() As String
 
 End Function
 
-'Private Function newVarID() As String
-''----------------------------------------------------------------------------------
-'' Create a unique varID for element reference with CDPElement. If the ID is not
-'' unique, it is possible that new element assignment will override existing ones
-'' under the same ID by chance if working on a large number of elements.
-'' Updated: 02/03/2023
-''----------------------------------------------------------------------------------
-'
-'   'Init the ID collection
-'    If varIDs Is Nothing Then Set varIDs = New Scripting.Dictionary
-'    Dim newID As String
-'    Do: newID = "varID" & Format(Rnd * 100000, "000000")
-'    Loop Until Not varIDs.Exists(newID)
-'    varIDs.Add newID, newID
-'
-'   'Return the new varID
-'    newVarID = newID
-'
-'End Function
+
 
 Private Function getBrowserPath(strBrowserType As String) As String
 '----------------------------------------------------------------------------------
