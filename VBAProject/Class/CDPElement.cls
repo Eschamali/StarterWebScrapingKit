@@ -458,18 +458,26 @@ Public Function sendClick() As Boolean
 '----------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".sendClick"
 
-
-    Dim x, y As String
+    Dim x As Double, y As Double
 
     If checkExist Then If Not isExist Then Exit Function
 
-   'Get element coordinates
-    x = main.jsEval("function(){ return this.getBoundingClientRect().x }", objectId:=getObjectId())
-    y = main.jsEval("function(){ return this.getBoundingClientRect().y }", objectId:=getObjectId())
+   'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Sendkeys to the node
+    x = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().x }", objectId:=getObjectId()))
+    y = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().y }", objectId:=getObjectId()))
+
     Dim params As New Scripting.Dictionary
     params("type") = "mousePressed"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("clickCount") = 1
+    main.invokeMethod "Input.dispatchMouseEvent", params
+
+    params.RemoveAll
+    params("type") = "mouseReleased"
     params("x") = x
     params("y") = y
     params("button") = "left"
