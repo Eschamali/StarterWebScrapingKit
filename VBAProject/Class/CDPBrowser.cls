@@ -2725,7 +2725,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
         'VBAでのイベント発火を行う
-        '※これについては、負荷の高いJsonパース処理自体はしないため一旦、フィルター機能は対象外とする
+        '※拡張機能の柔軟性を高めるため、ブラウザから得た非同期イベントは全て、イベント発火させます
         RaiseEvent detectionCDPEvent(AsynchronousEventName, CDPJsonString)
 
 

@@ -676,6 +676,7 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
         'VBAでのイベント発火を行う
+        '※拡張機能の柔軟性を高めるため、ブラウザから得た非同期イベントは全て、イベント発火させます
         RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
 
 
