@@ -44,8 +44,8 @@
     .flex-1 { flex: 1 }
     /* 親子ツリー表示 */
     #traversal-tree { display: flex; flex-direction: column; gap: 6px; }
-    .tree-parent { background: var(--surface2); border: 1px solid var(--accent); border-radius: 6px; padding: 10px; }
-    .tree-children { display: flex; gap: 6px; margin-top: 6px; padding-left: 16px; }
+    .tree-heading { font-size: 12px; margin-bottom: 2px; color: var(--text2); }
+    .tree-parent { background: var(--surface2); border: 1px solid var(--accent); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .tree-child { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; font-size: 12px; }
     .tree-child:hover { border-color: var(--accent2); }
     /* コレクションリスト */
@@ -168,13 +168,11 @@
   <section>
     <h3>⑪ トラバーサル: getParent / getNextSibling / getPrevSibling / getFirstChild</h3>
     <div id="traversal-tree">
+      <div class="tree-heading">🏠 Parent (#traversalParent)</div>
       <div class="tree-parent" id="traversalParent">
-        🏠 Parent (#traversalParent)
-        <div class="tree-children">
-          <div class="tree-child" id="traversalChild1">Child 1️⃣</div>
-          <div class="tree-child" id="traversalChild2">Child 2️⃣</div>
-          <div class="tree-child" id="traversalChild3">Child 3️⃣</div>
-        </div>
+        <div class="tree-child" id="traversalChild1">Child 1️⃣</div>
+        <div class="tree-child" id="traversalChild2">Child 2️⃣</div>
+        <div class="tree-child" id="traversalChild3">Child 3️⃣</div>
       </div>
     </div>
     <div class="status-box" id="s-traversal">待機中...</div>

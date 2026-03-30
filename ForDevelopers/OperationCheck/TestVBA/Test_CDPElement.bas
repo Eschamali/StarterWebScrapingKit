@@ -3,7 +3,7 @@ Option Explicit
 
 '==============================================================================
 ' CDPElement 全機能テストモジュール
-' ・テスト用HTMLファイル: VBAProject\TestFiles\CDPElementTest.html
+' ・テスト用HTMLファイル: ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html
 ' ・テスト実行前に CDPBrowser を開いて当該ページが表示されている状態にしてください
 '==============================================================================
 
@@ -16,6 +16,11 @@ Private results As Collection
 'ワークスペースパス
 '※StarterWebScrapingKitのルートフォルダ を入力してください
 Private Const WORKSPACE_PATH As String = ""
+
+' ブラウザ updateStatus 等へ渡すチェック（モジュール保存で絵文字が化ける場合の代替・U+2705）
+Private Function ECheck() As String
+    ECheck = WorksheetFunction.Unichar(9989)
+End Function
 
 '==============================================================================
 ' Main: 全テスト実行
@@ -115,9 +120,9 @@ Private Sub Test03_innerHTML(br As CDPBrowser)
     AssertNotEmpty "innerHTML GET", orig
 
     ' LET
-    el.innerHTML = "<span style='color:#6c63ff'>?? VBAから設定した innerHTML</span>"
+    el.innerHTML = "<span style='color:#6c63ff'>" & ECheck() & " VBAから設定した innerHTML</span>"
     AssertContains "innerHTML LET→GET", el.innerHTML, "VBAから設定"
-    br.jsEval "updateStatus('s-innerhtml', 'innerHTML 更新済み ?', true)"
+    br.jsEval "updateStatus('s-innerhtml', 'innerHTML 更新済み " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -135,7 +140,7 @@ Private Sub Test04_checked(br As CDPBrowser)
     ' LET = False
     el.checked = False
     AssertEq "checked LET=False", CStr(el.checked), "False"
-    br.jsEval "updateStatus('s-checked','checked テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-checked','checked テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -152,10 +157,10 @@ Private Sub Test05_selected(br As CDPBrowser)
     AssertNotEmpty "selected LET=1 → GET", selVal
     br.jsEval "updateStatus('s-selected','selected=' & document.getElementById('testSelect').selectedIndex, true)"
 
-    ' setSelection (option text)
-    el.setSelection "Option Gamma"
+    ' setSelection (option value)
+    el.setSelection "opt-c"
     selVal = el.selected
-    AssertNotEmpty "setSelection(Gamma) → GET", selVal
+    AssertNotEmpty "setSelection(opt-c) → GET", selVal
     br.jsEval "updateStatus('s-selected','setSelection後 idx=' & document.getElementById('testSelect').selectedIndex, true)"
 End Sub
 
@@ -181,7 +186,7 @@ Private Sub Test06_click(br As CDPBrowser)
     sendClickEl.sendClick
     AssertPass "sendClick() 実行"
 
-    br.jsEval "updateStatus('s-click','click/fireEvent/sendClick テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-click','click/fireEvent/sendClick テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -219,7 +224,7 @@ Private Sub Test08_focus_selectText(br As CDPBrowser)
     Set ta = br.getElementByID("testTextArea")
     ta.selectText
     AssertPass "selectText() 実行"
-    br.jsEval "updateStatus('s-focus','focus/selectText テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-focus','focus/selectText テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -234,7 +239,7 @@ Private Sub Test09_sendKey(br As CDPBrowser)
     el1.sendString "Field_A_Updated"
     el1.sendKey keyTab
     AssertPass "sendKey(Tab) 実行"
-    br.jsEval "updateStatus('s-sendkey','sendKey(Tab) テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-sendkey','sendKey(Tab) テスト完了 " & ECheck() & "', true)"
 
     ' Field B で Backspace 1回
     Dim el2 As CDPElement
@@ -252,7 +257,7 @@ Private Sub Test10_submit(br As CDPBrowser)
     Set formEl = br.getElementByID("testForm")
     formEl.submit isLoading
     AssertPass "submit メソッド 実行 (form要素に対して)"
-    br.jsEval "updateStatus('s-submit','submit テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-submit','submit テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -284,7 +289,7 @@ Private Sub Test11_Traversal(br As CDPBrowser)
     Set firstEl = parent.getFirstChild()
     AssertEq "getFirstChild → id", firstEl.getAttribute("id"), "traversalChild1"
 
-    br.jsEval "updateStatus('s-traversal','トラバーサル テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-traversal','トラバーサル テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -343,7 +348,7 @@ Private Sub Test12_Collections(br As CDPBrowser)
     Set innerXPItems = ulEl.getElementsByXPath(".//li")
     AssertEq "el.getElementsByXPath → count", CStr(innerXPItems.Count), "5"
 
-    br.jsEval "updateStatus('s-collection','コレクション テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-collection','コレクション テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -376,13 +381,13 @@ Private Sub Test13_isExist_onExist(br As CDPBrowser)
     Set dynEl = br.getElementByXPath("//div[@id='dynamicElement']")
     dynEl.onExist timeOutInSeconds:=5
     AssertEq "onExist 後にisExist", CStr(dynEl.isExist), "True"
-    br.jsEval "updateStatus('s-exist','onExist 待機成功 ?', true)"
+    br.jsEval "updateStatus('s-exist','onExist 待機成功 " & ECheck() & "', true)"
 
     ' onExistNot: 削除してから待機
     br.jsEval "setTimeout(function(){ removeDynamic() }, 800)"
     dynEl.onExistNot timeOutInSeconds:=5
     AssertPass "onExistNot 完了"
-    br.jsEval "updateStatus('s-exist','onExistNot 待機成功 ?', true)"
+    br.jsEval "updateStatus('s-exist','onExistNot 待機成功 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
@@ -403,12 +408,12 @@ Private Sub Test14_getIFrame(br As CDPBrowser)
     If innerEl.isExist Then
         Dim txt As String: txt = innerEl.innerText
         AssertNotEmpty "iFrame内 innerText", txt
-        innerEl.innerText = "VBAからiFrameを変更 ?"
+        innerEl.innerText = "VBAからiFrameを変更 " & ECheck()
         AssertPass "iFrame内 innerText LET"
     Else
         AssertFail "iFrame内の要素が見つかりませんでした"
     End If
-    br.jsEval "updateStatus('s-iframe','getIFrame テスト完了 ?', true)"
+    br.jsEval "updateStatus('s-iframe','getIFrame テスト完了 " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
