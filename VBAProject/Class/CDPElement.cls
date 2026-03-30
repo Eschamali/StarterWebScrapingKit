@@ -806,13 +806,13 @@ Public Function getElementByID(strID As String) As CDPElement
         End If
     End If
 
-   'Get element by ID using callFunctionOn on this element
+   'getElementById は Document のみ。要素配下の ID 探索は querySelector + CSS.escape を使用
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strID
     args.Add arg
     Dim result As Variant
-    result = main.jsEval("function(id){ return this.getElementById(id) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
+    result = main.jsEval("function(id){ return this.querySelector('#' + CSS.escape(id)) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
     Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
     getElementByID.Init main, , VarType(result), oid
