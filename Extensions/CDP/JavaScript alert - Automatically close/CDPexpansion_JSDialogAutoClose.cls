@@ -8,44 +8,44 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-' CDPBrowser æ‹¡å¼µ - JavaScript ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ï¼ˆalert / confirm / prompt ç­‰ï¼‰ã®è‡ªå‹•å¿œç­”
+' CDPBrowser Šg’£ - JavaScript ƒ_ƒCƒAƒƒOialert / confirm / prompt “™j‚Ì©“®‰“š
 '
-' Page.javascriptDialogOpening ã‚’ detectionCDPEvent ã§å—ã‘ã€Page.handleJavaScriptDialog ã‚’å®Ÿè¡Œã—ã¾ã™ã€‚
-' ãƒ»DefaultAccept â€¦ confirm / prompt / beforeunload ã§ã€Œã¯ã„ç›¸å½“ã€ã‹ã€Œã„ã„ãˆç›¸å½“ã€ã‹ï¼ˆalert ã¯å¸¸ã« OKï¼‰
-' ãƒ»DefaultPromptText â€¦ prompt ã§ accept ã™ã‚‹ã¨ãã«é€ã‚‹æ–‡å­—åˆ—ã€‚ç©ºãªã‚‰ CDP ã® defaultPrompt ã‚’ä½¿ç”¨
+' Page.javascriptDialogOpening ‚ğ detectionCDPEvent ‚Åó‚¯APage.handleJavaScriptDialog ‚ğÀs‚µ‚Ü‚·B
+' EDefaultAccept c confirm / prompt / beforeunload ‚Åu‚Í‚¢‘Š“–v‚©u‚¢‚¢‚¦‘Š“–v‚©ialert ‚Íí‚É OKj
+' EDefaultPromptText c prompt ‚Å accept ‚·‚é‚Æ‚«‚É‘—‚é•¶š—ñB‹ó‚È‚ç CDP ‚Ì defaultPrompt ‚ğg—p
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
+'“à•”g—p—p
 Private Const ThisClassName         As String = "CDPexpansion_JSDialogAutoClose"
 Private mJson                       As New WebJsonConverter
 
-'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
+'ƒXƒe[ƒgŠÇ—
 Private seeRawSendMsgDbg            As Boolean
 
-Public EnableBrowserEvents          As Boolean      'ã“ã®æ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ã—ãªã„ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°
+Public EnableBrowserEvents          As Boolean      '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
 
-' æ—¢å®š: ã¯ã„=OK ç³» / prompt ç”¨ã®å…¥åŠ›æ–‡å­—åˆ—
+' Šù’è: ‚Í‚¢=OK Œn / prompt —p‚Ì“ü—Í•¶š—ñ
 Private mDefaultAccept              As Boolean
 Private mDefaultPromptText          As String
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
+'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒB ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚³ãƒ¼ãƒ—ç¯„å›²ã®èª¿æ•´ã«ã©ã†ãã€‚åç§°ã¯ã€ã€ŒApplication.EnableEventsã€ã‹ã‚‰å–ã‚Šã¾ã—ãŸ
+'* Ú×à–¾FƒXƒR[ƒv”ÍˆÍ‚Ì’²®‚É‚Ç‚¤‚¼B–¼Ì‚ÍAuApplication.EnableEventsv‚©‚çæ‚è‚Ü‚µ‚½
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -55,9 +55,9 @@ Public Property Let EnableEvents(ByVal v As Boolean)
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šJavaScrpt-alerté–¢æ•°ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆãƒœã‚¿ãƒ³æ“ä½œã®è¨­å®šã§ã™
+'* ‹@”\@@FJavaScrpt-alertŠÖ”‚ÌƒfƒtƒHƒ‹ƒgƒ{ƒ^ƒ“‘€ì‚Ìİ’è‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šconfirm / prompt / beforeunload ã§ True=ã¯ã„ãƒ»OKã€False=ã„ã„ãˆãƒ»ã‚­ãƒ£ãƒ³ã‚»ãƒ«ï¼ˆalert ã¯å¸¸ã« True ã§é–‰ã˜ã‚‹ï¼‰
+'* Ú×à–¾Fconfirm / prompt / beforeunload ‚Å True=‚Í‚¢EOKAFalse=‚¢‚¢‚¦EƒLƒƒƒ“ƒZƒ‹ialert ‚Íí‚É True ‚Å•Â‚¶‚éj
 '***************************************************************************************************
 Public Property Get DefaultAccept() As Boolean
     DefaultAccept = mDefaultAccept
@@ -67,9 +67,9 @@ Public Property Let DefaultAccept(ByVal v As Boolean)
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šJavaScrpt-alerté–¢æ•°ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå…¥åŠ›å€¤ã®è¨­å®šã§ã™
+'* ‹@”\@@FJavaScrpt-alertŠÖ”‚ÌƒfƒtƒHƒ‹ƒg“ü—Í’l‚Ìİ’è‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šprompt ã‹ã¤ accept ã™ã‚‹ã¨ãã« Page.handleJavaScriptDialog ã® promptText ã«ä½¿ã†
+'* Ú×à–¾Fprompt ‚©‚Â accept ‚·‚é‚Æ‚«‚É Page.handleJavaScriptDialog ‚Ì promptText ‚Ég‚¤
 '***************************************************************************************************
 Public Property Get DefaultPromptText() As String
     DefaultPromptText = mDefaultPromptText
@@ -81,13 +81,13 @@ End Property
 
 
 '***************************************************************************************************
-'                               â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† â– â– â– 
+'                               ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ¡¡¡
 '***************************************************************************************************
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
-    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
+    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled in this extended class.", FromProcedureName
     Else
@@ -95,11 +95,11 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. å¯¾è±¡ã®ã‚¤ãƒ™ãƒ³ãƒˆä»¥å¤–ã‚‚å³æŠœã‘
-    'å‡¦ç†ã—ãŸã„å¯¾è±¡ã®éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆåã‚’ã€å„Case ã«è¨˜è¿°ã—ã¦ãã ã•ã„ã€‚
+    '2. ‘ÎÛ‚ÌƒCƒxƒ“ƒgˆÈŠO‚à‘¦”²‚¯
+    'ˆ—‚µ‚½‚¢‘ÎÛ‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg–¼‚ğAŠeCase ‚É‹Lq‚µ‚Ä‚­‚¾‚³‚¢B
     Select Case methodName
         Case "Page.javascriptDialogOpening"
-            '3. ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ç”¨ã«ã€Jsonãƒ‘ãƒ¼ã‚¹å‡¦ç†
+            '3. ƒfƒoƒbƒOƒƒO—p‚ÉAJsonƒp[ƒXˆ—
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
             If seeRawSendMsgDbg Then
                 Dim DialogInfos As Dictionary: Set DialogInfos = mJson.ParseJson(EventRawJson)("params")
@@ -113,7 +113,7 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-            '4. ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã‚’é–‰ã˜ã‚‹å‡¦ç†ã‚’ç™ºå‹•
+            '4. ƒ_ƒCƒAƒƒO‚ğ•Â‚¶‚éˆ—‚ğ”­“®
             ex_CDPBrowser.handleDialog mDefaultAccept, mDefaultPromptText
 
         Case Else
@@ -126,10 +126,10 @@ End Sub
 
 
 '***************************************************************************************************
-'                           â– â– â–  `CDPBrowser`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
+'                           ¡¡¡ `CDPBrowser`’¼’Êƒƒ\ƒbƒh ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã„ã¡ã„ã¡ã€`â—‹â—‹.invokeMethod`ã¨ã„ã£ãŸè¨˜è¿°ã‚’é˜²ãæªç½®ã¨ãªã‚Šã¾ã™ã€‚
-'            ãƒ¡ã‚¤ãƒ³ã®`CDPBrowser`ãƒ¡ã‚½ãƒƒãƒ‰ã‚’è¡Œã†å‰å¾Œã®å‡¦ç†ç­‰ã‚‚å‡ºæ¥ã¾ã™ãŒåŸºæœ¬ã¯ã€1è¡Œã ã‘ã«ç•™ã‚ã¦ãŠãã“ã¨
+'* ‹@”\@@F‚¢‚¿‚¢‚¿A`››.invokeMethod`‚Æ‚¢‚Á‚½‹Lq‚ğ–h‚®‘[’u‚Æ‚È‚è‚Ü‚·B
+'            ƒƒCƒ“‚Ì`CDPBrowser`ƒƒ\ƒbƒh‚ğs‚¤‘OŒã‚Ìˆ—“™‚ào—ˆ‚Ü‚·‚ªŠî–{‚ÍA1s‚¾‚¯‚É—¯‚ß‚Ä‚¨‚­‚±‚Æ
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_CDPBrowser.sleep seconds
@@ -146,46 +146,46 @@ End Function
 
 
 '***************************************************************************************************
-'                               â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                               ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šCDPåˆ¶å¾¡ã®ãƒ™ãƒ¼ã‚¹ã¨ãªã‚‹`CDPBrowser.cls`ã‚’ç¶™æ‰¿ã•ã›ã¾ã™
+'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPBrowser)
-    'ç¶™æ‰¿
+    'Œp³
     Set ex_CDPBrowser = Inheritance
 
-    'Pageãƒ‰ãƒ¡ã‚¤ãƒ³ã®æœ‰åŠ¹åŒ–
+    'PageƒhƒƒCƒ“‚Ì—LŒø‰»
     ex_CDPBrowser.pageEnable
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸå‡¦ç†ã‚’æœ‰åŠ¹åŒ–
+    'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    'ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã¸ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’è¨­å®š
+    'ƒ_ƒCƒAƒƒO‚Ö‚ÌƒfƒtƒHƒ‹ƒg’l‚ğİ’è
     mDefaultAccept = True
     mDefaultPromptText = vbNullString
 
-    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
+    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰å—ä¿¡ã—ãŸç”Ÿã®JSONãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã‚‹ã‹ï¼Ÿ
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
     End With
 End Sub
 
 
 
 '***************************************************************************************************
-'                                   â– â– â–  å¾Œå§‹æœ« â– â– â– 
+'                                   ¡¡¡ Œãn–– ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šæ‹¡å¼µæ©Ÿèƒ½ã¨ã®é€£æºã‚’åˆ‡ã‚‹éš›ã«è¨˜è¿°ã—ã¾ã™
+'* ‹@”\@@FŠg’£‹@”\‚Æ‚Ì˜AŒg‚ğØ‚éÛ‚É‹Lq‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Terminate()
-    'Pageãƒ‰ãƒ¡ã‚¤ãƒ³ã®ç„¡åŠ¹åŒ–
+    'PageƒhƒƒCƒ“‚Ì–³Œø‰»
     ex_CDPBrowser.pageEnable False
 End Sub
