@@ -117,7 +117,7 @@ End Function
 Public Sub RunAll_jsEval_Tests()
     Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
 
-    br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\TestHtml\Test_jsEval\Test_jsEval.html", "\", "/")
+    br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_jsEval\Test_jsEval.html", "\", "/")
     br.wait
 
     passCount = 0: failCount = 0
