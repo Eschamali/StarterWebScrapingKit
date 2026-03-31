@@ -1,15 +1,15 @@
 Attribute VB_Name = "Test_BiDiAlertRace"
 '===================================================================================================
-' WebDriverBiDi: å—ä¿¡ãšã‚Œè€ä¹…ãƒ†ã‚¹ãƒˆï¼ˆalertï¼‰
+' WebDriverBiDi: óM‚¸‚ê‘Ï‹vƒeƒXƒgialertj
 '
-' ç‹™ã„:
-' - invokeMethodAsync("script.evaluate") ã®æˆ»ã‚ŠIDã‚’å¾Œã§ ResultBiDiForAsync ã§å›åã™ã‚‹æµã‚Œã«å¯¾ã—ã€
-'   userPromptOpened / handleUserPrompt / åŒæœŸinvokeMethod ã‚’æ··åœ¨ã•ã›ã¦ã€å—ä¿¡ãšã‚Œã‚’èµ·ã“ã—ã‚„ã™ãã™ã‚‹ã€‚
+' ‘_‚¢:
+' - invokeMethodAsync("script.evaluate") ‚Ì–ß‚èID‚ğŒã‚Å ResultBiDiForAsync ‚Å‰ñû‚·‚é—¬‚ê‚É‘Î‚µA
+'   userPromptOpened / handleUserPrompt / “¯ŠúinvokeMethod ‚ğ¬İ‚³‚¹‚ÄAóM‚¸‚ê‚ğ‹N‚±‚µ‚â‚·‚­‚·‚éB
 '
-' ä¸‹è¨˜ã®ãƒ†ã‚¹ãƒˆç”¨ã®ã‚¤ãƒ™ãƒ³ãƒˆã‚¯ãƒ©ã‚¹å‡¦ç†ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¤ãƒ³ãƒãƒ¼ãƒˆã‚’ã—ã¦ãã ã•ã„
-' ãƒ»WebDriverBiDiEventtest.cls
+' ‰º‹L‚ÌƒeƒXƒg—p‚ÌƒCƒxƒ“ƒgƒNƒ‰ƒXˆ—ƒtƒ@ƒCƒ‹‚ÌƒCƒ“ƒ|[ƒg‚ğ‚µ‚Ä‚­‚¾‚³‚¢
+' EWebDriverBiDiEventtest.cls
 '
-' å®Ÿè¡Œ:
+' Às:
 ' - Run_BiDiAlertRaceStress
 '===================================================================================================
 Option Explicit
@@ -17,7 +17,7 @@ Option Explicit
 Private passCount As Long
 Private failCount As Long
 
-' StarterWebScrapingKit ãƒ«ãƒ¼ãƒˆã‚’è¨­å®šã—ã¦ãã ã•ã„
+' StarterWebScrapingKit ƒ‹[ƒg‚ğİ’è‚µ‚Ä‚­‚¾‚³‚¢
 Private Const WORKSPACE_PATH As String = ""
 
 Private Function EOk() As String
@@ -25,7 +25,7 @@ Private Function EOk() As String
 End Function
 
 Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
-    '---- JavaScriptã‚¢ãƒ©ãƒ¼ãƒˆã®è‡ªå‹•å‡¦ç†ã‚’ç„¡åŠ¹åŒ– ---
+    '---- JavaScriptƒAƒ‰[ƒg‚Ì©“®ˆ—‚ğ–³Œø‰» ---
     Dim caps As New Dictionary
     Dim alwaysMatch As New Dictionary
     alwaysMatch.Add "unhandledPromptBehavior", "ignore"
@@ -34,14 +34,14 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
     '-------------------------------------------
 
     Dim wd As WebDriverBiDiCore
-    Set wd = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®BiDièµ·å‹•("file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\WebDriverBiDi\TestHtml\Test_BiDiAlertRace\Test_BiDiAlertRace.html", "\", "/"), sessionCapabilitiesRequest:=caps)
+    Set wd = İ’èƒV[ƒg‚©‚ç‚ÌBiDi‹N“®("file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\WebDriverBiDi\TestHtml\Test_BiDiAlertRace\Test_BiDiAlertRace.html", "\", "/"), sessionCapabilitiesRequest:=caps)
     Dim DialogAutoClose As New WebDriverBiDiEventtest
     DialogAutoClose.Init wd
     
     passCount = 0
     failCount = 0
 
-    PrintHeader "BiDi alert race stress test é–‹å§‹"
+    PrintHeader "BiDi alert race stress test ŠJn"
 
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
     Dim targetContext As String
@@ -51,12 +51,12 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
         targetContext = resultBiDi("contexts")(1)("context")
     End If
     If targetContext = "" Then
-        Debug.Print "  FAIL | targetContext å–å¾—å¤±æ•—"
+        Debug.Print "  FAIL | targetContext æ“¾¸”s"
         wd.quit
         Exit Sub
     End If
 
-    ' alertã‚¤ãƒ™ãƒ³ãƒˆã‚’è³¼èª­
+    ' alertƒCƒxƒ“ƒg‚ğw“Ç
     Set paramsBiDi = New Dictionary
     Dim eventsArray As New Collection
     eventsArray.Add "browsingContext.userPromptOpened"
@@ -67,60 +67,47 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
     For i = 1 To iterations
         On Error GoTo IterErr
 
-        PrintSection "iter=" & CStr(i)
+'        PrintSection "iter=" & CStr(i)
 
-        ' ã‚¤ãƒ™ãƒ³ãƒˆè“„ç©ã‚’æ¯å›ã‚¯ãƒªã‚¢
+        ' ƒCƒxƒ“ƒg’~Ï‚ğ–ˆ‰ñƒNƒŠƒA
         Set wd.BiDiEvents = New Dictionary
 
-        ' 1) alertãƒœã‚¿ãƒ³click ã‚’ async å®Ÿè¡Œï¼ˆã“ã‚Œã®IDå›åãŒä¸»ç›®çš„ï¼‰
+        ' 1) alertƒ{ƒ^ƒ“click ‚ğ async Àsi‚±‚ê‚ÌID‰ñû‚ªå–Ú“Ij
         Dim asyncClickId As Long
         asyncClickId = EvalAsync(wd, targetContext, "document.getElementById('btn-bidi-alert').click()", False)
 
-        ' 2) ã•ã‚‰ã« async ã‚’1æœ¬è¿½åŠ ã—æ··é›‘ã•ã›ã‚‹
+        ' 2) ‚³‚ç‚É async ‚ğ1–{’Ç‰Á‚µ¬G‚³‚¹‚é
         Dim asyncDummyId As Long
         asyncDummyId = EvalAsync(wd, targetContext, "document.title", False)
 
-        ' 3) ã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è¨­å®š
+        ' 3) ƒCƒxƒ“ƒgˆ—İ’è
         DialogAutoClose.DefaultAccept = True
         DialogAutoClose.DefaultPromptText = "BIDI_INPUT_" & CStr(i)
         DialogAutoClose.targetContext = targetContext
 
-        ' 4) åŒæœŸã‚³ãƒãƒ³ãƒ‰ã‚’æŒŸã‚“ã§å—ä¿¡ãƒ«ãƒ¼ãƒ—ä¸­ã®ç«¶åˆã‚’èª˜ç™º
+        ' 4) “¯ŠúƒRƒ}ƒ“ƒh‚ğ‹²‚ñ‚ÅóMƒ‹[ƒv’†‚Ì‹£‡‚ğ—U”­
         Dim dummySync As Variant
         dummySync = EvalSyncValue(wd, targetContext, "document.body.clientWidth")
 
-'        ' 4) prompt openã‚¤ãƒ™ãƒ³ãƒˆã‚’å¾…ã£ã¦ handle
-'        If WaitForPromptEvent(wd, "browsingContext.userPromptOpened", 3#) Then
-'            Set paramsBiDi = New Dictionary
-'            paramsBiDi.Add "context", targetContext
-'            paramsBiDi.Add "accept", True
-'            paramsBiDi.Add "userText", "BIDI_INPUT_" & CStr(i)
-'            wd.invokeMethod "browsingContext.handleUserPrompt", paramsBiDi
-'        Else
-'            failCount = failCount + 1
-'            Debug.Print "  FAIL | userPromptOpened å¾…æ©Ÿã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ"
-'            Exit For
-'        End If
-
-        ' 5) ãƒšãƒ¼ã‚¸çŠ¶æ…‹ã®æ•´åˆç¢ºèªï¼ˆalertãŒé–‰ã˜ãŸå¾Œã«æ›´æ–°ã•ã‚Œã‚‹å€¤ï¼‰
+        ' 5) ƒy[ƒWó‘Ô‚Ì®‡Šm”Fialert‚ª•Â‚¶‚½Œã‚ÉXV‚³‚ê‚é’lj
         Dim lastMsg As String, statusTxt As String
         lastMsg = CStr(EvalSyncValue(wd, targetContext, "window.__bidi_last_alert"))
         statusTxt = CStr(EvalSyncValue(wd, targetContext, "document.getElementById('status').textContent"))
 
         If InStr(1, lastMsg, "BIDI_RACE_", vbTextCompare) = 0 Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | lastMsg ç•°å¸¸: " & lastMsg
+            Debug.Print "  FAIL | lastMsg ˆÙí: " & lastMsg
             Exit For
         ElseIf InStr(1, statusTxt, "_closed", vbTextCompare) = 0 Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | status ç•°å¸¸: " & statusTxt
+            Debug.Print "  FAIL | status ˆÙí: " & statusTxt
             Exit For
         Else
             passCount = passCount + 1
-            Debug.Print "  " & EOk() & " PASS | dialog closed: " & lastMsg
+'            Debug.Print "  " & EOk() & " PASS | dialog closed: " & lastMsg
         End If
 
-        ' 6) éåŒæœŸIDå›åï¼ˆã“ã“ãŒã‚ºãƒ¬æ¤œçŸ¥ãƒã‚¤ãƒ³ãƒˆï¼‰
+        ' 6) ”ñ“¯ŠúID‰ñûi‚±‚±‚ªƒYƒŒŒŸ’mƒ|ƒCƒ“ƒgj
         Dim box1 As Dictionary, box2 As Dictionary
         Dim ok1 As Boolean, ok2 As Boolean
         ok1 = TryResultBiDiForAsync(wd, asyncClickId, box1, 2#)
@@ -128,15 +115,15 @@ Public Sub Run_BiDiAlertRaceStress(Optional ByVal iterations As Long = 50)
 
         If Not ok1 Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | asyncClickId å›åå¤±æ•— ID=" & CStr(asyncClickId)
+            Debug.Print "  FAIL | asyncClickId ‰ñû¸”s ID=" & CStr(asyncClickId)
             Exit For
         ElseIf Not ok2 Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | asyncDummyId å›åå¤±æ•— ID=" & CStr(asyncDummyId)
+            Debug.Print "  FAIL | asyncDummyId ‰ñû¸”s ID=" & CStr(asyncDummyId)
             Exit For
         Else
             passCount = passCount + 1
-            Debug.Print "  " & EOk() & " PASS | async result IDs recovered"
+'            Debug.Print "  " & EOk() & " PASS | async result IDs recovered"
         End If
 
         wd.sleep 0.03
@@ -151,7 +138,7 @@ IterNext:
         On Error GoTo 0
     Next i
 
-    PrintHeader "ãƒ†ã‚¹ãƒˆå®Œäº†: PASS=" & passCount & " / FAIL=" & failCount & " / åˆè¨ˆ=" & (passCount + failCount)
+    PrintHeader "ƒeƒXƒgŠ®—¹: PASS=" & passCount & " / FAIL=" & failCount & " / ‡Œv=" & (passCount + failCount)
     wd.quit
 End Sub
 
@@ -227,5 +214,5 @@ End Sub
 
 Private Sub PrintSection(msg As String)
     Debug.Print ""
-    Debug.Print "  â”€â”€ " & msg & " â”€â”€"
+    Debug.Print "  „Ÿ„Ÿ " & msg & " „Ÿ„Ÿ"
 End Sub
