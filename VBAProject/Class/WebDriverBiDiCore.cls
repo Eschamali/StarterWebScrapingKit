@@ -492,6 +492,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     strMessage = strMessage & ", ""id"":" & lngCurrentId & "}"
 
     printMsg Debug_, "sendBiDi-JsonCommand = " & strMessage, FromProcedureName
+    printMsg Debug_, "runBiDi -Async       = " & Async, FromProcedureName
 
     'JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
     Dim safeJson As String
@@ -530,9 +531,9 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         If CurrentBiDiCol.Count = 0 Then m_CDPBrowser.TakeEvents
 
         '受信数check
+        Dim tmp As Dictionary
         If CurrentBiDiCol.Count Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Dim tmp As Dictionary
             Set tmp = ReceiveFromCollectionPayload(InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
@@ -541,9 +542,24 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
                 Set SendMessage = tmp
             End If
         Else
-            printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
+            'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
+            '※`WithEvents`と併用すると、ここに格納される可能性があるためです
+            Set tmp = ResultBiDiForAsync(lngCurrentId)
+            If Not tmp Is Nothing Then
+                '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
+                ResultSendCommand = True
+                Set SendMessage = tmp
+                printMsg info_, "Command ID:" & lngCurrentId & " was observed on the 'Asynchronous Result Dictionary side' rather than on the Collection. This is a phenomenon that is likely to occur when used in conjunction with `WithEvents`.", FromProcedureName
+            Else
+                printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
+            End If
         End If
 
+        'いくつかのログ表示
+        If Not ResultSendCommand Then
+            'コマンド結果が、まだ来ない
+            printMsg Trace_, "The BiDi-Json command result ID:" & lngCurrentId & " from `Runtime.bindingCalled` has not yet been received, so reception continues.", FromProcedureName
+        End If
 
         '一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
@@ -713,6 +729,7 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
                 '格納件数チェックし、上限を超えたら、最古データを削除します
                 If m_AccumulatedCommandResults.Count > m_MaxCommandResults Then
                     ' 一番古いキーを取得して削除
+                    printMsg Trace_, "Delete asynchronous processing result ID:" & m_AccumulatedCommandResults.keys(0), FromProcedureName
                     m_AccumulatedCommandResults.Remove m_AccumulatedCommandResults.keys(0)
                     printMsg info_, "The accumulation limit has exceeded " & m_MaxCommandResults & ", so the oldest has been deleted.", FromProcedureName
                 End If
@@ -950,14 +967,15 @@ End Property
 '* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
 '            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
+'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
 '***************************************************************************************************
-Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean) As Dictionary
+Public Property Get ResultBiDiForAsync(CommandID As Long, Optional ErrorExist As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
 
 
     '1. 存在するか？
     If m_AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & m_AccumulatedCommandResults(CommandID), FromProcedureName
+        printMsg Trace_, "BiDi-CommandID: " & CommandID & " , Raw-Json:" & m_AccumulatedCommandResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary
@@ -968,25 +986,22 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
             '正常に終了していると伝える
             ErrorExist = False
             printMsg Debug_, "This BiDi-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
-
-            Set ResultBiDiForAsync = tmp("result")  '`result`オブジェクトとして返却
         Else
             'エラーありとして伝える
-            ErrorExist = False
-            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error.", FromProcedureName
-
-            Set ResultBiDiForAsync = tmp            'そのまんま返却
+            ErrorExist = True
+            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error. ErrorDetails:" & m_AccumulatedCommandResults(CommandID)("error"), FromProcedureName
         End If
 
-        '4. 取り出したので消しておく
-        m_AccumulatedCommandResults.Remove CommandID
-        printMsg Trace_, "Deleted the resulting log corresponding to the execution BiDi-command ID. - ID: " & CommandID, FromProcedureName
-    Else
-        ErrorExist = True
-        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
+        '4. 返却自体は、そのままで
+        Set ResultBiDiForAsync = tmp
 
-        '2. カスタムエラーメッセージJsonで返却
-        Set ResultBiDiForAsync = m_JsonConverter.ParseJson("{""type"":""error"",""id"":" & CommandID & ",""error"":-2,""message"":""There is no target command ID result log.""}")
+        '5. 取り出したので消しておく
+        m_AccumulatedCommandResults.Remove CommandID
+        printMsg Trace_, "BiDi-command ID: " & CommandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
+    Else
+        '2. 存在しない旨を伝える
+        ErrorExist = False
+        printMsg Trace_, "The BiDi command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
