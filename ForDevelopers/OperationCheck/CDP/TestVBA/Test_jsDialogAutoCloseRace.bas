@@ -1,34 +1,34 @@
 Attribute VB_Name = "Test_jsDialogAutoCloseRace"
 '===================================================================================================
-' JSãƒ€ã‚¤ã‚¢ãƒ­ã‚°è‡ªå‹•closeæ‹¡å¼µã‚’ä½¿ã£ãŸã€Œç«¶åˆã‚ºãƒ¬ã€å†ç¾ã‚¹ãƒˆãƒ¬ã‚¹ãƒ†ã‚¹ãƒˆ
+' JSƒ_ƒCƒAƒƒO©“®closeŠg’£‚ğg‚Á‚½u‹£‡ƒYƒŒvÄŒ»ƒXƒgƒŒƒXƒeƒXƒg
 '
-' ç›®çš„:
-' - RunAsyncCDP=true ã® click (async command result) ã¨
-'   Page.handleJavaScriptDialog (extension ãŒã‚¤ãƒ™ãƒ³ãƒˆå†…ã§åŒæœŸ invokeMethod) ã®
-'   å—ä¿¡ãƒ»å›åã®ç«¶åˆã‚’èµ·ã“ã—ã‚„ã™ã„é †åºã§å›ã™
-' - ResultCDPForAsync(asyncClickID) ãŒå–ã‚Šå‡ºã›ãšå¤±æ•—ã™ã‚‹ã‚±ãƒ¼ã‚¹ã‚’æ¢ã™
+' –Ú“I:
+' - RunAsyncCDP=true ‚Ì click (async command result) ‚Æ
+'   Page.handleJavaScriptDialog (extension ‚ªƒCƒxƒ“ƒg“à‚Å“¯Šú invokeMethod) ‚Ì
+'   óME‰ñû‚Ì‹£‡‚ğ‹N‚±‚µ‚â‚·‚¢‡˜‚Å‰ñ‚·
+' - ResultCDPForAsync(asyncClickID) ‚ªæ‚èo‚¹‚¸¸”s‚·‚éƒP[ƒX‚ğ’T‚·
 '
-' å®Ÿè¡Œ:
-' - VBA: Run_JSDialogAutoClose_RaceTest ã‚’å®Ÿè¡Œ
+' Às:
+' - VBA: Run_JSDialogAutoClose_RaceTest ‚ğÀs
 '===================================================================================================
 '===================================================================================================
-' JSãƒ€ã‚¤ã‚¢ãƒ­ã‚°è‡ªå‹•closeæ‹¡å¼µã‚’ä½¿ã£ãŸã€Œç«¶åˆã‚ºãƒ¬ã€å†ç¾ã‚¹ãƒˆãƒ¬ã‚¹ãƒ†ã‚¹ãƒˆ
+' JSƒ_ƒCƒAƒƒO©“®closeŠg’£‚ğg‚Á‚½u‹£‡ƒYƒŒvÄŒ»ƒXƒgƒŒƒXƒeƒXƒg
 '
-' ç›®çš„:
-' - RunAsyncCDP=true ã® click (async command result) ã¨
-'   Page.handleJavaScriptDialog (extension ãŒã‚¤ãƒ™ãƒ³ãƒˆå†…ã§åŒæœŸ invokeMethod) ã®
-'   å—ä¿¡ãƒ»å›åã®ç«¶åˆã‚’èµ·ã“ã—ã‚„ã™ã„é †åºã§å›ã™
-' - ResultCDPForAsync(asyncClickID) ãŒå–ã‚Šå‡ºã›ãšå¤±æ•—ã™ã‚‹ã‚±ãƒ¼ã‚¹ã‚’æ¢ã™
+' –Ú“I:
+' - RunAsyncCDP=true ‚Ì click (async command result) ‚Æ
+'   Page.handleJavaScriptDialog (extension ‚ªƒCƒxƒ“ƒg“à‚Å“¯Šú invokeMethod) ‚Ì
+'   óME‰ñû‚Ì‹£‡‚ğ‹N‚±‚µ‚â‚·‚¢‡˜‚Å‰ñ‚·
+' - ResultCDPForAsync(asyncClickID) ‚ªæ‚èo‚¹‚¸¸”s‚·‚éƒP[ƒX‚ğ’T‚·
 '
-' å®Ÿè¡Œ:
-' - VBA: Run_JSDialogAutoClose_RaceTest ã‚’å®Ÿè¡Œ
+' Às:
+' - VBA: Run_JSDialogAutoClose_RaceTest ‚ğÀs
 '===================================================================================================
 Option Explicit
 
 Private passCount As Long
 Private failCount As Long
 
-'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹ï¼ˆStarterWebScrapingKit ãƒ«ãƒ¼ãƒˆï¼‰
+'ƒ[ƒNƒXƒy[ƒXƒpƒXiStarterWebScrapingKit ƒ‹[ƒgj
 Private Const WORKSPACE_PATH As String = ""
 
 Private Function EOk() As String
@@ -36,16 +36,16 @@ Private Function EOk() As String
 End Function
 
 Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30)
-    Dim br As CDPBrowser: Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
+    Dim br As CDPBrowser: Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_jsDialogAutoCloseRace\Test_jsDialogAutoCloseRace.html", "\", "/")
     br.wait
 
     passCount = 0: failCount = 0
 
-    PrintHeader "JSDialogAutoClose ç«¶åˆã‚ºãƒ¬å†ç¾ãƒ†ã‚¹ãƒˆ é–‹å§‹"
+    PrintHeader "JSDialogAutoClose ‹£‡ƒYƒŒÄŒ»ƒeƒXƒg ŠJn"
 
-    'æ‹¡å¼µæ©Ÿèƒ½ï¼ˆã‚¤ãƒ™ãƒ³ãƒˆé§†å‹•ã®è‡ªå‹• closeï¼‰
+    'Šg’£‹@”\iƒCƒxƒ“ƒg‹ì“®‚Ì©“® closej
     Dim ext As New CDPexpansion_JSDialogAutoClose
     ext.Init br
     ext.DefaultAccept = True
@@ -55,32 +55,32 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
 
     Dim iter As Long
     For iter = 1 To iterations
-        PrintSection "iter=" & iter
+'        PrintSection "iter=" & iter
 
         On Error GoTo Iter_Err
 
-        'button ã® objectId
+        'button ‚Ì objectId
         Dim btnOid As Variant
         btnOid = br.jsEval("document.getElementById('btn')", returnByValue:=False, dbgMsg:=False)
 
-        If VarType(btnOid) <> vbString Or Len(btnOid) = 0 Then Err.Raise 5, , "btn objectId ãŒå–å¾—ã§ãã¾ã›ã‚“ã§ã—ãŸ"
+        If VarType(btnOid) <> vbString Or Len(btnOid) = 0 Then Err.Raise 5, , "btn objectId ‚ªæ“¾‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
 
-        'RunAsyncCDP=true ã®ã‚¯ãƒªãƒƒã‚¯ï¼ˆasync command result ã‚’å–ã‚Šå‡ºã—ãŸã„ï¼‰
+        'RunAsyncCDP=true ‚ÌƒNƒŠƒbƒNiasync command result ‚ğæ‚èo‚µ‚½‚¢j
         Dim asyncClickId As Variant
         asyncClickId = br.jsEval("function(){ this.click(); }", CStr(btnOid), RunAsyncCDP:=True, dbgMsg:=False)
-        If Not IsNumeric(asyncClickId) Or CLng(asyncClickId) <= 0 Then Err.Raise 6, , "asyncClickId ãŒä¸æ­£ã§ã™: " & CStr(asyncClickId)
+        If Not IsNumeric(asyncClickId) Or CLng(asyncClickId) <= 0 Then Err.Raise 6, , "asyncClickId ‚ª•s³‚Å‚·: " & CStr(asyncClickId)
 
-        'ã•ã‚‰ã« async ã‚’1å€‹è¶³ã—ã¦ã€å—ä¿¡ãƒãƒƒãƒã®æ··é›‘ã‚’å¢—ã‚„ã™
+        '‚³‚ç‚É async ‚ğ1ŒÂ‘«‚µ‚ÄAóMƒoƒbƒ`‚Ì¬G‚ğ‘‚â‚·
         Dim asyncTitleId As Variant
         asyncTitleId = br.jsEval("document.title", RunAsyncCDP:=True, dbgMsg:=False)
-        If Not IsNumeric(asyncTitleId) Or CLng(asyncTitleId) <= 0 Then Err.Raise 7, , "asyncTitleId ãŒä¸æ­£ã§ã™: " & CStr(asyncTitleId)
+        If Not IsNumeric(asyncTitleId) Or CLng(asyncTitleId) <= 0 Then Err.Raise 7, , "asyncTitleId ‚ª•s³‚Å‚·: " & CStr(asyncTitleId)
 
-        'åŒæœŸ jsEval ã‚’1å›æŒŸã‚“ã§ã€SendMessage(åŒæœŸå¾…ã¡) ã®å—ä¿¡å‡¦ç†ä¸­ã«
-        'æ‹¡å¼µã®ã‚¤ãƒ™ãƒ³ãƒˆâ†’åŒæœŸ invokeMethod ãŒå…¥ã‚Šè¾¼ã‚€ç¢ºç‡ã‚’ä¸Šã’ã‚‹
+        '“¯Šú jsEval ‚ğ1‰ñ‹²‚ñ‚ÅASendMessage(“¯Šú‘Ò‚¿) ‚ÌóMˆ—’†‚É
+        'Šg’£‚ÌƒCƒxƒ“ƒg¨“¯Šú invokeMethod ‚ª“ü‚è‚ŞŠm—¦‚ğã‚°‚é
         Dim dummy As Variant
         dummy = br.jsEval("document.body.clientHeight", returnByValue:=True, dbgMsg:=False)
 
-        'alert ãŒé–‰ã˜ãŸå¾Œã«çŠ¶æ…‹ãŒæ›´æ–°ã•ã‚Œã‚‹æƒ³å®š
+        'alert ‚ª•Â‚¶‚½Œã‚Éó‘Ô‚ªXV‚³‚ê‚é‘z’è
         Dim expectMsg As String
         expectMsg = "RACE_ALERT_" & iter
 
@@ -98,11 +98,11 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
             Debug.Print "  FAIL | lastMsg=" & lastMsg & " expect=" & expectMsg
         Else
             passCount = passCount + 1
-            Debug.Print "  " & EOk() & " PASS | dialog closed ok: " & expectMsg
+'            Debug.Print "  " & EOk() & " PASS | dialog closed ok: " & expectMsg
         End If
 
-        'ã“ã“ãŒã€Œç«¶åˆã‚ºãƒ¬ã€æ¤œå‡ºãƒã‚¤ãƒ³ãƒˆ:
-        ' - asyncClickId ã®çµæœãŒ AccumulatedAsyncResults ã«æ®‹ã£ã¦ã„ã‚‹ã‹ï¼Ÿ
+        '‚±‚±‚ªu‹£‡ƒYƒŒvŒŸoƒ|ƒCƒ“ƒg:
+        ' - asyncClickId ‚ÌŒ‹‰Ê‚ª AccumulatedAsyncResults ‚Éc‚Á‚Ä‚¢‚é‚©H
         Dim boxClick As Scripting.Dictionary
         Dim boxTitle As Scripting.Dictionary
         Dim okClick As Boolean, okTitle As Boolean
@@ -112,18 +112,18 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
 
         If Not okClick Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | ResultCDPForAsync(asyncClickId) å–å¾—ã§ããš: id=" & CStr(asyncClickId)
+            Debug.Print "  FAIL | ResultCDPForAsync(asyncClickId) æ“¾‚Å‚«‚¸: id=" & CStr(asyncClickId)
             Debug.Print "  statusTxt=" & statusTxt & " lastMsg=" & lastMsg
             Exit For
         ElseIf Not okTitle Then
             failCount = failCount + 1
-            Debug.Print "  FAIL | ResultCDPForAsync(asyncTitleId) å–å¾—ã§ããš: id=" & CStr(asyncTitleId)
+            Debug.Print "  FAIL | ResultCDPForAsync(asyncTitleId) æ“¾‚Å‚«‚¸: id=" & CStr(asyncTitleId)
             Exit For
         Else
-            Debug.Print "  " & EOk() & " PASS | async results recovered ok"
+'            Debug.Print "  " & EOk() & " PASS | async results recovered ok"
         End If
 
-        br.sleep 0.05
+        'br.sleep 0.05
         GoTo Iter_Next
 
 Iter_Err:
@@ -135,7 +135,8 @@ Iter_Next:
         On Error GoTo 0
     Next iter
 
-    PrintHeader "ãƒ†ã‚¹ãƒˆå®Œäº†: PASS=" & passCount & " / FAIL=" & failCount & " / åˆè¨ˆ=" & (passCount + failCount)
+    PrintHeader "ƒeƒXƒgŠ®—¹: PASS=" & passCount & " / FAIL=" & failCount & " / ‡Œv=" & (passCount + failCount)
+    Set ext = Nothing
     br.quit
 End Sub
 
@@ -153,7 +154,7 @@ Private Function TryResultCDPForAsync(br As CDPBrowser, ByVal cmdId As Long, ByR
             Exit Function
         End If
 
-        'å–ã‚Šã“ã¼ã—ã‚’æ‹¾ã†ãŸã‚ã«çŸ­ããƒãƒ³ãƒ—
+        'æ‚è‚±‚Ú‚µ‚ğE‚¤‚½‚ß‚É’Z‚­ƒ|ƒ“ƒv
         br.TakeEvents
         DoEvents
 
@@ -172,5 +173,5 @@ End Sub
 
 Private Sub PrintSection(msg As String)
     Debug.Print ""
-    Debug.Print "  â”€â”€ " & msg & " â”€â”€"
+    Debug.Print "  „Ÿ„Ÿ " & msg & " „Ÿ„Ÿ"
 End Sub
