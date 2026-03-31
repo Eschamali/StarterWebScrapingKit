@@ -1,30 +1,30 @@
 Attribute VB_Name = "Test_jsEval"
 '==============================================================================
-' CDPBrowser.jsEval å‹•ä½œç¢ºèªï¼ˆRuntime.evaluate / Runtime.callFunctionOnï¼‰
-' ãƒ»HTML: ForDevelopers\OperationCheck\TestHtml\Test_jsEval\Test_jsEval.html
-' ãƒ»å®Ÿè¡Œå‰ã« CDP ã‚’èµ·å‹•ã—ã€WORKSPACE_PATH ã‚’ãƒ«ãƒ¼ãƒˆã«è¨­å®šã—ã¦ã‹ã‚‰ RunAll_jsEval_Tests ã‚’å®Ÿè¡Œ
+' CDPBrowser.jsEval “®ìŠm”FiRuntime.evaluate / Runtime.callFunctionOnj
+' EHTML: ForDevelopers\OperationCheck\TestHtml\Test_jsEval\Test_jsEval.html
+' EÀs‘O‚É CDP ‚ğ‹N“®‚µAWORKSPACE_PATH ‚ğƒ‹[ƒg‚Éİ’è‚µ‚Ä‚©‚ç RunAll_jsEval_Tests ‚ğÀs
 '==============================================================================
 Option Explicit
 
 Private passCount As Long
 Private failCount As Long
 
-'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹ï¼ˆStarterWebScrapingKit ãƒ«ãƒ¼ãƒˆï¼‰
+'ƒ[ƒNƒXƒy[ƒXƒpƒXiStarterWebScrapingKit ƒ‹[ƒgj
 Private Const WORKSPACE_PATH As String = ""
 
 Private Function EOk() As String
     EOk = WorksheetFunction.Unichar(9989)
 End Function
 
-'--- CDP Runtime.callFunctionOn ç”¨: arguments é…åˆ—ã®è¦ç´  ---
+'--- CDP Runtime.callFunctionOn —p: arguments ”z—ñ‚Ì—v‘f ---
 Private Function ArgVal(v As Variant) As Scripting.Dictionary
     Dim d As New Scripting.Dictionary
     d.Add "value", v
     Set ArgVal = d
 End Function
 
-' returnByValue ã® JSON é…åˆ—ã¯ã€ç’°å¢ƒã«ã‚ˆã‚Š Scripting.Dictionaryï¼ˆã‚­ãƒ¼ "0"â€¦ï¼‰ã¾ãŸã¯
-' Collectionï¼ˆ1 å§‹ã¾ã‚Šï¼‰ã¨ã—ã¦è¿”ã‚‹ã€‚Collection ã« Exists ã¯ç„¡ã„ãŸã‚ TypeName ã§åˆ†å²ã™ã‚‹ã€‚
+' returnByValue ‚Ì JSON ”z—ñ‚ÍAŠÂ‹«‚É‚æ‚è Scripting.DictionaryiƒL[ "0"cj‚Ü‚½‚Í
+' Collectioni1 n‚Ü‚èj‚Æ‚µ‚Ä•Ô‚éBCollection ‚É Exists ‚Í–³‚¢‚½‚ß TypeName ‚Å•ªŠò‚·‚éB
 Private Function DictArrItem(d As Object, idx As Long) As Variant
     Dim ks As String
 
@@ -41,12 +41,12 @@ Private Function DictArrItem(d As Object, idx As Long) As Variant
                 DictArrItem = Empty
             End If
         Case Else
-            Err.Raise vbObjectError + 513, "Test_jsEval.DictArrItem", "é…åˆ—è¦ç´ ã®å‹ãŒæœªå¯¾å¿œã§ã™: " & TypeName(d)
+            Err.Raise vbObjectError + 513, "Test_jsEval.DictArrItem", "”z—ñ—v‘f‚ÌŒ^‚ª–¢‘Î‰‚Å‚·: " & TypeName(d)
     End Select
 End Function
 
-' serializationOptions: deep æ™‚ã® DeepSerializedValueï¼ˆtype + value ã®ãƒšã‚¢é…åˆ—ï¼‰ã¨ã€
-' é€šå¸¸ã®å…¥ã‚Œå­ Dictionary ã®ä¸¡æ–¹ã‹ã‚‰å­ã‚’è¾¿ã‚‹ã€‚
+' serializationOptions: deep ‚Ì DeepSerializedValueitype + value ‚ÌƒyƒA”z—ñj‚ÆA
+' ’Êí‚Ì“ü‚êq Dictionary ‚Ì—¼•û‚©‚çq‚ğ’H‚éB
 Private Function DsvChildObject(ByVal parent As Object, ByVal Key As String) As Object
     If parent Is Nothing Then Exit Function
     On Error Resume Next
@@ -112,17 +112,17 @@ Private Function DsvGetPropertyNumber(ByVal parent As Object, ByVal Key As Strin
 End Function
 
 '==============================================================================
-' ã‚¨ãƒ³ãƒˆãƒª
+' ƒGƒ“ƒgƒŠ
 '==============================================================================
 Public Sub RunAll_jsEval_Tests()
-    Dim br As CDPBrowser: Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
+    Dim br As CDPBrowser: Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_jsEval\Test_jsEval.html", "\", "/")
     br.wait
 
     passCount = 0: failCount = 0
 
-    PrintHeader "jsEval æ¤œè¨¼ãƒ†ã‚¹ãƒˆ é–‹å§‹"
+    PrintHeader "jsEval ŒŸØƒeƒXƒg ŠJn"
 
     Test01_Evaluate_primitives br
     Test02_Evaluate_returnByValue_object_and_array br
@@ -141,7 +141,7 @@ Public Sub RunAll_jsEval_Tests()
     Test15_serializationOptions_deep br
     Test16_RunAsyncCDP_alert br
 
-    PrintHeader "ãƒ†ã‚¹ãƒˆå®Œäº†: PASS=" & passCount & " / FAIL=" & failCount & " / åˆè¨ˆ=" & (passCount + failCount)
+    PrintHeader "ƒeƒXƒgŠ®—¹: PASS=" & passCount & " / FAIL=" & failCount & " / ‡Œv=" & (passCount + failCount)
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", dbgMsg:=False
 
@@ -149,33 +149,33 @@ Public Sub RunAll_jsEval_Tests()
 End Sub
 
 '==============================================================================
-' â‘  Runtime.evaluate - ãƒ—ãƒªãƒŸãƒ†ã‚£ãƒ–
+' ‡@ Runtime.evaluate - ƒvƒŠƒ~ƒeƒBƒu
 '==============================================================================
 Private Sub Test01_Evaluate_primitives(br As CDPBrowser)
-    PrintSection "â‘  evaluate - æ•°å€¤ãƒ»æ–‡å­—åˆ—ãƒ»çœŸå½"
+    PrintSection "‡@ evaluate - ”’lE•¶š—ñE^‹U"
 
     Dim v As Variant
 
     v = br.jsEval("2 + 40", dbgMsg:=False)
-    AssertEq "æ•°å€¤ 42", v, 42#
+    AssertEq "”’l 42", v, 42#
 
     v = br.jsEval("'hello-jsEval'", dbgMsg:=False)
-    AssertEq "æ–‡å­—åˆ—", CStr(v), "hello-jsEval"
+    AssertEq "•¶š—ñ", CStr(v), "hello-jsEval"
 
     v = br.jsEval("true", dbgMsg:=False)
-    AssertEq "çœŸå½ True", CStr(v), "True"
+    AssertEq "^‹U True", CStr(v), "True"
 
     v = br.jsEval("false", dbgMsg:=False)
-    AssertEq "çœŸå½ False", CStr(v), "False"
+    AssertEq "^‹U False", CStr(v), "False"
 
-    br.jsEval "updateStatus('s-js01','â‘  å®Œäº† " & EOk() & " | æ•°å€¤ãƒ»æ–‡å­—åˆ—ãƒ»çœŸå½', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js01','‡@ Š®—¹ " & EOk() & " | ”’lE•¶š—ñE^‹U', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¡ returnByValue - ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãƒ»é…åˆ—ï¼ˆDictionaryï¼‰
+' ‡A returnByValue - ƒIƒuƒWƒFƒNƒgE”z—ñiDictionaryj
 '==============================================================================
 Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPBrowser)
-    PrintSection "â‘¡ evaluate - returnByValue ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ / é…åˆ—"
+    PrintSection "‡A evaluate - returnByValue ƒIƒuƒWƒFƒNƒg / ”z—ñ"
 
     Dim o As Object, a As Object
 
@@ -191,91 +191,91 @@ Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPBrowser)
 
     Set o = br.jsEval("window.__JSEVAL_GLOBAL", returnByValue:=True, dbgMsg:=False)
     AssertEq "global.num", CDbl(o("num")), 7#
-    AssertEq "global.text", CStr(o("text")), "ã‚°ãƒ­ãƒ¼ãƒãƒ«æ–‡å­—åˆ—"
+    AssertEq "global.text", CStr(o("text")), "ƒOƒ[ƒoƒ‹•¶š—ñ"
 
-    br.jsEval "updateStatus('s-js02','â‘¡ å®Œäº† " & EOk() & " | obj / arr / global', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js02','‡A Š®—¹ " & EOk() & " | obj / arr / global', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¢ undefined / null
+' ‡B undefined / null
 '==============================================================================
 Private Sub Test03_Evaluate_undefined_null(br As CDPBrowser)
-    PrintSection "â‘¢ evaluate - undefined / null"
+    PrintSection "‡B evaluate - undefined / null"
 
     Dim v As Variant
 
     v = br.jsEval("void 0", returnByValue:=True, dbgMsg:=False)
     If IsEmpty(v) Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | undefined â†’ Empty"
+        Debug.Print "  " & EOk() & " PASS | undefined ¨ Empty"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | undefined æœŸå¾… Empty å®Ÿéš›: " & TypeName(v) & " " & VarType(v)
+        Debug.Print "  FAIL | undefined Šú‘Ò Empty ÀÛ: " & TypeName(v) & " " & VarType(v)
     End If
 
     v = br.jsEval("null", returnByValue:=True, dbgMsg:=False)
     If IsNull(v) Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | null â†’ Null"
+        Debug.Print "  " & EOk() & " PASS | null ¨ Null"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | null æœŸå¾… Null"
+        Debug.Print "  FAIL | null Šú‘Ò Null"
     End If
 
-    br.jsEval "updateStatus('s-js03','â‘¢ å®Œäº† " & EOk() & " | Empty / Null', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js03','‡B Š®—¹ " & EOk() & " | Empty / Null', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘£ Unicodeï¼ˆæ—¥æœ¬èªï¼‰
+' ‡C Unicodei“ú–{Œêj
 '==============================================================================
 Private Sub Test04_Evaluate_unicode(br As CDPBrowser)
-    PrintSection "â‘£ evaluate - Unicode"
+    PrintSection "‡C evaluate - Unicode"
 
     Dim v As Variant
-    v = br.jsEval("'" & "æ—¥æœ¬èª_VBAé€£çµ" & "'", dbgMsg:=False)
-    AssertEq "æ—¥æœ¬èªãƒªãƒ†ãƒ©ãƒ«", CStr(v), "æ—¥æœ¬èª_VBAé€£çµ"
+    v = br.jsEval("'" & "“ú–{Œê_VBA˜AŒ‹" & "'", dbgMsg:=False)
+    AssertEq "“ú–{ŒêƒŠƒeƒ‰ƒ‹", CStr(v), "“ú–{Œê_VBA˜AŒ‹"
 
-    br.jsEval "updateStatus('s-js04','â‘£ å®Œäº† " & EOk() & " | æ—¥æœ¬èªãƒªãƒ†ãƒ©ãƒ«', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js04','‡C Š®—¹ " & EOk() & " | “ú–{ŒêƒŠƒeƒ‰ƒ‹', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¤ awaitPromise
+' ‡D awaitPromise
 '==============================================================================
 Private Sub Test05_Evaluate_promise_br(br As CDPBrowser)
-    PrintSection "â‘¤ evaluate - awaitPromise"
+    PrintSection "‡D evaluate - awaitPromise"
 
     Dim v As Variant
     v = br.jsEval("Promise.resolve(123)", awaitPromise:=True, returnByValue:=True, dbgMsg:=False)
     AssertEq "Promise.resolve(123)", CDbl(v), 123#
 
-    br.jsEval "updateStatus('s-js05','â‘¤ å®Œäº† " & EOk() & " | Promise.resolve(123)', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js05','‡D Š®—¹ " & EOk() & " | Promise.resolve(123)', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¥ objectId å–å¾—ï¼ˆreturnByValue:=Falseï¼‰
+' ‡E objectId æ“¾ireturnByValue:=Falsej
 '==============================================================================
 Private Sub Test06_callFunctionOn_get_objectId(br As CDPBrowser)
-    PrintSection "â‘¥ objectId å–å¾—"
+    PrintSection "‡E objectId æ“¾"
 
     Dim oid As Variant
     oid = br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False)
 
     If VarType(oid) = vbString And Len(CStr(oid)) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | objectId æ–‡å­—åˆ—å–å¾— (å…ˆé ­æ•°æ–‡å­—): " & Left$(CStr(oid), 24) & "..."
+        Debug.Print "  " & EOk() & " PASS | objectId •¶š—ñæ“¾ (æ“ª”•¶š): " & Left$(CStr(oid), 24) & "..."
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | objectId ãŒå–å¾—ã§ãã¾ã›ã‚“"
+        Debug.Print "  FAIL | objectId ‚ªæ“¾‚Å‚«‚Ü‚¹‚ñ"
     End If
 
-    br.jsEval "updateStatus('s-js06','â‘¥ å®Œäº† " & EOk() & " | objectId æ–‡å­—åˆ—å–å¾—', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js06','‡E Š®—¹ " & EOk() & " | objectId •¶š—ñæ“¾', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¦ callFunctionOn - å¼•æ•°ãªã—ãƒ»this
+' ‡F callFunctionOn - ˆø”‚È‚µEthis
 '==============================================================================
 Private Sub Test07_callFunctionOn_no_args(br As CDPBrowser)
-    PrintSection "â‘¦ callFunctionOn - å¼•æ•°ãªã—"
+    PrintSection "‡F callFunctionOn - ˆø”‚È‚µ"
 
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
@@ -287,14 +287,14 @@ Private Sub Test07_callFunctionOn_no_args(br As CDPBrowser)
     v = br.jsEval("function(){ return this.dataset.tag }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
     AssertEq "dataset.tag", CStr(v), "jseval-data"
 
-    br.jsEval "updateStatus('s-js07','â‘¦ å®Œäº† " & EOk() & " | this.id / dataset', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js07','‡F Š®—¹ " & EOk() & " | this.id / dataset', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘§ å¤šå¼•æ•°ï¼ˆ10å€‹ï¼‰
+' ‡G ‘½ˆø”i10ŒÂj
 '==============================================================================
 Private Sub Test08_callFunctionOn_many_args(br As CDPBrowser)
-    PrintSection "â‘§ callFunctionOn - å¤šå¼•æ•°"
+    PrintSection "‡G callFunctionOn - ‘½ˆø”"
 
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
@@ -307,108 +307,108 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPBrowser)
 
     Dim v As Variant
     v = br.jsEval("function(a,b,c,d,e,f,g,h,i,j){ return a+b+c+d+e+f+g+h+i+j }", objectId:=oid, objectArguments:=args, returnByValue:=True, dbgMsg:=False)
-    AssertEq "1..10 ã®å’Œ", CDbl(v), 55#
+    AssertEq "1..10 ‚Ì˜a", CDbl(v), 55#
 
-    br.jsEval "updateStatus('s-js08','â‘§ å®Œäº† " & EOk() & " | 10 å¼•æ•° â†’ å’Œ 55', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js08','‡G Š®—¹ " & EOk() & " | 10 ˆø” ¨ ˜a 55', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¨ ã‚·ãƒ³ã‚°ãƒ«ã‚¯ã‚©ãƒ¼ãƒˆã‚’å«ã‚€æ–‡å­—åˆ—ï¼ˆobjectArgumentsï¼‰
+' ‡H ƒVƒ“ƒOƒ‹ƒNƒH[ƒg‚ğŠÜ‚Ş•¶š—ñiobjectArgumentsj
 '==============================================================================
 Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPBrowser)
-    PrintSection "â‘¨ callFunctionOn - ã‚¢ãƒã‚¹ãƒˆãƒ­ãƒ•ã‚£æ–‡å­—åˆ—"
+    PrintSection "‡H callFunctionOn - ƒAƒ|ƒXƒgƒƒtƒB•¶š—ñ"
 
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
 
     Dim args As New Collection
-    args.Add ArgVal("It's " & "OK " & "æ—¥æœ¬èª")
+    args.Add ArgVal("It's " & "OK " & "“ú–{Œê")
 
     Dim v As Variant
     v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=args, returnByValue:=True, dbgMsg:=False)
-    AssertEq "ã‚¨ã‚³ãƒ¼", CStr(v), "ECHO:It's OK æ—¥æœ¬èª"
+    AssertEq "ƒGƒR[", CStr(v), "ECHO:It's OK “ú–{Œê"
 
-    br.jsEval "updateStatus('s-js09','â‘¨ å®Œäº† " & EOk() & " | objectArgumentsï¼ˆå¼•ç”¨ç¬¦å«ã‚€ï¼‰ã‚¨ã‚³ãƒ¼ OK', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js09','‡H Š®—¹ " & EOk() & " | objectArgumentsiˆø—p•„ŠÜ‚ŞjƒGƒR[ OK', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘© å­è¦ç´ å‚ç…§ï¼ˆãƒã‚¹ãƒˆï¼‰
+' ‡I q—v‘fQÆiƒlƒXƒgj
 '==============================================================================
 Private Sub Test10_callFunctionOn_nested(br As CDPBrowser)
-    PrintSection "â‘© callFunctionOn - å­è¦ç´ "
+    PrintSection "‡I callFunctionOn - q—v‘f"
 
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
 
     Dim v As Variant
     v = br.jsEval("function(){ return this.querySelector('#jseval-target').textContent }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
-    AssertNotEmpty "å­ span.textContent", CStr(v)
+    AssertNotEmpty "q span.textContent", CStr(v)
 
     v = br.jsEval("function(){ return this.querySelector('#jseval-input').value }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
-    AssertEq "input.value åˆæœŸ", CStr(v), "åˆæœŸå€¤"
+    AssertEq "input.value ‰Šú", CStr(v), "‰Šú’l"
 
-    br.jsEval "updateStatus('s-js10','â‘© å®Œäº† " & EOk() & " | å­ span / input', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js10','‡I Š®—¹ " & EOk() & " | q span / input', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘ª JS ä¾‹å¤–ï¼ˆStopException çœç•¥ = False â†’ CVErr ã¾ãŸã¯ Error å‹ï¼‰
+' ‡J JS —áŠOiStopException È—ª = False ¨ CVErr ‚Ü‚½‚Í Error Œ^j
 '==============================================================================
 Private Sub Test11_exception_stopException_off(br As CDPBrowser)
-    PrintSection "â‘ª ä¾‹å¤– - StopException=False"
+    PrintSection "‡J —áŠO - StopException=False"
 
     Dim r As Variant
     r = br.jsEval("(function(){ throw new Error('jsEval-test'); })()", StopException:=False, dbgMsg:=False)
 
     If IsError(r) Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | ä¾‹å¤–æ™‚ IsError(CVErr)"
+        Debug.Print "  " & EOk() & " PASS | —áŠO IsError(CVErr)"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | ä¾‹å¤–æ™‚ã« Error å‹ã§ãªã„: " & TypeName(r)
+        Debug.Print "  FAIL | —áŠO‚É Error Œ^‚Å‚È‚¢: " & TypeName(r)
     End If
 
-    br.jsEval "updateStatus('s-js11','â‘ª å®Œäº† " & EOk() & " | ä¾‹å¤– â†’ IsError', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js11','‡J Š®—¹ " & EOk() & " | —áŠO ¨ IsError', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘« IFEXCEPTION
+' ‡K IFEXCEPTION
 '==============================================================================
 Private Sub Test12_exception_IFEXCEPTION(br As CDPBrowser)
-    PrintSection "â‘« ä¾‹å¤– - IFEXCEPTION"
+    PrintSection "‡K —áŠO - IFEXCEPTION"
 
     Dim r As Variant
     r = br.jsEval("(function(){ throw new Error('x'); })()", StopException:=False, IFEXCEPTION:="fallback-ok", dbgMsg:=False)
 
-    AssertEq "IFEXCEPTION æ–‡å­—åˆ—", CStr(r), "fallback-ok"
+    AssertEq "IFEXCEPTION •¶š—ñ", CStr(r), "fallback-ok"
 
-    br.jsEval "updateStatus('s-js12','â‘« å®Œäº† " & EOk() & " | IFEXCEPTION ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js12','‡K Š®—¹ " & EOk() & " | IFEXCEPTION ƒtƒH[ƒ‹ƒoƒbƒN', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¬ é•·ã„æ–‡å­—åˆ—ï¼ˆè¿”å´å€¤ã‚µã‚¤ã‚ºï¼‰
+' ‡L ’·‚¢•¶š—ñi•Ô‹p’lƒTƒCƒYj
 '==============================================================================
 Private Sub Test13_long_string(br As CDPBrowser)
-    PrintSection "â‘¬ é•·ã„æ–‡å­—åˆ— returnByValue"
+    PrintSection "‡L ’·‚¢•¶š—ñ returnByValue"
 
     Dim v As Variant
     v = br.jsEval("'x'.repeat(2500)", returnByValue:=True, dbgMsg:=False)
 
     If Len(CStr(v)) = 2500 Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | é•·ã• 2500"
+        Debug.Print "  " & EOk() & " PASS | ’·‚³ 2500"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | é•·ã•æœŸå¾… 2500 å®Ÿéš› " & Len(CStr(v))
+        Debug.Print "  FAIL | ’·‚³Šú‘Ò 2500 ÀÛ " & Len(CStr(v))
     End If
 
-    br.jsEval "updateStatus('s-js13','â‘¬ å®Œäº† " & EOk() & " | é•·ã• 2500 æ–‡å­—', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js13','‡L Š®—¹ " & EOk() & " | ’·‚³ 2500 •¶š', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘­ contextId ? Page.createIsolatedWorld ã® executionContextId ã§ evaluate
+' ‡M contextId ? Page.createIsolatedWorld ‚Ì executionContextId ‚Å evaluate
 '==============================================================================
 Private Sub Test14_contextId_isolatedWorld(br As CDPBrowser)
-    PrintSection "â‘­ contextId ? createIsolatedWorld"
+    PrintSection "‡M contextId ? createIsolatedWorld"
 
     On Error GoTo Test14_Err
 
@@ -432,33 +432,33 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPBrowser)
 
     Dim v As Variant
     v = br.jsEval("window.__JSEVAL_ISO = 'ctx-ok'; window.__JSEVAL_ISO", contextId:=execCtx, returnByValue:=True, dbgMsg:=False)
-    AssertEq "isolated ã§ä»£å…¥â†’å–å¾—", CStr(v), "ctx-ok"
+    AssertEq "isolated ‚Å‘ã“ü¨æ“¾", CStr(v), "ctx-ok"
 
     Dim vMain As Variant
     vMain = br.jsEval("window.__JSEVAL_ISO", returnByValue:=True, dbgMsg:=False)
     If IsEmpty(vMain) Or VarType(vMain) = vbNull Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | ãƒ¡ã‚¤ãƒ³ context ã§ã¯ __JSEVAL_ISO æœªå®šç¾©ï¼ˆEmpty/Nullï¼‰"
+        Debug.Print "  " & EOk() & " PASS | ƒƒCƒ“ context ‚Å‚Í __JSEVAL_ISO –¢’è‹`iEmpty/Nullj"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | ãƒ¡ã‚¤ãƒ³ context ã«éš”é›¢å€¤ãŒè¦‹ãˆã¦ã„ã‚‹: " & CStr(vMain)
+        Debug.Print "  FAIL | ƒƒCƒ“ context ‚ÉŠu—£’l‚ªŒ©‚¦‚Ä‚¢‚é: " & CStr(vMain)
     End If
 
-    br.jsEval "updateStatus('s-js14','â‘­ å®Œäº† " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js14','‡M Š®—¹ " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", dbgMsg:=False
     Exit Sub
 
 Test14_Err:
     failCount = failCount + 1
-    Debug.Print "  FAIL | â‘­ " & Err.Description
+    Debug.Print "  FAIL | ‡M " & Err.Description
     On Error Resume Next
-    br.jsEval "updateStatus('s-js14','â‘­ FAIL', false)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js14','‡M FAIL', false)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘® serializationOptions ? deepï¼ˆdeepSerializedValue å„ªå…ˆï¼‰
+' ‡N serializationOptions ? deepideepSerializedValue —Dæj
 '==============================================================================
 Private Sub Test15_serializationOptions_deep(br As CDPBrowser)
-    PrintSection "â‘® serializationOptions ? deep"
+    PrintSection "‡N serializationOptions ? deep"
 
     Dim serOpts As New Scripting.Dictionary
     serOpts.Add "serialization", "deep"
@@ -469,7 +469,7 @@ Private Sub Test15_serializationOptions_deep(br As CDPBrowser)
 
     If resObj Is Nothing Then
         failCount = failCount + 1
-        Debug.Print "  FAIL | â‘® çµæœãŒ Nothing"
+        Debug.Print "  FAIL | ‡N Œ‹‰Ê‚ª Nothing"
     Else
         On Error GoTo Test15_Err
         Dim nest As Object, deep As Object
@@ -480,26 +480,26 @@ Private Sub Test15_serializationOptions_deep(br As CDPBrowser)
         leafVal = DsvGetPropertyNumber(deep, "leaf")
         If nestMid = 2# And leafVal = 3# Then
             passCount = passCount + 1
-            Debug.Print "  " & EOk() & " PASS | â‘® deep ãƒã‚¹ãƒˆ nest.mid=2 leaf=3 Type=" & TypeName(resObj)
+            Debug.Print "  " & EOk() & " PASS | ‡N deep ƒlƒXƒg nest.mid=2 leaf=3 Type=" & TypeName(resObj)
         Else
             failCount = failCount + 1
-            Debug.Print "  FAIL | â‘® ãƒã‚¹ãƒˆå€¤ nest.mid=" & nestMid & " leaf=" & leafVal
+            Debug.Print "  FAIL | ‡N ƒlƒXƒg’l nest.mid=" & nestMid & " leaf=" & leafVal
         End If
         GoTo Test15_Done
 Test15_Err:
         failCount = failCount + 1
-        Debug.Print "  FAIL | â‘® " & Err.Description
+        Debug.Print "  FAIL | ‡N " & Err.Description
 Test15_Done:
     End If
 
-    br.jsEval "updateStatus('s-js15','â‘® å®Œäº† " & EOk() & " | serialization=deep', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js15','‡N Š®—¹ " & EOk() & " | serialization=deep', true)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' â‘¯ RunAsyncCDP ? alertï¼ˆDemo_CDP.TestAlert ã¨åŒç³»ï¼‰
+' ‡O RunAsyncCDP ? alertiDemo_CDP.TestAlert ‚Æ“¯Œnj
 '==============================================================================
 Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
-    PrintSection "â‘¯ RunAsyncCDP ? alert"
+    PrintSection "‡O RunAsyncCDP ? alert"
 
     On Error GoTo Test16_Err
 
@@ -510,8 +510,8 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
 
     If VarType(oid) <> vbString Or Len(oid) = 0 Then
         failCount = failCount + 1
-        Debug.Print "  FAIL | â‘¯ ãƒœã‚¿ãƒ³ objectId å–å¾—å¤±æ•—"
-        br.jsEval "updateStatus('s-js16','â‘¯ FAIL ãƒœã‚¿ãƒ³ãªã—', false)", dbgMsg:=False
+        Debug.Print "  FAIL | ‡O ƒ{ƒ^ƒ“ objectId æ“¾¸”s"
+        br.jsEval "updateStatus('s-js16','‡O FAIL ƒ{ƒ^ƒ“‚È‚µ', false)", dbgMsg:=False
         Exit Sub
     End If
 
@@ -520,10 +520,10 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
 
     If IsNumeric(asyncCmdId) And CLng(asyncCmdId) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | RunAsyncCDP æˆ»ã‚Šå€¤ ID=" & CStr(asyncCmdId)
+        Debug.Print "  " & EOk() & " PASS | RunAsyncCDP –ß‚è’l ID=" & CStr(asyncCmdId)
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | RunAsyncCDP æˆ»ã‚Šå€¤: " & CStr(asyncCmdId) & " VarType=" & VarType(asyncCmdId)
+        Debug.Print "  FAIL | RunAsyncCDP –ß‚è’l: " & CStr(asyncCmdId) & " VarType=" & VarType(asyncCmdId)
     End If
 
     Set br.BrowserEvents = New Dictionary
@@ -542,10 +542,10 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
 
     If found Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | " & evName & " ã‚’æ¤œçŸ¥"
+        Debug.Print "  " & EOk() & " PASS | " & evName & " ‚ğŒŸ’m"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã‚¤ãƒ™ãƒ³ãƒˆãŒã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ"
+        Debug.Print "  FAIL | ƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ªƒ^ƒCƒ€ƒAƒEƒg"
     End If
 
     Dim pDlg As New Scripting.Dictionary
@@ -554,43 +554,43 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
 
     Set br.BrowserEvents = Nothing
 
-    br.jsEval "updateStatus('s-js16','â‘¯ å®Œäº† " & EOk() & " | Async+alert+handleDialog', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js16','‡O Š®—¹ " & EOk() & " | Async+alert+handleDialog', true)", dbgMsg:=False
     Exit Sub
 
 Test16_Err:
     failCount = failCount + 1
-    Debug.Print "  FAIL | â‘¯ " & Err.Description
+    Debug.Print "  FAIL | ‡O " & Err.Description
     On Error Resume Next
     Set br.BrowserEvents = Nothing
-    br.jsEval "updateStatus('s-js16','â‘¯ FAIL', false)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js16','‡O FAIL', false)", dbgMsg:=False
 End Sub
 
 '==============================================================================
-' ãƒ˜ãƒ«ãƒ‘ãƒ¼
+' ƒwƒ‹ƒp[
 '==============================================================================
 Private Sub AssertEq(Name As String, actual As Variant, expected As Variant)
     If VarType(actual) = vbDouble Or VarType(expected) = vbDouble Then
         If CDbl(actual) = CDbl(expected) Then
             passCount = passCount + 1
-            Debug.Print "  " & EOk() & " PASS | " & Name & " â†’ " & CStr(actual)
+            Debug.Print "  " & EOk() & " PASS | " & Name & " ¨ " & CStr(actual)
             Exit Sub
         End If
     ElseIf CStr(actual) = CStr(expected) Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | " & Name & " â†’ """ & CStr(actual) & """"
+        Debug.Print "  " & EOk() & " PASS | " & Name & " ¨ """ & CStr(actual) & """"
         Exit Sub
     End If
     failCount = failCount + 1
-    Debug.Print "  FAIL | " & Name & " æœŸå¾…:""" & CStr(expected) & """ å®Ÿéš›:""" & CStr(actual) & """"
+    Debug.Print "  FAIL | " & Name & " Šú‘Ò:""" & CStr(expected) & """ ÀÛ:""" & CStr(actual) & """"
 End Sub
 
 Private Sub AssertNotEmpty(Name As String, actual As String)
     If Len(Trim(actual)) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  " & EOk() & " PASS | " & Name & " â†’ NOT EMPTY"
+        Debug.Print "  " & EOk() & " PASS | " & Name & " ¨ NOT EMPTY"
     Else
         failCount = failCount + 1
-        Debug.Print "  FAIL | " & Name & " ãŒç©º"
+        Debug.Print "  FAIL | " & Name & " ‚ª‹ó"
     End If
 End Sub
 
@@ -603,5 +603,5 @@ End Sub
 
 Private Sub PrintSection(msg As String)
     Debug.Print ""
-    Debug.Print "  â”€â”€ " & msg & " â”€â”€"
+    Debug.Print "  „Ÿ„Ÿ " & msg & " „Ÿ„Ÿ"
 End Sub

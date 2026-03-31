@@ -2,33 +2,33 @@ Attribute VB_Name = "Test_CDPElement"
 Option Explicit
 
 '==============================================================================
-' CDPElement å…¨æ©Ÿèƒ½ãƒ†ã‚¹ãƒˆãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«
-' ãƒ»ãƒ†ã‚¹ãƒˆç”¨HTMLãƒ•ã‚¡ã‚¤ãƒ«: ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html
-' ãƒ»ãƒ†ã‚¹ãƒˆå®Ÿè¡Œå‰ã« CDPBrowser ã‚’é–‹ã„ã¦å½“è©²ãƒšãƒ¼ã‚¸ãŒè¡¨ç¤ºã•ã‚Œã¦ã„ã‚‹çŠ¶æ…‹ã«ã—ã¦ãã ã•ã„
+' CDPElement ‘S‹@”\ƒeƒXƒgƒ‚ƒWƒ…[ƒ‹
+' EƒeƒXƒg—pHTMLƒtƒ@ƒCƒ‹: ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html
+' EƒeƒXƒgÀs‘O‚É CDPBrowser ‚ğŠJ‚¢‚Ä“–ŠYƒy[ƒW‚ª•\¦‚³‚ê‚Ä‚¢‚éó‘Ô‚É‚µ‚Ä‚­‚¾‚³‚¢
 '==============================================================================
 
 
-' â”€â”€ ãƒ†ã‚¹ãƒˆçµæœã‚«ã‚¦ãƒ³ã‚¿
+' „Ÿ„Ÿ ƒeƒXƒgŒ‹‰ÊƒJƒEƒ“ƒ^
 Private passCount As Long
 Private failCount As Long
 Private results As Collection
 
-'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹
-'â€»StarterWebScrapingKitã®ãƒ«ãƒ¼ãƒˆãƒ•ã‚©ãƒ«ãƒ€ ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„
+'ƒ[ƒNƒXƒy[ƒXƒpƒX
+'¦StarterWebScrapingKit‚Ìƒ‹[ƒgƒtƒHƒ‹ƒ_ ‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢
 Private Const WORKSPACE_PATH As String = ""
 
-' ãƒ–ãƒ©ã‚¦ã‚¶ updateStatus ç­‰ã¸æ¸¡ã™ãƒã‚§ãƒƒã‚¯ï¼ˆãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ä¿å­˜ã§çµµæ–‡å­—ãŒåŒ–ã‘ã‚‹å ´åˆã®ä»£æ›¿ãƒ»U+2705ï¼‰
+' ƒuƒ‰ƒEƒU updateStatus “™‚Ö“n‚·ƒ`ƒFƒbƒNiƒ‚ƒWƒ…[ƒ‹•Û‘¶‚ÅŠG•¶š‚ª‰»‚¯‚éê‡‚Ì‘ã‘ÖEU+2705j
 Private Function ECheck() As String
     ECheck = WorksheetFunction.Unichar(9989)
 End Function
 
 '==============================================================================
-' Main: å…¨ãƒ†ã‚¹ãƒˆå®Ÿè¡Œ
+' Main: ‘SƒeƒXƒgÀs
 '==============================================================================
 Public Sub RunAll_CDPElement_Tests()
-    Dim br As CDPBrowser: Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
+    Dim br As CDPBrowser: Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
 
-    '--- ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹• & HTMLãƒšãƒ¼ã‚¸ã¸ãƒŠãƒ“ã‚²ãƒ¼ãƒˆ ---
+    '--- ƒuƒ‰ƒEƒU‹N“® & HTMLƒy[ƒW‚ÖƒiƒrƒQ[ƒg ---
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")
     br.wait
 
@@ -36,9 +36,9 @@ Public Sub RunAll_CDPElement_Tests()
     failCount = 0
     Set results = New Collection
 
-    PrintHeader "CDPElement å…¨æ©Ÿèƒ½ãƒ†ã‚¹ãƒˆ é–‹å§‹"
+    PrintHeader "CDPElement ‘S‹@”\ƒeƒXƒg ŠJn"
 
-    ' â”€â”€â”€ å„ãƒ†ã‚¹ãƒˆå®Ÿè¡Œ â”€â”€â”€
+    ' „Ÿ„Ÿ„Ÿ ŠeƒeƒXƒgÀs „Ÿ„Ÿ„Ÿ
     Test01_Value br
     Test02_innerText br
     Test03_innerHTML br
@@ -54,46 +54,46 @@ Public Sub RunAll_CDPElement_Tests()
     Test13_isExist_onExist br
     Test14_getIFrame br
 
-    '--- æœ€çµ‚ã‚µãƒãƒªãƒ¼ ---
-    PrintHeader "ãƒ†ã‚¹ãƒˆå®Œäº†: PASS=" & passCount & " / FAIL=" & failCount & " / åˆè¨ˆ=" & (passCount + failCount)
+    '--- ÅIƒTƒ}ƒŠ[ ---
+    PrintHeader "ƒeƒXƒgŠ®—¹: PASS=" & passCount & " / FAIL=" & failCount & " / ‡Œv=" & (passCount + failCount)
 
     br.quit
 End Sub
 
 '==============================================================================
-' â‘  value GET/LET / sendString / clearValue
+' ‡@ value GET/LET / sendString / clearValue
 '==============================================================================
 Private Sub Test01_Value(br As CDPBrowser)
-    PrintSection "â‘  value / sendString / clearValue"
+    PrintSection "‡@ value / sendString / clearValue"
     Dim el As CDPElement
 
     ' --- value LET ---
     Set el = br.getElementByID("testInput")
-    el.value = "VBAã‹ã‚‰è¨­å®šã—ãŸå€¤"
+    el.value = "VBA‚©‚çİ’è‚µ‚½’l"
     Dim got As String: got = el.value
-    AssertEq "value LETâ†’GET", got, "VBAã‹ã‚‰è¨­å®šã—ãŸå€¤"
+    AssertEq "value LET¨GET", got, "VBA‚©‚çİ’è‚µ‚½’l"
     br.jsEval "updateStatus('s-value','value LET: ' + document.getElementById('testInput').value, true)"
 
     ' --- clearValue ---
     el.clearValue
-    AssertEq "clearValueå¾Œã®value", el.value, ""
-    br.jsEval "updateStatus('s-value','clearValueå¾Œ: ' + document.getElementById('testInput').value, true)"
+    AssertEq "clearValueŒã‚Ìvalue", el.value, ""
+    br.jsEval "updateStatus('s-value','clearValueŒã: ' + document.getElementById('testInput').value, true)"
 
     ' --- sendString ---
-    el.sendString "sendStringã§å…¥åŠ›"
-    AssertEq "sendStringå¾Œã®value", el.value, "sendStringã§å…¥åŠ›"
+    el.sendString "sendString‚Å“ü—Í"
+    AssertEq "sendStringŒã‚Ìvalue", el.value, "sendString‚Å“ü—Í"
     br.jsEval "updateStatus('s-value','sendString: ' + document.getElementById('testInput').value, true)"
 
     ' --- varPath / varResult (Basic Properties) ---
-    AssertNotEmpty "varPath ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£å–å¾—", el.varPath
-    AssertEq "varResult ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£å–å¾—(vbString=8)", CStr(el.varResult), "8"
+    AssertNotEmpty "varPath ƒvƒƒpƒeƒBæ“¾", el.varPath
+    AssertEq "varResult ƒvƒƒpƒeƒBæ“¾(vbString=8)", CStr(el.varResult), "8"
 End Sub
 
 '==============================================================================
-' â‘¡ innerText GET/LET
+' ‡A innerText GET/LET
 '==============================================================================
 Private Sub Test02_innerText(br As CDPBrowser)
-    PrintSection "â‘¡ innerText GET/LET"
+    PrintSection "‡A innerText GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testInnerText")
 
@@ -101,17 +101,17 @@ Private Sub Test02_innerText(br As CDPBrowser)
     Dim orig As String: orig = el.innerText
     AssertNotEmpty "innerText GET", orig
 
-    ' LETï¼ˆã‚¯ã‚©ãƒ¼ãƒˆ/ç‰¹æ®Šæ–‡å­—å«ã‚€ï¼‰
-    el.innerText = "VBAã‹ã‚‰è¨­å®š: ã€Œå¼•ç”¨ç¬¦ã€ã¨ 'ã‚¢ãƒ' ãƒ†ã‚¹ãƒˆ & è¨˜å·"
-    AssertEq "innerText LETâ†’GET", el.innerText, "VBAã‹ã‚‰è¨­å®š: ã€Œå¼•ç”¨ç¬¦ã€ã¨ 'ã‚¢ãƒ' ãƒ†ã‚¹ãƒˆ & è¨˜å·"
+    ' LETiƒNƒH[ƒg/“Áê•¶šŠÜ‚Şj
+    el.innerText = "VBA‚©‚çİ’è: uˆø—p•„v‚Æ 'ƒAƒ|' ƒeƒXƒg & ‹L†"
+    AssertEq "innerText LET¨GET", el.innerText, "VBA‚©‚çİ’è: uˆø—p•„v‚Æ 'ƒAƒ|' ƒeƒXƒg & ‹L†"
     br.jsEval "updateStatus('s-innertext', document.getElementById('testInnerText').innerText, true)"
 End Sub
 
 '==============================================================================
-' â‘¢ innerHTML GET/LET
+' ‡B innerHTML GET/LET
 '==============================================================================
 Private Sub Test03_innerHTML(br As CDPBrowser)
-    PrintSection "â‘¢ innerHTML GET/LET"
+    PrintSection "‡B innerHTML GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testInnerHTML")
 
@@ -120,16 +120,16 @@ Private Sub Test03_innerHTML(br As CDPBrowser)
     AssertNotEmpty "innerHTML GET", orig
 
     ' LET
-    el.innerHTML = "<span style='color:#6c63ff'>" & ECheck() & " VBAã‹ã‚‰è¨­å®šã—ãŸ innerHTML</span>"
-    AssertContains "innerHTML LETâ†’GET", el.innerHTML, "VBAã‹ã‚‰è¨­å®š"
-    br.jsEval "updateStatus('s-innerhtml', 'innerHTML æ›´æ–°æ¸ˆã¿ " & ECheck() & "', true)"
+    el.innerHTML = "<span style='color:#6c63ff'>" & ECheck() & " VBA‚©‚çİ’è‚µ‚½ innerHTML</span>"
+    AssertContains "innerHTML LET¨GET", el.innerHTML, "VBA‚©‚çİ’è"
+    br.jsEval "updateStatus('s-innerhtml', 'innerHTML XVÏ‚İ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘£ checked GET/LET
+' ‡C checked GET/LET
 '==============================================================================
 Private Sub Test04_checked(br As CDPBrowser)
-    PrintSection "â‘£ checked GET/LET"
+    PrintSection "‡C checked GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testCheckbox")
 
@@ -140,60 +140,60 @@ Private Sub Test04_checked(br As CDPBrowser)
     ' LET = False
     el.checked = False
     AssertEq "checked LET=False", CStr(el.checked), "False"
-    br.jsEval "updateStatus('s-checked','checked ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-checked','checked ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘¤ selected / setSelection
+' ‡D selected / setSelection
 '==============================================================================
 Private Sub Test05_selected(br As CDPBrowser)
-    PrintSection "â‘¤ selected / setSelection"
+    PrintSection "‡D selected / setSelection"
     Dim el As CDPElement
     Set el = br.getElementByID("testSelect")
 
     ' selected LET = index
     el.selected = "1"
     Dim selVal As String: selVal = el.selected
-    AssertNotEmpty "selected LET=1 â†’ GET", selVal
+    AssertNotEmpty "selected LET=1 ¨ GET", selVal
     br.jsEval "updateStatus('s-selected','selected=' & document.getElementById('testSelect').selectedIndex, true)"
 
     ' setSelection (option value)
     el.setSelection "opt-c"
     selVal = el.selected
-    AssertNotEmpty "setSelection(opt-c) â†’ GET", selVal
-    br.jsEval "updateStatus('s-selected','setSelectionå¾Œ idx=' & document.getElementById('testSelect').selectedIndex, true)"
+    AssertNotEmpty "setSelection(opt-c) ¨ GET", selVal
+    br.jsEval "updateStatus('s-selected','setSelectionŒã idx=' & document.getElementById('testSelect').selectedIndex, true)"
 End Sub
 
 '==============================================================================
-' â‘¥ click() / fireEvent()
+' ‡E click() / fireEvent()
 '==============================================================================
 Private Sub Test06_click(br As CDPBrowser)
-    PrintSection "â‘¥ click / fireEvent"
+    PrintSection "‡E click / fireEvent"
     Dim el As CDPElement
     Set el = br.getElementByID("testButton")
 
     ' click
     el.click isLoading
-    AssertPass "click() å®Ÿè¡Œ"
+    AssertPass "click() Às"
 
     ' fireEvent
     el.fireEvent "click"
-    AssertPass "fireEvent('click') å®Ÿè¡Œ"
+    AssertPass "fireEvent('click') Às"
 
     ' sendClick
     Dim sendClickEl As CDPElement
     Set sendClickEl = br.getElementByID("testSendClickBtn")
     sendClickEl.sendClick
-    AssertPass "sendClick() å®Ÿè¡Œ"
+    AssertPass "sendClick() Às"
 
-    br.jsEval "updateStatus('s-click','click/fireEvent/sendClick ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-click','click/fireEvent/sendClick ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘¦ getAttribute / setAttribute
+' ‡F getAttribute / setAttribute
 '==============================================================================
 Private Sub Test07_Attribute(br As CDPBrowser)
-    PrintSection "â‘¦ getAttribute / setAttribute"
+    PrintSection "‡F getAttribute / setAttribute"
     Dim el As CDPElement
     Set el = br.getElementByID("testAttr")
 
@@ -202,69 +202,69 @@ Private Sub Test07_Attribute(br As CDPBrowser)
     AssertEq "getAttribute(data-custom)", attrVal, "original-attr"
 
     ' setAttribute
-    el.setAttribute "data-custom", "VBAã‹ã‚‰å¤‰æ›´ã—ãŸå±æ€§å€¤"
-    AssertEq "setAttributeâ†’getAttribute", el.getAttribute("data-custom"), "VBAã‹ã‚‰å¤‰æ›´ã—ãŸå±æ€§å€¤"
+    el.setAttribute "data-custom", "VBA‚©‚ç•ÏX‚µ‚½‘®«’l"
+    AssertEq "setAttribute¨getAttribute", el.getAttribute("data-custom"), "VBA‚©‚ç•ÏX‚µ‚½‘®«’l"
     br.jsEval "updateStatus('s-attr', document.getElementById('testAttr').dataset.custom, true)"
 End Sub
 
 '==============================================================================
-' â‘§ focus / selectText
+' ‡G focus / selectText
 '==============================================================================
 Private Sub Test08_focus_selectText(br As CDPBrowser)
-    PrintSection "â‘§ focus / selectText"
+    PrintSection "‡G focus / selectText"
 
     ' focus
     Dim el As CDPElement
     Set el = br.getElementByID("testFocusInput")
     el.focus
-    AssertPass "focus() å®Ÿè¡Œ"
+    AssertPass "focus() Às"
 
     ' selectText
     Dim ta As CDPElement
     Set ta = br.getElementByID("testTextArea")
     ta.selectText
-    AssertPass "selectText() å®Ÿè¡Œ"
-    br.jsEval "updateStatus('s-focus','focus/selectText ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    AssertPass "selectText() Às"
+    br.jsEval "updateStatus('s-focus','focus/selectText ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘¨ sendKey
+' ‡H sendKey
 '==============================================================================
 Private Sub Test09_sendKey(br As CDPBrowser)
-    PrintSection "â‘¨ sendKey"
+    PrintSection "‡H sendKey"
 
-    ' Field A ã«ãƒ•ã‚©ãƒ¼ã‚«ã‚¹â†’ Tab ã§ Field B ã¸ç§»å‹•
+    ' Field A ‚ÉƒtƒH[ƒJƒX¨ Tab ‚Å Field B ‚ÖˆÚ“®
     Dim el1 As CDPElement
     Set el1 = br.getElementByID("keyInput1")
     el1.sendString "Field_A_Updated"
     el1.sendKey keyTab
-    AssertPass "sendKey(Tab) å®Ÿè¡Œ"
-    br.jsEval "updateStatus('s-sendkey','sendKey(Tab) ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    AssertPass "sendKey(Tab) Às"
+    br.jsEval "updateStatus('s-sendkey','sendKey(Tab) ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 
-    ' Field B ã§ Backspace 1å›
+    ' Field B ‚Å Backspace 1‰ñ
     Dim el2 As CDPElement
     Set el2 = br.getElementByID("keyInput2")
     el2.sendKey keyBackspace
-    AssertPass "sendKey(Backspace) å®Ÿè¡Œ"
+    AssertPass "sendKey(Backspace) Às"
 End Sub
 
 '==============================================================================
-' â‘© submit
+' ‡I submit
 '==============================================================================
 Private Sub Test10_submit(br As CDPBrowser)
-    PrintSection "â‘© submit"
+    PrintSection "‡I submit"
     Dim formEl As CDPElement
     Set formEl = br.getElementByID("testForm")
     formEl.submit isLoading
-    AssertPass "submit ãƒ¡ã‚½ãƒƒãƒ‰ å®Ÿè¡Œ (formè¦ç´ ã«å¯¾ã—ã¦)"
-    br.jsEval "updateStatus('s-submit','submit ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    AssertPass "submit ƒƒ\ƒbƒh Às (form—v‘f‚É‘Î‚µ‚Ä)"
+    br.jsEval "updateStatus('s-submit','submit ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘ª ãƒˆãƒ©ãƒãƒ¼ã‚µãƒ«: getParent / getNextSibling / getPrevSibling / getFirstChild
+' ‡J ƒgƒ‰ƒo[ƒTƒ‹: getParent / getNextSibling / getPrevSibling / getFirstChild
 '==============================================================================
 Private Sub Test11_Traversal(br As CDPBrowser)
-    PrintSection "â‘ª ãƒˆãƒ©ãƒãƒ¼ã‚µãƒ«"
+    PrintSection "‡J ƒgƒ‰ƒo[ƒTƒ‹"
 
     Dim child2 As CDPElement
     Set child2 = br.getElementByID("traversalChild2")
@@ -272,46 +272,46 @@ Private Sub Test11_Traversal(br As CDPBrowser)
     ' getParent
     Dim parent As CDPElement
     Set parent = child2.getParent()
-    AssertEq "getParent â†’ id", parent.getAttribute("id"), "traversalParent"
+    AssertEq "getParent ¨ id", parent.getAttribute("id"), "traversalParent"
 
     ' getNextSibling
     Dim nextEl As CDPElement
     Set nextEl = child2.getNextSibling()
-    AssertEq "getNextSibling â†’ id", nextEl.getAttribute("id"), "traversalChild3"
+    AssertEq "getNextSibling ¨ id", nextEl.getAttribute("id"), "traversalChild3"
 
     ' getPrevSibling
     Dim prevEl As CDPElement
     Set prevEl = child2.getPrevSibling()
-    AssertEq "getPrevSibling â†’ id", prevEl.getAttribute("id"), "traversalChild1"
+    AssertEq "getPrevSibling ¨ id", prevEl.getAttribute("id"), "traversalChild1"
 
-    ' getFirstChild (parentã‹ã‚‰)
+    ' getFirstChild (parent‚©‚ç)
     Dim firstEl As CDPElement
     Set firstEl = parent.getFirstChild()
-    AssertEq "getFirstChild â†’ id", firstEl.getAttribute("id"), "traversalChild1"
+    AssertEq "getFirstChild ¨ id", firstEl.getAttribute("id"), "traversalChild1"
 
-    br.jsEval "updateStatus('s-traversal','ãƒˆãƒ©ãƒãƒ¼ã‚µãƒ« ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-traversal','ƒgƒ‰ƒo[ƒTƒ‹ ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘« ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³: getChildren / getElementsByQuery / getElementsByXPath
+' ‡K ƒRƒŒƒNƒVƒ‡ƒ“: getChildren / getElementsByQuery / getElementsByXPath
 '==============================================================================
 Private Sub Test12_Collections(br As CDPBrowser)
-    PrintSection "â‘« ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³"
+    PrintSection "‡K ƒRƒŒƒNƒVƒ‡ƒ“"
     Dim ulEl As CDPElement
     Set ulEl = br.getElementByID("collection-list")
 
     ' getChildren
     Dim children As Collection
     Set children = ulEl.getChildren()
-    AssertEq "getChildren â†’ count", CStr(children.Count), "5"
+    AssertEq "getChildren ¨ count", CStr(children.Count), "5"
     AssertEq "getChildren(1) data-n", children(1).getAttribute("data-n"), "1"
     AssertEq "getChildren(5) data-n", children(5).getAttribute("data-n"), "5"
 
     ' getElementsByQuery (from CDPBrowser)
     Dim Items As Collection
     Set Items = br.getElementsByQuery(".list-item")
-    AssertEq "getElementsByQuery â†’ count", CStr(Items.Count), "5"
-    AssertEq "getElementsByQuery(3) ãƒ‡ãƒ¼ã‚¿", Items(3).getAttribute("data-n"), "3"
+    AssertEq "getElementsByQuery ¨ count", CStr(Items.Count), "5"
+    AssertEq "getElementsByQuery(3) ƒf[ƒ^", Items(3).getAttribute("data-n"), "3"
 
     ' getElementByXPath
     Dim xpEl As CDPElement
@@ -321,80 +321,80 @@ Private Sub Test12_Collections(br As CDPBrowser)
     ' getElementsByXPath
     Dim xpItems As Collection
     Set xpItems = br.getElementsByXPath("//li[contains(@class,'list-item')]")
-    AssertEq "getElementsByXPath â†’ count", CStr(xpItems.Count), "5"
+    AssertEq "getElementsByXPath ¨ count", CStr(xpItems.Count), "5"
 
-    ' CDPElementå†…éƒ¨ getElementByQuery
+    ' CDPElement“à•” getElementByQuery
     Dim li2 As CDPElement
     Set li2 = ulEl.getElementByQuery("[data-n='2']")
-    AssertEq "el.getElementByQuery â†’ data-n", li2.getAttribute("data-n"), "2"
+    AssertEq "el.getElementByQuery ¨ data-n", li2.getAttribute("data-n"), "2"
 
-    ' CDPElementå†…éƒ¨ getElementsByQuery
+    ' CDPElement“à•” getElementsByQuery
     Dim innerItems As Collection
     Set innerItems = ulEl.getElementsByQuery(".list-item")
-    AssertEq "el.getElementsByQuery â†’ count", CStr(innerItems.Count), "5"
+    AssertEq "el.getElementsByQuery ¨ count", CStr(innerItems.Count), "5"
 
-    ' CDPElementå†…éƒ¨ getElementByID / getElementByXPath / getElementsByXPath
+    ' CDPElement“à•” getElementByID / getElementByXPath / getElementsByXPath
     Dim innerIdEl As CDPElement
     ' ulEl doesn't have elements with ID inside it in the original HTML, but we can test from the body or form
     Dim testPanel As CDPElement: Set testPanel = br.getElementByID("test-panel")
     Set innerIdEl = testPanel.getElementByID("collection-list")
-    AssertEq "el.getElementByID â†’ id", innerIdEl.getAttribute("id"), "collection-list"
+    AssertEq "el.getElementByID ¨ id", innerIdEl.getAttribute("id"), "collection-list"
 
     Dim innerXPEl As CDPElement
     Set innerXPEl = ulEl.getElementByXPath(".//li[@data-n='5']")
-    AssertEq "el.getElementByXPath â†’ data-n", innerXPEl.getAttribute("data-n"), "5"
+    AssertEq "el.getElementByXPath ¨ data-n", innerXPEl.getAttribute("data-n"), "5"
 
     Dim innerXPItems As Collection
     Set innerXPItems = ulEl.getElementsByXPath(".//li")
-    AssertEq "el.getElementsByXPath â†’ count", CStr(innerXPItems.Count), "5"
+    AssertEq "el.getElementsByXPath ¨ count", CStr(innerXPItems.Count), "5"
 
-    br.jsEval "updateStatus('s-collection','ã‚³ãƒ¬ã‚¯ã‚·ãƒ§ãƒ³ ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-collection','ƒRƒŒƒNƒVƒ‡ƒ“ ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘¬ isExist / ifExist / onExist / onExistNot
+' ‡L isExist / ifExist / onExist / onExistNot
 '==============================================================================
 Private Sub Test13_isExist_onExist(br As CDPBrowser)
-    PrintSection "â‘¬ isExist / ifExist / onExist / onExistNot"
+    PrintSection "‡L isExist / ifExist / onExist / onExistNot"
 
-    ' isExist: å­˜åœ¨ã™ã‚‹è¦ç´ 
+    ' isExist: ‘¶İ‚·‚é—v‘f
     Dim el As CDPElement
     Set el = br.getElementByID("testInput")
     AssertEq "testInput.isExist", CStr(el.isExist), "True"
 
-    ' isExist: å­˜åœ¨ã—ãªã„è¦ç´ 
+    ' isExist: ‘¶İ‚µ‚È‚¢—v‘f
     Dim ghost As CDPElement
     Set ghost = br.getElementByID("nonExistentElement12345")
     AssertEq "nonExistent.isExist", CStr(ghost.isExist), "False"
 
-    ' ifExist â†’ å­˜åœ¨ã™ã‚‹å ´åˆã®ã¿å®Ÿè¡Œï¼ˆãƒã‚§ãƒ¼ãƒ³ç¢ºèªï¼‰
+    ' ifExist ¨ ‘¶İ‚·‚éê‡‚Ì‚İÀsiƒ`ƒF[ƒ“Šm”Fj
     br.getElementByID("testInput").ifExist.focus
-    AssertPass "ifExist.focus å®Ÿè¡Œï¼ˆã‚¹ã‚­ãƒƒãƒ—ãªã—ï¼‰"
+    AssertPass "ifExist.focus ÀsiƒXƒLƒbƒv‚È‚µj"
 
-    ' ifExist â†’ å­˜åœ¨ã—ãªã„å ´åˆã¯ã‚¹ã‚­ãƒƒãƒ—
+    ' ifExist ¨ ‘¶İ‚µ‚È‚¢ê‡‚ÍƒXƒLƒbƒv
     br.getElementByID("nonExistent99").ifExist.click isLoading
-    AssertPass "ifExist.click ã‚¹ã‚­ãƒƒãƒ—ç¢ºèªï¼ˆã‚¨ãƒ©ãƒ¼ãªã—ï¼‰"
+    AssertPass "ifExist.click ƒXƒLƒbƒvŠm”FiƒGƒ‰[‚È‚µj"
 
-    ' onExist: å‹•çš„è¦ç´ ã‚’è¿½åŠ ã—ã¦ã‹ã‚‰å¾…æ©Ÿ
+    ' onExist: “®“I—v‘f‚ğ’Ç‰Á‚µ‚Ä‚©‚ç‘Ò‹@
     br.jsEval "setTimeout(function(){ addDynamic() }, 800)"
     Dim dynEl As CDPElement
     Set dynEl = br.getElementByXPath("//div[@id='dynamicElement']")
     dynEl.onExist timeOutInSeconds:=5
-    AssertEq "onExist å¾Œã«isExist", CStr(dynEl.isExist), "True"
-    br.jsEval "updateStatus('s-exist','onExist å¾…æ©ŸæˆåŠŸ " & ECheck() & "', true)"
+    AssertEq "onExist Œã‚ÉisExist", CStr(dynEl.isExist), "True"
+    br.jsEval "updateStatus('s-exist','onExist ‘Ò‹@¬Œ÷ " & ECheck() & "', true)"
 
-    ' onExistNot: å‰Šé™¤ã—ã¦ã‹ã‚‰å¾…æ©Ÿ
+    ' onExistNot: íœ‚µ‚Ä‚©‚ç‘Ò‹@
     br.jsEval "setTimeout(function(){ removeDynamic() }, 800)"
     dynEl.onExistNot timeOutInSeconds:=5
-    AssertPass "onExistNot å®Œäº†"
-    br.jsEval "updateStatus('s-exist','onExistNot å¾…æ©ŸæˆåŠŸ " & ECheck() & "', true)"
+    AssertPass "onExistNot Š®—¹"
+    br.jsEval "updateStatus('s-exist','onExistNot ‘Ò‹@¬Œ÷ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' â‘­ getIFrame
+' ‡M getIFrame
 '==============================================================================
 Private Sub Test14_getIFrame(br As CDPBrowser)
-    PrintSection "â‘­ getIFrame"
+    PrintSection "‡M getIFrame"
     Dim iframeEl As CDPElement
     Set iframeEl = br.getElementByID("testIFrame")
 
@@ -402,50 +402,50 @@ Private Sub Test14_getIFrame(br As CDPBrowser)
     Set frameDoc = iframeEl.getIFrame()
     AssertEq "getIFrame.isExist", CStr(frameDoc.isExist), "True"
 
-    ' iFrameå†…ã®è¦ç´ å–å¾—
+    ' iFrame“à‚Ì—v‘fæ“¾
     Dim innerEl As CDPElement
     Set innerEl = frameDoc.getElementByID("iframeContent")
     If innerEl.isExist Then
         Dim txt As String: txt = innerEl.innerText
-        AssertNotEmpty "iFrameå†… innerText", txt
-        innerEl.innerText = "VBAã‹ã‚‰iFrameã‚’å¤‰æ›´ " & ECheck()
-        AssertPass "iFrameå†… innerText LET"
+        AssertNotEmpty "iFrame“à innerText", txt
+        innerEl.innerText = "VBA‚©‚çiFrame‚ğ•ÏX " & ECheck()
+        AssertPass "iFrame“à innerText LET"
     Else
-        AssertFail "iFrameå†…ã®è¦ç´ ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸ"
+        AssertFail "iFrame“à‚Ì—v‘f‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ‚Å‚µ‚½"
     End If
-    br.jsEval "updateStatus('s-iframe','getIFrame ãƒ†ã‚¹ãƒˆå®Œäº† " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-iframe','getIFrame ƒeƒXƒgŠ®—¹ " & ECheck() & "', true)"
 End Sub
 
 '==============================================================================
-' ãƒ˜ãƒ«ãƒ‘ãƒ¼: ã‚¢ã‚µãƒ¼ã‚·ãƒ§ãƒ³
+' ƒwƒ‹ƒp[: ƒAƒT[ƒVƒ‡ƒ“
 '==============================================================================
 Private Sub AssertEq(testName As String, actual As String, expected As String)
     If actual = expected Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " â†’ """ & actual & """"
+        Debug.Print "  ? PASS | " & testName & " ¨ """ & actual & """"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " â†’ æœŸå¾…å€¤:""" & expected & """ å®Ÿéš›:""" & actual & """"
+        Debug.Print "  ? FAIL | " & testName & " ¨ Šú‘Ò’l:""" & expected & """ ÀÛ:""" & actual & """"
     End If
 End Sub
 
 Private Sub AssertNotEmpty(testName As String, actual As String)
     If Len(Trim(actual)) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " â†’ NOT EMPTY (""" & Left(actual, 40) & """)"
+        Debug.Print "  ? PASS | " & testName & " ¨ NOT EMPTY (""" & Left(actual, 40) & """)"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " â†’ ç©ºæ–‡å­—ãŒè¿”ã£ã¦ãã¾ã—ãŸ"
+        Debug.Print "  ? FAIL | " & testName & " ¨ ‹ó•¶š‚ª•Ô‚Á‚Ä‚«‚Ü‚µ‚½"
     End If
 End Sub
 
 Private Sub AssertContains(testName As String, actual As String, substr As String)
     If InStr(actual, substr) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " â†’ contains """ & substr & """"
+        Debug.Print "  ? PASS | " & testName & " ¨ contains """ & substr & """"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " â†’ """ & substr & """ ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“"
+        Debug.Print "  ? FAIL | " & testName & " ¨ """ & substr & """ ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ"
     End If
 End Sub
 
@@ -468,5 +468,5 @@ End Sub
 
 Private Sub PrintSection(msg As String)
     Debug.Print ""
-    Debug.Print "  â”€â”€ " & msg & " â”€â”€"
+    Debug.Print "  „Ÿ„Ÿ " & msg & " „Ÿ„Ÿ"
 End Sub
