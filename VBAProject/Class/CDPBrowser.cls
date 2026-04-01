@@ -443,13 +443,12 @@ End Sub
 '* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
 '            Webスクレイピングに関わる引数は全て設けています。
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFERROR に依存します。
+'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
 '* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
-'            objectId                       これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           省略時は、`Runtime.evaluate`となります。
+'            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
-'            objectArguments                `objectId`に対する実行引数を渡します※`objectId`が指定されてない場合は、無視されます
+'            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
 '
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
@@ -490,7 +489,7 @@ End Sub
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`objectId`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
+'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
 '
 '            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
 '              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
@@ -525,21 +524,39 @@ step1:
    'Construct message for sending ----------------------------------------------------------
     CDPparams.RemoveAll
 
-    '`objectId`があったら、`Runtime.callFunctionOn`としてパラメーター構築するように調整
+    '`callFunctionOn`か`evaluate`を決める判定に入ります
     Dim UseJsMethod As String
+
+    ' 【パターン1】特定の要素を操作する場合
     If StrPtr(objectId) Then
         UseJsMethod = "Runtime.callFunctionOn"
 
-        'For Runtime.callFunctionOn
+        '必要なパラメーターをセット
         CDPparams.Add "functionDeclaration", strString
+        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
+
+        'objectId があるので、場所(ContextID)を指定する必要はない
         CDPparams.Add "objectId", objectId
-        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments
+
+    ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
+    ElseIf Not objectArguments Is Nothing Then
+        UseJsMethod = "Runtime.callFunctionOn"
+
+        '必要なパラメーターをセット
+        CDPparams.Add "functionDeclaration", strString
+        CDPparams.Add "arguments", objectArguments
+
+        ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
+        If contextId Then CDPparams.Add "executionContextId", contextId
+
+    ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
+        ' 最もシンプルな evaluate を使う
         UseJsMethod = "Runtime.evaluate"
 
-        'For Runtime.evaluate
+        '必要なパラメーターをセット
         CDPparams.Add "expression", strString
-        If contextId > 0 Then CDPparams.Add "contextId", contextId
+        If contextId Then CDPparams.Add "contextId", contextId
     End If
 
     '以降は、共通設定を施す
