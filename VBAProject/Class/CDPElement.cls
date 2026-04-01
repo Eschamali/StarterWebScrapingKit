@@ -104,6 +104,27 @@ Property Get varResult() As Long
 End Property
 
 '***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`を、引数名として、DevToolsコンソールでも扱えるようにします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：なんかうまくいかない時、これを利用することで、DevToolsコンソール上でのデバッグが可能になります。
+'* 注意事項：サイトによってはこの不自然なグローバル変数を検知するスクレイピング対策があります。ご利用時は注意してください。
+'***************************************************************************************************
+Public Sub ExposeDevTools(ByVal varName As String)
+    If elementObjectId = "" Then Exit Sub
+
+    Dim params As New Dictionary
+    Dim arg As New Dictionary
+    Dim args As New Collection
+
+    ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
+    arg.Add "value", varName
+    args.Add arg
+
+    ' 2. 実行
+    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", getObjectId, objectArguments:=args
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：このClassで保持中の`ObjectId`をそのまま、取得します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClassで保持中の`ObjectId`
