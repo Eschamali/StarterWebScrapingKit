@@ -1083,3 +1083,17 @@ Public Function getIFrame() As CDPElement
     getIFrame.Init main, , VarType(result), oid
 
 End Function
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Terminate()
+    '不要になった objectId をリリースします(あれば)
+    If elementObjectId <> "" Then
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "objectId", elementObjectId
+        main.invokeMethod "Runtime.releaseObject", paramsCDP, StopError:=False
+    End If
+End Sub
