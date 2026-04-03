@@ -34,11 +34,10 @@ Option Explicit
 Private Const ThisClassName As String = "CDPElement"
 
 Private main As WebView2Browser
-Private varIDs As Scripting.Dictionary
-Private varID As String
-Private varJS As String
-Private VarType As String
-Private checkExist As Boolean       'Needed for the isExist check
+Private varJS As String                  ' DOM検索式（ポーリング用 & objectId 未取得時の lazy 取得用）
+Private elemVarType As Long              ' VBA VarType定数: vbNull=1: 未発見 / vbString=8: objectId取得済み / vbEmpty=0: 未評価
+Private elementObjectId As String        ' CDPのobjectId（StrPtr=0:未取得 / StrPtr≠0:取得済み）
+Private checkExist As Boolean            ' Needed for the isExist check
 Private Const printDbgMsg = True
 
 Public Enum keyboardCode    'Used for .sendKey operation in the browser class and element class
@@ -51,44 +50,35 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
 
 End Enum
 
-Public Sub Init(targetObjMain As WebView2Browser, targetObjIdColl As Scripting.Dictionary, Optional varID_ As String, Optional varJS_ As String, Optional varType_ As String)
-'----------------------------------------------------------------------------------
-' Initialize element object that has properties and methods useful for quickly
-' interact with the target object in the browser. The varID name can also be used
-' directly to the console to interact with the same object in the console. The
-' varJS is an alternative method to access the element with the full Javascript
-' command that can be parsed to the browser. This alternative method is useful
-' for getElementsBy methods wherein not all elements in a returned collection need
-' to be accessed immediately and should save considerable amount of execution time.
-' varType is used by onExists/onNonExists method to wait until the element is found.
-' varType stores the returned result of getElement methods.
-' Updated: 02/03/2023
-' Note ----------------------------------------------------------------------------
-' At initialization, it is ideal to have only varID or varJS indicated. varID is
-' most useful when the element is the target element that needs to be interacted
-' with while varJS is most useful where only its path of access is needed for now.
-' Too many variables in the browser can cause memory leak and slow.
-'----------------------------------------------------------------------------------
 
-    Set main = targetObjMain        'Needed to use public methods of the active WebView2Browser
-    Set varIDs = targetObjIdColl    'Needed to use the same varIDs book from WebView2Browser
-    varID = varID_
+
+'***************************************************************************************************
+'                                   ■■■ 初期化処理 ■■■
+'***************************************************************************************************
+'* 機能　　：アクティブな`CDPBrowser`を継承させ、`jsEval`で実行した結果の一部を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：targetObjMain      継承したい`CDPBrowser`そのもの
+'            varJS_             継承直前に実行したJavaScriptコードそのもの。ポーリング用に使用します。
+'            varType_           JavaScript実行結果の型をVBA型に変換した際の状況(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
+'            objectId_          `Runtime.callFunctionOn`で使用する`objectId`
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：要素がなく、`objectId`が返せない場合は、`objectId_`は、`StrPtr`チェックで0になります
+'* 注意事項：・このヘルパークラスを使用する際は、`objectId`を返すようなJavaScriptコードとして実行すること。要素操作準備なら`objectId`でほぼほぼ返ると思いますが念押しです。
+'            　`objectId_`は、「vbNull(1)=未発見 / vbString(8)=objectId取得済み / vbEmpty(0)=未評価」の3パターンを想定してます。
+'            ・現状複数取得系(getElementsByXPath等)の場合、`varJS_`は機能しません。
+'***************************************************************************************************
+Public Sub Init(targetObjMain As WebView2Browser, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
+    Set main = targetObjMain
     varJS = varJS_
-    VarType = varType_
-
+    elemVarType = varType_
+    If StrPtr(objectId_) <> 0 Then elementObjectId = objectId_  '空文字も含め「代入された」ことを記録
 End Sub
 
-Property Get varName() As String
-'----------------------------------------------------------------------------------
-' Retrieve the name of this variable initialized. The same name can also be used
-' directly in the browser console window if the element is assigned successfully.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
 
-    varName = varID
 
-End Property
-
+'***************************************************************************************************
+'                                ■■■ パラメーター確認 ■■■
+'***************************************************************************************************
 Property Get varPath() As String
 '----------------------------------------------------------------------------------
 ' Retrieve the path of this variable initialized. The same name can also be used
@@ -100,57 +90,70 @@ Property Get varPath() As String
 
 End Property
 
-Property Get varResult() As String
+Property Get varResult() As Long
 '----------------------------------------------------------------------------------
-' Retrieve the type of variable returned by getElement method. If the return is
-' nothing, varResult will be "null". This method is in exchange for "If element Is
-' Nothing" check as the getElement has to be returned for onExist and onExistNot.
+' Retrieve the VarType code of the result returned by getElement method.
+' vbNull (1): element was not found (JS null)
+' vbString (8): element was found (objectId obtained)
+' vbEmpty (0): not yet evaluated (e.g. initialized via varJS only)
 ' Updated: 27/04/2023
 '----------------------------------------------------------------------------------
 
-    varResult = VarType
+    varResult = elemVarType
 
 End Property
 
-Private Function getVarID() As String
-'----------------------------------------------------------------------------------
-' Convert varJS to varID for ease of access when needed to further interact with
-' the element post using varJS to initially access it in the browser
-' Updated: 26/04/2023
-'----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`を、引数名として、DevToolsコンソールでも扱えるようにします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：なんかうまくいかない時、これを利用することで、DevToolsコンソール上でのデバッグが可能になります。
+'* 注意事項：サイトによってはこの不自然なグローバル変数を検知するスクレイピング対策があります。ご利用時は注意してください。
+'***************************************************************************************************
+Public Sub ExposeDevTools(ByVal varName As String)
+    If elementObjectId = "" Then Exit Sub
 
-   'If varID already assigned
-    getVarID = varID: If getVarID <> "" Then Exit Function
+    Dim params As New Dictionary
+    Dim arg As New Dictionary
+    Dim args As New Collection
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
+    ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
+    arg.Add "value", varName
+    args.Add arg
 
-   'Assign the new varID using varJS
-    main.jsEval varID_ & " = " & varJS, printDbgMsg
+    ' 2. 実行
+    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", getObjectId, objectArguments:=args
+End Sub
 
-    varID = varID_  'Store the new ID to the main ID var
-    getVarID = varID_
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`をそのまま、取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このClassで保持中の`ObjectId`
+'* 引数　　：refresh      継承直前に実行したJavaScriptコードそのものを再度実行し、ObjectIdを再取得します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・StrPtr(elementObjectId) ≠ 0 → 取得済みのobjectIdを即返す
+'            ・StrPtr(elementObjectId) = 0  → varJSをruntime.evaluateで評価してobjectIdを遅延取得(Lazy Init)
+'
+'* 注意事項：返り値が空文字の場合は、要素がnull(未発見)を意味します。
+'***************************************************************************************************
+Property Get getObjectId(Optional refresh As Boolean) As String
 
-End Function
+   '取得済みであれば即返す
+    If StrPtr(elementObjectId) <> 0 And Not refresh Then
+        getObjectId = elementObjectId
+        Exit Property
+    End If
 
-Private Function newVarID() As String
-'----------------------------------------------------------------------------------
-' Create a unique varID for element reference with CDPElement. If the ID is not
-' unique, it is possible that new element assignment will override existing ones
-' under the same ID by chance if working on a large number of elements.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
+   'varJSから遅延取得
+    Dim res As Variant
+    res = main.jsEval(varJS, returnByValue:=False, dbgMsg:=False)
+    If VarType(res) = vbString Then
+        elementObjectId = CStr(res)
+    Else
+        elementObjectId = ""    '空文字を代入することで「取得試行済み」扱い（StrPtr≠0になる）
+    End If
+    getObjectId = elementObjectId
 
-    Dim newID As String
-
-    Do: newID = "varID" & Format(Rnd * 100000, "000000")
-    Loop Until Not varIDs.Exists(newID)
-    varIDs.Add newID, newID
-
-   'Return the new varID
-    newVarID = newID
-
-End Function
+End Property
 
 '========================================================================================================
 ' ELEMENT PROPERTY INTERACTIONS
@@ -163,7 +166,7 @@ Property Get value() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    value = main.jsEval(getVarID & ".value", printDbgMsg)
+    value = main.jsEval("function(){ return this.value }", objectId:=getObjectId(), dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -186,17 +189,23 @@ Property Let value(strTextVal As String)
    'Gracefully exit the value input if the element is found not exist under isExist
     If checkExist Then If Not isExist Then Exit Property
 
-   'Help devs know if the field is a React field
-    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
+   'Reactフィールド検出（thisコンテキスト内でObject.entriesを実行）
+    e1 = main.jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }", objectId:=getObjectId(), dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
     If isReact Then main.printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
+   'objectArgumentsで安全に値を渡す（エスケープ不要）
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strTextVal
+    args.Add arg
+
    'Perform inputing using all the methods
     If Not isReact Then
-        main.jsEval getVarID & ".value = """ & strTextVal & """", printDbgMsg
+        main.jsEval "function(v){ this.value = v }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=printDbgMsg
     Else
-        main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(" & getVarID & ", '" & strTextVal & "')"
-        main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, ""value"").set.call(" & getVarID & ", """ & strTextVal & """)"
+        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, v) }", objectId:=getObjectId(), objectArguments:=args
+        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, v) }", objectId:=getObjectId(), objectArguments:=args
     End If
 
    'Most input elements need this
@@ -211,24 +220,25 @@ Property Get innerText() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    innerText = main.jsEval(getVarID & ".innerText", printDbgMsg)
+    innerText = main.jsEval("function(){ return this.innerText }", objectId:=getObjectId(), dbgMsg:=printDbgMsg)
 
 End Property
 
 Property Let innerText(strTextVal As String)
 '----------------------------------------------------------
 ' Change the innerText property of the element in the HTML.
+' Note: objectArgumentsで安全に値を渡すのでエスケープ不要
 ' Updated: 02/03/2023
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Escape quotation and apostrophe
-    strTextVal = Replace(strTextVal, "'", "\'")
-    strTextVal = Replace(strTextVal, """", "\""")
-
-    main.jsEval getVarID & ".innerText = " & "'" & strTextVal & "'", printDbgMsg
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strTextVal
+    args.Add arg
+    main.jsEval "function(v){ this.innerText = v }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=printDbgMsg
 
 End Property
 
@@ -239,24 +249,25 @@ Property Get innerHTML() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    innerHTML = main.jsEval(getVarID & ".innerHTML", printDbgMsg)
+    innerHTML = main.jsEval("function(){ return this.innerHTML }", objectId:=getObjectId(), dbgMsg:=printDbgMsg)
 
 End Property
 
 Property Let innerHTML(strTextVal As String)
 '----------------------------------------------------------
 ' Change the innerHTML property of the element.
+' Note: objectArgumentsで安全に値を渡すのでエスケープ不要
 ' Updated: 13/11/2023
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Escape quotation and apostrophe
-    strTextVal = Replace(strTextVal, "'", "\'")
-    strTextVal = Replace(strTextVal, """", "\""")
-
-    main.jsEval getVarID & ".innerHTML = " & "'" & strTextVal & "'", printDbgMsg
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strTextVal
+    args.Add arg
+    main.jsEval "function(v){ this.innerHTML = v }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=printDbgMsg
 
 End Property
 
@@ -267,7 +278,11 @@ Property Let checked(boolChecked As Boolean)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".checked = " & LCase(boolChecked), False
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", CBool(boolChecked)
+    args.Add arg
+    main.jsEval "function(v){ this.checked = v }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=False
 
 End Property
 
@@ -278,7 +293,7 @@ Property Get checked() As Boolean
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    checked = CBool(main.jsEval(getVarID & ".checked", printDbgMsg))
+    checked = CBool(main.jsEval("function(){ return this.checked }", objectId:=getObjectId(), dbgMsg:=printDbgMsg))
 
 End Property
 
@@ -290,7 +305,11 @@ Property Let selected(selectedOption As String)
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    main.jsEval getVarID & ".selectedIndex = " & selectedOption, False
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", selectedOption
+    args.Add arg
+    main.jsEval "function(v){ this.selectedIndex = v }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=False
     fireEvent "change"
 
 End Property
@@ -302,7 +321,7 @@ Property Get selected() As String
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Property
-    selected = main.jsEval(getVarID & ".selectedOptions[0]", printDbgMsg)
+    selected = main.jsEval("function(){ return this.selectedOptions[0] }", objectId:=getObjectId(), dbgMsg:=printDbgMsg)
 
 End Property
 
@@ -321,19 +340,16 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
    'Scroll into the view for better visibility of the automation
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
    'Some fields require the browser to manually focus before allowing
-   'the click action, such as the input type 'file' field. The below
-   'attempts to simulate a manual activation on the browser to thus
-   'enable the click acceptance of the html.
+   'the click action, such as the input type 'file' field.
     Dim params As New Scripting.Dictionary
-    params.RemoveAll
     params("text") = ""
     main.invokeMethod "Input.insertText", params
 
    'Perform click
-    main.jsEval getVarID & ".dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true}))", printDbgMsg
+    main.jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }", objectId:=getObjectId(), dbgMsg:=printDbgMsg
     main.wait till:=till
     click = True
 
@@ -341,17 +357,12 @@ End Function
 
 Public Function submit(Optional till As ReadyState = isComplete) As Boolean
 '----------------------------------------------------------
-' Submit a form element. This is equivalence to sending
-' "enter" after completing a form. Most of the times, the
-' standard way is to simply click the 'Submit' button that
-' HTML forms usually have by design.
+' Submit a form element.
 ' Updated: 12/12/2023
 '----------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-
-    main.jsEval getVarID & ".form.submit()", printDbgMsg
+    main.jsEval "function(){ this.form.submit() }", objectId:=getObjectId(), dbgMsg:=printDbgMsg
     main.wait till:=till
     submit = True
 
@@ -363,26 +374,26 @@ Public Function getAttribute(strAttributeName As String) As String
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-
-    getAttribute = main.jsEval(getVarID & ".getAttribute(""" & strAttributeName & """)", printDbgMsg)
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strAttributeName
+    args.Add arg
+    getAttribute = main.jsEval("function(name){ return this.getAttribute(name) || '' }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=printDbgMsg)
 
 End Function
 
 Public Function setAttribute(strAttributeName As String, strValue As String)
 '----------------------------------------------------------
 ' Set value to an element attribute based on its name.
-' Daniel Polak recommended this procedure to be a sub i/o
-' function but I decided to leave it as function to make
-' the presentation consistent with the nature of the module
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-
-    main.jsEval getVarID & ".setAttribute(""" & strAttributeName & """, """ & strValue & """)", printDbgMsg
+    Dim args2 As New Collection
+    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName: args2.Add a1
+    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue: args2.Add a2
+    main.jsEval "function(name, val){ this.setAttribute(name, val) }", objectId:=getObjectId(), objectArguments:=args2, dbgMsg:=printDbgMsg
 
 End Function
 
@@ -392,10 +403,8 @@ Public Function setSelection(strOptionName As String)
 ' Updated: 06/03/2025
 '----------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
     Me.value = strOptionName
     fireEvent "change"
 
@@ -407,14 +416,8 @@ Public Function selectText()
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
-
-    main.jsEval "r = document.createRange()", False
-    main.jsEval "s = window.getSelection()", False
-    main.jsEval "r.selectNodeContents(" & getVarID & ")"
-    main.jsEval "s.removeAllRanges()"
-    main.jsEval "s.addRange(r)"
+    main.jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }", objectId:=getObjectId()
 
 End Function
 
@@ -425,7 +428,7 @@ Public Function focus()
 '----------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
-    main.jsEval getVarID & ".focus()", False
+    main.jsEval "function(){ this.focus() }", objectId:=getObjectId(), dbgMsg:=False
 
 End Function
 
@@ -437,14 +440,17 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
 ' Updated: 12/12/2023
 '------------------------------------------------------------
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
    'Auto format some common event name mistakes
     strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
-    main.jsEval getVarID & ".dispatchEvent(new Event('" & strEventName & "', { bubbles: true, simulated: true }))", printDbg
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strEventName
+    args.Add arg
+    main.jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", objectId:=getObjectId(), objectArguments:=args, dbgMsg:=printDbg
 
    'Wait till applied
     main.wait till:=till, dbgState:=printDbg
@@ -456,35 +462,23 @@ Public Function sendString(textToSend As String) As Boolean
 '----------------------------------------------------------------
 ' Attempt to directly send the text string to the element via
 ' backdoor interaction with CDP instead of manipulating the DOM.
-' This method allows bypassing many JavaScript input requirements
-' when dealing with different type of html input elements.
-' Updated: 28/04/2023 - Created & debugged the "+" sign issue.
+' Updated: 28/04/2023
 '----------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".sendString"
 
 
-    Dim objectId As String
-
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
    'First clear the current text of the field
-    main.jsEval getVarID & ".value = ''", False
+    main.jsEval "function(){ this.value = '' }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Get objectId
-    Dim params As New Scripting.Dictionary
-    params("expression") = getVarID
-    objectId = CStr(main.invokeMethod("Runtime.evaluate", params)("result")("objectId"))
-
-   'If the objectId returned is not negative, an implicit positive
-   'needs to be added to prevent DOM.focus hanging. This is likely because
-   'the original positive sign of objectId was incorrectly removed by invokeMethod/Runtime.evaluate
-    If Left(objectId, 1) <> "-" Then objectId = "+" & objectId
+   'getObjectId()で取得済みのobjectIdをそのまま使用（Runtime.evaluateの二度取り不要）
+    Dim oid As String: oid = getObjectId()
+    If Left(oid, 1) <> "-" Then oid = "+" & oid   'DOM.focusハング回避用符号補完
 
    'Set focus on the node
-   'Without focus, the sendkeys will fly to infinity
-    params.RemoveAll
-    params("objectId") = objectId
+    Dim params As New Scripting.Dictionary
+    params("objectId") = oid
     main.invokeMethod "DOM.focus", params
 
    'Sendkeys to the node
@@ -493,7 +487,7 @@ Public Function sendString(textToSend As String) As Boolean
     main.invokeMethod "Input.insertText", params
 
     sendString = True
-    main.printMsg info_, "Executed sendString(""" & textToSend & """) successfully on " & getVarID, FromProcedureName
+    main.printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
@@ -501,23 +495,19 @@ Public Function sendClick() As Boolean
 '----------------------------------------------------------------
 ' Attempt to simulate physical left mouse click input instead of
 ' DOM manipulation with JavaScript dispatchEvent method.
-' Similarly to sendString, sendClick interacts with the target
-' element via backdoor manipulation using CDP ports and thus can
-' bypass many complex JavaScript requirements to trigger a click.
 '----------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".sendClick"
 
+    Dim x As Double, y As Double
 
-    Dim x, y As String
-
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-   'Get element coordinates
-    x = main.jsEval(getVarID & ".getBoundingClientRect().x")
-    y = main.jsEval(getVarID & ".getBoundingClientRect().y")
+   'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Sendkeys to the node
+    x = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().x }", objectId:=getObjectId()))
+    y = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().y }", objectId:=getObjectId()))
+
     Dim params As New Scripting.Dictionary
     params("type") = "mousePressed"
     params("x") = x
@@ -526,40 +516,36 @@ Public Function sendClick() As Boolean
     params("clickCount") = 1
     main.invokeMethod "Input.dispatchMouseEvent", params
 
+    params.RemoveAll
+    params("type") = "mouseReleased"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("clickCount") = 1
+    main.invokeMethod "Input.dispatchMouseEvent", params
+
     sendClick = True
-    main.printMsg info_, "Executed sendClick successfully on " & getVarID, FromProcedureName
+    main.printMsg info_, "Executed sendClick successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
 Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False) As Boolean
 '----------------------------------------------------------------
-' Attempt to directly send a unique keyboard input to the element
-' such as backspace, enter, esc etc. This will help with some
-' nasty field that only allows certain action to be executed with
-' raw keyboard handling.
+' Attempt to directly send a unique keyboard input to the element.
+' Updated: 12/07/2024
 '----------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".sendKey"
 
 
-    Dim objectId As String
-
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
-   'Get objectId
-    Dim params As New Scripting.Dictionary
-    params("expression") = getVarID
-    objectId = CStr(main.invokeMethod("Runtime.evaluate", params)("result")("objectId"))
-
-   'If the objectId returned is not negative, an implicit positive
-   'needs to be added to prevent DOM.focus hanging. This is likely because
-   'the original positive sign of objectId was incorrectly removed by invokeMethod/Runtime.evaluate
-    If Left(objectId, 1) <> "-" Then objectId = "+" & objectId
+   'getObjectId()で取得済みのobjectIdをそのまま使用
+    Dim oid As String: oid = getObjectId()
+    If Left(oid, 1) <> "-" Then oid = "+" & oid   'DOM.focusハング回避用符号補完
 
    'Set focus on the node
-   'Without focus, the sendkeys will fly to infinity
-    params.RemoveAll
-    params("objectId") = objectId
+    Dim params As New Scripting.Dictionary
+    params("objectId") = oid
     main.invokeMethod "DOM.focus", params
 
    'Send key down event to the browser
@@ -577,7 +563,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     main.invokeMethod "Input.dispatchKeyEvent", params
 
     sendKey = True
-    main.printMsg info_, "Executed sendKey successfully on " & getVarID, FromProcedureName
+    main.printMsg info_, "Executed sendKey successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
@@ -589,22 +575,21 @@ Public Function clearValue() As Boolean
     Dim e1 As String
     Dim isReact As Boolean
 
-   'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
    'Scroll into view
-    main.jsEval getVarID & ".scrollIntoView(false)", False
+    main.jsEval "function(){ this.scrollIntoView(false) }", objectId:=getObjectId(), dbgMsg:=False
 
-   'Help devs know if the field might is a React field
-    e1 = main.jsEval("Object.entries(" & getVarID & ")[0][0]", False)
+   'Reactフィールド検出
+    e1 = main.jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }", objectId:=getObjectId(), dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
 
-   'Perform inputing using all the methods
+   'Perform clearing using all the methods
     If Not isReact Then
-        main.jsEval getVarID & ".value = """"""", printDbgMsg
+        main.jsEval "function(){ this.value = '' }", objectId:=getObjectId(), dbgMsg:=printDbgMsg
     Else
-        main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(" & getVarID & ", '')"
-        main.jsEval "Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(" & getVarID & ", '')"
+        main.jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, '') }", objectId:=getObjectId()
+        main.jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, '') }", objectId:=getObjectId()
     End If
 
    'Most input elements need this
@@ -620,7 +605,7 @@ Public Function isExist() As Boolean
 ' Updated: 06/06/2023
 '----------------------------------------------------------
 
-    If VarType = "null" Then isExist = False Else isExist = True
+    If elemVarType = vbNull Then isExist = False Else isExist = True
 
 End Function
 
@@ -654,17 +639,17 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType = "null"
+    Do While elemVarType = vbNull
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, False)
+        elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
     Set onExist = Me
-    main.printMsg info_, "onExists satisfied: " & getVarID & " is now available for interaction", FromProcedureName
+    main.printMsg info_, "onExists satisfied: [" & varJS & "] is now available for interaction", FromProcedureName
 
 End Function
 
@@ -682,17 +667,17 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Dim timeStart As Single
 
     timeStart = Timer
-    Do While VarType <> "null"
+    Do While elemVarType <> vbNull
         If Timer - timeStart > timeOutInSeconds Then
             main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
-        VarType = main.jsEval(varJS, False)
+        elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
         main.sleep 0.1
     Loop
 
     onExistNot = True
-    main.printMsg info_, "onExistsNot satisfied: " & getVarID & " is no longer available for interaction", FromProcedureName
+    main.printMsg info_, "onExistsNot satisfied: [" & varJS & "] is no longer available for interaction", FromProcedureName
 
 End Function
 
@@ -714,17 +699,14 @@ Public Function getParent() As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".parentElement"
-    result = main.jsEval(varJS_, printDbgMsg)
+    Dim result As Variant
+    result = main.jsEval("function(){ return this.parentElement }", objectId:=getObjectId(), returnByValue:=False, dbgMsg:=printDbgMsg)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getParent = New CDPElement
-    getParent.Init main, varIDs, varID_, varJS_, result
+    getParent.Init main, , VarType(result), oid
 
 End Function
 
@@ -742,17 +724,14 @@ Public Function getNextSibling() As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".nextElementSibling"
-    result = main.jsEval(varJS_, printDbgMsg)
+    Dim result As Variant
+    result = main.jsEval("function(){ return this.nextElementSibling }", objectId:=getObjectId(), returnByValue:=False, dbgMsg:=printDbgMsg)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getNextSibling = New CDPElement
-    getNextSibling.Init main, varIDs, varID_, varJS_, result
+    getNextSibling.Init main, , VarType(result), oid
 
 End Function
 
@@ -770,17 +749,14 @@ Public Function getPrevSibling() As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".previousElementSibling"
-    result = main.jsEval(varJS_, printDbgMsg)
+    Dim result As Variant
+    result = main.jsEval("function(){ return this.previousElementSibling }", objectId:=getObjectId(), returnByValue:=False, dbgMsg:=printDbgMsg)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getPrevSibling = New CDPElement
-    getPrevSibling.Init main, varIDs, varID_, varJS_, result
+    getPrevSibling.Init main, , VarType(result), oid
 
 End Function
 
@@ -798,17 +774,14 @@ Public Function getFirstChild() As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Get the object and assign to the new ID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".firstElementChild"
-    result = main.jsEval(varJS_, printDbgMsg)
+    Dim result As Variant
+    result = main.jsEval("function(){ return this.firstElementChild }", objectId:=getObjectId(), returnByValue:=False, dbgMsg:=printDbgMsg)
 
    'Return result
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getFirstChild = New CDPElement
-    getFirstChild.Init main, varIDs, varID_, varJS_, result
+    getFirstChild.Init main, , VarType(result), oid
 
 End Function
 
@@ -826,26 +799,30 @@ Public Function getChildren() As Collection
         Exit Function
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
+   'Get children HTMLCollection objectId via callFunctionOn
+    Dim collResult As Variant
+    collResult = main.jsEval("function(){ return this.children }", objectId:=getObjectId(), returnByValue:=False)
+    If VarType(collResult) <> vbString Then Exit Function
+    Dim collOid As String: collOid = CStr(collResult)
 
-   'Get the object and assign to the varID in the browser
-    Dim result As String
-    result = main.jsEval(varID_ & " = " & getVarID & ".children")
+   'Get length via callFunctionOn
+    Dim elements As Collection: Set elements = New Collection
+    Dim length_ As Long, N As Long
+    length_ = main.jsEval("function(){ return this.length }", objectId:=collOid)
 
-   'Return result
-    Dim elements As Collection
-    If result = "null" Then Exit Function Else Set elements = New Collection
-
-   'Assign IDs to each of the element in the collection
-    Dim varJS__ As String                                'Store each new member's JS access string
-    Dim length_ As Integer, N As Integer
+   'Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    length_ = main.jsEval(varID_ & ".length")
-    For N = 0 To length_ - 1                             'HTML index starts at zero
-        varJS__ = varID_ & ".item(" & N & ")"
+    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemResult As Variant, itemOid As String
+    For N = 0 To length_ - 1
+        Set itemArgs = New Collection
+        Set itemArg = New Scripting.Dictionary
+        itemArg.Add "value", N
+        itemArgs.Add itemArg
+        itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
+        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, varJS_:=varJS__
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -869,17 +846,16 @@ Public Function getElementByID(strID As String) As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
-   'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".getElementById(""" & strID & """)"
-    result = main.jsEval(varJS_)
-
-   'Return result
+   'getElementById は Document のみ。要素配下の ID 探索は querySelector + CSS.escape を使用
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strID
+    args.Add arg
+    Dim result As Variant
+    result = main.jsEval("function(id){ return this.querySelector('#' + CSS.escape(id)) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByID = New CDPElement
-    getElementByID.Init main, varIDs, varID_, varJS_, result
+    getElementByID.Init main, , VarType(result), oid
 
 End Function
 
@@ -907,17 +883,16 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
-   'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".querySelector(""" & strQuery & """)"
-    result = main.jsEval(varJS_)
-
-   'Return result
+   'Get element by Query using callFunctionOn on this element
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strQuery
+    args.Add arg
+    Dim result As Variant
+    result = main.jsEval("function(sel){ return this.querySelector(sel) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init main, varIDs, varID_, varJS_, result
+    getElementByQuery.Init main, , VarType(result), oid
 
 End Function
 
@@ -929,35 +904,32 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' Updated: 12/12/2023
 '----------------------------------------------------------------------------------
 
-    Dim result As String
-    Dim elements As Collection
-    Dim N As Long, length_ As Long
+   'Get NodeList objectId via callFunctionOn on this element
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strQuery
+    args.Add arg
+    Dim collResult As Variant
+    collResult = main.jsEval("function(sel){ return this.querySelectorAll(sel) }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
+    If VarType(collResult) <> vbString Then Exit Function
+    Dim collOid As String: collOid = CStr(collResult)
+
+   'Get length and each item's objectId
+    Dim elements As Collection: Set elements = New Collection
+    Dim length_ As Long, N As Long
     Dim tElement As CDPElement
-
-   'When ifExist is employed, the function should only execute if the element exists
-    If checkExist Then
-        If Not isExist Then
-            Set getParent = Me
-            Exit Function
-        End If
-    End If
-
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
-
-   'Get the object and assign to the varID in the browser
-    result = main.jsEval(varID_ & " = " & getVarID & ".querySelectorAll(""" & strQuery & """)")
-
-   'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
-
-   'Assign IDs to each of the element in the collection
-    Dim varJS__ As String                                'Store each new member's JS access string
-    length_ = main.jsEval(varID_ & ".length")
-    For N = 0 To length_ - 1                             'HTML index starts at zero
-        varJS__ = varID_ & ".item(" & N & ")"
+    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemResult As Variant, itemOid As String
+    length_ = main.jsEval("function(){ return this.length }", objectId:=collOid)
+    For N = 0 To length_ - 1
+        Set itemArgs = New Collection
+        Set itemArg = New Scripting.Dictionary
+        itemArg.Add "value", N
+        itemArgs.Add itemArg
+        itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
+        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, varJS_:=varJS__
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -991,29 +963,25 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Verify double slash syntax
-   'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
    'Check if strXPath has invalid // syntax
-   'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
-   'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
     If Left(strXPath, 2) = "//" Then
         main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
-   'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    result = main.jsEval(varJS_)
-
-   'Return result
+   'Get element by XPath using callFunctionOn (this element as contextNode)
+    Dim args As New Collection
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strXPath
+    args.Add arg
+    Dim result As Variant
+    result = main.jsEval("function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }", objectId:=getObjectId(), objectArguments:=args, returnByValue:=False)
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init main, varIDs, varID_, varJS_, result
+    getElementByXPath.Init main, , VarType(result), oid
 
 End Function
 
@@ -1028,10 +996,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
 
 
-    Dim result As String
-    Dim elements As Collection
-    Dim N As Long, length_ As Long
-    Dim tElement As CDPElement
+    Dim result As Variant
 
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -1041,34 +1006,41 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID & "s"     's to signify a collection varID
-
    'Verify double slash syntax
-   'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
    'Check if strXPath has invalid // syntax
-   'Per XPath technique, for acquiring child elements, the starting call string must not be "\\"
-   'https://bytes.com/topic/javascript/answers/542739-how-use-contextnode-document-evaluate
     If Left(strXPath, 2) = "//" Then
         main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
-   'Get the object and assign to the varID in the browser
-    result = main.jsEval(varID_ & " = " & "document" & ".evaluate(""" & strXPath & """, " & getVarID & ", null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)")
+   'Get XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE) using callFunctionOn (this as contextNode)
+    Dim xpArgs As New Collection
+    Dim xpArg As New Scripting.Dictionary
+    xpArg.Add "value", strXPath
+    xpArgs.Add xpArg
+    Dim collResult As Variant
+    collResult = main.jsEval("function(xp){ return document.evaluate(xp, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null) }", objectId:=getObjectId(), objectArguments:=xpArgs, returnByValue:=False)
+    If VarType(collResult) <> vbString Then Exit Function
+    Dim collOid As String: collOid = CStr(collResult)
 
-   'Return result
-    If result = "null" Then Exit Function Else Set elements = New Collection
-
-   'Store element members to the collection
-    Dim varJS__ As String                                    'Store each new member access JS string
-    length_ = main.jsEval(varID_ & ".snapshotLength")
-    For N = 0 To length_ - 1                                'HTML index starts at zero
-        varJS__ = varID_ & ".snapshotItem(" & N & ")"
+   'Get snapshotLength and each item's objectId
+    Dim elements As Collection: Set elements = New Collection
+    Dim length_ As Long, N As Long
+    Dim tElement As CDPElement
+    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemResult As Variant, itemOid As String
+    length_ = main.jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
+    For N = 0 To length_ - 1
+        Set itemArgs = New Collection
+        Set itemArg = New Scripting.Dictionary
+        itemArg.Add "value", N
+        itemArgs.Add itemArg
+        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
+        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
         Set tElement = New CDPElement
-        tElement.Init main, varIDs, varJS_:=varJS__
+        tElement.Init main, , VarType(itemResult), itemOid
         elements.Add tElement
     Next
 
@@ -1091,8 +1063,6 @@ Public Function getIFrame() As CDPElement
     Const FromProcedureName As String = ThisClassName & ".getIFrame"
 
 
-    Dim src As String
-
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
         If Not isExist Then
@@ -1101,20 +1071,29 @@ Public Function getIFrame() As CDPElement
         End If
     End If
 
-   'Get a new unique varID
-    Dim varID_ As String: varID_ = newVarID
-
    'Check if the iFrame is hosted on a different domain
-    src = getAttribute("src")
+    Dim src As String: src = getAttribute("src")
     If InStr(src, "http") Then main.printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
 
-   'Get the object and assign to the varID in the browser
-    Dim varJS_ As String: Dim result As String
-    varJS_ = varID_ & " = " & getVarID & ".contentDocument"
-    result = main.jsEval(varJS_)
-
-   'Return result
+   'Get contentDocument objectId via callFunctionOn
+    Dim result As Variant
+    result = main.jsEval("function(){ return this.contentDocument }", objectId:=getObjectId(), returnByValue:=False)
+    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
     Set getIFrame = New CDPElement
-    getIFrame.Init main, varIDs, varID_, varJS_, result
+    getIFrame.Init main, , VarType(result), oid
 
 End Function
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Terminate()
+    '不要になった objectId をリリースします(あれば)
+    If elementObjectId <> "" Then
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "objectId", elementObjectId
+        main.invokeMethod "Runtime.releaseObject", paramsCDP, StopError:=False
+    End If
+End Sub

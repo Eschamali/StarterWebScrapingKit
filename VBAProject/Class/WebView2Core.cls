@@ -51,14 +51,14 @@ Private Type RECT_T
     Bottom As Long
 End Type
 
-' =====================================================================
-' Win32 API Declares (64bit PtrSafe)
-' =====================================================================
+
+
+'***************************************************************************************************
+'                  ■■■ Win32 API Declares (64bit PtrSafe) ■■■
+'***************************************************************************************************
 #If VBA7 Then
 
-' WebView2Loader.dll ─ Edge に同梱されている DLL を使用
-' Edge インストールフォルダ（通常は自動的に PATH に含まれないため、
-' Initialize 内で LoadLibrary を用いてフルパスからロードする）
+'Excelが自動で読み込んでくれる仕様
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions _
     Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
@@ -140,8 +140,9 @@ Private Const OFF_WV2_get_BrowserProcessId As Long = 37 * 8 ' = 296  [propget] U
 ' CallDevToolsProtocolMethod の vtable index。ランタイム/SDK でずれるためプロパティで上書き可（既定 36）
 Private m_CDPMethodVTableIndex As Long
 Private m_CDPMethodForSessionVTableIndex As Long
+Private ResultCDPTimeout As Long
 
-'ベースとなる作業フォルダパス
+'ベースとなる作業フォルダ名
 Const WorkSpaceFolderName As String = "WebView2FromVBA"
 
 
@@ -193,19 +194,43 @@ Private m_LastErrorDesc As String
 '   0 = 初期 / 1 = Environment取得済み(Controller未作成) / 2 = Ready
 Private m_State As Long
 
+
+Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
+Private LogControl  As New Logger           'ログレベルの制御
+Private brID                    As String
+Private doLog                   As Boolean  'ログファイルにも、デバッグメッセージを残すか
+Private logPath                 As String   'ログファイルの保存フォルダパス
+Private Const ThisClassName         As String = "WebView2Core"       'ログのトレース用
+Private Const ERR_TIMEOUT As Long = 900
+Private Const ERR_CoreWebView2 As Long = 901
+Private Const ERR_PROTOCOL As Long = 902
+Private Const ERR_DictionaryStructure As Long = 903
+Private Const ERR_UnregisteredProtocol As Long = 904
+Private Const ERR_PolicyViolation As Long = 905
+Private Const TIMEOUT_DEFAULT As Single = 30
+Private Const TIMEOUT_NAVIGATE As Single = 45
+
+
+
 ' =====================================================================
 ' CDP メッセージ キュー / イベントキャプチャ
 ' =====================================================================
-' WebView2 の CDP callback は command result / event が混ざって届く可能性があるため、
-' JSON を受信した時点で「method を持つもの=イベント」「それ以外=コマンド結果」に振り分けてキュー化します。
-Private m_CDPEventQueue As Collection
 Private m_CDPResultQueue As Collection
 Private m_LastCDPResultErrorCode As Long
 
-' DevToolsProtocol event receiver（現状は「1種類の eventName のみ」想定）
-Private m_DevToolsProtocolEventName As String
-Private m_DevToolsProtocolEventReceiverPtr As LongPtr
-Private m_DevToolsProtocolEventToken As LongPtr
+'----------------------------------------------------------------------
+' Async CDPコマンド結果の後回収（invokeMethodAsync 相当）
+'   - async を投げるたびに、コールバック識別用の this ポインタをユニーク化
+'   - CB_OnCDPMessage で pThis から cmdId を引き当て、結果を保存
+'   - WebView2Browser 側から ResultCDPForAsync(cmdId) で回収
+'----------------------------------------------------------------------
+Private Const MAX_ASYNC_CDP_COMMANDS As Long = 256
+Private m_CDPAsyncHandlerThisPool(0 To MAX_ASYNC_CDP_COMMANDS - 1) As VtblObj
+Private m_CDPAsyncHandlerUsed(0 To MAX_ASYNC_CDP_COMMANDS - 1) As Boolean
+
+Private m_CDPAsyncPThisHexToInfo As Dictionary 'hex(pThis) -> Array(idx, cmdId)
+Private m_CDPAsyncResultJsonByCmdId As Dictionary 'cmdId -> raw result json
+Private m_CDPAsyncErrorCodeByCmdId As Dictionary  'cmdId -> ErrorCode
 
 ' DevToolsProtocol event receiver（複数購読対応）
 Private m_DevToolsProtocolEventSubscriptions As Dictionary ' eventName -> array(receiverPtr, token, handlerThisPtr)
@@ -215,18 +240,9 @@ Private m_DevToolsProtocolHandlerThisToEventName As Dictionary ' handlerThis(hex
 ' ICoreWebView2DevToolsProtocolEventReceivedEventHandler の vtable 偽装（同一 vtable を全ハンドラで共有）
 Private m_DTPEventHandlerThis As VtblObj
 Private m_DTPEventHandlerVT As VtblData4
-Private Const MAX_DTP_EVENT_HANDLERS As Long = 256
-Private m_DTPEventHandlerThisArray(0 To MAX_DTP_EVENT_HANDLERS - 1) As VtblObj ' 固定領域（再配置しない）
+Private Const MAX_DTP_EVENT_HANDLERS As Long = 256                              '一度に非同期イベントを購読する数を設定
+Private m_DTPEventHandlerThisArray(0 To MAX_DTP_EVENT_HANDLERS - 1) As VtblObj  ' 固定領域（再配置しない）
 Private m_DTPEventHandlerThisCount As Long
-
-' BrowserEvents: CDPBrowser と同様の Dictionary 構造でイベントを蓄積します
-Private m_BrowserEvents As Dictionary
-Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Private Const EventsDictionaryKeyName02 As String = "EventMethods"
-Private Const EventsDictionaryKeyIndex As String = "__index__"
-
-' JSON -> Dictionary 変換（イベント解析用）
-Private jsConverter As New WebJsonConverter
 
 ' ICoreWebView2::GetDevToolsProtocolEventReceiver の vtable index（既定値は推定。必要なら差し替え可）
 Private m_DevToolsProtocolEventReceiverVTableIndex As Long
@@ -241,6 +257,11 @@ End Type
 Public Event Ready()
 Public Event NavigationCompleted(ByVal isSuccess As Boolean, ByVal webErrorStatus As Long)
 Public Event InitializeFailed(ByVal ErrorCode As Long, ByVal Description As String)
+
+' CDP の非同期イベント
+'   methodName … ドメイン付きメソッド名（例: Network.responseReceived）
+'   eventRawJson … WebView2 が渡す params 部分の JSON 文字列をそのまま（再シリアライズしない）
+Public Event CDPEventReceived(methodName As String, eventParamsJson As String)
 
 ' 親ウィンドウ HWND を外部から参照するためのプロパティ
 Public Property Get ParentHwnd() As LongPtr
@@ -264,11 +285,6 @@ Public Property Get dwProcessId() As Long
     DispCallFunc m_pWebView2, OFF_WV2_get_BrowserProcessId, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
     dwProcessId = pid
 End Property
-
-Private Function PtrToHex(ByVal p As LongPtr) As String
-    'LongPtr を Dictionary のキーにするための簡易変換
-    PtrToHex = "0x" & Hex$(p)
-End Function
 
 Private Function IID_IUnknown_Core() As Guid16Core
     ' {00000000-0000-0000-C000-000000000046}
@@ -321,18 +337,20 @@ Private Function COM_ToIUnknownPtr(ByVal pObj As LongPtr) As LongPtr
 End Function
 
 
-' =====================================================================
-' Public Interface
-' =====================================================================
 
-'----------------------------------------------------------------------
-' Initialize
-'   hWndParent : WebView2 を埋め込む親ウィンドウハンドル
-'   boundsLeft/Top/Width/Height : 表示領域（ピクセル）
-'   initialUrl : 最初に遷移するURL（省略可）
-'   additionalBrowserArguments : 追加ブラウザ引数（省略可）。例: "--disable-web-security"
-'   戻り値 : True = 初期化コマンド送信成功（Ready イベント待ち）
-'----------------------------------------------------------------------
+'***************************************************************************************************
+'                                   ■■■ 初期化関連 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2を起動します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：True = 初期化コマンド送信成功（Ready イベント待ち）
+'* 引数　　：hWndParent                     WebView2 を埋め込む親ウィンドウハンドル
+'            boundsLeft/Top/Width/Height    表示領域（ピクセル）
+'            initialUrl                     最初に遷移するURL（省略すると`about:blank`とします）
+'            additionalBrowserArguments     追加ブラウザ引数（省略可）。例: "--disable-web-security"
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：現時点では、`CoreWebView2EnvironmentOptions`による引数直接指定が効かないため、環境変数で間接的に付与しています
+'***************************************************************************************************
 Public Function Initialize( _
     ByVal hwndParent As LongPtr, _
     ByVal boundsLeft As Long, _
@@ -340,6 +358,8 @@ Public Function Initialize( _
     ByVal boundsWidth As Long, _
     ByVal boundsHeight As Long, _
     Optional ByVal initialUrl As String = "about:blank", Optional UserDataName As String, Optional additionalBrowserArguments As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".Initialize"
+
 
     m_hWndParent = hwndParent
     m_InitialUrl = initialUrl
@@ -354,28 +374,30 @@ Public Function Initialize( _
     ' vtable を構築
     BuildVtables
 
-    ' WebView2Loader.dll が見つからない環境用に Edge フォルダから明示ロード
-    'EnsureWebView2LoaderDll
-
     ' 環境作成開始（非同期; WV2_EnvCB_Invoke が呼ばれると CB_EnvironmentCreated が動く）
     Dim hr As Long
     Dim userDataPath As String
     
     'Excelが使うWebView2の作業ディレクトリに合わせる
     userDataPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\" & Application.Version & "\" & WorkSpaceFolderName & "\" & UserDataName
+    printMsg info_, "WebView2 working folder: " & userDataPath, FromProcedureName
 
     Dim pOptions As LongPtr
     Dim useOptions As Boolean
     If Len(additionalBrowserArguments) > 0 Then
         g_EnvOptions_AdditionalArgs = additionalBrowserArguments
+        printMsg info_, "Additional startup arguments for WebView2: " & g_EnvOptions_AdditionalArgs, FromProcedureName
+
         BuildEnvOptionsVtable
         pOptions = VarPtr(m_EnvOptionsThis)
         useOptions = True
     Else
         pOptions = 0
         useOptions = False
+        
         ' この起動では追加引数を使わないので、前回のフォールバック設定をクリア
         SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), 0
+        printMsg info_, "There are no additional startup arguments for WebView2.", FromProcedureName
     End If
 
     Dim pUserData   As LongPtr: pUserData = StrPtr(userDataPath)
@@ -386,14 +408,19 @@ Public Function Initialize( _
     ' E_INVALIDARG: 偽装 COM がマーシャリング等で拒否される。環境変数でフォールバック。
     ' pOptions=0 のとき、ローダーは WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS を参照する。
     If hr <> 0 And useOptions And hr = &H80070057 Then
+        printMsg WARN_, "Failed to launch WebView2 with arguments. Attempting to provide them indirectly via environment variables. ErrorCode: " & hr, FromProcedureName
+
         SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), StrPtr(additionalBrowserArguments)
-        If WV2logView Then Debug.Print "追加引数: 環境変数でフォールバック"
         hr = CreateCoreWebView2EnvironmentWithOptions(0, pUserData, 0, pHandler)
         ' この時点で環境作成は開始されたので、他の Excel 内 WebView2 への影響を避けるため即座にクリア
         SetEnvironmentVariableW StrPtr("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"), 0
+    Else
+        printMsg info_, "WebView2 launched successfully. resultCode: " & hr, FromProcedureName
     End If
 
     If hr <> 0 Then
+        printMsg ERROR_, "WebView2 failed to start. ErrorCode: " & hr, FromProcedureName
+
         m_LastErrorCode = hr
         If Len(m_LastErrorDesc) = 0 Then m_LastErrorDesc = "CreateCoreWebView2EnvironmentWithOptions failed: 0x" & Hex(hr)
         RaiseEvent InitializeFailed(hr, m_LastErrorDesc)
@@ -401,6 +428,251 @@ Public Function Initialize( _
     Else
         Initialize = True
     End If
+End Function
+
+
+
+'***************************************************************************************************
+'                       ■■■ 呼び出し側で実際に使うメソッド関連 ■■■
+'***************************************************************************************************
+'* 機能　　：CDP メソッド実行。結果 JSON を同期待ちで返す
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：CDP メソッド実行
+'* 引数　　：methodName "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
+'            paramsJson `parameters`部分のJson文字列を指定します。空の場合は"{}"で
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・Immediate に [CDP] Invoke が出なければコールバック未呼び出し（vtable 要確認）
+'            ・Edge×Pipe×CDP の場合、IDやSessionID等の結果フルセットが届きますが、WebView2の場合、
+'              →CDP成功：Resultオブジェクトの中身のみ
+'              　CDP失敗：IDやSessionID等の結果フルセット
+'              となります｡取り扱いには､ご注意下さい｡
+'***************************************************************************************************
+Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal paramsJson As String) As String
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethod"
+
+
+    If m_pWebView2 = 0 Then CallDevToolsProtocolMethod = "": Exit Function
+    '同期呼び出しは「次に届くコマンド結果」だけを返す
+    '（イベントが混ざって届いても誤判定しないよう、キューで分離します）
+    If m_CDPResultQueue Is Nothing Then Set m_CDPResultQueue = New Collection
+    m_LastCDPResultErrorCode = 0
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
+    printMsg Trace_, "Execution parameter of `CallDevToolsProtocolMethod`: " & WorksheetFunction.TextJoin(" , ", True, "m_pWebView2-" & m_pWebView2, "methodName-" & methodName, "paramsJson-" & paramsJson, "VarPtr(m_CDPHandlerThis)-" & VarPtr(m_CDPHandlerThis)), FromProcedureName
+    printMsg Debug_, "Execution result of `CallDevToolsProtocolMethod`: " & hr, FromProcedureName
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        CallDevToolsProtocolMethod = "": Exit Function
+    End If
+    Dim t As Single: t = Timer
+    Dim spin As Long
+    spin = 0
+    printMsg Debug_, "CDP sync wait: start method=" & methodName & " timeoutSec=" & CStr(ResultCDPTimeout), FromProcedureName
+    Do
+        spin = spin + 1
+        If spin = 1 Or (spin Mod 100) = 0 Then
+            Dim qCnt As Long
+            If m_CDPResultQueue Is Nothing Then
+                qCnt = -1
+            Else
+                qCnt = m_CDPResultQueue.Count
+            End If
+            printMsg Trace_, "CDP sync wait: spin=" & spin & " method=" & methodName & " elapsedSec=" & Format$(CSng(Timer - t), "0.00") & " queueCount=" & qCnt, FromProcedureName
+        End If
+        ProcessMessages
+        DoEvents
+
+        If Not m_CDPResultQueue Is Nothing Then
+            If m_CDPResultQueue.Count > 0 Then
+                CallDevToolsProtocolMethod = CStr(m_CDPResultQueue(1))
+                m_CDPResultQueue.Remove 1
+                If m_LastCDPResultErrorCode <> 0 Then m_LastErrorCode = m_LastCDPResultErrorCode
+                printMsg Debug_, "CDP sync wait: done method=" & methodName & " spins=" & spin, FromProcedureName
+                Exit Function
+            End If
+        End If
+    Loop While (Timer - t) < ResultCDPTimeout
+
+    printMsg WARN_, "CDP sync wait: TIMEOUT method=" & methodName & " spins=" & spin & " timeoutSec=" & CStr(ResultCDPTimeout), FromProcedureName
+    If WV2logView Then Debug.Print "[CDP] timeout: command result not received from queue (try other vtable index 22,36,37,39)"
+    CallDevToolsProtocolMethod = ""
+End Function
+
+'***************************************************************************************************
+'* 機能　　：CDP メソッド実行（結果待ちしない）
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：COM 呼び出し HRESULT（0=成功）
+'* 引数　　：methodName "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
+'            paramsJson `parameters`部分のJson文字列を指定します。空の場合は"{}"で
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：
+'***************************************************************************************************
+Public Function CallDevToolsProtocolMethodAsync(ByVal methodName As String, ByVal paramsJson As String, ByVal CommandID As Long) As Long
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethodAsync"
+    
+    
+    If m_pWebView2 = 0 Then
+        CallDevToolsProtocolMethodAsync = &H80004005 'E_FAIL
+        Exit Function
+    End If
+
+    If m_CDPAsyncPThisHexToInfo Is Nothing Then Set m_CDPAsyncPThisHexToInfo = New Dictionary
+
+    '空いている async slot を確保し、コールバックの pThis を cmd ごとにユニーク化する
+    Dim idx As Long: idx = -1
+    Dim pThis As LongPtr: pThis = 0
+    Dim keyHex As String: keyHex = vbNullString
+    Dim i As Long
+    For i = 0 To MAX_ASYNC_CDP_COMMANDS - 1
+        If m_CDPAsyncHandlerUsed(i) = False Then
+            idx = i
+            m_CDPAsyncHandlerUsed(i) = True
+            pThis = VarPtr(m_CDPAsyncHandlerThisPool(i))
+            keyHex = PtrToHex(pThis)
+            m_CDPAsyncPThisHexToInfo(keyHex) = Array(i, CommandID)
+            Exit For
+        End If
+    Next i
+
+    If idx < 0 Then
+        m_LastErrorCode = &H8007000E 'E_OUTOFMEMORY (approx)
+        printMsg WARN_, "CallDevToolsProtocolMethodAsync: no free async slot (CommandID=" & CommandID & ")", FromProcedureName
+        CallDevToolsProtocolMethodAsync = m_LastErrorCode
+        Exit Function
+    End If
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, pThis)
+    printMsg Trace_, "Execution parameter of `CallDevToolsProtocolMethodAsync`: " & WorksheetFunction.TextJoin(" , ", True, "m_pWebView2-" & m_pWebView2, "methodName-" & methodName, "paramsJson-" & paramsJson, "pThis(async)-" & pThis, "CommandID-" & CommandID, "slotIdx-" & idx), FromProcedureName
+    printMsg Debug_, "CallDevToolsProtocolMethodAsync: COM hr=" & hr & " CommandID=" & CommandID & " slotIdx=" & idx & " pThis=" & pThis & " method=" & methodName, FromProcedureName
+
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        m_CDPAsyncHandlerUsed(idx) = False
+        m_CDPAsyncPThisHexToInfo.Remove keyHex
+    End If
+    CallDevToolsProtocolMethodAsync = hr
+End Function
+
+'***************************************************************************************************
+'* 機能　　：sessionID  を指定して、CDP メソッド実行。結果 JSON を同期待ちで返す
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：CDP メソッド実行
+'* 引数　　：sessionID  操作タブ先のsessionID
+'            methodName "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
+'            paramsJson `parameters`部分のJson文字列を指定します。空の場合は"{}"で
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・Immediate に [CDP] Invoke が出なければコールバック未呼び出し（vtable 要確認）
+'            ・Edge×Pipe×CDP の場合、IDやSessionID等の結果フルセットが届きますが、WebView2の場合、
+'              →CDP成功：Resultオブジェクトの中身のみ
+'              　CDP失敗：IDやSessionID等の結果フルセット
+'              となります｡取り扱いには､ご注意下さい｡
+'***************************************************************************************************
+Public Function CallDevToolsProtocolMethodForSession(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String) As String
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethodForSession"
+
+    If m_pWebView2 = 0 Then CallDevToolsProtocolMethodForSession = "": Exit Function
+    
+    '同期呼び出しは「次に届くコマンド結果」だけを返す
+    '（イベントが混ざって届いても誤判定しないよう、キューで分離します）
+    If m_CDPResultQueue Is Nothing Then Set m_CDPResultQueue = New Collection
+    m_LastCDPResultErrorCode = 0
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        CallDevToolsProtocolMethodForSession = "": Exit Function
+    End If
+    Dim t As Single: t = Timer
+    Dim spin As Long
+    spin = 0
+    printMsg Debug_, "CDP sync wait (session): start sessionID=" & sessionID & " method=" & methodName & " timeoutSec=" & CStr(ResultCDPTimeout), FromProcedureName
+    Do
+        spin = spin + 1
+        If spin = 1 Or (spin Mod 100) = 0 Then
+            Dim qCntFs As Long
+            If m_CDPResultQueue Is Nothing Then
+                qCntFs = -1
+            Else
+                qCntFs = m_CDPResultQueue.Count
+            End If
+            printMsg Trace_, "CDP sync wait (session): spin=" & spin & " method=" & methodName & " elapsedSec=" & Format$(CSng(Timer - t), "0.00") & " queueCount=" & qCntFs, FromProcedureName
+        End If
+        ProcessMessages
+        DoEvents
+
+        If Not m_CDPResultQueue Is Nothing Then
+            If m_CDPResultQueue.Count > 0 Then
+                CallDevToolsProtocolMethodForSession = CStr(m_CDPResultQueue(1))
+                m_CDPResultQueue.Remove 1
+                If m_LastCDPResultErrorCode <> 0 Then m_LastErrorCode = m_LastCDPResultErrorCode
+                printMsg Debug_, "CDP sync wait (session): done sessionID=" & sessionID & " method=" & methodName & " spins=" & spin, FromProcedureName
+                Exit Function
+            End If
+        End If
+    Loop While (Timer - t) < ResultCDPTimeout
+
+    printMsg WARN_, "CDP sync wait (session): TIMEOUT sessionID=" & sessionID & " method=" & methodName & " spins=" & spin & " timeoutSec=" & CStr(ResultCDPTimeout), FromProcedureName
+    If WV2logView Then Debug.Print "[CDP] timeout: CallDevToolsProtocolMethodForSession (vtable index might be incorrect)"
+    CallDevToolsProtocolMethodForSession = ""
+End Function
+
+'***************************************************************************************************
+'* 機能　　：セッション指定で CDP メソッド実行（結果待ちしない）
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：COM 呼び出し HRESULT（0=成功）
+'* 引数　　：sessionID  操作タブ先のsessionID
+'            methodName "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
+'            paramsJson `parameters`部分のJson文字列を指定します。空の場合は"{}"で
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：
+'***************************************************************************************************
+Public Function CallDevToolsProtocolMethodForSessionAsync(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String, ByVal CommandID As Long) As Long
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethodForSessionAsync"
+
+    If m_pWebView2 = 0 Then
+        CallDevToolsProtocolMethodForSessionAsync = &H80004005 'E_FAIL
+        Exit Function
+    End If
+
+    If m_CDPAsyncPThisHexToInfo Is Nothing Then Set m_CDPAsyncPThisHexToInfo = New Dictionary
+
+    '空いている async slot を確保し、コールバックの pThis を cmd ごとにユニーク化する
+    Dim idx As Long: idx = -1
+    Dim pThis As LongPtr: pThis = 0
+    Dim keyHex As String: keyHex = vbNullString
+    Dim i As Long
+    For i = 0 To MAX_ASYNC_CDP_COMMANDS - 1
+        If m_CDPAsyncHandlerUsed(i) = False Then
+            idx = i
+            m_CDPAsyncHandlerUsed(i) = True
+            pThis = VarPtr(m_CDPAsyncHandlerThisPool(i))
+            keyHex = PtrToHex(pThis)
+            m_CDPAsyncPThisHexToInfo(keyHex) = Array(i, CommandID)
+            Exit For
+        End If
+    Next i
+
+    If idx < 0 Then
+        m_LastErrorCode = &H8007000E 'E_OUTOFMEMORY (approx)
+        printMsg WARN_, "CallDevToolsProtocolMethodForSessionAsync: no free async slot (CommandID=" & CommandID & ")", FromProcedureName
+        CallDevToolsProtocolMethodForSessionAsync = m_LastErrorCode
+        Exit Function
+    End If
+
+    Dim hr As Long
+    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, pThis)
+    printMsg Trace_, "Execution parameter of `CallDevToolsProtocolMethodForSessionAsync`: " & WorksheetFunction.TextJoin(" , ", True, "sessionID-" & sessionID, "methodName-" & methodName, "paramsJson-" & paramsJson, "pThis(async)-" & pThis, "CommandID-" & CommandID, "slotIdx-" & idx), FromProcedureName
+    printMsg Debug_, "CallDevToolsProtocolMethodForSessionAsync: COM hr=" & hr & " CommandID=" & CommandID & " slotIdx=" & idx & " pThis=" & pThis & " method=" & methodName, FromProcedureName
+
+    If hr <> 0 Then
+        m_LastErrorCode = hr
+        m_CDPAsyncHandlerUsed(idx) = False
+        m_CDPAsyncPThisHexToInfo.Remove keyHex
+    End If
+    CallDevToolsProtocolMethodForSessionAsync = hr
 End Function
 
 '----------------------------------------------------------------------
@@ -420,143 +692,40 @@ Public Sub NavigateToString(ByVal htmlContent As String)
     COM_DispCallPtr1 m_pWebView2, OFF_WV2_NavigateToString, StrPtr(htmlContent)
 End Sub
 
-'----------------------------------------------------------------------
-' CallDevToolsProtocolMethod : CDP メソッド実行。結果 JSON を同期待ちで返す
-'   methodName: "Domain.method"（例: "Runtime.evaluate", "Page.navigate"）
-'   paramsJson: パラメータ JSON（例: "{}" または "{""expression"":""1+1""}"）
-'   診断: Immediate に [CDP] Invoke が出なければコールバック未呼び出し（vtable 要確認）
-'----------------------------------------------------------------------
-Public Function CallDevToolsProtocolMethod(ByVal methodName As String, ByVal paramsJson As String) As String
-    If m_pWebView2 = 0 Then CallDevToolsProtocolMethod = "": Exit Function
-    '同期呼び出しは「次に届くコマンド結果」だけを返す
-    '（イベントが混ざって届いても誤判定しないよう、キューで分離します）
-    If m_CDPResultQueue Is Nothing Then
-        Set m_CDPResultQueue = New Collection
-    Else
-        Set m_CDPResultQueue = New Collection
-    End If
-    m_LastCDPResultErrorCode = 0
-    Dim hr As Long
-    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
-    If hr <> 0 Then
-        m_LastErrorCode = hr
-        CallDevToolsProtocolMethod = "": Exit Function
-    End If
-    Dim t As Single: t = Timer
-    Do
-        ProcessMessages
-        DoEvents
 
-        If Not m_CDPResultQueue Is Nothing Then
-            If m_CDPResultQueue.Count > 0 Then
-                CallDevToolsProtocolMethod = CStr(m_CDPResultQueue(1))
-                m_CDPResultQueue.Remove 1
-                If m_LastCDPResultErrorCode <> 0 Then m_LastErrorCode = m_LastCDPResultErrorCode
-                Exit Function
-            End If
-        End If
-    Loop While (Timer - t) < 30
 
-    If WV2logView Then Debug.Print "[CDP] timeout: command result not received from queue (try other vtable index 22,36,37,39)"
-    CallDevToolsProtocolMethod = ""
-End Function
-
-'----------------------------------------------------------------------
-' CallDevToolsProtocolMethodAsync : CDP メソッド実行（結果待ちしない）
-'   methodName: "Domain.method"（例: "Runtime.callFunctionOn"）
-'   paramsJson: パラメータ JSON（例: "{}"）
-'   返り値: COM 呼び出し HRESULT（0=成功）
-'----------------------------------------------------------------------
-Public Function CallDevToolsProtocolMethodAsync(ByVal methodName As String, ByVal paramsJson As String) As Long
-    If m_pWebView2 = 0 Then
-        CallDevToolsProtocolMethodAsync = &H80004005 'E_FAIL
-        Exit Function
-    End If
-
-    Dim hr As Long
-    hr = COM_CallDevToolsProtocolMethod(m_pWebView2, methodName, paramsJson, VarPtr(m_CDPAsyncHandlerThis))
-    If hr <> 0 Then m_LastErrorCode = hr
-    CallDevToolsProtocolMethodAsync = hr
-End Function
-
-'----------------------------------------------------------------------
-' CallDevToolsProtocolMethodForSession : セッション指定で CDP メソッド実行。結果 JSON を同期待ちで返す
-'----------------------------------------------------------------------
-Public Function CallDevToolsProtocolMethodForSession(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String) As String
-    If m_pWebView2 = 0 Then CallDevToolsProtocolMethodForSession = "": Exit Function
-    If m_CDPResultQueue Is Nothing Then
-        Set m_CDPResultQueue = New Collection
-    Else
-        Set m_CDPResultQueue = New Collection
-    End If
-    m_LastCDPResultErrorCode = 0
-    Dim hr As Long
-    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, VarPtr(m_CDPHandlerThis))
-    If hr <> 0 Then
-        m_LastErrorCode = hr
-        CallDevToolsProtocolMethodForSession = "": Exit Function
-    End If
-    Dim t As Single: t = Timer
-    Do
-        ProcessMessages
-        DoEvents
-
-        If Not m_CDPResultQueue Is Nothing Then
-            If m_CDPResultQueue.Count > 0 Then
-                CallDevToolsProtocolMethodForSession = CStr(m_CDPResultQueue(1))
-                m_CDPResultQueue.Remove 1
-                If m_LastCDPResultErrorCode <> 0 Then m_LastErrorCode = m_LastCDPResultErrorCode
-                Exit Function
-            End If
-        End If
-    Loop While (Timer - t) < 30
-
-    If WV2logView Then Debug.Print "[CDP] timeout: CallDevToolsProtocolMethodForSession (vtable index might be incorrect)"
-    CallDevToolsProtocolMethodForSession = ""
-End Function
-
-'----------------------------------------------------------------------
-' CallDevToolsProtocolMethodForSessionAsync : セッション指定で CDP メソッド実行（結果待ちしない）
-'----------------------------------------------------------------------
-Public Function CallDevToolsProtocolMethodForSessionAsync(ByVal sessionID As String, ByVal methodName As String, ByVal paramsJson As String) As Long
-    If m_pWebView2 = 0 Then
-        CallDevToolsProtocolMethodForSessionAsync = &H80004005 'E_FAIL
-        Exit Function
-    End If
-
-    Dim hr As Long
-    hr = COM_CallDevToolsProtocolMethodForSession(m_pWebView2, sessionID, methodName, paramsJson, VarPtr(m_CDPAsyncHandlerThis))
-    If hr <> 0 Then m_LastErrorCode = hr
-    CallDevToolsProtocolMethodForSessionAsync = hr
-End Function
-
-'----------------------------------------------------------------------
-' SubscribeDevToolsProtocolEvent
-'   WebView2 の DevToolsProtocol event を購読します。
-'   現状は「1種類の eventName のみ」フォールバックする実装です。
-'----------------------------------------------------------------------
+'***************************************************************************************************
+'                       ■■■ ブラウザからの非同期イベント購読関連 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2 の DevToolsProtocol event (非同期イベント)を購読します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：登録成功可否論理値
+'* 引数　　：eventName      購読したい非同期イベントmethod名
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・メモリ変動によるアクセス違反を防ぐため同時に購読できるmethod数は、「MAX_DTP_EVENT_HANDLERS」に依存します。
+'            　デフォルトは、256個まで一括購読できます。この上限は、変更可能ですが、動いてる最中は変更できません。
+'
+'            ・この購読が働いている状態で、VBAのブレークポイント等で動作を止めると、`ntdll.dll - 0xc0000027`エラーによるクラッシュが発生します。
+'              これを回避するには、次項の購読解除処理が必要です。
+'***************************************************************************************************
 Public Function SubscribeDevToolsProtocolEvent(ByVal eventName As String) As Boolean
+    '機能が整ってない場合は、即抜
     If m_pWebView2 = 0 Then SubscribeDevToolsProtocolEvent = False: Exit Function
+
+    '空文字も同様
     If Len(eventName) = 0 Then SubscribeDevToolsProtocolEvent = False: Exit Function
 
-    '複数購読対応：既に登録済みなら何もしない
-    If m_DevToolsProtocolEventSubscriptions Is Nothing Then
-        Set m_DevToolsProtocolEventSubscriptions = New Dictionary
-    End If
-    If m_DevToolsProtocolEventSubscriptions.Exists(eventName) Then
-        SubscribeDevToolsProtocolEvent = True
-        Exit Function
-    End If
+    '初購読は、Dictionaryオブジェクトを作成
+    If m_DevToolsProtocolEventSubscriptions Is Nothing Then Set m_DevToolsProtocolEventSubscriptions = New Dictionary
 
-    'フォールバック用（TakeEvents 側が params のみの場合に備える）
-    m_DevToolsProtocolEventName = eventName
+    '既に登録済みなら、即抜
+    If m_DevToolsProtocolEventSubscriptions.Exists(eventName) Then SubscribeDevToolsProtocolEvent = True: Exit Function
 
-    ' イベントごとに別の handler this を用意（コールバックの pThis で振り分けするため）
+    '購読の上限に突破した場合は、ここで抜ける
     Dim idx As Long: idx = m_DTPEventHandlerThisCount
-    If idx >= MAX_DTP_EVENT_HANDLERS Then
-        SubscribeDevToolsProtocolEvent = False
-        Exit Function
-    End If
+    If idx >= MAX_DTP_EVENT_HANDLERS Then SubscribeDevToolsProtocolEvent = False: Exit Function
+
+    ' イベントごとに別の handler this を用意（コールバックの pThis で振り分けするため）し、カウント
     m_DTPEventHandlerThisArray(idx).pVTable = VarPtr(m_DTPEventHandlerVT.fn(0))
     Dim pHandlerThis As LongPtr: pHandlerThis = VarPtr(m_DTPEventHandlerThisArray(idx))
     m_DTPEventHandlerThisCount = m_DTPEventHandlerThisCount + 1
@@ -572,7 +741,6 @@ Public Function SubscribeDevToolsProtocolEvent(ByVal eventName As String) As Boo
         SubscribeDevToolsProtocolEvent = False
         Exit Function
     End If
-    m_DevToolsProtocolEventReceiverPtr = pReceiver '互換用（最後に登録された）
 
     Dim vHandler(0 To 1) As LongPtr
     Dim vToken(0 To 1) As LongPtr
@@ -596,8 +764,6 @@ Public Function SubscribeDevToolsProtocolEvent(ByVal eventName As String) As Boo
         SubscribeDevToolsProtocolEvent = False
         Exit Function
     End If
-
-    m_DevToolsProtocolEventToken = token
 
     '複数購読用に保存（receiver, token, handlerThis の3要素）
     Dim subInfo(0 To 2) As LongPtr
@@ -626,12 +792,13 @@ Public Function SubscribeDevToolsProtocolEvent(ByVal eventName As String) As Boo
     SubscribeDevToolsProtocolEvent = True
 End Function
 
-'----------------------------------------------------------------------
-' UnsubscribeDevToolsProtocolEvent
-'   SubscribeDevToolsProtocolEvent で登録したハンドラを解除します。
-'   eventName を省略/空の場合：全購読を解除します。
-'----------------------------------------------------------------------
-Public Function UnsubscribeDevToolsProtocolEvent(Optional ByVal eventName As String = vbNullString) As Boolean
+'***************************************************************************************************
+'* 機能　　：WebView2 の DevToolsProtocol event (非同期イベント)購読を解除します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：解除成功可否論理値
+'* 引数　　：eventName      購読解除したい非同期イベントmethod名　※省略で、全解除します
+'***************************************************************************************************
+Public Function UnsubscribeDevToolsProtocolEvent(Optional ByVal eventName As String) As Boolean
     On Error GoTo iferr
     If m_DevToolsProtocolEventSubscriptions Is Nothing Then UnsubscribeDevToolsProtocolEvent = True: Exit Function
     If m_DevToolsProtocolEventSubscriptions.Count = 0 Then UnsubscribeDevToolsProtocolEvent = True: Exit Function
@@ -641,7 +808,7 @@ Public Function UnsubscribeDevToolsProtocolEvent(Optional ByVal eventName As Str
     Const OFF_RCV_remove_DevToolsProtocolEventReceived As Long = 4 * 8 'index 4
 
     '引数なし => 全解除
-    If Len(eventName) = 0 Then
+    If StrPtr(eventName) = 0 Then
         Dim k As Variant
         For Each k In m_DevToolsProtocolEventSubscriptions.keys
             Dim subInfoAll As Variant: subInfoAll = m_DevToolsProtocolEventSubscriptions(k)
@@ -667,15 +834,12 @@ Public Function UnsubscribeDevToolsProtocolEvent(Optional ByVal eventName As Str
                 On Error GoTo 0
             End If
             ' hr != 0 でも最後まで処理する
-        Next k
+        Next
 
         Set m_DevToolsProtocolEventSubscriptions = New Dictionary
         If Not m_DevToolsProtocolEventReceiverHexToName Is Nothing Then Set m_DevToolsProtocolEventReceiverHexToName = New Dictionary
         If Not m_DevToolsProtocolHandlerThisToEventName Is Nothing Then Set m_DevToolsProtocolHandlerThisToEventName = New Dictionary
         m_DTPEventHandlerThisCount = 0
-        m_DevToolsProtocolEventToken = 0
-        m_DevToolsProtocolEventReceiverPtr = 0
-        m_DevToolsProtocolEventName = vbNullString
         UnsubscribeDevToolsProtocolEvent = True
         Exit Function
     End If
@@ -723,6 +887,22 @@ iferr:
     UnsubscribeDevToolsProtocolEvent = False
 End Function
 
+'***************************************************************************************************
+'* 機能　　：WebView2 の DevToolsProtocol event method名に紐づくキーを生成します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：そのポインターの16進数表記文字列
+'* 引数　　：method名に紐づく発信ポインター値
+'***************************************************************************************************
+Private Function PtrToHex(ByVal p As LongPtr) As String
+    'LongPtr を Dictionary のキーにするための簡易変換
+    PtrToHex = "0x" & Hex$(p)
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ ウィンドウ周り関連 ■■■
+'***************************************************************************************************
 '----------------------------------------------------------------------
 ' Resize : 表示領域を変更
 '----------------------------------------------------------------------
@@ -745,276 +925,6 @@ Public Sub NotifyPositionChanged()
     If m_pController = 0 Then Exit Sub
     Dim retV As Variant
     DispCallFunc m_pController, OFF_CTRL_NotifyParentPos, CC_STDCALL, vbLong, 0, 0, 0, retV
-End Sub
-
-'----------------------------------------------------------------------
-' ProcessMessages  ― COM STA コールバック層に必要なメッセージの処理
-'   IsReady になるまでの待機ループ内で繰り返し呼ぶ。
-'   State 1（Environment取得済み）を検出したら Controller 作成を開始する。
-'----------------------------------------------------------------------
-Public Sub ProcessMessages(Optional ByVal iterations As Long = 100)
-    Dim msg(0 To 5) As LongPtr
-    Dim i As Long
-    For i = 1 To iterations
-        If PeekMessage(msg(0), 0, 0, 0, PM_REMOVE) Then
-            TranslateMessage msg(0)
-            DispatchMessage msg(0)
-        Else
-            Exit For
-        End If
-    Next i
-    DoEvents
-
-    ' State 1: Environment → Controller 作成
-    If m_State = 1 Then BeginControllerCreation
-    ' State 2: Controller → 表示・WebView2取得
-    If m_State = 2 Then FinishWebViewSetup
-End Sub
-
-'----------------------------------------------------------------------
-' BrowserEvents（CDPイベント蓄積）
-'   Set BrowserEvents = Nothing                -> イベント破棄
-'   Set BrowserEvents = New Dictionary (Count=0) -> 初期構造を作ってキャプチャ開始
-'   Set BrowserEvents = 既存辞書（TotalEvents/ EventMethods を持つ） -> 追加キャプチャ
-'----------------------------------------------------------------------
-Public Property Get BrowserEvents() As Dictionary
-    Set BrowserEvents = m_BrowserEvents
-End Property
-
-Public Property Set BrowserEvents(ByVal ObjDic As Dictionary)
-    If ObjDic Is Nothing Then
-        Set m_BrowserEvents = Nothing
-        Exit Property
-    End If
-
-    'まっさら dictionary -> 初期構造を作って開始
-    If ObjDic.Count = 0 Then
-        Set m_BrowserEvents = FormatDictionary_BrowserEvents()
-        Exit Property
-    End If
-
-    '既存辞書の形式チェック（CDPBrowser準拠）
-    If ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
-        Set m_BrowserEvents = ObjDic
-    Else
-        Err.Raise vbObjectError + 1010, "WebView2Core.BrowserEvents", "Invalid BrowserEvents Dictionary structure."
-    End If
-End Property
-
-'----------------------------------------------------------------------
-' TakeEvents
-'   CDP callback から積まれた「イベントキュー」を Dictionary に反映します。
-'----------------------------------------------------------------------
-Public Sub TakeEvents(Optional InternalUseMessages As Dictionary)
-    If m_CDPEventQueue Is Nothing Then Exit Sub
-    If m_CDPEventQueue.Count = 0 Then Exit Sub
-
-    'キャプチャ無効なら破棄（キューだけは膨らませない）
-    If m_BrowserEvents Is Nothing And InternalUseMessages Is Nothing Then
-        Set m_CDPEventQueue = New Collection
-        Exit Sub
-    End If
-
-    If Not m_BrowserEvents Is Nothing Then
-        Dim eventsDict As Dictionary
-        Set eventsDict = m_BrowserEvents(EventsDictionaryKeyName02)
-    End If
-
-    If Not InternalUseMessages Is Nothing Then
-        Set InternalUseMessages = FormatDictionary_BrowserEvents()
-
-        Dim eventsDictForInternal As Dictionary
-        Set eventsDictForInternal = InternalUseMessages(EventsDictionaryKeyName02)
-    End If
-
-    Dim i As Long
-    For i = 1 To m_CDPEventQueue.Count
-        Dim rawJson As String: rawJson = CStr(m_CDPEventQueue(i))
-        If Len(rawJson) = 0 Then GoTo nextI
-
-        'イベント本体を Dictionary 化（WebView2 は params のみで届く想定のため、method は文中の "method" に依存しない）
-        Dim eventData As Dictionary
-        On Error GoTo parseErr
-        Set eventData = jsConverter.ParseJson(rawJson)
-        If eventData Is Nothing Then GoTo nextI
-
-        '振り分け用 methodName：トップレベルの "method" キーのみ採用（params 内の "method" は HTTP メソッド等で誤検出されるため使わない）
-        Dim methodName As String: methodName = vbNullString
-        If eventData.Exists("method") Then
-            Dim mVal As Variant: mVal = eventData("method")
-            If VarType(mVal) = vbString Then methodName = Trim$(CStr(mVal))
-        End If
-        If Len(methodName) = 0 Then
-            'params のみで来た場合（レガシー／pSender 未マッチ時）。単一購読時のみフォールバックで振り分け可能
-            methodName = m_DevToolsProtocolEventName
-            If Len(methodName) = 0 Then GoTo nextI
-            'params のみの JSON なので eventData を { method, params: eventData } に再構成
-            Dim paramsOnly As Dictionary
-            Set paramsOnly = eventData
-            Set eventData = New Dictionary
-            eventData.Add "method", methodName
-            eventData.Add "params", paramsOnly
-        End If
-
-        'WebView2 によっては params が文字列で渡る場合がある（二重エンコード）。オブジェクトに正規化する。※エラーになるので一旦コメントアウト
-'        If eventData.Exists("params") Then
-'            Dim p As Variant: p = eventData("params")
-'            If VarType(p) = vbString Then
-'                If Len(CStr(p)) > 0 Then
-'                    On Error Resume Next
-'                    Dim paramsObj As Dictionary
-'                    Set paramsObj = jsConverter.ParseJson(CStr(p))
-'                    If Not paramsObj Is Nothing Then eventData("params") = paramsObj
-'                    On Error GoTo parseErr
-'                End If
-'            End If
-'        End If
-
-        Dim total As Long
-        Dim eventList As Collection
-        
-        If Not m_BrowserEvents Is Nothing Then
-            total = CLng(m_BrowserEvents(EventsDictionaryKeyName01)) + 1
-            m_BrowserEvents(EventsDictionaryKeyName01) = total
-
-            If eventData.Exists(EventsDictionaryKeyIndex) Then
-                eventData(EventsDictionaryKeyIndex) = total
-            Else
-                eventData.Add EventsDictionaryKeyIndex, total
-            End If
-
-            If eventsDict.Exists(methodName) Then
-                Set eventList = eventsDict(methodName)
-            Else
-                Set eventList = New Collection
-                eventsDict.Add methodName, eventList
-            End If
-            eventList.Add eventData
-        End If
-
-        If Not InternalUseMessages Is Nothing Then
-            total = CLng(InternalUseMessages(EventsDictionaryKeyName01)) + 1
-            InternalUseMessages(EventsDictionaryKeyName01) = total
-
-            If eventsDictForInternal.Exists(EventsDictionaryKeyIndex) Then
-                eventData(EventsDictionaryKeyIndex) = total
-            Else
-                eventsDictForInternal.Add EventsDictionaryKeyIndex, total
-            End If
-
-            If eventsDictForInternal.Exists(methodName) Then
-                Set eventList = eventsDictForInternal(methodName)
-            Else
-                Set eventList = New Collection
-                eventsDictForInternal.Add methodName, eventList
-            End If
-            eventList.Add eventData
-        End If
-
-parseContinue:
-        On Error GoTo 0
-nextI:
-    Next i
-
-    '処理済みは破棄（destruction は将来拡張用。現状は常にクリア）
-    Set m_CDPEventQueue = New Collection
-    Exit Sub
-
-parseErr:
-    'JSONがパースできないものはスキップ（イベント形式が不安定な場合の保険）
-    On Error GoTo 0
-    GoTo nextI
-End Sub
-
-Public Property Get PendingEventCount() As Long
-    If m_CDPEventQueue Is Nothing Then
-        PendingEventCount = 0
-    Else
-        PendingEventCount = m_CDPEventQueue.Count
-    End If
-End Property
-
-'----------------------------------------------------------------------
-' Friend（WebView2Callbacks から呼ばれる）
-'----------------------------------------------------------------------
-Friend Sub CB_OnCDPMessage(ByVal ErrorCode As Long, ByVal MsgJson As String, ByVal pThis As LongPtr)
-    If Len(MsgJson) = 0 Then Exit Sub
-    If m_CDPEventQueue Is Nothing Then Set m_CDPEventQueue = New Collection
-    If m_CDPResultQueue Is Nothing Then Set m_CDPResultQueue = New Collection
-
-    ' 非同期呼び出しの完了結果は同期キューに混ぜない（結果取り違え防止）
-    If pThis = VarPtr(m_CDPAsyncHandlerThis) Then Exit Sub
-
-    ' "method" を含む -> CDP event として扱う
-    If InStr(1, MsgJson, """method""", vbTextCompare) > 0 Then
-        m_CDPEventQueue.Add MsgJson
-    Else
-        '同期結果（もしくは command result）
-        m_LastCDPResultErrorCode = ErrorCode
-        m_CDPResultQueue.Add MsgJson
-    End If
-End Sub
-
-'----------------------------------------------------------------------
-' CB_OnDevToolsProtocolEvent
-'   DevToolsProtocol event receiver から「params(JSONのみ)」が渡ってくる想定。
-'   pHandlerThis（登録時に渡した handler の this）で eventName を特定し、method 付き JSON に整形してキューへ積みます。
-'----------------------------------------------------------------------
-Friend Sub CB_OnDevToolsProtocolEvent(ByVal ParameterObjectAsJson As String, ByVal pHandlerThis As LongPtr)
-    If Len(ParameterObjectAsJson) = 0 Then Exit Sub
-    If m_CDPEventQueue Is Nothing Then Set m_CDPEventQueue = New Collection
-
-    Dim eventName As String: eventName = vbNullString
-    ' イベントごとの handler this で振り分け（複数購読で確実に識別）
-    If Not m_DevToolsProtocolHandlerThisToEventName Is Nothing Then
-        Dim Key As String: Key = PtrToHex(pHandlerThis)
-        If m_DevToolsProtocolHandlerThisToEventName.Exists(Key) Then eventName = m_DevToolsProtocolHandlerThisToEventName(Key)
-    End If
-    If Len(eventName) = 0 And Not m_DevToolsProtocolEventReceiverHexToName Is Nothing Then
-        ' フォールバック：pHandlerThis を receiver として扱う（旧挙動）
-        Key = PtrToHex(pHandlerThis)
-        If m_DevToolsProtocolEventReceiverHexToName.Exists(Key) Then eventName = m_DevToolsProtocolEventReceiverHexToName(Key)
-        If Len(eventName) = 0 Then
-            Dim pUnk As LongPtr: pUnk = COM_ToIUnknownPtr(pHandlerThis)
-            If pUnk <> 0 Then
-                Key = PtrToHex(pUnk)
-                If m_DevToolsProtocolEventReceiverHexToName.Exists(Key) Then eventName = m_DevToolsProtocolEventReceiverHexToName(Key)
-                COM_Release pUnk
-            End If
-        End If
-    End If
-
-    'method を付与して CDP(event 完全文) と同じ形に揃える
-    'ParameterObjectAsJson の前後空白はトリム（COM が余分に付与する場合の対策）
-    Dim paramsJson As String: paramsJson = Trim$(ParameterObjectAsJson)
-    If Len(eventName) > 0 Then
-        m_CDPEventQueue.Add "{""method"":""" & eventName & """,""params"":" & paramsJson & "}"
-    Else
-        'フォールバック（分類不能なら params のみを積む）
-        m_CDPEventQueue.Add paramsJson
-    End If
-End Sub
-
-Private Function FormatDictionary_BrowserEvents() As Dictionary
-    Set FormatDictionary_BrowserEvents = New Dictionary
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary
-End Function
-
-Private Function ExtractCdpMethodName(ByVal jsonString As String) As String
-    '例: {"method":"Network.responseReceived", "params":{...}}
-    Const KeyPattern As String = """method"":"""
-    Dim p As Long: p = InStr(1, jsonString, KeyPattern, vbTextCompare)
-    If p = 0 Then Exit Function
-    Dim StartPos As Long: StartPos = p + Len(KeyPattern)
-    Dim EndPos As Long: EndPos = InStr(StartPos, jsonString, """", vbTextCompare)
-    If EndPos > StartPos Then ExtractCdpMethodName = Mid(jsonString, StartPos, EndPos - StartPos)
-End Function
-
-Public Sub SetVisible(ByVal isVisible As Boolean)
-    If m_pController = 0 Then Exit Sub
-    Dim visVal As Long: visVal = IIf(isVisible, 1, 0)
-    COM_DispCallLong1 m_pController, OFF_CTRL_put_IsVisible, visVal
 End Sub
 
 '----------------------------------------------------------------------
@@ -1111,6 +1021,191 @@ Friend Sub DoTimerResize()
     m_LastAppliedBottom = rc.Bottom
 End Sub
 
+
+
+'***************************************************************************************************
+'                   ■■■ ブラウザからのCDPメッセージコールバック処理関連 ■■■
+'***************************************************************************************************
+'* 機能　　：Excel→WebView2へ送ったCDPコマンド結果が返ります
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ErrorCode  実行自体の結果コード
+'            MsgJson    CDPコマンドの結果Json文字列
+'            pThis      どのポインターとして実行したものか？
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：CDPコマンド結果を処理するプロシージャとなります
+'* 注意事項：・Edge×Pipe×CDP の場合、IDやSessionID等の結果フルセットが届きますが、WebView2の場合、
+'              →CDP成功：Resultオブジェクトの中身のみ
+'              　CDP失敗：IDやSessionID等の結果フルセット
+'              となります｡取り扱いには､ご注意下さい｡
+'
+'            ・非同期イベントは、`CB_OnDevToolsProtocolEvent`プロシージャで別途処理を設けています。ここのプロシージャはあくまでも、コマンド結果のみ担います。
+'***************************************************************************************************
+Friend Sub CB_OnCDPMessage(ByVal ErrorCode As Long, ByVal MsgJson As String, ByVal pThis As LongPtr)
+    Const FromProcedureName As String = ThisClassName & ".CB_OnCDPMessage"
+
+    '空文字の場合はそもそも、通さないようにする
+    If Len(MsgJson) = 0 Then
+        printMsg Debug_, "CB_OnCDPMessage: empty MsgJson (ignored), pThis=" & pThis & " CDP-ErrorCode=" & ErrorCode, FromProcedureName
+        Exit Sub
+    End If
+    If m_CDPResultQueue Is Nothing Then Set m_CDPResultQueue = New Collection
+    printMsg Trace_, "CDP-Result: " & MsgJson & " , pThis: " & pThis & " , CDP-ErrorCode: " & ErrorCode, FromProcedureName
+    printMsg Debug_, "CB_OnCDPMessage: enter pThis=" & pThis & " syncThis=" & VarPtr(m_CDPHandlerThis) & " CDP-ErrorCode=" & ErrorCode & " jsonLen=" & Len(MsgJson), FromProcedureName
+
+    '発信元のポインターをチェックし、同期モードか非同期モードかを確認
+    If pThis = VarPtr(m_CDPHandlerThis) Then
+        '同期結果(CDPコマンド結果)
+        printMsg Debug_, "CDP-Result: " & MsgJson & " , pThis(Sync mode): " & pThis & " , CDP-ErrorCode: " & ErrorCode, FromProcedureName
+        m_LastCDPResultErrorCode = ErrorCode
+        m_CDPResultQueue.Add MsgJson
+        Exit Sub
+    End If
+
+    Dim keyHex As String: keyHex = PtrToHex(pThis)
+
+    '非同期結果：pThis(=投げた文脈)から cmdId を復元
+    If m_CDPAsyncPThisHexToInfo Is Nothing Then
+        printMsg WARN_, "CB_OnCDPMessage: async pThis but m_CDPAsyncPThisHexToInfo is Nothing. pThis=" & pThis & " keyHex=" & keyHex, FromProcedureName
+        Exit Sub
+    End If
+
+    printMsg Debug_, "CDP-Result: " & MsgJson & " , pThis(Async mode): " & pThis & " , CDP-ErrorCode: " & ErrorCode, FromProcedureName
+
+    If m_CDPAsyncPThisHexToInfo.Exists(keyHex) Then
+        Dim info As Variant: info = m_CDPAsyncPThisHexToInfo(keyHex)
+        Dim idx As Long: idx = CLng(info(0))
+        Dim cmdId As Long: cmdId = CLng(info(1))
+
+        m_CDPAsyncResultJsonByCmdId(cmdId) = MsgJson
+        m_CDPAsyncErrorCodeByCmdId(cmdId) = ErrorCode
+
+        ' slot free（結果は辞書側に残す）
+        m_CDPAsyncHandlerUsed(idx) = False
+        m_CDPAsyncPThisHexToInfo.Remove keyHex
+        printMsg Debug_, "CB_OnCDPMessage: async result stored cmdId=" & cmdId & " slotIdx=" & idx & " keyHex=" & keyHex, FromProcedureName
+        Exit Sub
+    End If
+
+    printMsg WARN_, "CB_OnCDPMessage: unmatched pThis (not sync, unknown async slot). pThis=" & pThis & " keyHex=" & keyHex & " CDP-ErrorCode=" & ErrorCode, FromProcedureName
+End Sub
+
+'----------------------------------------------------------------------
+' ResultCDPForAsync
+'   Async コマンド投げた側の cmdId で結果を後回収します。
+'   WebView2 の場合、結果 JSON は MsgJson をそのまま保持しています。
+'----------------------------------------------------------------------
+Public Function ResultCDPForAsync(ByVal CommandID As Long, Optional ByRef ErrorExist As Boolean) As String
+    Const FromProcedureName As String = ThisClassName & ".ResultCDPForAsync"
+
+    ErrorExist = False
+    If m_CDPAsyncResultJsonByCmdId Is Nothing Then
+        printMsg Debug_, "ResultCDPForAsync: miss (result dict not initialized) CommandID=" & CommandID, FromProcedureName
+        Exit Function
+    End If
+
+    If Not m_CDPAsyncResultJsonByCmdId.Exists(CommandID) Then
+        printMsg Debug_, "ResultCDPForAsync: miss (not ready yet) CommandID=" & CommandID, FromProcedureName
+        Exit Function
+    End If
+
+    ResultCDPForAsync = CStr(m_CDPAsyncResultJsonByCmdId(CommandID))
+
+    Dim ec As Long: ec = 0
+    If Not m_CDPAsyncErrorCodeByCmdId Is Nothing Then
+        ec = CLng(m_CDPAsyncErrorCodeByCmdId(CommandID))
+        ErrorExist = (ec <> 0)
+    End If
+
+    printMsg Debug_, "ResultCDPForAsync: hit CommandID=" & CommandID & " CDP-ErrorCode=" & ec & " jsonLen=" & Len(ResultCDPForAsync), FromProcedureName
+
+    '回収したら破棄（pipe版と同様の取り出し口にする）
+    m_CDPAsyncResultJsonByCmdId.Remove CommandID
+    If Not m_CDPAsyncErrorCodeByCmdId Is Nothing Then m_CDPAsyncErrorCodeByCmdId.Remove CommandID
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WebView2 で発生したイベント情報が返ります
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ParameterObjectAsJson  非同期イベントJson文字列そのもの※`params`オブジェクトの中身のみ
+'            pHandlerThis           どのポインターからの非同期イベントか
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：WebView2 で発生した非同期イベント情報を処理します。
+'            pHandlerThis（登録時に渡した handler の this）で`method`を特定し、
+'
+'* 注意事項：・Edge×Pipe×CDP の場合、methodやSessionID等の結果フルセットが届きますが、
+'              WebView2の場合は、`params`オブジェクトの中身のみ返ります。
+'              事前登録した`pHandlerThis`を基に、メソッド名を特定する必要があります。
+'
+'            ・CDPコマンド結果は、`CB_OnCDPMessage`で別途処理を設けています。ここのプロシージャはあくまでも、非同期イベントのみ担います。
+'***************************************************************************************************
+Friend Sub CB_OnDevToolsProtocolEvent(ByVal ParameterObjectAsJson As String, ByVal pHandlerThis As LongPtr)
+    Const FromProcedureName As String = ThisClassName & ".CB_OnDevToolsProtocolEvent"
+
+
+    '空文字の場合はそもそも、通さないようにする
+    If Len(ParameterObjectAsJson) = 0 Then Exit Sub
+    printMsg Trace_, "CDP-Event: " & ParameterObjectAsJson & " , pHandlerThis: " & pHandlerThis, FromProcedureName
+
+    '1. ポインター値から、16進数表記に変換
+    Dim Key As String: Key = PtrToHex(pHandlerThis)
+
+    '2. その16進数から、`method`名の特定を試みる
+    Dim methodName As String
+    If m_DevToolsProtocolHandlerThisToEventName.Exists(Key) Then
+        '`method`名を取り出す
+        methodName = m_DevToolsProtocolHandlerThisToEventName(Key)
+    Else
+        '特定出来ない場合は、意味をなさないので抜ける
+        Exit Sub
+    End If
+
+    '3. イベント発火させる
+    printMsg Debug_, "CDP-EventMethod: " & methodName & " , Params: " & ParameterObjectAsJson, FromProcedureName
+    RaiseEvent CDPEventReceived(methodName, ParameterObjectAsJson)
+End Sub
+
+'----------------------------------------------------------------------
+' ProcessMessages  ― COM STA コールバック層に必要なメッセージの処理
+'   IsReady になるまでの待機ループ内で繰り返し呼ぶ。
+'   State 1（Environment取得済み）を検出したら Controller 作成を開始する。
+'----------------------------------------------------------------------
+Public Sub ProcessMessages(Optional ByVal iterations As Long = 100)
+    Const FromProcedureName As String = ThisClassName & ".ProcessMessages"
+
+    Dim msg(0 To 5) As LongPtr
+    Dim i As Long
+    Dim dispCount As Long
+    dispCount = 0
+    For i = 1 To iterations
+        If PeekMessage(msg(0), 0, 0, 0, PM_REMOVE) Then
+            TranslateMessage msg(0)
+            DispatchMessage msg(0)
+            dispCount = dispCount + 1
+        Else
+            Exit For
+        End If
+    Next i
+    DoEvents
+
+    ' 呼び出し頻度が高いため、実際に WM を配送したときだけ TRACE（空回しは同期待ち側の spin ログを参照）
+    If dispCount > 0 Then
+        printMsg Trace_, "ProcessMessages: requestedIter=" & CStr(iterations) & " dispatchedMsgs=" & CStr(dispCount) & " m_State=" & CStr(m_State), FromProcedureName
+    End If
+
+    ' State 1: Environment → Controller 作成
+    If m_State = 1 Then BeginControllerCreation
+    ' State 2: Controller → 表示・WebView2取得
+    If m_State = 2 Then FinishWebViewSetup
+End Sub
+
+
+
+Public Sub SetVisible(ByVal isVisible As Boolean)
+    If m_pController = 0 Then Exit Sub
+    Dim visVal As Long: visVal = IIf(isVisible, 1, 0)
+    COM_DispCallLong1 m_pController, OFF_CTRL_put_IsVisible, visVal
+End Sub
+
 '----------------------------------------------------------------------
 ' Quit : リソース解放
 '----------------------------------------------------------------------
@@ -1123,17 +1218,48 @@ Public Sub quit()
     m_pWebView2 = 0
     m_pController = 0
     m_pEnvironment = 0
-    Set m_CDPEventQueue = Nothing
     Set m_CDPResultQueue = Nothing
-    Set m_BrowserEvents = Nothing
-    m_DevToolsProtocolEventName = vbNullString
-    m_DevToolsProtocolEventReceiverPtr = 0
-    m_DevToolsProtocolEventToken = 0
+    Set m_CDPAsyncPThisHexToInfo = Nothing
+    Set m_CDPAsyncResultJsonByCmdId = Nothing
+    Set m_CDPAsyncErrorCodeByCmdId = Nothing
     Set m_DevToolsProtocolEventSubscriptions = Nothing
     Set m_DevToolsProtocolEventReceiverHexToName = Nothing
     Set m_DevToolsProtocolHandlerThisToEventName = Nothing
     m_DTPEventHandlerThisCount = 0
     Set g_WebView2Core = Nothing
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ログレベル付きのスマートなログをイミディエイトへ出力させるヘルパーメソッドです
+'***************************************************************************************************
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+    Dim logName As String, strFormattedMsg As String
+
+    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
+    Else strFormattedMsg = " | " & brID & " | " & strMsg
+
+   'Perform msg logging if needed
+    If doLog Then
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebView2.log"
+        If Dir(logPath, vbDirectory) = "" Then MkDir logPath
+    End If
+
+   'Perform msg output to Immediate Window if needed
+    With LogControl
+        Select Case LogLevel_
+            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, logPath, logName
+            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, logPath, logName
+            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, logPath, logName
+            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, logPath, logName
+            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, logPath, logName, Err.Number
+            Case Else: 'ログ出力無効化
+        End Select
+    End With
+
+
+    'WebView2自身や、非同期処理自体に問題や、タイムアウトになったと判断された場合は、このツールでの処理(CDP-Json)ができないので、エラーで停止させておく
+    If doRaiseError Then Err.Raise ERR_CoreWebView2, From, Description:=strMsg
+
 End Sub
 
 '----------------------------------------------------------------------
@@ -1308,6 +1434,12 @@ Private Sub BuildVtables()
     m_CDPAsyncHandlerVT.fn(2) = cdpFn(2): m_CDPAsyncHandlerVT.fn(3) = cdpFn(3)
     m_CDPAsyncHandlerThis.pVTable = VarPtr(m_CDPAsyncHandlerVT.fn(0))
 
+    ' async 用の this をコマンドごとにユニーク化するための固定プール
+    Dim i As Long
+    For i = 0 To MAX_ASYNC_CDP_COMMANDS - 1
+        m_CDPAsyncHandlerThisPool(i).pVTable = VarPtr(m_CDPAsyncHandlerVT.fn(0))
+    Next i
+
     ' DevToolsProtocol event handler vtable
     Dim dtpFn() As LongPtr
     WV2_FillDevToolsProtocolEventFunctionPointers dtpFn
@@ -1337,21 +1469,11 @@ Private Sub COM_AddRef(ByVal pObj As LongPtr)
     DispCallFunc pObj, 1 * PTR_SIZE, CC_STDCALL, vbLong, 0, 0, 0, retV
 End Sub
 
-' Navigate(url: LPCWSTR)
-Private Function COM_Navigate(ByVal pWV2 As LongPtr, ByVal Url As String) As Long
-    Dim pUrl As LongPtr: pUrl = StrPtr(Url)
-    Dim vUrl(0 To 1) As LongPtr
-    Dim vtII As Integer: vtII = 20  ' VT_I8
-    CopyMemory vUrl(0), vtII, 2     ' vt(2) + pad(6)
-    vUrl(1) = pUrl                  ' value(8)
-    
-    Dim argT(0) As Integer: argT(0) = 20 ' vbLongLong
-    Dim argP(0) As LongPtr: argP(0) = VarPtr(vUrl(0))
-    Dim retV As Variant
-    DispCallFunc pWV2, OFF_WV2_Navigate, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
-    COM_Navigate = CLng(retV)
-End Function
 
+
+'***************************************************************************************************
+'                           ■■■ 汎用的なDispCallFunc設計 ■■■
+'***************************************************************************************************
 ' put_Bounds(RECT)  ─ x64 ABI では 16バイト構造体はポインタ渡し
 '   重要: x64 の DispCallFunc にはポインタを VARIANT(16bytes) 形式で渡す必要がある
 Private Sub COM_SetBounds(ByVal pCtrl As LongPtr, ByRef bounds As RECT_T)
@@ -1393,41 +1515,86 @@ Private Sub COM_DispCallLong1(ByVal pObj As LongPtr, ByVal Offset As Long, ByVal
     DispCallFunc pObj, Offset, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
 End Sub
 
-' CallDevToolsProtocolMethod(methodName, parametersAsJson, handler) ? 3 引数ともポインタ
+
+
+'***************************************************************************************************
+'                     ■■■ WebView2に用意されてるメソッドのCOM設計 ■■■
+'***************************************************************************************************
+'* 処理名　：CallDevToolsProtocolMethod
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：CallDevToolsProtocolMethod(methodName, parametersAsJson, handler) ? 3 引数ともポインタ
+'* URL     ：https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2#calldevtoolsprotocolmethod
+'***************************************************************************************************
 Private Function COM_CallDevToolsProtocolMethod(ByVal pWV2 As LongPtr, ByVal methodName As String, _
     ByVal paramsJson As String, ByVal pHandler As LongPtr) As Long
+
     Dim vtII As Integer: vtII = 20
     Dim vMethod(0 To 1) As LongPtr, vParams(0 To 1) As LongPtr, vHandler(0 To 1) As LongPtr
+
     CopyMemory vMethod(0), vtII, 2: vMethod(1) = StrPtr(methodName)
     CopyMemory vParams(0), vtII, 2: vParams(1) = StrPtr(paramsJson)
     CopyMemory vHandler(0), vtII, 2: vHandler(1) = pHandler
+
     Dim argT(0 To 2) As Integer: argT(0) = 20: argT(1) = 20: argT(2) = 20
     Dim argP(0 To 2) As LongPtr: argP(0) = VarPtr(vMethod(0)): argP(1) = VarPtr(vParams(0)): argP(2) = VarPtr(vHandler(0))
     Dim retV As Variant
+
     DispCallFunc pWV2, m_CDPMethodVTableIndex * PTR_SIZE, CC_STDCALL, vbLong, 3, argT(0), argP(0), retV
+
     COM_CallDevToolsProtocolMethod = CLng(retV)
 End Function
 
-' CallDevToolsProtocolMethodForSession(sessionId, methodName, parametersAsJson, handler)
+'***************************************************************************************************
+'* 処理名　：CallDevToolsProtocolMethodForSession
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：CallDevToolsProtocolMethodForSession(sessionId, methodName, parametersAsJson, handler)
+'* URL     ：https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2_11#calldevtoolsprotocolmethodforsession
+'***************************************************************************************************
 Private Function COM_CallDevToolsProtocolMethodForSession(ByVal pWV2 As LongPtr, ByVal sessionID As String, _
     ByVal methodName As String, ByVal paramsJson As String, ByVal pHandler As LongPtr) As Long
+
     Dim vtII As Integer: vtII = 20
     Dim vSession(0 To 1) As LongPtr, vMethod(0 To 1) As LongPtr, vParams(0 To 1) As LongPtr, vHandler(0 To 1) As LongPtr
+
     CopyMemory vSession(0), vtII, 2: vSession(1) = StrPtr(sessionID)
     CopyMemory vMethod(0), vtII, 2: vMethod(1) = StrPtr(methodName)
     CopyMemory vParams(0), vtII, 2: vParams(1) = StrPtr(paramsJson)
     CopyMemory vHandler(0), vtII, 2: vHandler(1) = pHandler
-    
+
     Dim argT(0 To 3) As Integer: argT(0) = 20: argT(1) = 20: argT(2) = 20: argT(3) = 20
     Dim argP(0 To 3) As LongPtr: argP(0) = VarPtr(vSession(0)): argP(1) = VarPtr(vMethod(0)): argP(2) = VarPtr(vParams(0)): argP(3) = VarPtr(vHandler(0))
     Dim retV As Variant
+
     DispCallFunc pWV2, m_CDPMethodForSessionVTableIndex * PTR_SIZE, CC_STDCALL, vbLong, 4, argT(0), argP(0), retV
+
     COM_CallDevToolsProtocolMethodForSession = CLng(retV)
 End Function
 
-'----------------------------------------------------------------------
-' COM helper: ICoreWebView2::GetDevToolsProtocolEventReceiver
-'----------------------------------------------------------------------
+'***************************************************************************************************
+'* 処理名　：Navigate
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2#navigate
+'***************************************************************************************************
+Private Function COM_Navigate(ByVal pWV2 As LongPtr, ByVal Url As String) As Long
+    Dim vtII As Integer: vtII = 20  ' VT_I8
+    Dim vUrl(0 To 1) As LongPtr
+
+    CopyMemory vUrl(0), vtII, 2: vUrl(1) = StrPtr(Url)
+
+    Dim argT(0) As Integer: argT(0) = 20
+    Dim argP(0) As LongPtr: argP(0) = VarPtr(vUrl(0))
+    Dim retV As Variant
+
+    DispCallFunc pWV2, OFF_WV2_Navigate, CC_STDCALL, vbLong, 1, argT(0), argP(0), retV
+
+    COM_Navigate = CLng(retV)
+End Function
+
+'***************************************************************************************************
+'* 処理名　：ICoreWebView2DevToolsProtocolEventReceiver
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/win32/icorewebview2devtoolsprotocoleventreceiver
+'***************************************************************************************************
 Private Function COM_GetDevToolsProtocolEventReceiver(ByVal pWV2 As LongPtr, ByVal eventName As String) As LongPtr
     Dim pReceiver As LongPtr
 
@@ -1456,45 +1623,7 @@ Private Function COM_GetDevToolsProtocolEventReceiver(ByVal pWV2 As LongPtr, ByV
     COM_GetDevToolsProtocolEventReceiver = pReceiver
 End Function
 
-' =====================================================================
-' Private ─ WebView2Loader.dll の検索とロード
-' =====================================================================
-Private Sub EnsureWebView2LoaderDll()
-    ' Edge インストール先から WebView2Loader.dll をロードする
-    ' 既に PATH に入っていれば CreateCoreWebView2EnvironmentWithOptions がそのまま動く。
-    ' 入っていない場合、以下の典型的パスを順に試みる。
-    Dim candidates(2) As String
-    candidates(0) = "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\"
-    candidates(1) = "C:\Program Files\Microsoft\EdgeWebView\Application\"
-    candidates(2) = Environ("LOCALAPPDATA") & "\Microsoft\Edge\Application\"
 
-    Dim i As Integer
-    For i = 0 To UBound(candidates)
-        Dim dllPath As String
-        dllPath = FindLatestEdgeDll(candidates(i))
-        If Len(dllPath) > 0 Then
-            LoadLibrary StrPtr(dllPath)
-            Exit For
-        End If
-    Next i
-End Sub
-
-Private Function FindLatestEdgeDll(ByVal basePath As String) As String
-    ' basePath\<バージョン>\WebView2Loader.dll を Dir で探す（最初に見つかったもの）
-    If Len(basePath) = 0 Then Exit Function
-    Dim ver As String: ver = Dir(basePath, vbDirectory)
-    Do While Len(ver) > 0
-        If ver <> "." And ver <> ".." Then
-            Dim candidate As String
-            candidate = basePath & ver & "\WebView2Loader.dll"
-            If Len(Dir(candidate)) > 0 Then
-                FindLatestEdgeDll = candidate
-                Exit Function
-            End If
-        End If
-        ver = Dir()
-    Loop
-End Function
 
 ' =====================================================================
 ' Class lifecycle
@@ -1508,32 +1637,41 @@ Private Sub Class_Initialize()
     m_LastAppliedBottom = 0
     m_LastErrorCode = 0
     m_State = 0
-    Set m_CDPEventQueue = New Collection
     Set m_CDPResultQueue = New Collection
     m_LastCDPResultErrorCode = 0
-    Set m_BrowserEvents = Nothing
-    m_DevToolsProtocolEventName = vbNullString
-    m_DevToolsProtocolEventReceiverPtr = 0
-    m_DevToolsProtocolEventToken = 0
+
+    Set m_CDPAsyncPThisHexToInfo = New Dictionary
+    Set m_CDPAsyncResultJsonByCmdId = New Dictionary
+    Set m_CDPAsyncErrorCodeByCmdId = New Dictionary
 
     Set m_DevToolsProtocolEventSubscriptions = Nothing
     Set m_DevToolsProtocolEventReceiverHexToName = Nothing
     Set m_DevToolsProtocolHandlerThisToEventName = Nothing
     m_DTPEventHandlerThisCount = 0
 
+    'Assign an objID for easy debug identification
+    brID = "BRID" & Format(Rnd * 1000, "000")
+
 
     '------------------------- 設定シートの各セルから設定値を取得し、クラス内変数に適用します(予定 ToDo) -------------------------
     With ShSetting01_StartBrowser
-        m_CDPMethodVTableIndex = 36   ' 既定。環境でずれる場合は CDPMethodVTableIndex で 22,37,39 等を指定
+        m_CDPMethodVTableIndex = 36     ' 既定。環境でずれる場合は CDPMethodVTableIndex で 22,37,39 等を指定
         m_CDPMethodForSessionVTableIndex = 99
+        ResultCDPTimeout = 30           'CDPからの結果を得る際のタイムアウト秒数
     
         ' GetDevToolsProtocolEventReceiver の vtable index（推定値。環境差が出る場合は変更用プロパティを使って調整）
         m_DevToolsProtocolEventReceiverVTableIndex = 42
-    
+
+        '2. パスが設定されてたら、ログファイル保存を有効化
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "WebView2Browser.Class_Initialize")).value
+        If LogFolderPath <> "" Then
+            doLog = True                'ログファイルとして保存するか？
+            logPath = LogFolderPath     '保存先のフォルダパスを設定
+        End If
+
     End With
 
 End Sub
-
 
 Private Sub Class_Terminate()
     quit

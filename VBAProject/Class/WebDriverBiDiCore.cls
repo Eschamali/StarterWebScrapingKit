@@ -20,7 +20,8 @@ Option Explicit
 
 
 '内部参照用オブジェクト
-Private m_CDPBrowser    As CDPBrowser
+Private WithEvents m_CDPBrowser     As CDPBrowser
+Attribute m_CDPBrowser.VB_VarHelpID = -1
 Private m_CharConv      As New CharacterCodeConversion
 Private m_JsonConverter As New WebJsonConverter
 
@@ -32,10 +33,14 @@ Private m_MaxCommandResults         As Long         '非同期で、BiDiコマ�
 Private m_ErrorDetails              As Dictionary   '同期BiDiコマンドした際の最後のエラー情報
 Private timerOut                    As Long         '同期BiDiコマンドした際のタイムアウト設定
 Private ViewDebugTab                As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
+Private DiagnosticLog               As Boolean      '`BiDi-CDP Mapper`内の診断ログ情報を出力するか
+Private seeRawSendMsgDbg            As Boolean      'BiDiのresponseをデバッグログに出すかの調整
 
-
+'内部使用用
 Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
 Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
+Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
+Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 
 'nmp情報
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
@@ -45,8 +50,109 @@ Private Const npmName       As String = "chromium-bidi" '公式リポジトリ�
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
+'CDPからWebDriverBiDi用のPayload結果を受け取るための定義
+Private CurrentBiDiCol As Collection
+
 '非同期イベント発火
 Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
+
+
+
+'***************************************************************************************************
+'                  ■■■ CDPからBiDi用の結果を受け取るためだけのイベント処理 ■■■
+'***************************************************************************************************
+Private Sub m_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".m_CDPBrowser_detectionCDPEvent"
+
+
+    'BiDiでのやりとりの核となるイベント名
+    Const BiDiForCDPEventName As String = "Runtime.bindingCalled"
+
+    '0. 対象のイベント以外は即抜け
+    If methodName <> BiDiForCDPEventName Then Exit Sub
+    If seeRawSendMsgDbg Then printMsg Trace_, "`Runtime.bindingCalled` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+
+    '1. PayloadのName部分を取得
+    Dim NamePayload As String: NamePayload = ExtractName(EventRawJson)
+
+    '2. `Name`値に応じた処理
+    Dim tmp As String
+    Select Case NamePayload
+        'メインとなるWebDriverBiDiの結果
+        Case BiDiResMain
+            'エスケープ解除済みのpayload 部分を抽出
+            tmp = ExtractPayload(EventRawJson)
+            If seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & tmp, FromProcedureName
+
+            '専用のCollectionに蓄積
+            CurrentBiDiCol.Add tmp
+
+        Case BiDiResDebug
+            'エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
+            tmp = ExtractPayload(EventRawJson)
+            printMsg Debug_, "Debug - WebDriverBiDi: " & tmp, FromProcedureName
+
+        'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
+        '※この場合は、負荷の高いJsonパース処理はしない
+        Case Else
+            printMsg WARN_, "We detected `Runtime.bindingCalled` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
+    End Select
+
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから name 部分を抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`name`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+Private Function ExtractName(resCDP As String) As String
+    Const FromProcedureName As String = ThisClassName & ".ExtractName"
+
+    '--------- params-name項目から、`payload`の種類を特定 ---------
+    Const SearchKey_ParamsName As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":"""
+    Dim StartPos As Long, EndPos As Long
+    Dim CalledName As String
+
+    'name項目を抽出
+    StartPos = Len(SearchKey_ParamsName) + 1    '「{"method":"Runtime.bindingCalled","params":{"name":"」分、検索位置をずらす想定
+    EndPos = InStr(StartPos, resCDP, """,""")
+    ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：エスケープ解除済み`payload`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+Private Function ExtractPayload(resCDP As String) As String
+    Const SearchKey As String = """payload"":"""
+    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
+    If StartPos = 0 Then Exit Function
+    
+    StartPos = StartPos + Len(SearchKey)
+    
+    ' payloadの終了位置を探す。通常はexecutionContextIdの前
+    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
+    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
+    
+    If EndPos > StartPos Then
+        ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
+        ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
+        ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
+        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+        
+        ' 文字列内のエスケープ（\" -> "）を復元
+        ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
+        ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
+        ' なので、ここでは「JSONとしての文字列値」を取得するにとどめ、
+        ' クラス内のパース処理にそのまま渡す。
+        ' ただし、CDPのJSONエンコードにより \" になっているものを " に戻す必要がある。
+        ExtractPayload = Replace(ExtractPayload, "\""", """")
+        ExtractPayload = Replace(ExtractPayload, "\\", "\")
+    End If
+End Function
 
 
 
@@ -133,7 +239,6 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
             If isMapperRunning Then
                 '4. `BiDi-CDP Mapper`が生きてるので、BiDiの結果を受け取るCollectionの付与をしておく
                 printMsg Debug_, "`BiDi-CDP Mapper` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
-                Set m_CDPBrowser.BiDiCapture = New Collection
             Else
                 '4. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
                 printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
@@ -188,32 +293,38 @@ End Function
 '* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`CDPBrowser`を`New`してからご利用ください
-'            ・Excelテーブルにある`targetID`のタブ自体が閉じられてると、
+'            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '***************************************************************************************************
 Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
+    Dim paramsCDP As New Dictionary
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
         '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
         If Not (ReConnect) Then .newTab MapperURL, setMain:=True, isHidden:=Not (ViewDebugTab), isBackground:=True
         printMsg Trace_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(ViewDebugTab) & ")", FromProcedureName
 
-        '2. `CDPBrowser`に、BiDiモードであると伝える
-        Set .BiDiCapture = New Collection
+        '2. BiDi用バインディングの追加
+        If Not (ReConnect) Then
+            paramsCDP.Add "bindingName", "cdp"
+            paramsCDP.Add "targetId", .CurrentTargetID
+            paramsCDP.Add "inheritPermissions", True
+            .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
+        End If
 
-        '3. BiDi用バインディングの追加
-        Dim paramsCDP As New Dictionary
-        paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", .CurrentTargetID
-        paramsCDP.Add "inheritPermissions", True
-        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not (ReConnect)
-
-        '4. JSからVBAへメッセージを送るための関数名を "sendBidiResponse" に設定
+        '3. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.RemoveAll
-        paramsCDP.Add "name", "sendBidiResponse"
+        paramsCDP.Add "name", BiDiResMain
         .invokeMethod "Runtime.addBinding", paramsCDP
+
+        '4. JSからVBAへ、Mapper側で発生したログ（状況説明、警告、エラー寄り情報）を返す経路を設定
+        If DiagnosticLog Then
+            paramsCDP.RemoveAll
+            paramsCDP.Add "name", BiDiResDebug
+            .invokeMethod "Runtime.addBinding", paramsCDP
+        End If
 
         '5. パースしたJavaScriptをブラウザ上で実行
         .jsEval Take_mapperTabJSstring
@@ -223,7 +334,6 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
     End With
 
-    printMsg Trace_, "Booted `BiDi-CDP Mapper`", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -352,7 +462,7 @@ Public Function invokeMethod(ByVal methodName As String, Optional params As Dict
 
     'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
     If results.Exists("result") Then Set invokeMethod = results.Item("result")
-    printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
+    If seeRawSendMsgDbg Then printMsg Debug_, "BiDi-Invoked """ & methodName & """ with result: " & m_JsonConverter.ConvertToJson(results), FromProcedureName
 End Function
 
 
@@ -382,6 +492,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     strMessage = strMessage & ", ""id"":" & lngCurrentId & "}"
 
     printMsg Debug_, "sendBiDi-JsonCommand = " & strMessage, FromProcedureName
+    printMsg Debug_, "runBiDi -Async       = " & Async, FromProcedureName
 
     'JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
     Dim safeJson As String
@@ -392,9 +503,9 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     paramsCDP.Add "expression", "window.onBidiMessage('" & safeJson & "');"
 
     'CDP経由でBiDiコマンド送信
-    '※JavaScript自体は同期実行。エラー時は、内部でStopがかかります
-    Dim cdpResult As Dictionary
-    Set cdpResult = m_CDPBrowser.invokeMethod("Runtime.evaluate", paramsCDP)
+    '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
+    '※また内部にて、`RaiseEvent`よるBiDi結果蓄積も行われます
+    m_CDPBrowser.invokeMethod "Runtime.evaluate", paramsCDP
 
     'BiDi自体が、非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
     If Async Then
@@ -416,18 +527,14 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     Dim ResultSendCommand As Boolean
     printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
-        'CDPイベント受信処理
-        m_CDPBrowser.TakeEvents
-
-        '受信の過程で入った、`BiDi`用の受信コレクションを取得
-        Dim CurrentBiDiCol As Collection
-        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
+        '先述の`.invokeMethod("Runtime.evaluate", paramsCDP)`にて既に、結果が蓄積されてる場合は、受信処理をSKIP
+        If CurrentBiDiCol.Count = 0 Then m_CDPBrowser.TakeEvents
 
         '受信数check
+        Dim tmp As Dictionary
         If CurrentBiDiCol.Count Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Dim tmp As Dictionary
-            Set tmp = ReceiveFromCollectionPayload(CurrentBiDiCol, InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
+            Set tmp = ReceiveFromCollectionPayload(InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
             If Not (tmp Is Nothing) Then
@@ -435,9 +542,24 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
                 Set SendMessage = tmp
             End If
         Else
-            printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
+            'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
+            '※`WithEvents`と併用すると、ここに格納される可能性があるためです
+            Set tmp = ResultBiDiForAsync(lngCurrentId)
+            If Not tmp Is Nothing Then
+                '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
+                ResultSendCommand = True
+                Set SendMessage = tmp
+                printMsg info_, "Command ID:" & lngCurrentId & " was observed on the 'Asynchronous Result Dictionary side' rather than on the Collection. This is a phenomenon that is likely to occur when used in conjunction with `WithEvents`.", FromProcedureName
+            Else
+                printMsg Trace_, "I used `m_CDPBrowser.BiDiCapture` but it is empty.", FromProcedureName
+            End If
         End If
 
+        'いくつかのログ表示
+        If Not ResultSendCommand Then
+            'コマンド結果が、まだ来ない
+            printMsg Trace_, "The BiDi-Json command result ID:" & lngCurrentId & " from `Runtime.bindingCalled` has not yet been received, so reception continues.", FromProcedureName
+        End If
 
         '一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
@@ -465,11 +587,8 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     printMsg Debug_, "Starts retrieving data from the BiDiCapture...", FromProcedureName
     Do
         'CDPイベント受信処理
+        '※内部で、`RaiseEvent`が発火され、Collection変数に格納されます
         m_CDPBrowser.TakeEvents
-
-        '受信の過程で入った、`BiDi`用の受信コレクションを取得
-        Dim CurrentBiDiCol As Collection
-        Set CurrentBiDiCol = m_CDPBrowser.BiDiCapture
 
         BiDiNum = CurrentBiDiCol.Count
         printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
@@ -478,16 +597,17 @@ Public Sub TakeEvents(Optional destruction As Boolean)
         If BiDiNum Then
             '破棄モードかの判定
             If destruction Then
-                '解析などせず、そのまんま出して破棄します
+                '解析などせず、すぐ初期化して破棄します
                 '※Collectionのため、中身は直接見れません
                 printMsg Trace_, "Discarding data in BiDiCapture...", FromProcedureName
+                Set CurrentBiDiCol = New Collection
             Else
                 '中身の解析をし、IDやイベントを取り出します
                 printMsg Trace_, "Analyzing the data in the BiDiCapture...", FromProcedureName
-                Call ReceiveFromCollectionPayload(CurrentBiDiCol)
+                Call ReceiveFromCollectionPayload      '単なるイベント収集のため、コマンドIDによる確認はしないように設定
             End If
         Else
-            printMsg Trace_, "Message queue destruction completed.", FromProcedureName
+            printMsg Trace_, "The message queue is currently empty.", FromProcedureName
         End If
     Loop Until BiDiNum = 0
 
@@ -498,36 +618,36 @@ End Sub
 '* 機能　　：`CDPBrowser.BiDiCapture`に格納してあるコレクションを、1件1件処理し、状況に応じて内部で、イベントキャプチャしたり、コマンド結果の確認を行います
 '---------------------------------------------------------------------------------------------------
 '* 返値　　：`checkCommandID`に対するCDP-Jsonコマンド結果Dictionary形式
-'* 引数　　：ReceiveRuntimebindingCalledCol     `CDPBrowser.BiDiCapture`
-'            InternalUseMessages                非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
+'* 引数　　：InternalUseMessages                非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
 '            checkCommandID                     確認するコマンドID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`checkCommandID`に合わないIDが来ても`AccumulatedCommandResults`に蓄積されます
 '***************************************************************************************************
-Private Function ReceiveFromCollectionPayload(ByRef ReceiveRuntimebindingCalledCol As Collection, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
+Private Function ReceiveFromCollectionPayload(Optional ByRef InternalUseMessages As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromCollectionPayload"
 
 
+    '処理用の変数を用意
     Dim resBiDi
     Dim i As Long
+    Dim workCol  As Collection
 
-    printMsg Trace_, "Number of BiDi receptions:" & ReceiveRuntimebindingCalledCol.Count, FromProcedureName
-    For Each resBiDi In ReceiveRuntimebindingCalledCol
+    '現時点での、BiDi結果を取り出し、クリーンアップする
+    Set workCol = CurrentBiDiCol
+    Set CurrentBiDiCol = New Collection
+
+    printMsg Trace_, "Number of BiDi receptions:" & workCol.Count, FromProcedureName
+    For Each resBiDi In workCol
         'ログ用に、カウント
         i = i + 1
-        printMsg Trace_, "Raw - BiDiRes(" & i & ") = " & resBiDi, FromProcedureName
-
-        '【最適化】CDPのラッパーJSONをパースせず、文字列操作でpayloadを直接抜き出す（JsonOfJsonの1回目を回避）
-        Dim payloadBiDi As String
-        payloadBiDi = ExtractPayload(resBiDi)
-        printMsg Debug_, "BiDiRes(" & i & ")-`payload` = " & payloadBiDi, FromProcedureName
+        If seeRawSendMsgDbg Then printMsg Debug_, "BiDiRes(" & i & ") = " & resBiDi, FromProcedureName
 
         '空文字はそもそも受け付けないようにする
-        If payloadBiDi <> "" Then
+        If resBiDi <> "" Then
             '受信データのチェックを行うプロシージャへ遷移します。
-            If BrowserReceivedDataCheck(payloadBiDi, InternalUseMessages, checkCommandID) Then
+            If BrowserReceivedDataCheck(CStr(resBiDi), InternalUseMessages, checkCommandID) Then
                 'ここでcheckCommandID一致時のみ、パース（BiDi本体）を行う。
-                Set ReceiveFromCollectionPayload = m_JsonConverter.ParseJson(CStr(payloadBiDi))
+                Set ReceiveFromCollectionPayload = m_JsonConverter.ParseJson(CStr(resBiDi))
                 printMsg Debug_, "The BiDicommand result was obtained from `Runtime.bindingCalled`! - ID:" & checkCommandID, FromProcedureName
             End If
         Else
@@ -536,37 +656,7 @@ Private Function ReceiveFromCollectionPayload(ByRef ReceiveRuntimebindingCalledC
 
         DoEvents
     Next
-End Function
 
-'***************************************************************************************************
-'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
-'***************************************************************************************************
-Private Function ExtractPayload(ByVal resCDP As String) As String
-    Const SearchKey As String = """payload"":"""
-    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
-    If StartPos = 0 Then Exit Function
-    
-    StartPos = StartPos + Len(SearchKey)
-    
-    ' payloadの終了位置を探す。通常はexecutionContextIdの前
-    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
-    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
-    
-    If EndPos > StartPos Then
-        ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
-        ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
-        ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
-        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
-        
-        ' 文字列内のエスケープ（\" -> "）を復元
-        ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
-        ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
-        ' なので、ここでは「JSONとしての文字列値」を取得するにとどめ、
-        ' クラス内のパース処理にそのまま渡す。
-        ' ただし、CDPのJSONエンコードにより \" になっているものを " に戻す必要がある。
-        ExtractPayload = Replace(ExtractPayload, "\""", """")
-        ExtractPayload = Replace(ExtractPayload, "\\", "\")
-    End If
 End Function
 
 '***************************************************************************************************
@@ -602,7 +692,9 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
         FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
 
         'VBAでのイベント発火を行う
+        '※拡張機能の柔軟性を高めるため、ブラウザから得た非同期イベントは全て、イベント発火させます
         RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
+
 
         '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
         If (m_Events Is Nothing) And (InternalUseMessages Is Nothing) Then
@@ -637,6 +729,7 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
                 '格納件数チェックし、上限を超えたら、最古データを削除します
                 If m_AccumulatedCommandResults.Count > m_MaxCommandResults Then
                     ' 一番古いキーを取得して削除
+                    printMsg Trace_, "Delete asynchronous processing result ID:" & m_AccumulatedCommandResults.keys(0), FromProcedureName
                     m_AccumulatedCommandResults.Remove m_AccumulatedCommandResults.keys(0)
                     printMsg info_, "The accumulation limit has exceeded " & m_MaxCommandResults & ", so the oldest has been deleted.", FromProcedureName
                 End If
@@ -874,14 +967,15 @@ End Property
 '* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
 '            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
+'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
 '***************************************************************************************************
-Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean) As Dictionary
+Public Property Get ResultBiDiForAsync(CommandID As Long, Optional ErrorExist As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
 
 
     '1. 存在するか？
     If m_AccumulatedCommandResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & m_AccumulatedCommandResults(CommandID), FromProcedureName
+        printMsg Trace_, "BiDi-CommandID: " & CommandID & " , Raw-Json:" & m_AccumulatedCommandResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary
@@ -892,25 +986,22 @@ Public Property Get ResultBiDiForAsync(CommandID As Long, ErrorExist As Boolean)
             '正常に終了していると伝える
             ErrorExist = False
             printMsg Debug_, "This BiDi-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
-
-            Set ResultBiDiForAsync = tmp("result")  '`result`オブジェクトとして返却
         Else
             'エラーありとして伝える
-            ErrorExist = False
-            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error.", FromProcedureName
-
-            Set ResultBiDiForAsync = tmp            'そのまんま返却
+            ErrorExist = True
+            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error. ErrorDetails:" & m_AccumulatedCommandResults(CommandID)("error"), FromProcedureName
         End If
 
-        '4. 取り出したので消しておく
-        m_AccumulatedCommandResults.Remove CommandID
-        printMsg Trace_, "Deleted the resulting log corresponding to the execution BiDi-command ID. - ID: " & CommandID, FromProcedureName
-    Else
-        ErrorExist = True
-        printMsg WARN_, "There is no target command ID result log. - ID: " & CommandID, FromProcedureName
+        '4. 返却自体は、そのままで
+        Set ResultBiDiForAsync = tmp
 
-        '2. カスタムエラーメッセージJsonで返却
-        Set ResultBiDiForAsync = m_JsonConverter.ParseJson("{""type"":""error"",""id"":" & CommandID & ",""error"":-2,""message"":""There is no target command ID result log.""}")
+        '5. 取り出したので消しておく
+        m_AccumulatedCommandResults.Remove CommandID
+        printMsg Trace_, "BiDi-command ID: " & CommandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
+    Else
+        '2. 存在しない旨を伝える
+        ErrorExist = False
+        printMsg Trace_, "The BiDi command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
@@ -1334,8 +1425,13 @@ Private Sub Class_Initialize()
     'コマンドIDリセット
     m_MessageID = 0
 
+    '初期化
+    Set CurrentBiDiCol = New Collection
+
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        ViewDebugTab = .Range(.UseRangeName(11, "WebDriverBiDiCore.Class_Initialize")).value
+        ViewDebugTab = .Range(.UseRangeName(11, "WebDriverBiDiCore.Class_Initialize")).value    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, "WebDriverBiDiCore.Class_Initialize")).value 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        DiagnosticLog = .Range(.UseRangeName(13, "WebDriverBiDiCore.Class_Initialize")).value   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub

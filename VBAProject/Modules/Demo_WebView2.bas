@@ -54,6 +54,7 @@ Sub WebView2による冒険の始まり()
 
 
     'ブラウザを正常に閉じる
+    Unload WebView2InExcelForm
     HelloWorldAutomationBrowser.quit
 End Sub
 
@@ -429,3 +430,408 @@ Sub UseExtensions()
     'ブラウザを閉じる。demo終了
     controlExtensions.quit
 End Sub
+
+Sub runEdge()
+'------------------------------------------------------
+' This is an example of how to use the browser classes
+' This demo tries to access a webpage of a famous movie
+' and retrieve its current view count.
+'------------------------------------------------------
+ 
+   'Start Browser
+   'If no browser name is indicated, chrome is started by default.
+   'Homepage has been disabled to speed up by default.
+   'To skip cleaning active sessions, set cleanActive to False.
+   'This will make browser starts faster but at the risk of pipe error if
+   'there are other chrome instances already running.
+   'If reAttach = False, .start will not automatically try to reattach
+   'to previous instances open by CDP but will start a brand new instead.
+    Dim edge As WebView2Browser
+    Set edge = 設定シートからのWebView2起動
+ 
+   'Navigate and wait
+   'If till argument is omitted, will by default wait until ReadyState = complete
+    edge.navigate "https://livingwaters.com/movie/the-atheist-delusion/", isInteractive
+ 
+   'Get view count via the new notify method
+    Dim viewCount As Long
+    viewCount = edge.getElementByQuery("[data-id='4b9a4b19']").innerText
+    edge.notify "This free movie has already reached " & viewCount & " views! Wow!"
+ 
+End Sub
+
+Sub runHiddenForJapan()
+'---------------------------------------------------------------------------------
+' Demonstrate background running of an automated session.
+' This demo will try to open Google in the background, then search for an article
+' of CodeProject and retrieve its vote count. Once done, it will prompt a message
+' to display the browser window.
+' It is recommended to make Immediate Window visible so that you can see the
+' activity that is running in the background.
+' To confirm the result, you can perform the following steps:
+'   1. Go to Google.com
+'   2. Type "automate edge vba" and click Search
+'   3. Click on the first result to reach
+'
+' ※日本国向けに改良します。
+'---------------------------------------------------------------------------------
+
+    Dim chrome As WebView2Browser
+
+    'Start and hide
+    Set chrome = 設定シートからのWebView2起動
+    chrome.hide
+
+    'Perform automation in the background
+    chrome.navigate "https://google.com", isInteractive
+    chrome.getElementByQuery("[name='q']").value = "automate edge vba"
+    chrome.getElementByQuery("[name='q']").submit
+
+    'Click the target result link
+    chrome.getElementByXPath("//h3[text()='Chrome DevTools ProtocolでEdgeを操作するVBAマクロ']").click      '2026/02/16 時点での、最上位結果
+
+    'Confirm result and display
+    Dim userChoice As Long
+    userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
+    If userChoice = vbYes Then chrome.show Else chrome.quit
+
+End Sub
+
+Sub runTabsAsOne()
+'--------------------------------------------------------------------------
+' Demonstrate the automation of multiple tabs in a single browser instance.
+' Similar to the runInstances example but this is with multiple tabs in
+' the same instance instead.
+'--------------------------------------------------------------------------
+ 
+    Dim chrome As WebView2Browser
+    Set chrome = 設定シートからのWebView2起動
+    chrome.show
+    
+   'Automate Tabs
+    chrome.Url = "https://google.com"   'or [chrome.navigate "https://google.com"]
+    chrome.newTab "https://sg.yahoo.com"
+    chrome.newTab "https://bing.com"
+ 
+   'Resize to complete
+    chrome.sleep    'ちょこっとクールタイムが必要みたい
+    chrome.show xywh:="0 20 1000 700"
+ 
+End Sub
+
+Sub runTabsAsMany()
+'-------------------------------------------------------------------------------
+' Demonstrate the automation of multiple tabs in a single browser instance.
+' This is like having 3 automation instances running together like runInstances.
+' However, each tab will have to share the same start settings, unlike
+' the case of runInstances where each instance can be setup with a different
+' settings to each other.
+'-------------------------------------------------------------------------------
+ 
+    Dim chrome As WebView2Browser
+    Set chrome = 設定シートからのWebView2起動
+    chrome.show
+ 
+   'Create and assign tabs
+    Dim tab1 As New WebView2Browser                   'The keyword "New" is a must
+    Dim tab2 As New WebView2Browser
+    Dim tab3 As New WebView2Browser
+    Set tab1 = chrome                            'The first tab is open by default after .start
+    Set tab2 = chrome.newTab    'newWindow: open tab as a new window instead of a tab
+    Set tab3 = chrome.newTab
+ 
+   'Automate each tabs
+    tab1.navigate "https://google.com"
+    tab2.navigate "https://sg.yahoo.com"
+    tab3.navigate "https://bing.com"
+ 
+   'Resize to complete
+    tab1.show xywh:="0 10 1000 700"
+    tab2.show xywh:="0 45 1000 700"
+    tab3.show xywh:="0 90 1000 700"
+ 
+End Sub
+
+Sub runNewTab()
+'--------------------------------------------------------------------------
+' This example demonstrates:
+' 1. The use of advanced arguments feature added by Long Vh to
+'    allow the choice of additional settings for the automation pipe. See
+'    https://peter.sh/experiments/chromium-command-line-switches/
+' 2. The xPath technique to directly modify the current HTML element
+'    so that it will behave in a new way that it was not so before.
+' 3. The technique employed to integrate the new tab open spontaneously
+'    by interaction with the webpage (instead of using .newTab) into the
+'    automation pipe for further processing on the new tab.
+'--------------------------------------------------------------------------
+ 
+   'Init browser with custom arguments
+    Dim chrome As WebView2Browser
+    Set chrome = 設定シートからのWebView2起動
+    'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
+    'chrome.show asMaximized
+    
+   'Perform standard google search
+    chrome.navigate "https://google.com"
+    chrome.getElementByQuery("[name='q']").value = "newstarget.com"
+    chrome.getElementByQuery("[name='q']").submit
+
+   'Google search result returns links that open in the same tab window
+   'For this demonstration, we need to make it open in a new tab window instead
+    Dim targetElement As CDPElement
+    Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
+    targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
+    targetElement.click                             'Click the link, a new tab will be spontaneously open
+    
+   'Use getTabNew to quickly refer to the next newly open tab
+    Dim targetTab As New WebView2Browser
+    Set targetTab = chrome.getTab(Url:="https://www.newstarget.com/")
+    targetTab.wait
+ 
+   'Feed the top news title for today
+    Dim firstTitle As String
+    firstTitle = targetTab.getElementByQuery("div[class='Headline']").innerText
+    targetTab.notify "Top popular headline for the day is """ & firstTitle & """."
+    targetTab.printTabs True
+    Debug.Print targetTab.CurrentTargetID
+ 
+End Sub
+
+
+
+'----------------------------------------------------------------------
+' TestWebView2Simple
+'   最もシンプルなデモ。Excelウィンドウに WebView2 を重ねて表示。
+'   ※実際のアプリでは UserForm の Frame の hWnd を使う
+'----------------------------------------------------------------------
+Public Sub TestWebView2Simple()
+    Dim wv2 As New WebView2Core
+Dim hwndParent
+    ' Excel のメインウィンドウハンドルを取得
+    Dim hWnd As LongPtr
+    hWnd = Application.hWnd
+
+    ' 画面左上 300x400px に WebView2 を表示
+    Dim ok As Boolean
+    ok = wv2.Initialize(hWnd, 0, 0, 800, 600, "https://eschamali.github.io/StarterWebScrapingKit/")
+
+    If Not ok Then
+        MsgBox "初期化コマンド送信失敗: " & wv2.LastErrorDescription, vbCritical
+        Exit Sub
+    End If
+
+    ' ---- 初期化完了待機ループ ----
+    ' DoEvents だけでは COM STA コールバックが層かない場合があるため、
+    ' ProcessMessages（PeekMessage/DispatchMessage）でメッセージキューを層かせる
+    Debug.Print "[WV2] Waiting for Ready... (check Immediate Window for callback logs)"
+    Dim t As Single: t = Timer
+    Do While Not wv2.IsReady And Timer - t < 15
+        wv2.ProcessMessages
+    Loop
+
+    If wv2.IsReady Then
+        MsgBox "WebView2 の初期化に成功しました！" & vbCrLf & "OKを押すと閉じます。", vbInformation
+    Else
+        MsgBox "タイムアウト。LastError: 0x" & Hex(wv2.LastErrorCode) & vbCrLf & wv2.LastErrorDescription, vbCritical
+    End If
+
+    wv2.quit
+    Set wv2 = Nothing
+End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2Form  ★推奨★
+'   UserForm の Frame hWnd を親として WebView2 を埋め込むデモ。
+'   vbModeless なので Excel の操作を維持しながら使える。
+'
+'   ★ Application.hWnd を親にするとクラッシュする問題の解決版 ★
+'----------------------------------------------------------------------
+Public Sub TestWebView2Form()
+    WebView2InExcelForm.show vbModeless
+End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2FormModal
+'   モーダル版（Excel 操作をブロックして WebView2 を表示）
+'----------------------------------------------------------------------
+Public Sub TestWebView2FormModal()
+    WebView2InExcelForm.show
+End Sub
+
+'----------------------------------------------------------------------
+' TestWebView2CDP ? CDP (CallDevToolsProtocolMethod) の動作確認
+' Immediate に [CDP] Invoke が出ればコールバックは呼ばれている。出なければ OFF_WV2_CallDevToolsProtocolMethod の index を 22,36,37,39 などに変更して再試行
+'----------------------------------------------------------------------
+Public Sub TestWebView2CDP()
+    Dim wv2 As New WebView2Core
+    Dim hWnd As LongPtr: hWnd = Application.hWnd
+    If Not wv2.Initialize(hWnd, 0, 0, 600, 400, "about:blank", "Automation Data") Then
+        MsgBox "Initialize 失敗: " & wv2.LastErrorDescription, vbCritical
+        Exit Sub
+    End If
+    Dim t As Single: t = Timer
+    Do While Not wv2.IsReady And Timer - t < 15
+        wv2.ProcessMessages
+    Loop
+    If Not wv2.IsReady Then
+        MsgBox "Ready タイムアウト", vbCritical
+        wv2.quit
+        Exit Sub
+    End If
+    Dim params As String: params = "{""expression"":""1+1""}"
+    Dim result As String: result = wv2.CallDevToolsProtocolMethod("Runtime.evaluate", params)
+    Debug.Print "[CDP] Runtime.evaluate result: " & result
+    MsgBox "CDP 結果（Immediate を確認）: " & Left$(result, 200) & IIf(Len(result) > 200, "...", ""), vbInformation
+    wv2.quit
+    Set wv2 = Nothing
+End Sub
+
+
+Sub WebView2Browserクラスで起動するDemo()
+    Dim test As WebView2Browser: Set test = 設定シートからのWebView2起動("http://officetanaka.net/")
+    Dim paramCDP As New Dictionary, ResultCDP As New Dictionary
+    paramCDP.Add "expression", "1+1"
+    Set ResultCDP = test.invokeMethod("Runtime.evaluate", paramCDP)
+    Dim JsonConv As New WebJsonConverter
+
+    MsgBox "CDP 結果: " & JsonConv.ConvertToJson(ResultCDP), vbInformation
+    
+    test.navigate "https://eschamali.github.io/StarterWebScrapingKit/#userform-summary"
+
+    test.quit
+    
+End Sub
+
+Sub reAttachDemo()
+    Dim test As WebView2Browser: Set test = 設定シートからのWebView2起動("http://officetanaka.net/")
+    Dim paramCDP As New Dictionary, ResultCDP As New Dictionary
+    paramCDP.Add "expression", "1+1"
+    Set ResultCDP = test.invokeMethod("Runtime.evaluate", paramCDP)
+    Dim JsonConv As New WebJsonConverter
+
+    MsgBox "CDP 結果: " & JsonConv.ConvertToJson(ResultCDP), vbInformation
+End Sub
+
+
+Sub 再開プロシージャ()
+    Dim test As New WebView2Browser
+    test.reattach "Automation Data"  '何らかの方法で`WebView2Browserクラスで起動するDemo`で実行した情報を復元注入
+    test.navigate "https://eschamali.github.io/StarterWebScrapingKit/#userform-summary"
+
+    test.quit
+
+
+
+
+
+End Sub
+
+
+
+
+
+Sub Demo_NetworkResponseReceived()
+    Dim core As WebView2Browser: Set core = 設定シートからのWebView2起動
+
+    ' --- イベントキャプチャ開始 ---
+    Set core.BrowserEvents = New Dictionary
+
+    ' DevToolsProtocol event receiver を購読（WebView2側イベントはここで受けます）
+    If Not core.SubscribeDevToolsProtocolEvent("Network.responseReceived") Then
+        Debug.Print "[WV2][CDP] SubscribeDevToolsProtocolEvent failed. (可能性: vtable index 調整が必要)"
+    End If
+
+    ' Network.enable（同期でOK）
+    core.invokeMethod "Network.enable"
+
+    ' 遷移（ここからイベントが飛んでくる）
+    core.navigate "http://officetanaka.net/"
+
+    ' 取り出しの重複防止用（__index__ で追跡）
+    Dim lastSeenIndex As Long: lastSeenIndex = 0
+    Dim CharConv As New CharacterCodeConversion
+    Dim JsonConv As New WebJsonConverter
+
+    ' requestId を収集し、後段でまとめて Network.getResponseBody を叩く
+    ' （イベント処理ループ内で同期CDPを重ねると、ブレークポイント等でタイミングが崩れて不安定になりやすいため）
+    Dim reqQueue As Object: Set reqQueue = CreateObject("Scripting.Dictionary") ' key=requestId, value= "url|status"
+
+    Dim stopAt As Single: stopAt = Timer + 30
+    Do While Timer < stopAt
+        core.ProcessMessages 200   ' COMコールバック配送
+        core.TakeEvents           ' キューを BrowserEvents に反映
+
+        If Not (core.BrowserEvents Is Nothing) Then
+            Dim evMethods As Dictionary
+            Set evMethods = core.BrowserEvents("EventMethods")
+
+            If evMethods.Exists("Network.responseReceived") Then
+                CharConv.BytesToSaveFile JsonConv.ConvertToJson(core.BrowserEvents), "C:\Users\XXX\Downloads\test", "WebView2からの非同期イベント情報.json"
+                
+                Dim lst As Collection
+                Set lst = evMethods("Network.responseReceived")
+
+                Dim i As Long
+                For i = 1 To lst.Count
+                    Dim ev As Dictionary
+                    Set ev = lst(i)
+
+                    Dim idx As Long: idx = ev("__index__")
+                    If idx > lastSeenIndex Then
+                        lastSeenIndex = idx
+
+                        ' responseReceived は params.requestId が欲しい
+                        Dim p As Dictionary: Set p = ev("params")
+                        Dim requestId As String: requestId = p("requestId")
+
+                        Dim response As Dictionary
+                        Set response = p("response")
+
+                        Debug.Print "response: url=" & response("url") & ", status=" & response("status")
+
+                        ' ここでは requestId を収集するだけ（body取得は後段）
+                        If Not reqQueue.Exists(requestId) Then
+                            reqQueue.Add requestId, CStr(response("url")) & "|" & CStr(response("status"))
+                        End If
+                    End If
+                Next i
+            End If
+        End If
+
+        DoEvents
+    Loop
+
+    ' ---- 検証: body取得フェーズに入る前にイベント購読を解除 ----
+    '   以降の処理では Network.responseReceived が追加で積まれない状態になる想定
+    core.UnsubscribeDevToolsProtocolEvent
+
+    ' ---- 収集した requestId から body をまとめて取得（ブレークポイントを当てても比較的安定） ----
+    Dim k As Variant
+    For Each k In reqQueue.keys
+        Dim paramsJson As New Dictionary
+        paramsJson.Add "requestId", CStr(k)
+
+        Dim bodyRes As Dictionary
+        ' 完走優先：StopError=False（内部でNothingが返る可能性あり）
+        Set bodyRes = core.invokeMethod("Network.getResponseBody", paramsJson, , False)
+        If Not bodyRes Is Nothing Then
+            If bodyRes.Exists("body") Then
+                Dim Body As String: Body = bodyRes("body")
+                Debug.Print "getResponseBody: requestId=" & CStr(k) & " body sample=" & Left$(Body, 200)
+            Else
+                Debug.Print "getResponseBody: requestId=" & CStr(k) & " (no body field)"
+            End If
+        Else
+            Debug.Print "getResponseBody: requestId=" & CStr(k) & " -> Nothing"
+        End If
+        DoEvents
+    Next k
+
+    Unload WebView2InExcelForm
+    core.quit
+End Sub
+
+
+
+
+
