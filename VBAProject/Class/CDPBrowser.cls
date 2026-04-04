@@ -443,13 +443,12 @@ End Sub
 '* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
 '            Webスクレイピングに関わる引数は全て設けています。
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFERROR に依存します。
+'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
 '* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
-'            objectId                       これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           省略時は、`Runtime.evaluate`となります。
+'            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
-'            objectArguments                `objectId`に対する実行引数を渡します※`objectId`が指定されてない場合は、無視されます
+'            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
 '
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
@@ -490,7 +489,7 @@ End Sub
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`objectId`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
+'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
 '
 '            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
 '              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
@@ -525,21 +524,39 @@ step1:
    'Construct message for sending ----------------------------------------------------------
     CDPparams.RemoveAll
 
-    '`objectId`があったら、`Runtime.callFunctionOn`としてパラメーター構築するように調整
+    '`callFunctionOn`か`evaluate`を決める判定に入ります
     Dim UseJsMethod As String
+
+    ' 【パターン1】特定の要素を操作する場合
     If StrPtr(objectId) Then
         UseJsMethod = "Runtime.callFunctionOn"
 
-        'For Runtime.callFunctionOn
+        '必要なパラメーターをセット
         CDPparams.Add "functionDeclaration", strString
+        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
+
+        'objectId があるので、場所(ContextID)を指定する必要はない
         CDPparams.Add "objectId", objectId
-        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments
+
+    ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
+    ElseIf Not objectArguments Is Nothing Then
+        UseJsMethod = "Runtime.callFunctionOn"
+
+        '必要なパラメーターをセット
+        CDPparams.Add "functionDeclaration", strString
+        CDPparams.Add "arguments", objectArguments
+
+        ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
+        If contextId Then CDPparams.Add "executionContextId", contextId
+
+    ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
+        ' 最もシンプルな evaluate を使う
         UseJsMethod = "Runtime.evaluate"
 
-        'For Runtime.evaluate
+        '必要なパラメーターをセット
         CDPparams.Add "expression", strString
-        If contextId > 0 Then CDPparams.Add "contextId", contextId
+        If contextId Then CDPparams.Add "contextId", contextId
     End If
 
     '以降は、共通設定を施す
@@ -1931,7 +1948,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, dbgMsg:=StopError)
 
    'Print error if there is
     If invokeError(results) Then
@@ -1943,10 +1960,12 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
+    Else
+        'Return result object
+        If results.Exists("result") Then Set invokeMethod = results.Item("result")
     End If
 
-   'Return result object
-    If results.Exists("result") Then Set invokeMethod = results.Item("result")
+    'デバッグ用に、As Is 出力
     If seeRawSendMsgDbg Then printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
@@ -1965,7 +1984,7 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True, dbgMsg:=StopError)
 
     '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
     '※1件しかAddしてないので、直Index指定する
@@ -2301,14 +2320,15 @@ End Property
 '* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
 '            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
+'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
 '***************************************************************************************************
-Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) As Dictionary
+Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ResultCDPByAsync"
 
 
     '1. 存在するか？
     If AccumulatedAsyncResults.Exists(CommandID) Then
-        printMsg Debug_, "CommandID - " & CommandID & ",Raw-Json:" & AccumulatedAsyncResults(CommandID), FromProcedureName
+        printMsg Trace_, "CDP-CommandID: " & CommandID & " , Raw-Json:" & AccumulatedAsyncResults(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(AccumulatedAsyncResults(CommandID))
@@ -2316,31 +2336,26 @@ Property Get ResultCDPForAsync(CommandID As Long, ByRef ErrorExist As Boolean) A
         '3. `result`オブジェクトがあるか？
         'ない場合は、そのまま返却
         If tmp.Exists("result") Then
-            '正常に終了していると伝える
+            '3-1. 正常に終了していると伝える
             ErrorExist = False
-            printMsg Debug_, "This command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
-
-            Set ResultCDPForAsync = tmp("result")
+            printMsg Debug_, "This CDP-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
         Else
-            'エラーありとして伝える
+            '3-1. エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This command ID(" & CommandID & ") is in error. - Raw:" & AccumulatedAsyncResults(CommandID), FromProcedureName
-
-            Set ResultCDPForAsync = tmp
+            printMsg WARN_, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & AccumulatedAsyncResults(CommandID)("error"), FromProcedureName
+        
         End If
 
-        '4. 取り出したので消しておく
+        '4. 返却自体は、そのままで
+        Set ResultCDPForAsync = tmp
+
+        '5. 取り出したので消しておく
         AccumulatedAsyncResults.Remove CommandID
+        printMsg Trace_, "CDP-command ID: " & CommandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
     Else
-        ErrorExist = True
-        printMsg WARN_, "The command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
-
-        '2. カスタムエラーメッセージを作成
-        Dim ErrorCode As Long: ErrorCode = -2
-        Dim ErrorMessage As String: ErrorMessage = "The specified ID:" & CommandID & " does not exist."
-
-        '3. カスタムエラーメッセージJsonで返却
-        Set ResultCDPForAsync = jsConverter.ParseJson("{""error"":{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}}")
+        '2. 存在しない旨を伝える
+        ErrorExist = False
+        printMsg Trace_, "This CDP-command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
@@ -2471,9 +2486,9 @@ RetrySend:
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
+        Dim tmp As Dictionary
         If intRes > 0 Then
             'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
-            Dim tmp As Dictionary
 8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, InternalFilterMessage, lngCurrentId)  'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
@@ -2490,15 +2505,24 @@ RetrySend:
                 'ReadFile にてエラーがあった場合
 11              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
             Else
-                'データがまだ、ない
-12              printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
+                'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
+                '※`WithEvents`と併用すると、ここに格納される可能性があるためです
+                Set tmp = ResultCDPForAsync(lngCurrentId)
+                If Not tmp Is Nothing Then
+                    '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
+                    ResultSendCommand = True
+                    Set SendMessage = tmp
+                    printMsg info_, "Command ID:" & lngCurrentId & " was observed on the 'Asynchronous Result Dictionary side' rather than on the pipe. This is a phenomenon that is likely to occur when used in conjunction with `WithEvents`.", FromProcedureName
+                Else
+                    printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
+                End If
             End If
         End If
 
         'いくつかのログ表示
         If ResultSendCommand = False Then
             '1. コマンド結果が、まだ来ない
-            printMsg Trace_, "The command result from readProcCDP has not yet been received, so reception continues.", FromProcedureName
+            printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " from readProcCDP has not yet been received, so reception continues.", FromProcedureName
 
         ElseIf ResultSendCommand And StrPtr(strBuffer) <> 0 Then
             '2. コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
@@ -2791,6 +2815,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                 '格納件数チェックし、上限を超えたら、最古データを削除します
                 If AccumulatedAsyncResults.Count > AccumulatedAsyncResultsLimit Then
                     ' 一番古いキーを取得して削除
+                    printMsg Trace_, "Delete asynchronous processing result ID:" & AccumulatedAsyncResults.keys(0), FromProcedureName
                     AccumulatedAsyncResults.Remove AccumulatedAsyncResults.keys(0)
                     printMsg info_, "The accumulation limit has exceeded " & AccumulatedAsyncResultsLimit & ", so the oldest has been deleted.", FromProcedureName
                 End If

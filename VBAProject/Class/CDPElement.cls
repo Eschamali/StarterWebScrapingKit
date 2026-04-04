@@ -50,20 +50,35 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
 
 End Enum
 
-Public Sub Init(targetObjMain As CDPBrowser, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
-'----------------------------------------------------------------------------------
-' varType_ : VarType()定数 - vbNull(1)=未発見 / vbString(8)=objectId取得済み / vbEmpty(0)=未評価
-' objectId_ : CDPのobjectId文字列。StrPtr(objectId_)≠0の場合のみ代入（空文字との区別のため）
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
 
+
+'***************************************************************************************************
+'                                   ■■■ 初期化処理 ■■■
+'***************************************************************************************************
+'* 機能　　：アクティブな`CDPBrowser`を継承させ、`jsEval`で実行した結果の一部を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：targetObjMain      継承したい`CDPBrowser`そのもの
+'            varJS_             継承直前に実行したJavaScriptコードそのもの。ポーリング用に使用します。
+'            varType_           JavaScript実行結果の型をVBA型に変換した際の状況(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
+'            objectId_          `Runtime.callFunctionOn`で使用する`objectId`
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：要素がなく、`objectId`が返せない場合は、`objectId_`は、`StrPtr`チェックで0になります
+'* 注意事項：・このヘルパークラスを使用する際は、`objectId`を返すようなJavaScriptコードとして実行すること。要素操作準備なら`objectId`でほぼほぼ返ると思いますが念押しです。
+'            　`objectId_`は、「vbNull(1)=未発見 / vbString(8)=objectId取得済み / vbEmpty(0)=未評価」の3パターンを想定してます。
+'            ・現状複数取得系(getElementsByXPath等)の場合、`varJS_`は機能しません。
+'***************************************************************************************************
+Public Sub Init(targetObjMain As CDPBrowser, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
     Set main = targetObjMain
     varJS = varJS_
     elemVarType = varType_
     If StrPtr(objectId_) <> 0 Then elementObjectId = objectId_  '空文字も含め「代入された」ことを記録
-
 End Sub
 
+
+
+'***************************************************************************************************
+'                                ■■■ パラメーター確認 ■■■
+'***************************************************************************************************
 Property Get varPath() As String
 '----------------------------------------------------------------------------------
 ' Retrieve the path of this variable initialized. The same name can also be used
@@ -88,22 +103,47 @@ Property Get varResult() As Long
 
 End Property
 
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`を、引数名として、DevToolsコンソールでも扱えるようにします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：なんかうまくいかない時、これを利用することで、DevToolsコンソール上でのデバッグが可能になります。
+'* 注意事項：サイトによってはこの不自然なグローバル変数を検知するスクレイピング対策があります。ご利用時は注意してください。
+'***************************************************************************************************
+Public Sub ExposeDevTools(ByVal varName As String)
+    If elementObjectId = "" Then Exit Sub
 
-Private Function getObjectId() As String
-'-----------------------------------------------------------------------------------
-' CDPのobjectIdを返します。
-' ・StrPtr(elementObjectId) ≠ 0 → 取得済みのobjectIdを即返す
-' ・StrPtr(elementObjectId) = 0  → varJSをruntime.evaluateで評価してobjectIdを遅延取得(Lazy Init)
-' 返り値が空文字の場合は、要素がnull(未発見)を意味します。
-'-----------------------------------------------------------------------------------
+    Dim params As New Dictionary
+    Dim arg As New Dictionary
+    Dim args As New Collection
+
+    ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
+    arg.Add "value", varName
+    args.Add arg
+
+    ' 2. 実行
+    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", getObjectId, objectArguments:=args
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`をそのまま、取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このClassで保持中の`ObjectId`
+'* 引数　　：refresh      継承直前に実行したJavaScriptコードそのものを再度実行し、ObjectIdを再取得します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・StrPtr(elementObjectId) ≠ 0 → 取得済みのobjectIdを即返す
+'            ・StrPtr(elementObjectId) = 0  → varJSをruntime.evaluateで評価してobjectIdを遅延取得(Lazy Init)
+'
+'* 注意事項：返り値が空文字の場合は、要素がnull(未発見)を意味します。
+'***************************************************************************************************
+Property Get getObjectId(Optional refresh As Boolean) As String
 
    '取得済みであれば即返す
-    If StrPtr(elementObjectId) <> 0 Then
+    If StrPtr(elementObjectId) <> 0 And Not refresh Then
         getObjectId = elementObjectId
-        Exit Function
+        Exit Property
     End If
 
-   'varJSから遅延取得（初回のみ）
+   'varJSから遅延取得
     Dim res As Variant
     res = main.jsEval(varJS, returnByValue:=False, dbgMsg:=False)
     If VarType(res) = vbString Then
@@ -113,7 +153,7 @@ Private Function getObjectId() As String
     End If
     getObjectId = elementObjectId
 
-End Function
+End Property
 
 '========================================================================================================
 ' ELEMENT PROPERTY INTERACTIONS
@@ -1043,3 +1083,17 @@ Public Function getIFrame() As CDPElement
     getIFrame.Init main, , VarType(result), oid
 
 End Function
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Terminate()
+    '不要になった objectId をリリースします(あれば)
+    If elementObjectId <> "" Then
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "objectId", elementObjectId
+        main.invokeMethod "Runtime.releaseObject", paramsCDP, StopError:=False
+    End If
+End Sub

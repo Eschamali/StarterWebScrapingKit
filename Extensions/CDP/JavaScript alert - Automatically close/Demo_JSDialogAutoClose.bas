@@ -1,47 +1,47 @@
 Attribute VB_Name = "Demo_JSDialogAutoClose"
 '==============================================================================
-' Demo - CDPexpansion_JSDialogAutoCloseï¼ˆJavaScript ãƒ€ã‚¤ã‚¢ãƒ­ã‚°è‡ªå‹•ã‚¯ãƒ­ãƒ¼ã‚ºï¼‰
+' Demo - CDPexpansion_JSDialogAutoCloseiJavaScript ƒ_ƒCƒAƒƒO©“®ƒNƒ[ƒYj
 '
-' å‰æ: æœ¬ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã¨ CDPexpansion_JSDialogAutoClose.cls ã‚’ VBA ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å–ã‚Šè¾¼ã¿ã€
-'       Demo_CDP ã® è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹• ãŒä½¿ãˆã‚‹ã“ã¨ã€‚
+' ‘O’ñ: –{ƒ‚ƒWƒ…[ƒ‹‚Æ CDPexpansion_JSDialogAutoClose.cls ‚ğ VBA ƒvƒƒWƒFƒNƒg‚Éæ‚è‚İA
+'       Demo_CDP ‚Ì İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“® ‚ªg‚¦‚é‚±‚ÆB
 '==============================================================================
 Option Explicit
 
 
 
 Sub TestAlertWithExpansion()
-    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’ã€‚`selenium`ã®ç‹¬è‡ªãƒ†ã‚¹ãƒˆãƒšãƒ¼ã‚¸ã«é·ç§»ã—ã¾ã™
-    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("https://www.selenium.dev/selenium/web/alerts.html")
+    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°B`selenium`‚Ì“Æ©ƒeƒXƒgƒy[ƒW‚É‘JˆÚ‚µ‚Ü‚·
+    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("https://www.selenium.dev/selenium/web/alerts.html")
 
-    'æ‹¡å¼µæ©Ÿèƒ½ã‚’è¿½åŠ ï¼ˆprompt ã®å…¥åŠ›å€¤ã¯ å…¥åŠ›æ–‡å­—å†…å®¹ ã¨åŒä¸€ã«ã—ã€Debug.Assert ã¨æ•´åˆã•ã›ã‚‹ï¼‰
+    'Šg’£‹@”\‚ğ’Ç‰Áiprompt ‚Ì“ü—Í’l‚Í “ü—Í•¶š“à—e ‚Æ“¯ˆê‚É‚µADebug.Assert ‚Æ®‡‚³‚¹‚éj
     Dim testEX As New CDPexpansion_JSDialogAutoClose
     testEX.Init Demo_alerts
 
-    'å¿…è¦ãªå¤‰æ•°ã‚’ç”¨æ„
+    '•K—v‚È•Ï”‚ğ—pˆÓ
     Dim paramsCDP As New Scripting.Dictionary
     Dim resCDP As Scripting.Dictionary
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double
     
-    'ãƒ†ã‚­ã‚¹ãƒˆå…¥åŠ›ç”¨ã®Alertã«å…¥åŠ›ã•ã›ã‚‹æ–‡å­—åˆ—ã®æŒ‡å®šï¼ˆæ‹¡å¼µã® DefaultPromptText ã¨åŒã˜å€¤ï¼‰
-    Dim å…¥åŠ›æ–‡å­—å†…å®¹ As String
-    å…¥åŠ›æ–‡å­—å†…å®¹ = "VBAã‹ã‚‰å…¥åŠ›ã—ãŸãƒ†ã‚¹ãƒˆæ–‡å­—åˆ—ã§ã™ï¼" & WorksheetFunction.Unichar(129418)
+    'ƒeƒLƒXƒg“ü—Í—p‚ÌAlert‚É“ü—Í‚³‚¹‚é•¶š—ñ‚Ìw’èiŠg’£‚Ì DefaultPromptText ‚Æ“¯‚¶’lj
+    Dim “ü—Í•¶š“à—e As String
+    “ü—Í•¶š“à—e = "VBA‚©‚ç“ü—Í‚µ‚½ƒeƒXƒg•¶š—ñ‚Å‚·I" & WorksheetFunction.Unichar(129418)
 
     testEX.DefaultAccept = True
-    testEX.DefaultPromptText = å…¥åŠ›æ–‡å­—å†…å®¹
+    testEX.DefaultPromptText = “ü—Í•¶š“à—e
 
     With Demo_alerts
-        ' --- 1. å¿…è¦ãªãƒ‰ãƒ¡ã‚¤ãƒ³ã‚’æœ‰åŠ¹åŒ– ---
+        ' --- 1. •K—v‚ÈƒhƒƒCƒ“‚ğ—LŒø‰» ---
         .invokeMethod ("DOM.enable")
         
 
-        ' --- 2. DOMãƒ„ãƒªãƒ¼ã‚’åŒæœŸã•ã›ã€IDå‰²ã‚ŠæŒ¯ã‚Šã‚’è¡Œã† ---
+        ' --- 2. DOMƒcƒŠ[‚ğ“¯Šú‚³‚¹AIDŠ„‚èU‚è‚ğs‚¤ ---
         paramsCDP.RemoveAll
-        paramsCDP.Add "depth", 0        'è¿”å´æ™‚ã®DOMæƒ…å ±ã¯ä¸è¦ãªã®ã§ã€0ã«ã—ã¦ãŠã
-        paramsCDP.Add "pierce", True    'Shadow DOMã®ä¸­ã¾ã§è²«é€šã•ã›ã‚‹
+        paramsCDP.Add "depth", 0        '•Ô‹p‚ÌDOMî•ñ‚Í•s—v‚È‚Ì‚ÅA0‚É‚µ‚Ä‚¨‚­
+        paramsCDP.Add "pierce", True    'Shadow DOM‚Ì’†‚Ü‚ÅŠÑ’Ê‚³‚¹‚é
         .invokeMethod "DOM.getDocument", paramsCDP
-        ' ã“ã‚Œã§ãƒ–ãƒ©ã‚¦ã‚¶å†…ã®å…¨ãƒãƒ¼ãƒ‰ã«IDãŒå‰²ã‚ŠæŒ¯ã‚‰ã‚Œã¾ã™
+        ' ‚±‚ê‚Åƒuƒ‰ƒEƒU“à‚Ì‘Sƒm[ƒh‚ÉID‚ªŠ„‚èU‚ç‚ê‚Ü‚·
 
         Dim i As Long
         For i = 1 To 3
@@ -52,41 +52,41 @@ Sub TestAlertWithExpansion()
                 Case 3: TargetXpath = "//*[@id='prompt']"
             End Select
 
-            ' --- 3. XPathã§æ¤œç´¢ (Shadow DOMã®è²«é€šã‚‚å¯) ---
+            ' --- 3. XPath‚ÅŒŸõ (Shadow DOM‚ÌŠÑ’Ê‚à‰Â) ---
             paramsCDP.RemoveAll
-            paramsCDP.Add "query", TargetXpath  'å…ˆé ­ã®ãƒªãƒ³ã‚¯ã‚’å¯¾è±¡ã«
+            paramsCDP.Add "query", TargetXpath  'æ“ª‚ÌƒŠƒ“ƒN‚ğ‘ÎÛ‚É
             Set resCDP = .invokeMethod("DOM.performSearch", paramsCDP)
             searchId = resCDP("searchId")
     
     
-            ' --- 4. nodeIdã‚’å–å¾— ---
+            ' --- 4. nodeId‚ğæ“¾ ---
             paramsCDP.RemoveAll
             paramsCDP.Add "searchId", searchId
-            paramsCDP.Add "fromIndex", 0   'å…ˆé ­ã®ä»¶æ•°ã‹ã‚‰
-            paramsCDP.Add "toIndex", 1     '1ä»¶åˆ†ã®ã¿
+            paramsCDP.Add "fromIndex", 0   'æ“ª‚ÌŒ”‚©‚ç
+            paramsCDP.Add "toIndex", 1     '1Œ•ª‚Ì‚İ
             Set resCDP = .invokeMethod("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP("nodeIds")(1)  'é…åˆ—ã®å…ˆé ­ã‚’å–å¾—
+            nodeId = resCDP("nodeIds")(1)  '”z—ñ‚Ìæ“ª‚ğæ“¾
     
     
-            ' --- 5. nodeId ã‚’ objectId ã«å¤‰æ› ---
+            ' --- 5. nodeId ‚ğ objectId ‚É•ÏŠ· ---
             paramsCDP.RemoveAll
             paramsCDP.Add "nodeId", nodeId
             Set resCDP = .invokeMethod("DOM.resolveNode", paramsCDP)
 
 
-            ' --- 6. ã‚ãˆã¦ã€åŒæœŸã§ã‚³ãƒãƒ³ãƒ‰å®Ÿè¡Œ(Jsã®ã‚¯ãƒªãƒƒã‚¯å‡¦ç†) ---
-            'ã“ã®ç¬é–“ã€JavaScriptã®`alert`é–¢æ•°ãŒç™ºå‹•ã•ã‚Œã¾ã™ãŒã€å…ˆé ­ã«è¨˜è¿°ã—ãŸæ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒƒãƒã§ã€
-            'åŒæœŸãƒ¢ãƒ¼ãƒ‰ã«ã‚‚ã‹ã‹ã‚ã‚‰ãšã€JavaScriptã‚¢ãƒ©ãƒ¼ãƒˆãŒè‡ªå‹•ã§é–‰ã˜ã‚‰ã‚Œã€å‡¦ç†ãŒç¶šè¡Œã•ã‚Œã¾ã™
+            ' --- 6. ‚ ‚¦‚ÄA“¯Šú‚ÅƒRƒ}ƒ“ƒhÀs(Js‚ÌƒNƒŠƒbƒNˆ—) ---
+            '‚±‚ÌuŠÔAJavaScript‚Ì`alert`ŠÖ”‚ª”­“®‚³‚ê‚Ü‚·‚ªAæ“ª‚É‹Lq‚µ‚½Šg’£‹@”\‚É‚æ‚éƒCƒxƒ“ƒgƒLƒƒƒbƒ`‚ÅA
+            '“¯Šúƒ‚[ƒh‚É‚à‚©‚©‚í‚ç‚¸AJavaScriptƒAƒ‰[ƒg‚ª©“®‚Å•Â‚¶‚ç‚êAˆ—‚ª‘±s‚³‚ê‚Ü‚·
             .jsEval "function() { this.click(); }", CStr(resCDP("object")("objectId"))
         Next
 
 
-        ' --- 7. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹ ---
-        Dim Htmlã®è¡¨ç¤ºå†…å®¹ As String: Htmlã®è¡¨ç¤ºå†…å®¹ = .getElementByXPath("//*[@id='text']/p").innerText
-        Debug.Print "htmlã®å‡ºåŠ›æ–‡å­—åˆ—ï¼š" & Htmlã®è¡¨ç¤ºå†…å®¹
-        Debug.Assert Htmlã®è¡¨ç¤ºå†…å®¹ = å…¥åŠ›æ–‡å­—å†…å®¹
+        ' --- 7. ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é ---
+        Dim Html‚Ì•\¦“à—e As String: Html‚Ì•\¦“à—e = .getElementByXPath("//*[@id='text']/p").innerText
+        Debug.Print "html‚Ìo—Í•¶š—ñF" & Html‚Ì•\¦“à—e
+        Debug.Assert Html‚Ì•\¦“à—e = “ü—Í•¶š“à—e
 
-        Set testEX = Nothing      'æ‹¡å¼µæ©Ÿèƒ½ã‚’OFF
+        Set testEX = Nothing      'Šg’£‹@”\‚ğOFF
         .quit
     End With
 End Sub

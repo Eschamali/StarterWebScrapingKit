@@ -351,13 +351,13 @@ Sub TestAlert()
             Set resultBiDi = .invokeMethod("browsingContext.handleUserPrompt", paramsBiDi)
     
             ' --- 6. 以前、非同期で実行した結果も拝見する ---
-            Dim resBiDiAsync As Dictionary
-            .sleep 0.5 ' 結果取得のためのディレイ
-            .TakeEvents ' 受信キューを消化
-            
-            Dim エラー確認 As Boolean
-            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID, エラー確認)
-            If Not (resBiDiAsync Is Nothing) Then Debug.Print "resBiDiAsync - " & JsonDicObj.ConvertToJson(resBiDiAsync)
+'            Dim resBiDiAsync As Dictionary
+'            .sleep 0.5 ' 結果取得のためのディレイ
+'            .TakeEvents ' 受信キューを消化
+'
+'            Dim エラー確認 As Boolean
+'            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID, エラー確認)
+'            If Not (resBiDiAsync Is Nothing) Then Debug.Print "resBiDiAsync - " & JsonDicObj.ConvertToJson(resBiDiAsync)
             
         Next
 
