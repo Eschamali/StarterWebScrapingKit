@@ -75,3 +75,50 @@ Public Sub Demo_AdvancedWait()
     br.quit
     
 End Sub
+
+' =========================================================
+' 追加実装された高度な待機機構のデモ
+' =========================================================
+Public Sub Demo_WaitOptions()
+    Dim br As CDPBrowser
+    Dim extWait As CDPexpansion_AdvancedWait
+    Dim elem As CDPElement
+    Dim startTime As Double
+    Dim htmlPath As String
+    
+    htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_AdvancedWait\TestHtml.html"
+    Set br = 設定シートからのCDP起動(htmlPath)
+    Set extWait = New CDPexpansion_AdvancedWait
+    extWait.Init br
+    
+    br.printMsg info_, "Test環境にアクセスし、追加待機機能のデモを開始します。", "Demo"
+    br.sleep 2
+    
+    ' --- 1. ClickAndWaitForIdle のテスト ---
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] ClickAndWaitForIdle テストを開始します。", "Demo"
+    Set elem = br.getElementByQuery("#btn-network-idle")
+    If elem.isExist Then
+        br.printMsg info_, "  - 要素をクリックし、発生した通信の波紋が完全に消えるまで待ちます...", "Demo"
+        startTime = Timer
+        
+        ' クリックとFullIdle待機を1アクションで実行 (タイムアウト10秒)
+        extWait.ClickAndWaitForIdle elem, 500, 10000
+        
+        br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " 波及イベントの終息を確認！ " & Format(Timer - startTime, "0.00") & "秒", "Demo"
+    End If
+    br.sleep 2
+    
+    ' --- 2. WaitForUrlRedirect のテスト ---
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] WaitForUrlRedirect テストを確認します。", "Demo"
+    ' テスト用に別URLへ遷移
+    br.jsEval "setTimeout(function(){ window.location.href = 'https://example.com'; }, 2000);"
+    br.printMsg info_, "  - 2秒後に example.com へ遷移するよう仕込みました。URL遷移完了を待ちます...", "Demo"
+    startTime = Timer
+    
+    extWait.WaitForUrlRedirect "example.com", 10
+    
+    br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " 目的のURLへの到達を確認！ 現在のURL: " & br.url, "Demo"
+    
+    br.sleep 3
+    br.quit
+End Sub
