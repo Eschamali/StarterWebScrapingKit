@@ -1,0 +1,85 @@
+<h1>CDPの<span style="color:var(--accent-color)">機能拡張</span>（テンプレート利用）</h1>
+
+<h2>コアクラスを汚さずに機能を拡張する</h2>
+<p>
+本ツールはメンテナンス性を維持するため、ベースとなる <code>CDPBrowser.cls</code> などのコアファイルには「あえて便利なラッパーメソッドを追加しない」という設計思想を持っています。<br>
+しかし、特定のプロジェクトにおいて<strong>「非同期イベントを継続的に監視したい」「定型的な複数コマンドをまとめたい」</strong>といった高度な要求が発生することがあります。
+</p>
+
+<p>
+こうした場合に備え、コア（<code>VBAProject\Class</code>）を変更せずに自由に独自の拡張を行えるよう、専用の<strong>拡張テンプレートクラス</strong>が用意されています。
+</p>
+
+<div class="alert note">
+    <div class="alert-icon">💡</div>
+    <div class="alert-content">
+        <strong>テンプレートの場所</strong>
+        <p><a href="https://github.com/Eschamali/StarterWebScrapingKit/blob/dev/ForDevelopers/TemplateExtensions/CDP/Template_CDPexpansion.cls" target="_blank" class="hover-float-glow"><code>ForDevelopers\TemplateExtensions\CDP\Template_CDPexpansion.cls</code></a></p>
+    </div>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+<h2>機能拡張の仕組み</h2>
+<p>
+拡張クラスでは、VBAの <code>WithEvents</code> を用いてベースとなる <code>CDPBrowser</code> と連携します。<br>
+これにより、ブラウザ側から送られてくるあらゆる非同期イベント（ネットワーク通信の完了や画面の描画など）をリアルタイムに横取り（フック）して、あなたの好きな処理を自動実行させることができます。
+</p>
+
+<h3>開発のステップ</h3>
+<ol>
+    <li><code>Template_CDPexpansion.cls</code> をコピーし、好きな名前に変更してプロジェクトに取り込みます。</li>
+    <li>メインの処理内で、拡張クラスを <code>New</code> して <code>Init</code> メソッドに <code>CDPBrowser</code> インスタンスを渡して継承させます。</li>
+    <li>拡張クラス内の <code>ex_CDPBrowser_detectionCDPEvent</code> メソッドに、横取りしたい非同期イベント名（例：<code>Network.responseReceived</code>）と処理内容を記述します。</li>
+</ol>
+
+<hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+<h2>【デモ】JavaScriptダイアログの自動クローズ機能</h2>
+<p>
+拡張機能の強力な例として、<strong>「JavaScriptアラートを自動で閉じる」</strong>デモが用意されています。
+</p>
+
+<div class="alert tip">
+    <div class="alert-icon">🚀</div>
+    <div class="alert-content">
+        <strong>デモの場所</strong>
+        <p><a href="https://github.com/Eschamali/StarterWebScrapingKit/blob/main/Extensions/CDP/JavaScript%20alert%20-%20Automatically%20close/Demo_JSDialogAutoClose.bas" target="_blank" class="hover-float-glow"><code>Extensions\CDP\JavaScript alert - Automatically close</code></a></p>
+    </div>
+</div>
+
+<p>
+本デモの <code>CDPexpansion_JSDialogAutoClose.cls</code> では、以下の制御を実現しています。
+</p>
+
+<ul>
+    <li>
+        <strong>非同期での処理:</strong> <code>Page.javascriptDialogOpening</code> イベントを常時監視します。
+    </li>
+    <li>
+        <strong>自動処置:</strong> ダイアログが開いたことを検知すると、即座に <code>Page.handleJavaScriptDialog</code> を発行し、「OK」や「キャンセル」の送信、さらにはプロンプトへのテキスト自動入力まで行います。
+    </li>
+    <li>
+        <strong>UIを止めない:</strong> 通常、アラートが表示されるとブラウザの処理がブロックされますが、この拡張機能を使えば裏側で自動的に応答するため、VBAのメインループに一切影響を与えません。
+    </li>
+</ul>
+
+<pre><code class="language-vb">' デモ的使用例
+Dim Demo_alerts As CDPBrowser
+Set Demo_alerts = 設定シートからのCDP起動("https://www.selenium.dev/selenium/web/alerts.html")
+
+' 拡張機能のセットアップ
+Dim testEX As New CDPexpansion_JSDialogAutoClose
+testEX.Init Demo_alerts
+
+' デフォルトでOKを選択し、テキストを入力する設定
+testEX.DefaultAccept = True
+testEX.DefaultPromptText = "VBAから自動入力！"
+
+' あとは普通に操作するだけ。Alertは裏で自動処理される
+Demo_alerts.invokeMethod "DOM.enable"
+' ... クリックなどの処理が続く</code></pre>
+
+<p>
+このように、<strong>「低レベルな <code>invokeMethod</code> のベース」</strong>と<strong>「AIが生成するコード」</strong>、そして<strong>「拡張テンプレートによる非同期制御」</strong>を組み合わせることで、どんなに複雑なブラウザ操作要求にも応えることができる最強の土台が完成します。
+</p>

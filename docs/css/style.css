@@ -473,3 +473,18 @@ p code, li code {
 .story-platform-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 0.8rem 1.2rem; display: flex; align-items: flex-start; gap: 0.8rem; }
 .platform-icon { font-size: 1.3rem; flex-shrink: 0; }
 .story-finale { text-align: center; font-size: 1.05rem; color: var(--text-dim); padding: 2rem 1rem; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 1.5rem; line-height: 2; }
+
+/* Custom Link Animations */
+.hover-float-glow {
+    display: inline-block;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.hover-float-glow:hover {
+    transform: translateY(-3px);
+    text-shadow: 0 0 12px var(--accent-glow), 0 0 24px rgba(59, 130, 246, 0.4);
+    color: #fff;
+    text-decoration: none;
+}
