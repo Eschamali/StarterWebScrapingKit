@@ -223,10 +223,10 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPParams As Dictionary, ResultCDP As Dictionary
-    Set CDPParams = New Dictionary
-    CDPParams.Add "path", ExtensionsFolderPath
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPParams, True, False)   '今回は、エラー無視で設定
+    Dim CDPparams As Dictionary, ResultCDP As Dictionary
+    Set CDPparams = New Dictionary
+    CDPparams.Add "path", ExtensionsFolderPath
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.loadUnpacked", CDPparams, True, False)   '今回は、エラー無視で設定
 
     '読み込まれたか確認する
     '※コマンド実行に失敗すると、`nothing`で返るので、この仕様を利用します
@@ -250,9 +250,9 @@ Sub UseExtensions()
 
 
     '拡張機能をアンインストール
-    Set CDPParams = New Dictionary
-    CDPParams.Add "id", ResultCDP("id")
-    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPParams, True, False)
+    Set CDPparams = New Dictionary
+    CDPparams.Add "id", ResultCDP("id")
+    Set ResultCDP = controlExtensions.invokeMethod("Extensions.uninstall", CDPparams, True, False)
 
     '消えたか確認する
     If ResultCDP Is Nothing Then
@@ -334,14 +334,10 @@ Sub TestAlert()
             Set resCDP = .invokeMethod("DOM.resolveNode", paramsCDP)
 
 
-            ' --- 6. 非同期でコマンド準備/実行(Jsのクリック処理) ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "objectId", resCDP("object")("objectId")
-            paramsCDP.Add "functionDeclaration", "function() { this.click(); }"
-            Dim AsyncID As Long
-
+            ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
-            AsyncID = .invokeMethodAsync("Runtime.callFunctionOn", paramsCDP, alwaysBrowserContext:=False)
+            Dim AsyncID As Long
+            AsyncID = .jsEval("function() { this.click(); }", CStr(resCDP("object")("objectId")), RunAsyncCDP:=True)
     
     
             ' --- 7. イベントキャプチャを有効化 ---
@@ -704,8 +700,8 @@ Sub fillReactForm()
     Set sb = chrome.getElementByID("result").getIFrame.getElementByQuery("input[type='submit']")
         
    'This traditional input method will fail as this is a React field
-    chrome.jsEval ip.varName & ".value = 'TEST1'"
-    chrome.jsEval ip.varName & ".dispatchEvent(new Event('input', { bubbles: true, simulated: true }))"
+'    chrome.jsEval ip.varName & ".value = 'TEST1'"
+'    chrome.jsEval ip.varName & ".dispatchEvent(new Event('input', { bubbles: true, simulated: true }))"
     sb.click 'you will not see "TEST1" in the alert result
  
    'This will succeed by using 2.6-enhanced .value property

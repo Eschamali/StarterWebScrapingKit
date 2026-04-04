@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>jsEval 動作確認</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d2e; --surface2: #252840;
+      --border: #2e3160; --accent: #6c63ff; --accent2: #00d4aa;
+      --text: #e2e8f0; --text2: #8892a4; --pass: #00d4aa; --fail: #ff6b6b; --info: #ffd93d;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
+    #test-panel { flex: 1; padding: 20px; overflow-y: auto; max-width: 820px; }
+    #log-panel { width: 340px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    #log-panel h2 { color: var(--accent); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    #log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-family: Consolas, monospace; }
+    .log-entry { font-size: 11px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--border); background: var(--surface2); word-break: break-all; }
+    .log-pass  { border-left-color: var(--pass);  color: var(--pass); }
+    .log-fail  { border-left-color: var(--fail);  color: var(--fail); }
+    .log-info  { border-left-color: var(--info);  color: var(--info); }
+    #btn-clear-log { margin-top: 8px; background: #2e1f4a; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+    h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 10px; }
+    .status-box { padding: 6px 10px; border-radius: 6px; font-size: 12px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); min-height: 30px; transition: border-color .25s, color .25s, box-shadow .25s; display: flex; align-items: center; }
+    .status-box.changed { border-color: var(--pass); color: var(--pass); box-shadow: 0 0 0 1px rgba(0,212,170,.25); }
+    .hint { font-size: 11px; color: var(--text2); margin-top: 6px; line-height: 1.45; }
+    #jseval-box { padding: 12px; border: 1px dashed var(--accent); border-radius: 8px; background: var(--surface2); }
+    #jseval-input { width: 100%; padding: 8px; margin-top: 6px; background: #1a1d2e; border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+    .btn-alert { margin-top: 6px; padding: 8px 14px; background: var(--surface2); border: 1px solid var(--fail); color: var(--fail); border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .btn-alert:hover { background: #3a2020; }
+    /* テスト別グリッド */
+    .status-grid { display: flex; flex-direction: column; gap: 6px; }
+    .status-row { display: grid; grid-template-columns: minmax(160px, 220px) 1fr; gap: 10px; align-items: stretch; }
+    @media (max-width: 700px) {
+      .status-row { grid-template-columns: 1fr; }
+    }
+    .status-lbl { font-size: 11px; color: var(--text2); padding: 6px 0; line-height: 1.35; border-left: 3px solid var(--border); padding-left: 8px; }
+    .status-row.done .status-lbl { border-left-color: var(--pass); color: var(--text); }
+    #s-summary { font-size: 13px; font-weight: 600; min-height: 36px; }
+  </style>
+</head>
+<body>
+
+<div id="log-panel">
+  <h2>jsEval テストログ</h2>
+  <div id="log-list"></div>
+  <button type="button" id="btn-clear-log">ログクリア</button>
+</div>
+
+<div id="test-panel">
+  <h1>CDPBrowser.jsEval 検証ページ</h1>
+  <p class="hint">VBA の <code>RunAll_jsEval_Tests</code> を実行すると、下の各行が順に <strong>緑（完了）</strong> に変わります。<code>WORKSPACE_PATH</code> をルートに設定してください。</p>
+
+  <section>
+    <h3>テスト別結果（1 行ずつ更新）</h3>
+    <div class="status-grid">
+      <div class="status-row" id="row-js01"><span class="status-lbl">① evaluate — 数値・文字列・真偽</span><div class="status-box" id="s-js01">未実行</div></div>
+      <div class="status-row" id="row-js02"><span class="status-lbl">② returnByValue — オブジェクト / 配列 / グローバル</span><div class="status-box" id="s-js02">未実行</div></div>
+      <div class="status-row" id="row-js03"><span class="status-lbl">③ undefined / null</span><div class="status-box" id="s-js03">未実行</div></div>
+      <div class="status-row" id="row-js04"><span class="status-lbl">④ Unicode（日本語）</span><div class="status-box" id="s-js04">未実行</div></div>
+      <div class="status-row" id="row-js05"><span class="status-lbl">⑤ awaitPromise</span><div class="status-box" id="s-js05">未実行</div></div>
+      <div class="status-row" id="row-js06"><span class="status-lbl">⑥ objectId 取得</span><div class="status-box" id="s-js06">未実行</div></div>
+      <div class="status-row" id="row-js07"><span class="status-lbl">⑦ callFunctionOn — this / 引数なし</span><div class="status-box" id="s-js07">未実行</div></div>
+      <div class="status-row" id="row-js08"><span class="status-lbl">⑧ 多引数（10 個）</span><div class="status-box" id="s-js08">未実行</div></div>
+      <div class="status-row" id="row-js09"><span class="status-lbl">⑨ objectArguments（アポストロフィ等）</span><div class="status-box" id="s-js09">未実行</div></div>
+      <div class="status-row" id="row-js10"><span class="status-lbl">⑩ 子要素 querySelector</span><div class="status-box" id="s-js10">未実行</div></div>
+      <div class="status-row" id="row-js11"><span class="status-lbl">⑪ 例外 → IsError</span><div class="status-box" id="s-js11">未実行</div></div>
+      <div class="status-row" id="row-js12"><span class="status-lbl">⑫ IFEXCEPTION</span><div class="status-box" id="s-js12">未実行</div></div>
+      <div class="status-row" id="row-js13"><span class="status-lbl">⑬ 長い文字列 returnByValue</span><div class="status-box" id="s-js13">未実行</div></div>
+      <div class="status-row" id="row-js14"><span class="status-lbl">⑭ contextId（createIsolatedWorld）</span><div class="status-box" id="s-js14">未実行</div></div>
+      <div class="status-row" id="row-js15"><span class="status-lbl">⑮ serializationOptions（deep）</span><div class="status-box" id="s-js15">未実行</div></div>
+      <div class="status-row" id="row-js16"><span class="status-lbl">⑯ RunAsyncCDP + alert</span><div class="status-box" id="s-js16">未実行</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>RunAsyncCDP 用（alert）</h3>
+    <p class="hint">⑯ で <code>RunAsyncCDP:=True</code> により <code>this.click()</code> を投げ、ダイアログを閉じます。</p>
+    <button type="button" id="btn-async-alert" class="btn-alert">alert を開く（⑯）</button>
+  </section>
+
+  <section>
+    <h3>callFunctionOn 用 DOM ターゲット</h3>
+    <div id="jseval-box" data-tag="jseval-data" data-n="42" lang="ja">
+      <span id="jseval-target">jsEval ターゲット要素</span>
+      <input type="text" id="jseval-input" value="初期値" autocomplete="off">
+    </div>
+    <p class="hint">⑥〜⑩ はこの要素に対して <code>callFunctionOn</code> します。</p>
+  </section>
+
+  <section>
+    <h3>Runtime.evaluate 参照用</h3>
+    <p class="hint"><code>window.__JSEVAL_GLOBAL</code>（② で取得）</p>
+  </section>
+
+  <section>
+    <h3>最終サマリー</h3>
+    <div class="status-box" id="s-summary">テスト未実行</div>
+  </section>
+</div>
+
+<script>
+(function () {
+  function addLog(msg, kind) {
+    var list = document.getElementById('log-list');
+    if (!list) return;
+    var row = document.createElement('div');
+    row.className = 'log-entry log-' + (kind || 'info');
+    row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  window.__JSEVAL_GLOBAL = {
+    num: 7,
+    text: 'グローバル文字列',
+    flag: true,
+    nested: { a: 1, b: 'two' },
+    list: [100, 200, 300]
+  };
+
+  window.updateStatus = function (id, msg, ok) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-box' + (ok !== false ? ' changed' : '');
+    var row = el.closest('.status-row');
+    if (row && ok !== false) row.classList.add('done');
+  };
+
+  document.getElementById('btn-clear-log').onclick = function () {
+    document.getElementById('log-list').innerHTML = '';
+  };
+
+  var btnAsyncAlert = document.getElementById('btn-async-alert');
+  if (btnAsyncAlert) {
+    btnAsyncAlert.addEventListener('click', function () {
+      alert('jsEval RunAsyncCDP');
+    });
+  }
+
+  addLog('ページ読み込み完了', 'pass');
+})();
+</script>
+</body>
+</html>
