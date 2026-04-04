@@ -30,7 +30,7 @@ End Sub
 ' DOM Mutation の待機
 ' DOMに変更（追加、削除、属性変更）が起きるまで待機する
 ' =========================================================
-Public Sub WaitForDomMutation(Optional maxWaitTimeSec As Long = 5)
+Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boolean
     Dim js As String
     Dim res As String
     Dim startCount As Long, currCount As Long
@@ -66,12 +66,14 @@ Public Sub WaitForDomMutation(Optional maxWaitTimeSec As Long = 5)
         currCount = CLng(res)
         
         If currCount > startCount Then
-            Exit Sub  ' Mutated!
+            WaitForDomMutation = True
+            Exit Function  ' Mutated!
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            MsgBox "<WaitForDomMutation> " & maxWaitTimeSec & "秒待機しましたがDOM変化が発生しませんでした。", vbCritical
-            End
+            CDP_.printMsg WARN_, "<WaitForDomMutation> " & maxWaitTimeSec & "秒待機しましたがDOM変化が発生しませんでした。", "CDPexpansion_AdvancedWait"
+            WaitForDomMutation = False
+            Exit Function
         End If
         
         CDP_.sleep 0.1
@@ -84,7 +86,7 @@ End Sub
 ' Network Idle の待機
 ' fetch や XMLHttpRequest などの通信が落ち着くまで待機する
 ' =========================================================
-Public Sub WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optional idleThresholdMs As Long = 500)
+Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optional idleThresholdMs As Long = 500) As Boolean
     Dim js As String
     Dim res As String, isIdle As String
     Dim startTime As Double
@@ -128,12 +130,14 @@ Public Sub WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optional idl
         
         isIdle = ParseSimpleValue(res)
         If LCase(isIdle) = "true" Then
-            Exit Sub
+            WaitForNetworkIdle = True
+            Exit Function
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            MsgBox "<WaitForNetworkIdle> " & maxWaitTimeSec & "秒待機しましたがNetworkIdleになりませんでした。", vbCritical
-            End
+            CDP_.printMsg WARN_, "<WaitForNetworkIdle> " & maxWaitTimeSec & "秒待機しましたがNetworkIdleになりませんでした。", "CDPexpansion_AdvancedWait"
+            WaitForNetworkIdle = False
+            Exit Function
         End If
         
         CDP_.sleep 0.1
@@ -150,7 +154,7 @@ End Sub
 ' SPA等の複雑なページで、画面描画・裏側の通信・値の自動変更など
 ' 全ての挙動が「シーン」と静けさを取り戻すまで絶対に次へ進ませない堅牢な待機です。
 ' =========================================================
-Public Sub WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000)
+Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000) As Boolean
     Dim js As String
     Dim res As String
     
@@ -190,13 +194,15 @@ Public Sub WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional maxTi
     js = js & "  s.onchange = schedule; setTimeout(schedule, 0);"
     js = js & "});"
 
-    res = ProcessPromiseResult(CDP_.jsEval(js))
+    res = ProcessPromiseResult(CDP_.jsEval(js, awaitPromise:=True))
     
-    If LCase(res) <> "ok" Then
-        MsgBox "<WaitForFullIdle> " & maxTimeoutMs & "ms 待機しましたが完全にアイドルになりませんでした。", vbCritical
-        End
+    If LCase(res) = "ok" Then
+        WaitForFullIdle = True
+    Else
+        CDP_.printMsg WARN_, "<WaitForFullIdle> " & maxTimeoutMs & "ms 待機しましたが完全にアイドルになりませんでした。(結果: " & LCase(res) & ")", "CDPexpansion_AdvancedWait"
+        WaitForFullIdle = False
     End If
-End Sub
+End Function
 
 ' =========================================================
 ' 2. URL遷移完了待ち (URL Redirect)
@@ -204,7 +210,7 @@ End Sub
 ' ログインボタンを押した後など、どれだけ通信やリダイレクトを挟もうと、
 ' 最終的に指定のURL文字列が含まれるページに到着するまでずっと待ってくれます。
 ' =========================================================
-Public Sub WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As Long = 30)
+Public Function WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As Long = 30) As Boolean
     Dim js As String
     Dim res As String
     
@@ -218,13 +224,15 @@ Public Sub WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As L
     js = js & "  }, 200);"
     js = js & "});"
     
-    res = ProcessPromiseResult(CDP_.jsEval(js))
+    res = ProcessPromiseResult(CDP_.jsEval(js, awaitPromise:=True))
     
-    If LCase(res) <> "ok" Then
-        MsgBox "<WaitForUrlRedirect> " & maxWaitTimeSec & "秒待機しましたがURLに '" & partialUrl & "' が含まれませんでした。", vbCritical
-        End
+    If LCase(res) = "ok" Then
+        WaitForUrlRedirect = True
+    Else
+        CDP_.printMsg WARN_, "<WaitForUrlRedirect> " & maxWaitTimeSec & "秒待機しましたがURLに '" & partialUrl & "' が含まれませんでした。", "CDPexpansion_AdvancedWait"
+        WaitForUrlRedirect = False
     End If
-End Sub
+End Function
 
 ' =========================================================
 ' 3. 操作起因の波及待機 (Click & Wait for Idle)
@@ -232,13 +240,13 @@ End Sub
 ' 『絞り込みボタン』等を押した直後に起こる後出しの通信やDOM描画の嵐が
 ' ドアが閉まるように完全に落ち着くまで、クリックとセットで待つ機能です。
 ' =========================================================
-Public Sub ClickAndWaitForIdle(elem As CDPElement, Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000)
+Public Function ClickAndWaitForIdle(elem As CDPElement, Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000) As Boolean
     ' まず要素をクリック
     elem.click
     
     ' その直後から、波紋が広がり終わるまで待機
-    Call WaitForFullIdle(idleTimeoutMs, maxTimeoutMs)
-End Sub
+    ClickAndWaitForIdle = WaitForFullIdle(idleTimeoutMs, maxTimeoutMs)
+End Function
 
 
 ' =========================================================
