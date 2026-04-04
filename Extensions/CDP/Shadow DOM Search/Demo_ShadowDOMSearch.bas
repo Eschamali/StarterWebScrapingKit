@@ -18,7 +18,7 @@ Public Sub Demo_ShadowDOMSearch()
     Dim extShadow As CDPexpansion_ShadowDOMSearch
     
     Dim htmlPath As String
-    htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html"
+    htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_shadowRoot\TestHtml.html"
     
     ' ブラウザの起動
     Set br = 設定シートからのCDP起動(htmlPath)
