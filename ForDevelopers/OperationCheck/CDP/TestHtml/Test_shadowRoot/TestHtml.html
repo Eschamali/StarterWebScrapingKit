@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow DOM Test Benchmark</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        h1, h2 { color: #333; }
+        .result-log { background: #f4f4f4; padding: 10px; height: 100px; overflow-y: scroll; font-family: monospace; }
+        button { padding: 5px 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Shadow DOM Benchmark Test</h1>
+    <p>通常のDOM操作（querySelector）では到達できない要素群のテスト用ページです。</p>
+
+    <h2>1. Light DOM (通常のDOM)</h2>
+    <div class="box" id="light-dom-section">
+        <p class="target-text">This is a normal paragraph.</p>
+        <button id="light-btn" onclick="log('Light btn clicked')">Light Button</button>
+        <input type="text" id="light-input" value="light value">
+    </div>
+
+    <h2>2. Shallow Shadow DOM (階層1)</h2>
+    <div class="box" id="shadow-host-1"></div>
+
+    <h2>3. Deep Shadow DOM (ネストされた階層)</h2>
+    <div class="box" id="shadow-host-2"></div>
+
+    <h2>Log</h2>
+    <div class="result-log" id="log-output"></div>
+
+    <script>
+        function log(msg) {
+            const logger = document.getElementById('log-output');
+            logger.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            logger.scrollTop = logger.scrollHeight;
+        }
+
+        // --- Shallow Shadow DOM ---
+        const host1 = document.getElementById('shadow-host-1');
+        const shadow1 = host1.attachShadow({mode: 'open'});
+        shadow1.innerHTML = `
+            <style>
+                p { color: blue; }
+                button { background-color: #e0f7fa; border: 1px solid #009688; padding: 5px 10px;}
+            </style>
+            <div>
+                <p class="target-text">This is inside Shallow Shadow DOM.</p>
+                <button id="shadow1-btn">Shadow1 Button</button>
+                <input type="text" id="shadow1-input" value="shadow1 value">
+            </div>
+        `;
+        shadow1.getElementById('shadow1-btn').addEventListener('click', () => log('Shadow1 btn clicked'));
+
+
+        // --- Deep Shadow DOM ---
+        const host2 = document.getElementById('shadow-host-2');
+        const shadow2 = host2.attachShadow({mode: 'open'});
+        shadow2.innerHTML = `
+            <style>
+                * { color: darkgreen; }
+            </style>
+            <div>
+                <p>This is level 1 of Deep Shadow DOM.</p>
+                <div id="inner-host"></div>
+            </div>
+        `;
+
+        // Create inner shadow root (level 2)
+        const innerHost = shadow2.getElementById('inner-host');
+        const innerShadow = innerHost.attachShadow({mode: 'open'});
+        innerShadow.innerHTML = `
+            <style>
+                .target-text { font-weight: bold; color: red; }
+            </style>
+            <div style="border: 1px dashed red; padding: 10px;">
+                <p class="target-text deep-text-unique">This is inside DEEP Shadow DOM.</p>
+                <button id="deep-btn">Deep Button</button>
+                <input type="text" id="deep-input" value="deep value">
+            </div>
+        `;
+        innerShadow.getElementById('deep-btn').addEventListener('click', () => log('Deep btn clicked'));
+
+        log("Shadow DOM initialized.");
+    </script>
+</body>
+</html>
