@@ -1948,7 +1948,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, dbgMsg:=StopError)
 
    'Print error if there is
     If invokeError(results) Then
@@ -1982,7 +1982,7 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True, dbgMsg:=StopError)
 
     '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
     '※1件しかAddしてないので、直Index指定する
