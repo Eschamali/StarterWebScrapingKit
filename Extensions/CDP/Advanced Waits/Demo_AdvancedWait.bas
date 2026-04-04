@@ -1,11 +1,11 @@
 Attribute VB_Name = "Demo_AdvancedWait"
 Option Explicit
 
-' å‹•ä½œç¢ºèªç”¨ã®ãƒ‡ãƒ¢ãƒã‚¯ãƒ­ã§ã™ã€‚
-' ã“ã®ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã¨ `CDPexpansion_AdvancedWait` ã‚’ã‚¤ãƒ³ãƒãƒ¼ãƒˆã—ã¦å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
+' “®ìŠm”F—p‚Ìƒfƒ‚ƒ}ƒNƒ‚Å‚·B
+' ‚±‚Ìƒ‚ƒWƒ…[ƒ‹‚Æ `CDPexpansion_AdvancedWait` ‚ğƒCƒ“ƒ|[ƒg‚µ‚ÄÀs‚µ‚Ä‚­‚¾‚³‚¢B
 
-'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹
-'â€»StarterWebScrapingKitã®ãƒ«ãƒ¼ãƒˆãƒ•ã‚©ãƒ«ãƒ€ ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„
+'ƒ[ƒNƒXƒy[ƒXƒpƒX
+'¦StarterWebScrapingKit‚Ìƒ‹[ƒgƒtƒHƒ‹ƒ_ ‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢
 Private Const WORKSPACE_PATH As String = ""
 
 
@@ -18,59 +18,59 @@ Public Sub Demo_AdvancedWait()
     
     htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_AdvancedWait\TestHtml.html"
     
-    ' ãƒ–ãƒ©ã‚¦ã‚¶ã®èµ·å‹•
-    Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•(htmlPath)
+    ' ƒuƒ‰ƒEƒU‚Ì‹N“®
+    Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®(htmlPath)
     
-    ' æ‹¡å¼µæ©Ÿèƒ½ï¼ˆé«˜åº¦ãªå¾…æ©Ÿï¼‰ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹åŒ–ã¨åˆæœŸè¨­å®š
+    ' Šg’£‹@”\i‚“x‚È‘Ò‹@j‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‰»‚Æ‰Šúİ’è
     Set extWait = New CDPexpansion_AdvancedWait
     extWait.Init br
     
-    br.printMsg info_, "Testç’°å¢ƒã«ã‚¢ã‚¯ã‚»ã‚¹ã—ã€Advanced Waitã®åˆæœŸåŒ–ãŒå®Œäº†ã—ã¾ã—ãŸã€‚ãƒ‡ãƒ¢ã‚’é–‹å§‹ã—ã¾ã™ã€‚", "Demo"
+    br.printMsg info_, "TestŠÂ‹«‚ÉƒAƒNƒZƒX‚µAAdvanced Wait‚Ì‰Šú‰»‚ªŠ®—¹‚µ‚Ü‚µ‚½Bƒfƒ‚‚ğŠJn‚µ‚Ü‚·B", "Demo"
     br.sleep 2
     
     ' ========================================================
-    ' 1. DOM Mutation å¾…æ©Ÿã®ãƒ†ã‚¹ãƒˆ
+    ' 1. DOM Mutation ‘Ò‹@‚ÌƒeƒXƒg
     ' ========================================================
-    br.printMsg info_, "â–¶ [1] DOM Mutation ãƒ†ã‚¹ãƒˆã‚’é–‹å§‹ã—ã¾ã™ã€‚", "Demo"
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [1] DOM Mutation ƒeƒXƒg‚ğŠJn‚µ‚Ü‚·B", "Demo"
     
     Set elem = br.getElementByQuery("#btn-dom-mutation")
     If elem.isExist Then
-        br.printMsg info_, "  - DOMè¿½åŠ ãƒˆãƒªã‚¬ãƒ¼ãƒœã‚¿ãƒ³ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™ã€‚(2ç§’å¾Œã«DOMå¤‰åŒ–ç™ºç”Ÿ)", "Demo"
+        br.printMsg info_, "  - DOM’Ç‰ÁƒgƒŠƒK[ƒ{ƒ^ƒ“‚ğƒNƒŠƒbƒN‚µ‚Ü‚·B(2•bŒã‚ÉDOM•Ï‰»”­¶)", "Demo"
         elem.click
         
-        br.printMsg info_, "  - WaitForDomMutationï¼ˆã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ5ç§’ï¼‰ã‚’é–‹å§‹ã—ã¾ã™...", "Demo"
+        br.printMsg info_, "  - WaitForDomMutationiƒ^ƒCƒ€ƒAƒEƒg5•bj‚ğŠJn‚µ‚Ü‚·...", "Demo"
         startTime = Timer
         
-        ' æ‹¡å¼µæ©Ÿèƒ½ã®æ©Ÿèƒ½å‘¼ã³å‡ºã—ï¼šDOMè¦ç´ ãŒå¤‰å‹•ã™ã‚‹ã¾ã§ï¼ˆæœ€å¤§5ç§’ï¼‰å¾…æ©Ÿ
+        ' Šg’£‹@”\‚Ì‹@”\ŒÄ‚Ño‚µFDOM—v‘f‚ª•Ï“®‚·‚é‚Ü‚ÅiÅ‘å5•bj‘Ò‹@
         extWait.WaitForDomMutation 5
         
-        br.printMsg info_, "  - âœ”ï¸ æ¤œçŸ¥æˆåŠŸï¼ " & Format(Timer - startTime, "0.00") & "ç§’ã§å¤‰åŒ–ã‚’æ‰ãˆã¾ã—ãŸã€‚", "Demo"
+        br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " ŒŸ’m¬Œ÷I " & Format(Timer - startTime, "0.00") & "•b‚Å•Ï‰»‚ğ‘¨‚¦‚Ü‚µ‚½B", "Demo"
     End If
     
     br.sleep 2
     
     ' ========================================================
-    ' 2. Network Idle å¾…æ©Ÿã®ãƒ†ã‚¹ãƒˆ
+    ' 2. Network Idle ‘Ò‹@‚ÌƒeƒXƒg
     ' ========================================================
-    br.printMsg info_, "â–¶ [2] Network Idle ãƒ†ã‚¹ãƒˆã‚’é–‹å§‹ã—ã¾ã™ã€‚", "Demo"
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [2] Network Idle ƒeƒXƒg‚ğŠJn‚µ‚Ü‚·B", "Demo"
     
     Set elem = br.getElementByQuery("#btn-network-idle")
     If elem.isExist Then
-        br.printMsg info_, "  - éåŒæœŸé€šä¿¡ãƒˆãƒªã‚¬ãƒ¼ãƒœã‚¿ãƒ³ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™ã€‚(æ™‚é–“å·®ã§é€šä¿¡ç™ºç”Ÿ)", "Demo"
+        br.printMsg info_, "  - ”ñ“¯Šú’ÊMƒgƒŠƒK[ƒ{ƒ^ƒ“‚ğƒNƒŠƒbƒN‚µ‚Ü‚·B(ŠÔ·‚Å’ÊM”­¶)", "Demo"
         elem.click
         
-        br.printMsg info_, "  - WaitForNetworkIdleï¼ˆã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ10ç§’ï¼‰ã‚’é–‹å§‹ã—ã¾ã™...", "Demo"
+        br.printMsg info_, "  - WaitForNetworkIdleiƒ^ƒCƒ€ƒAƒEƒg10•bj‚ğŠJn‚µ‚Ü‚·...", "Demo"
         startTime = Timer
         
-        ' æ‹¡å¼µæ©Ÿèƒ½ã®æ©Ÿèƒ½å‘¼ã³å‡ºã—ï¼šéåŒæœŸé€šä¿¡ãŒå®Œå…¨ã«è½ã¡ç€ãã¾ã§å¾…æ©Ÿ
-        ' å¼•æ•°2: 500ms(ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ)ã®ç„¡é€šä¿¡æ™‚é–“ãŒã‚ã‚Œã°å®Œäº†ã¨ã¿ãªã™
+        ' Šg’£‹@”\‚Ì‹@”\ŒÄ‚Ño‚µF”ñ“¯Šú’ÊM‚ªŠ®‘S‚É—‚¿’…‚­‚Ü‚Å‘Ò‹@
+        ' ˆø”2: 500ms(ƒfƒtƒHƒ‹ƒg)‚Ì–³’ÊMŠÔ‚ª‚ ‚ê‚ÎŠ®—¹‚Æ‚İ‚È‚·
         extWait.WaitForNetworkIdle 10
         
-        br.printMsg info_, "  - âœ”ï¸ æ¤œçŸ¥æˆåŠŸï¼ " & Format(Timer - startTime, "0.00") & "ç§’ã§é€šä¿¡ã®çµ‚äº†(Idle)ã‚’ç¢ºèªã—ã¾ã—ãŸã€‚", "Demo"
+        br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " ŒŸ’m¬Œ÷I " & Format(Timer - startTime, "0.00") & "•b‚Å’ÊM‚ÌI—¹(Idle)‚ğŠm”F‚µ‚Ü‚µ‚½B", "Demo"
     End If
     
     br.sleep 3
-    br.printMsg info_, "ãƒ‡ãƒ¢ãŒã™ã¹ã¦å®Œäº†ã—ã¾ã—ãŸã€‚5ç§’å¾Œã«ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã¾ã™ã€‚", "Demo"
+    br.printMsg info_, "ƒfƒ‚‚ª‚·‚×‚ÄŠ®—¹‚µ‚Ü‚µ‚½B5•bŒã‚Éƒuƒ‰ƒEƒU‚ğ•Â‚¶‚Ü‚·B", "Demo"
     br.sleep 5
     br.quit
     
