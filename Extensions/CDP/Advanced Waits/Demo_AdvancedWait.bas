@@ -86,13 +86,15 @@ Public Sub Demo_WaitOptions()
     Dim startTime As Double
     Dim htmlPath As String
     
-    htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_AdvancedWait\TestHtml.html"
-    Set br = 設定シートからのCDP起動(htmlPath)
+    ' ログインデモサイトのログイン画面を開く
+    Dim loginUrl As String: loginUrl = "https://hotel-example-site.takeyaqa.dev/ja/login.html"
+    Set br = 設定シートからのCDP起動(loginUrl)
     Set extWait = New CDPexpansion_AdvancedWait
     extWait.Init br
     
-    br.printMsg info_, "Test環境にアクセスし、追加待機機能のデモを開始します。", "Demo"
-    br.sleep 2
+    br.printMsg info_, "[Demo_WaitOptions] アドバンスド待機機能のデモを開始します。", "Demo"
+    br.printMsg info_, "  - テストサイト: " & loginUrl, "Demo"
+    br.sleep 1
     
     ' --- 1. ClickAndWaitForIdle のテスト ---
     br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] ClickAndWaitForIdle テストを開始します。", "Demo"
@@ -114,21 +116,23 @@ Public Sub Demo_WaitOptions()
     End If
     br.sleep 2
     
-    ' --- 2. WaitForUrlRedirect のテスト ---
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] WaitForUrlRedirect テストを確認します。", "Demo"
-    ' テスト用に別URLへ遷移
-    br.jsEval "setTimeout(function(){ window.location.href = 'https://example.com'; }, 2000);"
-    br.printMsg info_, "  - 2秒後に example.com へ遷移するよう仕込みました。URL遷移完了を待ちます...", "Demo"
-    startTime = Timer
+    ' --- 2. WaitForUrlRedirect のテスト（CDPNetworkイベント版）---
+    ' BiDiの ExecuteIsUrlContains に相当する正攻法の実装です。
+    ' Main04に沿ったログイン遷移シナリオで実証します。
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] WaitForUrlRedirect (ログイン遷移检知)テストを開始します。", "Demo"
+    br.printMsg info_, "  - ログイン情報: ichiro@example.com / password", "Demo"
+    br.printMsg info_, "  - メールアドレスとパスワードを入力して「ログイン」ボタンを押してください。", "Demo"
+    br.printMsg info_, "  - mypage.html への遷移をCDPNetworkイベント(ネイティブ)で監視開始...", "Demo"
     
+    startTime = Timer
     Dim isSuccessUrl As Boolean
-    isSuccessUrl = extWait.WaitForUrlRedirect("example.com", 10)
+    isSuccessUrl = extWait.WaitForUrlRedirect("mypage.html", 30)
     
     If isSuccessUrl Then
-        br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " 目的のURLへの到達を確認！ 現在のURL: " & br.url, "Demo"
+        br.printMsg info_, "  - " & WorksheetFunction.Unichar(10004) & " ログイン遷移を検知！ " & Format(Timer - startTime, "0.00") & "秒 / URL: " & br.url, "Demo"
         MsgBox "デモ成功：全ての高度な待機が想定通り機能しました。", vbInformation, "Demo Success"
     Else
-        br.printMsg WARN_, "  - " & WorksheetFunction.Unichar(10008) & " 目的のURLに到達しませんでした。", "Demo"
+        br.printMsg WARN_, "  - " & WorksheetFunction.Unichar(10008) & " ログイン遷移を検知できませんでした。", "Demo"
         MsgBox "WaitForUrlRedirect がタイムアウトしました。", vbExclamation, "Demo Error"
     End If
     

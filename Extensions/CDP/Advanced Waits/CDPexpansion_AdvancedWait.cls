@@ -20,9 +20,49 @@ Option Explicit
 Private WithEvents CDP_   As CDPBrowser
 Attribute CDP_.VB_VarHelpID = -1
 
+' ナビゲーション検知用フラグ（CDPネイティブイベントで更新される）
+Private navigated_url_      As String   ' Page.frameNavigated で通知されたURL
+Private navigated_detected_ As Boolean  ' 遷移検知フラグ
+
 ' 初期化処理（Friend定義：外から直接Newさせない運用を想定）
 Friend Sub Init(cb As CDPBrowser)
     Set CDP_ = cb
+End Sub
+
+
+' =========================================================
+' CDPブラウザイベントハンドラ
+' CDPBrowserが RaiseEvent detectionCDPEvent した際に呼ばれます。
+' （BiDiの Session.Subscribe → browsingContext.load 相当）
+' =========================================================
+Private Sub CDP__detectionCDPEvent(methodName As String, EventRawJson As String)
+
+    Select Case methodName
+
+        ' CDPネイティブのページ遷移イベント
+        ' BiDiの browsingContext.load に相当するCDP版
+        ' Page.enable を事前に呼ぶことで発火するようになる
+        Case "Page.frameNavigated"
+            Dim rawUrl As String
+            rawUrl = ExtractUrlFromFrameNavigated(EventRawJson)
+            If rawUrl <> "" Then
+                navigated_url_      = rawUrl
+                navigated_detected_ = True
+            End If
+
+        ' SPAのハッシュ変更など同一ページ内遷移（BiDiの browsingContext.fragmentNavigated 相当）
+        Case "Page.navigatedWithinDocument"
+            Dim rawUrl2 As String
+            rawUrl2 = ExtractUrlFromNavigatedWithin(EventRawJson)
+            If rawUrl2 <> "" Then
+                navigated_url_      = rawUrl2
+                navigated_detected_ = True
+            End If
+
+        Case Else
+            ' 上記以外のイベントは無視
+    End Select
+
 End Sub
 
 
@@ -79,7 +119,7 @@ Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boole
         CDP_.sleep 0.1
         DoEvents
     Loop
-End Sub
+End Function
 
 
 ' =========================================================
@@ -205,33 +245,53 @@ Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional 
 End Function
 
 ' =========================================================
-' 2. URL遷移完了待ち (URL Redirect)
+' 2. URL遷移完了待ち (URL Redirect) ※CDPネイティブイベント版
 ' 用途（例え）: 「到着ゲートの忠犬」
 ' ログインボタンを押した後など、どれだけ通信やリダイレクトを挟もうと、
 ' 最終的に指定のURL文字列が含まれるページに到着するまでずっと待ってくれます。
+'
+' 【実装方針】
+' JSのPromise注入（ページ遷移時にコンテキスト破壊されるためNG）ではなく、
+' CDPネイティブの Page.frameNavigated イベントを WithEvents でキャッチする。
+' BiDiが browsingContext.load を購読するのと全く同じ正攻法の実装です。
 ' =========================================================
 Public Function WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As Long = 30) As Boolean
-    Dim js As String
-    Dim res As String
+    ' 1. Page ドメインのイベントを有効化（Page.frameNavigated が飛んでくるようになる）
+    CDP_.pageEnable True
+    CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> Page.enable 完了。'" & partialUrl & "' への遷移を監視開始。", "CDPexpansion_AdvancedWait"
     
-    js = "new Promise(function(resolve, reject){"
-    js = js & "  var maxMs = " & (maxWaitTimeSec * 1000) & ";"
-    js = js & "  var maxTimer = setTimeout(function(){ resolve('timeout'); }, maxMs);"
-    js = js & "  var tm = setInterval(function(){"
-    js = js & "    if(window.location.href.indexOf('" & Replace(partialUrl, "'", "\'") & "') > -1) {"
-    js = js & "      clearInterval(tm); clearTimeout(maxTimer); resolve('ok');"
-    js = js & "    }"
-    js = js & "  }, 200);"
-    js = js & "});"
+    ' 2. 検知フラグをリセットして監視開始
+    navigated_detected_ = False
+    navigated_url_      = ""
     
-    res = ProcessPromiseResult(CDP_.jsEval(js, awaitPromise:=True))
-    
-    If LCase(res) = "ok" Then
-        WaitForUrlRedirect = True
-    Else
-        CDP_.printMsg WARN_, "<WaitForUrlRedirect> " & maxWaitTimeSec & "秒待機しましたがURLに '" & partialUrl & "' が含まれませんでした。", "CDPexpansion_AdvancedWait"
-        WaitForUrlRedirect = False
-    End If
+    ' 3. VBA側ポーリング
+    '    DoEvents により CDPBrowser の受信ループが回り続け、
+    '    Page.frameNavigated イベントが来た瞬間に CDP__detectionCDPEvent が呼ばれてフラグが立つ
+    Dim startTime As Double: startTime = Timer
+    Do
+        DoEvents
+        
+        If navigated_detected_ Then
+            ' なんらかの遷移が検知された。目的のURLが含まれているか確認
+            If InStr(1, navigated_url_, partialUrl, vbTextCompare) > 0 Then
+                CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> 目的のURLへの到達を確認: " & navigated_url_, "CDPexpansion_AdvancedWait"
+                WaitForUrlRedirect = True
+                ' Page.enable は呼び出し元で必要に応じて Page.disable してください
+                Exit Function
+            End If
+            ' 別URLへの遷移は無視してフラグをリセット・待機継続
+            CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> 別URLへの遷移を検知（スキップ）: " & navigated_url_, "CDPexpansion_AdvancedWait"
+            navigated_detected_ = False
+        End If
+        
+        If (Timer - startTime) > maxWaitTimeSec Then
+            CDP_.printMsg WARN_, "<WaitForUrlRedirect> " & maxWaitTimeSec & "秒待機しましたがURLに '" & partialUrl & "' が含まれませんでした。", "CDPexpansion_AdvancedWait"
+            WaitForUrlRedirect = False
+            Exit Function
+        End If
+        
+        CDP_.sleep 0.2
+    Loop
 End Function
 
 ' =========================================================
@@ -262,4 +322,31 @@ End Function
 Private Function ProcessPromiseResult(ByVal val As String) As String
     ' Promise自体が返す文字列を整形
     ProcessPromiseResult = ParseSimpleValue(val)
+End Function
+
+' =========================================================
+' ユーティリティ: Page.frameNavigated JSONからURLを簡易抽出
+' JSON例: {"method":"Page.frameNavigated","params":{"frame":{"id":"...","url":"https://...","..."}}}
+' =========================================================
+Private Function ExtractUrlFromFrameNavigated(rawJson As String) As String
+    ' "url":" を探してそのあとの文字列を取得する
+    Const KEY As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, KEY)
+    If p = 0 Then Exit Function
+    Dim s As Long: s = p + Len(KEY)
+    Dim e As Long: e = InStr(s, rawJson, """")
+    If e > s Then ExtractUrlFromFrameNavigated = Mid(rawJson, s, e - s)
+End Function
+
+' =========================================================
+' ユーティリティ: Page.navigatedWithinDocument JSONからURLを簡易抽出
+' JSON例: {"method":"Page.navigatedWithinDocument","params":{"frameId":"...","url":"https://..."}}
+' =========================================================
+Private Function ExtractUrlFromNavigatedWithin(rawJson As String) As String
+    Const KEY As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, KEY)
+    If p = 0 Then Exit Function
+    Dim s As Long: s = p + Len(KEY)
+    Dim e As Long: e = InStr(s, rawJson, """")
+    If e > s Then ExtractUrlFromNavigatedWithin = Mid(rawJson, s, e - s)
 End Function
