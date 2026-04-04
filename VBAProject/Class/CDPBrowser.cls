@@ -1960,10 +1960,12 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
+    Else
+        'Return result object
+        If results.Exists("result") Then Set invokeMethod = results.Item("result")
     End If
 
-   'Return result object
-    If results.Exists("result") Then Set invokeMethod = results.Item("result")
+    'デバッグ用に、As Is 出力
     If seeRawSendMsgDbg Then printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
