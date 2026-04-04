@@ -2,14 +2,14 @@ Attribute VB_Name = "Demo_ShadowDOMSearch"
 Option Explicit
 
 '***************************************************************************************************
-' ƒfƒ‚: Shadow DOM ‰¡’fŒŸõ‹@”\
+' ãƒ‡ãƒ¢: Shadow DOM æ¨ªæ–­æ¤œç´¢æ©Ÿèƒ½
 '
-' ì¬‚µ‚½ TestHtml.html ‚ğŠJ‚«A’Êí‚ÌCSSƒZƒŒƒNƒ^ŒŸõ‚Å‚Í“Í‚©‚È‚¢Shadow DOM“à•”‚Ì—v‘f‚É
-' uCDPexpansion_ShadowDOMSearchv‚ğg‚Á‚Ä’¼ÚƒAƒNƒZƒXE‘€ì‚Å‚«‚é‚±‚Æ‚ğŠm”F‚µ‚Ü‚·B
+' ä½œæˆã—ãŸ TestHtml.html ã‚’é–‹ãã€é€šå¸¸ã®CSSã‚»ãƒ¬ã‚¯ã‚¿æ¤œç´¢ã§ã¯å±Šã‹ãªã„Shadow DOMå†…éƒ¨ã®è¦ç´ ã«
+' ã€ŒCDPexpansion_ShadowDOMSearchã€ã‚’ä½¿ã£ã¦ç›´æ¥ã‚¢ã‚¯ã‚»ã‚¹ãƒ»æ“ä½œã§ãã‚‹ã“ã¨ã‚’ç¢ºèªã—ã¾ã™ã€‚
 '***************************************************************************************************
 
-'ƒ[ƒNƒXƒy[ƒXƒpƒX
-'¦StarterWebScrapingKit‚Ìƒ‹[ƒgƒtƒHƒ‹ƒ_ ‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢
+'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹
+'â€»StarterWebScrapingKitã®ãƒ«ãƒ¼ãƒˆãƒ•ã‚©ãƒ«ãƒ€ ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„
 Private Const WORKSPACE_PATH As String = ""
 
 
@@ -20,11 +20,11 @@ Public Sub Demo_ShadowDOMSearch()
     Dim htmlPath As String
     htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_shadowRoot\TestHtml.html"
     
-    ' ƒuƒ‰ƒEƒU‚Ì‹N“®
-    Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®(htmlPath)
+    ' ãƒ–ãƒ©ã‚¦ã‚¶ã®èµ·å‹•
+    Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•(htmlPath)
     br.wait
     
-    ' Šg’£‹@”\iCDPexpansion_ShadowDOMSearchj‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‰»‚Æ‰Šú‰»
+    ' æ‹¡å¼µæ©Ÿèƒ½ï¼ˆCDPexpansion_ShadowDOMSearchï¼‰ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹åŒ–ã¨åˆæœŸåŒ–
     Set extShadow = New CDPexpansion_ShadowDOMSearch
     extShadow.Init br
     
@@ -32,82 +32,89 @@ Public Sub Demo_ShadowDOMSearch()
     Dim elems As Collection
     
     br.printMsg info_, "--------------------------------------------------------", "Demo"
-    br.printMsg info_, "’Êí‚Ì getElementByQuery ‚É‚æ‚éŒŸõÀŒ±", "Demo"
+    br.printMsg info_, "é€šå¸¸ã® getElementByQuery ã«ã‚ˆã‚‹æ¤œç´¢å®Ÿé¨“", "Demo"
     br.printMsg info_, "--------------------------------------------------------", "Demo"
     
-    ' Light DOM‚Ì—v‘f (æ“¾‰Â”\)
+    ' Light DOMã®è¦ç´  (å–å¾—å¯èƒ½)
     Set elem = br.getElementByQuery("#light-btn")
     If elem.isExist Then
-        br.printMsg info_, "Light DOM Button‚ªŒ©‚Â‚©‚è‚Ü‚µ‚½", "Demo"
+        br.printMsg info_, "Light DOM ButtonãŒè¦‹ã¤ã‹ã‚Šã¾ã—ãŸ", "Demo"
         elem.click
     Else
-        br.printMsg WARN_, "Light DOM Button‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ", "Demo"
+        br.printMsg WARN_, "Light DOM ButtonãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“", "Demo"
     End If
     
-    ' Deep Shadow DOM“à‚Ì—v‘f (’Êí‚ÌCSSƒZƒŒƒNƒ^‚Å‚Íæ“¾•s”\)
+    ' Deep Shadow DOMå†…ã®è¦ç´  (é€šå¸¸ã®CSSã‚»ãƒ¬ã‚¯ã‚¿ã§ã¯å–å¾—ä¸èƒ½)
     Set elem = br.getElementByQuery("#deep-btn")
     If elem.isExist Then
-        br.printMsg info_, "Deep Button‚ªŒ©‚Â‚©‚è‚Ü‚µ‚½iIHj", "Demo"
+        br.printMsg info_, "Deep ButtonãŒè¦‹ã¤ã‹ã‚Šã¾ã—ãŸï¼ˆï¼ï¼Ÿï¼‰", "Demo"
     Else
-        br.printMsg WARN_, "Deep Button‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ‚Å‚µ‚½ (Šú‘Ò’Ê‚è‚Ì“®ì‚Å‚· - Shadow DOM“à‚Ì‚½‚ß)", "Demo"
+        br.printMsg WARN_, "Deep ButtonãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸ (æœŸå¾…é€šã‚Šã®å‹•ä½œã§ã™ - Shadow DOMå†…ã®ãŸã‚)", "Demo"
     End If
     
     br.sleep 1
     
     br.printMsg info_, "--------------------------------------------------------", "Demo"
-    br.printMsg info_, "yŠg’£‹@”\z getElementByDeepCss ‚É‚æ‚éŒŸõÀŒ±", "Demo"
+    br.printMsg info_, "ã€æ‹¡å¼µæ©Ÿèƒ½ã€‘ getElementByDeepCss ã«ã‚ˆã‚‹æ¤œç´¢å®Ÿé¨“", "Demo"
     br.printMsg info_, "--------------------------------------------------------", "Demo"
     
     Set elem = extShadow.getElementByDeepCss("#shadow1-btn")
     If elem.isExist Then
-         br.printMsg info_, "#shadow1-btn ‚ğæ“¾‚µ‚Ü‚µ‚½BƒNƒŠƒbƒN‚µ‚Ü‚·B", "Demo"
+         br.printMsg info_, "#shadow1-btn ã‚’å–å¾—ã—ã¾ã—ãŸã€‚ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™ã€‚", "Demo"
          elem.click
+         br.jsEval "function(){ this.style.boxShadow = '0 0 15px #10b981'; }", objectId:=elem.getObjectId
     End If
     br.sleep 1
     
     Set elem = extShadow.getElementByDeepCss("#deep-btn")
     If elem.isExist Then
-         br.printMsg info_, "#deep-btn ‚ğæ“¾‚µ‚Ü‚µ‚½BƒNƒŠƒbƒN‚µ‚Ü‚·B", "Demo"
+         br.printMsg info_, "#deep-btn ã‚’å–å¾—ã—ã¾ã—ãŸã€‚ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™ã€‚", "Demo"
          elem.click
+         br.jsEval "function(){ this.style.boxShadow = '0 0 20px #10b981'; }", objectId:=elem.getObjectId
     End If
     br.sleep 1
     
     Set elem = extShadow.getElementByDeepCss("#deep-input")
     If elem.isExist Then
-         br.printMsg info_, "#deep-input ‚É•¶š—ñ‚ğƒZƒbƒg‚µ‚Ü‚·B", "Demo"
+         br.printMsg info_, "#deep-input ã«æ–‡å­—åˆ—ã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚", "Demo"
          elem.value = "Deep Shadow Input Text!"
+         ' èƒŒæ™¯è‰²ãƒ»æ–‡å­—è‰²ã‚’JavaScriptã§ãƒ€ã‚¤ãƒŠãƒŸãƒƒã‚¯ã«å¤‰æ›´ã—ã¦å¼·èª¿è¡¨ç¤ºã•ã›ã‚‹
+         br.jsEval "function(){ this.style.backgroundColor = '#064e3b'; this.style.borderColor = '#10b981'; this.style.color = '#fff'; }", objectId:=elem.getObjectId
     End If
     br.sleep 1
 
     br.printMsg info_, "--------------------------------------------------------", "Demo"
-    br.printMsg info_, "yŠg’£‹@”\z getElementByDeepText ‚É‚æ‚éŒŸõÀŒ±", "Demo"
+    br.printMsg info_, "ã€æ‹¡å¼µæ©Ÿèƒ½ã€‘ getElementByDeepText ã«ã‚ˆã‚‹æ¤œç´¢å®Ÿé¨“", "Demo"
     br.printMsg info_, "--------------------------------------------------------", "Demo"
     
-    ' •”•ªˆê’v‚Å Shadow DOM “à‚ÌƒeƒLƒXƒg‚ğŒŸõ
+    ' éƒ¨åˆ†ä¸€è‡´ã§ Shadow DOM å†…ã®ãƒ†ã‚­ã‚¹ãƒˆã‚’æ¤œç´¢
     Set elem = extShadow.getElementByDeepText("inside DEEP Shadow", True)
     If elem.isExist Then
-         br.printMsg info_, "ƒeƒLƒXƒg’Tõ‚ÅDEEP—v‘f‚ğæ“¾‚µ‚Ü‚µ‚½B•¶šF‚ğ•ÏX‚µ‚Ü‚·B", "Demo"
-         ' —v‘f‚Ì style ‚ğ’¼Ú‘‚«Š·‚¦‚é
-         br.jsEval "function(){ this.style.color = '#FF00FF'; }", objectId:=elem.getObjectId
+         br.printMsg info_, "ãƒ†ã‚­ã‚¹ãƒˆæ¢ç´¢ã§DEEPè¦ç´ ã‚’å–å¾—ã—ã¾ã—ãŸã€‚æ–‡å­—è‰²ã‚’å¤‰æ›´ã—ã¾ã™ã€‚", "Demo"
+         ' è¦ç´ ã® style ã‚’ç›´æ¥æ›¸ãæ›ãˆã¦è¦‹æ „ãˆã‚’å¤‰æ›´
+         br.jsEval "function(){ this.style.color = '#0ea5e9'; this.style.background = 'rgba(14, 165, 233, 0.2)'; this.innerText = 'ãƒ†ã‚­ã‚¹ãƒˆæ›¸ãæ›ãˆã«ã‚‚æˆåŠŸã—ã¾ã—ãŸï¼'; }", objectId:=elem.getObjectId
     End If
     
     br.sleep 1
     
     br.printMsg info_, "--------------------------------------------------------", "Demo"
-    br.printMsg info_, "yŠg’£‹@”\z •¡”æ“¾ (getElementsByDeep...)", "Demo"
+    br.printMsg info_, "ã€æ‹¡å¼µæ©Ÿèƒ½ã€‘ è¤‡æ•°å–å¾— (getElementsByDeep...)", "Demo"
     br.printMsg info_, "--------------------------------------------------------", "Demo"
     Set elems = extShadow.getElementsByDeepCss("input[type='text']")
-    br.printMsg info_, "ƒy[ƒW‘S‘Ì‚ÌƒeƒLƒXƒgƒ{ƒbƒNƒX” (ShadowDOM‘S’Tõ): " & elems.Count, "Demo"
+    br.printMsg info_, "ãƒšãƒ¼ã‚¸å…¨ä½“ã®ãƒ†ã‚­ã‚¹ãƒˆãƒœãƒƒã‚¯ã‚¹æ•° (ShadowDOMå…¨æ¢ç´¢): " & elems.Count, "Demo"
     
     Dim e As CDPElement, i As Long
     i = 1
     For Each e In elems
-        br.printMsg info_, i & "ŒÂ–Ú‚Ì’l: " & e.value, "Demo"
+        br.printMsg info_, i & "å€‹ç›®ã®å€¤: " & e.value, "Demo"
+        ' è¦‹ã¤ã‹ã£ãŸå…¨inputè¦ç´ ã®æ ç·šã‚’é»„è‰²ãå…‰ã‚‰ã›ã‚‹æ¼”å‡º
+        br.jsEval "function(){ this.style.transition = 'all 0.5s'; this.style.borderColor = '#eab308'; this.style.boxShadow = '0 0 10px rgba(234, 179, 8, 0.5)'; }", objectId:=e.getObjectId
         i = i + 1
+        br.sleep 0.2
     Next e
     
-    br.printMsg info_, "ƒfƒ‚I—¹‚µ‚Ü‚µ‚½Bƒuƒ‰ƒEƒU‚ğ‚²Šm”F‚­‚¾‚³‚¢B", "Demo"
-    br.sleep 3
+    br.printMsg info_, "ãƒ‡ãƒ¢çµ‚äº†ã—ã¾ã—ãŸã€‚ãƒ–ãƒ©ã‚¦ã‚¶ã‚’ã”ç¢ºèªãã ã•ã„ã€‚", "Demo"
+    br.sleep 8
     br.quit
     
 End Sub
