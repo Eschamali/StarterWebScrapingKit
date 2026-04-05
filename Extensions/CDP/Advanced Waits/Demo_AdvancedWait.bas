@@ -84,7 +84,6 @@ Public Sub Demo_WaitOptions()
     Dim extWait As CDPexpansion_AdvancedWait
     Dim elem As CDPElement
     Dim startTime As Double
-    Dim htmlPath As String
     
     ' ログインデモサイトのログイン画面を開く
     Dim loginUrl As String: loginUrl = "https://hotel-example-site.takeyaqa.dev/ja/login.html"
@@ -97,7 +96,8 @@ Public Sub Demo_WaitOptions()
     br.sleep 1
     
     ' --- 1. ClickAndWaitForIdle のテスト ---
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] ClickAndWaitForIdle テストを開始します。", "Demo"
+    ' ログインページには #btn-network-idle がないためスキップされます
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] ClickAndWaitForIdle テスト（ログインページではスキップ）", "Demo"
     Set elem = br.getElementByQuery("#btn-network-idle")
     If elem.isExist Then
         br.printMsg info_, "  - 要素をクリックし、発生した通信の波紋が完全に消えるまで待ちます...", "Demo"
@@ -113,17 +113,31 @@ Public Sub Demo_WaitOptions()
             br.printMsg WARN_, "  - " & WorksheetFunction.Unichar(10008) & " タイムアウトしました。", "Demo"
             MsgBox "ClickAndWaitForIdle がタイムアウトしました。", vbExclamation, "Demo Error"
         End If
+    Else
+        br.printMsg info_, "  - (ログインページのためスキップ)", "Demo"
     End If
-    br.sleep 2
+    br.sleep 1
     
-    ' --- 2. WaitForUrlRedirect のテスト（CDPNetworkイベント版）---
-    ' BiDiの ExecuteIsUrlContains に相当する正攻法の実装です。
-    ' Main04に沿ったログイン遷移シナリオで実証します。
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] WaitForUrlRedirect (ログイン遷移检知)テストを開始します。", "Demo"
+    ' --- 2. WaitForUrlRedirect のテスト（CDPネイティブイベント版）---
+    ' BiDiの ExecuteIsUrlContains に相当する正攻法の実装。
+    ' Target.targetInfoChanged というCDPネイティブイベントを WithEvents でキャッチして遷移を検知します。
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] WaitForUrlRedirect (ログイン遷移検知) テストを開始します。", "Demo"
     br.printMsg info_, "  - ログイン情報: ichiro@example.com / password", "Demo"
-    br.printMsg info_, "  - メールアドレスとパスワードを入力して「ログイン」ボタンを押してください。", "Demo"
-    br.printMsg info_, "  - mypage.html への遷移をCDPNetworkイベント(ネイティブ)で監視開始...", "Demo"
     
+    ' =====================================================================
+    ' 手動ログイン操作を促す案内
+    ' OKを押した後から遷移監視がスタートします。
+    ' 先にブラウザでID/パスワードを入力してログインボタンを押した後、OKを押してください。
+    ' =====================================================================
+    MsgBox "【手動操作が必要です】" & vbCrLf & vbCrLf & _
+           "ブラウザのログイン画面で以下の情報を入力し" & vbCrLf & _
+           "ログインボタンを押した後、このダイアログの OK を押してください。" & vbCrLf & vbCrLf & _
+           "  メールアドレス : ichiro@example.com" & vbCrLf & _
+           "  パスワード     : password" & vbCrLf & vbCrLf & _
+           "OK を押すと mypage.html への遷移監視を開始します。", _
+           vbInformation, "手動ログイン操作"
+    
+    br.printMsg info_, "  - mypage.html への遷移をCDPネイティブイベントで監視開始...", "Demo"
     startTime = Timer
     Dim isSuccessUrl As Boolean
     isSuccessUrl = extWait.WaitForUrlRedirect("mypage.html", 30)
