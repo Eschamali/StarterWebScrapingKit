@@ -147,6 +147,7 @@ Private Const brChrome As String = "chrome.exe"
 Private Const brEdge As String = "msedge.exe"
 Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
 Private Const ThisClassName As String = "CDPBrowser"                'ログのトレース用
+Private Const InitialAllocationStrBuffer As Long = 2 ^ 8            '初期バッファー上限
 
 Private Const ERR_TIMEOUT As Long = 900
 Private Const ERR_PIPE As Long = 901
@@ -172,12 +173,18 @@ Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 '===================================
 
 Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
-Private LogControl As New Logger        'ログレベルの制御
-Private core As CDPCore                 'Must be initialized for CDP engine
+Private LogControl  As New Logger        'ログレベルの制御
+Private core        As CDPCore                 'Must be initialized for CDP engine
 Private ErrorDetail As New WinApiError  'エラーコードから、詳細を取得するやつ
 
+Private Type FragmentedInfo
+    strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
+    Index           As Long     '埋まってる位置
+    expansionCount  As Long     '拡張確保回数
+End Type
+Private FragmentedDate As FragmentedInfo
+
 Private lngLastID As Long               'Every message sent to edge has an ID
-Private strBuffer As String             'ストリーム受信で欠けたデータを一時的に蓄積するための変数です
 Private brHWnd As LongPtr               'Browser object window handle
 Private brWID As String                 'Useful for windows repositioning
 Private brType As String                'Browser type: either 'chrome' or 'edge'
@@ -2395,6 +2402,81 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     End If
 End Property
 
+'***************************************************************************************************
+'* 機能　　：`ReadFile`から得たデータが欠けた際のバッファー管理を担うヘルパープライベートプロパティです
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：pieceData  欠けたデータ
+'* GET返値 ：集めた`pieceData`を結合した物
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：断片データ（pieceData）を高速結合するための専用バッファプロパティ。
+'  　　　　　【Let】データを配列の空き部屋（Index）に順次格納。（溢れた時のみバッファ拡張）
+'  　　　　　【Get】格納された全データを Join し、vbNullChar を目印に1件分の完全なJSONを抽出。
+'  　　　　　　　　 抽出後は Index を 0 に戻すことで、実質的なメモリクリアを負荷ゼロで行います。
+'
+'* 注意事項：・`pieceData`に入れるのは必ず欠けたデータであること
+'            ・GET時、`vbnullchar`がどこかに存在するとし、先頭から1件分取り出せる目印として機能していること
+'***************************************************************************************************
+Private Property Let FragmentedCDP(pieceData As String)
+    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP"
+
+
+    With FragmentedDate
+        '1. 上限を越したら、拡張する(高負荷ポイント)
+        If .Index >= InitialAllocationStrBuffer * .expansionCount Then
+            .expansionCount = .expansionCount + 1
+            ReDim Preserve .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+            printMsg Debug_, "The buffer has been expanded to " & InitialAllocationStrBuffer * .expansionCount, FromProcedureName
+        End If
+
+        '2. 配列に入れる
+        .strBuffer(.Index) = pieceData
+        printMsg Trace_, "Data has been placed in array " & .Index, FromProcedureName
+
+        '3. カウント
+        .Index = .Index + 1
+    End With
+End Property
+
+Private Property Get FragmentedCDP() As String
+    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP"
+
+
+    '1. 確保中の配列を全部結合する
+    printMsg Trace_, "Now we'll begin the buffer merging process...", FromProcedureName
+    Dim tmp As String: tmp = Join(FragmentedDate.strBuffer, "")
+    printMsg Trace_, "concatenated Raw-string: " & tmp, FromProcedureName
+
+    '2. `vbnullchar`がある位置を先頭から探す
+    Dim EndPos As Long: EndPos = searchNull(tmp)
+
+    '3. その目印を元に、1件分返却
+    FragmentedCDP = Mid(tmp, 1, EndPos - 1)
+    printMsg Debug_, "Trim complete. Result: " & FragmentedCDP, FromProcedureName
+
+    '4. インデックスリセット
+    FragmentedDate.Index = 0
+    printMsg Trace_, "Buffer Index reset.", FromProcedureName
+
+End Property
+
+Private Function searchNull(checkString As String) As Long
+'------------------------------------------------------------
+' CDP messages received from chrome are null-terminated
+' Updated: 25/10/25: Daniel Polak - new faster version
+'------------------------------------------------------------
+
+    Dim lngPos As Long
+
+    If Len(checkString) = 0 Then Exit Function
+    lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
+    If lngPos > 0 Then
+        searchNull = lngPos
+    Else
+        searchNull = 0
+    End If
+
+End Function
+
 
 
 '***************************************************************************************************
@@ -2501,9 +2583,11 @@ RetrySend:
             If ErrorCode_PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
 10              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
+
             ElseIf ErrorCode_ReadFile Then
                 'ReadFile にてエラーがあった場合
 11              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
+
             Else
                 'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
                 '※`WithEvents`と併用すると、ここに格納される可能性があるためです
@@ -2524,7 +2608,7 @@ RetrySend:
             '1. コマンド結果が、まだ来ない
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " from readProcCDP has not yet been received, so reception continues.", FromProcedureName
 
-        ElseIf ResultSendCommand And StrPtr(strBuffer) <> 0 Then
+        ElseIf ResultSendCommand And FragmentedDate.Index > 0 Then
             '2. コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
         End If
@@ -2535,7 +2619,7 @@ RetrySend:
         DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
-    Loop Until ResultSendCommand And StrPtr(strBuffer) = 0
+    Loop Until ResultSendCommand And FragmentedDate.Index = 0
 
     printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
     Exit Function
@@ -2617,29 +2701,30 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
             Else
                 'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
                 printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
-                printMsg Trace_, "Before-strBuffer = " & strBuffer, FromProcedureName
-5               strBuffer = strBuffer & JsonMessages(i)
-                printMsg Trace_, "After-strBuffer = " & strBuffer, FromProcedureName
+5               FragmentedCDP = JsonMessages(i)
 
                 printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
             End If
         Else
             '1. 欠けたデータがあるか？
             Dim tmp As String
-            If StrPtr(strBuffer) Then
-                '空データじゃない場合は、結合する
+            If FragmentedDate.Index > 0 Then
+                '1-1. 空データか？
                 If JsonMessages(i) = "" Then
-                    tmp = strBuffer
-6                   printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
+                    '1-1-2. 終端目印を付与
+6                   FragmentedCDP = vbNullChar
+                    printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
                 Else
-7                   tmp = strBuffer & JsonMessages(i)
+                    '1-1-2. 最後の断片データを挿入し、終端目印も付与
+7                   FragmentedCDP = JsonMessages(i) & vbNullChar
                     printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
                 End If
 
-                '最後の要素ではないため、Jsonデータが完成されたとし、蓄積中のデータをクリアする
-8               strBuffer = vbNullString
+                '1-2. 集まったデータを取り出す
+                '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
+8               tmp = FragmentedCDP
             Else
-                'そのまんま使う
+                '1-1. そのまんま使う
 9               tmp = JsonMessages(i)
                 printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
             End If
@@ -3085,24 +3170,6 @@ ifError:
     Err.Raise ERR_PROTOCOL, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
 
 End Function
-
-'Private Function searchNull() As Long
-''------------------------------------------------------------
-'' CDP messages received from chrome are null-terminated
-'' Updated: 25/10/25: Daniel Polak - new faster version
-''------------------------------------------------------------
-'
-'    Dim lngPos As Long
-'
-'    If Len(strBuffer) = 0 Then Exit Function
-'    lngPos = InStr(1, strBuffer, vbNullChar, vbBinaryCompare)
-'    If lngPos > 0 Then
-'        searchNull = lngPos
-'    Else
-'        searchNull = 0
-'    End If
-'
-'End Function
 
 Private Function invokeError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
@@ -3649,9 +3716,16 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = 30
 
-    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、10件)
+    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set AccumulatedAsyncResults = New Dictionary
-    AccumulatedAsyncResultsLimit = 10
+    AccumulatedAsyncResultsLimit = InitialAllocationStrBuffer
+
+    'Json分断時の一時キュー関連の初期設定
+    With FragmentedDate
+        .expansionCount = 1
+        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+        .Index = 0
+    End With
 
     'public用イベントメソッドフィルターを有効化
     Set FilterEvents = New Dictionary
