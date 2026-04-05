@@ -289,7 +289,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
     End If
     
    'Then the out pipe for the CDP Protocol
-    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)
+    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
     If result = 0 Then
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
