@@ -1414,16 +1414,13 @@ End Function
 
 
 Private Sub Class_Initialize()
-    '------------ いくつかの初期設定をもうけます ------------
+    '------------------------- クラス内変数の一部を初期化 -------------------------
     'タイムアウト設定(デフォルトで、30s)
     timerOut = 30
 
-    '非同期でのコマンド結果を蓄積させる件数
-    m_MaxCommandResults = 10
+    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set m_AccumulatedCommandResults = New Dictionary
-
-    'コマンドIDリセット
-    m_MessageID = 0
+    m_MaxCommandResults = 2 ^ 8
 
     '初期化
     Set CurrentBiDiCol = New Collection
