@@ -144,13 +144,13 @@ Private Sub Demo_C_WaitForResponse(br As CDPBrowser, ni As CDPexpansion_NetworkI
         br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " レスポンス検出！ requestId=" & reqId, "Demo"
 
         ' Body を取得
-        Dim body As String
-        body = ni.GetResponseBody(reqId)
+        Dim Body As String
+        Body = ni.GetResponseBody(reqId)
 
-        br.printMsg info_, "  レスポンスBody(先頭100文字): " & Left(body, 100), "Demo"
+        br.printMsg info_, "  レスポンスBody(先頭100文字): " & Left(Body, 100), "Demo"
         MsgBox "[C] WaitForResponse 成功！" & vbCrLf & _
                "requestId: " & reqId & vbCrLf & vbCrLf & _
-               "Body(先頭100文字):" & vbCrLf & Left(body, 100), _
+               "Body(先頭100文字):" & vbCrLf & Left(Body, 100), _
                vbInformation, "Demo"
     Else
         br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " タイムアウト：レスポンスが検出できませんでした。", "Demo"
