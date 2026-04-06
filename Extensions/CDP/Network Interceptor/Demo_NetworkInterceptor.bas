@@ -2,29 +2,29 @@ Attribute VB_Name = "Demo_NetworkInterceptor"
 Option Explicit
 
 ' =========================================================
-' CDPexpansion_NetworkInterceptor ‚Ìƒfƒ‚ƒ}ƒNƒ
+' CDPexpansion_NetworkInterceptor ã®ãƒ‡ãƒ¢ãƒã‚¯ãƒ­
 ' =========================================================
-' [‘O’ñ]
-'   E‚±‚Ìƒ‚ƒWƒ…[ƒ‹‚Æ CDPexpansion_NetworkInterceptor.cls ‚ğ
-'     VBAProject ‚ÉƒCƒ“ƒ|[ƒg‚µ‚Ä‚©‚çÀs‚µ‚Ä‚­‚¾‚³‚¢B
+' [å‰æ]
+'   ãƒ»ã“ã®ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã¨ CDPexpansion_NetworkInterceptor.cls ã‚’
+'     VBAProject ã«ã‚¤ãƒ³ãƒãƒ¼ãƒˆã—ã¦ã‹ã‚‰å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
 '
-' [ƒeƒXƒgˆê——]
-'   [A] AddBlockedURL    : “Á’èURL‚Ö‚Ìfetch‚ğƒuƒƒbƒN
-'   [B] AddMockResponse  : “Á’èURL‚Ö‚Ìfetch‚ğ‹UƒŒƒXƒ|ƒ“ƒX‚Å·‚µ‘Ö‚¦
-'   [C] WaitForResponse  : ÀÛ‚É”­¶‚µ‚½ƒŒƒXƒ|ƒ“ƒX‚ğCDPƒCƒxƒ“ƒg‚ÅŒŸ’m + Bodyæ“¾
+' [ãƒ†ã‚¹ãƒˆä¸€è¦§]
+'   [A] AddBlockedURL    : ç‰¹å®šURLã¸ã®fetchã‚’ãƒ–ãƒ­ãƒƒã‚¯
+'   [B] AddMockResponse  : ç‰¹å®šURLã¸ã®fetchã‚’å½ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã§å·®ã—æ›¿ãˆ
+'   [C] WaitForResponse  : å®Ÿéš›ã«ç™ºç”Ÿã—ãŸãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’CDPã‚¤ãƒ™ãƒ³ãƒˆã§æ¤œçŸ¥ + Bodyå–å¾—
 ' =========================================================
 
 Public Sub Demo_NetworkInterceptor_All()
     Dim br As CDPBrowser
     Dim ni As CDPexpansion_NetworkInterceptor
 
-    Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
+    Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
     br.navigate "about:blank"
     Set ni = New CDPexpansion_NetworkInterceptor
     ni.Init br
 
     br.printMsg info_, "================================================", "Demo"
-    br.printMsg info_, "  CDPexpansion_NetworkInterceptor ƒfƒ‚ŠJn", "Demo"
+    br.printMsg info_, "  CDPexpansion_NetworkInterceptor ãƒ‡ãƒ¢é–‹å§‹", "Demo"
     br.printMsg info_, "================================================", "Demo"
     br.sleep 1
 
@@ -35,7 +35,7 @@ Public Sub Demo_NetworkInterceptor_All()
     Demo_C_WaitForResponse br, ni
 
     br.printMsg info_, "================================================", "Demo"
-    br.printMsg info_, "  ‘SƒeƒXƒgŠ®—¹", "Demo"
+    br.printMsg info_, "  å…¨ãƒ†ã‚¹ãƒˆå®Œäº†", "Demo"
     br.printMsg info_, "================================================", "Demo"
     br.sleep 2
     br.quit
@@ -43,51 +43,57 @@ End Sub
 
 
 ' =========================================================
-' [A] URL ƒuƒƒbƒN ƒeƒXƒg
+' [A] URL ãƒ–ãƒ­ãƒƒã‚¯ ãƒ†ã‚¹ãƒˆ
 ' =========================================================
 Private Sub Demo_A_BlockURL(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] URLƒuƒƒbƒN ƒeƒXƒgŠJn", "Demo"
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] URLãƒ–ãƒ­ãƒƒã‚¯ ãƒ†ã‚¹ãƒˆé–‹å§‹", "Demo"
 
-    ' httpbin.org ‚ğƒuƒƒbƒN“o˜^
+    ' httpbin.org ã‚’ãƒ–ãƒ­ãƒƒã‚¯ç™»éŒ²
     ni.AddBlockedURL "httpbin.org"
 
-    ' ƒy[ƒW‚ÌJS‚©‚çƒuƒƒbƒN‘ÎÛURL‚Öfetch‚µ‚Ä‚İ‚é
+    ' ãƒšãƒ¼ã‚¸ã®JSã‹ã‚‰ãƒ–ãƒ­ãƒƒã‚¯å¯¾è±¡URLã¸fetchã—ã¦ã¿ã‚‹
+    ' fetch(...).then().catch() ã‚’ãã®ã¾ã¾ Promise ã«æ¸¡ã™å½¢å¼ï¼ˆæœ«å°¾ã‚»ãƒŸã‚³ãƒ­ãƒ³ãªã—ï¼‰
     Dim js As String
-    js = "fetch('https://httpbin.org/get')"
-    js = js & ".then(function(r){ return 'status:' + r.status; })"
-    js = js & ".catch(function(e){ return 'blocked:' + e.message; });"
+    js = "new Promise(function(resolve){"
+    js = js & "fetch('https://httpbin.org/get')"
+    js = js & ".then(function(r){ resolve('status:' + r.status); })"
+    js = js & ".catch(function(e){ resolve('blocked:' + e.message); });"
+    js = js & "});"
 
-    ' awaitPromise=True ‚ÅŒ‹‰Ê‚ğ‘Ò‚Â
+    ' awaitPromise=True ã§çµæœã‚’å¾…ã¤
     Dim res As String
-    res = br.jsEval("new Promise(function(resolve){ " & js & ".then(resolve).catch(resolve); });", awaitPromise:=True)
+    res = br.jsEval(js, awaitPromise:=True)
+    ' å…ˆé ­æœ«å°¾ã® " ã‚’é™¤å»
+    If Left(res, 1) = """" Then res = Mid(res, 2)
+    If Right(res, 1) = """" Then res = Left(res, Len(res) - 1)
 
-    br.printMsg info_, "  fetchŒ‹‰Ê: " & res, "Demo"
+    br.printMsg info_, "  fetchçµæœ: " & res, "Demo"
 
     If InStr(1, res, "blocked", vbTextCompare) > 0 Or InStr(1, res, "Blocked", vbTextCompare) > 0 Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " URLƒuƒƒbƒN¬Œ÷Ifetch‚ªƒGƒ‰[‚É‚È‚è‚Ü‚µ‚½B", "Demo"
-        MsgBox "[A] URLƒuƒƒbƒN¬Œ÷I" & vbCrLf & "Œ‹‰Ê: " & res, vbInformation, "Demo"
+        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " URLãƒ–ãƒ­ãƒƒã‚¯æˆåŠŸï¼fetchãŒã‚¨ãƒ©ãƒ¼ã«ãªã‚Šã¾ã—ãŸã€‚", "Demo"
+        MsgBox "[A] URLãƒ–ãƒ­ãƒƒã‚¯æˆåŠŸï¼" & vbCrLf & "çµæœ: " & res, vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " URLƒuƒƒbƒN‚ªŒø‚¢‚Ä‚¢‚Ü‚¹‚ñBŒ‹‰Ê: " & res, "Demo"
-        MsgBox "[A] URLƒuƒƒbƒN–¢ŒŸoB" & vbCrLf & "Œ‹‰Ê: " & res, vbExclamation, "Demo"
+        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " URLãƒ–ãƒ­ãƒƒã‚¯ãŒåŠ¹ã„ã¦ã„ã¾ã›ã‚“ã€‚çµæœ: " & res, "Demo"
+        MsgBox "[A] URLãƒ–ãƒ­ãƒƒã‚¯æœªæ¤œå‡ºã€‚" & vbCrLf & "çµæœ: " & res, vbExclamation, "Demo"
     End If
 
-    ' ƒNƒŠ[ƒ“ƒAƒbƒv
+    ' ã‚¯ãƒªãƒ¼ãƒ³ã‚¢ãƒƒãƒ—
     ni.ClearBlockedURLs
 End Sub
 
 
 ' =========================================================
-' [B] ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX ƒeƒXƒg
+' [B] ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ ãƒ†ã‚¹ãƒˆ
 ' =========================================================
 Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX ƒeƒXƒgŠJn", "Demo"
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ ãƒ†ã‚¹ãƒˆé–‹å§‹", "Demo"
 
-    ' /api/user ‚Ö‚Ì’ÊM‚ğ‹UƒŒƒXƒ|ƒ“ƒX‚Å·‚µ‘Ö‚¦‚é
+    ' /api/user ã¸ã®é€šä¿¡ã‚’å½ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã§å·®ã—æ›¿ãˆã‚‹
     Dim mockJson As String
     mockJson = "{""name"":""Test Taro"",""role"":""admin"",""mock"":true}"
     ni.AddMockResponse "/api/user", 200, mockJson, "application/json"
 
-    ' /api/user ‚Ö fetch ‚µ‚ÄƒŒƒXƒ|ƒ“ƒX‚ğæ“¾
+    ' /api/user ã¸ fetch ã—ã¦ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’å–å¾—
     Dim js As String
     js = "new Promise(function(resolve){"
     js = js & "fetch('/api/user')"
@@ -98,59 +104,59 @@ Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As CDPexpansion_NetworkInte
 
     Dim res As String
     res = br.jsEval(js, awaitPromise:=True)
-    ' æ“ª––”ö‚Ì " ‚ğœ‹
+    ' å…ˆé ­æœ«å°¾ã® " ã‚’é™¤å»
     If Left(res, 1) = """" Then res = Mid(res, 2)
     If Right(res, 1) = """" Then res = Left(res, Len(res) - 1)
 
-    br.printMsg info_, "  fetchƒŒƒXƒ|ƒ“ƒX: " & res, "Demo"
+    br.printMsg info_, "  fetchãƒ¬ã‚¹ãƒãƒ³ã‚¹: " & res, "Demo"
 
     If InStr(1, res, "mock", vbTextCompare) > 0 Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX¬Œ÷I", "Demo"
-        MsgBox "[B] ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX¬Œ÷I" & vbCrLf & "Body: " & res, vbInformation, "Demo"
+        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹æˆåŠŸï¼", "Demo"
+        MsgBox "[B] ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹æˆåŠŸï¼" & vbCrLf & "Body: " & res, vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX‚ªŒø‚¢‚Ä‚¢‚Ü‚¹‚ñBŒ‹‰Ê: " & res, "Demo"
-        MsgBox "[B] ƒ‚ƒbƒN–¢ŒŸoB" & vbCrLf & "Œ‹‰Ê: " & res, vbExclamation, "Demo"
+        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãŒåŠ¹ã„ã¦ã„ã¾ã›ã‚“ã€‚çµæœ: " & res, "Demo"
+        MsgBox "[B] ãƒ¢ãƒƒã‚¯æœªæ¤œå‡ºã€‚" & vbCrLf & "çµæœ: " & res, vbExclamation, "Demo"
     End If
 
-    ' ƒNƒŠ[ƒ“ƒAƒbƒv
+    ' ã‚¯ãƒªãƒ¼ãƒ³ã‚¢ãƒƒãƒ—
     ni.ClearMockResponses
 End Sub
 
 
 ' =========================================================
-' [C] ƒŒƒXƒ|ƒ“ƒX‘Ò‹@ + Bodyæ“¾ ƒeƒXƒgiCDPƒlƒCƒeƒBƒuj
+' [C] ãƒ¬ã‚¹ãƒãƒ³ã‚¹å¾…æ©Ÿ + Bodyå–å¾— ãƒ†ã‚¹ãƒˆï¼ˆCDPãƒã‚¤ãƒ†ã‚£ãƒ–ï¼‰
 ' =========================================================
 Private Sub Demo_C_WaitForResponse(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [C] WaitForResponse(CDPƒlƒCƒeƒBƒu) ƒeƒXƒgŠJn", "Demo"
+    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [C] WaitForResponse(CDPãƒã‚¤ãƒ†ã‚£ãƒ–) ãƒ†ã‚¹ãƒˆé–‹å§‹", "Demo"
 
-    ' CDP‚Ì Network ƒhƒƒCƒ“‚ğ—LŒø‰»‚µ‚ÄƒLƒƒƒvƒ`ƒƒŠJn
+    ' CDPã® Network ãƒ‰ãƒ¡ã‚¤ãƒ³ã‚’æœ‰åŠ¹åŒ–ã—ã¦ã‚­ãƒ£ãƒ—ãƒãƒ£é–‹å§‹
     ni.StartNetworkCapture
-    br.printMsg info_, "  Network.enable Š®—¹Bfetch‚ğ”­s‚µ‚Ü‚·...", "Demo"
+    br.printMsg info_, "  Network.enable å®Œäº†ã€‚fetchã‚’ç™ºè¡Œã—ã¾ã™...", "Demo"
 
-    ' ÀÛ‚ÉŠO•”API‚ÖƒŠƒNƒGƒXƒg‚ğ”­sihttpbin.org ‚Í json ‚ğ•Ô‚·–³—¿ƒGƒ“ƒhƒ|ƒCƒ“ƒgj
+    ' å®Ÿéš›ã«å¤–éƒ¨APIã¸ãƒªã‚¯ã‚¨ã‚¹ãƒˆã‚’ç™ºè¡Œï¼ˆhttpbin.org ã¯ json ã‚’è¿”ã™ç„¡æ–™ã‚¨ãƒ³ãƒ‰ãƒã‚¤ãƒ³ãƒˆï¼‰
     br.jsEval "fetch('https://httpbin.org/json');"
-    br.printMsg info_, "  fetch”­sŠ®—¹BƒŒƒXƒ|ƒ“ƒX‚ğ‘Ò‹@’†...", "Demo"
+    br.printMsg info_, "  fetchç™ºè¡Œå®Œäº†ã€‚ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’å¾…æ©Ÿä¸­...", "Demo"
 
     Dim reqId As String
     reqId = ni.WaitForResponse("httpbin.org/json", 15)
 
     If reqId <> "" Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " ƒŒƒXƒ|ƒ“ƒXŒŸoI requestId=" & reqId, "Demo"
+        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " ãƒ¬ã‚¹ãƒãƒ³ã‚¹æ¤œå‡ºï¼ requestId=" & reqId, "Demo"
 
-        ' Body ‚ğæ“¾
+        ' Body ã‚’å–å¾—
         Dim body As String
         body = ni.GetResponseBody(reqId)
 
-        br.printMsg info_, "  ƒŒƒXƒ|ƒ“ƒXBody(æ“ª100•¶š): " & Left(body, 100), "Demo"
-        MsgBox "[C] WaitForResponse ¬Œ÷I" & vbCrLf & _
+        br.printMsg info_, "  ãƒ¬ã‚¹ãƒãƒ³ã‚¹Body(å…ˆé ­100æ–‡å­—): " & Left(body, 100), "Demo"
+        MsgBox "[C] WaitForResponse æˆåŠŸï¼" & vbCrLf & _
                "requestId: " & reqId & vbCrLf & vbCrLf & _
-               "Body(æ“ª100•¶š):" & vbCrLf & Left(body, 100), _
+               "Body(å…ˆé ­100æ–‡å­—):" & vbCrLf & Left(body, 100), _
                vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " ƒ^ƒCƒ€ƒAƒEƒgFƒŒƒXƒ|ƒ“ƒX‚ªŒŸo‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", "Demo"
-        MsgBox "[C] WaitForResponse ƒ^ƒCƒ€ƒAƒEƒgB", vbExclamation, "Demo"
+        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆï¼šãƒ¬ã‚¹ãƒãƒ³ã‚¹ãŒæ¤œå‡ºã§ãã¾ã›ã‚“ã§ã—ãŸã€‚", "Demo"
+        MsgBox "[C] WaitForResponse ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆã€‚", vbExclamation, "Demo"
     End If
 
-    ' ƒLƒƒƒvƒ`ƒƒ’â~
+    ' ã‚­ãƒ£ãƒ—ãƒãƒ£åœæ­¢
     ni.StopNetworkCapture
 End Sub
