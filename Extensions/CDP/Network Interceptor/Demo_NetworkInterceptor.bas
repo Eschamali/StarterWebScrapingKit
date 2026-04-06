@@ -18,7 +18,8 @@ Public Sub Demo_NetworkInterceptor_All()
     Dim br As CDPBrowser
     Dim ni As CDPexpansion_NetworkInterceptor
 
-    Set br = 設定シートからのCDP起動("about:blank")
+    Set br = 設定シートからのCDP起動
+    br.navigate "about:blank"
     Set ni = New CDPexpansion_NetworkInterceptor
     ni.Init br
 
