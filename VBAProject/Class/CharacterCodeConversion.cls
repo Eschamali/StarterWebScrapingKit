@@ -54,20 +54,41 @@ Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal cchWideChar As Long _
     ) As Long
 
+'大容量ファイルの書き込み用API
+'※2GBを超える書き込みが必要の場合は下記をご利用ください
+'Private Declare PtrSafe Function CreateFileW Lib "kernel32" (ByVal lpFileName As LongPtr, ByVal dwDesiredAccess As Long, ByVal dwShareMode As Long, ByVal lpSecurityAttributes As LongPtr, ByVal dwCreationDisposition As Long, ByVal dwFlagsAndAttributes As Long, ByVal hTemplateFile As LongPtr) As LongPtr
+'Private Declare PtrSafe Function WriteFile Lib "kernel32" (ByVal hFile As LongPtr, lpBuffer As Any, ByVal nNumberOfBytesToWrite As Long, lpNumberOfBytesWritten As Long, ByVal lpOverlapped As LongPtr) As Long
+'Private Declare PtrSafe Function CloseHandle Lib "kernel32" (ByVal hObject As LongPtr) As Long
+
 
 
 '***************************************************************************************************
 '                            ■■■ 必要なクラス変数/定数宣言 ■■■
 '***************************************************************************************************
 '------ 定数 ------
+'コードページ一覧
 Public Enum CodePageParam
     Shift_JIS = 932
     UTF8 = 65001       ' CodePage constant for UTF-8
 End Enum
 
+'=== ファイルのやり取り関連定数 ===
+Private Const GENERIC_WRITE As Long = &H40000000
+Private Const FILE_SHARE_READ As Long = &H1
+Private Const FILE_ATTRIBUTE_NORMAL As Long = &H80
+
+' モードの使い分け
+Private Const CREATE_ALWAYS As Long = 2  ' ファイルを新規作成（既にある場合は上書き）
+Private Const OPEN_ALWAYS As Long = 4    ' ファイルがあれば開く、なければ新規作成（追記用）
+
+' ポインタ移動用
+Private Const FILE_END As Long = 2
+Private Const INVALID_HANDLE_VALUE As LongPtr = -1
+Private Const FILE_APPEND_DATA As Long = &H4
 
 '------ 変数 ------
 Private UseCharacterCode As Long
+Private hFile As LongPtr
 
 
 
@@ -184,6 +205,7 @@ End Function
 '* 注意事項：・事前に、`BytesFromString`で、変換後のバイト配列を得る必要があります。
 '            ・同名パスが、既にある場合は、削除→新規による実質上書きとなります。
 '            ・競合対策で、他のプロセスからの操作の制限を設けます。
+'            ・2GB(2^31文字)を超える容量は非対応です。どうしてもその上限を越したい場合は下記のコメントアウトを解除して、Windows API版による書き込みに切り替えて下さい。
 '***************************************************************************************************
 Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String, Optional AddMode As Boolean)
     'フルパス生成
@@ -203,6 +225,31 @@ Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String,
     Close #fNum
 End Sub
 
+'Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, fileName As String, Optional AddMode As Boolean, Optional ForceClose As Boolean = False)
+'    ' フルパス生成
+'    Dim FileFullpath As String: FileFullpath = FolderPath & "\" & fileName
+'    Static currentPath As String
+'
+'    ' 1. 「閉じてくれ」と言われたら閉じる
+'    If ForceClose Then
+'        If hFile <> 0 And hFile <> -1 Then CloseHandle hFile: hFile = 0
+'        Exit Sub
+'    End If
+'
+'    ' 2. まだ開いていない、またはパスが変わったら開き直す
+'    If hFile = 0 Or hFile = -1 Or currentPath <> FileFullpath Then
+'        If hFile <> 0 Then CloseHandle hFile
+'        hFile = CreateFileW(StrPtr(FileFullpath), FILE_APPEND_DATA, FILE_SHARE_READ, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+'        currentPath = FileFullpath
+'    End If
+'
+'    ' 3. 書き込み（ハンドルが生きているので爆速！）
+'    If hFile <> -1 Then
+'        Call WriteFile(hFile, abArray(0), UBound(abArray) + 1, bytesWritten, 0)
+'    End If
+'
+'End Sub
+
 '***************************************************************************************************
 '* 機能　　：ファイルの中身をバイナリデータとして読み込みます
 '---------------------------------------------------------------------------------------------------
@@ -211,7 +258,8 @@ End Sub
 '            FileName   ファイル名
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：テキストも所詮、バイナリデータです。「Open ステートメント」でバイナリデータで読み込んだ後、`BytesToString`でデコードしてください。
-'* 注意事項：競合対策で、他のプロセスからの操作の制限を設けます
+'* 注意事項：・競合対策で、他のプロセスからの操作の制限を設けます
+'            ・2GB(2^31文字)を超える容量は非対応ですが、まぁ～多分つかうことはないはずです...
 '***************************************************************************************************
 Function BytesFromSavedFile(FolderPath As String, FileName As String) As Byte()
     Dim fNum As Integer: fNum = FreeFile
