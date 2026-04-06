@@ -84,6 +84,8 @@ End Sub
 '  ─ Network.enable 後に Network.responseReceived が届く
 ' =========================================================
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+
 
     ' networkCaptureActive_ が False の間はすべて無視
     If Not networkCaptureActive_ Then Exit Sub
@@ -95,11 +97,11 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Case "Network.responseReceived"
             Dim d As New Scripting.Dictionary
             d("RequestId") = ExtractJsonStr(EventRawJson, """requestId"":""", """")
-            d("Url")       = ExtractJsonStr(EventRawJson, """url"":""",       """")
-            d("Status")    = ExtractJsonStr(EventRawJson, """status"":",      ",")
-            d("MimeType")  = ExtractJsonStr(EventRawJson, """mimeType"":""",  """")
+            d("Url") = ExtractJsonStr(EventRawJson, """url"":""", """")
+            d("Status") = ExtractJsonStr(EventRawJson, """status"":", ",")
+            d("MimeType") = ExtractJsonStr(EventRawJson, """mimeType"":""", """")
             capturedResponses_.Add d
-            printMsg DEBUG_, "<NetworkInterceptor> レスポンス受信: [" & d("Status") & "] " & d("Url"), ThisClassName
+            printMsg Debug_, "<NetworkInterceptor> レスポンス受信: [" & d("Status") & "] " & d("Url"), FromProcedureName
 
         Case Else
             ' 上記以外は無視
@@ -115,17 +117,23 @@ End Sub
 ' Network.enable を呼んで CDPイベントのキャプチャを開始する
 ' WaitForResponse を使う前に必ず呼ぶこと
 Public Sub StartNetworkCapture()
+    Const FromProcedureName As String = ThisClassName & ".StartNetworkCapture"
+
+
     invokeMethod "Network.enable"
     networkCaptureActive_ = True
     Set capturedResponses_ = New Collection
-    printMsg DEBUG_, "<NetworkInterceptor> Network.enable 完了。レスポンスのキャプチャを開始します。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> Network.enable 完了。レスポンスのキャプチャを開始します。", FromProcedureName
 End Sub
 
 ' Network.disable を呼んでキャプチャを終了する
 Public Sub StopNetworkCapture()
+    Const FromProcedureName As String = ThisClassName & ".StopNetworkCapture"
+
+
     invokeMethod "Network.disable"
     networkCaptureActive_ = False
-    printMsg DEBUG_, "<NetworkInterceptor> Network.disable 完了。キャプチャを停止しました。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> Network.disable 完了。キャプチャを停止しました。", FromProcedureName
 End Sub
 
 ' 蓄積済みのレスポンス一覧をクリアする（待機前にリセットしたいときに使う）
@@ -139,7 +147,10 @@ End Sub
 ' 失敗(タイムアウト): "" を返す + WARNログ
 '-----------------------------------------------------------
 Public Function WaitForResponse(urlContains As String, Optional maxWaitTimeSec As Long = 30) As String
-    printMsg DEBUG_, "<WaitForResponse> '" & urlContains & "' を含むレスポンスを待機開始。(上限 " & maxWaitTimeSec & "秒)", ThisClassName
+    Const FromProcedureName As String = ThisClassName & ".WaitForResponse"
+
+
+    printMsg Debug_, "<WaitForResponse> '" & urlContains & "' を含むレスポンスを待機開始。(上限 " & maxWaitTimeSec & "秒)", FromProcedureName
 
     Dim startTime As Double: startTime = Timer
     Dim i As Long
@@ -148,7 +159,7 @@ Public Function WaitForResponse(urlContains As String, Optional maxWaitTimeSec A
         ' Application.Wait + DoEvents で 100ms ずつメッセージキューを消化
         ' (kernel32.Sleep はスレッドをブロックするため、RaiseEvent が届かない)
         For i = 1 To 5
-            Application.Wait Now + (0.02 / 86400)
+            Application.wait Now + (0.02 / 86400)
             DoEvents
         Next i
 
@@ -156,14 +167,14 @@ Public Function WaitForResponse(urlContains As String, Optional maxWaitTimeSec A
         Dim j As Long
         For j = capturedResponses_.Count To 1 Step -1
             If InStr(1, CStr(capturedResponses_(j)("Url")), urlContains, vbTextCompare) > 0 Then
-                printMsg DEBUG_, "<WaitForResponse> 一致するレスポンスを検出: " & capturedResponses_(j)("Url"), ThisClassName
+                printMsg Debug_, "<WaitForResponse> 一致するレスポンスを検出: " & capturedResponses_(j)("Url"), FromProcedureName
                 WaitForResponse = CStr(capturedResponses_(j)("RequestId"))
                 Exit Function
             End If
         Next j
 
         If (Timer - startTime) > maxWaitTimeSec Then
-            printMsg WARN_, "<WaitForResponse> " & maxWaitTimeSec & "秒待機しましたが '" & urlContains & "' を含むレスポンスが届きませんでした。", ThisClassName
+            printMsg WARN_, "<WaitForResponse> " & maxWaitTimeSec & "秒待機しましたが '" & urlContains & "' を含むレスポンスが届きませんでした。", FromProcedureName
             WaitForResponse = ""
             Exit Function
         End If
@@ -175,8 +186,11 @@ End Function
 ' WaitForResponse の戻り値を渡してください
 '-----------------------------------------------------------
 Public Function GetResponseBody(requestId As String) As String
+    Const FromProcedureName As String = ThisClassName & ".GetResponseBody"
+
+
     If requestId = "" Then
-        printMsg WARN_, "<GetResponseBody> requestId が空です。WaitForResponse に失敗していないか確認してください。", ThisClassName
+        printMsg WARN_, "<GetResponseBody> requestId が空です。WaitForResponse に失敗していないか確認してください。", FromProcedureName
         GetResponseBody = ""
         Exit Function
     End If
@@ -188,7 +202,7 @@ Public Function GetResponseBody(requestId As String) As String
     Set res = invokeMethod("Network.getResponseBody", params, , False)
 
     If res Is Nothing Then
-        printMsg WARN_, "<GetResponseBody> レスポンスBodyの取得に失敗しました。(requestId: " & requestId & ")", ThisClassName
+        printMsg WARN_, "<GetResponseBody> レスポンスBodyの取得に失敗しました。(requestId: " & requestId & ")", FromProcedureName
         GetResponseBody = ""
         Exit Function
     End If
@@ -202,7 +216,7 @@ Public Function GetResponseBody(requestId As String) As String
         End If
     End If
 
-    printMsg WARN_, "<GetResponseBody> レスポンスBodyが見つかりませんでした。", ThisClassName
+    printMsg WARN_, "<GetResponseBody> レスポンスBodyが見つかりませんでした。", FromProcedureName
     GetResponseBody = ""
 End Function
 
@@ -217,6 +231,9 @@ End Function
 ' ※<img> / <script> / <link> タグ起因の通信には効かない
 '-----------------------------------------------------------
 Public Sub AddBlockedURL(urlPattern As String)
+    Const FromProcedureName As String = ThisClassName & ".AddBlockedURL"
+
+
     Call installInterceptorIfNeeded_
 
     Dim js As String
@@ -229,13 +246,16 @@ Public Sub AddBlockedURL(urlPattern As String)
     js = js & "return true;"
     js = js & "})();"
     ex_CDPBrowser.jsEval js
-    printMsg DEBUG_, "<NetworkInterceptor> URLブロック追加: " & urlPattern, ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> URLブロック追加: " & urlPattern, FromProcedureName
 End Sub
 
 ' すべてのブロックURLパターンをクリアする
 Public Sub ClearBlockedURLs()
+    Const FromProcedureName As String = ThisClassName & ".ClearBlockedURLs"
+
+
     ex_CDPBrowser.jsEval "(function(){ window.__vbaBlockedURLPatterns=[]; return true; })();"
-    printMsg DEBUG_, "<NetworkInterceptor> URLブロックをすべてクリアしました。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> URLブロックをすべてクリアしました。", FromProcedureName
 End Sub
 
 
@@ -250,7 +270,10 @@ End Sub
 '   body        : レスポンスボディ文字列
 '   contentType : Content-Type (例: "application/json", "text/html")
 '-----------------------------------------------------------
-Public Sub AddMockResponse(urlPattern As String, statusCode As Long, body As String, Optional contentType As String = "application/json")
+Public Sub AddMockResponse(urlPattern As String, StatusCode As Long, Body As String, Optional ContentType As String = "application/json")
+    Const FromProcedureName As String = ThisClassName & ".AddMockResponse"
+
+
     Call installInterceptorIfNeeded_
 
     Dim js As String
@@ -258,24 +281,30 @@ Public Sub AddMockResponse(urlPattern As String, statusCode As Long, body As Str
     js = js & "window.__vbaMockResponses=window.__vbaMockResponses||[];"
     js = js & "window.__vbaMockResponses.push({"
     js = js & "urlPattern:" & JsonEscape_(urlPattern) & ","
-    js = js & "statusCode:" & statusCode & ","
-    js = js & "body:" & JsonEscape_(body) & ","
-    js = js & "contentType:" & JsonEscape_(contentType)
+    js = js & "statusCode:" & StatusCode & ","
+    js = js & "body:" & JsonEscape_(Body) & ","
+    js = js & "contentType:" & JsonEscape_(ContentType)
     js = js & "});"
     js = js & "return true;"
     js = js & "})();"
     ex_CDPBrowser.jsEval js
-    printMsg DEBUG_, "<NetworkInterceptor> モックレスポンス追加: [" & statusCode & "] " & urlPattern, ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> モックレスポンス追加: [" & StatusCode & "] " & urlPattern, FromProcedureName
 End Sub
 
 ' すべてのモックレスポンスをクリアする
 Public Sub ClearMockResponses()
+    Const FromProcedureName As String = ThisClassName & ".ClearMockResponses"
+
+
     ex_CDPBrowser.jsEval "(function(){ window.__vbaMockResponses=[]; return true; })();"
-    printMsg DEBUG_, "<NetworkInterceptor> モックレスポンスをすべてクリアしました。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> モックレスポンスをすべてクリアしました。", FromProcedureName
 End Sub
 
 ' fetch / XHR フック両方を完全に取り除く（ページリフレッシュ前後でも呼べる）
 Public Sub DisableInterceptor()
+    Const FromProcedureName As String = ThisClassName & ".DisableInterceptor"
+
+
     Dim js As String
     js = "(function(){"
     js = js & "try{"
@@ -298,7 +327,7 @@ Public Sub DisableInterceptor()
     js = js & "}catch(e){return false;}"
     js = js & "})();"
     ex_CDPBrowser.jsEval js
-    printMsg DEBUG_, "<NetworkInterceptor> fetch/XHR フックを取り除きました。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> fetch/XHR フックを取り除きました。", FromProcedureName
 End Sub
 
 
@@ -308,6 +337,9 @@ End Sub
 
 ' fetch/XHR のフックコアJSをページに一度だけインストールする
 Private Sub installInterceptorIfNeeded_()
+    Const FromProcedureName As String = ThisClassName & ".installInterceptorIfNeeded_"
+
+
     Dim js As String
     js = "(function(){"
     js = js & "if(window.__vbaNetworkInterceptionInstalled){return true;}"
@@ -367,7 +399,7 @@ Private Sub installInterceptorIfNeeded_()
     js = js & "})();"
 
     ex_CDPBrowser.jsEval js
-    printMsg DEBUG_, "<NetworkInterceptor> fetch/XHR フックをインストールしました。", ThisClassName
+    printMsg Debug_, "<NetworkInterceptor> fetch/XHR フックをインストールしました。", FromProcedureName
 End Sub
 
 ' 文字列を JS の文字列リテラルとして安全にエスケープする
