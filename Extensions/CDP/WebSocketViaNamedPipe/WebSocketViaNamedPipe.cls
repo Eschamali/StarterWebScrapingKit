@@ -47,7 +47,7 @@ Private hNamePipe As LongPtr
 Sub OpenAndConnectNamePipe(Optional UserName As String = DefaultName)
     '1. パイプを作成
     Dim UsePipeName As String: UsePipeName = PIPE_NAME & UserName
-    hNamePipe = CreateNamedPipe(UsePipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE Or PIPE_WAIT, 1, 1024, 1024, 0, 0)
+    hNamePipe = CreateNamedPipe(UsePipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE Or PIPE_WAIT, 1, 2 ^ 20, 2 ^ 20, 0, 0)  'パイプ容量は、`CDPCore`に合わせる
     If hNamePipe = INVALID_HANDLE_VALUE Then
         MsgBox "パイプ: " & UsePipeName & "  の作成に失敗しました", vbCritical
         Exit Sub
