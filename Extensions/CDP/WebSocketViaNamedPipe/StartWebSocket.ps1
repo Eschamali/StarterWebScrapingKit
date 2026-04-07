@@ -7,25 +7,31 @@ $wsUrl = "ws://127.0.0.1:9222/devtools/page/E3397DFFC3906A51A78CB5B86F8820DA"
 $pipeName = "ChromiumWebSocket"
 #---------------------------------------------------------------------------------
 
+# 🌟 ミリ秒付きでログを出す便利関数
+function Log($msg) {
+    $time = (Get-Date).ToString("HH:mm:ss.fff")
+    Write-Host "[$time] $msg"
+}
+
 # 2. WebSocketの準備と接続
 $ws = New-Object System.Net.WebSockets.ClientWebSocket
 $uri = New-Object System.Uri($wsUrl)
 $cts = New-Object System.Threading.CancellationTokenSource
 $ws.ConnectAsync($uri, $cts.Token).Wait()
-Write-Host "✅ Chrome(WebSocket) に接続しました！"
+Log "✅ Chrome(WebSocket) に接続しました！"
 
 #------------------------3. Excelへの名前付きパイプ接続処理------------------------
 try {
     # サーバーに接続を試みる
     $pipeClient = [System.IO.Pipes.NamedPipeClientStream]::new(".", $pipeName, [System.IO.Pipes.PipeDirection]::InOut)
-    Write-Host "VBAからの接続を待っています... 10秒以内に接続して下さい。"
+    Log "VBAからの接続を待っています... 10秒以内に接続して下さい。"
     $pipeClient.Connect(10000) # 10秒間接続を待つ
 
     $reader = [System.IO.StreamReader]::new($pipeClient)
     $writer = [System.IO.StreamWriter]::new($pipeClient)
     $writer.AutoFlush = $true
 
-    Write-Host "VBAサーバーへの接続完了！コマンド待機中..."
+    Log "VBAサーバーへの接続完了！コマンド待機中..."
 } catch {
     Write-Error "時間内でのExcelからの接続が、確認できませんでした。`n$($_.Exception.Message)"
     exit 1
@@ -35,7 +41,7 @@ try {
 # ==========================================
 # 4. 【メインループ】 非同期I/Oを使った双方向通信
 # ==========================================
-Write-Host "🔄 双方向のデータ中継を開始します..."
+Log "🔄 双方向のデータ中継を開始します..."
 
 try {
     # それぞれの送受信用バッファを用意
@@ -44,6 +50,7 @@ try {
     
     # 🌟 ArraySegment の作成方法を、C#ライクな安全な書き方に変更！
     $segmentWs = [System.ArraySegment[byte]]::new($bufferWs)
+    $cts = New-Object System.Threading.CancellationTokenSource
 
     # パイプとWebSocket、両方の「受信待機タスク」を同時にスタート
     $taskReadPipe = $pipeClient.ReadAsync($bufferPipe, 0, $bufferPipe.Length)
@@ -62,16 +69,15 @@ try {
             $bytesRead = $taskReadPipe.Result
             if ($bytesRead -eq 0) { break } # 切断された
 
-            # 🌟 修正1: VBAから送られてくるデータの末尾の「Null文字(0x00)」を削る
+            # VBAから送られてくるデータの末尾の「Null文字(0x00)」を削る
             $realLength = $bytesRead
-            # 末尾が 0 (Null文字) なら、送る長さを1バイト短くする
-            if ($bufferPipe[$bytesRead - 1] -eq 0) {
-                $realLength = $bytesRead - 1
-            }
+            if ($bufferPipe[$bytesRead - 1] -eq 0) { $realLength = $bytesRead - 1 }
+            
+            Log "➡️ 【VBAから受信】 $bytesRead バイト (ゴミ除去後: $realLength バイト)"
 
-            # ゴミ(Null)を取り除いた長さでChromeへ送信！
             $sendSegment = [System.ArraySegment[byte]]::new($bufferPipe, 0, $realLength)
             $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+            Log "➡️ 【Chromeへ送信完了】"
 
             # 次のパイプ受信タスクを再セット
             $taskReadPipe = $pipeClient.ReadAsync($bufferPipe, 0, $bufferPipe.Length)
@@ -82,6 +88,8 @@ try {
             # ----------------------------------------------------
             $result = $taskReadWs.Result
             if ($result.MessageType -eq 'Close') { break }
+
+            Log "⬅️ 【Chromeから受信】 $($result.Count) バイト (EndOfMessage: $($result.EndOfMessage))"
 
             # Chromeから受け取った生データをパイプへ書き込む
             $pipeClient.Write($bufferWs, 0, $result.Count)
@@ -95,17 +103,17 @@ try {
 
             # VBAへ即座に送り出す
             $pipeClient.Flush()
+            Log "⬅️ 【パイプFlush完了】"
 
-            # 次のWebSocket受信タスクを再セット
             $taskReadWs = $ws.ReceiveAsync($segmentWs, $cts.Token)
         }
     }
 } catch {
-    Write-Host "⚠️ 中継中にエラーが発生しました: $($_.Exception.Message)"
+    Log "⚠️ 中継中にエラーが発生しました: : $($_.Exception.Message)"
 }
 
 # 7. お片付け
-Write-Host "🛑 通信が終了しました。お片付けします。"
+Log "🛑 通信終了"
 if ($pipeClient -ne $null) { $pipeClient.Dispose() }
 if ($ws -ne $null) { $ws.Dispose() }
-Write-Host "完了！"
+Write-Host "お片付け完了！"
