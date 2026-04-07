@@ -23,7 +23,9 @@ Log "✅ Chrome(WebSocket) に接続しました！"
 #------------------------3. Excelへの名前付きパイプ接続処理------------------------
 try {
     # サーバーに接続を試みる
-    $pipeClient = [System.IO.Pipes.NamedPipeClientStream]::new(".", $pipeName, [System.IO.Pipes.PipeDirection]::InOut)
+    $pipeOptions = [System.IO.Pipes.PipeOptions]::WriteThrough -bor [System.IO.Pipes.PipeOptions]::Asynchronous	# 🌟 バッファリングを絶対許さない「WriteThrough」フラグを追加して接続！
+    $pipeClient = [System.IO.Pipes.NamedPipeClientStream]::new(".", $pipeName, [System.IO.Pipes.PipeDirection]::InOut, $pipeOptions)
+
     Log "VBAからの接続を待っています... 10秒以内に接続して下さい。"
     $pipeClient.Connect(10000) # 10秒間接続を待つ
 
