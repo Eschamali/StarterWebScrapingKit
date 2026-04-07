@@ -92,8 +92,8 @@ Private Function serialize(UserName As String) As String
     With WorksheetFunction
         tmp = "{""" & .TextJoin(""";""", False, _
                                     .TextJoin(""",""", False, UserName, "lngLastID", 1), _
-                                    .TextJoin(""",""", False, UserName, "sessionID", 0), _
-                                    .TextJoin(""",""", False, UserName, "targetID", 0) _
+                                    .TextJoin(""",""", False, UserName, "sessionID", ""), _
+                                    .TextJoin(""",""", False, UserName, "targetID", "") _
         ) & """}"
     End With
     ShSetting01_StartBrowser.serializeToTable(2, "WebSocketViaNamedPipe.serialize") = Evaluate(tmp)
