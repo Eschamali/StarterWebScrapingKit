@@ -251,6 +251,19 @@ Public Sub deserialize(UserName As String)
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：正式にパイプハンドル情報をクリーニングします
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`deserialize` or `Init` をした状態にすること
+'***************************************************************************************************
+Public Sub ClosePipeCDP()
+    CloseHandle hStdOutRd
+    CloseHandle hStdInWr
+    CloseHandle hCDPOutRd
+    CloseHandle hCDPInWr
+    CloseHandle hStderrOutRd
+End Sub
+
 Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
@@ -341,11 +354,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         Init = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
-        CloseHandle hStdOutRd
-        CloseHandle hStdInWr
-        CloseHandle hCDPOutRd
-        CloseHandle hCDPInWr
-        CloseHandle hStderrOutRd
+        ClosePipeCDP
     Else
         '成功は、0として返却
         Init = 0

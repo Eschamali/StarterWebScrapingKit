@@ -3486,6 +3486,7 @@ Private Sub deleteCDPID()
     Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
 
 
+    core.ClosePipeCDP   'パイプハンドルを閉じる
     With ShSetting01_StartBrowser
         .DeleteCDPToTable(1, FromProcedureName) = brUser  'パイプ通信Handle情報
         .DeleteCDPToTable(2, FromProcedureName) = brUser  'ブラウザセッション情報
