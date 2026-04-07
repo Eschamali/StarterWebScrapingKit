@@ -1020,7 +1020,8 @@ Public Sub quit()
     End If
 
     'パイプハンドル、ブラウザセッション情報を消去しに行きます
-    deleteCDPID
+    core.ClosePipeCDP   'パイプハンドルを閉じる
+    deleteCDPID         'テーブルからも削除する
 
     sleep 1 'it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     printMsg info_, "The browser has been terminated.", FromProcedureName
@@ -3486,7 +3487,6 @@ Private Sub deleteCDPID()
     Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
 
 
-    core.ClosePipeCDP   'パイプハンドルを閉じる
     With ShSetting01_StartBrowser
         .DeleteCDPToTable(1, FromProcedureName) = brUser  'パイプ通信Handle情報
         .DeleteCDPToTable(2, FromProcedureName) = brUser  'ブラウザセッション情報
