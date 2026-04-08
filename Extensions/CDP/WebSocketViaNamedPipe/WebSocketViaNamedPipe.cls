@@ -8,20 +8,20 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'               名前付きパイプの仕組みを利用したWebSocket連携機能を提供します。
-'       Excel ←NamedPipe→ PowerShell ←WebSocket→ Chromium といった連携確保まで担います。
-' 本来、このツールは`remote-debugging-pipe`特化で構築してる都合上、`remote-debugging-port`の直接統合は堅牢性を落としてしまう問題がありました。
-' しかし、`PowerShell × NamedPipe`という仕組みにより、拡張機能として提供することで、コア部分をいじらず、実質対応可能となりました。
-' 予め、所定の`PowerShell`を起動しておくことで、下記のようなニッチな目的にも対応できます
-' ・AndroidスマートフォンのChromiumブラウザの自動制御
-' ・WebView2向けの環境変数`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`に、`--remote-debugging-port=9222`を付与した自動制御
+'               ���O�t���p�C�v�̎d�g�݂𗘗p����WebSocket�A�g�@�\��񋟂��܂��B
+'       Excel ��NamedPipe�� PowerShell ��WebSocket�� Chromium �Ƃ������A�g�m�ۂ܂ŒS���܂��B
+' �{���A���̃c�[����`remote-debugging-pipe`�����ō\�z���Ă�s����A`remote-debugging-port`�̒��ړ����͌��S���𗎂Ƃ��Ă��܂���肪����܂����B
+' �������A`PowerShell �~ NamedPipe`�Ƃ����d�g�݂ɂ��A�g���@�\�Ƃ��Ē񋟂��邱�ƂŁA�R�A�����������炸�A�����Ή��\�ƂȂ�܂����B
+' �\�߁A�����`PowerShell`���N�����Ă������ƂŁA���L�̂悤�ȃj�b�`�ȖړI�ɂ��Ή��ł��܂�
+' �EAndroid�X�}�[�g�t�H����Chromium�u���E�U�̎�������
+' �EWebView2�����̊��ϐ�`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`�ɁA`--remote-debugging-port=9222`��t�^������������
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               ■■■ WindowsAPI宣言 ■■■
+'                               ������ WindowsAPI�錾 ������
 '***************************************************************************************************
 Private Declare PtrSafe Function CreateNamedPipe Lib "kernel32" Alias "CreateNamedPipeA" (ByVal lpName As String, ByVal dwOpenMode As Long, ByVal dwPipeMode As Long, ByVal nMaxInstances As Long, ByVal nOutBufferSize As Long, ByVal nInBufferSize As Long, ByVal nDefaultTimeOut As Long, ByVal lpSecurityAttributes As LongPtr) As LongPtr
 Private Declare PtrSafe Function ConnectNamedPipe Lib "kernel32" (ByVal hNamedPipe As LongPtr, ByVal lpOverlapped As LongPtr) As Long
@@ -31,86 +31,86 @@ Private Declare PtrSafe Function CloseHandle Lib "kernel32" (ByVal hObject As Lo
 
 
 '***************************************************************************************************
-'                               ■■■ 変数/定数宣言 ■■■
+'                               ������ �ϐ�/�萔�錾 ������
 '***************************************************************************************************
-'名前付きパイプ名である接頭辞
+'���O�t���p�C�v���ł���ړ���
 Private Const PIPE_NAME     As String = "\\.\pipe\"
 
-'名前付きパイプのセッティング
-Private Const PIPE_ACCESS_DUPLEX    As Long = &H3   '送受信可能
-Private Const PIPE_TYPE_BYTE        As Long = &H0   'バイトモード
-Private Const PIPE_WAIT             As Long = &H0   '同期モード
-Private Const INVALID_HANDLE_VALUE  As LongPtr = -1 '失敗サイン
+'���O�t���p�C�v�̃Z�b�e�B���O
+Private Const PIPE_ACCESS_DUPLEX    As Long = &H3   '����M�\
+Private Const PIPE_TYPE_BYTE        As Long = &H0   '�o�C�g���[�h
+Private Const PIPE_WAIT             As Long = &H0   '�������[�h
+Private Const INVALID_HANDLE_VALUE  As LongPtr = -1 '���s�T�C��
 
-'このクラスで使用するハンドル値
+'���̃N���X�Ŏg�p����n���h���l
 Private hNamePipe As LongPtr
 
 
 
 '***************************************************************************************************
-'                               ■■■ メイン処理 ■■■
+'                               ������ ���C������ ������
 '***************************************************************************************************
-'* 機能　　：名前付きパイプを作成し、接続処理し、接続情報等を記録します
+'* �@�\�@�@�F���O�t���p�C�v���쐬���A�ڑ��������A�ڑ���񓙂��L�^���܂�
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：エラーコード
-'* 引数　　：UserName   接続名称
+'* �Ԃ�l  �F�G���[�R�[�h
+'* �����@�@�FUserName   �ڑ�����
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* ���ӎ����FExcel��PowerShell���q���ł���܂Łu�t���[�Y�i�ҋ@��ԁj�v�ɂȂ�܂�
 '***************************************************************************************************
 Function OpenAndConnectNamePipe(UserName As String) As Long
-    '1. 先着1つ分の、名前付き接続パイプを作成
+    '1. �撅1���́A���O�t���ڑ��p�C�v���쐬
     Dim UsePipeName As String: UsePipeName = PIPE_NAME & UserName
-    hNamePipe = CreateNamedPipe(UsePipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE Or PIPE_WAIT, 1, 2 ^ 20, 2 ^ 20, 0, 0)  'パイプ容量は、`CDPCore`に合わせる
+    hNamePipe = CreateNamedPipe(UsePipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE Or PIPE_WAIT, 1, 2 ^ 20, 2 ^ 20, 0, 0)  '�p�C�v�e�ʂ́A`CDPCore`�ɍ��킹��
 
-    '失敗時は、エラーコードを返却して、抜ける
+    '���s���́A�G���[�R�[�h��ԋp���āA������
     If hNamePipe = INVALID_HANDLE_VALUE Then OpenAndConnectNamePipe = Err.LastDllError: Exit Function
 
-    '2. 接続
-    '★注意★ ここでExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります！
-    Application.StatusBar = "PowerShell からのパイプ接続 `" & UsePipeName & "` を待機してます...　※接続が来ない限り、フリーズは解消しません"
+    '2. �ڑ�
+    '�����Ӂ� ������Excel��PowerShell���q���ł���܂Łu�t���[�Y�i�ҋ@��ԁj�v�ɂȂ�܂��I
+    Application.StatusBar = "PowerShell ����̃p�C�v�ڑ� `" & UsePipeName & "` ��ҋ@���Ă܂�...�@���ڑ������Ȃ�����A�t���[�Y�͉������܂���"
     ConnectNamedPipe hNamePipe, 0
     Application.StatusBar = False
 
-    '3. PowerShellが繋ぐとフリーズが解けてここに進む
-    serialize UserName      'パイプ情報などをExcelテーブルにメモする
+    '3. PowerShell���q���ƃt���[�Y�������Ă����ɐi��
+    serialize UserName      '�p�C�v���Ȃǂ�Excel�e�[�u���Ƀ�������
 End Function
 
 '***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、再接続を行います
+'* �@�\�@�@�F�쐬�ς݂̖��O�t���p�C�v�n���h������ɁA�Đڑ����s���܂�
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続識別名称
-'* 返り値  ：エラーコード
+'* �����@�@�FUserName   �ڑ����ʖ���
+'* �Ԃ�l  �F�G���[�R�[�h
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：リアタッチする際にこれを呼び出します。一旦切断後、再接続する形です。
-'* 注意事項：・事前に、`deserialize` or `OpenAndConnectNamePipe` をした状態にすること
-'            ・ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* �ڍא����F���A�^�b�`����ۂɂ�����Ăяo���܂��B��U�ؒf��A�Đڑ�����`�ł��B
+'* ���ӎ����F�E���O�ɁA`deserialize` or `OpenAndConnectNamePipe` ��������Ԃɂ��邱��
+'            �EExcel��PowerShell���q���ł���܂Łu�t���[�Y�i�ҋ@��ԁj�v�ɂȂ�܂�
 '***************************************************************************************************
 Public Function ReConnectNamedPipe(Optional UserName As String) As Long
-    '識別名称が指定されてる場合は、それを利用して、`hNamePipe`を上書き
+    '���ʖ��̂��w�肳��Ă�ꍇ�́A����𗘗p���āA`hNamePipe`���㏑��
     If StrPtr(UserName) Then deserialize UserName
 
-    '一旦切断して、再接続する
-    Application.StatusBar = "PowerShell からのパイプ再接続を待機してます...　※接続が来ない限り、フリーズは解消しません"
-    DisconnectNamedPipe hNamePipe   'ErrorCode: 232 を回避するため
+    '��U�ؒf���āA�Đڑ�����
+    Application.StatusBar = "PowerShell ����̃p�C�v�Đڑ���ҋ@���Ă܂�...�@���ڑ������Ȃ�����A�t���[�Y�͉������܂���"
+    DisconnectNamedPipe hNamePipe   'ErrorCode: 232 ��������邽��
     ConnectNamedPipe hNamePipe, 0
     Application.StatusBar = False
 
-    'エラーコードを返却　※正常時は、0
+    '�G���[�R�[�h��ԋp�@�����펞�́A0
     ReConnectNamedPipe = Err.LastDllError
 End Function
 
 '***************************************************************************************************
-'* 機能　　：正式にパイプハンドル情報をクリーニングします
+'* �@�\�@�@�F�����Ƀp�C�v�n���h�������N���[�j���O���܂�
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続識別名称
-'            OnlyDisconnect     True ：ハンドル自体を使いまわす場合に
-'                               False：ハンドル自体もクリーンしたい場合に
+'* �����@�@�FUserName   �ڑ����ʖ���
+'            OnlyDisconnect     True �F�n���h�����̂��g���܂킷�ꍇ��
+'                               False�F�n���h�����̂��N���[���������ꍇ��
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`deserialize` or `OpenAndConnectNamePipe` をした状態にすること
-'            ・これをしないと、`OpenAndConnectNamePipe`や`ReConnectNamedPipe`にて、エラーになります
+'* ���ӎ����F�E���O�ɁA`deserialize` or `OpenAndConnectNamePipe` ��������Ԃɂ��邱��
+'            �E��������Ȃ��ƁA`OpenAndConnectNamePipe`��`ReConnectNamedPipe`�ɂāA�G���[�ɂȂ�܂�
 '***************************************************************************************************
 Public Sub ClosePipeCDP(Optional UserName As String, Optional OnlyDisconnect As Boolean)
-    '識別名称が指定されてる場合は、それを利用して、`hNamePipe`を上書き
+    '���ʖ��̂��w�肳��Ă�ꍇ�́A����𗘗p���āA`hNamePipe`���㏑��
     If StrPtr(UserName) Then deserialize UserName
 
     DisconnectNamedPipe hNamePipe
@@ -120,17 +120,17 @@ End Sub
 
 
 '***************************************************************************************************
-'                            ■■■ 設定情報読み書き処理 ■■■
+'                            ������ �ݒ���ǂݏ������� ������
 '***************************************************************************************************
-'* 機能　　：接続情報をExcelテーブルに残します
+'* �@�\�@�@�F�ڑ�����Excel�e�[�u���Ɏc���܂�
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続名称
+'* �����@�@�FUserName   �ڑ�����
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'* ���ӎ����F`remote-debugging-pipe`�Ƌ�������s����A�ꕔ�͉��l�ɂ��Ă܂�
 '***************************************************************************************************
 Private Sub serialize(UserName As String)
-    '------------------ 1. パイプ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律0
+    '------------------ 1. �p�C�v���̋L�^���� ------------------
+    '����v�ƂȂ���ȊO�͈�U�A�ꗥ0
     Dim tmp As String
     With WorksheetFunction
         tmp = "{""" & .TextJoin(""";""", False, _
@@ -143,13 +143,13 @@ Private Sub serialize(UserName As String)
         ) & """}"
     End With
 
-    'Excelテーブルに、パイプハンドル情報を記録する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
+    'Excel�e�[�u���ɁA�p�C�v�n���h�������L�^����
+    'Evaluate�֐��𗘗p���āA��L�ō�����L�q�����ŊȈՓI��2�����z����쐬���܂�
     ShSetting01_StartBrowser.serializeToTable(1, "WebSocketViaNamedPipe.serialize") = Evaluate(tmp)
 
 
-    '------------------ 2. タブ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律空欄
+    '------------------ 2. �^�u���̋L�^���� ------------------
+    '����v�ƂȂ���ȊO�͈�U�A�ꗥ��
     With WorksheetFunction
         tmp = "{""" & .TextJoin(""";""", False, _
                                     .TextJoin(""",""", False, UserName, "lngLastID", 1), _
@@ -158,29 +158,29 @@ Private Sub serialize(UserName As String)
         ) & """}"
     End With
 
-    'Excelテーブルに、タブ情報欄を確保する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
+    'Excel�e�[�u���ɁA�^�u��񗓂��m�ۂ���
+    'Evaluate�֐��𗘗p���āA��L�ō�����L�q�����ŊȈՓI��2�����z����쐬���܂�
     ShSetting01_StartBrowser.serializeToTable(2, "WebSocketViaNamedPipe.serialize") = Evaluate(tmp)
 
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：接続情報をExcelテーブルから取得し、クラス内変数に適用します
+'* �@�\�@�@�F�ڑ�����Excel�e�[�u������擾���A�N���X���ϐ��ɓK�p���܂�
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続名称
+'* �����@�@�FUserName   �ڑ�����
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：リアタッチする際にこれを呼び出します
-'* 注意事項：`remote-debugging-pipe`と共存する都合上、一部しか取得しません
+'* �ڍא����F���A�^�b�`����ۂɂ�����Ăяo���܂�
+'* ���ӎ����F`remote-debugging-pipe`�Ƌ�������s����A�ꕔ�����擾���܂���
 '***************************************************************************************************
 Private Sub deserialize(UserName As String)
-    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    'Excel�e�[�u������A`UserName`�ɕR�Â��p�C�v�n���h������ǂݍ���
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "WebSocketViaNamedPipe.deserialize")
 
-    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    '�擾�Ɏ��s�����ꍇ�́A�ڑ���񂪎����Ă�̂ŁA������
     If PipeInfo Is Nothing Then Exit Sub
 
-    'クラス内変数に適用
+    '�N���X���ϐ��ɓK�p
     hNamePipe = PipeInfo("hCDPOutRd")
-    'hNamePipe = PipeInfo("hCDPInWr")   '`hCDPOutRd`と同じなので省略
+    'hNamePipe = PipeInfo("hCDPInWr")   '`hCDPOutRd`�Ɠ����Ȃ̂ŏȗ�
 End Sub
