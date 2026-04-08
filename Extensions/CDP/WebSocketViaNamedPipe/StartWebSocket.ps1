@@ -1,10 +1,14 @@
-﻿# ==========================================
-# VBA用 CDP WebSocket 中継器 (Bridge)
-# ==========================================
+﻿# ====================================================================================
+#	StarterWebScrapingKit - VBA用 CDP WebSocket 中継器 (Bridge)
+#	事前に、対象のChromiumに対して、`--remote-debugging-port=9222 --user-data-dir="XXX"` を付与して起動したうえで、実行してください。
+#	条件さえ満たせば、「chrome://inspect」から任意のデバイス内のChromium制御も可能になります。
+# ====================================================================================
+
+
 
 #----------------------------- 1. 初期パラメータ一式 ----------------------------- 
-$wsUrl = "ws://127.0.0.1:9222/devtools/page/E3397DFFC3906A51A78CB5B86F8820DA"
-$pipeName = "ChromiumWebSocket"
+$wsUrl    = "ws://127.0.0.1:9222/devtools/browser/cbb667e3-758f-4cb3-b2a9-85f1b2e3953a"	#`remote-debugging-pipe`相当の`ws`に接続します。`http://127.0.0.1:9222/json/version`にて、確認可能です。
+$pipeName = "ChromiumWebSocket"	#Excelから接続する名前付きパイプと一致するようにしてください。
 #---------------------------------------------------------------------------------
 
 # 🌟 ミリ秒付きでログを出す便利関数
@@ -96,7 +100,7 @@ try {
             # Chromeから受け取った生データをパイプへ書き込む
             $pipeClient.Write($bufferWs, 0, $result.Count)
 
-            # 🌟 修正: 「これで1つのJSONが完全に終わったか？」を確認する！
+            # 🌟「これで1つのJSONが完全に終わったか？」を確認する！
             if ($result.EndOfMessage) {
                 # メッセージの終わりなら、VBAが待っている「Null文字(0x00)」を追記する
                 $nullByte = [byte[]]@(0)
@@ -118,4 +122,4 @@ try {
 Log "🛑 通信終了"
 if ($pipeClient -ne $null) { $pipeClient.Dispose() }
 if ($ws -ne $null) { $ws.Dispose() }
-Write-Host "お片付け完了！"
+Log "お片付け完了！"
