@@ -2658,7 +2658,8 @@ ifError:
 
     If InStr(errorDesc, "PeekNamedPipe") > 0 Then
         printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName
-        deleteCDPID
+        core.ClosePipeCDP   'パイプハンドルを閉じる
+        deleteCDPID         'テーブルからも削除する
     End If
 
     Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, ERR_PIPE, ERR_PROTOCOL), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
