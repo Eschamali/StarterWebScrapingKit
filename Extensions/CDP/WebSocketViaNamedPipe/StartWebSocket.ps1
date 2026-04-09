@@ -18,10 +18,10 @@ function Log($msg) {
 }
 
 # 2. WebSocketの準備と接続
-$ws = New-Object System.Net.WebSockets.ClientWebSocket
-$uri = New-Object System.Uri($wsUrl)
-$cts = New-Object System.Threading.CancellationTokenSource
-$ws.ConnectAsync($uri, $cts.Token).Wait()
+    $ws = New-Object System.Net.WebSockets.ClientWebSocket
+    $uri = New-Object System.Uri($wsUrl)
+    $cts = New-Object System.Threading.CancellationTokenSource
+    $ws.ConnectAsync($uri, $cts.Token).Wait()
 Log "✅ Chrome(WebSocket) に接続しました！"
 
 #------------------------3. Excelへの名前付きパイプ接続処理------------------------
@@ -53,7 +53,7 @@ try {
     # それぞれの送受信用バッファを用意
     $bufferPipe = New-Object byte[] 8192
     $bufferWs = New-Object byte[] 8192
-    
+
     # 🌟 ArraySegment の作成方法を、C#ライクな安全な書き方に変更！
     $segmentWs = [System.ArraySegment[byte]]::new($bufferWs)
     $cts = New-Object System.Threading.CancellationTokenSource
@@ -62,9 +62,12 @@ try {
     $taskReadPipe = $pipeClient.ReadAsync($bufferPipe, 0, $bufferPipe.Length)
     $taskReadWs = $ws.ReceiveAsync($segmentWs, $cts.Token)
 
+    # VBAからのデータを蓄積するバッファを用意する。パイプ通信の仕様(データを細切れ)に備える
+    $vbaReceiveBuffer = New-Object System.IO.MemoryStream
+
     # どちらかが切断されるまで無限ループ
     while ($pipeClient.IsConnected -and $ws.State -eq 'Open') {
-        
+
         # 🌟 ここがキモ！「パイプ」か「WebSocket」、先にデータが来た方から処理を進める
         $idx = [System.Threading.Tasks.Task]::WaitAny($taskReadPipe, $taskReadWs)
 
@@ -75,15 +78,46 @@ try {
             $bytesRead = $taskReadPipe.Result
             if ($bytesRead -eq 0) { break } # 切断された
 
-            # VBAから送られてくるデータの末尾の「Null文字(0x00)」を削る
-            $realLength = $bytesRead
-            if ($bufferPipe[$bytesRead - 1] -eq 0) { $realLength = $bytesRead - 1 }
-            
-            Log "➡️ 【VBAから受信】 $bytesRead バイト (ゴミ除去後: $realLength バイト)"
+            # 今回の破片が「Null文字」で終わっているか判定
+            $endsWithNull = ($bufferPipe[$bytesRead - 1] -eq 0)
 
-            $sendSegment = [System.ArraySegment[byte]]::new($bufferPipe, 0, $realLength)
-            $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
-            Log "➡️ 【Chromeへ送信完了】"
+            # 🌟 ハイブリッド判定ロジック
+            if ($vbaReceiveBuffer.Length -eq 0 -and $endsWithNull) {
+                # --- 【高速ルート：直通便 🚀】 ---
+                # 今まで貯まったものがなく、かつ今回の1回でヌル文字が来た場合
+                $realLength = $bytesRead - 1
+                $sendSegment = [System.ArraySegment[byte]]::new($bufferPipe, 0, $realLength)
+
+                # 直接 Chrome へ送信！
+                $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+                Log "🚀 【直通】 短文JSONを即座に送信しました ($realLength バイト)"
+
+            } else {
+                # --- 【蓄積ルート：慎重便 📦】 ---
+                # すでに貯まっている途中があるか、今回のデータがヌル文字で終わっていない場合
+
+                # とりあえずバッファーに貯める
+                $vbaReceiveBuffer.Write($bufferPipe, 0, $bytesRead)
+
+                if ($endsWithNull) {
+                    # ヌル文字が来た！これでガッチャンコ完了
+                    $fullData = $vbaReceiveBuffer.ToArray()
+                    $realLength = $fullData.Length - 1 # 最後のヌル文字を除く
+
+                    # 1つの巨大な塊にして Chrome へ送信！
+                    $sendSegment = [System.ArraySegment[byte]]::new($fullData, 0, $realLength)
+                    $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+
+                    Log "📦 【合体】 蓄積された長文JSONを送信しました ($realLength バイト)"
+
+                    # 次のためにバッファーを空にする
+                    $vbaReceiveBuffer.SetLength(0)
+
+                } else {
+                    # まだヌル文字が来ない。次を待つ
+                    Log "⏳ 【蓄積中...】 パケットが分割されています (現在 $($vbaReceiveBuffer.Length) バイト)"
+                }
+            }
 
             # 次のパイプ受信タスクを再セット
             $taskReadPipe = $pipeClient.ReadAsync($bufferPipe, 0, $bufferPipe.Length)
@@ -111,6 +145,7 @@ try {
             $pipeClient.Flush()
             Log "⬅️ 【パイプFlush完了】"
 
+            # 次のWebSocket受信タスクを再セット
             $taskReadWs = $ws.ReceiveAsync($segmentWs, $cts.Token)
         }
     }
