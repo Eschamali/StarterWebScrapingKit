@@ -60,9 +60,9 @@ try {
 Log "🔄 双方向のデータ中継を開始します..." @{ForegroundColor="DarkBlue"}
 
 try {
-    # それぞれの送受信用バッファを用意
-    $bufferPipe = New-Object byte[] 8192
-    $bufferWs = New-Object byte[] 8192
+    # それぞれの送受信用バッファを用意(VBA側の設定`CDPCore`に準拠)
+    $bufferPipe = New-Object byte[] 1MB	# 2 ^ 20
+    $bufferWs = New-Object byte[] 1MB	# 2 ^ 20
 
     # 🌟 ArraySegment の作成方法を、C#ライクな安全な書き方に変更！
     $segmentWs = [System.ArraySegment[byte]]::new($bufferWs)
