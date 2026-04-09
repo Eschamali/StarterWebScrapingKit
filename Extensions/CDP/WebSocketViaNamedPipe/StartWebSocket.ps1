@@ -1,7 +1,9 @@
 ﻿# ====================================================================================
 #	StarterWebScrapingKit - VBA用 CDP WebSocket 中継器 (Bridge)
 #	事前に、対象のChromiumに対して、`--remote-debugging-port=9222 --user-data-dir="XXX"` を付与して起動したうえで、実行してください。
+#
 #	条件さえ満たせば、「chrome://inspect」から任意のデバイス内のChromium制御も可能になります。
+#	→https://developer.chrome.com/docs/devtools/remote-debugging?hl=ja
 # ====================================================================================
 
 
