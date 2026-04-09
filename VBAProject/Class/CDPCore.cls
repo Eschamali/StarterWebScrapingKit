@@ -309,7 +309,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
     End If
     
    'And finally the in pipe
-    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 0)
+    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
