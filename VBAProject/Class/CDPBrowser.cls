@@ -643,6 +643,10 @@ step2:
             Dim exceptionDetails As String: exceptionDetails = jsConverter.ConvertToJson(lastExceptionDetailsJS)
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
+            '`StopException`が無効の場合は、簡易部分の例外内容を出す
+            printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+
+            '返り値判定
             If IsMissing(IFEXCEPTION) Then
                 '省略時は、エラー型として返します。https://learn.microsoft.com/ja-jp/office/vba/excel/Concepts/Cells-and-Ranges/cell-error-values
                 '※例外の種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中に例外が起きた」という目印として判断してください
@@ -653,9 +657,6 @@ step2:
                 If IsObject(IFEXCEPTION) Then Set jsEval = IFEXCEPTION Else jsEval = IFEXCEPTION
                 printMsg WARN_, "An exception occurred while executing JavaScript: " & strLogValue & "　The argument `IFEXCEPTION` was specified, so it was returned.", FromProcedureName
             End If
-
-            '簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
         End If
 
         Exit Function
@@ -762,8 +763,8 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
             Exit Function
         Else
-            'primitive values OR Objectがnullの可能性あり
-            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `null`, so we will try to retrieve it.", FromProcedureName
+            'primitive values OR `object-null` OR `undefined` の可能性あり
+            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `object-null` or `undefined`, so we will try to retrieve it.", FromProcedureName
         End If
     Else
         printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
@@ -773,7 +774,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
     '以降は基本的に、`returnByValue:=True`でないと通りません
-    'Objectとして返そうとしたが`null`の場合もここを通って、null返却します
+    'ObjectIDとして返そうとしたが`object-null`,`undefined`の場合もここを通って、返却します
 
     ' 格納型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
