@@ -1,123 +1,126 @@
 Attribute VB_Name = "Demo_WebSocketViaNamedPipe"
 '***************************************************************************************************
-'               –¼‘O•t‚«ƒpƒCƒv‚Ìd‘g‚İ‚ğ—˜—p‚µ‚½WebSocket˜AŒg‹@”\‚ÌDemoƒR[ƒh‚Å‚·
-'       Excel ©NamedPipe¨ PowerShell ©WebSocket¨ Chromium ‚Æ‚¢‚Á‚½˜AŒg‚ğ‘O’ñ‚Æ‚µ‚Ü‚·
+'               åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã®ä»•çµ„ã¿ã‚’åˆ©ç”¨ã—ãŸWebSocketé€£æºæ©Ÿèƒ½ã®Demoã‚³ãƒ¼ãƒ‰ã§ã™
+'       Excel â†NamedPipeâ†’ PowerShell â†WebSocketâ†’ Chromium ã¨ã„ã£ãŸé€£æºã‚’å‰æã¨ã—ã¾ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                                   ¡¡¡ Demo—p‚É’è‹` ¡¡¡
+'                                   â– â– â–  Demoç”¨ã«å®šç¾© â– â– â– 
 '***************************************************************************************************
-Private Const DefaultName   As String = "ChromiumWebSocket" 'ƒfƒtƒHƒ‹ƒg¯•Ê–¼Ì
+Private Const DefaultName   As String = "ChromiumWebSocket" 'ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè­˜åˆ¥åç§°
 
-Private ErrorDetail         As New WinApiError  'ƒGƒ‰[ƒR[ƒh‚©‚çAÚ×‚ğæ“¾‚·‚é‚â‚Â
-Private UseName             As String           'g—p‚·‚é¯•Ê–¼
+Private ErrorDetail         As New WinApiError  'ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‹ã‚‰ã€è©³ç´°ã‚’å–å¾—ã™ã‚‹ã‚„ã¤
 
 
 
 '***************************************************************************************************
-'                        ¡¡¡ –¼‘O•t‚«ƒpƒCƒvŠÖ˜A‚Ìˆ—ƒvƒƒV[ƒWƒƒ ¡¡¡
+'                        â– â– â–  åå‰ä»˜ããƒ‘ã‚¤ãƒ—é–¢é€£ã®å‡¦ç†ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F–¼‘O•t‚«ƒpƒCƒv‚ğì¬‚µAPowerShell‚ªŒq‚¢‚Å‚­‚é‚Ü‚Å‘Ò‹@‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šåå‰ä»˜ããƒ‘ã‚¤ãƒ—ã‚’ä½œæˆã—ã€PowerShellãŒç¹‹ã„ã§ãã‚‹ã¾ã§å¾…æ©Ÿã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FExcel‚ÍPowerShell‚ªŒq‚¢‚Å‚­‚é‚Ü‚ÅuƒtƒŠ[ƒYi‘Ò‹@ó‘Ôjv‚É‚È‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šExcelã¯PowerShellãŒç¹‹ã„ã§ãã‚‹ã¾ã§ã€Œãƒ•ãƒªãƒ¼ã‚ºï¼ˆå¾…æ©ŸçŠ¶æ…‹ï¼‰ã€ã«ãªã‚Šã¾ã™
 '***************************************************************************************************
 Sub FirstStep()
-    '¯•Ê–¼Ì‚ğİ’è‚·‚é
+    'è­˜åˆ¥åç§°ã‚’è¨­å®šã™ã‚‹
+    Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾‚·‚éê‡
-        UseName = DefaultName   '‚±‚¿‚ç‚Å—pˆÓ‚³‚ê‚½`PowerShell`‚Å‚Ì–¼Ì‚Å
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—ã™ã‚‹å ´åˆ
+        UseName = DefaultName   'ã“ã¡ã‚‰ã§ç”¨æ„ã•ã‚ŒãŸ`PowerShell`ã®åç§°ã§
     End With
 
-    '–¼‘O•t‚«ƒpƒCƒv‚ğì¬‚µAÚ‘±ˆ—
+    'åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã‚’ä½œæˆã—ã€æ¥ç¶šå‡¦ç†
     Dim WebSocketMode As New WebSocketViaNamedPipe
     Dim ResultCode As Long: ResultCode = WebSocketMode.OpenAndConnectNamePipe(UseName)
 
-    'ƒGƒ‰[ƒ`ƒFƒbƒN
+    'ã‚¨ãƒ©ãƒ¼ãƒã‚§ãƒƒã‚¯
     If ResultCode Then
-        MsgBox "–¼‘O•t‚«ƒpƒCƒv‚Ìì¬‚É¸”s‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & "ƒŒ´ˆö„" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
+        MsgBox "åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã®ä½œæˆã«å¤±æ•—ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & "ï¼œåŸå› ï¼" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
     Else
-        MsgBox "–¼‘O•t‚«ƒpƒCƒv‚Ìì¬‚É¬Œ÷‚µAÚ‘±‚ªŠ®—¹‚µ‚Ü‚µ‚½B", vbInformation, "Success"
+        MsgBox "åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã®ä½œæˆã«æˆåŠŸã—ã€æ¥ç¶šãŒå®Œäº†ã—ã¾ã—ãŸã€‚", vbInformation, "Success"
     End If
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fì¬Ï‚İ‚Ì–¼‘O•t‚«ƒpƒCƒvƒnƒ“ƒhƒ‹‚ğŠî‚ÉAÄÚ‘±‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šä½œæˆæ¸ˆã¿ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«ã‚’åŸºã«ã€å†æ¥ç¶šã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FExcel‚ÍPowerShell‚ªŒq‚¢‚Å‚­‚é‚Ü‚ÅuƒtƒŠ[ƒYi‘Ò‹@ó‘Ôjv‚É‚È‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šExcelã¯PowerShellãŒç¹‹ã„ã§ãã‚‹ã¾ã§ã€Œãƒ•ãƒªãƒ¼ã‚ºï¼ˆå¾…æ©ŸçŠ¶æ…‹ï¼‰ã€ã«ãªã‚Šã¾ã™
 '***************************************************************************************************
 Sub ReConnect()
-    '¯•Ê–¼Ì‚ğİ’è‚·‚é
+    'è­˜åˆ¥åç§°ã‚’è¨­å®šã™ã‚‹
+    Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾‚·‚éê‡
-        UseName = DefaultName   '‚±‚¿‚ç‚Å—pˆÓ‚³‚ê‚½`PowerShell`‚Å‚Ì–¼Ì‚Å
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—ã™ã‚‹å ´åˆ
+        UseName = DefaultName   'ã“ã¡ã‚‰ã§ç”¨æ„ã•ã‚ŒãŸ`PowerShell`ã®åç§°ã§
     End With
 
-    'Excelƒe[ƒuƒ‹‚©‚çAŠù‘¶‚Ì–¼‘O•t‚«ƒpƒCƒv‚ğ“Ç‚İ‚İAÄÚ‘±‚·‚é
+    'Excelãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰ã€æ—¢å­˜ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã‚’èª­ã¿è¾¼ã¿ã€å†æ¥ç¶šã™ã‚‹
     Dim WebSocketMode As New WebSocketViaNamedPipe
     Dim ResultCode As Long: ResultCode = WebSocketMode.ReConnectNamedPipe(DefaultName)
 
-    'ƒGƒ‰[ƒ`ƒFƒbƒN
+    'ã‚¨ãƒ©ãƒ¼ãƒã‚§ãƒƒã‚¯
     If ResultCode Then
-        MsgBox "Šù‘¶‚Ì–¼‘O•t‚«ƒpƒCƒv‚Ö‚ÌÄÚ‘±‚É¸”s‚µ‚Ü‚µ‚½B" & vbCrLf & vbCrLf & "ƒŒ´ˆö„" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
+        MsgBox "æ—¢å­˜ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã¸ã®å†æ¥ç¶šã«å¤±æ•—ã—ã¾ã—ãŸã€‚" & vbCrLf & vbCrLf & "ï¼œåŸå› ï¼" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
     Else
-        MsgBox "Šù‘¶‚Ì–¼‘O•t‚«ƒpƒCƒv‚Ö‚ÌÄÚ‘±‚É¬Œ÷‚µ‚Ü‚µ‚½B", vbInformation, "Success"
+        MsgBox "æ—¢å­˜ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã¸ã®å†æ¥ç¶šã«æˆåŠŸã—ã¾ã—ãŸã€‚", vbInformation, "Success"
     End If
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fì¬Ï‚İ‚Ì–¼‘O•t‚«ƒpƒCƒvƒnƒ“ƒhƒ‹‚ğŠî‚ÉA”jŠüˆ—‚ğs‚¢‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šä½œæˆæ¸ˆã¿ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«ã‚’åŸºã«ã€ç ´æ£„å‡¦ç†ã‚’è¡Œã„ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FExcel‚É‹L˜^‚³‚ê‚Ä‚È‚¢ì¬Ï‚İ‚Ì–¼‘O•t‚«ƒpƒCƒvƒnƒ“ƒhƒ‹‚Í”jŠü‚Å‚«‚Ü‚¹‚ñB
-''           ”jŠü‚µ‚½‚É‚à‚©‚©‚í‚ç‚¸Ú‘±“™‚ÅƒGƒ‰[‚ªo‚éê‡‚ÍAExcelƒvƒƒZƒX‚ÌÄ‹N“®‚ª•K—v‚Å‚·B
+'* æ³¨æ„äº‹é …ï¼šExcelã«è¨˜éŒ²ã•ã‚Œã¦ãªã„ä½œæˆæ¸ˆã¿ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ãƒãƒ³ãƒ‰ãƒ«ã¯ç ´æ£„ã§ãã¾ã›ã‚“ã€‚
+''           ç ´æ£„ã—ãŸã«ã‚‚ã‹ã‹ã‚ã‚‰ãšæ¥ç¶šç­‰ã§ã‚¨ãƒ©ãƒ¼ãŒå‡ºã‚‹å ´åˆã¯ã€Excelãƒ—ãƒ­ã‚»ã‚¹ã®å†èµ·å‹•ãŒå¿…è¦ã§ã™ã€‚
 '***************************************************************************************************
 Sub cleanNamedPipe()
-    '¯•Ê–¼Ì‚ğİ’è‚·‚é
+    'è­˜åˆ¥åç§°ã‚’è¨­å®šã™ã‚‹
+    Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾‚·‚éê‡
-        UseName = DefaultName   '‚±‚¿‚ç‚Å—pˆÓ‚³‚ê‚½`PowerShell`‚Å‚Ì–¼Ì‚Å
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—ã™ã‚‹å ´åˆ
+        UseName = DefaultName   'ã“ã¡ã‚‰ã§ç”¨æ„ã•ã‚ŒãŸ`PowerShell`ã®åç§°ã§
     End With
 
-    'Excelƒe[ƒuƒ‹‚©‚çAŠù‘¶‚Ì–¼‘O•t‚«ƒpƒCƒv‚ğ“Ç‚İ‚İAcleanˆ—‚µ‚Ä‚¨‚­
+    'Excelãƒ†ãƒ¼ãƒ–ãƒ«ã‹ã‚‰ã€æ—¢å­˜ã®åå‰ä»˜ããƒ‘ã‚¤ãƒ—ã‚’èª­ã¿è¾¼ã¿ã€cleanå‡¦ç†ã—ã¦ãŠã
     Dim WebSocket As New WebSocketViaNamedPipe
     WebSocket.ClosePipeCDP UseName
-    Debug.Print "ƒNƒŠ[ƒ“ˆ—AŠ®—¹"
+    Debug.Print "ã‚¯ãƒªãƒ¼ãƒ³å‡¦ç†ã€å®Œäº†"
 End Sub
 
 
 
 '***************************************************************************************************
-'                           ¡¡¡ƒeƒ“ƒvƒŒ[ƒgƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â– ãƒ†ãƒ³ãƒ—ãƒ¬ãƒ¼ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ’ˆÓ–€FE–‘O‚ÉA`ConnectNamedPipe`‚ğÏ‚Ü‚¹‚é‚±‚Æ
-'            Eê—p‚Ì`PowerShell`‚ª‹N“®’†‚Å‚ ‚é‚±‚Æ
-'            EWebSocketŒo—R‚Ìê‡‚Íí‚É`.reattach`n‚Ü‚è‚Æ‚È‚è‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šãƒ»äº‹å‰ã«ã€`ConnectNamedPipe`ã‚’æ¸ˆã¾ã›ã‚‹ã“ã¨
+'            ãƒ»å°‚ç”¨ã®`PowerShell`ãŒèµ·å‹•ä¸­ã§ã‚ã‚‹ã“ã¨
+'            ãƒ»WebSocketçµŒç”±ã®å ´åˆã¯å¸¸ã«`.reattach`å§‹ã¾ã‚Šã¨ãªã‚Šã¾ã™
 '***************************************************************************************************
-Sub WebSocket‚É‚æ‚é–`Œ¯‚Ìn‚Ü‚è()
+Sub WebSocketã«ã‚ˆã‚‹å†’é™ºã®å§‹ã¾ã‚Š()
     Dim WebSocketCDP As New CDPBrowser
 
-    '¯•Ê–¼Ì‚ğİ’è‚·‚é
+    'è­˜åˆ¥åç§°ã‚’è¨­å®šã™ã‚‹
+    Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾‚·‚éê‡
-        UseName = DefaultName   '‚±‚¿‚ç‚Å—pˆÓ‚³‚ê‚½`PowerShell`‚Å‚Ì–¼Ì‚Å
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  'è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—ã™ã‚‹å ´åˆ
+        UseName = DefaultName   'ã“ã¡ã‚‰ã§ç”¨æ„ã•ã‚ŒãŸ`PowerShell`ã®åç§°ã§
     End With
 
-    '1. ‚Ü‚¸‚ÍAŠù‘¶‚ÌTargetID‚ÉÚ‘±‚Å‚«‚é‚©H
+    '1. ã¾ãšã¯ã€æ—¢å­˜ã®TargetIDã«æ¥ç¶šã§ãã‚‹ã‹ï¼Ÿ
     If Not WebSocketCDP.reattach(UseName) Then
-        'Šù‘¶‚ÌTargetID‚ªÁ‚¦‚¿‚á‚Á‚½‚Ì‚ÅAƒ^ƒu‚Ö‚ÌÚ‘±ƒtƒF[ƒY‚Ö
+        'æ—¢å­˜ã®TargetIDãŒæ¶ˆãˆã¡ã‚ƒã£ãŸã®ã§ã€ã‚¿ãƒ–ã¸ã®æ¥ç¶šãƒ•ã‚§ãƒ¼ã‚ºã¸
         Debug.Print "Failed to reattach. Connecting to the nearest unconnected tab from `Target.getTargets`."
 
-        '2. Å‚à‹ß‚¢–¢Ú‘±‚Ìƒ^ƒu‚ÉÚ‘±‚µ‚Ü‚·
+        '2. æœ€ã‚‚è¿‘ã„æœªæ¥ç¶šã®ã‚¿ãƒ–ã«æ¥ç¶šã—ã¾ã™
         WebSocketCDP.getTab setMain:=True
     End If
 
-    '« 3DÄÚ‘±‚Å‚«‚½‚Ì‚ÅA‚±‚±‚©‚çA‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş «
-    '—ájƒy[ƒW‘JˆÚ‚µ‚Ä‚İ‚é
+    'â†“ 3ï¼å†æ¥ç¶šã§ããŸã®ã§ã€ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€ â†“
+    'ä¾‹ï¼‰ãƒšãƒ¼ã‚¸é·ç§»ã—ã¦ã¿ã‚‹
 
 
 
-    'ƒuƒ‰ƒEƒU‚ğ³í‚É•Â‚¶‚é
+    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’æ­£å¸¸ã«é–‰ã˜ã‚‹
     WebSocketCDP.quit
 End Sub
