@@ -12,34 +12,44 @@ $pipeName = "ChromiumWebSocket"	#Excelから接続する名前付きパイプと
 #---------------------------------------------------------------------------------
 
 # 🌟 ミリ秒付きでログを出す便利関数
-function Log($msg) {
-    $time = (Get-Date).ToString("HH:mm:ss.fff")
-    Write-Host "[$time] $msg"
+function Log($msg, $AddArg = @{}) {
+    $time = (Get-Date).ToString("yyyy/MM/dd HH:mm:ss.fff")
+
+    # 🌟 @AddArg と書くのが魔法の呪文（スプラッティング）
+    # これにより、色などのオプションを外から流し込めるようになります
+    Write-Host "[$time] $msg" @AddArg
 }
 
-# 2. WebSocketの準備と接続
+#------------------------2. WebSocketの準備と接続------------------------
+try {
     $ws = New-Object System.Net.WebSockets.ClientWebSocket
     $uri = New-Object System.Uri($wsUrl)
     $cts = New-Object System.Threading.CancellationTokenSource
     $ws.ConnectAsync($uri, $cts.Token).Wait()
-Log "✅ Chrome(WebSocket) に接続しました！"
+
+    Log "✅ Chromium(WebSocket) に接続しました！" @{ForegroundColor="Green"}
+} catch {
+    Write-Error "Chromium(WebSocket) に接続できませんでした。`n$($_.Exception.Message)"
+    exit 1
+}
+#---------------------------------------------------------------------------------- 
 
 #------------------------3. Excelへの名前付きパイプ接続処理------------------------
 try {
-    # サーバーに接続を試みる
+    # 指定のパイプに接続を試みる
     $pipeOptions = [System.IO.Pipes.PipeOptions]::WriteThrough -bor [System.IO.Pipes.PipeOptions]::Asynchronous	# 🌟 バッファリングを絶対許さない「WriteThrough」フラグを追加して接続！
     $pipeClient = [System.IO.Pipes.NamedPipeClientStream]::new(".", $pipeName, [System.IO.Pipes.PipeDirection]::InOut, $pipeOptions)
 
-    Log "VBAからの接続を待っています... 10秒以内に接続して下さい。"
+    Log "VBAからの接続を待っています... 10秒以内に接続して下さい"
     $pipeClient.Connect(10000) # 10秒間接続を待つ
 
     $reader = [System.IO.StreamReader]::new($pipeClient)
     $writer = [System.IO.StreamWriter]::new($pipeClient)
     $writer.AutoFlush = $true
 
-    Log "VBAサーバーへの接続完了！コマンド待機中..."
+    Log "VBAサーバーへの接続完了！コマンド待機中..." @{ForegroundColor="Green"}
 } catch {
-    Write-Error "時間内でのExcelからの接続が、確認できませんでした。`n$($_.Exception.Message)"
+    Write-Error "時間内にExcelからの接続が、確認できませんでした`n$($_.Exception.Message)"
     exit 1
 }
 #---------------------------------------------------------------------------------- 
@@ -47,7 +57,7 @@ try {
 # ==========================================
 # 4. 【メインループ】 非同期I/Oを使った双方向通信
 # ==========================================
-Log "🔄 双方向のデータ中継を開始します..."
+Log "🔄 双方向のデータ中継を開始します..." @{ForegroundColor="DarkBlue"}
 
 try {
     # それぞれの送受信用バッファを用意
@@ -90,7 +100,7 @@ try {
 
                 # 直接 Chrome へ送信！
                 $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
-                Log "🚀 【直通】 短文JSONを即座に送信しました ($realLength バイト)"
+                Log "🚀 【直通】 短文JSONを即座に送信しました ($realLength バイト)" @{ForegroundColor="Cyan"}
 
             } else {
                 # --- 【蓄積ルート：慎重便 📦】 ---
@@ -108,14 +118,14 @@ try {
                     $sendSegment = [System.ArraySegment[byte]]::new($fullData, 0, $realLength)
                     $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
 
-                    Log "📦 【合体】 蓄積された長文JSONを送信しました ($realLength バイト)"
+                    Log "📦 【合体】 蓄積された長文JSONを送信しました ($realLength バイト)" @{ForegroundColor="DarkCyan"}
 
                     # 次のためにバッファーを空にする
                     $vbaReceiveBuffer.SetLength(0)
 
                 } else {
                     # まだヌル文字が来ない。次を待つ
-                    Log "⏳ 【蓄積中...】 パケットが分割されています (現在 $($vbaReceiveBuffer.Length) バイト)"
+                    Log "⏳ 【蓄積中...】 パケットが分割されています (現在 $($vbaReceiveBuffer.Length) バイト)" @{ForegroundColor="Yellow"}
                 }
             }
 
@@ -129,7 +139,7 @@ try {
             $result = $taskReadWs.Result
             if ($result.MessageType -eq 'Close') { break }
 
-            Log "⬅️ 【Chromeから受信】 $($result.Count) バイト (EndOfMessage: $($result.EndOfMessage))"
+            Log "⬅️ 【Chromiumから受信】 $($result.Count) バイト (EndOfMessage: $($result.EndOfMessage))" @{ForegroundColor="Magenta"}
 
             # Chromeから受け取った生データをパイプへ書き込む
             $pipeClient.Write($bufferWs, 0, $result.Count)
@@ -143,18 +153,18 @@ try {
 
             # VBAへ即座に送り出す
             $pipeClient.Flush()
-            Log "⬅️ 【パイプFlush完了】"
+            Log "⬅️ 【パイプFlush完了】" @{ForegroundColor="Magenta"}
 
             # 次のWebSocket受信タスクを再セット
             $taskReadWs = $ws.ReceiveAsync($segmentWs, $cts.Token)
         }
     }
 } catch {
-    Log "⚠️ 中継中にエラーが発生しました: : $($_.Exception.Message)"
+    Write-Error "⚠️ 中継中にエラーが発生しました`n$($_.Exception.Message)"
 }
 
 # 7. お片付け
 Log "🛑 通信終了"
 if ($pipeClient -ne $null) { $pipeClient.Dispose() }
 if ($ws -ne $null) { $ws.Dispose() }
-Log "お片付け完了！"
+Log "お片付け完了！" @{ForegroundColor="Green"}
