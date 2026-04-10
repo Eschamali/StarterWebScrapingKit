@@ -109,15 +109,19 @@ Sub WebSocketによる冒険の始まり()
 
     '1. まずは、既存のTargetIDに接続できるか？
     If Not WebSocketCDP.reattach(UseName) Then
-        '既存のTargetIDが消えちゃったので、タブへの接続フェーズへ
-        Debug.Print "Failed to reattach. Connecting to the nearest unconnected tab from `Target.getTargets`."
+        '既存のTargetIDが消えちゃったので、別タブへの再接続フェーズへ
+        Debug.Print "既存の`targetID`への再接続に失敗。新しいタブか、今開いている直近のタブに再接続して、そこから処理を再開します。"
 
-        '2. 最も近い未接続のタブに接続します
+        '2. 未接続のタブに接続
         WebSocketCDP.getTab setMain:=True
+        'WebSocketCDP.newTab setMain:=True     '新しいタブでもOK
+    Else
+        Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
     End If
 
     '↓ 3．再接続できたので、ここから、あなたのイメージをコードに落とし込む ↓
     '例）ページ遷移してみる
+
 
 
 
