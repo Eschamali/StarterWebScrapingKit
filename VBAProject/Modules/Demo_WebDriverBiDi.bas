@@ -450,10 +450,6 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
-'
-'* 注意事項：WebDriverBiDi のReattachですが、少々問題(制限？)があります
-'            ・`demoReattachmentPart1`直後に、Googleのタブを閉じて、新しいタブを開いて`demoReattachmentPart2`をすると`ReBoot:=True`にしないと失敗します
-'            ・上の直後にまた、タブを閉じて新しいタブを開いて`demoReattachmentPart2`をすると今度は、`ReBoot:=False`にしないとタイムアウトエラーで失敗します
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
@@ -486,7 +482,7 @@ Sub demoReattachmentPart2()
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiCore
     Dim ResultReattach As Boolean
-    ResultReattach = Reattachment.reattach(UserName, ReBoot:=False)     '`BiDi-CDP Mapper`タブを閉じちゃったあるいは、Sessionを失った場合は、`ReBoot:=True`にしてください
+    ResultReattach = Reattachment.reattach(UserName)
 
     If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
