@@ -482,7 +482,7 @@ Sub demoReattachmentPart2()
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiCore
     Dim ResultReattach As Boolean
-    ResultReattach = Reattachment.reattach(UserName)
+    ResultReattach = Reattachment.reattach(UserName, ReBoot:=False) '`BiDi-CDP Mapper`タブを閉じちゃった場合は、`ReBoot:=True`にしてください
 
     If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
@@ -491,7 +491,8 @@ Sub demoReattachmentPart2()
     Set resultBiDi = Reattachment.invokeMethod("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
+        '※ここでエラーが起こる場合、ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。
+        targetContext = resultBiDi("contexts")(1)("context")     '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
     'wikipediaページへ遷移
