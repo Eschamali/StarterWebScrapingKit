@@ -1,130 +1,130 @@
 Attribute VB_Name = "Demo_WebSocketViaNamedPipe"
 '***************************************************************************************************
-'               名前付きパイプの仕組みを利用したWebSocket連携機能のDemoコードです
-'       Excel ←NamedPipe→ PowerShell ←WebSocket→ Chromium といった連携を前提とします
+'               ���O�t���p�C�v�̎d�g�݂𗘗p����WebSocket�A�g�@�\��Demo�R�[�h�ł�
+'       Excel ��NamedPipe�� PowerShell ��WebSocket�� Chromium �Ƃ������A�g��O��Ƃ��܂�
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                                   ■■■ Demo用に定義 ■■■
+'                                   ������ Demo�p�ɒ�` ������
 '***************************************************************************************************
-Private Const DefaultName   As String = "ChromiumWebSocket" 'デフォルト識別名称
+Private Const DefaultName   As String = "ChromiumWebSocket" '�f�t�H���g���ʖ���
 
-Private ErrorDetail         As New WinApiError  'エラーコードから、詳細を取得するやつ
+Private ErrorDetail         As New WinApiError  '�G���[�R�[�h����A�ڍׂ��擾������
 
 
 
 '***************************************************************************************************
-'                        ■■■ 名前付きパイプ関連の処理プロシージャ ■■■
+'                        ������ ���O�t���p�C�v�֘A�̏����v���V�[�W�� ������
 '***************************************************************************************************
-'* 機能　　：名前付きパイプを作成し、PowerShellが繋いでくるまで待機します
+'* �@�\�@�@�F���O�t���p�C�v���쐬���APowerShell���q���ł���܂őҋ@���܂�
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* ���ӎ����FExcel��PowerShell���q���ł���܂Łu�t���[�Y�i�ҋ@��ԁj�v�ɂȂ�܂�
 '***************************************************************************************************
 Sub FirstStep()
-    '識別名称を設定する
+    '���ʖ��̂�ݒ肷��
     Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '�ݒ�Z������A���[�U�����擾����ꍇ
+        UseName = DefaultName   '������ŗp�ӂ��ꂽ`PowerShell`�̖��̂�
     End With
 
-    '名前付きパイプを作成し、接続処理
+    '���O�t���p�C�v���쐬���A�ڑ�����
     Dim WebSocketMode As New WebSocketViaNamedPipe
     Dim ResultCode As Long: ResultCode = WebSocketMode.OpenAndConnectNamePipe(UseName)
 
-    'エラーチェック
+    '�G���[�`�F�b�N
     If ResultCode Then
-        MsgBox "名前付きパイプの作成に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
+        MsgBox "���O�t���p�C�v�̍쐬�Ɏ��s���܂����B" & vbCrLf & vbCrLf & "��������" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
     Else
-        MsgBox "名前付きパイプの作成に成功し、接続が完了しました。", vbInformation, "Success"
+        MsgBox "���O�t���p�C�v�̍쐬�ɐ������A�ڑ����������܂����B", vbInformation, "Success"
     End If
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、再接続を行います
+'* �@�\�@�@�F�쐬�ς݂̖��O�t���p�C�v�n���h������ɁA�Đڑ����s���܂�
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* ���ӎ����FExcel��PowerShell���q���ł���܂Łu�t���[�Y�i�ҋ@��ԁj�v�ɂȂ�܂�
 '***************************************************************************************************
 Sub ReConnect()
-    '識別名称を設定する
+    '���ʖ��̂�ݒ肷��
     Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '�ݒ�Z������A���[�U�����擾����ꍇ
+        UseName = DefaultName   '������ŗp�ӂ��ꂽ`PowerShell`�̖��̂�
     End With
 
-    'Excelテーブルから、既存の名前付きパイプを読み込み、再接続する
+    'Excel�e�[�u������A�����̖��O�t���p�C�v��ǂݍ��݁A�Đڑ�����
     Dim WebSocketMode As New WebSocketViaNamedPipe
     Dim ResultCode As Long: ResultCode = WebSocketMode.ReConnectNamedPipe(DefaultName)
 
-    'エラーチェック
+    '�G���[�`�F�b�N
     If ResultCode Then
-        MsgBox "既存の名前付きパイプへの再接続に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
+        MsgBox "�����̖��O�t���p�C�v�ւ̍Đڑ��Ɏ��s���܂����B" & vbCrLf & vbCrLf & "��������" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
     Else
-        MsgBox "既存の名前付きパイプへの再接続に成功しました。", vbInformation, "Success"
+        MsgBox "�����̖��O�t���p�C�v�ւ̍Đڑ��ɐ������܂����B", vbInformation, "Success"
     End If
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、破棄処理を行います
+'* �@�\�@�@�F�쐬�ς݂̖��O�t���p�C�v�n���h������ɁA�j���������s���܂�
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：Excelに記録されてない作成済みの名前付きパイプハンドルは破棄できません。
-''           破棄したにもかかわらず接続等でエラーが出る場合は、Excelプロセスの再起動が必要です。
+'* ���ӎ����FExcel�ɋL�^����ĂȂ��쐬�ς݂̖��O�t���p�C�v�n���h���͔j���ł��܂���B
+''           �j�������ɂ�������炸�ڑ����ŃG���[���o��ꍇ�́AExcel�v���Z�X�̍ċN�����K�v�ł��B
 '***************************************************************************************************
 Sub cleanNamedPipe()
-    '識別名称を設定する
+    '���ʖ��̂�ݒ肷��
     Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '�ݒ�Z������A���[�U�����擾����ꍇ
+        UseName = DefaultName   '������ŗp�ӂ��ꂽ`PowerShell`�̖��̂�
     End With
 
-    'Excelテーブルから、既存の名前付きパイプを読み込み、clean処理しておく
+    'Excel�e�[�u������A�����̖��O�t���p�C�v��ǂݍ��݁Aclean�������Ă���
     Dim WebSocket As New WebSocketViaNamedPipe
     WebSocket.ClosePipeCDP UseName
-    Debug.Print "クリーン処理、完了"
+    Debug.Print "�N���[�������A����"
 End Sub
 
 
 
 '***************************************************************************************************
-'                           ■■■テンプレートプロシージャ ■■■
+'                           �������e���v���[�g�v���V�[�W�� ������
 '***************************************************************************************************
-'* 注意事項：・事前に、`ConnectNamedPipe`を済ませること
-'            ・専用の`PowerShell`が起動中であること
-'            ・WebSocket経由の場合は常に`.reattach`始まりとなります
+'* ���ӎ����F�E���O�ɁA`ConnectNamedPipe`���ς܂��邱��
+'            �E��p��`PowerShell`���N�����ł��邱��
+'            �EWebSocket�o�R�̏ꍇ�͏��`.reattach`�n�܂�ƂȂ�܂�
 '***************************************************************************************************
-Sub WebSocketによる冒険の始まり()
+Sub WebSocket�ɂ��`���̎n�܂�()
     Dim WebSocketCDP As New CDPBrowser
 
-    '識別名称を設定する
+    '���ʖ��̂�ݒ肷��
     Dim UseName As String
     With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
+        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '�ݒ�Z������A���[�U�����擾����ꍇ
+        UseName = DefaultName   '������ŗp�ӂ��ꂽ`PowerShell`�̖��̂�
     End With
 
-    '1. まずは、既存のTargetIDに接続できるか？
+    '1. �܂��́A������TargetID�ɐڑ��ł��邩�H
     If Not WebSocketCDP.reattach(UseName) Then
-        '既存のTargetIDが消えちゃったので、別タブへの再接続フェーズへ
-        Debug.Print "既存の`targetID`への再接続に失敗。新しいタブか、今開いている直近のタブに再接続して、そこから処理を再開します。"
+        '������TargetID��������������̂ŁA�ʃ^�u�ւ̍Đڑ��t�F�[�Y��
+        Debug.Print "������`targetID`�ւ̍Đڑ��Ɏ��s�B�V�����^�u���A���J���Ă��钼�߂̃^�u�ɍĐڑ����āA�������珈�����ĊJ���܂��B"
 
-        '2. 未接続のタブに接続
+        '2. ���ڑ��̃^�u�ɐڑ�
         WebSocketCDP.getTab setMain:=True
-        'WebSocketCDP.newTab setMain:=True     '新しいタブでもOK
+        'WebSocketCDP.newTab setMain:=True     '�V�����^�u�ł�OK
     Else
-        Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
+        Debug.Print "������`targetID`�ւ̍Đڑ��ɐ����B���̃^�u�ŏ������ĊJ�ł��܂��B"
     End If
 
-    '↓ 3．再接続できたので、ここから、あなたのイメージをコードに落とし込む ↓
-    '例）ページ遷移してみる
+    '�� 3�D�Đڑ��ł����̂ŁA��������A���Ȃ��̃C���[�W���R�[�h�ɗ��Ƃ����� ��
+    '��j�y�[�W�J�ڂ��Ă݂�
 
 
 
 
-    'ブラウザを正常に閉じる
+    '�u���E�U�𐳏�ɕ���
     WebSocketCDP.quit
 End Sub
