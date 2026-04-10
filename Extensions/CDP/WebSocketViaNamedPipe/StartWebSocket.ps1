@@ -8,7 +8,7 @@
 
 
 
-#----------------------------- 1. 初期パラメータ一式 ----------------------------- 
+#----------------------------- 1. 初期パラメータ一式 -----------------------------
 $wsUrl    = "ws://127.0.0.1:9222/devtools/browser/cbb667e3-758f-4cb3-b2a9-85f1b2e3953a"	#`remote-debugging-pipe`相当の`ws`に接続します。`http://127.0.0.1:9222/json/version`にて、確認可能です。
 $pipeName = "ChromiumWebSocket"	#Excelから接続する名前付きパイプと一致するようにしてください。
 #---------------------------------------------------------------------------------
@@ -24,6 +24,7 @@ function Log($msg, $AddArg = @{}) {
 
 #------------------------2. WebSocketの準備と接続------------------------
 try {
+    Log "📡 Chromium(WebSocket) に接続中です..." @{ForegroundColor="Yellow"}
     $ws = New-Object System.Net.WebSockets.ClientWebSocket
     $uri = New-Object System.Uri($wsUrl)
     $cts = New-Object System.Threading.CancellationTokenSource
