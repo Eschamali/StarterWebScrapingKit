@@ -360,7 +360,6 @@ Private Sub BiDiResponseBiding()
     Dim paramsCDP As New Dictionary
     With m_CDPBrowser
         '1. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
-        paramsCDP.RemoveAll
         paramsCDP.Add "name", BiDiResMain
         .invokeMethod "Runtime.addBinding", paramsCDP
 
