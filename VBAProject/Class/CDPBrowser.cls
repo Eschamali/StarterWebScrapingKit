@@ -1704,7 +1704,7 @@ End Sub
 '            　・newTab
 '            　・getTab
 '
-'            ・非同期イベント情報を購読中の場合(例：Runtime.addBinding)は、`refreshSessionID:=False`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
+'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=False`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
 '***************************************************************************************************
 Public Function reattach(userProfile As String, Optional refreshSessionID As Boolean = True) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
