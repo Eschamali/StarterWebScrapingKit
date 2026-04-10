@@ -222,30 +222,35 @@ Public Sub start(Optional Name As String = "chrome", _
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：既存のBiDiセッションに再接続します
+'* 機能　　：既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：成功可否論理値
-'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'            ReBoot                     True :新しいSessionIDとしての`BiDi-CDP Mapper`に再接続します。
+'                                       False:稼働中の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：あとから、再接続する際に使い、セッション確立まで担います。
-'* 注意事項：ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
+'* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
+'* 注意事項：・ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
+'            ・`BiDi-CDP Mapper`を落としてしまった場合は、`ReBoot:=True`にて復活可能です。それ以外の場合は、`ReBoot:=False`(省略)のままにしてください。
+'              `BiDi-CDP Mapper`が稼働中なのに`ReBoot:=True`にすると、`SessionID`の食い違いにより機能不全になるため、ご注意ください
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional ReBoot As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     '1. CDPタブセッションに再接続
-    Dim ResultConnectionCDP As Boolean
+    '※イベント購読中(Runtime.addBinding)につき基本は、旧SessionIDのままで、再接続します
     Set m_CDPBrowser = New CDPBrowser
-    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
+    Dim ResultConnectionCDP As Boolean
+    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile, ReBoot)
 
     'CDPタブセッション有無に応じた分岐
     If ResultConnectionCDP Then
         printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
         '2. そのタブURLは、このクラスで用意した専用URLか？
-        If MapperURL = m_CDPBrowser.Url Then
+        If LCase(MapperURL) = LCase(m_CDPBrowser.Url) Then
             '3. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
             '→ typeof window.onBidiMessage === 'function' かどうかを調べる
             Dim jsCheck As String
@@ -256,7 +261,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
             '`BiDi-CDP Mapper`の起動状況に応じた分岐
             If isMapperRunning Then
-                '4. `BiDi-CDP Mapper`が生きてるので、BiDiの結果を受け取るCollectionの付与をしておく
+                '4. `BiDi-CDP Mapper`が生きてるので、特に何もせず、続行
                 printMsg Debug_, "`BiDi-CDP Mapper` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
             Else
                 '4. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
@@ -326,12 +331,10 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         printMsg Debug_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(currentDebug.ViewDebugTab) & ")", FromProcedureName
 
         '2. BiDi用バインディングの追加
-        If Not (ReConnect) Then
         paramsCDP.Add "bindingName", "cdp"
         paramsCDP.Add "targetId", .CurrentTargetID
         paramsCDP.Add "inheritPermissions", True
-            .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True
-        End If
+        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not ReConnect   '再接続モードの場合は、エラー無視
 
         '3. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.RemoveAll
