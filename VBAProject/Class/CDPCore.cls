@@ -154,7 +154,6 @@ End Type
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
 Private Const STARTF_USESHOWWINDOW As Long = &H1&
-Private Const SW_SHOWMINNOACTIVE = 7
 
 '===================================
 ' Shared Variables
@@ -251,6 +250,19 @@ Public Sub deserialize(UserName As String)
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：正式にパイプハンドル情報をクリーニングします
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
+'***************************************************************************************************
+Public Sub ClosePipeCDP()
+    CloseHandle hStdOutRd
+    CloseHandle hStdInWr
+    CloseHandle hCDPOutRd
+    CloseHandle hCDPInWr
+    CloseHandle hStderrOutRd
+End Sub
+
 Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
@@ -296,7 +308,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
     End If
     
    'And finally the in pipe
-    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 0)
+    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
@@ -328,7 +340,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = IIf(KioskMode, SW_SHOWMINNOACTIVE, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
+        .wShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -341,11 +353,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         Init = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
-        CloseHandle hStdOutRd
-        CloseHandle hStdInWr
-        CloseHandle hCDPOutRd
-        CloseHandle hCDPInWr
-        CloseHandle hStderrOutRd
+        ClosePipeCDP
     Else
         '成功は、0として返却
         Init = 0
