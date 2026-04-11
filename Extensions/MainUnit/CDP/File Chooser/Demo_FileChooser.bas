@@ -72,14 +72,14 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     Debug.Print "[Demo01] 登録ファイル数: " & fc.FilePathCount
 
     '--- 4. インターセプトを有効化 ---
-    fc.EnableIntercept
+    fc.EnableEvents = True
 
     '--- 5. ファイル選択をトリガー ---
     Debug.Print "[Demo01] static-file-input をクリックします..."
     browser.getElementByID("static-file-input").click
 
     '--- 6. ★新API：パス引数なし、待機 & 注入 ---
-    If Not fc.SetFileWait(TimeoutSec:=10) Then
+    If Not fc.SetFiles(TimeoutSec:=10) Then
         MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
         browser.quit
         Exit Sub
@@ -90,7 +90,7 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     Debug.Print "[Demo01] 完了！FileReader がページに表示しています。"
 
     '--- 8. 後片付け ---
-    fc.DisableIntercept
+    fc.EnableEvents = False
     'fc.ClearFilePaths  ← 次回も同じファイルを使う場合は不要
 
 End Sub
@@ -138,14 +138,14 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     Debug.Print "[Demo02] 登録ファイル数: " & fc.FilePathCount
 
     '--- 4. インターセプトを有効化 ---
-    fc.EnableIntercept
+    fc.EnableEvents = True
 
     '--- 5. Zone B の動的ボタンをクリック（JS が createElement して click） ---
     Debug.Print "[Demo02] btn-dynamic をクリックします..."
     browser.getElementByID("btn-dynamic").click
 
     '--- 6. ★新API：パス引数なし、待機 & 注入 ---
-    If Not fc.SetFileWait(TimeoutSec:=10) Then
+    If Not fc.SetFiles(TimeoutSec:=10) Then
         MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
         browser.quit
         Exit Sub
@@ -156,7 +156,7 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     Debug.Print "[Demo02] 完了！動的inputへの注入 & FileReader による表示に成功！"
 
     '--- 8. 後片付け ---
-    fc.DisableIntercept
+    fc.EnableEvents = False
 
 End Sub
 
@@ -200,18 +200,15 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     fc.Init browser
 
     '--- 3ラウンド：毎回ファイルを差し替えて注入 ---
+    fc.EnableEvents = True
     For i = 1 To 3
         Debug.Print "[Demo03] ラウンド " & i & " / 3 ..."
 
-        '★ ファイルパスを差し替える
-        fc.ClearFilePaths
-        fc.AddFilePath = files(i)
-        Debug.Print "[Demo03]   登録: " & files(i)
-
-        fc.EnableIntercept
         browser.getElementByID("static-file-input").click
 
-        Dim ok As Boolean: ok = fc.SetFileWait(TimeoutSec:=10)
+        '★ 単一用メソッドで、ファイルパスを登録
+        Debug.Print "[Demo03]   登録: " & files(i)
+        Dim ok As Boolean: ok = fc.SetFile(files(i), TimeoutSec:=10)
         If Not ok Then
             MsgBox "Round " & i & " で失敗しました。", vbCritical
             Exit For
@@ -221,8 +218,8 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
         browser.sleep 2
         Debug.Print "[Demo03] ラウンド " & i & " 完了"
     Next i
+    fc.EnableEvents = False
 
-    fc.DisableIntercept
     Debug.Print "[Demo03] 3ファイルの連続注入が完了しました！"
 
 End Sub
