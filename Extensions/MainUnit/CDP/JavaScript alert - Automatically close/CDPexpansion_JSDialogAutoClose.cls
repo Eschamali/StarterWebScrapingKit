@@ -34,8 +34,11 @@ Private seeRawSendMsgDbg            As Boolean
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 
 ' 既定: はい=OK 系 / prompt 用の入力文字列
-Private mDefaultAccept              As Boolean
-Private mDefaultPromptText          As String
+Private Type JavaScriptDialog
+    Accept      As Boolean
+    promptText  As String
+End Type
+Private JavaScriptDialogClose As JavaScriptDialog
 
 
 
@@ -59,10 +62,10 @@ End Property
 '* 詳細説明：confirm / prompt / beforeunload で True=はい・OK、False=いいえ・キャンセル（alert は常に True で閉じる）
 '***************************************************************************************************
 Public Property Get DefaultAccept() As Boolean
-    DefaultAccept = mDefaultAccept
+    DefaultAccept = JavaScriptDialogClose.Accept
 End Property
 Public Property Let DefaultAccept(ByVal v As Boolean)
-    mDefaultAccept = v
+    JavaScriptDialogClose.Accept = v
 End Property
 
 '***************************************************************************************************
@@ -71,10 +74,10 @@ End Property
 '* 詳細説明：prompt かつ accept するときに Page.handleJavaScriptDialog の promptText に使う
 '***************************************************************************************************
 Public Property Get DefaultPromptText() As String
-    DefaultPromptText = mDefaultPromptText
+    DefaultPromptText = JavaScriptDialogClose.promptText
 End Property
 Public Property Let DefaultPromptText(ByVal v As String)
-    mDefaultPromptText = v
+    JavaScriptDialogClose.promptText = v
 End Property
 
 
@@ -113,11 +116,13 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
             End If
 
             '4. ダイアログを閉じる処理を発動
-            ex_CDPBrowser.handleDialog mDefaultAccept, mDefaultPromptText
+            With JavaScriptDialogClose
+                ex_CDPBrowser.handleDialog .Accept, .promptText
+            End With
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
-            Exit Sub
+
     End Select
 
 End Sub
@@ -168,8 +173,7 @@ Private Sub Class_Initialize()
     EnableBrowserEvents = True
 
     'ダイアログへのデフォルト値を設定
-    mDefaultAccept = True
-    mDefaultPromptText = vbNullString
+    JavaScriptDialogClose.Accept = True
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
