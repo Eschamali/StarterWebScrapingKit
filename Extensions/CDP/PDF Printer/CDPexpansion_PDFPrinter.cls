@@ -73,7 +73,7 @@ Public Function PrintToPDF( _
     Const FromProcedureName As String = ThisClassName & ".PrintToPDF"
 
 
-    printMsg Info_, "PDF printing started. File: " & FileBaseName & ".pdf", FromProcedureName
+    printMsg info_, "PDF printing started. File: " & FileBaseName & ".pdf", FromProcedureName
 
     '--- 1. パラメーター組み立て ---
     Dim params As New Scripting.Dictionary
@@ -108,7 +108,7 @@ Public Function PrintToPDF( _
     End If
 
     If Not result.Exists("data") Then
-        printMsg WARN_, "Response does not contain `data` key. Keys returned: " & Join(result.Keys, ", "), FromProcedureName
+        printMsg WARN_, "Response does not contain `data` key. Keys returned: " & Join(result.keys, ", "), FromProcedureName
         PrintToPDF = ""
         Exit Function
     End If
@@ -129,13 +129,13 @@ Public Function PrintToPDF( _
 
     'フォルダが存在しない場合は作成
     If Dir(folderNorm, vbDirectory) = "" Then
-        printMsg Info_, "Creating output folder: " & folderNorm, FromProcedureName
+        printMsg info_, "Creating output folder: " & folderNorm, FromProcedureName
         MkDir folderNorm
     End If
 
     'ファイル名組み立て（拡張子 .pdf を保証）
-    Dim fileName As String: fileName = FileBaseName
-    If LCase(Right(fileName, 4)) <> ".pdf" Then fileName = fileName & ".pdf"
+    Dim FileName As String: FileName = FileBaseName
+    If LCase(Right(FileName, 4)) <> ".pdf" Then FileName = FileName & ".pdf"
 
     'Base64 → バイナリ変換（MSXML2 DOM経由 ／ CDPBrowser.SaveBase64ToFileと同方式）
     Dim dom As Object, el As Object, Bytes() As Byte
@@ -147,10 +147,10 @@ Public Function PrintToPDF( _
 
     'CharacterCodeConversion 経由でファイル書き出し
     Dim CharConv As New CharacterCodeConversion
-    CharConv.BytesToSaveFile Bytes, folderNorm, fileName
+    CharConv.BytesToSaveFile Bytes, folderNorm, FileName
 
-    Dim fullPath As String: fullPath = folderNorm & "\" & fileName
-    printMsg Info_, "PDF saved successfully: " & fullPath, FromProcedureName
+    Dim fullPath As String: fullPath = folderNorm & "\" & FileName
+    printMsg info_, "PDF saved successfully: " & fullPath, FromProcedureName
 
     PrintToPDF = fullPath
 
