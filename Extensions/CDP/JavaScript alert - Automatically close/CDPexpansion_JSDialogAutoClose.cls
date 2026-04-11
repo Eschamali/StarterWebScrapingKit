@@ -31,8 +31,7 @@ Private mJson                       As New WebJsonConverter
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean
-
-Public EnableBrowserEvents          As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
+Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 
 ' 既定: はい=OK 系 / prompt 用の入力文字列
 Private mDefaultAccept              As Boolean
