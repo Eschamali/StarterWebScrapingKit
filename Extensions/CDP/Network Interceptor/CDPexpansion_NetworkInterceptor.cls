@@ -10,63 +10,63 @@ Attribute VB_Exposed = False
 ' =========================================================
 ' CDPexpansion_NetworkInterceptor
 '
-' [æ¦‚è¦]
-' ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯é€šä¿¡ã®å‚å—ãƒ»ãƒ¢ãƒƒã‚¯ãƒ»ãƒ¬ã‚¹ãƒãƒ³ã‚¹å¾…æ©Ÿã‚’æä¾›ã™ã‚‹æ‹¡å¼µæ©Ÿèƒ½ã‚¯ãƒ©ã‚¹ã€‚
+' [ŠT—v]
+' ƒlƒbƒgƒ[ƒN’ÊM‚Ì–TóEƒ‚ƒbƒNEƒŒƒXƒ|ƒ“ƒX‘Ò‹@‚ğ’ñ‹Ÿ‚·‚éŠg’£‹@”\ƒNƒ‰ƒXB
 '
-' [ã§ãã‚‹ã“ã¨]
-'   A) URL ãƒ–ãƒ­ãƒƒã‚¯       â”€ ç‰¹å®šURLãƒ‘ã‚¿ãƒ¼ãƒ³ã¸ã® fetch/XHR ã‚’ãƒ–ãƒ­ãƒƒã‚¯ã™ã‚‹
-'   B) ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹   â”€ ç‰¹å®šURLã¸ã®é€šä¿¡ã‚’å½ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã§å·®ã—æ›¿ãˆã‚‹
-'   C) ãƒ¬ã‚¹ãƒãƒ³ã‚¹å¾…æ©Ÿ     â”€ æŒ‡å®šURLã‚’å«ã‚€ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãŒå±Šãã¾ã§å¾…æ©Ÿã™ã‚‹ (CDPãƒã‚¤ãƒ†ã‚£ãƒ–)
-'   D) ãƒ¬ã‚¹ãƒãƒ³ã‚¹Bodyå–å¾— â”€ requestId ã‚’ã‚­ãƒ¼ã«ãƒ¬ã‚¹ãƒãƒ³ã‚¹Bodyæ–‡å­—åˆ—ã‚’å–å¾—ã™ã‚‹
+' [‚Å‚«‚é‚±‚Æ]
+'   A) URL ƒuƒƒbƒN       „Ÿ “Á’èURLƒpƒ^[ƒ“‚Ö‚Ì fetch/XHR ‚ğƒuƒƒbƒN‚·‚é
+'   B) ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX   „Ÿ “Á’èURL‚Ö‚Ì’ÊM‚ğ‹UƒŒƒXƒ|ƒ“ƒX‚Å·‚µ‘Ö‚¦‚é
+'   C) ƒŒƒXƒ|ƒ“ƒX‘Ò‹@     „Ÿ w’èURL‚ğŠÜ‚ŞƒŒƒXƒ|ƒ“ƒX‚ª“Í‚­‚Ü‚Å‘Ò‹@‚·‚é (CDPƒlƒCƒeƒBƒu)
+'   D) ƒŒƒXƒ|ƒ“ƒXBodyæ“¾ „Ÿ requestId ‚ğƒL[‚ÉƒŒƒXƒ|ƒ“ƒXBody•¶š—ñ‚ğæ“¾‚·‚é
 '
-' [ä»•çµ„ã¿ã®é•ã„]
-'   A/B : JS ã§ fetch / XHR ã‚’ä¹—ã£å–ã‚‹ãƒãƒƒã‚¯æ‰‹æ³•ã€‚ãƒšãƒ¼ã‚¸ã‚¹ã‚³ãƒ¼ãƒ—ã§å®Œçµã€‚
-'         â€» <img>/<link>/<script> ã‚¿ã‚°ãŒç›´ã«èµ·ã“ã™ãƒªã‚½ãƒ¼ã‚¹èª­ã¿è¾¼ã¿ã«ã¯åŠ¹ã‹ãªã„ã€‚
-'   C/D : CDP ãƒã‚¤ãƒ†ã‚£ãƒ–ã® Network.responseReceived ã‚¤ãƒ™ãƒ³ãƒˆã‚’ä½¿ã†æ­£æ”»æ³•ã€‚
-'         å…¨ã¦ã®é€šä¿¡ï¼ˆã‚¿ã‚°èµ·å› å«ã‚€ï¼‰ã‚’ã‚­ãƒ£ãƒ—ãƒãƒ£ã§ãã‚‹ã€‚
+' [d‘g‚İ‚Ìˆá‚¢]
+'   A/B : JS ‚Å fetch / XHR ‚ğæ‚Áæ‚éƒnƒbƒNè–@Bƒy[ƒWƒXƒR[ƒv‚ÅŠ®Œ‹B
+'         ¦ <img>/<link>/<script> ƒ^ƒO‚ª’¼‚É‹N‚±‚·ƒŠƒ\[ƒX“Ç‚İ‚İ‚É‚ÍŒø‚©‚È‚¢B
+'   C/D : CDP ƒlƒCƒeƒBƒu‚Ì Network.responseReceived ƒCƒxƒ“ƒg‚ğg‚¤³U–@B
+'         ‘S‚Ä‚Ì’ÊMiƒ^ƒO‹NˆöŠÜ‚Şj‚ğƒLƒƒƒvƒ`ƒƒ‚Å‚«‚éB
 '
-' [ä½¿ã„æ–¹]
+' [g‚¢•û]
 '   Dim ni As New CDPexpansion_NetworkInterceptor
 '   ni.Init br
 '
-'   ' --- A. URLãƒ–ãƒ­ãƒƒã‚¯ ---
+'   ' --- A. URLƒuƒƒbƒN ---
 '   ni.AddBlockedURL "ads.example.com"
-'   ' ãƒšãƒ¼ã‚¸ã‚’æ“ä½œ... â†’ ads.example.com ã¸ã® fetch/XHR ãŒå¤±æ•—æ‰±ã„ã«ãªã‚‹
+'   ' ƒy[ƒW‚ğ‘€ì... ¨ ads.example.com ‚Ö‚Ì fetch/XHR ‚ª¸”sˆµ‚¢‚É‚È‚é
 '   ni.ClearBlockedURLs
 '
-'   ' --- B. ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ ---
-'   ni.AddMockResponse "/api/user", 200, "{""name"":""ãƒ†ã‚¹ãƒˆå¤ªéƒ""}", "application/json"
-'   ' ãƒšãƒ¼ã‚¸ã‚’æ“ä½œ... â†’ /api/user ã¸ã® fetch/XHR ãŒå³åº§ã«å½ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’è¿”ã™
+'   ' --- B. ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX ---
+'   ni.AddMockResponse "/api/user", 200, "{""name"":""ƒeƒXƒg‘¾˜Y""}", "application/json"
+'   ' ƒy[ƒW‚ğ‘€ì... ¨ /api/user ‚Ö‚Ì fetch/XHR ‚ª‘¦À‚É‹UƒŒƒXƒ|ƒ“ƒX‚ğ•Ô‚·
 '   ni.ClearMockResponses
 '
-'   ' --- C. ãƒ¬ã‚¹ãƒãƒ³ã‚¹å¾…æ©Ÿ ---
-'   ni.StartNetworkCapture          ' â† Network.enable (CDPãƒ‰ãƒ¡ã‚¤ãƒ³æœ‰åŠ¹åŒ–)
+'   ' --- C. ƒŒƒXƒ|ƒ“ƒX‘Ò‹@ ---
+'   ni.StartNetworkCapture          ' © Network.enable (CDPƒhƒƒCƒ“—LŒø‰»)
 '   br.jsEval "fetch('/api/data');"
 '   Dim reqId As String
-'   reqId = ni.WaitForResponse("/api/data", 10)    ' requestId ãŒè¿”ã‚‹
+'   reqId = ni.WaitForResponse("/api/data", 10)    ' requestId ‚ª•Ô‚é
 '   If reqId <> "" Then
 '       Dim body As String
 '       body = ni.GetResponseBody(reqId)
 '       MsgBox body
 '   End If
-'   ni.StopNetworkCapture           ' â† Network.disable
+'   ni.StopNetworkCapture           ' © Network.disable
 ' =========================================================
 Option Explicit
 
 
 ' =========================================================
-' å…±é€šå®šç¾©
+' ‹¤’Ê’è‹`
 ' =========================================================
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 Private Const ThisClassName         As String = "CDPexpansion_NetworkInterceptor"
 
-' Network.responseReceived ã§è“„ç©ã™ã‚‹ãƒ¬ã‚¹ãƒãƒ³ã‚¹æƒ…å ±
-' å„è¦ç´ ã¯ Scripting.Dictionary {RequestId, Url, Status, MimeType}
+' Network.responseReceived ‚Å’~Ï‚·‚éƒŒƒXƒ|ƒ“ƒXî•ñ
+' Še—v‘f‚Í Scripting.Dictionary {RequestId, Url, Status, MimeType}
 Private capturedResponses_          As Collection
 
-' ã‚¤ãƒ™ãƒ³ãƒˆç›£è¦–ãƒ•ãƒ©ã‚°
+' ƒCƒxƒ“ƒgŠÄ‹ƒtƒ‰ƒO
 Private networkCaptureActive_       As Boolean
 
 
@@ -80,42 +80,57 @@ End Sub
 
 
 ' =========================================================
-'  CDPãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒ³ãƒ‰ãƒ©ï¼ˆCDPãƒã‚¤ãƒ†ã‚£ãƒ–ã‚¤ãƒ™ãƒ³ãƒˆã‚’å—ã‘å–ã‚‹å ´æ‰€ï¼‰
-'  â”€ Network.enable å¾Œã« Network.responseReceived ãŒå±Šã
+'  CDPƒuƒ‰ƒEƒUƒCƒxƒ“ƒgƒnƒ“ƒhƒ‰iCDPƒlƒCƒeƒBƒuƒCƒxƒ“ƒg‚ğó‚¯æ‚éêŠj
+'  „Ÿ Network.enable Œã‚É Network.responseReceived ‚ª“Í‚­
 ' =========================================================
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
-    ' networkCaptureActive_ ãŒ False ã®é–“ã¯ã™ã¹ã¦ç„¡è¦–
+    ' networkCaptureActive_ ‚ª False ‚ÌŠÔ‚Í‚·‚×‚Ä–³‹
     If Not networkCaptureActive_ Then Exit Sub
+
+    Dim reqId As String
+    Dim k As Long
 
     Select Case methodName
 
-        ' CDPãƒã‚¤ãƒ†ã‚£ãƒ–ã®ãƒ¬ã‚¹ãƒãƒ³ã‚¹å—ä¿¡ã‚¤ãƒ™ãƒ³ãƒˆ
-        ' Network.enable ã‚’å‘¼ã‚“ã§åˆã‚ã¦å±Šã
+        ' CDPƒlƒCƒeƒBƒu‚ÌƒŒƒXƒ|ƒ“ƒXóMƒCƒxƒ“ƒg
+        ' Network.enable ‚ğŒÄ‚ñ‚Å‰‚ß‚Ä“Í‚­
         Case "Network.responseReceived"
+            ' ƒwƒbƒ_[“’…BBody ‚Í‚Ü‚¾‚È‚Ì‚Å BodyReady=False
+            reqId = ExtractVal_(EventRawJson, """requestId"":""", """")
             Dim d As New Scripting.Dictionary
-            d("RequestId") = ExtractJsonStr(EventRawJson, """requestId"":""", """")
-            d("Url") = ExtractJsonStr(EventRawJson, """url"":""", """")
-            d("Status") = ExtractJsonStr(EventRawJson, """status"":", ",")
-            d("MimeType") = ExtractJsonStr(EventRawJson, """mimeType"":""", """")
+            d.Add "RequestId", reqId
+            d.Add "Url", ExtractVal_(EventRawJson, """url"":""", """")
+            d.Add "Status", ExtractVal_(EventRawJson, """status"":", ",")
+            d.Add "MimeType", ExtractVal_(EventRawJson, """mimeType"":""", """")
+            d.Add "BodyReady", False
             capturedResponses_.Add d
-            printMsg Debug_, "<NetworkInterceptor> ãƒ¬ã‚¹ãƒãƒ³ã‚¹å—ä¿¡: [" & d("Status") & "] " & d("Url"), FromProcedureName
+            printMsg Debug_, "<NetworkInterceptor> Header received: [" & d("Status") & "] " & d("Url"), FromProcedureName
 
-        Case Else
-            ' ä¸Šè¨˜ä»¥å¤–ã¯ç„¡è¦–
+        Case "Network.loadingFinished"
+            ' Body DLŠ®—¹ -> ‘Î‰ƒGƒ“ƒgƒŠ‚Ì BodyReady ‚ğ True ‚ÉXV
+            reqId = ExtractVal_(EventRawJson, """requestId"":""", """")
+            For k = 1 To capturedResponses_.Count
+                If capturedResponses_(k)("RequestId") = reqId Then
+                    capturedResponses_(k)("BodyReady") = True
+                    printMsg Debug_, "<NetworkInterceptor> Body ready: " & capturedResponses_(k)("Url"), FromProcedureName
+                    Exit For
+                End If
+            Next k
+
     End Select
 
 End Sub
 
 
 ' =========================================================
-' [C] ãƒ¬ã‚¹ãƒãƒ³ã‚¹å¾…æ©Ÿ â”€ CDPãƒã‚¤ãƒ†ã‚£ãƒ– Network ãƒ‰ãƒ¡ã‚¤ãƒ³
+' [C] ƒŒƒXƒ|ƒ“ƒX‘Ò‹@ „Ÿ CDPƒlƒCƒeƒBƒu Network ƒhƒƒCƒ“
 ' =========================================================
 
-' Network.enable ã‚’å‘¼ã‚“ã§ CDPã‚¤ãƒ™ãƒ³ãƒˆã®ã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’é–‹å§‹ã™ã‚‹
-' WaitForResponse ã‚’ä½¿ã†å‰ã«å¿…ãšå‘¼ã¶ã“ã¨
+' Network.enable ‚ğŒÄ‚ñ‚Å CDPƒCƒxƒ“ƒg‚ÌƒLƒƒƒvƒ`ƒƒ‚ğŠJn‚·‚é
+' WaitForResponse ‚ğg‚¤‘O‚É•K‚¸ŒÄ‚Ô‚±‚Æ
 Public Sub StartNetworkCapture()
     Const FromProcedureName As String = ThisClassName & ".StartNetworkCapture"
 
@@ -123,54 +138,57 @@ Public Sub StartNetworkCapture()
     invokeMethod "Network.enable"
     networkCaptureActive_ = True
     Set capturedResponses_ = New Collection
-    printMsg Debug_, "<NetworkInterceptor> Network.enable å®Œäº†ã€‚ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã®ã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’é–‹å§‹ã—ã¾ã™ã€‚", FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> Network.enable - capture started.", FromProcedureName
 End Sub
 
-' Network.disable ã‚’å‘¼ã‚“ã§ã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’çµ‚äº†ã™ã‚‹
+' Network.disable ‚ğŒÄ‚ñ‚ÅƒLƒƒƒvƒ`ƒƒ‚ğI—¹‚·‚é
 Public Sub StopNetworkCapture()
     Const FromProcedureName As String = ThisClassName & ".StopNetworkCapture"
 
 
     invokeMethod "Network.disable"
     networkCaptureActive_ = False
-    printMsg Debug_, "<NetworkInterceptor> Network.disable å®Œäº†ã€‚ã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’åœæ­¢ã—ã¾ã—ãŸã€‚", FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> Network.disable - capture stopped.", FromProcedureName
 End Sub
 
-' è“„ç©æ¸ˆã¿ã®ãƒ¬ã‚¹ãƒãƒ³ã‚¹ä¸€è¦§ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹ï¼ˆå¾…æ©Ÿå‰ã«ãƒªã‚»ãƒƒãƒˆã—ãŸã„ã¨ãã«ä½¿ã†ï¼‰
+' ’~ÏÏ‚İ‚ÌƒŒƒXƒ|ƒ“ƒXˆê——‚ğƒNƒŠƒA‚·‚éi‘Ò‹@‘O‚ÉƒŠƒZƒbƒg‚µ‚½‚¢‚Æ‚«‚Ég‚¤j
 Public Sub ClearCapturedResponses()
     Set capturedResponses_ = New Collection
 End Sub
 
 '-----------------------------------------------------------
-' æŒ‡å®šURLæ–‡å­—åˆ—ã‚’å«ã‚€ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãŒå±Šãã¾ã§å¾…æ©Ÿã™ã‚‹
-' æˆåŠŸ: requestId æ–‡å­—åˆ—ã‚’è¿”ã™
-' å¤±æ•—(ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ): "" ã‚’è¿”ã™ + WARNãƒ­ã‚°
+' w’èURL•¶š—ñ‚ğŠÜ‚ŞƒŒƒXƒ|ƒ“ƒX‚ª“Í‚­‚Ü‚Å‘Ò‹@‚·‚é
+' ¬Œ÷: requestId •¶š—ñ‚ğ•Ô‚·
+' ¸”s(ƒ^ƒCƒ€ƒAƒEƒg): "" ‚ğ•Ô‚· + WARNƒƒO
 '-----------------------------------------------------------
 Public Function WaitForResponse(urlContains As String, Optional maxWaitTimeSec As Long = 30) As String
     Const FromProcedureName As String = ThisClassName & ".WaitForResponse"
 
 
-    printMsg Debug_, "<WaitForResponse> '" & urlContains & "' ã‚’å«ã‚€ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’å¾…æ©Ÿé–‹å§‹ã€‚(ä¸Šé™ " & maxWaitTimeSec & "ç§’)", FromProcedureName
+    printMsg Debug_, "<WaitForResponse> Waiting for '" & urlContains & "' (BodyReady). Timeout=" & maxWaitTimeSec & "s", FromProcedureName
 
     Dim startTime As Double: startTime = Timer
 
     Do
-        ' TakeEvents ã‚’å‘¼ã¶ã“ã¨ã§Pipeã‚’èª­ã¿è¾¼ã¿ã€RaiseEvent ã‚’ç™ºç«ã•ã›ã‚‹
-        ' ã“ã®å‘¼ã³å‡ºã—ãŒãªã„ã¨ detectionCDPEvent ãŒä¸€åˆ‡ãƒˆãƒªã‚¬ãƒ¼ã•ã‚Œãªã„
+        ' TakeEvents ‚ğŒÄ‚Ô‚±‚Æ‚ÅPipe‚ğ“Ç‚İ‚İARaiseEvent ‚ğ”­‰Î‚³‚¹‚é
+        ' ‚±‚ÌŒÄ‚Ño‚µ‚ª‚È‚¢‚Æ detectionCDPEvent ‚ªˆêØƒgƒŠƒK[‚³‚ê‚È‚¢
         ex_CDPBrowser.TakeEvents
 
-        ' è“„ç©ã•ã‚ŒãŸãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’å¾Œã‚ã‹ã‚‰æ¤œç´¢ï¼ˆæ–°ã—ã„ã‚‚ã®ã‚’å„ªå…ˆï¼‰
+        ' ’~Ï‚³‚ê‚½ƒŒƒXƒ|ƒ“ƒX‚ğŒã‚ë‚©‚çŒŸõiV‚µ‚¢‚à‚Ì‚ğ—Dæj
         Dim j As Long
         For j = capturedResponses_.Count To 1 Step -1
-            If InStr(1, CStr(capturedResponses_(j)("Url")), urlContains, vbTextCompare) > 0 Then
-                printMsg Debug_, "<WaitForResponse> ä¸€è‡´ã™ã‚‹ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’æ¤œå‡º: " & capturedResponses_(j)("Url"), FromProcedureName
-                WaitForResponse = CStr(capturedResponses_(j)("RequestId"))
-                Exit Function
+            ' BodyReady=True ‚Ì‚à‚Ì‚¾‚¯‚ª‘ÎÛ
+            If capturedResponses_(j)("BodyReady") = True Then
+                If InStr(1, CStr(capturedResponses_(j)("Url")), urlContains, vbTextCompare) > 0 Then
+                    printMsg Debug_, "<WaitForResponse> Found: " & capturedResponses_(j)("Url"), FromProcedureName
+                    WaitForResponse = CStr(capturedResponses_(j)("RequestId"))
+                    Exit Function
+                End If
             End If
         Next j
 
         If (Timer - startTime) > maxWaitTimeSec Then
-            printMsg WARN_, "<WaitForResponse> " & maxWaitTimeSec & "ç§’å¾…æ©Ÿã—ã¾ã—ãŸãŒ '" & urlContains & "' ã‚’å«ã‚€ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãŒå±Šãã¾ã›ã‚“ã§ã—ãŸã€‚", FromProcedureName
+            printMsg WARN_, "<WaitForResponse> Timeout: '" & urlContains & "' Body not ready within " & maxWaitTimeSec & "s.", FromProcedureName
             WaitForResponse = ""
             Exit Function
         End If
@@ -180,15 +198,15 @@ Public Function WaitForResponse(urlContains As String, Optional maxWaitTimeSec A
 End Function
 
 '-----------------------------------------------------------
-' requestId ã«å¯¾å¿œã™ã‚‹ãƒ¬ã‚¹ãƒãƒ³ã‚¹Bodyã‚’å–å¾—ã™ã‚‹
-' WaitForResponse ã®æˆ»ã‚Šå€¤ã‚’æ¸¡ã—ã¦ãã ã•ã„
+' requestId ‚É‘Î‰‚·‚éƒŒƒXƒ|ƒ“ƒXBody‚ğæ“¾‚·‚é
+' WaitForResponse ‚Ì–ß‚è’l‚ğ“n‚µ‚Ä‚­‚¾‚³‚¢
 '-----------------------------------------------------------
 Public Function GetResponseBody(requestId As String) As String
     Const FromProcedureName As String = ThisClassName & ".GetResponseBody"
 
 
     If requestId = "" Then
-        printMsg WARN_, "<GetResponseBody> requestId ãŒç©ºã§ã™ã€‚WaitForResponse ã«å¤±æ•—ã—ã¦ã„ãªã„ã‹ç¢ºèªã—ã¦ãã ã•ã„ã€‚", FromProcedureName
+        printMsg WARN_, "<GetResponseBody> requestId is empty.", FromProcedureName
         GetResponseBody = ""
         Exit Function
     End If
@@ -200,33 +218,28 @@ Public Function GetResponseBody(requestId As String) As String
     Set res = invokeMethod("Network.getResponseBody", params, , False)
 
     If res Is Nothing Then
-        printMsg WARN_, "<GetResponseBody> ãƒ¬ã‚¹ãƒãƒ³ã‚¹Bodyã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸã€‚(requestId: " & requestId & ")", FromProcedureName
+        printMsg WARN_, "<GetResponseBody> Failed. (requestId: " & requestId & ")", FromProcedureName
         GetResponseBody = ""
         Exit Function
     End If
 
-    If res.Exists("result") Then
-        Dim result As Scripting.Dictionary
-        Set result = res("result")
-        If result.Exists("body") Then
-            GetResponseBody = CStr(result("body"))
-            Exit Function
-        End If
+    If res.Exists("body") Then
+        GetResponseBody = CStr(res("body"))
+        Exit Function
     End If
 
-    printMsg WARN_, "<GetResponseBody> ãƒ¬ã‚¹ãƒãƒ³ã‚¹BodyãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚", FromProcedureName
+    printMsg WARN_, "<GetResponseBody> Body not found in result.", FromProcedureName
     GetResponseBody = ""
 End Function
 
-
 ' =========================================================
-' [A] URL ãƒ–ãƒ­ãƒƒã‚¯ â”€ JS ã§ fetch/XHR ã‚’ä¹—ã£å–ã‚‹æ‰‹æ³•
+' [A] URL ƒuƒƒbƒN „Ÿ JS ‚Å fetch/XHR ‚ğæ‚Áæ‚éè–@
 ' =========================================================
 
 '-----------------------------------------------------------
-' æŒ‡å®šURLãƒ‘ã‚¿ãƒ¼ãƒ³ã¸ã® fetch/XHR ã‚’ãƒ–ãƒ­ãƒƒã‚¯ã™ã‚‹
-' â€»ãƒšãƒ¼ã‚¸ã« NetworkInterceptor JS ãŒè‡ªå‹•ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã•ã‚Œã‚‹
-' â€»<img> / <script> / <link> ã‚¿ã‚°èµ·å› ã®é€šä¿¡ã«ã¯åŠ¹ã‹ãªã„
+' w’èURLƒpƒ^[ƒ“‚Ö‚Ì fetch/XHR ‚ğƒuƒƒbƒN‚·‚é
+' ¦ƒy[ƒW‚É NetworkInterceptor JS ‚ª©“®ƒCƒ“ƒXƒg[ƒ‹‚³‚ê‚é
+' ¦<img> / <script> / <link> ƒ^ƒO‹Nˆö‚Ì’ÊM‚É‚ÍŒø‚©‚È‚¢
 '-----------------------------------------------------------
 Public Sub AddBlockedURL(urlPattern As String)
     Const FromProcedureName As String = ThisClassName & ".AddBlockedURL"
@@ -237,36 +250,32 @@ Public Sub AddBlockedURL(urlPattern As String)
     Dim js As String
     js = "(function(){"
     js = js & "window.__vbaBlockedURLPatterns=window.__vbaBlockedURLPatterns||[];"
-    js = js & "var p=" & JsonEscape_(urlPattern) & ";"
-    js = js & "if(window.__vbaBlockedURLPatterns.indexOf(p)<0){"
-    js = js & "window.__vbaBlockedURLPatterns.push(p);"
-    js = js & "}"
-    js = js & "return true;"
-    js = js & "})();"
+    js = js & "var p=" & JsStr_(urlPattern) & ";"
+    js = js & "if(window.__vbaBlockedURLPatterns.indexOf(p)<0){window.__vbaBlockedURLPatterns.push(p);}"
+    js = js & "return true;})();"
     ex_CDPBrowser.jsEval js
-    printMsg Debug_, "<NetworkInterceptor> URLãƒ–ãƒ­ãƒƒã‚¯è¿½åŠ : " & urlPattern, FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> Block added: " & urlPattern, FromProcedureName
 End Sub
 
-' ã™ã¹ã¦ã®ãƒ–ãƒ­ãƒƒã‚¯URLãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹
+' ‚·‚×‚Ä‚ÌƒuƒƒbƒNURLƒpƒ^[ƒ“‚ğƒNƒŠƒA‚·‚é
 Public Sub ClearBlockedURLs()
     Const FromProcedureName As String = ThisClassName & ".ClearBlockedURLs"
 
 
-    ex_CDPBrowser.jsEval "(function(){ window.__vbaBlockedURLPatterns=[]; return true; })();"
-    printMsg Debug_, "<NetworkInterceptor> URLãƒ–ãƒ­ãƒƒã‚¯ã‚’ã™ã¹ã¦ã‚¯ãƒªã‚¢ã—ã¾ã—ãŸã€‚", FromProcedureName
+    ex_CDPBrowser.jsEval "(function(){window.__vbaBlockedURLPatterns=[];return true;})();"
+    printMsg Debug_, "<NetworkInterceptor> Blocked URLs cleared.", FromProcedureName
 End Sub
 
-
 ' =========================================================
-' [B] ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ â”€ JS ã§ fetch/XHR ã‚’ä¹—ã£å–ã‚‹æ‰‹æ³•
+' [B] ƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX „Ÿ JS ‚Å fetch/XHR ‚ğæ‚Áæ‚éè–@
 ' =========================================================
 
 '-----------------------------------------------------------
-' æŒ‡å®šURLãƒ‘ã‚¿ãƒ¼ãƒ³ã¸ã®é€šä¿¡ã‚’å½ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã§å·®ã—æ›¿ãˆã‚‹
-'   urlPattern  : URL ã«å«ã¾ã‚Œã‚‹æ–‡å­—åˆ—ï¼ˆå‰æ–¹ä¸€è‡´ã§ã¯ãªã Containsï¼‰
-'   statusCode  : HTTP ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚³ãƒ¼ãƒ‰ (ä¾‹: 200, 404)
-'   body        : ãƒ¬ã‚¹ãƒãƒ³ã‚¹ãƒœãƒ‡ã‚£æ–‡å­—åˆ—
-'   contentType : Content-Type (ä¾‹: "application/json", "text/html")
+' w’èURLƒpƒ^[ƒ“‚Ö‚Ì’ÊM‚ğ‹UƒŒƒXƒ|ƒ“ƒX‚Å·‚µ‘Ö‚¦‚é
+'   urlPattern  : URL ‚ÉŠÜ‚Ü‚ê‚é•¶š—ñi‘O•ûˆê’v‚Å‚Í‚È‚­ Containsj
+'   statusCode  : HTTP ƒXƒe[ƒ^ƒXƒR[ƒh (—á: 200, 404)
+'   body        : ƒŒƒXƒ|ƒ“ƒXƒ{ƒfƒB•¶š—ñ
+'   contentType : Content-Type (—á: "application/json", "text/html")
 '-----------------------------------------------------------
 Public Sub AddMockResponse(urlPattern As String, StatusCode As Long, Body As String, Optional ContentType As String = "application/json")
     Const FromProcedureName As String = ThisClassName & ".AddMockResponse"
@@ -278,62 +287,46 @@ Public Sub AddMockResponse(urlPattern As String, StatusCode As Long, Body As Str
     js = "(function(){"
     js = js & "window.__vbaMockResponses=window.__vbaMockResponses||[];"
     js = js & "window.__vbaMockResponses.push({"
-    js = js & "urlPattern:" & JsonEscape_(urlPattern) & ","
+    js = js & "urlPattern:" & JsStr_(urlPattern) & ","
     js = js & "statusCode:" & StatusCode & ","
-    js = js & "body:" & JsonEscape_(Body) & ","
-    js = js & "contentType:" & JsonEscape_(ContentType)
-    js = js & "});"
-    js = js & "return true;"
-    js = js & "})();"
+    js = js & "body:" & JsStr_(Body) & ","
+    js = js & "contentType:" & JsStr_(ContentType)
+    js = js & "});return true;})();"
     ex_CDPBrowser.jsEval js
-    printMsg Debug_, "<NetworkInterceptor> ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹è¿½åŠ : [" & StatusCode & "] " & urlPattern, FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> Mock added: [" & StatusCode & "] " & urlPattern, FromProcedureName
 End Sub
 
-' ã™ã¹ã¦ã®ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹
+' ‚·‚×‚Ä‚Ìƒ‚ƒbƒNƒŒƒXƒ|ƒ“ƒX‚ğƒNƒŠƒA‚·‚é
 Public Sub ClearMockResponses()
     Const FromProcedureName As String = ThisClassName & ".ClearMockResponses"
 
 
-    ex_CDPBrowser.jsEval "(function(){ window.__vbaMockResponses=[]; return true; })();"
-    printMsg Debug_, "<NetworkInterceptor> ãƒ¢ãƒƒã‚¯ãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’ã™ã¹ã¦ã‚¯ãƒªã‚¢ã—ã¾ã—ãŸã€‚", FromProcedureName
+    ex_CDPBrowser.jsEval "(function(){window.__vbaMockResponses=[];return true;})();"
+    printMsg Debug_, "<NetworkInterceptor> Mock responses cleared.", FromProcedureName
 End Sub
 
-' fetch / XHR ãƒ•ãƒƒã‚¯ä¸¡æ–¹ã‚’å®Œå…¨ã«å–ã‚Šé™¤ãï¼ˆãƒšãƒ¼ã‚¸ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥å‰å¾Œã§ã‚‚å‘¼ã¹ã‚‹ï¼‰
+' fetch / XHR ƒtƒbƒN—¼•û‚ğŠ®‘S‚Éæ‚èœ‚­iƒy[ƒWƒŠƒtƒŒƒbƒVƒ…‘OŒã‚Å‚àŒÄ‚×‚éj
 Public Sub DisableInterceptor()
     Const FromProcedureName As String = ThisClassName & ".DisableInterceptor"
 
 
     Dim js As String
-    js = "(function(){"
-    js = js & "try{"
-    js = js & "if(window.__vbaOriginalFetch){"
-    js = js & "window.fetch=window.__vbaOriginalFetch;"
-    js = js & "window.__vbaOriginalFetch=null;"
-    js = js & "}"
-    js = js & "if(window.__vbaOriginalXHROpen){"
-    js = js & "XMLHttpRequest.prototype.open=window.__vbaOriginalXHROpen;"
-    js = js & "window.__vbaOriginalXHROpen=null;"
-    js = js & "}"
-    js = js & "if(window.__vbaOriginalXHRSend){"
-    js = js & "XMLHttpRequest.prototype.send=window.__vbaOriginalXHRSend;"
-    js = js & "window.__vbaOriginalXHRSend=null;"
-    js = js & "}"
-    js = js & "window.__vbaBlockedURLPatterns=[];"
-    js = js & "window.__vbaMockResponses=[];"
+    js = "(function(){try{"
+    js = js & "if(window.__vbaOriginalFetch){window.fetch=window.__vbaOriginalFetch;window.__vbaOriginalFetch=null;}"
+    js = js & "if(window.__vbaOriginalXHROpen){XMLHttpRequest.prototype.open=window.__vbaOriginalXHROpen;window.__vbaOriginalXHROpen=null;}"
+    js = js & "if(window.__vbaOriginalXHRSend){XMLHttpRequest.prototype.send=window.__vbaOriginalXHRSend;window.__vbaOriginalXHRSend=null;}"
+    js = js & "window.__vbaBlockedURLPatterns=[];window.__vbaMockResponses=[];"
     js = js & "window.__vbaNetworkInterceptionInstalled=false;"
-    js = js & "return true;"
-    js = js & "}catch(e){return false;}"
-    js = js & "})();"
+    js = js & "return true;}catch(e){return false;}})();"
     ex_CDPBrowser.jsEval js
-    printMsg Debug_, "<NetworkInterceptor> fetch/XHR ãƒ•ãƒƒã‚¯ã‚’å–ã‚Šé™¤ãã¾ã—ãŸã€‚", FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> Interceptor disabled.", FromProcedureName
 End Sub
 
-
 ' =========================================================
-' ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£
+' Private: JS ƒtƒbƒNƒCƒ“ƒXƒg[ƒ‹
 ' =========================================================
 
-' fetch/XHR ã®ãƒ•ãƒƒã‚¯ã‚³ã‚¢JSã‚’ãƒšãƒ¼ã‚¸ã«ä¸€åº¦ã ã‘ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã™ã‚‹
+' fetch/XHR ‚ÌƒtƒbƒNƒRƒAJS‚ğƒy[ƒW‚Éˆê“x‚¾‚¯ƒCƒ“ƒXƒg[ƒ‹‚·‚é
 Private Sub installInterceptorIfNeeded_()
     Const FromProcedureName As String = ThisClassName & ".installInterceptorIfNeeded_"
 
@@ -342,86 +335,66 @@ Private Sub installInterceptorIfNeeded_()
     js = "(function(){"
     js = js & "if(window.__vbaNetworkInterceptionInstalled){return true;}"
     js = js & "window.__vbaNetworkInterceptionInstalled=true;"
-    js = js & "window.__vbaBlockedURLPatterns=window.__vbaBlockedURLPatterns||[];"
-    js = js & "window.__vbaMockResponses=window.__vbaMockResponses||[];"
+    js = js & "window.__vbaBlockedURLPatterns=[];"
+    js = js & "window.__vbaMockResponses=[];"
 
-    ' â”€â”€ URL ãƒãƒƒãƒãƒ£ãƒ¼ â”€â”€
-    js = js & "window.__vbaMatchUrl=function(url,pat){try{return String(url).indexOf(String(pat))>=0;}catch(e){return false;}};"
-    js = js & "window.__vbaGetMockResponse=function(url){"
-    js = js & "var i,m;"
-    js = js & "for(i=0;i<window.__vbaMockResponses.length;i++){"
-    js = js & "m=window.__vbaMockResponses[i];"
-    js = js & "if(window.__vbaMatchUrl(url,m.urlPattern)){return m;}"
-    js = js & "}return null;};"
-    js = js & "window.__vbaIsBlockedUrl=function(url){"
-    js = js & "var i;"
-    js = js & "for(i=0;i<window.__vbaBlockedURLPatterns.length;i++){"
-    js = js & "if(window.__vbaMatchUrl(url,window.__vbaBlockedURLPatterns[i])){return true;}"
-    js = js & "}return false;};"
-
-    ' â”€â”€ fetch ãƒ•ãƒƒã‚¯ â”€â”€
+    ' „Ÿ„Ÿ URL ƒ}ƒbƒ`ƒƒ[ „Ÿ„Ÿ
+    js = js & "window.__vbaMatchUrl=function(u,p){try{return String(u).indexOf(String(p))>=0;}catch(e){return false;}};"
+    js = js & "window.__vbaGetMock=function(u){for(var i=0;i<window.__vbaMockResponses.length;i++){var m=window.__vbaMockResponses[i];if(window.__vbaMatchUrl(u,m.urlPattern))return m;}return null;};"
+    js = js & "window.__vbaIsBlocked=function(u){for(var i=0;i<window.__vbaBlockedURLPatterns.length;i++){if(window.__vbaMatchUrl(u,window.__vbaBlockedURLPatterns[i]))return true;}return false;};"
+    ' fetch ƒtƒbƒN
     js = js & "if(window.fetch&&!window.__vbaOriginalFetch){"
     js = js & "window.__vbaOriginalFetch=window.fetch.bind(window);"
-    js = js & "window.fetch=function(input,init){"
-    js = js & "var url=(typeof input==='string')?input:((input&&input.url)?input.url:String(input));"
-    js = js & "if(window.__vbaIsBlockedUrl(url)){return Promise.reject(new Error('Blocked by VBA NetworkInterceptor'));}"
-    js = js & "var mock=window.__vbaGetMockResponse(url);"
-    js = js & "if(mock){return Promise.resolve(new Response(mock.body,{status:mock.statusCode,headers:{'Content-Type':mock.contentType}}));}"
-    js = js & "return window.__vbaOriginalFetch(input,init);"
-    js = js & "};"
-    js = js & "}"
-
-    ' â”€â”€ XHR ãƒ•ãƒƒã‚¯ â”€â”€
+    js = js & "window.fetch=function(input,init){var url=(typeof input==='string')?input:((input&&input.url)?input.url:String(input));"
+    js = js & "if(window.__vbaIsBlocked(url))return Promise.reject(new Error('Blocked by VBA'));"
+    js = js & "var mock=window.__vbaGetMock(url);"
+    js = js & "if(mock)return Promise.resolve(new Response(mock.body,{status:mock.statusCode,headers:{'Content-Type':mock.contentType}}));"
+    js = js & "return window.__vbaOriginalFetch(input,init);};}"
+    ' XHR ƒtƒbƒN
     js = js & "if(window.XMLHttpRequest&&!window.__vbaOriginalXHROpen){"
     js = js & "window.__vbaOriginalXHROpen=XMLHttpRequest.prototype.open;"
     js = js & "window.__vbaOriginalXHRSend=XMLHttpRequest.prototype.send;"
-    js = js & "XMLHttpRequest.prototype.open=function(method,url){this.__vbaUrl=url;return window.__vbaOriginalXHROpen.apply(this,arguments);};"
-    js = js & "XMLHttpRequest.prototype.send=function(){"
-    js = js & "var url=this.__vbaUrl||'';"
-    js = js & "if(window.__vbaIsBlockedUrl(url)){throw new Error('Blocked by VBA NetworkInterceptor');}"
-    js = js & "var mock=window.__vbaGetMockResponse(url);"
-    js = js & "if(mock){"
-    js = js & "var xhr=this;"
-    js = js & "Object.defineProperty(xhr,'readyState',{value:4,configurable:true});"
-    js = js & "Object.defineProperty(xhr,'status',{value:mock.statusCode,configurable:true});"
-    js = js & "Object.defineProperty(xhr,'responseText',{value:String(mock.body),configurable:true});"
-    js = js & "Object.defineProperty(xhr,'response',{value:String(mock.body),configurable:true});"
-    js = js & "setTimeout(function(){if(xhr.onreadystatechange){xhr.onreadystatechange();}if(xhr.onload){xhr.onload();}},0);"
-    js = js & "return;"
-    js = js & "}"
-    js = js & "return window.__vbaOriginalXHRSend.apply(this,arguments);"
-    js = js & "};"
-    js = js & "}"
-
-    js = js & "return true;"
-    js = js & "})();"
-
+    js = js & "XMLHttpRequest.prototype.open=function(m,u){this.__vbaUrl=u;return window.__vbaOriginalXHROpen.apply(this,arguments);};"
+    js = js & "XMLHttpRequest.prototype.send=function(){var u=this.__vbaUrl||'';"
+    js = js & "if(window.__vbaIsBlocked(u))throw new Error('Blocked by VBA');"
+    js = js & "var mock=window.__vbaGetMock(u);"
+    js = js & "if(mock){var x=this;"
+    js = js & "Object.defineProperty(x,'readyState',{value:4,configurable:true});"
+    js = js & "Object.defineProperty(x,'status',{value:mock.statusCode,configurable:true});"
+    js = js & "Object.defineProperty(x,'responseText',{value:String(mock.body),configurable:true});"
+    js = js & "Object.defineProperty(x,'response',{value:String(mock.body),configurable:true});"
+    js = js & "setTimeout(function(){if(x.onreadystatechange)x.onreadystatechange();if(x.onload)x.onload();},0);return;}"
+    js = js & "return window.__vbaOriginalXHRSend.apply(this,arguments);};}"
+    js = js & "return true;})();"
     ex_CDPBrowser.jsEval js
-    printMsg Debug_, "<NetworkInterceptor> fetch/XHR ãƒ•ãƒƒã‚¯ã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¾ã—ãŸã€‚", FromProcedureName
+    printMsg Debug_, "<NetworkInterceptor> fetch/XHR hook installed.", FromProcedureName
 End Sub
 
-' æ–‡å­—åˆ—ã‚’ JS ã®æ–‡å­—åˆ—ãƒªãƒ†ãƒ©ãƒ«ã¨ã—ã¦å®‰å…¨ã«ã‚¨ã‚¹ã‚±ãƒ¼ãƒ—ã™ã‚‹
-' â€»å˜ç´”ãªç½®æ›ã®ã¿ã€‚ãƒã‚¤ãƒŠãƒªã‚„ç‰¹æ®Šåˆ¶å¾¡æ–‡å­—ãŒå«ã¾ã‚Œã‚‹å ´åˆã¯è¦æ‹¡å¼µ
-Private Function JsonEscape_(s As String) As String
+' =========================================================
+' Private: ƒ†[ƒeƒBƒŠƒeƒB
+' =========================================================
+' •¶š—ñ‚ğ JS ‚Ì•¶š—ñƒŠƒeƒ‰ƒ‹‚Æ‚µ‚ÄˆÀ‘S‚ÉƒGƒXƒP[ƒv‚·‚é
+' ¦’Pƒ‚È’uŠ·‚Ì‚İBƒoƒCƒiƒŠ‚â“Áê§Œä•¶š‚ªŠÜ‚Ü‚ê‚éê‡‚Í—vŠg’£
+Private Function JsStr_(s As String) As String
     Dim r As String
     r = Replace(s, "\", "\\")
     r = Replace(r, """", "\""")
     r = Replace(r, Chr(13), "\r")
     r = Replace(r, Chr(10), "\n")
     r = Replace(r, Chr(9), "\t")
-    JsonEscape_ = """" & r & """"
+    JsStr_ = """" & r & """"
 End Function
 
-' rawJson ã‹ã‚‰ keyPrefix ã¨ keySuffix ã«æŒŸã¾ã‚ŒãŸå€¤ã‚’ç°¡æ˜“æŠ½å‡ºã™ã‚‹
-Private Function ExtractJsonStr(rawJson As String, keyPrefix As String, keySuffix As String) As String
-    Dim p As Long: p = InStr(rawJson, keyPrefix)
+' rawJson ‚©‚ç keyPrefix ‚Æ keySuffix ‚É‹²‚Ü‚ê‚½’l‚ğŠÈˆÕ’Šo‚·‚é
+Private Function ExtractVal_(src As String, Prefix As String, suffix As String) As String
+    Dim p As Long: p = InStr(src, Prefix)
     If p = 0 Then Exit Function
-    Dim s As Long: s = p + Len(keyPrefix)
-    Dim e As Long: e = InStr(s, rawJson, keySuffix)
-    If e > s Then ExtractJsonStr = Mid(rawJson, s, e - s)
+    Dim s As Long: s = p + Len(Prefix)
+    Dim e As Long: e = InStr(s, src, suffix)
+    If e > s Then ExtractVal_ = Mid(src, s, e - s)
 End Function
 
-' CDPBrowserç›´é€šãƒ©ãƒƒãƒ‘ãƒ¼
+' CDPBrowser’¼’Êƒ‰ƒbƒp[
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
