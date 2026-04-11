@@ -1,45 +1,45 @@
 Attribute VB_Name = "Test_strBuffer"
 '===================================================================================================
-' strBuffer æ–­ç‰‡åŒ–æ¤œè¨¼ãƒ†ã‚¹ãƒˆ
+' strBuffer ’f•Ğ‰»ŒŸØƒeƒXƒg
 '---------------------------------------------------------------------------------------------------
-' ç›®çš„ï¼š
-'   CDPBrowser å†…ã® `strBuffer` ãŒæ­£ã—ãæ©Ÿèƒ½ã—ã¦ã„ã‚‹ã‹ã‚’æ¤œè¨¼ã™ã‚‹ã€‚
-'   ãƒ‘ã‚¤ãƒ—ã‹ã‚‰å—ä¿¡ã—ãŸJSONãŒé€”ä¸­ã§åˆ‡ã‚ŒãŸï¼ˆæ–­ç‰‡åŒ–ã—ãŸï¼‰éš›ã«ã€`strBuffer` ã«è“„ç©ã—ã¦
-'   æ¬¡å›å—ä¿¡åˆ†ã¨çµåˆã—ã€å®Œå…¨ãªJSONã«å¾©å…ƒã§ãã‚‹ã‹ã‚’ç¢ºèªã™ã‚‹ã€‚
+' –Ú“IF
+'   CDPBrowser “à‚Ì `strBuffer` ‚ª³‚µ‚­‹@”\‚µ‚Ä‚¢‚é‚©‚ğŒŸØ‚·‚éB
+'   ƒpƒCƒv‚©‚çóM‚µ‚½JSON‚ª“r’†‚ÅØ‚ê‚½i’f•Ğ‰»‚µ‚½jÛ‚ÉA`strBuffer` ‚É’~Ï‚µ‚Ä
+'   Ÿ‰ñóM•ª‚ÆŒ‹‡‚µAŠ®‘S‚ÈJSON‚É•œŒ³‚Å‚«‚é‚©‚ğŠm”F‚·‚éB
 '
-' æ¤œè¨¼ã®ã‚¢ãƒ—ãƒ­ãƒ¼ãƒï¼š
-'   ä»¥ä¸‹ã‚’çµ„ã¿åˆã‚ã›ã‚‹ã“ã¨ã§ã€æ„å›³çš„ã«ãƒ‘ã‚¤ãƒ—ãƒãƒƒãƒ•ã‚¡ã®æ–­ç‰‡åŒ–ã‚’èª˜ç™ºã™ã‚‹ã€‚
-'     â‘  Page.captureScreenshot   â†’ base64ç”»åƒãƒ‡ãƒ¼ã‚¿ã§å¤§é‡ãƒ¬ã‚¹ãƒãƒ³ã‚¹ï¼ˆæœ€æœ‰åŠ›ï¼‰
-'     â‘¡ Network.getAllCookies     â†’ CookieãŒå¤šã„ã‚µã‚¤ãƒˆã§å¤§é‡ãƒ¬ã‚¹ãƒãƒ³ã‚¹
-'     â‘¢ Networkã‚¤ãƒ™ãƒ³ãƒˆã®åŒæ™‚ç™ºç”Ÿ â†’ ãƒšãƒ¼ã‚¸é·ç§»ä¸­ã«è¤‡æ•°ã‚¤ãƒ™ãƒ³ãƒˆãŒã¾ã¨ã‚ã¦åˆ°é”
+' ŒŸØ‚ÌƒAƒvƒ[ƒ`F
+'   ˆÈ‰º‚ğ‘g‚İ‡‚í‚¹‚é‚±‚Æ‚ÅAˆÓ}“I‚ÉƒpƒCƒvƒoƒbƒtƒ@‚Ì’f•Ğ‰»‚ğ—U”­‚·‚éB
+'     ‡@ Page.captureScreenshot   ¨ base64‰æ‘œƒf[ƒ^‚Å‘å—ÊƒŒƒXƒ|ƒ“ƒXiÅ—L—Íj
+'     ‡A Network.getAllCookies     ¨ Cookie‚ª‘½‚¢ƒTƒCƒg‚Å‘å—ÊƒŒƒXƒ|ƒ“ƒX
+'     ‡B NetworkƒCƒxƒ“ƒg‚Ì“¯”­¶ ¨ ƒy[ƒW‘JˆÚ’†‚É•¡”ƒCƒxƒ“ƒg‚ª‚Ü‚Æ‚ß‚Ä“’B
 '
-' ç¢ºèªæ–¹æ³•ï¼š
-'   ã€Œãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®šã€ã‚·ãƒ¼ãƒˆã®ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ã€Œ1: Traceã€ã«è¨­å®šã—ã¦ã‹ã‚‰å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
-'   ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆ ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã«ä»¥ä¸‹ãŒå‡ºã‚Œã°ã€strBuffer ãŒå®Ÿéš›ã«ä½¿ã‚ã‚ŒãŸè¨¼æ‹ ã§ã™ï¼š
-'     â†’ "The Split(N) data is missing JSON data. Accumulate until completion."
-'     â†’ "Before-strBuffer = ..."
-'     â†’ "After-strBuffer = ..."
-'     â†’ "The merge completes the JSON data."
+' Šm”F•û–@F
+'   uƒuƒ‰ƒEƒU‹N“®İ’èvƒV[ƒg‚ÌƒƒOƒŒƒxƒ‹‚ğu1: Tracev‚Éİ’è‚µ‚Ä‚©‚çÀs‚µ‚Ä‚­‚¾‚³‚¢B
+'   ƒCƒ~ƒfƒBƒGƒCƒg ƒEƒBƒ“ƒhƒE‚ÉˆÈ‰º‚ªo‚ê‚ÎAstrBuffer ‚ªÀÛ‚Ég‚í‚ê‚½Ø‹’‚Å‚·F
+'     ¨ "The Split(N) data is missing JSON data. Accumulate until completion."
+'     ¨ "Before-strBuffer = ..."
+'     ¨ "After-strBuffer = ..."
+'     ¨ "The merge completes the JSON data."
 '
-' æ³¨æ„ï¼š
-'   ãƒ»ã“ã®ãƒ†ã‚¹ãƒˆã¯ Test_strBuffer_Main() ã‚’å®Ÿè¡Œã—ã¦ãã ã•ã„
-'   ãƒ»ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã¯ã€Œãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®šã€ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€ŒTrace(1)ã€ã«å¤‰æ›´ã—ã¦ãã ã•ã„
-'   ãƒ»å®Ÿè¡Œå¾Œã€ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆ ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®ãƒ­ã‚°ã‚’ç¢ºèªã—ã¦ãã ã•ã„
+' ’ˆÓF
+'   E‚±‚ÌƒeƒXƒg‚Í Test_strBuffer_Main() ‚ğÀs‚µ‚Ä‚­‚¾‚³‚¢
+'   EƒƒOƒŒƒxƒ‹‚Íuƒuƒ‰ƒEƒU‹N“®İ’èvƒV[ƒg‚©‚çuTrace(1)v‚É•ÏX‚µ‚Ä‚­‚¾‚³‚¢
+'   EÀsŒãAƒCƒ~ƒfƒBƒGƒCƒg ƒEƒBƒ“ƒhƒE‚ÌƒƒO‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢
 '===================================================================================================
 Option Explicit
 
 
 '---------------------------------------------------------------------------------------------------
-' å®šæ•°å®šç¾©
+' ’è”’è‹`
 '---------------------------------------------------------------------------------------------------
 Private Const RESULT_SECTION_LINE   As String = "==============================="
 
-' ã‚­ãƒ£ãƒ—ãƒãƒ£å¯¾è±¡ã¨ã™ã‚‹Networkã‚¤ãƒ™ãƒ³ãƒˆå
+' ƒLƒƒƒvƒ`ƒƒ‘ÎÛ‚Æ‚·‚éNetworkƒCƒxƒ“ƒg–¼
 Private Const EV_REQUEST_SENT      As String = "Network.requestWillBeSent"
 Private Const EV_RESPONSE_RECEIVED As String = "Network.responseReceived"
 Private Const EV_LOADING_FINISHED  As String = "Network.loadingFinished"
 
-' ãƒãƒƒãƒˆã‚µãƒ¼ãƒ•ã‚£ãƒ³å¯¾è±¡URLï¼ˆNetworkã‚¤ãƒ™ãƒ³ãƒˆãŒå¤šãç™ºç”Ÿã—ãã†ãªã‚µã‚¤ãƒˆã‚’é¸æŠï¼‰
+' ƒlƒbƒgƒT[ƒtƒBƒ“‘ÎÛURLiNetworkƒCƒxƒ“ƒg‚ª‘½‚­”­¶‚µ‚»‚¤‚ÈƒTƒCƒg‚ğ‘I‘ğj
 Private Const URL_1 As String = "https://www.google.com"
 Private Const URL_2 As String = "https://www.yahoo.co.jp"
 Private Const URL_3 As String = "https://www.amazon.co.jp"
@@ -48,43 +48,43 @@ Private Const URL_5 As String = "https://twitter.com"
 
 
 '===================================================================================================
-' ãƒ¡ã‚¤ãƒ³ãƒ†ã‚¹ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ï¼ˆã“ã“ã‚’å®Ÿè¡Œã™ã‚‹ï¼‰
+' ƒƒCƒ“ƒeƒXƒgƒvƒƒV[ƒWƒƒi‚±‚±‚ğÀs‚·‚éj
 '===================================================================================================
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šstrBuffer æ–­ç‰‡åŒ–æ¤œè¨¼ãƒ†ã‚¹ãƒˆã®ã‚¨ãƒ³ãƒˆãƒªãƒ¼ãƒã‚¤ãƒ³ãƒˆ
+'* ‹@”\@@FstrBuffer ’f•Ğ‰»ŒŸØƒeƒXƒg‚ÌƒGƒ“ƒgƒŠ[ƒ|ƒCƒ“ƒg
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆãƒ»getAllCookiesãƒ»Networkã‚¤ãƒ™ãƒ³ãƒˆã‚’ãƒ©ãƒ³ãƒ€ãƒ ãªé †åºã§å¤§é‡å®Ÿè¡Œã—ã€
-'            ãƒ‘ã‚¤ãƒ—å—ä¿¡ãƒ‡ãƒ¼ã‚¿ã®æ–­ç‰‡åŒ–ï¼ˆstrBufferè“„ç©ï¼‰ãŒç™ºç”Ÿã™ã‚‹ã‹ã‚’ç¢ºèªã™ã‚‹ãƒ†ã‚¹ãƒˆã§ã™ã€‚
+'* Ú×à–¾FƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒgEgetAllCookiesENetworkƒCƒxƒ“ƒg‚ğƒ‰ƒ“ƒ_ƒ€‚È‡˜‚Å‘å—ÊÀs‚µA
+'            ƒpƒCƒvóMƒf[ƒ^‚Ì’f•Ğ‰»istrBuffer’~Ïj‚ª”­¶‚·‚é‚©‚ğŠm”F‚·‚éƒeƒXƒg‚Å‚·B
 '---------------------------------------------------------------------------------------------------
-'* å®Ÿè¡Œå‰ã«ï¼šã€Œãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•è¨­å®šã€ã‚·ãƒ¼ãƒˆã®ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ Trace(=1) ã«è¨­å®šã—ã¦ãã ã•ã„
+'* Às‘O‚ÉFuƒuƒ‰ƒEƒU‹N“®İ’èvƒV[ƒg‚ÌƒƒOƒŒƒxƒ‹‚ğ Trace(=1) ‚Éİ’è‚µ‚Ä‚­‚¾‚³‚¢
 '***************************************************************************************************
 Sub Test_strBuffer_Main()
 
-    ' â‘  ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•ï¼ˆè¨­å®šã‚·ãƒ¼ãƒˆæº–æ‹ ï¼‰
-    Dim br As CDPBrowser: Set br = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
+    ' ‡@ ƒuƒ‰ƒEƒU‹N“®iİ’èƒV[ƒg€‹’j
+    Dim br As CDPBrowser: Set br = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
 
-    ' â‘¡ çµ±è¨ˆã‚«ã‚¦ãƒ³ã‚¿ã®åˆæœŸåŒ–
-    Dim countSnap        As Long    ' snapPage å®Ÿè¡Œå›æ•°
-    Dim countCookies     As Long    ' getAllCookies å®Ÿè¡Œå›æ•°
-    Dim countNavigation  As Long    ' ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³å›æ•°
+    ' ‡A “ŒvƒJƒEƒ“ƒ^‚Ì‰Šú‰»
+    Dim countSnap        As Long    ' snapPage Às‰ñ”
+    Dim countCookies     As Long    ' getAllCookies Às‰ñ”
+    Dim countNavigation  As Long    ' ƒiƒrƒQ[ƒVƒ‡ƒ“‰ñ”
 
     Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[strBuffer æ–­ç‰‡åŒ–æ¤œè¨¼ãƒ†ã‚¹ãƒˆ] é–‹å§‹"
-    Debug.Print "å®Ÿè¡Œæ™‚åˆ»: " & Format(Now, "yyyy/mm/dd hh:mm:ss")
+    Debug.Print "[strBuffer ’f•Ğ‰»ŒŸØƒeƒXƒg] ŠJn"
+    Debug.Print "Às: " & Format(Now, "yyyy/mm/dd hh:mm:ss")
     Debug.Print RESULT_SECTION_LINE
 
-    ' â‘¢ Networkã‚¤ãƒ™ãƒ³ãƒˆã‚’æœ‰åŠ¹åŒ–ï¼ˆãƒ‘ã‚¤ãƒ—ã«å¤§é‡ã‚¤ãƒ™ãƒ³ãƒˆã‚’æµã™ï¼‰
+    ' ‡B NetworkƒCƒxƒ“ƒg‚ğ—LŒø‰»iƒpƒCƒv‚É‘å—ÊƒCƒxƒ“ƒg‚ğ—¬‚·j
     br.SetFilterEvents = EV_REQUEST_SENT
     br.SetFilterEvents = EV_RESPONSE_RECEIVED
     br.SetFilterEvents = EV_LOADING_FINISHED
-    Set br.BrowserEvents = New Dictionary       'ã‚¤ãƒ™ãƒ³ãƒˆã‚­ãƒ£ãƒ—ãƒãƒ£ã‚’æœ‰åŠ¹åŒ–
+    Set br.BrowserEvents = New Dictionary       'ƒCƒxƒ“ƒgƒLƒƒƒvƒ`ƒƒ‚ğ—LŒø‰»
     br.invokeMethod "Network.enable"
 
 
     '===================================================
-    ' ãƒ•ã‚§ãƒ¼ã‚º1ï¼šãƒ©ãƒ³ãƒ€ãƒ é †ã®CDPã‚³ãƒãƒ³ãƒ‰ + ãƒãƒƒãƒˆã‚µãƒ¼ãƒ•ã‚£ãƒ³
+    ' ƒtƒF[ƒY1Fƒ‰ƒ“ƒ_ƒ€‡‚ÌCDPƒRƒ}ƒ“ƒh + ƒlƒbƒgƒT[ƒtƒBƒ“
     '===================================================
-    Debug.Print "[ãƒ•ã‚§ãƒ¼ã‚º1] ãƒ©ãƒ³ãƒ€ãƒ ãªé †åºã§CDPã‚³ãƒãƒ³ãƒ‰ã‚’å®Ÿè¡Œã—ãªãŒã‚‰ãƒãƒƒãƒˆã‚µãƒ¼ãƒ•ã‚£ãƒ³"
+    Debug.Print "[ƒtƒF[ƒY1] ƒ‰ƒ“ƒ_ƒ€‚È‡˜‚ÅCDPƒRƒ}ƒ“ƒh‚ğÀs‚µ‚È‚ª‚çƒlƒbƒgƒT[ƒtƒBƒ“"
 
     Dim urls(1 To 5) As String
     urls(1) = URL_1
@@ -93,152 +93,152 @@ Sub Test_strBuffer_Main()
     urls(4) = URL_4
     urls(5) = URL_5
 
-    ' ãƒ©ãƒ³ãƒ€ãƒ ã‚·ãƒ¼ãƒ‰ã‚’è¨­å®š
+    ' ƒ‰ƒ“ƒ_ƒ€ƒV[ƒh‚ğİ’è
     Randomize
 
     Dim i As Long
     For i = 1 To 5
-        ' ãƒ©ãƒ³ãƒ€ãƒ ã«æ“ä½œé †ã‚’æ±ºã‚ã‚‹ (1=å…ˆã«ã‚¹ãƒŠãƒƒãƒ—, 2=å…ˆã«Cookie, 3=ã‚¹ãƒŠãƒƒãƒ—å¾ŒCookie)
+        ' ƒ‰ƒ“ƒ_ƒ€‚É‘€ì‡‚ğŒˆ‚ß‚é (1=æ‚ÉƒXƒiƒbƒv, 2=æ‚ÉCookie, 3=ƒXƒiƒbƒvŒãCookie)
         Dim actionOrder As Long: actionOrder = Int(Rnd * 3) + 1
 
-        ' URLé·ç§»ï¼ˆNetworkã‚¤ãƒ™ãƒ³ãƒˆãŒå¤§é‡ç™ºç”Ÿï¼‰
+        ' URL‘JˆÚiNetworkƒCƒxƒ“ƒg‚ª‘å—Ê”­¶j
         Dim targetUrl As String: targetUrl = urls(i)
-        Debug.Print " [" & i & "/" & 5 & "] ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³ â†’ " & targetUrl
+        Debug.Print " [" & i & "/" & 5 & "] ƒiƒrƒQ[ƒVƒ‡ƒ“ ¨ " & targetUrl
         br.navigate targetUrl
         countNavigation = countNavigation + 1
 
-        ' TakeEventsã§ãƒ‘ã‚¤ãƒ—ã‚’ãƒ•ãƒ©ãƒƒã‚·ãƒ¥ï¼ˆã‚¤ãƒ™ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿ã‚’å—ä¿¡ï¼‰
+        ' TakeEvents‚ÅƒpƒCƒv‚ğƒtƒ‰ƒbƒVƒ…iƒCƒxƒ“ƒgƒf[ƒ^‚ğóMj
         br.TakeEvents
 
-        ' actionOrder ã«å¿œã˜ã¦CDPã‚³ãƒãƒ³ãƒ‰ã‚’ãƒ©ãƒ³ãƒ€ãƒ å®Ÿè¡Œ
+        ' actionOrder ‚É‰‚¶‚ÄCDPƒRƒ}ƒ“ƒh‚ğƒ‰ƒ“ƒ_ƒ€Às
         Select Case actionOrder
             Case 1
-                ' ãƒ‘ã‚¿ãƒ¼ãƒ³Aï¼šã‚¹ã‚¯ã‚·ãƒ§ â†’ Cookie â†’ ã‚¹ã‚¯ã‚·ãƒ§
-                Debug.Print "   Order A: ã‚¹ã‚¯ã‚·ãƒ§ â†’ Cookie â†’ ã‚¹ã‚¯ã‚·ãƒ§"
+                ' ƒpƒ^[ƒ“AFƒXƒNƒVƒ‡ ¨ Cookie ¨ ƒXƒNƒVƒ‡
+                Debug.Print "   Order A: ƒXƒNƒVƒ‡ ¨ Cookie ¨ ƒXƒNƒVƒ‡"
                 ExecSnapPage br, i, countSnap
                 ExecGetAllCookies br, i, countCookies
-                ExecSnapPage br, i, countSnap       'é–“é«ªå…¥ã‚Œãšã«2æšç›®ï¼ˆæ–­ç‰‡åŒ–ã—ã‚„ã™ã„ï¼‰
+                ExecSnapPage br, i, countSnap       'ŠÔ”¯“ü‚ê‚¸‚É2–‡–Úi’f•Ğ‰»‚µ‚â‚·‚¢j
 
             Case 2
-                ' ãƒ‘ã‚¿ãƒ¼ãƒ³Bï¼šCookie â†’ ã‚¹ã‚¯ã‚·ãƒ§ â†’ Cookie
-                Debug.Print "   Order B: Cookie â†’ ã‚¹ã‚¯ã‚·ãƒ§ â†’ Cookie"
+                ' ƒpƒ^[ƒ“BFCookie ¨ ƒXƒNƒVƒ‡ ¨ Cookie
+                Debug.Print "   Order B: Cookie ¨ ƒXƒNƒVƒ‡ ¨ Cookie"
                 ExecGetAllCookies br, i, countCookies
                 ExecSnapPage br, i, countSnap
                 ExecGetAllCookies br, i, countCookies
 
             Case 3
-                ' ãƒ‘ã‚¿ãƒ¼ãƒ³Cï¼šã‚¹ã‚¯ã‚·ãƒ§(ãƒ•ãƒ«ãƒšãƒ¼ã‚¸) â†’ Cookie
-                Debug.Print "   Order C: ã‚¹ã‚¯ã‚·ãƒ§(ãƒ•ãƒ«ãƒšãƒ¼ã‚¸) â†’ Cookie"
-                ExecSnapPageFull br, i, countSnap   'ãƒ•ãƒ«ãƒšãƒ¼ã‚¸ã®ã»ã†ãŒãƒ‡ãƒ¼ã‚¿é‡ãŒå¤šã„
+                ' ƒpƒ^[ƒ“CFƒXƒNƒVƒ‡(ƒtƒ‹ƒy[ƒW) ¨ Cookie
+                Debug.Print "   Order C: ƒXƒNƒVƒ‡(ƒtƒ‹ƒy[ƒW) ¨ Cookie"
+                ExecSnapPageFull br, i, countSnap   'ƒtƒ‹ƒy[ƒW‚Ì‚Ù‚¤‚ªƒf[ƒ^—Ê‚ª‘½‚¢
                 ExecGetAllCookies br, i, countCookies
         End Select
 
-        ' å†åº¦TakeEventsã§è¿½åŠ ã‚¤ãƒ™ãƒ³ãƒˆåé›†ï¼ˆã‚¤ãƒ™ãƒ³ãƒˆã®é€£é–ã‚’èµ·ã“ã—ã‚„ã™ãã™ã‚‹ï¼‰
+        ' Ä“xTakeEvents‚Å’Ç‰ÁƒCƒxƒ“ƒgûWiƒCƒxƒ“ƒg‚Ì˜A½‚ğ‹N‚±‚µ‚â‚·‚­‚·‚éj
         br.TakeEvents
     Next i
 
 
     '===================================================
-    ' ãƒ•ã‚§ãƒ¼ã‚º2ï¼šé€£æ‰“ãƒ¢ãƒ¼ãƒ‰ï¼ˆé–“éš”ãªã—ã§å¤§é‡å®Ÿè¡Œï¼‰
+    ' ƒtƒF[ƒY2F˜A‘Åƒ‚[ƒhiŠÔŠu‚È‚µ‚Å‘å—ÊÀsj
     '===================================================
     Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[ãƒ•ã‚§ãƒ¼ã‚º2] é€£æ‰“ãƒ¢ãƒ¼ãƒ‰ï¼ˆé–“éš”ãªã—ã§å¤§é‡CDPã‚³ãƒãƒ³ãƒ‰å®Ÿè¡Œï¼‰"
+    Debug.Print "[ƒtƒF[ƒY2] ˜A‘Åƒ‚[ƒhiŠÔŠu‚È‚µ‚Å‘å—ÊCDPƒRƒ}ƒ“ƒhÀsj"
 
-    ' ã‚‚ã†ä¸€åº¦ãƒãƒƒãƒˆã‚µãƒ¼ãƒ•ã‚£ãƒ³ä¸­ã«é€£ç¶šå®Ÿè¡Œ
+    ' ‚à‚¤ˆê“xƒlƒbƒgƒT[ƒtƒBƒ“’†‚É˜A‘±Às
     Dim j As Long
     For j = 1 To 3
-        ' ãƒ©ãƒ³ãƒ€ãƒ ã«URLã‚’é¸ã‚“ã§ãƒŠãƒ“ã‚²ãƒ¼ãƒˆ
+        ' ƒ‰ƒ“ƒ_ƒ€‚ÉURL‚ğ‘I‚ñ‚ÅƒiƒrƒQ[ƒg
         Dim rndIdx As Long: rndIdx = Int(Rnd * 5) + 1
-        Debug.Print " [é€£æ‰“ " & j & "/3] â†’ " & urls(rndIdx)
+        Debug.Print " [˜A‘Å " & j & "/3] ¨ " & urls(rndIdx)
         br.navigate urls(rndIdx)
         countNavigation = countNavigation + 1
 
-        ' TakeEventsã¯å‘¼ã°ãšã«ï¼ˆãƒãƒƒãƒ•ã‚¡ã‚’ã‚ãˆã¦æºœã‚ã‚‹ï¼‰é€£ç¶šå®Ÿè¡Œ
+        ' TakeEvents‚ÍŒÄ‚Î‚¸‚Éiƒoƒbƒtƒ@‚ğ‚ ‚¦‚Ä—­‚ß‚éj˜A‘±Às
         ExecSnapPage br, j, countSnap
         ExecGetAllCookies br, i, countCookies
-        ExecSnapPageFull br, j, countSnap       'é€£ç¶šã§å…¨ãƒšãƒ¼ã‚¸ã‚­ãƒ£ãƒ—ãƒãƒ£ï¼ˆæœ€ã‚‚ãƒ‡ãƒ¼ã‚¿ãŒå¤šã„ï¼‰
-        ExecGetAllCookies br, j, countCookies   'å†åº¦Cookieï¼ˆé€£æ‰“ï¼‰
+        ExecSnapPageFull br, j, countSnap       '˜A‘±‚Å‘Sƒy[ƒWƒLƒƒƒvƒ`ƒƒiÅ‚àƒf[ƒ^‚ª‘½‚¢j
+        ExecGetAllCookies br, j, countCookies   'Ä“xCookiei˜A‘Åj
 
         br.TakeEvents
     Next j
 
 
     '===================================================
-    ' ãƒ†ã‚¹ãƒˆçµæœã‚µãƒãƒªãƒ¼å‡ºåŠ›
+    ' ƒeƒXƒgŒ‹‰ÊƒTƒ}ƒŠ[o—Í
     '===================================================
     Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[ãƒ†ã‚¹ãƒˆå®Œäº†] å®Ÿè¡Œã‚µãƒãƒªãƒ¼"
-    Debug.Print "  ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³å®Ÿè¡Œå›æ•°      : " & countNavigation
-    Debug.Print "  snapPage å®Ÿè¡Œå›æ•°            : " & countSnap
-    Debug.Print "  getAllCookies å®Ÿè¡Œå›æ•°       : " & countCookies
+    Debug.Print "[ƒeƒXƒgŠ®—¹] ÀsƒTƒ}ƒŠ["
+    Debug.Print "  ƒiƒrƒQ[ƒVƒ‡ƒ“Às‰ñ”      : " & countNavigation
+    Debug.Print "  snapPage Às‰ñ”            : " & countSnap
+    Debug.Print "  getAllCookies Às‰ñ”       : " & countCookies
     Debug.Print ""
-    Debug.Print "ã€ç¢ºèªãƒã‚¤ãƒ³ãƒˆã€‘"
-    Debug.Print "  ãƒ­ã‚°ä¸­ã«ä»¥ä¸‹ãŒå‡ºã‚Œã° strBuffer ãŒå®Ÿéš›ã«æ©Ÿèƒ½ã—ãŸè¨¼æ‹ ã§ã™ï¼š"
-    Debug.Print "  â†’ 'The Split(N) data is missing JSON data. Accumulate until completion.'"
-    Debug.Print "  â†’ 'Before-strBuffer = ...'"
-    Debug.Print "  â†’ 'The merge completes the JSON data.'"
+    Debug.Print "yŠm”Fƒ|ƒCƒ“ƒgz"
+    Debug.Print "  ƒƒO’†‚ÉˆÈ‰º‚ªo‚ê‚Î strBuffer ‚ªÀÛ‚É‹@”\‚µ‚½Ø‹’‚Å‚·F"
+    Debug.Print "  ¨ 'The Split(N) data is missing JSON data. Accumulate until completion.'"
+    Debug.Print "  ¨ 'Before-strBuffer = ...'"
+    Debug.Print "  ¨ 'The merge completes the JSON data.'"
     Debug.Print RESULT_SECTION_LINE
 
-    ' ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
+    ' ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é
     br.quit
 End Sub
 
 
 '===================================================================================================
-' ãƒ˜ãƒ«ãƒ‘ãƒ¼ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ç¾¤
+' ƒwƒ‹ƒp[ƒvƒƒV[ƒWƒƒŒQ
 '===================================================================================================
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆï¼ˆé€šå¸¸ãƒ“ãƒ¥ãƒ¼ï¼‰ã‚’å®Ÿè¡Œã—ã€ã‚«ã‚¦ãƒ³ãƒˆã‚¢ãƒƒãƒ—ã—ã¾ã™
+'* ‹@”\@@FƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒgi’Êíƒrƒ…[j‚ğÀs‚µAƒJƒEƒ“ƒgƒAƒbƒv‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°ã€€ã€€ï¼šbr          CDPBrowserã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-'            Step_       ã‚¹ãƒ†ãƒƒãƒ—ç•ªå·ï¼ˆãƒ­ã‚°è¡¨ç¤ºç”¨ï¼‰
-'            Count       ã‚«ã‚¦ãƒ³ã‚¿å¤‰æ•°ï¼ˆå‚ç…§æ¸¡ã—ã§ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆï¼‰
+'* ˆø”@@Fbr          CDPBrowserƒIƒuƒWƒFƒNƒg
+'            Step_       ƒXƒeƒbƒv”Ô†iƒƒO•\¦—pj
+'            Count       ƒJƒEƒ“ƒ^•Ï”iQÆ“n‚µ‚ÅƒCƒ“ƒNƒŠƒƒ“ƒgj
 '***************************************************************************************************
 Private Sub ExecSnapPage(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
     Dim savePath As String: savePath = Environ("UserProfile") & "\Downloads"
     Dim fileName As String: fileName = "strBuffer_test_step" & Step_ & "_" & Count & ".png"
 
-    Debug.Print "    [snapPage] å®Ÿè¡Œä¸­... â†’ " & fileName
-    br.snapPage savePath, fileName, False   'é€šå¸¸ãƒ“ãƒ¥ãƒ¼ï¼ˆç¾åœ¨è¡¨ç¤ºé ˜åŸŸã®ã¿ï¼‰
+    Debug.Print "    [snapPage] Às’†... ¨ " & fileName
+    br.snapPage savePath, fileName, False   '’Êíƒrƒ…[iŒ»İ•\¦—Ìˆæ‚Ì‚İj
     Count = Count + 1
 End Sub
 
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆï¼ˆãƒ•ãƒ«ãƒšãƒ¼ã‚¸ï¼‰ã‚’å®Ÿè¡Œã—ã€ã‚«ã‚¦ãƒ³ãƒˆã‚¢ãƒƒãƒ—ã—ã¾ã™
+'* ‹@”\@@FƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒgiƒtƒ‹ƒy[ƒWj‚ğÀs‚µAƒJƒEƒ“ƒgƒAƒbƒv‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°ã€€ã€€ï¼šbr          CDPBrowserã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-'            Step_       ã‚¹ãƒ†ãƒƒãƒ—ç•ªå·ï¼ˆãƒ­ã‚°è¡¨ç¤ºç”¨ï¼‰
-'            Count       ã‚«ã‚¦ãƒ³ã‚¿å¤‰æ•°ï¼ˆå‚ç…§æ¸¡ã—ã§ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆï¼‰
+'* ˆø”@@Fbr          CDPBrowserƒIƒuƒWƒFƒNƒg
+'            Step_       ƒXƒeƒbƒv”Ô†iƒƒO•\¦—pj
+'            Count       ƒJƒEƒ“ƒ^•Ï”iQÆ“n‚µ‚ÅƒCƒ“ƒNƒŠƒƒ“ƒgj
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šgetFullPage = True ã«ã™ã‚‹ã¨ãƒšãƒ¼ã‚¸å…¨ä½“ã‚’ã‚­ãƒ£ãƒ—ãƒãƒ£ã™ã‚‹ãŸã‚ã€
-'            base64ãƒ‡ãƒ¼ã‚¿ãŒè†¨å¤§ã«ãªã‚Šã€æ–­ç‰‡åŒ–ã‚’èª˜ç™ºã—ã‚„ã™ã„
+'* Ú×à–¾FgetFullPage = True ‚É‚·‚é‚Æƒy[ƒW‘S‘Ì‚ğƒLƒƒƒvƒ`ƒƒ‚·‚é‚½‚ßA
+'            base64ƒf[ƒ^‚ª–c‘å‚É‚È‚èA’f•Ğ‰»‚ğ—U”­‚µ‚â‚·‚¢
 '***************************************************************************************************
 Private Sub ExecSnapPageFull(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
     Dim savePath As String: savePath = Environ("UserProfile") & "\Downloads"
     Dim fileName As String: fileName = "strBuffer_test_full_step" & Step_ & "_" & Count & ".png"
 
-    Debug.Print "    [snapPage Full] å®Ÿè¡Œä¸­... â†’ " & fileName
-    br.snapPage savePath, fileName, True    'ãƒ•ãƒ«ãƒšãƒ¼ã‚¸ï¼ˆãƒšãƒ¼ã‚¸å…¨ä½“ï¼‰â† ãƒ‡ãƒ¼ã‚¿é‡ãŒæœ€å¤§
+    Debug.Print "    [snapPage Full] Às’†... ¨ " & fileName
+    br.snapPage savePath, fileName, True    'ƒtƒ‹ƒy[ƒWiƒy[ƒW‘S‘Ìj© ƒf[ƒ^—Ê‚ªÅ‘å
     Count = Count + 1
 End Sub
 
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šNetwork.getAllCookies ã‚’å®Ÿè¡Œã—ã€ã‚«ã‚¦ãƒ³ãƒˆã‚¢ãƒƒãƒ—ã—ã¾ã™
+'* ‹@”\@@FNetwork.getAllCookies ‚ğÀs‚µAƒJƒEƒ“ƒgƒAƒbƒv‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°ã€€ã€€ï¼šbr          CDPBrowserã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-'            Step_       ã‚¹ãƒ†ãƒƒãƒ—ç•ªå·ï¼ˆãƒ­ã‚°è¡¨ç¤ºç”¨ï¼‰
-'            Count       ã‚«ã‚¦ãƒ³ã‚¿å¤‰æ•°ï¼ˆå‚ç…§æ¸¡ã—ã§ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆï¼‰
+'* ˆø”@@Fbr          CDPBrowserƒIƒuƒWƒFƒNƒg
+'            Step_       ƒXƒeƒbƒv”Ô†iƒƒO•\¦—pj
+'            Count       ƒJƒEƒ“ƒ^•Ï”iQÆ“n‚µ‚ÅƒCƒ“ƒNƒŠƒƒ“ƒgj
 '***************************************************************************************************
 Private Sub ExecGetAllCookies(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
-    Debug.Print "    [getAllCookies] å®Ÿè¡Œä¸­..."
+    Debug.Print "    [getAllCookies] Às’†..."
     Dim result As Dictionary: Set result = br.invokeMethod("Network.getAllCookies")
 
     If Not result Is Nothing Then
         If result.Exists("cookies") Then
-            Debug.Print "    [getAllCookies] å–å¾—ä»¶æ•°: " & result("cookies").Count & " ä»¶"
+            Debug.Print "    [getAllCookies] æ“¾Œ”: " & result("cookies").Count & " Œ"
         End If
     End If
 
