@@ -76,18 +76,20 @@ Sub Demo_PDFPrinter_02_パラメーター指定()
     '3. パラメーター指定PDF保存
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
     Dim savedPath As String
+    
+    'PaperWidth:=11.69　→　A4横
     savedPath = pdf.PrintToPDF( _
-        FolderPath      := outDir, _
-        FileBaseName    := "demo_landscape", _
-        PrintBackground := False, _
-        Landscape       := True, _
-        PaperWidth      := 11.69, _   'A4横
-        PaperHeight     := 8.27, _
-        Scale           := 0.8, _
-        MarginTop       := 0.5, _
-        MarginBottom    := 0.5, _
-        MarginLeft      := 0.5, _
-        MarginRight     := 0.5 _
+        FolderPath:=outDir, _
+        FileBaseName:="demo_landscape", _
+        PrintBackground:=False, _
+        Landscape:=True, _
+        PaperWidth:=11.69, _
+        PaperHeight:=8.27, _
+        Scale_:=0.8, _
+        MarginTop:=0.5, _
+        MarginBottom:=0.5, _
+        MarginLeft:=0.5, _
+        MarginRight:=0.5 _
     )
 
     '4. 結果確認
