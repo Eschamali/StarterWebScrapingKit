@@ -38,7 +38,7 @@ Sub Demo_FileChooser_01_静的inputへ注入()
 
     '--- 設定 ---
     Dim txtFile As String
-    txtFile = WORKSPACE_PATH & "\Extensions\CDP\File Chooser\sample.txt"
+    txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample.txt"
 
     '--- テキストファイルがなければサンプル作成 ---
     If Dir(txtFile) = "" Then
@@ -77,8 +77,8 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     End If
 
     '--- 7. ファイル内容を読み取ってブラウザに表示（どーん！） ---
-    Dim content As String: content = ReadTextFile(txtFile)
-    Call ShowResultOnPage(browser, txtFile, content)
+    Dim Content As String: Content = ReadTextFile(txtFile)
+    Call ShowResultOnPage(browser, txtFile, Content)
 
     '--- 8. 後片付け ---
     fc.DisableIntercept
@@ -106,7 +106,7 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
 
     '--- 設定 ---
     Dim txtFile As String
-    txtFile = WORKSPACE_PATH & "\Extensions\CDP\File Chooser\sample_dynamic.txt"
+    txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample_dynamic.txt"
 
     '--- テキストファイルがなければサンプル作成 ---
     If Dir(txtFile) = "" Then
@@ -152,8 +152,8 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     End If
 
     '--- 7. ファイル内容を読み取ってブラウザに表示（どーん！） ---
-    Dim content As String: content = ReadTextFile(txtFile)
-    Call ShowResultOnPage(browser, txtFile, content)
+    Dim Content As String: Content = ReadTextFile(txtFile)
+    Call ShowResultOnPage(browser, txtFile, Content)
 
     '--- 8. 後片付け ---
     fc.DisableIntercept
@@ -180,7 +180,7 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     Dim files(1 To 3) As String
     Dim i As Integer
     For i = 1 To 3
-        files(i) = WORKSPACE_PATH & "\Extensions\CDP\File Chooser\test_" & i & ".txt"
+        files(i) = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\test_" & i & ".txt"
         If Dir(files(i)) = "" Then
             Open files(i) For Output As #1
             Print #1, "テストファイル " & i & " 番"
@@ -216,8 +216,8 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
         End If
 
         'ブラウザに内容をどーん！と表示
-        Dim content As String: content = ReadTextFile(files(i))
-        Call ShowResultOnPage(browser, files(i), content)
+        Dim Content As String: Content = ReadTextFile(files(i))
+        Call ShowResultOnPage(browser, files(i), Content)
 
         '少し待ってから次へ
         browser.sleep 1.5
@@ -238,9 +238,9 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：テキストファイルをUTF-8で読み取ります
 '***************************************************************************************************
-Private Function ReadTextFile(filePath As String) As String
+Private Function ReadTextFile(FilePath As String) As String
     Dim fso As Object: Set fso = CreateObject("Scripting.FileSystemObject")
-    Dim ts As Object:  Set ts = fso.OpenTextFile(filePath, 1, False, -1)  '-1 = TristateTrue (Unicode/UTF-8)
+    Dim ts As Object:  Set ts = fso.OpenTextFile(FilePath, 1, False, -1)  '-1 = TristateTrue (Unicode/UTF-8)
     ReadTextFile = ts.ReadAll
     ts.Close
 End Function
@@ -249,12 +249,12 @@ End Function
 '* 機能　　：ブラウザのデモHTMLページにファイル内容を「どーん！」と表示します
 '            index.html の showFileContentFromVBA() JS関数を呼び出します
 '***************************************************************************************************
-Private Sub ShowResultOnPage(browser As CDPBrowser, filePath As String, content As String)
+Private Sub ShowResultOnPage(browser As CDPBrowser, FilePath As String, Content As String)
 
-    Dim fileName As String: fileName = Mid(filePath, InStrRev(filePath, "\") + 1)
+    Dim FileName As String: FileName = Mid(FilePath, InStrRev(FilePath, "\") + 1)
 
     'シングルクォートと改行をエスケープしてJSに渡す
-    Dim safeContent As String: safeContent = content
+    Dim safeContent As String: safeContent = Content
     safeContent = Replace(safeContent, "\", "\\")
     safeContent = Replace(safeContent, "'", "\'")
     safeContent = Replace(safeContent, Chr(13) & Chr(10), "\n")
@@ -262,9 +262,9 @@ Private Sub ShowResultOnPage(browser As CDPBrowser, filePath As String, content 
     safeContent = Replace(safeContent, Chr(13), "\n")
 
     Dim js As String
-    js = "window.showFileContentFromVBA('" & fileName & "', '" & safeContent & "')"
+    js = "window.showFileContentFromVBA('" & FileName & "', '" & safeContent & "')"
 
     browser.jsEval js
-    Debug.Print "[ShowResult] Content displayed on page. fileName=" & fileName
+    Debug.Print "[ShowResult] Content displayed on page. fileName=" & FileName
 
 End Sub
