@@ -21,10 +21,10 @@ Attribute VB_Exposed = False
 '    fc.AddFilePath = "C:\data\file1.txt"    ' ← ファイルを事前登録（複数可）
 '    fc.AddFilePath = "C:\data\file2.txt"
 '
-'    fc.EnableIntercept                      ' ← インターセプト有効化
+'    fc.EnableEvents                      ' ← インターセプト有効化/無効化
 '    browser.getElementByID("btn").click     ' ← ダイアログをトリガー
-'    fc.SetFileWait TimeoutSec:=10           ' ← 待機 & 注入（パス不要）
-'    fc.DisableIntercept                     ' ← 後片付け
+'    fc.SetFiles TimeoutSec:=10           ' ← 待機 & 注入（パス不要）
+'    fc.DisableEvents                     ' ← 後片付け
 '---------------------------------------------------------------------------------------------------
 '* 単一ファイルの後方互換 API：
 '    fc.SetFile "C:\data\upload.txt"         ' ← パスを直接渡す旧方式（今も使える）
@@ -60,21 +60,22 @@ Private seeRawSendMsgDbg            As Boolean      'rawJSONをデバッグログに出す
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
 
 'FileChooser イベント受信バッファ
-Private mBackendNodeId              As Long         'fileChooserOpenedで受け取ったbackendNodeId
-Private mMode                       As String       'fileChooserOpenedで受け取ったmode (selectSingle / selectMultiple)
-Private mFileChooserDetected        As Boolean      'イベント受信済みフラグ
+Private Type FileChooserEventBuffer
+    backendNodeId       As Long     'fileChooserOpenedで受け取ったbackendNodeId
+    mode                As String   'fileChooserOpenedで受け取ったmode (selectSingle / selectMultiple)
+    FileChooserDetected As Boolean  'イベント受信済みフラグ
+End Type
+Private FileChooserEvent As FileChooserEventBuffer
 
 '注入ファイルパスのリスト（AddFilePath で積み上げていく）
-Private mFilePaths                  As Collection
+Private mFilePaths  As Collection
 
 
 
 '***************************************************************************************************
 '                               ■■■ 公開プロパティ ■■■
 '***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：注入するファイルパスを1件追加します
+'* 機能　　：注入するファイルパスを1件ずつ追加します
 '---------------------------------------------------------------------------------------------------
 '* 使い方　：
 '    fc.AddFilePath = "C:\data\file1.txt"
@@ -124,21 +125,21 @@ End Property
 '* 機能　　：最後に検出したFileChooserのbackendNodeIdを返します（デバッグ・低レベル用）
 '***************************************************************************************************
 Public Property Get LastBackendNodeId() As Long
-    LastBackendNodeId = mBackendNodeId
+    LastBackendNodeId = FileChooserEvent.backendNodeId
 End Property
 
 '***************************************************************************************************
 '* 機能　　：最後に検出したFileChooserのモードを返します（"selectSingle" or "selectMultiple"）
 '***************************************************************************************************
 Public Property Get LastMode() As String
-    LastMode = mMode
+    LastMode = FileChooserEvent.mode
 End Property
 
 '***************************************************************************************************
 '* 機能　　：FileChooserイベントが受信済みかどうかを返します
 '***************************************************************************************************
 Public Property Get IsDetected() As Boolean
-    IsDetected = mFileChooserDetected
+    IsDetected = FileChooserEvent.FileChooserDetected
 End Property
 
 
@@ -160,32 +161,35 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. 対象のイベント以外は即抜け
+    '2. 各種非同期イベントの処理
     Select Case methodName
         Case "Page.fileChooserOpened"
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
-            '3. JSONをパースしてbackendNodeId と mode を取り出す
+            '3. デバッグログ用に、Jsonパース処理
+            Dim ev As Dictionary: Set ev = mJson.ParseJson(EventRawJson)("params")
             If seeRawSendMsgDbg Then
-                Dim ev As Dictionary: Set ev = mJson.ParseJson(EventRawJson)("params")
                 printMsg Debug_, String(80, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened - detail", FromProcedureName
                 printMsg Debug_, String(80, "="), FromProcedureName
-                printMsg Debug_, "  backendNodeId : " & ev("backendNodeId"), FromProcedureName
+                printMsg Debug_, "  frameId       : " & ev("frameId"), FromProcedureName
                 printMsg Debug_, "  mode          : " & ev("mode"), FromProcedureName
+                printMsg Debug_, "  backendNodeId : " & ev("backendNodeId"), FromProcedureName
                 printMsg Debug_, String(80, "="), FromProcedureName
             End If
 
-            Dim params As Dictionary: Set params = mJson.ParseJson(EventRawJson)("params")
-            mBackendNodeId = CLng(params("backendNodeId"))
-            mMode = CStr(params("mode"))
-            mFileChooserDetected = True
+            '4. JSONをパースしてbackendNodeId と mode を取り出す
+            FileChooserEvent.backendNodeId = CLng(ev("backendNodeId"))
+            FileChooserEvent.mode = CStr(ev("mode"))
 
-            printMsg info_, "FileChooser detected. backendNodeId=" & mBackendNodeId & " mode=" & mMode, FromProcedureName
+            '5. 「ファイルダイアログが開いたよ！」というフラグを立てる
+            FileChooserEvent.FileChooserDetected = True
+
+            printMsg info_, "FileChooser detected. backendNodeId=" & FileChooserEvent.backendNodeId & " mode=" & FileChooserEvent.mode, FromProcedureName
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
-            Exit Sub
+
     End Select
 
 End Sub
@@ -271,10 +275,10 @@ Public Function SetFileWait(Optional TimeoutSec As Long = 10) As Boolean
                   & "(files: " & mFilePaths.Count & ", timeout: " & TimeoutSec & "s)", FromProcedureName
 
     '登録済みパスをデバッグログに出力
-    Dim i As Long
-    For i = 1 To mFilePaths.Count
-        printMsg Debug_, "  [" & i & "] " & mFilePaths(i), FromProcedureName
-    Next i
+        Dim i As Long
+        For i = 1 To mFilePaths.Count
+            printMsg Debug_, "  [" & i & "] " & mFilePaths(i), FromProcedureName
+        Next i
 
     '--- 内部の共通注入処理へ ---
     SetFileWait = WaitAndInject(mFilePaths, TimeoutSec, FromProcedureName)
@@ -326,14 +330,16 @@ Public Sub ClearFilePaths()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：イベント検出状態をリセットします（EnableIntercept / SetFileWait の後に自動呼び出し）
+'* 機能　　：イベント検出状態をリセットします（EnableEvents=true / SetFileWait の後に自動呼び出し）
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：ファイルパスリスト（mFilePaths）はクリアしません
+'* 注意事項：ファイルパスリスト（mFilePaths）はクリアしません
 '***************************************************************************************************
 Public Sub ResetState()
-    mBackendNodeId       = 0
-    mMode                = ""
-    mFileChooserDetected = False
+    With FileChooserEvent
+        .backendNodeId = -1
+        .mode = vbNullString
+        .FileChooserDetected = False
+    End With
 End Sub
 
 
@@ -341,27 +347,27 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 内部処理 ■■■
 '***************************************************************************************************
-
-'***************************************************************************************************
 '* 機能　　：fileChooserOpened を待ってファイルを注入する共通処理
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：filesCol       注入するファイルパスの Collection
 '            TimeoutSec     タイムアウト秒数
 '            CallerName     ログのトレース用プロシージャ名
 '***************************************************************************************************
-Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long, CallerName As String) As Boolean
+Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitAndInject"
+
 
     '--- ① fileChooserOpened イベントが来るまでポーリング ---
     Dim t As Double: t = Timer
     Do
-        ex_CDPBrowser.TakeEvents    'パイプから非同期イベントを吸い上げる
+        ex_CDPBrowser.TakeEvents    'パイプから非同期イベントを吸い上げる。これにより上部にある`ex_CDPBrowser_detectionCDPEvent`が呼ばれ、`.FileChooserEvent`に値が入る
         DoEvents
 
-        If mFileChooserDetected Then Exit Do
+        If FileChooserEvent.FileChooserDetected Then Exit Do
 
         If (Timer - t) > TimeoutSec Then
             printMsg WARN_, "Timed out waiting for Page.fileChooserOpened. " _
-                          & "Make sure the browser is in the foreground.", CallerName
+                          & "Make sure the browser is in the foreground.", FromProcedureName
             WaitAndInject = False
             Exit Function
         End If
@@ -369,21 +375,21 @@ Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long, Calle
         ex_CDPBrowser.sleep 0.1    'CPU節約
     Loop
     printMsg Debug_, "fileChooserOpened received in " & Format(Timer - t, "0.0") & "s. " _
-                   & "backendNodeId=" & mBackendNodeId & " mode=" & mMode, CallerName
+                   & "backendNodeId=" & FileChooserEvent.backendNodeId & " mode=" & FileChooserEvent.mode, FromProcedureName
 
     '--- ② backendNodeId 経由でファイルを注入 ---
     'filesCol を Collection のまま渡すと WebJsonConverter が JSON配列 ["path1","path2",...] にシリアライズ
     Dim injectParams As New Scripting.Dictionary
-    injectParams.Add "backendNodeId", mBackendNodeId
+    injectParams.Add "backendNodeId", FileChooserEvent.backendNodeId
     injectParams.Add "files", filesCol
 
     Dim injectResult As Scripting.Dictionary
     Set injectResult = invokeMethod("DOM.setFileInputFiles", injectParams)
-    printMsg Trace_, "DOM.setFileInputFiles sent. files=" & filesCol.Count & " backendNodeId=" & mBackendNodeId, CallerName
+    printMsg Trace_, "DOM.setFileInputFiles sent. files=" & filesCol.Count & " backendNodeId=" & FileChooserEvent.backendNodeId, FromProcedureName
 
     '--- ③ 後片付け ---
     ResetState
-    printMsg info_, "File injection completed. " & filesCol.Count & " file(s) injected.", CallerName
+    printMsg info_, "File injection completed. " & filesCol.Count & " file(s) injected.", FromProcedureName
     WaitAndInject = True
 
 End Function
@@ -453,6 +459,7 @@ Private Sub Class_Terminate()
     'インターセプトが残っているまま消えると以降のファイル選択が全部ブロックされるため解除
     On Error Resume Next
     DisableIntercept
+    ex_CDPBrowser.pageEnable False
     printMsg Debug_, "FileChooser intercept auto-disabled on class termination.", FromProcedureName
 
 End Sub
