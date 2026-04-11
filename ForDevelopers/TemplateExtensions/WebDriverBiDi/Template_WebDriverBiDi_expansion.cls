@@ -64,8 +64,7 @@ Private Sub ex_WebDriverBiDi_detectionBiDiEvent(methodName As String, EventRawJs
         Exit Sub
     End If
 
-    '2. 対象のイベント以外も即抜け
-    '処理したい対象の非同期イベント名を、各Case に記述してください。
+    '2. 処理したい対象の非同期イベント名を、各Case に記述してください。
     Select Case methodName
         Case "○○.△△"
             '3. ↓ここから、あなたの非同期Aの処理イメージをコードに落とし込む↓
@@ -80,7 +79,10 @@ Private Sub ex_WebDriverBiDi_detectionBiDiEvent(methodName As String, EventRawJs
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
             Exit Sub
+
     End Select
+
+    '基本的には、`Case`内完結が望ましいですが、必要に応じて、下準備や後始末要因で、非同期イベントの処理前後であっても、コードを記述していただいて構いません。
 
 End Sub
 
@@ -92,7 +94,7 @@ End Sub
 '* 機能　　：メインとなる機能拡張部分の1つです。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
 Public Sub Main01(hoge1 As String, hoge2 As String)
-    Const FromProcedureName As String = ThisClassName & ".Main01"	'Logのトレース用に、プロシージャ名を定数で用意しておくと便利です
+    Const FromProcedureName As String = ThisClassName & ".Main01"   'Logのトレース用に、プロシージャ名を定数で用意しておくと便利です
 
 
     '↓ここから、独自の機能拡張処理イメージをコードに落とし込む↓
@@ -104,23 +106,32 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser`直通メソッド ■■■
+'                           ■■■ `WebDriverBiDi`直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：メインの`WebDriverBiDiCore`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくことをお勧めします
+'* 注意事項：・メインの`WebDriverBiDiCore`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくことをお勧めします
+'            ・各詳細は、`WebDriverBiDi`の方をご覧ください
 '***************************************************************************************************
+'負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_WebDriverBiDi.sleep seconds
 End Sub
 
+'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_WebDriverBiDi.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
+'BiDi実行に必要です
 Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
     Set invokeMethod = ex_WebDriverBiDi.invokeMethod(methodName, params, StopError)
 End Function
+
+'非同期イベント発火(RaiseEvent)に必要です
+Private Sub TakeEvents(Optional destruction As Boolean)
+    ex_WebDriverBiDi.TakeEvents destruction
+End Sub
 
 
 
