@@ -5,7 +5,7 @@ Attribute VB_Name = "Demo_FileChooser"
 '* 機能　　：`CDPexpansion_FileChooser.cls` を使ったFileChooserインターセプトのサンプルコードです
 '---------------------------------------------------------------------------------------------------
 '* 対応拡張：Extensions\CDP\File Chooser\CDPexpansion_FileChooser.cls
-'* テストHTML：ForDevelopers\OperationCheck\CDP\TestHtml\Test_FileChooser\index.html
+'* テストHTML：Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：
 '   ・実行前に「CDPexpansion_FileChooser.cls」をVBAプロジェクトに取り込んでください
@@ -51,7 +51,7 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     End If
 
     '--- 1. テストHTMLをブラウザで開く ---
-    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_FileChooser\index.html"
+    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
 
     '--- 2. ブラウザを前面表示（fileChooserOpened 発火に必要） ---
@@ -126,7 +126,7 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     End If
 
     '--- 1. テストHTMLをブラウザで開く ---
-    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_FileChooser\index.html"
+    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
 
     '--- 2. ブラウザを前面表示（fileChooserOpened 発火に必要） ---
@@ -190,7 +190,7 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     Next i
 
     '--- ブラウザ起動 ---
-    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_FileChooser\index.html"
+    Dim htmlPath As String: htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
     browser.show
 

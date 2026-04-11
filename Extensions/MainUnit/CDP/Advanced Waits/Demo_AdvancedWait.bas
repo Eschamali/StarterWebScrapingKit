@@ -16,7 +16,7 @@ Public Sub Demo_AdvancedWait()
     Dim startTime As Double
     Dim htmlPath As String
     
-    htmlPath = "file:///" & WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_AdvancedWait\TestHtml.html"
+    htmlPath = "file:///" & WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_AdvancedWait\TestHtml.html"
     
     ' ブラウザの起動
     Set br = 設定シートからのCDP起動(htmlPath)
