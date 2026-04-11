@@ -482,7 +482,7 @@ Sub demoReattachmentPart2()
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiCore
     Dim ResultReattach As Boolean
-    ResultReattach = Reattachment.reattach(UserName, ReBoot:=False) '`BiDi-CDP Mapper`タブを閉じちゃった場合は、`ReBoot:=True`にしてください
+    ResultReattach = Reattachment.reattach(UserName)
 
     If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 

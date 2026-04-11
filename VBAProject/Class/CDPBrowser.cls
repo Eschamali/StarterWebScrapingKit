@@ -1704,7 +1704,7 @@ End Sub
 '            　・newTab
 '            　・getTab
 '
-'            ・非同期イベント情報を購読中の場合(例：Runtime.addBinding)は、`refreshSessionID:=False`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
+'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=False`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
 '***************************************************************************************************
 Public Function reattach(userProfile As String, Optional refreshSessionID As Boolean = True) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
@@ -2102,7 +2102,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
     Dim intRes As Long
     Dim strRes As String
-    printMsg Debug_, "Starts retrieving data from the pipe...", FromProcedureName
+    printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
     Do
@@ -2139,7 +2139,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
         End If
     Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
 
-    printMsg Debug_, "Finished getting data from the pipe.", FromProcedureName
+    printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
 End Sub
 
 

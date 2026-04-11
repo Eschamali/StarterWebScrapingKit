@@ -227,23 +227,18 @@ End Sub
 '* 返り値　：成功可否論理値
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'            ReBoot                     True :新しいSessionIDとしての`BiDi-CDP Mapper`に再接続します。
-'                                       False:稼働中の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
-'* 注意事項：・ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
-'            ・`BiDi-CDP Mapper`を落としてしまった場合は、`ReBoot:=True`にて復活可能です。それ以外の場合は、`ReBoot:=False`(省略)のままにしてください。
-'              `BiDi-CDP Mapper`が稼働中なのに`ReBoot:=True`にすると、`SessionID`の食い違いにより機能不全になるため、ご注意ください
+'* 注意事項：ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional ReBoot As Boolean) As Boolean
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     '1. CDPタブセッションに再接続
-    '※イベント購読中(Runtime.addBinding)につき基本は、旧SessionIDのままで、再接続します
     Set m_CDPBrowser = New CDPBrowser
     Dim ResultConnectionCDP As Boolean
-    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile, ReBoot)
+    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
 
     'CDPタブセッション有無に応じた分岐
     If ResultConnectionCDP Then
@@ -261,8 +256,10 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
             '`BiDi-CDP Mapper`の起動状況に応じた分岐
             If isMapperRunning Then
-                '4. `BiDi-CDP Mapper`が生きてるので、特に何もせず、続行
-                printMsg Debug_, "`BiDi-CDP Mapper` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+                '4. `BiDi-CDP Mapper`は生きてるので、再バイディングを行う
+                printMsg Debug_, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
+                Call BiDiResponseBiding
+
             Else
                 '4. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
                 printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
@@ -313,7 +310,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 End Function
 
 '***************************************************************************************************
-'* 機能　　：新規タブにて、BiDi-CDP Mapperを始動させます
+'* 機能　　：新規タブにて、`BiDi-CDP Mapper`を始動させます
 '* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`CDPBrowser`を`New`してからご利用ください
@@ -336,26 +333,45 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         paramsCDP.Add "inheritPermissions", True
         .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not ReConnect   '再接続モードの場合は、エラー無視
 
-        '3. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
-        paramsCDP.RemoveAll
+        '3. JSからVBAへ返す経路を設定
+        Call BiDiResponseBiding
+
+        '4. パースしたJavaScriptをブラウザ上で実行
+        .jsEval Take_mapperTabJSstring
+
+        '5. ブートストラップ（初期化）JSの実行
+        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
+    End With
+
+    printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：BiDiからの結果やデバッグログを受け取るためのマッピング処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`CDPBrowser`を`New`してからご利用ください
+'            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
+'            ・SessionIDが変わるたびにこれを行わないと、`BiDi-CDP Mapper`は生きてるのに、コマンドのやり取りが出来ない問題が起こります
+'***************************************************************************************************
+Private Sub BiDiResponseBiding()
+    Const FromProcedureName As String = ThisClassName & ".BiDiResponseBiding"
+
+
+    Dim paramsCDP As New Dictionary
+    With m_CDPBrowser
+        '1. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.Add "name", BiDiResMain
         .invokeMethod "Runtime.addBinding", paramsCDP
 
-        '4. JSからVBAへ、Mapper側で発生したログ（状況説明、警告、エラー寄り情報）を返す経路を設定
+        '2. JSからVBAへ、Mapper側で発生したログ（状況説明、警告、エラー寄り情報）を返す経路を設定
         If currentDebug.DiagnosticLog Then
             paramsCDP.RemoveAll
             paramsCDP.Add "name", BiDiResDebug
             .invokeMethod "Runtime.addBinding", paramsCDP
         End If
-
-        '5. パースしたJavaScriptをブラウザ上で実行
-        .jsEval Take_mapperTabJSstring
-
-        '6. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
-        printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
     End With
 
+    printMsg Debug_, "I have configured the route to receive from `BiDi-CDP Mapper`.", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -390,6 +406,10 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
 End Sub
 
+
+
+'***************************************************************************************************
+'                           ■■■ BiDi-sessionコマンド関連 ■■■
 '***************************************************************************************************
 '* 機能　　：BiDiコマンド、`session.new`を実行します
 '---------------------------------------------------------------------------------------------------
