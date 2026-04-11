@@ -1,179 +1,161 @@
 Attribute VB_Name = "Demo_FileChooser"
 '***************************************************************************************************
-'       CDPexpansion_FileChooser æ‹¡å¼µ - ãƒ‡ãƒ¢ & å‹•ä½œç¢ºèª ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«
+'       CDPexpansion_FileChooser Šg’£ - ƒfƒ‚ & “®ìŠm”F ƒ‚ƒWƒ…[ƒ‹
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼š`CDPexpansion_FileChooser.cls` ã‚’ä½¿ã£ãŸFileChooserã‚¤ãƒ³ã‚¿ãƒ¼ã‚»ãƒ—ãƒˆã®ã‚µãƒ³ãƒ—ãƒ«ã‚³ãƒ¼ãƒ‰ã§ã™
+'* ‹@”\@@F`CDPexpansion_FileChooser.cls` ‚ğg‚Á‚½FileChooserƒCƒ“ƒ^[ƒZƒvƒg‚ÌƒTƒ“ƒvƒ‹ƒR[ƒh‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* å¯¾å¿œæ‹¡å¼µï¼šExtensions\MainUnit\CDP\File Chooser\CDPexpansion_FileChooser.cls
-'* ãƒ†ã‚¹ãƒˆHTMLï¼šForDevelopers\OperationCheck\CDP\TestHtml\Test_FileChooser\index.html
+'* ‘Î‰Šg’£FExtensions\MainUnit\CDP\File Chooser\CDPexpansion_FileChooser.cls
+'* ƒeƒXƒgHTMLFExtensions\OperationCheck\TestHtml\Test_FileChooser\index.html
 '---------------------------------------------------------------------------------------------------
-'* å‹•ä½œã®ä»•çµ„ã¿ï¼š
-'   â‘  VBA ãŒ FileChooserã‚¤ãƒ³ã‚¿ãƒ¼ã‚»ãƒ—ãƒˆã‚’æœ‰åŠ¹åŒ–
-'   â‘¡ ãƒ–ãƒ©ã‚¦ã‚¶ä¸Šã§ãƒ•ã‚¡ã‚¤ãƒ«é¸æŠã‚’ãƒˆãƒªã‚¬ãƒ¼ï¼ˆclickï¼‰
-'   â‘¢ OS ã®ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ãŒé–‹ãå‰ã« CDP ãŒæ¨ªå–ã‚Š â†’ Page.fileChooserOpened ã‚¤ãƒ™ãƒ³ãƒˆç™ºç«
-'   â‘£ VBA ãŒã€ŒbackendNodeIdã€ã‚’å—ã‘å–ã‚Š DOM.setFileInputFiles ã§ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’æ³¨å…¥
-'   â‘¤ input è¦ç´ ã®ã€Œchangeã€ã‚¤ãƒ™ãƒ³ãƒˆãŒç™ºç«
-'   â‘¥ HTML å´ã® JavaScriptã€ŒFileReaderã€ãŒãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿å–ã‚Šã€ãƒšãƒ¼ã‚¸ã«è¡¨ç¤º
-'      â˜… ã“ã“ãŒã€Œã¡ã‚ƒã‚“ã¨ input ã‚¿ã‚°ã‚‰ã—ã„æ©Ÿèƒ½ã€ï¼ VBA ã¯ãƒ•ã‚¡ã‚¤ãƒ«å†…å®¹ã‚’èª­ã¾ãªã„
+'* “®ì‚Ìd‘g‚İF
+'   ‡@ fc.AddFilePath = "path" ‚Åƒtƒ@ƒCƒ‹ƒpƒX‚ğ–‘O“o˜^i•¡”‰Âj
+'   ‡A fc.EnableIntercept ‚ÅƒCƒ“ƒ^[ƒZƒvƒg—LŒø‰»
+'   ‡B ƒuƒ‰ƒEƒUã‚ÅƒNƒŠƒbƒN“™‚ÌƒgƒŠƒK[
+'   ‡C OS ‚Ìƒ_ƒCƒAƒƒO‚ªŠJ‚­‘O‚É CDP ‚ª‰¡æ‚è ¨ Page.fileChooserOpened ƒCƒxƒ“ƒg”­‰Î
+'   ‡D fc.SetFileWait ‚ª backendNodeId ‚ğó‚¯æ‚è DOM.setFileInputFiles ‚Å’“ü
+'   ‡E input ‚Ì change ƒCƒxƒ“ƒg”­‰Î ¨ JS ‚Ì FileReader ‚ªƒtƒ@ƒCƒ‹‚ğ“Ç‚ñ‚Åƒy[ƒW‚É•\¦
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼š
-'   ãƒ»ã€ŒPage.fileChooserOpenedã€ã¯ãƒ–ãƒ©ã‚¦ã‚¶ãŒå‰é¢ã«ã‚ã‚‹çŠ¶æ…‹ã§ãªã„ã¨ç™ºç«ã—ã¾ã›ã‚“
-'   ãƒ»ãƒ–ãƒ©ã‚¦ã‚¶ã® show ãƒ¡ã‚½ãƒƒãƒ‰ã§å‰é¢è¡¨ç¤ºã—ã¦ã‹ã‚‰ä½¿ç”¨ã—ã¦ãã ã•ã„
+'* ’ˆÓ–€F
+'   EuPage.fileChooserOpenedv‚Íƒuƒ‰ƒEƒU‚ª‘O–Ê‚É‚ ‚éó‘Ô‚Å‚È‚¢‚Æ”­‰Î‚µ‚Ü‚¹‚ñ
+'   EWORKSPACE_PATH ‚ğŠe©‚ÌŠÂ‹«‚É‡‚í‚¹‚Äİ’è‚µ‚Ä‚­‚¾‚³‚¢
 '***************************************************************************************************
 Option Explicit
 
 
 
-'ãƒ¯ãƒ¼ã‚¯ã‚¹ãƒšãƒ¼ã‚¹ãƒ‘ã‚¹
-'â€»StarterWebScrapingKitã®ãƒ«ãƒ¼ãƒˆãƒ•ã‚©ãƒ«ãƒ€ ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„
+'ƒ[ƒNƒXƒy[ƒXƒpƒX
+'¦ StarterWebScrapingKit ‚Ìƒ‹[ƒgƒtƒHƒ‹ƒ_‚ğ“ü—Í‚µ‚Ä‚­‚¾‚³‚¢
 Private Const WORKSPACE_PATH As String = ""
 
 
 
 '***************************************************************************************************
-'                  â– â– â–  Demo 01ï¼šé™çš„ input[type=file] ã¸ã®ãƒ•ã‚¡ã‚¤ãƒ«æ³¨å…¥ â– â– â– 
+'                  ¡¡¡ Demo 01FÃ“I input[type=file] ‚Ö‚Ì’“üiVAPIj ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šHTMLã«æœ€åˆã‹ã‚‰å­˜åœ¨ã™ã‚‹ <input type="file"> ã‚’CDPçµŒç”±ã§æ“ä½œã™ã‚‹ãƒ‡ãƒ¢ã§ã™
+'* ‹@”\@@FAddFilePath + SetFileWait ‚ÌV‚µ‚¢API‚ğg‚Á‚½ƒfƒ‚‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* ãƒ†ã‚¹ãƒˆãƒšãƒ¼ã‚¸ï¼šTest_FileChooser/index.html ã® ZONE A ã‚’ä½¿ã„ã¾ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - ãƒ•ã‚¡ã‚¤ãƒ«é¸æŠãƒ€ã‚¤ã‚¢ãƒ­ã‚°ãŒè¡¨ç¤ºã•ã‚Œãšã«ãƒ•ã‚¡ã‚¤ãƒ«ãŒæ³¨å…¥ã•ã‚Œã‚‹ã“ã¨
-'   - HTML ã® FileReader ãŒ change ã‚¤ãƒ™ãƒ³ãƒˆã‚’å—ã‘å–ã‚Šãƒšãƒ¼ã‚¸ã«ã©ãƒ¼ã‚“ï¼ã¨è¡¨ç¤ºã•ã‚Œã‚‹ã“ã¨
-'   - VBA ã¯ãƒ•ã‚¡ã‚¤ãƒ«å†…å®¹ã‚’ä¸€åˆ‡èª­ã¾ãªã„ã“ã¨ï¼ˆFileReader ãŒå…¨éƒ¨ã‚„ã‚‹ï¼‰
+'* ƒeƒXƒgƒy[ƒWFTest_FileChooser/index.html ‚Ì ZONE A
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - fc.AddFilePath ‚ÅƒpƒX‚ğ“o˜^‚µ‚Ä‚©‚ç fc.SetFileWait ‚ğŒÄ‚Ôƒtƒ[‚ª“®‚­‚±‚Æ
+'   - HTML ‘¤‚Ì FileReader ‚ª change ƒCƒxƒ“ƒgŒo—R‚Åƒtƒ@ƒCƒ‹‚ğ“Ç‚İA•\¦‚³‚ê‚é‚±‚Æ
 '***************************************************************************************************
-Sub Demo_FileChooser_01_é™çš„inputã¸æ³¨å…¥()
+Sub Demo_FileChooser_01_Ã“Iinput‚Ö’“ü()
 
     Dim txtFile As String
     txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample.txt"
 
-    '--- ãƒ†ã‚­ã‚¹ãƒˆãƒ•ã‚¡ã‚¤ãƒ«ãŒãªã‘ã‚Œã°ã‚µãƒ³ãƒ—ãƒ«ä½œæˆ ---
     If Dir(txtFile) = "" Then
         Open txtFile For Output As #1
-        Print #1, "ã“ã‚“ã«ã¡ã¯ï¼ FileChooser Interceptor ã®ãƒ†ã‚¹ãƒˆã§ã™ã€‚"
+        Print #1, "‚±‚ñ‚É‚¿‚ÍI FileChooser Interceptor ‚ÌƒeƒXƒg‚Å‚·B"
         Print #1, ""
-        Print #1, "ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã¯ VBA ã‹ã‚‰æ³¨å…¥ã•ã‚Œã¾ã—ãŸã€‚"
-        Print #1, "ã§ã‚‚å†…å®¹ã‚’èª­ã‚“ã ã®ã¯ VBA ã§ã¯ãªãã€"
-        Print #1, "ãƒ–ãƒ©ã‚¦ã‚¶ã® JavaScript FileReader API ã§ã™ï¼"
+        Print #1, "‚±‚Ìƒtƒ@ƒCƒ‹‚Í VBA ‚ª’“ü‚µ‚Ü‚µ‚½B"
+        Print #1, "‚Å‚àƒtƒ@ƒCƒ‹‚Ì’†g‚ğ“Ç‚ñ‚¾‚Ì‚Í VBA ‚Å‚Í‚È‚­A"
+        Print #1, "ƒuƒ‰ƒEƒU‚Ì JavaScript FileReader API ‚Å‚·I"
         Print #1, ""
-        Print #1, "å®Ÿè¡Œæ™‚åˆ»: " & Now()
+        Print #1, "Às: " & Now()
         Close #1
     End If
 
-    '--- 1. ãƒ†ã‚¹ãƒˆHTMLã‚’ãƒ–ãƒ©ã‚¦ã‚¶ã§é–‹ã ---
+    '--- 1. ƒeƒXƒgHTML‚ğƒuƒ‰ƒEƒU‚ÅŠJ‚­ ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser
-    Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("file:///" & Replace(htmlPath, "\", "/"))
-
-    '--- 2. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’å‰é¢è¡¨ç¤ºï¼ˆfileChooserOpened ç™ºç«ã«å¿…è¦ï¼‰ ---
+    Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("file:///" & Replace(htmlPath, "\", "/"))
     browser.show
 
-    '--- 3. FileChooseræ‹¡å¼µã®åˆæœŸåŒ– ---
+    '--- 2. FileChooserŠg’£‚Ì‰Šú‰» ---
     Dim fc As New CDPexpansion_FileChooser
     fc.Init browser
 
-    '--- 4. ã‚¤ãƒ³ã‚¿ãƒ¼ã‚»ãƒ—ãƒˆã‚’æœ‰åŠ¹åŒ– ---
+    '--- 3. šVAPIFƒtƒ@ƒCƒ‹ƒpƒX‚ğ–‘O“o˜^ ---
+    fc.AddFilePath = txtFile
+    Debug.Print "[Demo01] “o˜^ƒtƒ@ƒCƒ‹”: " & fc.FilePathCount
+
+    '--- 4. ƒCƒ“ƒ^[ƒZƒvƒg‚ğ—LŒø‰» ---
     fc.EnableIntercept
 
-    '--- 5. Zone A ã® file input ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¦ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã‚’ãƒˆãƒªã‚¬ãƒ¼ ---
-    Debug.Print "[Demo01] static-file-input ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™..."
+    '--- 5. ƒtƒ@ƒCƒ‹‘I‘ğ‚ğƒgƒŠƒK[ ---
+    Debug.Print "[Demo01] static-file-input ‚ğƒNƒŠƒbƒN‚µ‚Ü‚·..."
     browser.getElementByID("static-file-input").click
 
-    '--- 6. fileChooserOpened ã‚’å¾…ã¡ã€ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’æ³¨å…¥ ---
-    '        â†’ change ã‚¤ãƒ™ãƒ³ãƒˆç™ºç« â†’ HTMLå´ FileReader ãŒèª­ã¿å–ã‚Š â†’ ãƒšãƒ¼ã‚¸ã«è¡¨ç¤º
-    Dim ok As Boolean: ok = fc.SetFile(txtFile, TimeoutSec:=10)
-
-    If Not ok Then
-        MsgBox "ãƒ•ã‚¡ã‚¤ãƒ«æ³¨å…¥å¤±æ•—ï¼ãƒ–ãƒ©ã‚¦ã‚¶ãŒå‰é¢ã«ã‚ã‚‹ã‹ç¢ºèªã—ã¦ãã ã•ã„ã€‚", vbCritical
+    '--- 6. šVAPIFƒpƒXˆø”‚È‚µA‘Ò‹@ & ’“ü ---
+    If Not fc.SetFileWait(TimeoutSec:=10) Then
+        MsgBox "ƒtƒ@ƒCƒ‹’“ü¸”sIƒuƒ‰ƒEƒU‚ª‘O–Ê‚É‚ ‚é‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢B", vbCritical
         browser.quit
         Exit Sub
     End If
 
-    '--- 7. FileReader ã®èª­ã¿å–ã‚Š & ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³å®Œäº†ã‚’å°‘ã—å¾…ã¤ ---
+    '--- 7. FileReader ‚Ì“Ç‚İæ‚è & ƒAƒjƒ[ƒVƒ‡ƒ“Š®—¹‚ğ‘Ò‚Â ---
     browser.sleep 1
-    Debug.Print "[Demo01] å®Œäº†ï¼FileReader ãŒãƒšãƒ¼ã‚¸ã«ã©ãƒ¼ã‚“ï¼ã¨è¡¨ç¤ºã—ã¦ã„ã‚‹ã¯ãšã§ã™ã€‚"
+    Debug.Print "[Demo01] Š®—¹IFileReader ‚ªƒy[ƒW‚É•\¦‚µ‚Ä‚¢‚Ü‚·B"
 
-    '--- 8. å¾Œç‰‡ä»˜ã‘ ---
+    '--- 8. Œã•Ğ•t‚¯ ---
     fc.DisableIntercept
-
-    'browser.quit  â† ç¢ºèªã—ãŸã„ã®ã§ãã®ã¾ã¾æ®‹ã™
+    'fc.ClearFilePaths  © Ÿ‰ñ‚à“¯‚¶ƒtƒ@ƒCƒ‹‚ğg‚¤ê‡‚Í•s—v
 
 End Sub
 
 
 
 '***************************************************************************************************
-'            â– â– â–  Demo 02ï¼šå‹•çš„ç”Ÿæˆãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã¸ã®ãƒ•ã‚¡ã‚¤ãƒ«æ³¨å…¥ï¼ˆæœ¬å‘½ï¼‰ â– â– â– 
+'            ¡¡¡ Demo 02F“®“I¶¬ƒ_ƒCƒAƒƒO‚Ö‚Ì’“üi–{–½j ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šJSã§ãã®å ´ã§ç”Ÿæˆã•ã‚Œã‚‹ãƒ•ã‚¡ã‚¤ãƒ«é¸æŠãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ³¨å…¥ã™ã‚‹ãƒ‡ãƒ¢ã§ã™
-'            DOM.setFileInputFiles ã§ã¯å¯¾å¿œä¸å¯èƒ½ãªã‚±ãƒ¼ã‚¹ãŒã€ã“ã‚Œã§è§£æ±ºã§ãã¾ã™
-'---------------------------------------------------------------------------------------------------
-'* ãƒ†ã‚¹ãƒˆãƒšãƒ¼ã‚¸ï¼šTest_FileChooser/index.html ã® ZONE B ã‚’ä½¿ã„ã¾ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - DOM ã« file input è¦ç´ ãŒäº‹å‰ã«å­˜åœ¨ã—ãªã„çŠ¶æ…‹ã§ã‚‚æ³¨å…¥ã§ãã‚‹ã“ã¨
-'   - æ³¨å…¥å¾Œã« HTMLå´ FileReader ã® change ã‚¤ãƒ™ãƒ³ãƒˆãŒç™ºç«ã—ã¦ãƒšãƒ¼ã‚¸ã«è¡¨ç¤ºã•ã‚Œã‚‹ã“ã¨
-'   - VBA ã¯ãƒ•ã‚¡ã‚¤ãƒ«å†…å®¹ã‚’ä¸€åˆ‡èª­ã¾ãªã„ã“ã¨ï¼ˆFileReader ãŒå…¨éƒ¨ã‚„ã‚‹ï¼‰
+'* ƒeƒXƒgƒy[ƒWFTest_FileChooser/index.html ‚Ì ZONE B
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - DOM ‚É file input ‚ª–‘O‚É‘¶İ‚µ‚È‚¢ƒP[ƒX‚Å‚à AddFilePath + SetFileWait ‚Å“®‚­‚±‚Æ
 '***************************************************************************************************
-Sub Demo_FileChooser_02_å‹•çš„ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã¸æ³¨å…¥()
+Sub Demo_FileChooser_02_“®“Iƒ_ƒCƒAƒƒO‚Ö’“ü()
 
     Dim txtFile As String
     txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample_dynamic.txt"
 
-    '--- ãƒ†ã‚­ã‚¹ãƒˆãƒ•ã‚¡ã‚¤ãƒ«ãŒãªã‘ã‚Œã°ã‚µãƒ³ãƒ—ãƒ«ä½œæˆ ---
     If Dir(txtFile) = "" Then
         Open txtFile For Output As #1
         Print #1, "=========================================="
-        Print #1, "  FileChooser Interceptor - å‹•çš„æ³¨å…¥ãƒ†ã‚¹ãƒˆ"
+        Print #1, "  FileChooser Interceptor - “®“I’“üƒeƒXƒg"
         Print #1, "=========================================="
         Print #1, ""
-        Print #1, "ã“ã®ãƒ•ã‚¡ã‚¤ãƒ«ã¯JSã§å‹•çš„ã«ç”Ÿæˆã•ã‚ŒãŸãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã¸æ³¨å…¥ã•ã‚Œã¾ã—ãŸã€‚"
+        Print #1, "‚±‚Ìƒtƒ@ƒCƒ‹‚Í JS ‚Å“®“I‚É¶¬‚³‚ê‚½ƒ_ƒCƒAƒƒO‚Ö’“ü‚³‚ê‚Ü‚µ‚½B"
+        Print #1, "DOM.setFileInputFiles ‚Å‚Í‘Î‰‚Å‚«‚È‚¢ƒP[ƒX‚Å‚·I"
         Print #1, ""
-        Print #1, "DOM.setFileInputFiles ã§ã¯å¯¾å¿œã§ããªã„ã‚±ãƒ¼ã‚¹ã§ã™ã€‚"
-        Print #1, ""
-        Print #1, "FileChooser Intercept ãŒæ¨ªå–ã‚Šã—ã¦ã€"
-        Print #1, "DOM.setFileInputFiles ã§æ³¨å…¥ â†’ change ã‚¤ãƒ™ãƒ³ãƒˆç™ºç«"
-        Print #1, "â†’ FileReader ãŒèª­ã‚“ã§ãƒšãƒ¼ã‚¸ã«è¡¨ç¤ºï¼"
-        Print #1, ""
-        Print #1, "å®Ÿè¡Œæ™‚åˆ»: " & Now()
+        Print #1, "Às: " & Now()
         Close #1
     End If
 
-    '--- 1. ãƒ†ã‚¹ãƒˆHTMLã‚’ãƒ–ãƒ©ã‚¦ã‚¶ã§é–‹ã ---
+    '--- 1. ƒeƒXƒgHTML‚ğƒuƒ‰ƒEƒU‚ÅŠJ‚­ ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser
-    Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("file:///" & Replace(htmlPath, "\", "/"))
-
-    '--- 2. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’å‰é¢è¡¨ç¤º ---
+    Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("file:///" & Replace(htmlPath, "\", "/"))
     browser.show
 
-    '--- 3. FileChooseræ‹¡å¼µã®åˆæœŸåŒ– ---
+    '--- 2. FileChooserŠg’£‚Ì‰Šú‰» ---
     Dim fc As New CDPexpansion_FileChooser
     fc.Init browser
 
-    '--- 4. ã‚¤ãƒ³ã‚¿ãƒ¼ã‚»ãƒ—ãƒˆã‚’æœ‰åŠ¹åŒ– ---
+    '--- 3. šVAPIFƒtƒ@ƒCƒ‹ƒpƒX‚ğ–‘O“o˜^ ---
+    fc.AddFilePath = txtFile
+    Debug.Print "[Demo02] “o˜^ƒtƒ@ƒCƒ‹”: " & fc.FilePathCount
+
+    '--- 4. ƒCƒ“ƒ^[ƒZƒvƒg‚ğ—LŒø‰» ---
     fc.EnableIntercept
 
-    '--- 5. Zone B ã®ã€Œå‹•çš„ç”Ÿæˆã€ãƒœã‚¿ãƒ³ã‚’ã‚¯ãƒªãƒƒã‚¯ ---
-    '        JS ãŒ createElement('input') â†’ click() ã‚’å®Ÿè¡Œ
-    Debug.Print "[Demo02] btn-dynamic ã‚’ã‚¯ãƒªãƒƒã‚¯ã—ã¾ã™ï¼ˆå‹•çš„inputãŒç”Ÿæˆã•ã‚Œã¾ã™ï¼‰..."
+    '--- 5. Zone B ‚Ì“®“Iƒ{ƒ^ƒ“‚ğƒNƒŠƒbƒNiJS ‚ª createElement ‚µ‚Ä clickj ---
+    Debug.Print "[Demo02] btn-dynamic ‚ğƒNƒŠƒbƒN‚µ‚Ü‚·..."
     browser.getElementByID("btn-dynamic").click
 
-    '--- 6. fileChooserOpened ã‚’å¾…ã¡ã€ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’æ³¨å…¥ ---
-    '        â†’ change ã‚¤ãƒ™ãƒ³ãƒˆç™ºç« â†’ event delegation ã§æ‹¾ã£ã¦ FileReader èµ·å‹•
-    Dim ok As Boolean: ok = fc.SetFile(txtFile, TimeoutSec:=10)
-
-    If Not ok Then
-        MsgBox "ãƒ•ã‚¡ã‚¤ãƒ«æ³¨å…¥å¤±æ•—ï¼ãƒ–ãƒ©ã‚¦ã‚¶ãŒå‰é¢ã«ã‚ã‚‹ã‹ç¢ºèªã—ã¦ãã ã•ã„ã€‚", vbCritical
+    '--- 6. šVAPIFƒpƒXˆø”‚È‚µA‘Ò‹@ & ’“ü ---
+    If Not fc.SetFileWait(TimeoutSec:=10) Then
+        MsgBox "ƒtƒ@ƒCƒ‹’“ü¸”sIƒuƒ‰ƒEƒU‚ª‘O–Ê‚É‚ ‚é‚©Šm”F‚µ‚Ä‚­‚¾‚³‚¢B", vbCritical
         browser.quit
         Exit Sub
     End If
 
-    '--- 7. FileReader ã®èª­ã¿å–ã‚Š & ã‚¢ãƒ‹ãƒ¡ãƒ¼ã‚·ãƒ§ãƒ³å®Œäº†ã‚’å°‘ã—å¾…ã¤ ---
+    '--- 7. ‘Ò‹@ ---
     browser.sleep 1
-    Debug.Print "[Demo02] å®Œäº†ï¼å‹•çš„inputã¸ã®æ³¨å…¥ & FileReader ã«ã‚ˆã‚‹è¡¨ç¤ºã«æˆåŠŸï¼"
+    Debug.Print "[Demo02] Š®—¹I“®“Iinput‚Ö‚Ì’“ü & FileReader ‚É‚æ‚é•\¦‚É¬Œ÷I"
 
-    '--- 8. å¾Œç‰‡ä»˜ã‘ ---
+    '--- 8. Œã•Ğ•t‚¯ ---
     fc.DisableIntercept
 
 End Sub
@@ -181,17 +163,16 @@ End Sub
 
 
 '***************************************************************************************************
-'                  â– â– â–  Demo 03ï¼šè¤‡æ•°ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é †ç•ªã«æ³¨å…¥ã™ã‚‹ã‚·ãƒŠãƒªã‚ª â– â– â– 
+'            ¡¡¡ Demo 03F•¡”ƒtƒ@ƒCƒ‹‚ğ‡”Ô‚É’“ü‚·‚éƒVƒiƒŠƒI ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¤ãƒ³ã‚¿ãƒ¼ã‚»ãƒ—ãƒˆã‚’ç¹°ã‚Šè¿”ã—ä½¿ã£ã¦ã€è¤‡æ•°ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é †ç•ªã«æ³¨å…¥ã™ã‚‹ãƒ‡ãƒ¢ã§ã™
-'---------------------------------------------------------------------------------------------------
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - EnableIntercept â†’ SetFile ã®ã‚µã‚¤ã‚¯ãƒ«ã‚’ç¹°ã‚Šè¿”ã›ã‚‹ã“ã¨
-'   - æ¯å› change ã‚¤ãƒ™ãƒ³ãƒˆãŒç™ºç«ã—ã¦ FileReader ãŒæ–°ã—ã„å†…å®¹ã‚’è¡¨ç¤ºã™ã‚‹ã“ã¨
+'* ‹@”\@@FClearFilePaths + AddFilePath ‚Å–ˆ‰ñƒtƒ@ƒCƒ‹‚ğ·‚µ‘Ö‚¦‚éƒfƒ‚‚Å‚·
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - ClearFilePaths ¨ AddFilePath ‚ÌƒTƒCƒNƒ‹‚Å–ˆ‰ñˆÙ‚È‚éƒtƒ@ƒCƒ‹‚ğ’“ü‚Å‚«‚é‚±‚Æ
+'   - –ˆƒ‰ƒEƒ“ƒh FileReader ‚ªV‚µ‚¢“à—e‚Åƒy[ƒW‚ğXV‚·‚é‚±‚Æ
 '***************************************************************************************************
-Sub Demo_FileChooser_03_è¤‡æ•°ãƒ•ã‚¡ã‚¤ãƒ«é€£ç¶šæ³¨å…¥()
+Sub Demo_FileChooser_03_•¡”ƒtƒ@ƒCƒ‹˜A‘±’“ü()
 
-    '--- ã‚µãƒ³ãƒ—ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã‚’3ã¤ç”¨æ„ ---
+    '--- ƒTƒ“ƒvƒ‹ƒtƒ@ƒCƒ‹‚ğ3‚Â—pˆÓ ---
     Dim files(1 To 3) As String
     Dim i As Integer
     For i = 1 To 3
@@ -199,44 +180,49 @@ Sub Demo_FileChooser_03_è¤‡æ•°ãƒ•ã‚¡ã‚¤ãƒ«é€£ç¶šæ³¨å…¥()
         If Dir(files(i)) = "" Then
             Open files(i) For Output As #1
             Print #1, "==============================="
-            Print #1, "  ãƒ†ã‚¹ãƒˆãƒ•ã‚¡ã‚¤ãƒ« " & i & " ç•ª"
+            Print #1, "  ƒeƒXƒgƒtƒ@ƒCƒ‹ " & i & " ”Ô"
             Print #1, "==============================="
             Print #1, ""
-            Print #1, "ä½œæˆæ™‚åˆ»: " & Now()
+            Print #1, "ì¬: " & Now()
             Close #1
         End If
     Next i
 
-    '--- ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹• ---
+    '--- ƒuƒ‰ƒEƒU‹N“® ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browser As CDPBrowser
-    Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("file:///" & Replace(htmlPath, "\", "/"))
+    Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("file:///" & Replace(htmlPath, "\", "/"))
     browser.show
 
-    '--- FileChooseræ‹¡å¼µåˆæœŸåŒ– ---
+    '--- FileChooserŠg’£‰Šú‰» ---
     Dim fc As New CDPexpansion_FileChooser
     fc.Init browser
 
-    '--- 3å›ç¹°ã‚Šè¿”ã— ---
+    '--- 3ƒ‰ƒEƒ“ƒhF–ˆ‰ñƒtƒ@ƒCƒ‹‚ğ·‚µ‘Ö‚¦‚Ä’“ü ---
     For i = 1 To 3
-        Debug.Print "[Demo03] ãƒ©ã‚¦ãƒ³ãƒ‰ " & i & " / 3 ..."
+        Debug.Print "[Demo03] ƒ‰ƒEƒ“ƒh " & i & " / 3 ..."
+
+        'š ƒtƒ@ƒCƒ‹ƒpƒX‚ğ·‚µ‘Ö‚¦‚é
+        fc.ClearFilePaths
+        fc.AddFilePath = files(i)
+        Debug.Print "[Demo03]   “o˜^: " & files(i)
 
         fc.EnableIntercept
         browser.getElementByID("static-file-input").click
 
-        Dim ok As Boolean: ok = fc.SetFile(files(i), TimeoutSec:=10)
+        Dim ok As Boolean: ok = fc.SetFileWait(TimeoutSec:=10)
         If Not ok Then
-            MsgBox "Round " & i & " ã§å¤±æ•—ã—ã¾ã—ãŸã€‚", vbCritical
+            MsgBox "Round " & i & " ‚Å¸”s‚µ‚Ü‚µ‚½B", vbCritical
             Exit For
         End If
 
-        'â˜… FileReader ã®èª­ã¿å–ã‚Š & ãƒšãƒ¼ã‚¸ã¸ã®è¡¨ç¤ºã‚’å¾…ã¤
+        'š FileReader ‚Ì“Ç‚İæ‚èŠ®—¹‚ğ‘Ò‚Â
         browser.sleep 2
-        Debug.Print "[Demo03] ãƒ©ã‚¦ãƒ³ãƒ‰ " & i & " å®Œäº† â†’ FileReader ãŒè¡¨ç¤ºä¸­"
+        Debug.Print "[Demo03] ƒ‰ƒEƒ“ƒh " & i & " Š®—¹"
     Next i
 
     fc.DisableIntercept
-    Debug.Print "[Demo03] 3ãƒ•ã‚¡ã‚¤ãƒ«ã®é€£ç¶šæ³¨å…¥ãŒå®Œäº†ã—ã¾ã—ãŸï¼"
+    Debug.Print "[Demo03] 3ƒtƒ@ƒCƒ‹‚Ì˜A‘±’“ü‚ªŠ®—¹‚µ‚Ü‚µ‚½I"
 
 End Sub
