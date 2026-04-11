@@ -53,10 +53,12 @@ Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
 Private Const ThisClassName         As String = "CDPexpansion_FileChooser"  'ログのトレース用
+Private Const MaxTimeOut            As Long = 10
 Private mJson                       As New WebJsonConverter
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'rawJSONをデバッグログに出すかの調整
+Private LogLevel                    As Long         'ログレベル（0:Off, 1:Trace, 2:Debug, 3:Info, 4:Warn, 5:Error）
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
 
 'FileChooser イベント受信バッファ
@@ -236,14 +238,14 @@ End Sub
 '    - 注入後も mFilePaths は保持されます（次の操作でもそのまま使えます）
 '    - 同じパスを再利用しない場合は ClearFilePaths を呼び出してください
 '***************************************************************************************************
-Public Function SetFileWait(Optional TimeoutSec As Long = 10) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".SetFileWait"
+Public Function SetFiles(Optional TimeoutSec As Long = MaxTimeOut) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".SetFiles"
 
 
     '--- 事前チェック ---
     If mFilePaths.Count = 0 Then
-        printMsg WARN_, "No file paths registered. Call AddFilePath before SetFileWait.", FromProcedureName
-        SetFileWait = False
+        printMsg WARN_, "No file paths registered. Call AddFilePath before SetFiles.", FromProcedureName
+        SetFiles = False
         Exit Function
     End If
 
@@ -251,18 +253,21 @@ Public Function SetFileWait(Optional TimeoutSec As Long = 10) As Boolean
                   & "(files: " & mFilePaths.Count & ", timeout: " & TimeoutSec & "s)", FromProcedureName
 
     '登録済みパスをデバッグログに出力
+    '※Collectionのループは遅いのでログレベル判定をしてから回すこと
+    If LogLevelName.Debug_ >= LogLevel And LogLevel > 0 Then
         Dim i As Long
         For i = 1 To mFilePaths.Count
             printMsg Debug_, "  [" & i & "] " & mFilePaths(i), FromProcedureName
         Next i
+    End If
 
     '--- 内部の共通注入処理へ ---
-    SetFileWait = WaitAndInject(mFilePaths, TimeoutSec, FromProcedureName)
+    SetFiles = WaitAndInject(mFilePaths, TimeoutSec)
 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：単一ファイルを直接指定する後方互換メソッドです（旧 SetFile に相当）
+'* 機能　　：単一ファイルを直接指定する後方互換メソッドです
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：FilePath       注入するファイルのフルパス
 '            TimeoutSec     タイムアウト秒数（デフォルト: 10秒）
@@ -271,7 +276,7 @@ End Function
 '            内部では単一パスの Collection を作り WaitAndInject を呼びます。
 '            本メソッドを呼んでも mFilePaths には影響しません。
 '***************************************************************************************************
-Public Function SetFile(FilePath As String, Optional TimeoutSec As Long = 10) As Boolean
+Public Function SetFile(FilePath As String, Optional TimeoutSec As Long = MaxTimeOut) As Boolean
     Const FromProcedureName As String = ThisClassName & ".SetFile"
 
 
@@ -286,7 +291,7 @@ Public Function SetFile(FilePath As String, Optional TimeoutSec As Long = 10) As
     'mFilePaths とは独立した単発 Collection で実行
     Dim tmpCol As New Collection
     tmpCol.Add FilePath
-    SetFile = WaitAndInject(tmpCol, TimeoutSec, FromProcedureName)
+    SetFile = WaitAndInject(tmpCol, TimeoutSec)
 
 End Function
 
@@ -347,8 +352,6 @@ Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long) As Bo
             WaitAndInject = False
             Exit Function
         End If
-
-        ex_CDPBrowser.sleep 0.1    'CPU節約
     Loop
     printMsg Debug_, "fileChooserOpened received in " & Format(Timer - t, "0.0") & "s. " _
                    & "backendNodeId=" & FileChooserEvent.backendNodeId & " mode=" & FileChooserEvent.mode, FromProcedureName
@@ -421,6 +424,7 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'rawJSONをデバッグ出力するか
+        LogLevel = .Range(.UseRangeName(5, FromProcedureName)).value            'ログレベルの設定
     End With
 
 End Sub
@@ -434,7 +438,7 @@ Private Sub Class_Terminate()
 
     'インターセプトが残っているまま消えると以降のファイル選択が全部ブロックされるため解除
     On Error Resume Next
-    DisableIntercept
+    EnableBrowserEvents = False
     ex_CDPBrowser.pageEnable False
     printMsg Debug_, "FileChooser intercept auto-disabled on class termination.", FromProcedureName
 
