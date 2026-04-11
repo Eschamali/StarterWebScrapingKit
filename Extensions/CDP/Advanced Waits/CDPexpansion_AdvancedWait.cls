@@ -20,6 +20,9 @@ Option Explicit
 Private WithEvents CDP_   As CDPBrowser
 Attribute CDP_.VB_VarHelpID = -1
 
+Private Const ThisClassName As String = "CDPexpansion_AdvancedWait"
+
+
 ' ナビゲーション検知用フラグ（CDPネイティブイベントで更新される）
 Private navigated_url_      As String   ' Page.frameNavigated で通知されたURL
 Private navigated_detected_ As Boolean  ' 遷移検知フラグ
@@ -46,7 +49,7 @@ Private Sub CDP__detectionCDPEvent(methodName As String, EventRawJson As String)
             Dim rawUrl As String
             rawUrl = ExtractUrlFromFrameNavigated(EventRawJson)
             If rawUrl <> "" Then
-                navigated_url_      = rawUrl
+                navigated_url_ = rawUrl
                 navigated_detected_ = True
             End If
 
@@ -55,7 +58,7 @@ Private Sub CDP__detectionCDPEvent(methodName As String, EventRawJson As String)
             Dim rawUrl2 As String
             rawUrl2 = ExtractUrlFromNavigatedWithin(EventRawJson)
             If rawUrl2 <> "" Then
-                navigated_url_      = rawUrl2
+                navigated_url_ = rawUrl2
                 navigated_detected_ = True
             End If
 
@@ -71,6 +74,9 @@ End Sub
 ' DOMに変更（追加、削除、属性変更）が起きるまで待機する
 ' =========================================================
 Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForDomMutation"
+
+
     Dim js As String
     Dim res As String
     Dim startCount As Long, currCount As Long
@@ -111,7 +117,7 @@ Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boole
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForDomMutation> " & maxWaitTimeSec & "秒待機しましたがDOM変化が発生しませんでした。", "CDPexpansion_AdvancedWait"
+            CDP_.printMsg WARN_, "<WaitForDomMutation> " & maxWaitTimeSec & "秒待機しましたがDOM変化が発生しませんでした。", FromProcedureName
             WaitForDomMutation = False
             Exit Function
         End If
@@ -127,6 +133,9 @@ End Function
 ' fetch や XMLHttpRequest などの通信が落ち着くまで待機する
 ' =========================================================
 Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optional idleThresholdMs As Long = 500) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForNetworkIdle"
+
+
     Dim js As String
     Dim res As String, isIdle As String
     Dim startTime As Double
@@ -175,7 +184,7 @@ Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optiona
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForNetworkIdle> " & maxWaitTimeSec & "秒待機しましたがNetworkIdleになりませんでした。", "CDPexpansion_AdvancedWait"
+            CDP_.printMsg WARN_, "<WaitForNetworkIdle> " & maxWaitTimeSec & "秒待機しましたがNetworkIdleになりませんでした。", FromProcedureName
             WaitForNetworkIdle = False
             Exit Function
         End If
@@ -183,7 +192,7 @@ Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optiona
         CDP_.sleep 0.1
         DoEvents
     Loop
-End Sub
+End Function
 
 
 
@@ -195,6 +204,9 @@ End Sub
 ' 全ての挙動が「シーン」と静けさを取り戻すまで絶対に次へ進ませない堅牢な待機です。
 ' =========================================================
 Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForFullIdle"
+
+
     Dim js As String
     Dim res As String
     
@@ -239,7 +251,7 @@ Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional 
     If LCase(res) = "ok" Then
         WaitForFullIdle = True
     Else
-        CDP_.printMsg WARN_, "<WaitForFullIdle> " & maxTimeoutMs & "ms 待機しましたが完全にアイドルになりませんでした。(結果: " & LCase(res) & ")", "CDPexpansion_AdvancedWait"
+        CDP_.printMsg WARN_, "<WaitForFullIdle> " & maxTimeoutMs & "ms 待機しましたが完全にアイドルになりませんでした。(結果: " & LCase(res) & ")", FromProcedureName
         WaitForFullIdle = False
     End If
 End Function
@@ -330,10 +342,10 @@ End Function
 ' =========================================================
 Private Function ExtractUrlFromFrameNavigated(rawJson As String) As String
     ' "url":" を探してそのあとの文字列を取得する
-    Const KEY As String = """url"":"""
-    Dim p As Long: p = InStr(rawJson, KEY)
+    Const Key As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, Key)
     If p = 0 Then Exit Function
-    Dim s As Long: s = p + Len(KEY)
+    Dim s As Long: s = p + Len(Key)
     Dim e As Long: e = InStr(s, rawJson, """")
     If e > s Then ExtractUrlFromFrameNavigated = Mid(rawJson, s, e - s)
 End Function
@@ -343,10 +355,10 @@ End Function
 ' JSON例: {"method":"Page.navigatedWithinDocument","params":{"frameId":"...","url":"https://..."}}
 ' =========================================================
 Private Function ExtractUrlFromNavigatedWithin(rawJson As String) As String
-    Const KEY As String = """url"":"""
-    Dim p As Long: p = InStr(rawJson, KEY)
+    Const Key As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, Key)
     If p = 0 Then Exit Function
-    Dim s As Long: s = p + Len(KEY)
+    Dim s As Long: s = p + Len(Key)
     Dim e As Long: e = InStr(s, rawJson, """")
     If e > s Then ExtractUrlFromNavigatedWithin = Mid(rawJson, s, e - s)
 End Function
