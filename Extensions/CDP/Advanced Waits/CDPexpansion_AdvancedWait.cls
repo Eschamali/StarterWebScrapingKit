@@ -257,56 +257,6 @@ Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional 
 End Function
 
 ' =========================================================
-' 2. URL遷移完了待ち (URL Redirect) ※CDPネイティブイベント版
-' 用途（例え）: 「到着ゲートの忠犬」
-' ログインボタンを押した後など、どれだけ通信やリダイレクトを挟もうと、
-' 最終的に指定のURL文字列が含まれるページに到着するまでずっと待ってくれます。
-'
-' 【実装方針】
-' JSのPromise注入（ページ遷移時にコンテキスト破壊されるためNG）ではなく、
-' CDPネイティブの Page.frameNavigated イベントを WithEvents でキャッチする。
-' BiDiが browsingContext.load を購読するのと全く同じ正攻法の実装です。
-' =========================================================
-Public Function WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As Long = 30) As Boolean
-    ' 1. Page ドメインのイベントを有効化（Page.frameNavigated が飛んでくるようになる）
-    CDP_.pageEnable True
-    CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> Page.enable 完了。'" & partialUrl & "' への遷移を監視開始。", "CDPexpansion_AdvancedWait"
-    
-    ' 2. 検知フラグをリセットして監視開始
-    navigated_detected_ = False
-    navigated_url_      = ""
-    
-    ' 3. VBA側ポーリング
-    '    DoEvents により CDPBrowser の受信ループが回り続け、
-    '    Page.frameNavigated イベントが来た瞬間に CDP__detectionCDPEvent が呼ばれてフラグが立つ
-    Dim startTime As Double: startTime = Timer
-    Do
-        DoEvents
-        
-        If navigated_detected_ Then
-            ' なんらかの遷移が検知された。目的のURLが含まれているか確認
-            If InStr(1, navigated_url_, partialUrl, vbTextCompare) > 0 Then
-                CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> 目的のURLへの到達を確認: " & navigated_url_, "CDPexpansion_AdvancedWait"
-                WaitForUrlRedirect = True
-                ' Page.enable は呼び出し元で必要に応じて Page.disable してください
-                Exit Function
-            End If
-            ' 別URLへの遷移は無視してフラグをリセット・待機継続
-            CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> 別URLへの遷移を検知（スキップ）: " & navigated_url_, "CDPexpansion_AdvancedWait"
-            navigated_detected_ = False
-        End If
-        
-        If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForUrlRedirect> " & maxWaitTimeSec & "秒待機しましたがURLに '" & partialUrl & "' が含まれませんでした。", "CDPexpansion_AdvancedWait"
-            WaitForUrlRedirect = False
-            Exit Function
-        End If
-        
-        CDP_.sleep 0.2
-    Loop
-End Function
-
-' =========================================================
 ' 3. 操作起因の波及待機 (Click & Wait for Idle)
 ' 用途（例え）: 「石を投げて波紋が消えるまで待つ」
 ' 『絞り込みボタン』等を押した直後に起こる後出しの通信やDOM描画の嵐が
