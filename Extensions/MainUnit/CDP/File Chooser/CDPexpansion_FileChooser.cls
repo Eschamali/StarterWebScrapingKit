@@ -113,12 +113,33 @@ End Property
 
 '***************************************************************************************************
 '* 機能　　：非同期イベント処理を行うかのスイッチングです
+'            この拡張機能の場合はさらに、`Page.setInterceptFileChooserDialog` の有効/無効も合わせて、切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：クラス内のスイッチも切り替えつつ、FileChooserインターセプトを有効化します
+'* 注意事項：・登録済みのファイルパス（mFilePaths）はそのまま保持されます
+'            ・有効化後はファイル選択トリガーがあっても OSダイアログが出なくなります
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
 End Property
 Public Property Let EnableEvents(ByVal v As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableEvents"
+
+
+    '1. 有効化時は、イベント検出フラグだけリセット（ファイルパスリストは保持）
+    If v Then ResetState
+
+    '2. CDPにインターセプトの有効/無効を伝える
+    Dim params As New Scripting.Dictionary
+    params.Add "enabled", v
+    invokeMethod "Page.setInterceptFileChooserDialog", params
+
+    '3. クラス内のスイッチも切り替える
     EnableBrowserEvents = v
+
+    '4. ログ出力
+    printMsg info_, "FileChooser intercept is " & IIf(v, "enabled.", "disabled."), FromProcedureName
+
 End Property
 
 '***************************************************************************************************
@@ -198,51 +219,6 @@ End Sub
 
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分 ■■■
-'***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：FileChooserインターセプトを有効化します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`Page.setInterceptFileChooserDialog` を `enabled:true` で送ります
-'            有効化後はファイル選択トリガーがあっても OSダイアログが出なくなります
-'            ★ 登録済みのファイルパス（mFilePaths）はそのまま保持されます
-'***************************************************************************************************
-Public Sub EnableIntercept()
-    Const FromProcedureName As String = ThisClassName & ".EnableIntercept"
-
-
-    printMsg info_, "Enabling FileChooser intercept...", FromProcedureName
-
-    'イベント検出フラグだけリセット（ファイルパスリストは保持）
-    ResetState
-
-    Dim params As New Scripting.Dictionary
-    params("enabled") = True
-    invokeMethod "Page.setInterceptFileChooserDialog", params
-    EnableBrowserEvents = True
-
-    printMsg info_, "FileChooser intercept enabled. Registered files: " & mFilePaths.Count, FromProcedureName
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：FileChooserインターセプトを無効化します
-'***************************************************************************************************
-Public Sub DisableIntercept()
-    Const FromProcedureName As String = ThisClassName & ".DisableIntercept"
-
-
-    printMsg info_, "Disabling FileChooser intercept...", FromProcedureName
-
-    Dim params As New Scripting.Dictionary
-    params("enabled") = False
-    invokeMethod "Page.setInterceptFileChooserDialog", params
-    EnableBrowserEvents = False
-
-    printMsg info_, "FileChooser intercept disabled.", FromProcedureName
-
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：AddFilePath で登録済みのファイルを使ってダイアログが開くのを待ち注入します
 '---------------------------------------------------------------------------------------------------
