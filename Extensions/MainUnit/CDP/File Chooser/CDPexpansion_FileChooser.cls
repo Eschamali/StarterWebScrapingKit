@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `CDPBrowser.cls` に対する機能拡張 ? FileChooserインターセプト
+'           `CDPBrowser.cls` に対する機能拡張 - FileChooserインターセプト
 '***************************************************************************************************
 '* 機能　　：ブラウザのファイル選択ダイアログをCDP経由で横取りし、
 '            VBAから指定したファイルパスを注入します。
@@ -135,11 +135,11 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
             End If
 
             Dim params As Dictionary: Set params = mJson.ParseJson(EventRawJson)("params")
-            mBackendNodeId      = CLng(params("backendNodeId"))
-            mMode               = CStr(params("mode"))
+            mBackendNodeId = CLng(params("backendNodeId"))
+            mMode = CStr(params("mode"))
             mFileChooserDetected = True
 
-            printMsg Info_, "FileChooser detected. backendNodeId=" & mBackendNodeId & " mode=" & mMode, FromProcedureName
+            printMsg info_, "FileChooser detected. backendNodeId=" & mBackendNodeId & " mode=" & mMode, FromProcedureName
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
@@ -164,7 +164,7 @@ Public Sub EnableIntercept()
     Const FromProcedureName As String = ThisClassName & ".EnableIntercept"
 
 
-    printMsg Info_, "Enabling FileChooser intercept...", FromProcedureName
+    printMsg info_, "Enabling FileChooser intercept...", FromProcedureName
 
     '内部フラグをリセットしてから有効化
     ResetState
@@ -174,7 +174,7 @@ Public Sub EnableIntercept()
     invokeMethod "Page.setInterceptFileChooserDialog", params
     EnableBrowserEvents = True
 
-    printMsg Info_, "FileChooser intercept enabled.", FromProcedureName
+    printMsg info_, "FileChooser intercept enabled.", FromProcedureName
 
 End Sub
 
@@ -185,14 +185,14 @@ Public Sub DisableIntercept()
     Const FromProcedureName As String = ThisClassName & ".DisableIntercept"
 
 
-    printMsg Info_, "Disabling FileChooser intercept...", FromProcedureName
+    printMsg info_, "Disabling FileChooser intercept...", FromProcedureName
 
     Dim params As New Scripting.Dictionary
     params("enabled") = False
     invokeMethod "Page.setInterceptFileChooserDialog", params
     EnableBrowserEvents = False
 
-    printMsg Info_, "FileChooser intercept disabled.", FromProcedureName
+    printMsg info_, "FileChooser intercept disabled.", FromProcedureName
 
 End Sub
 
@@ -216,7 +216,7 @@ Public Function SetFile(FilePath As String, Optional TimeoutSec As Long = 10) As
     Const FromProcedureName As String = ThisClassName & ".SetFile"
 
 
-    printMsg Info_, "Waiting for FileChooser event... (timeout: " & TimeoutSec & "s)", FromProcedureName
+    printMsg info_, "Waiting for FileChooser event... (timeout: " & TimeoutSec & "s)", FromProcedureName
 
     'ファイルの存在確認
     If Dir(FilePath) = "" Then
@@ -248,29 +248,21 @@ Public Function SetFile(FilePath As String, Optional TimeoutSec As Long = 10) As
     '--- ② backendNodeId 経由でファイルを注入 ---
     printMsg Debug_, "Injecting file via DOM.setFileInputFiles. backendNodeId=" & mBackendNodeId, FromProcedureName
 
-    Dim params As New Scripting.Dictionary
-    Dim filesArr As New Scripting.Dictionary
-    filesArr.Add "0", FilePath                  'ファイルパスを配列として渡す
+    '   files は JSON配列が必要。Collection を渡すと WebJsonConverter が ["path"] にシリアライズしてくれる
+    Dim injectParams As New Scripting.Dictionary
+    injectParams.Add "backendNodeId", mBackendNodeId
 
-    'CDPのDOM.setFileInputFilesはbackendNodeIdを使う形式で送信
-    '注: invokeMethod は Scripting.Dictionary 渡しのため、files を JSON配列として組み立て
-    Dim jsonFiles As String: jsonFiles = "[""" & Replace(FilePath, "\", "\\") & """]"
+    Dim filesCol As New Collection
+    filesCol.Add FilePath                       'ファイルパスを Collection に追加（= JSON配列 ["path"] になる）
+    injectParams.Add "files", filesCol
 
-    Dim rawParams As New Scripting.Dictionary
-    rawParams("backendNodeId") = mBackendNodeId
-
-    '直接JSONを組み立てて送信（配列パラメーターのため）
-    Dim rawJson As String
-    rawJson = "{""method"":""DOM.setFileInputFiles"",""params"":{""backendNodeId"":" _
-            & mBackendNodeId & ",""files"":" & jsonFiles & "}}"
-
-    Dim result As Scripting.Dictionary
-    Set result = ex_CDPBrowser.SendMessage(rawJson)
-    printMsg Trace_, "DOM.setFileInputFiles raw command sent.", FromProcedureName
+    Dim injectResult As Scripting.Dictionary
+    Set injectResult = invokeMethod("DOM.setFileInputFiles", injectParams)
+    printMsg Trace_, "DOM.setFileInputFiles sent via invokeMethod. backendNodeId=" & mBackendNodeId, FromProcedureName
 
     '--- ③ 後片付け ---
     ResetState
-    printMsg Info_, "File injection completed: " & FilePath, FromProcedureName
+    printMsg info_, "File injection completed: " & FilePath, FromProcedureName
     SetFile = True
 
 End Function
@@ -279,8 +271,8 @@ End Function
 '* 機能　　：内部状態をリセットします（EnableIntercept や SetFile 後に自動呼び出し）
 '***************************************************************************************************
 Public Sub ResetState()
-    mBackendNodeId       = 0
-    mMode                = ""
+    mBackendNodeId = 0
+    mMode = ""
     mFileChooserDetected = False
 End Sub
 
