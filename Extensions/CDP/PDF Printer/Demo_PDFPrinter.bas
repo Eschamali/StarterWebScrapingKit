@@ -41,7 +41,7 @@ Sub Demo_PDFPrinter_01_基本保存()
 
     '4. 結果確認
     If savedPath <> "" Then
-        browser.notify "PDF保存完了！" & vbCrLf & savedPath
+        browser.notify "PDF保存完了！: " & savedPath
     Else
         MsgBox "PDF保存に失敗しました。イミディエイトウィンドウを確認してください。", vbCritical, "Error"
     End If
@@ -94,7 +94,7 @@ Sub Demo_PDFPrinter_02_パラメーター指定()
 
     '4. 結果確認
     Debug.Print "保存パス: " & savedPath
-    If savedPath <> "" Then browser.notify "パラメーター指定PDF保存完了！" & vbCrLf & savedPath
+    If savedPath <> "" Then browser.notify "パラメーター指定PDF保存完了！: " & savedPath
 
     '5. ブラウザを閉じる
     browser.quit
