@@ -51,7 +51,7 @@ Private Const ThisClassName         As String = "CDPexpansion_PDFPrinter"   'ÉçÉ
 '            Landscape        â°å¸Ç´àÛç¸Ç…Ç∑ÇÈÇ©ÅiÉfÉtÉHÉãÉg: False = ècå¸Ç´Åj
 '            PaperWidth       ópéÜïùÅiÉCÉìÉ`íPà ÅjÅB0éwíËÇ≈A4ècÅi8.27ÉCÉìÉ`Åj
 '            PaperHeight      ópéÜçÇÇ≥ÅiÉCÉìÉ`íPà ÅjÅB0éwíËÇ≈A4ècÅi11.69ÉCÉìÉ`Åj
-'            Scale            ÉXÉPÅ[Éãî{ó¶ÅiÉfÉtÉHÉãÉg: 1.0Åj
+'            Scale_            ÉXÉPÅ[Éãî{ó¶ÅiÉfÉtÉHÉãÉg: 1.0Åj
 '            MarginTop        è„ó]îíÅiÉCÉìÉ`ÅAÉfÉtÉHÉãÉg: 0.4Åj
 '            MarginBottom     â∫ó]îíÅiÉCÉìÉ`ÅAÉfÉtÉHÉãÉg: 0.4Åj
 '            MarginLeft       ç∂ó]îíÅiÉCÉìÉ`ÅAÉfÉtÉHÉãÉg: 0.4Åj
@@ -64,7 +64,7 @@ Public Function PrintToPDF( _
         Optional Landscape As Boolean = False, _
         Optional PaperWidth As Double = 0, _
         Optional PaperHeight As Double = 0, _
-        Optional Scale As Double = 1#, _
+        Optional Scale_ As Double = 1#, _
         Optional MarginTop As Double = 0.4, _
         Optional MarginBottom As Double = 0.4, _
         Optional MarginLeft As Double = 0.4, _
@@ -78,22 +78,22 @@ Public Function PrintToPDF( _
     '--- 1. ÉpÉâÉÅÅ[É^Å[ëgÇ›óßÇƒ ---
     Dim params As New Scripting.Dictionary
 
-    params("printBackground")   = PrintBackground
-    params("landscape")         = Landscape
-    params("scale")             = Scale
-    params("marginTop")         = MarginTop
-    params("marginBottom")      = MarginBottom
-    params("marginLeft")        = MarginLeft
-    params("marginRight")       = MarginRight
+    params("printBackground") = PrintBackground
+    params("landscape") = Landscape
+    params("scale") = Scale_
+    params("marginTop") = MarginTop
+    params("marginBottom") = MarginBottom
+    params("marginLeft") = MarginLeft
+    params("marginRight") = MarginRight
 
     'ópéÜÉTÉCÉYÅi0éwíËÇÕA4ÉfÉtÉHÉãÉgÅj
     Dim w As Double: w = IIf(PaperWidth > 0, PaperWidth, 8.27)     'A4â°ïù
     Dim h As Double: h = IIf(PaperHeight > 0, PaperHeight, 11.69)  'A4ècïù
-    params("paperWidth")  = w
+    params("paperWidth") = w
     params("paperHeight") = h
 
     printMsg Debug_, "PDF params - landscape:" & Landscape & " printBackground:" & PrintBackground _
-                   & " paperWidth:" & w & " paperHeight:" & h & " scale:" & Scale, FromProcedureName
+                   & " paperWidth:" & w & " paperHeight:" & h & " Scale:" & Scale_, FromProcedureName
 
     '--- 2. CDP ÉRÉ}ÉìÉhî≠çs ---
     printMsg Trace_, "Sending `Page.printToPDF` command...", FromProcedureName
@@ -169,7 +169,7 @@ Public Function PrintToPDFWithPreset( _
         Optional PaperPreset As String = "A4", _
         Optional PrintBackground As Boolean = True, _
         Optional Landscape As Boolean = False, _
-        Optional Scale As Double = 1# _
+        Optional Scale_ As Double = 1# _
     ) As String
     Const FromProcedureName As String = ThisClassName & ".PrintToPDFWithPreset"
 
@@ -195,7 +195,7 @@ Public Function PrintToPDFWithPreset( _
         printMsg Debug_, "Landscape mode: swapped to " & w & " x " & h & " inches", FromProcedureName
     End If
 
-    PrintToPDFWithPreset = PrintToPDF(FolderPath, FileBaseName, PrintBackground, Landscape, w, h, Scale)
+    PrintToPDFWithPreset = PrintToPDF(FolderPath, FileBaseName, PrintBackground, Landscape, w, h, Scale_)
 
 End Function
 
