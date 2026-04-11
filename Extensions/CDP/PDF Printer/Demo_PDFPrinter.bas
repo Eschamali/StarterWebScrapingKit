@@ -1,52 +1,52 @@
 Attribute VB_Name = "Demo_PDFPrinter"
 '***************************************************************************************************
-'       CDPexpansion_PDFPrinter æ‹¡å¼µ â€” ãƒ‡ãƒ¢ & å‹•ä½œç¢ºèª ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«
+'       CDPexpansion_PDFPrinter Šg’£ - ƒfƒ‚ & “®ìŠm”F ƒ‚ƒWƒ…[ƒ‹
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼š`CDPexpansion_PDFPrinter.cls` ã‚’ä½¿ã£ãŸPDFä¿å­˜ã®ã‚µãƒ³ãƒ—ãƒ«ã‚³ãƒ¼ãƒ‰ã§ã™
+'* ‹@”\@@F`CDPexpansion_PDFPrinter.cls` ‚ğg‚Á‚½PDF•Û‘¶‚ÌƒTƒ“ƒvƒ‹ƒR[ƒh‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* å¯¾å¿œæ‹¡å¼µï¼šExtensions\CDP\PDF Printer\CDPexpansion_PDFPrinter.cls
-'* å‚è€ƒå…ƒ  ï¼šForAI\vba-cdp-webdriver\Module\SampleModule.bas - Sample_11_Screenshot_And_Pdf
+'* ‘Î‰Šg’£FExtensions\CDP\PDF Printer\CDPexpansion_PDFPrinter.cls
+'* QlŒ³  FForAI\vba-cdp-webdriver\Module\SampleModule.bas - Sample_11_Screenshot_And_Pdf
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼šãƒ»å®Ÿè¡Œå‰ã«ã€ŒCDPexpansion_PDFPrinter.clsã€ã‚’VBAãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«å–ã‚Šè¾¼ã‚“ã§ãã ã•ã„
-'            ãƒ»`Page.printToPDF` ã¯ about:blank ã§ã¯å‹•ä½œã—ã¾ã›ã‚“
-'            ãƒ»ãƒšãƒ¼ã‚¸èª­ã¿è¾¼ã¿ãŒå®Œäº†ã—ã¦ã‹ã‚‰å‘¼ã³å‡ºã—ã¦ãã ã•ã„
+'* ’ˆÓ–€FEÀs‘O‚ÉuCDPexpansion_PDFPrinter.clsv‚ğVBAƒvƒƒWƒFƒNƒg‚Éæ‚è‚ñ‚Å‚­‚¾‚³‚¢
+'            E`Page.printToPDF` ‚Í about:blank ‚Å‚Í“®ì‚µ‚Ü‚¹‚ñ
+'            Eƒy[ƒW“Ç‚İ‚İ‚ªŠ®—¹‚µ‚Ä‚©‚çŒÄ‚Ño‚µ‚Ä‚­‚¾‚³‚¢
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                            â– â– â–  Demo 01ï¼šåŸºæœ¬çš„ãªPDFä¿å­˜ â– â– â– 
+'                            ¡¡¡ Demo 01FŠî–{“I‚ÈPDF•Û‘¶ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šæœ€ã‚‚ã‚·ãƒ³ãƒ—ãƒ«ãªPDFä¿å­˜ã®ãƒ‡ãƒ¢ã§ã™
+'* ‹@”\@@FÅ‚àƒVƒ“ƒvƒ‹‚ÈPDF•Û‘¶‚Ìƒfƒ‚‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šexample.com ã‚’ãƒ–ãƒ©ã‚¦ã‚¶ã§é–‹ãã€Downloadsãƒ•ã‚©ãƒ«ãƒ€ã¸ PDF ã¨ã—ã¦ä¿å­˜ã—ã¾ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - `PrintToPDF` ãŒä¿å­˜å…ˆãƒ•ãƒ«ãƒ‘ã‚¹ã‚’è¿”ã™ã“ã¨
-'   - Downloadsãƒ•ã‚©ãƒ«ãƒ€ã« "demo_basic.pdf" ãŒç”Ÿæˆã•ã‚Œã‚‹ã“ã¨
+'* Ú×à–¾Fexample.com ‚ğƒuƒ‰ƒEƒU‚ÅŠJ‚«ADownloadsƒtƒHƒ‹ƒ_‚Ö PDF ‚Æ‚µ‚Ä•Û‘¶‚µ‚Ü‚·
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - `PrintToPDF` ‚ª•Û‘¶æƒtƒ‹ƒpƒX‚ğ•Ô‚·‚±‚Æ
+'   - DownloadsƒtƒHƒ‹ƒ_‚É "demo_basic.pdf" ‚ª¶¬‚³‚ê‚é‚±‚Æ
 '***************************************************************************************************
-Sub Demo_PDFPrinter_01_åŸºæœ¬ä¿å­˜()
+Sub Demo_PDFPrinter_01_Šî–{•Û‘¶()
 
-    '1. ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•
-    Dim browser As CDPBrowser: Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("https://example.com")
+    '1. ƒuƒ‰ƒEƒU‹N“®
+    Dim browser As CDPBrowser: Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("https://example.com")
 
-    '2. PDFæ‹¡å¼µã®åˆæœŸåŒ–
+    '2. PDFŠg’£‚Ì‰Šú‰»
     Dim pdf As New CDPexpansion_PDFPrinter
     pdf.Init browser
 
-    '3. PDFä¿å­˜ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆè¨­å®š = A4ç¸¦ã€èƒŒæ™¯ã‚ã‚Šï¼‰
+    '3. PDF•Û‘¶iƒfƒtƒHƒ‹ƒgİ’è = A4cA”wŒi‚ ‚èj
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
     Dim savedPath As String
     savedPath = pdf.PrintToPDF(outDir, "demo_basic")
 
-    '4. çµæœç¢ºèª
+    '4. Œ‹‰ÊŠm”F
     If savedPath <> "" Then
-        browser.notify "PDFä¿å­˜å®Œäº†ï¼" & vbCrLf & savedPath
+        browser.notify "PDF•Û‘¶Š®—¹I" & vbCrLf & savedPath
     Else
-        MsgBox "PDFä¿å­˜ã«å¤±æ•—ã—ã¾ã—ãŸã€‚ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚", vbCritical, "Error"
+        MsgBox "PDF•Û‘¶‚É¸”s‚µ‚Ü‚µ‚½BƒCƒ~ƒfƒBƒGƒCƒgƒEƒBƒ“ƒhƒE‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B", vbCritical, "Error"
     End If
 
-    '5. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
+    '5. ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é
     browser.quit
 
 End Sub
@@ -54,26 +54,26 @@ End Sub
 
 
 '***************************************************************************************************
-'                         â– â– â–  Demo 02ï¼šA4æ¨ªãƒ»èƒŒæ™¯ãªã—ãƒ»ã‚¹ã‚±ãƒ¼ãƒ«å¤‰æ›´ â– â– â– 
+'                         ¡¡¡ Demo 02FA4‰¡E”wŒi‚È‚µEƒXƒP[ƒ‹•ÏX ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼ã‚’ãƒ•ãƒ«æŒ‡å®šã—ãŸPDFä¿å­˜ã®ãƒ‡ãƒ¢ã§ã™
+'* ‹@”\@@Fƒpƒ‰ƒ[ƒ^[‚ğƒtƒ‹w’è‚µ‚½PDF•Û‘¶‚Ìƒfƒ‚‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šå„ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼ã®åŠ¹æœã‚’ç¢ºèªã™ã‚‹ãŸã‚ã®ã‚µãƒ³ãƒ—ãƒ«ã§ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - Landscape:=True ã§æ¨ªå‘ãPDFãŒç”Ÿæˆã•ã‚Œã‚‹ã“ã¨
-'   - PrintBackground:=False ã§èƒŒæ™¯è‰²ãŒæ¶ˆãˆã‚‹ã“ã¨
-'   - Scale:=0.8 ã§ã‚³ãƒ³ãƒ†ãƒ³ãƒ„ãŒç¸®å°ã•ã‚Œã‚‹ã“ã¨
+'* Ú×à–¾FŠeƒpƒ‰ƒ[ƒ^[‚ÌŒø‰Ê‚ğŠm”F‚·‚é‚½‚ß‚ÌƒTƒ“ƒvƒ‹‚Å‚·
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - Landscape:=True ‚Å‰¡Œü‚«PDF‚ª¶¬‚³‚ê‚é‚±‚Æ
+'   - PrintBackground:=False ‚Å”wŒiF‚ªÁ‚¦‚é‚±‚Æ
+'   - Scale:=0.8 ‚ÅƒRƒ“ƒeƒ“ƒc‚ªk¬‚³‚ê‚é‚±‚Æ
 '***************************************************************************************************
-Sub Demo_PDFPrinter_02_ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼æŒ‡å®š()
+Sub Demo_PDFPrinter_02_ƒpƒ‰ƒ[ƒ^[w’è()
 
-    '1. ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•
-    Dim browser As CDPBrowser: Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("https://www.wikipedia.org")
+    '1. ƒuƒ‰ƒEƒU‹N“®
+    Dim browser As CDPBrowser: Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("https://www.wikipedia.org")
 
-    '2. PDFæ‹¡å¼µã®åˆæœŸåŒ–
+    '2. PDFŠg’£‚Ì‰Šú‰»
     Dim pdf As New CDPexpansion_PDFPrinter
     pdf.Init browser
 
-    '3. ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼æŒ‡å®šPDFä¿å­˜
+    '3. ƒpƒ‰ƒ[ƒ^[w’èPDF•Û‘¶
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
     Dim savedPath As String
     savedPath = pdf.PrintToPDF( _
@@ -81,7 +81,7 @@ Sub Demo_PDFPrinter_02_ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼æŒ‡å®š()
         FileBaseName    := "demo_landscape", _
         PrintBackground := False, _
         Landscape       := True, _
-        PaperWidth      := 11.69, _   'A4æ¨ª
+        PaperWidth      := 11.69, _   'A4‰¡
         PaperHeight     := 8.27, _
         Scale           := 0.8, _
         MarginTop       := 0.5, _
@@ -90,11 +90,11 @@ Sub Demo_PDFPrinter_02_ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼æŒ‡å®š()
         MarginRight     := 0.5 _
     )
 
-    '4. çµæœç¢ºèª
-    Debug.Print "ä¿å­˜ãƒ‘ã‚¹: " & savedPath
-    If savedPath <> "" Then browser.notify "ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼æŒ‡å®šPDFä¿å­˜å®Œäº†ï¼" & vbCrLf & savedPath
+    '4. Œ‹‰ÊŠm”F
+    Debug.Print "•Û‘¶ƒpƒX: " & savedPath
+    If savedPath <> "" Then browser.notify "ƒpƒ‰ƒ[ƒ^[w’èPDF•Û‘¶Š®—¹I" & vbCrLf & savedPath
 
-    '5. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
+    '5. ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é
     browser.quit
 
 End Sub
@@ -102,41 +102,41 @@ End Sub
 
 
 '***************************************************************************************************
-'                      â– â– â–  Demo 03ï¼šãƒ—ãƒªã‚»ãƒƒãƒˆæŒ‡å®šï¼ˆA4/A3/Letterï¼‰ â– â– â– 
+'                      ¡¡¡ Demo 03FƒvƒŠƒZƒbƒgw’èiA4/A3/Letterj ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šç”¨ç´™ã‚µã‚¤ã‚ºã‚’ãƒ—ãƒªã‚»ãƒƒãƒˆåã§æŒ‡å®šã™ã‚‹ãƒ‡ãƒ¢ã§ã™
+'* ‹@”\@@F—p†ƒTƒCƒY‚ğƒvƒŠƒZƒbƒg–¼‚Åw’è‚·‚éƒfƒ‚‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼š`PrintToPDFWithPreset` ã‚’ä½¿ã†ã¨ã€ç”¨ç´™ã‚µã‚¤ã‚ºã‚’æ–‡å­—åˆ—ã§ç›´æ„Ÿçš„ã«æŒ‡å®šã§ãã¾ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - "A4" / "A3" / "Letter" / "Legal" ã®ãƒ—ãƒªã‚»ãƒƒãƒˆãŒæ­£ã—ãæ©Ÿèƒ½ã™ã‚‹ã“ã¨
-'   - æœªå¯¾å¿œãƒ—ãƒªã‚»ãƒƒãƒˆã¯A4ã«ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ã•ã‚Œã‚‹ã“ã¨ï¼ˆã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è­¦å‘Šãƒ­ã‚°ãŒå‡ºã‚‹ï¼‰
+'* Ú×à–¾F`PrintToPDFWithPreset` ‚ğg‚¤‚ÆA—p†ƒTƒCƒY‚ğ•¶š—ñ‚Å’¼Š´“I‚Éw’è‚Å‚«‚Ü‚·
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - "A4" / "A3" / "Letter" / "Legal" ‚ÌƒvƒŠƒZƒbƒg‚ª³‚µ‚­‹@”\‚·‚é‚±‚Æ
+'   - –¢‘Î‰ƒvƒŠƒZƒbƒg‚ÍA4‚ÉƒtƒH[ƒ‹ƒoƒbƒN‚³‚ê‚é‚±‚ÆiƒCƒ~ƒfƒBƒGƒCƒg‚ÉŒxƒƒO‚ªo‚éj
 '***************************************************************************************************
-Sub Demo_PDFPrinter_03_ãƒ—ãƒªã‚»ãƒƒãƒˆæŒ‡å®š()
+Sub Demo_PDFPrinter_03_ƒvƒŠƒZƒbƒgw’è()
 
-    '1. ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•
-    Dim browser As CDPBrowser: Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("https://www.wikipedia.org")
+    '1. ƒuƒ‰ƒEƒU‹N“®
+    Dim browser As CDPBrowser: Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("https://www.wikipedia.org")
 
-    '2. PDFæ‹¡å¼µã®åˆæœŸåŒ–
+    '2. PDFŠg’£‚Ì‰Šú‰»
     Dim pdf As New CDPexpansion_PDFPrinter
     pdf.Init browser
 
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
 
-    '3a. A4ç¸¦ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆï¼‰
-    Debug.Print "A4ç¸¦: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_A4", PaperPreset:="A4")
+    '3a. A4ciƒfƒtƒHƒ‹ƒgj
+    Debug.Print "A4c: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_A4", PaperPreset:="A4")
 
-    '3b. A3ç¸¦
-    Debug.Print "A3ç¸¦: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_A3", PaperPreset:="A3")
+    '3b. A3c
+    Debug.Print "A3c: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_A3", PaperPreset:="A3")
 
-    '3c. Letteræ¨ª
-    Debug.Print "Letteræ¨ª: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_Letter", PaperPreset:="Letter", Landscape:=True)
+    '3c. Letter‰¡
+    Debug.Print "Letter‰¡: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_Letter", PaperPreset:="Letter", Landscape:=True)
 
-    '3d. æœªå¯¾å¿œãƒ—ãƒªã‚»ãƒƒãƒˆ â†’ A4ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ï¼ˆWARN_ ãƒ­ã‚°ãŒå‡ºã‚‹ï¼‰
-    Debug.Print "æœªå¯¾å¿œ: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_unknown", PaperPreset:="B5")
+    '3d. –¢‘Î‰ƒvƒŠƒZƒbƒg ¨ A4ƒtƒH[ƒ‹ƒoƒbƒNiWARN_ ƒƒO‚ªo‚éj
+    Debug.Print "–¢‘Î‰: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_unknown", PaperPreset:="B5")
 
-    browser.notify "ãƒ—ãƒªã‚»ãƒƒãƒˆæŒ‡å®šPDFä¿å­˜ã‚’3ç¨®é¡å®Œäº†ã—ã¾ã—ãŸï¼"
+    browser.notify "ƒvƒŠƒZƒbƒgw’èPDF•Û‘¶‚ğ3í—ŞŠ®—¹‚µ‚Ü‚µ‚½I"
 
-    '4. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
+    '4. ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é
     browser.quit
 
 End Sub
@@ -144,43 +144,43 @@ End Sub
 
 
 '***************************************************************************************************
-'                   â– â– â–  Demo 04ï¼šã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆ + PDF ã®åŒæ™‚ä¿å­˜ â– â– â– 
+'                   ¡¡¡ Demo 04FƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒg + PDF ‚Ì“¯•Û‘¶ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šåŒä¸€ãƒšãƒ¼ã‚¸ã‚’PNGã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆã¨PDFã®ä¸¡æ–¹ã§ä¿å­˜ã™ã‚‹ãƒ‡ãƒ¢ã§ã™
+'* ‹@”\@@F“¯ˆêƒy[ƒW‚ğPNGƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒg‚ÆPDF‚Ì—¼•û‚Å•Û‘¶‚·‚éƒfƒ‚‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼š`CDPBrowser.snapPage`ï¼ˆã‚¹ã‚¯ã‚·ãƒ§ï¼‰ã¨ `CDPexpansion_PDFPrinter.PrintToPDF`ï¼ˆPDFï¼‰ã‚’
-'            çµ„ã¿åˆã‚ã›ã¦ä½¿ç”¨ã—ã¾ã™ã€‚ForAI\vba-cdp-webdriver ã® Sample_11 ã«ç›¸å½“ã™ã‚‹ä½¿ã„æ–¹ã§ã™
-'* ç¢ºèªãƒã‚¤ãƒ³ãƒˆï¼š
-'   - ScreenShotã¨PDFãŒåŒã˜ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã«ä¿å­˜ã•ã‚Œã‚‹ã“ã¨
-'   - ã©ã¡ã‚‰ã‚‚åŒã˜ãƒšãƒ¼ã‚¸å†…å®¹ãŒåæ˜ ã•ã‚Œã¦ã„ã‚‹ã“ã¨
+'* Ú×à–¾F`CDPBrowser.snapPage`iƒXƒNƒVƒ‡j‚Æ `CDPexpansion_PDFPrinter.PrintToPDF`iPDFj‚ğ
+'            ‘g‚İ‡‚í‚¹‚Äg—p‚µ‚Ü‚·BForAI\vba-cdp-webdriver ‚Ì Sample_11 ‚É‘Š“–‚·‚ég‚¢•û‚Å‚·
+'* Šm”Fƒ|ƒCƒ“ƒgF
+'   - ScreenShot‚ÆPDF‚ª“¯‚¶ƒfƒBƒŒƒNƒgƒŠ‚É•Û‘¶‚³‚ê‚é‚±‚Æ
+'   - ‚Ç‚¿‚ç‚à“¯‚¶ƒy[ƒW“à—e‚ª”½‰f‚³‚ê‚Ä‚¢‚é‚±‚Æ
 '***************************************************************************************************
-Sub Demo_PDFPrinter_04_ã‚¹ã‚¯ã‚·ãƒ§ã¨PDFåŒæ™‚ä¿å­˜()
+Sub Demo_PDFPrinter_04_ƒXƒNƒVƒ‡‚ÆPDF“¯•Û‘¶()
 
-    'ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ï¼ˆãªã‘ã‚Œã°è‡ªå‹•ä½œæˆï¼‰
+    '•Û‘¶æƒtƒHƒ‹ƒ_i‚È‚¯‚ê‚Î©“®ì¬j
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads\CDPcapture"
     If Dir(outDir, vbDirectory) = "" Then MkDir outDir
 
-    '1. ãƒ–ãƒ©ã‚¦ã‚¶èµ·å‹•ï¼ˆGoogleã®æ¤œç´¢çµæœãƒšãƒ¼ã‚¸ï¼‰
-    Dim browser As CDPBrowser: Set browser = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•("https://www.google.com/search?q=1USD+to+JPY")
+    '1. ƒuƒ‰ƒEƒU‹N“®iGoogle‚ÌŒŸõŒ‹‰Êƒy[ƒWj
+    Dim browser As CDPBrowser: Set browser = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®("https://www.google.com/search?q=1USD+to+JPY")
 
-    '2. ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆï¼ˆCDPBrowser.snapPageï¼‰
+    '2. ƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒgiCDPBrowser.snapPagej
     browser.snapPage outDir, "capture_shot.png"
-    Debug.Print "ã‚¹ã‚¯ã‚·ãƒ§ä¿å­˜: " & outDir & "\capture_shot.png"
+    Debug.Print "ƒXƒNƒVƒ‡•Û‘¶: " & outDir & "\capture_shot.png"
 
-    '3. PDFä¿å­˜ï¼ˆCDPexpansion_PDFPrinterï¼‰
+    '3. PDF•Û‘¶iCDPexpansion_PDFPrinterj
     Dim pdf As New CDPexpansion_PDFPrinter
     pdf.Init browser
     Dim pdfPath As String: pdfPath = pdf.PrintToPDF(outDir, "capture_pdf")
-    Debug.Print "PDFä¿å­˜: " & pdfPath
+    Debug.Print "PDF•Û‘¶: " & pdfPath
 
-    '4. çµæœé€šçŸ¥
+    '4. Œ‹‰Ê’Ê’m
     If pdfPath <> "" Then
-        browser.notify "ã‚¹ã‚¯ã‚·ãƒ§ & PDF ã‚’åŒæ™‚ä¿å­˜ã—ã¾ã—ãŸï¼" & vbCrLf & outDir
+        browser.notify "ƒXƒNƒVƒ‡ & PDF ‚ğ“¯•Û‘¶‚µ‚Ü‚µ‚½I" & vbCrLf & outDir
     Else
-        MsgBox "PDFä¿å­˜ã«å¤±æ•—ã—ã¾ã—ãŸã€‚", vbCritical
+        MsgBox "PDF•Û‘¶‚É¸”s‚µ‚Ü‚µ‚½B", vbCritical
     End If
 
-    '5. ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
+    '5. ƒuƒ‰ƒEƒU‚ğ•Â‚¶‚é
     browser.quit
 
 End Sub

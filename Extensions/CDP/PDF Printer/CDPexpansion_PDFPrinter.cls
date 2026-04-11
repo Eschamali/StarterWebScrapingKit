@@ -8,54 +8,54 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `CDPBrowser.cls` ã«å¯¾ã™ã‚‹æ©Ÿèƒ½æ‹¡å¼µ â€” PDFä¿å­˜ï¼ˆPage.printToPDFï¼‰
+'           `CDPBrowser.cls` ‚É‘Î‚·‚é‹@”\Šg’£ - PDF•Û‘¶iPage.printToPDFj
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šç¾åœ¨ãƒ–ãƒ©ã‚¦ã‚¶ãŒè¡¨ç¤ºã—ã¦ã„ã‚‹ãƒšãƒ¼ã‚¸ã‚’PDFãƒ•ã‚¡ã‚¤ãƒ«ã¨ã—ã¦ä¿å­˜ã—ã¾ã™
+'* ‹@”\@@FŒ»İƒuƒ‰ƒEƒU‚ª•\¦‚µ‚Ä‚¢‚éƒy[ƒW‚ğPDFƒtƒ@ƒCƒ‹‚Æ‚µ‚Ä•Û‘¶‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* ä½¿ã„æ–¹ã€€ï¼š
+'* g‚¢•û@F
 '    Dim pdf As New CDPexpansion_PDFPrinter
-'    pdf.Init browser                              ' CDPBrowserã‚’ç¶™æ‰¿
-'    pdf.PrintToPDF "C:\output\", "report"         ' â†’ report.pdf ãŒç”Ÿæˆã•ã‚Œã‚‹
+'    pdf.Init browser                              ' CDPBrowser‚ğŒp³
+'    pdf.PrintToPDF "C:\output\", "report"         ' ¨ report.pdf ‚ª¶¬‚³‚ê‚é
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼š
-'    - `Page.printToPDF` ã¯ about:blank ãªã©å°åˆ·ã§ããªã„ãƒšãƒ¼ã‚¸ã§ã¯å¤±æ•—ã—ã¾ã™
-'    - CDPã‚³ãƒãƒ³ãƒ‰ãŒéåŒæœŸã§å‹•ããŸã‚ã€ãƒšãƒ¼ã‚¸èª­ã¿è¾¼ã¿å®Œäº†å¾Œã«å‘¼ã³å‡ºã—ã¦ãã ã•ã„
+'* ’ˆÓ–€F
+'    - `Page.printToPDF` ‚Í about:blank ‚È‚Çˆóü‚Å‚«‚È‚¢ƒy[ƒW‚Å‚Í¸”s‚µ‚Ü‚·
+'    - CDPƒRƒ}ƒ“ƒh‚ª”ñ“¯Šú‚Å“®‚­‚½‚ßAƒy[ƒW“Ç‚İ‚İŠ®—¹Œã‚ÉŒÄ‚Ño‚µ‚Ä‚­‚¾‚³‚¢
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
-Private Const ThisClassName         As String = "CDPexpansion_PDFPrinter"   'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
+'“à•”g—p—p
+Private Const ThisClassName         As String = "CDPexpansion_PDFPrinter"   'ƒƒO‚ÌƒgƒŒ[ƒX—p
 
 
 
 '***************************************************************************************************
-'                           â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ç·¨ â– â– â– 
+'                           ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª•Ò ¡¡¡
 '***************************************************************************************************
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šç¾åœ¨ã®ãƒšãƒ¼ã‚¸ã‚’PDFã¨ã—ã¦æŒ‡å®šãƒ•ã‚©ãƒ«ãƒ€ã«ä¿å­˜ã—ã¾ã™
+'* ‹@”\@@FŒ»İ‚Ìƒy[ƒW‚ğPDF‚Æ‚µ‚Äw’èƒtƒHƒ‹ƒ_‚É•Û‘¶‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* è¿”ã‚Šå€¤ã€€ï¼šä¿å­˜å®Œäº†ã—ãŸãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ•ãƒ«ãƒ‘ã‚¹ã€‚å¤±æ•—æ™‚ã¯ç©ºæ–‡å­—ã‚’è¿”ã—ã¾ã™
-'* å¼•æ•°ã€€ã€€ï¼šFolderPath       ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ã®ãƒ‘ã‚¹ï¼ˆæœ«å°¾ã®ã€Œ\ã€ã¯æœ‰ç„¡ã©ã¡ã‚‰ã§ã‚‚å¯ï¼‰
-'            FileBaseName     æ‹¡å¼µå­ãªã—ã®ãƒ•ã‚¡ã‚¤ãƒ«åï¼ˆä¾‹: "report" â†’ "report.pdf"ï¼‰
-'            PrintBackground  èƒŒæ™¯è‰²ãƒ»èƒŒæ™¯ç”»åƒã‚’PDFã«å«ã‚ã‚‹ã‹ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: Trueï¼‰
-'            Landscape        æ¨ªå‘ãå°åˆ·ã«ã™ã‚‹ã‹ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: False = ç¸¦å‘ãï¼‰
-'            PaperWidth       ç”¨ç´™å¹…ï¼ˆã‚¤ãƒ³ãƒå˜ä½ï¼‰ã€‚0æŒ‡å®šã§A4ç¸¦ï¼ˆ8.27ã‚¤ãƒ³ãƒï¼‰
-'            PaperHeight      ç”¨ç´™é«˜ã•ï¼ˆã‚¤ãƒ³ãƒå˜ä½ï¼‰ã€‚0æŒ‡å®šã§A4ç¸¦ï¼ˆ11.69ã‚¤ãƒ³ãƒï¼‰
-'            Scale            ã‚¹ã‚±ãƒ¼ãƒ«å€ç‡ï¼ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 1.0ï¼‰
-'            MarginTop        ä¸Šä½™ç™½ï¼ˆã‚¤ãƒ³ãƒã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 0.4ï¼‰
-'            MarginBottom     ä¸‹ä½™ç™½ï¼ˆã‚¤ãƒ³ãƒã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 0.4ï¼‰
-'            MarginLeft       å·¦ä½™ç™½ï¼ˆã‚¤ãƒ³ãƒã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 0.4ï¼‰
-'            MarginRight      å³ä½™ç™½ï¼ˆã‚¤ãƒ³ãƒã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 0.4ï¼‰
+'* •Ô‚è’l@F•Û‘¶Š®—¹‚µ‚½ƒtƒ@ƒCƒ‹‚Ìƒtƒ‹ƒpƒXB¸”s‚Í‹ó•¶š‚ğ•Ô‚µ‚Ü‚·
+'* ˆø”@@FFolderPath       •Û‘¶æƒtƒHƒ‹ƒ_‚ÌƒpƒXi––”ö‚Ìu\v‚Í—L–³‚Ç‚¿‚ç‚Å‚à‰Âj
+'            FileBaseName     Šg’£q‚È‚µ‚Ìƒtƒ@ƒCƒ‹–¼i—á: "report" ¨ "report.pdf"j
+'            PrintBackground  ”wŒiFE”wŒi‰æ‘œ‚ğPDF‚ÉŠÜ‚ß‚é‚©iƒfƒtƒHƒ‹ƒg: Truej
+'            Landscape        ‰¡Œü‚«ˆóü‚É‚·‚é‚©iƒfƒtƒHƒ‹ƒg: False = cŒü‚«j
+'            PaperWidth       —p†•iƒCƒ“ƒ`’PˆÊjB0w’è‚ÅA4ci8.27ƒCƒ“ƒ`j
+'            PaperHeight      —p†‚‚³iƒCƒ“ƒ`’PˆÊjB0w’è‚ÅA4ci11.69ƒCƒ“ƒ`j
+'            Scale            ƒXƒP[ƒ‹”{—¦iƒfƒtƒHƒ‹ƒg: 1.0j
+'            MarginTop        ã—]”’iƒCƒ“ƒ`AƒfƒtƒHƒ‹ƒg: 0.4j
+'            MarginBottom     ‰º—]”’iƒCƒ“ƒ`AƒfƒtƒHƒ‹ƒg: 0.4j
+'            MarginLeft       ¶—]”’iƒCƒ“ƒ`AƒfƒtƒHƒ‹ƒg: 0.4j
+'            MarginRight      ‰E—]”’iƒCƒ“ƒ`AƒfƒtƒHƒ‹ƒg: 0.4j
 '***************************************************************************************************
 Public Function PrintToPDF( _
         FolderPath As String, _
@@ -75,7 +75,7 @@ Public Function PrintToPDF( _
 
     printMsg Info_, "PDF printing started. File: " & FileBaseName & ".pdf", FromProcedureName
 
-    '--- 1. ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼çµ„ã¿ç«‹ã¦ ---
+    '--- 1. ƒpƒ‰ƒ[ƒ^[‘g‚İ—§‚Ä ---
     Dim params As New Scripting.Dictionary
 
     params("printBackground")   = PrintBackground
@@ -86,21 +86,21 @@ Public Function PrintToPDF( _
     params("marginLeft")        = MarginLeft
     params("marginRight")       = MarginRight
 
-    'ç”¨ç´™ã‚µã‚¤ã‚ºï¼ˆ0æŒ‡å®šã¯A4ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆï¼‰
-    Dim w As Double: w = IIf(PaperWidth > 0, PaperWidth, 8.27)     'A4æ¨ªå¹…
-    Dim h As Double: h = IIf(PaperHeight > 0, PaperHeight, 11.69)  'A4ç¸¦å¹…
+    '—p†ƒTƒCƒYi0w’è‚ÍA4ƒfƒtƒHƒ‹ƒgj
+    Dim w As Double: w = IIf(PaperWidth > 0, PaperWidth, 8.27)     'A4‰¡•
+    Dim h As Double: h = IIf(PaperHeight > 0, PaperHeight, 11.69)  'A4c•
     params("paperWidth")  = w
     params("paperHeight") = h
 
     printMsg Debug_, "PDF params - landscape:" & Landscape & " printBackground:" & PrintBackground _
                    & " paperWidth:" & w & " paperHeight:" & h & " scale:" & Scale, FromProcedureName
 
-    '--- 2. CDP ã‚³ãƒãƒ³ãƒ‰ç™ºè¡Œ ---
+    '--- 2. CDP ƒRƒ}ƒ“ƒh”­s ---
     printMsg Trace_, "Sending `Page.printToPDF` command...", FromProcedureName
     Dim result As Scripting.Dictionary
-    Set result = invokeMethod("Page.printToPDF", params, , False)  'StopError:=False ã§ã‚¨ãƒ©ãƒ¼æ™‚ã‚‚Nothingã§è¿”ã™
+    Set result = invokeMethod("Page.printToPDF", params, , False)  'StopError:=False ‚ÅƒGƒ‰[‚àNothing‚Å•Ô‚·
 
-    '--- 3. ã‚¨ãƒ©ãƒ¼ç¢ºèª ---
+    '--- 3. ƒGƒ‰[Šm”F ---
     If result Is Nothing Then
         printMsg WARN_, "Page.printToPDF returned Nothing. The page may not be printable (e.g. about:blank).", FromProcedureName
         PrintToPDF = ""
@@ -113,7 +113,7 @@ Public Function PrintToPDF( _
         Exit Function
     End If
 
-    '--- 4. Base64ãƒ‡ã‚³ãƒ¼ãƒ‰ â†’ ãƒ•ã‚¡ã‚¤ãƒ«ä¿å­˜ ---
+    '--- 4. Base64ƒfƒR[ƒh ¨ ƒtƒ@ƒCƒ‹•Û‘¶ ---
     Dim b64 As String: b64 = CStr(result("data"))
     If Len(b64) = 0 Then
         printMsg WARN_, "PDF data (Base64) is empty. Nothing to save.", FromProcedureName
@@ -123,21 +123,21 @@ Public Function PrintToPDF( _
 
     printMsg Debug_, "PDF Base64 data received. Length: " & Len(b64) & " chars", FromProcedureName
 
-    'ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ã®æœ«å°¾ã€Œ\ã€ã‚’çµ±ä¸€ã—ã¦é™¤å»
+    '•Û‘¶æƒtƒHƒ‹ƒ_‚Ì––”öu\v‚ğ“ˆê‚µ‚Äœ‹
     Dim folderNorm As String: folderNorm = FolderPath
     If Right(folderNorm, 1) = "\" Then folderNorm = Left(folderNorm, Len(folderNorm) - 1)
 
-    'ãƒ•ã‚©ãƒ«ãƒ€ãŒå­˜åœ¨ã—ãªã„å ´åˆã¯ä½œæˆ
+    'ƒtƒHƒ‹ƒ_‚ª‘¶İ‚µ‚È‚¢ê‡‚Íì¬
     If Dir(folderNorm, vbDirectory) = "" Then
         printMsg Info_, "Creating output folder: " & folderNorm, FromProcedureName
         MkDir folderNorm
     End If
 
-    'ãƒ•ã‚¡ã‚¤ãƒ«åçµ„ã¿ç«‹ã¦ï¼ˆæ‹¡å¼µå­ .pdf ã‚’ä¿è¨¼ï¼‰
+    'ƒtƒ@ƒCƒ‹–¼‘g‚İ—§‚ÄiŠg’£q .pdf ‚ğ•ÛØj
     Dim fileName As String: fileName = FileBaseName
     If LCase(Right(fileName, 4)) <> ".pdf" Then fileName = fileName & ".pdf"
 
-    'Base64 â†’ ãƒã‚¤ãƒŠãƒªå¤‰æ›ï¼ˆMSXML2 DOMçµŒç”± ï¼ CDPBrowser.SaveBase64ToFileã¨åŒæ–¹å¼ï¼‰
+    'Base64 ¨ ƒoƒCƒiƒŠ•ÏŠ·iMSXML2 DOMŒo—R ^ CDPBrowser.SaveBase64ToFile‚Æ“¯•û®j
     Dim dom As Object, el As Object, Bytes() As Byte
     Set dom = CreateObject("MSXML2.DOMDocument")
     Set el = dom.createElement("pdfnode")
@@ -145,7 +145,7 @@ Public Function PrintToPDF( _
     el.Text = b64
     Bytes = el.nodeTypedValue
 
-    'CharacterCodeConversion çµŒç”±ã§ãƒ•ã‚¡ã‚¤ãƒ«æ›¸ãå‡ºã—
+    'CharacterCodeConversion Œo—R‚Åƒtƒ@ƒCƒ‹‘‚«o‚µ
     Dim CharConv As New CharacterCodeConversion
     CharConv.BytesToSaveFile Bytes, folderNorm, fileName
 
@@ -158,10 +158,10 @@ End Function
 
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šç”¨ç´™ã‚µã‚¤ã‚ºã®ãƒ—ãƒªã‚»ãƒƒãƒˆã‚’æ–‡å­—åˆ—ã§æŒ‡å®šã§ãã‚‹ä¸Šä½äº’æ›ãƒ¡ã‚½ãƒƒãƒ‰ã§ã™
+'* ‹@”\@@F—p†ƒTƒCƒY‚ÌƒvƒŠƒZƒbƒg‚ğ•¶š—ñ‚Åw’è‚Å‚«‚éãˆÊŒİŠ·ƒƒ\ƒbƒh‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°ã€€ã€€ï¼šPaperPreset    "A4" / "A3" / "Letter" / "Legal" ã®ã„ãšã‚Œã‹ï¼ˆå¤§æ–‡å­—å°æ–‡å­—ä¸å•ï¼‰
-'            ãã®ä»–ã®å¼•æ•°ã¯ PrintToPDF ã¨åŒã˜ã§ã™
+'* ˆø”@@FPaperPreset    "A4" / "A3" / "Letter" / "Legal" ‚Ì‚¢‚¸‚ê‚©i‘å•¶š¬•¶š•s–âj
+'            ‚»‚Ì‘¼‚Ìˆø”‚Í PrintToPDF ‚Æ“¯‚¶‚Å‚·
 '***************************************************************************************************
 Public Function PrintToPDFWithPreset( _
         FolderPath As String, _
@@ -176,7 +176,7 @@ Public Function PrintToPDFWithPreset( _
 
     Dim w As Double, h As Double
 
-    'ç”¨ç´™ã‚µã‚¤ã‚ºï¼ˆå˜ä½ï¼šã‚¤ãƒ³ãƒï¼‰
+    '—p†ƒTƒCƒYi’PˆÊFƒCƒ“ƒ`j
     Select Case UCase(Trim(PaperPreset))
         Case "A4":      w = 8.27:  h = 11.69
         Case "A3":      w = 11.69: h = 16.54
@@ -189,7 +189,7 @@ Public Function PrintToPDFWithPreset( _
 
     printMsg Debug_, "Paper preset: " & UCase(Trim(PaperPreset)) & " (" & w & " x " & h & " inches)", FromProcedureName
 
-    'Landscape ã®å ´åˆã¯ç¸¦æ¨ªã‚’å…¥ã‚Œæ›¿ãˆ
+    'Landscape ‚Ìê‡‚Íc‰¡‚ğ“ü‚ê‘Ö‚¦
     If Landscape Then
         Dim tmp As Double: tmp = w: w = h: h = tmp
         printMsg Debug_, "Landscape mode: swapped to " & w & " x " & h & " inches", FromProcedureName
@@ -202,7 +202,7 @@ End Function
 
 
 '***************************************************************************************************
-'                           â– â– â–  `CDPBrowser`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
+'                           ¡¡¡ `CDPBrowser`’¼’Êƒƒ\ƒbƒh ¡¡¡
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_CDPBrowser.sleep seconds
@@ -219,19 +219,19 @@ End Function
 
 
 '***************************************************************************************************
-'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šCDPåˆ¶å¾¡ã®ãƒ™ãƒ¼ã‚¹ã¨ãªã‚‹`CDPBrowser.cls`ã‚’ç¶™æ‰¿ã•ã›ã¾ã™
+'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPBrowser)
-    'ç¶™æ‰¿
+    'Œp³
     Set ex_CDPBrowser = Inheritance
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    'ç¾ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã§ã¯è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®èª­ã¿è¾¼ã¿ã¯ä¸è¦
-    'å°†æ¥çš„ã«ä¿å­˜å…ˆãƒ‡ãƒ•ã‚©ãƒ«ãƒˆãƒ•ã‚©ãƒ«ãƒ€ç­‰ã‚’è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰å–å¾—ã™ã‚‹å ´åˆã¯ã“ã“ã«è¿½åŠ 
+    'Œ»ƒo[ƒWƒ‡ƒ“‚Å‚Íİ’èƒV[ƒg‚©‚ç‚Ì“Ç‚İ‚İ‚Í•s—v
+    '«—ˆ“I‚É•Û‘¶æƒfƒtƒHƒ‹ƒgƒtƒHƒ‹ƒ_“™‚ğİ’èƒV[ƒg‚©‚çæ“¾‚·‚éê‡‚Í‚±‚±‚É’Ç‰Á
 End Sub
