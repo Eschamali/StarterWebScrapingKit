@@ -27,6 +27,7 @@ Option Explicit
 '※ StarterWebScrapingKit のルートフォルダを入力してください
 Private Const WORKSPACE_PATH As String = ""
 
+Private CharConv As New CharacterCodeConversion
 
 
 '***************************************************************************************************
@@ -45,15 +46,18 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample.txt"
 
     If Dir(txtFile) = "" Then
-        Open txtFile For Output As #1
-        Print #1, "こんにちは！ FileChooser Interceptor のテストです。"
-        Print #1, ""
-        Print #1, "このファイルは VBA が注入しました。"
-        Print #1, "でもファイルの中身を読んだのは VBA ではなく、"
-        Print #1, "ブラウザの JavaScript FileReader API です！"
-        Print #1, ""
-        Print #1, "実行時刻: " & Now()
-        Close #1
+        Dim TxtString As String
+        With CharConv
+            TxtString = "こんにちは！ FileChooser Interceptor のテストです。" & vbCrLf & _
+                "" & vbCrLf & _
+                "このファイルは VBA が注入しました。" & vbCrLf & _
+                "でもファイルの中身を読んだのは VBA ではなく、" & vbCrLf & _
+                "ブラウザの JavaScript FileReader API です！" & vbCrLf & _
+                "" & vbCrLf & _
+                "実行時刻: " & Now()
+            
+            .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "sample.txt"
+        End With
     End If
 
     '--- 1. テストHTMLをブラウザで開く ---
@@ -110,16 +114,20 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample_dynamic.txt"
 
     If Dir(txtFile) = "" Then
-        Open txtFile For Output As #1
-        Print #1, "=========================================="
-        Print #1, "  FileChooser Interceptor - 動的注入テスト"
-        Print #1, "=========================================="
-        Print #1, ""
-        Print #1, "このファイルは JS で動的に生成されたダイアログへ注入されました。"
-        Print #1, "DOM.setFileInputFiles では対応できないケースです！"
-        Print #1, ""
-        Print #1, "実行時刻: " & Now()
-        Close #1
+        Dim TxtString As String
+        With CharConv
+            TxtString = "==========================================" & vbCrLf & _
+                "  FileChooser Interceptor - 動的注入テスト" & vbCrLf & _
+                "==========================================" & vbCrLf & _
+                "" & vbCrLf & _
+                "このファイルは JS で動的に生成されたダイアログへ注入されました。" & vbCrLf & _
+                "DOM.setFileInputFiles では対応できないケースです！" & vbCrLf & _
+                "" & vbCrLf & _
+                "実行時刻: " & Now()
+            
+            .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "sample_dynamic.txt"
+        End With
+
     End If
 
     '--- 1. テストHTMLをブラウザで開く ---
@@ -178,13 +186,17 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     For i = 1 To 3
         files(i) = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\test_" & i & ".txt"
         If Dir(files(i)) = "" Then
-            Open files(i) For Output As #1
-            Print #1, "==============================="
-            Print #1, "  テストファイル " & i & " 番"
-            Print #1, "==============================="
-            Print #1, ""
-            Print #1, "作成時刻: " & Now()
-            Close #1
+            Dim TxtString As String
+            With CharConv
+                TxtString = "===============================" & vbCrLf & _
+                    "  テストファイル " & i & " 番" & vbCrLf & _
+                    "===============================" & vbCrLf & _
+                    "" & vbCrLf & _
+                    "作成時刻: " & Now()
+                
+                .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "test_" & i & ".txt"
+            End With
+
         End If
     Next i
 
