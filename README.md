@@ -29,7 +29,7 @@
   * 改造ブラウザ、アンチディテクトブラウザ、USB内のポータブルChromeでも、 **「設定シートのセルにexeのパスを貼るだけ」** で、一瞬で完全な自動操作が可能です😎
 
 * **無限の拡張性で、あなた専用のツールに！**
-  * AIに「[テンプレート](/tree/dev/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
+  * AIに「[テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
   * 面倒なCDPの仕様を覚える必要はありません。アイデアさえあれば、誰でも簡単に機能拡張が可能です。
   * プロンプトの工夫次第で、丁寧な解説付きの「デモコード」まで全自動で生成できます！
 
