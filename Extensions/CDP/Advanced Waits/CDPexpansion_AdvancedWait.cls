@@ -12,65 +12,71 @@ Option Explicit
 ' =========================================================
 ' CDPexpansion_AdvancedWait
 '
-' [æ¦‚è¦]
-' ãƒ–ãƒ©ã‚¦ã‚¶ã®éåŒæœŸå‹•ä½œï¼ˆDOMå¤‰æ›´ã€éåŒæœŸé€šä¿¡ç­‰ï¼‰ãŒå®Œäº†ã™ã‚‹ã¾ã§
-' å¾…æ©Ÿã™ã‚‹ãŸã‚ã®æ‹¡å¼µæ©Ÿèƒ½ã‚¯ãƒ©ã‚¹ã€‚
+' [ŠT—v]
+' ƒuƒ‰ƒEƒU‚Ì”ñ“¯Šú“®ìiDOM•ÏXA”ñ“¯Šú’ÊM“™j‚ªŠ®—¹‚·‚é‚Ü‚Å
+' ‘Ò‹@‚·‚é‚½‚ß‚ÌŠg’£‹@”\ƒNƒ‰ƒXB
 ' =========================================================
 
 Private WithEvents CDP_   As CDPBrowser
 Attribute CDP_.VB_VarHelpID = -1
 
-' ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³æ¤œçŸ¥ç”¨ãƒ•ãƒ©ã‚°ï¼ˆCDPãƒã‚¤ãƒ†ã‚£ãƒ–ã‚¤ãƒ™ãƒ³ãƒˆã§æ›´æ–°ã•ã‚Œã‚‹ï¼‰
-Private navigated_url_      As String   ' Page.frameNavigated ã§é€šçŸ¥ã•ã‚ŒãŸURL
-Private navigated_detected_ As Boolean  ' é·ç§»æ¤œçŸ¥ãƒ•ãƒ©ã‚°
+Private Const ThisClassName As String = "CDPexpansion_AdvancedWait"
 
-' åˆæœŸåŒ–å‡¦ç†ï¼ˆFriendå®šç¾©ï¼šå¤–ã‹ã‚‰ç›´æ¥Newã•ã›ãªã„é‹ç”¨ã‚’æƒ³å®šï¼‰
+
+' ƒiƒrƒQ[ƒVƒ‡ƒ“ŒŸ’m—pƒtƒ‰ƒOiCDPƒlƒCƒeƒBƒuƒCƒxƒ“ƒg‚ÅXV‚³‚ê‚éj
+Private navigated_url_      As String   ' Page.frameNavigated ‚Å’Ê’m‚³‚ê‚½URL
+Private navigated_detected_ As Boolean  ' ‘JˆÚŒŸ’mƒtƒ‰ƒO
+
+' ‰Šú‰»ˆ—iFriend’è‹`FŠO‚©‚ç’¼ÚNew‚³‚¹‚È‚¢‰^—p‚ğ‘z’èj
 Friend Sub Init(cb As CDPBrowser)
     Set CDP_ = cb
 End Sub
 
 
 ' =========================================================
-' CDPãƒ–ãƒ©ã‚¦ã‚¶ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒ³ãƒ‰ãƒ©
-' CDPBrowserãŒ RaiseEvent detectionCDPEvent ã—ãŸéš›ã«å‘¼ã°ã‚Œã¾ã™ã€‚
-' ï¼ˆBiDiã® Session.Subscribe â†’ browsingContext.load ç›¸å½“ï¼‰
+' CDPƒuƒ‰ƒEƒUƒCƒxƒ“ƒgƒnƒ“ƒhƒ‰
+' CDPBrowser‚ª RaiseEvent detectionCDPEvent ‚µ‚½Û‚ÉŒÄ‚Î‚ê‚Ü‚·B
+' iBiDi‚Ì Session.Subscribe ¨ browsingContext.load ‘Š“–j
 ' =========================================================
 Private Sub CDP__detectionCDPEvent(methodName As String, EventRawJson As String)
 
     Select Case methodName
 
-        ' CDPãƒã‚¤ãƒ†ã‚£ãƒ–ã®ãƒšãƒ¼ã‚¸é·ç§»ã‚¤ãƒ™ãƒ³ãƒˆ
-        ' BiDiã® browsingContext.load ã«ç›¸å½“ã™ã‚‹CDPç‰ˆ
-        ' Page.enable ã‚’äº‹å‰ã«å‘¼ã¶ã“ã¨ã§ç™ºç«ã™ã‚‹ã‚ˆã†ã«ãªã‚‹
+        ' CDPƒlƒCƒeƒBƒu‚Ìƒy[ƒW‘JˆÚƒCƒxƒ“ƒg
+        ' BiDi‚Ì browsingContext.load ‚É‘Š“–‚·‚éCDP”Å
+        ' Page.enable ‚ğ–‘O‚ÉŒÄ‚Ô‚±‚Æ‚Å”­‰Î‚·‚é‚æ‚¤‚É‚È‚é
         Case "Page.frameNavigated"
             Dim rawUrl As String
             rawUrl = ExtractUrlFromFrameNavigated(EventRawJson)
             If rawUrl <> "" Then
-                navigated_url_      = rawUrl
+                navigated_url_ = rawUrl
                 navigated_detected_ = True
             End If
 
-        ' SPAã®ãƒãƒƒã‚·ãƒ¥å¤‰æ›´ãªã©åŒä¸€ãƒšãƒ¼ã‚¸å†…é·ç§»ï¼ˆBiDiã® browsingContext.fragmentNavigated ç›¸å½“ï¼‰
+        ' SPA‚ÌƒnƒbƒVƒ…•ÏX‚È‚Ç“¯ˆêƒy[ƒW“à‘JˆÚiBiDi‚Ì browsingContext.fragmentNavigated ‘Š“–j
         Case "Page.navigatedWithinDocument"
             Dim rawUrl2 As String
             rawUrl2 = ExtractUrlFromNavigatedWithin(EventRawJson)
             If rawUrl2 <> "" Then
-                navigated_url_      = rawUrl2
+                navigated_url_ = rawUrl2
                 navigated_detected_ = True
             End If
 
         Case Else
-            ' ä¸Šè¨˜ä»¥å¤–ã®ã‚¤ãƒ™ãƒ³ãƒˆã¯ç„¡è¦–
+            ' ã‹LˆÈŠO‚ÌƒCƒxƒ“ƒg‚Í–³‹
     End Select
 
 End Sub
 
 
 ' =========================================================
-' DOM Mutation ã®å¾…æ©Ÿ
-' DOMã«å¤‰æ›´ï¼ˆè¿½åŠ ã€å‰Šé™¤ã€å±æ€§å¤‰æ›´ï¼‰ãŒèµ·ãã‚‹ã¾ã§å¾…æ©Ÿã™ã‚‹
+' DOM Mutation ‚Ì‘Ò‹@
+' DOM‚É•ÏXi’Ç‰ÁAíœA‘®«•ÏXj‚ª‹N‚«‚é‚Ü‚Å‘Ò‹@‚·‚é
 ' =========================================================
 Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForDomMutation"
+
+
     Dim js As String
     Dim res As String
     Dim startCount As Long, currCount As Long
@@ -94,7 +100,7 @@ Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boole
     
     ' Get initial count
     res = CDP_.jsEval("window.__vbaDomMutationCount||0;")
-    res = ParseSimpleValue(res) ' ãƒ—ãƒªãƒŸãƒ†ã‚£ãƒ–ãªæˆ»ã‚Šå€¤ã‚’å–å¾—
+    res = ParseSimpleValue(res) ' ƒvƒŠƒ~ƒeƒBƒu‚È–ß‚è’l‚ğæ“¾
     If res = "" Then res = "0"
     startCount = CLng(res)
     
@@ -111,7 +117,7 @@ Public Function WaitForDomMutation(Optional maxWaitTimeSec As Long = 5) As Boole
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForDomMutation> " & maxWaitTimeSec & "ç§’å¾…æ©Ÿã—ã¾ã—ãŸãŒDOMå¤‰åŒ–ãŒç™ºç”Ÿã—ã¾ã›ã‚“ã§ã—ãŸã€‚", "CDPexpansion_AdvancedWait"
+            CDP_.printMsg WARN_, "<WaitForDomMutation> " & maxWaitTimeSec & "•b‘Ò‹@‚µ‚Ü‚µ‚½‚ªDOM•Ï‰»‚ª”­¶‚µ‚Ü‚¹‚ñ‚Å‚µ‚½B", FromProcedureName
             WaitForDomMutation = False
             Exit Function
         End If
@@ -123,10 +129,13 @@ End Function
 
 
 ' =========================================================
-' Network Idle ã®å¾…æ©Ÿ
-' fetch ã‚„ XMLHttpRequest ãªã©ã®é€šä¿¡ãŒè½ã¡ç€ãã¾ã§å¾…æ©Ÿã™ã‚‹
+' Network Idle ‚Ì‘Ò‹@
+' fetch ‚â XMLHttpRequest ‚È‚Ç‚Ì’ÊM‚ª—‚¿’…‚­‚Ü‚Å‘Ò‹@‚·‚é
 ' =========================================================
 Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optional idleThresholdMs As Long = 500) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForNetworkIdle"
+
+
     Dim js As String
     Dim res As String, isIdle As String
     Dim startTime As Double
@@ -164,7 +173,7 @@ Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optiona
     
     startTime = Timer
     Do
-        ' idleThresholdMs ä»¥ä¸Šã‚¢ã‚¯ãƒ†ã‚£ãƒ“ãƒ†ã‚£ãŒãªãã€é€²è¡Œä¸­é€šä¿¡(Inflight)ãŒ0ã‹ã‚’åˆ¤å®šã™ã‚‹JS
+        ' idleThresholdMs ˆÈãƒAƒNƒeƒBƒrƒeƒB‚ª‚È‚­Ais’†’ÊM(Inflight)‚ª0‚©‚ğ”»’è‚·‚éJS
         js = "((window.__vbaNetInflight||0)===0 && (Date.now()-(window.__vbaNetLastActivity||0))>=" & idleThresholdMs & ");"
         res = CDP_.jsEval(js)
         
@@ -175,7 +184,7 @@ Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optiona
         End If
         
         If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForNetworkIdle> " & maxWaitTimeSec & "ç§’å¾…æ©Ÿã—ã¾ã—ãŸãŒNetworkIdleã«ãªã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚", "CDPexpansion_AdvancedWait"
+            CDP_.printMsg WARN_, "<WaitForNetworkIdle> " & maxWaitTimeSec & "•b‘Ò‹@‚µ‚Ü‚µ‚½‚ªNetworkIdle‚É‚È‚è‚Ü‚¹‚ñ‚Å‚µ‚½B", FromProcedureName
             WaitForNetworkIdle = False
             Exit Function
         End If
@@ -183,18 +192,21 @@ Public Function WaitForNetworkIdle(Optional maxWaitTimeSec As Long = 10, Optiona
         CDP_.sleep 0.1
         DoEvents
     Loop
-End Sub
+End Function
 
 
 
 
 ' =========================================================
-' 1. å®Œå…¨é™æ­¢ãƒ»éåŒæœŸå‡¦ç†å¾…ã¡ (Full Idle)
-' ç”¨é€”ï¼ˆä¾‹ãˆï¼‰: ã€Œå®Œå…¨æ­¦è£…ã®ã‚¬ãƒ¼ãƒ‰ãƒãƒ³ã€
-' SPAç­‰ã®è¤‡é›‘ãªãƒšãƒ¼ã‚¸ã§ã€ç”»é¢æç”»ãƒ»è£å´ã®é€šä¿¡ãƒ»å€¤ã®è‡ªå‹•å¤‰æ›´ãªã©
-' å…¨ã¦ã®æŒ™å‹•ãŒã€Œã‚·ãƒ¼ãƒ³ã€ã¨é™ã‘ã•ã‚’å–ã‚Šæˆ»ã™ã¾ã§çµ¶å¯¾ã«æ¬¡ã¸é€²ã¾ã›ãªã„å …ç‰¢ãªå¾…æ©Ÿã§ã™ã€‚
+' 1. Š®‘SÃ~E”ñ“¯Šúˆ—‘Ò‚¿ (Full Idle)
+' —p“ri—á‚¦j: uŠ®‘S•‘•‚ÌƒK[ƒhƒ}ƒ“v
+' SPA“™‚Ì•¡G‚Èƒy[ƒW‚ÅA‰æ–Ê•`‰æE— ‘¤‚Ì’ÊME’l‚Ì©“®•ÏX‚È‚Ç
+' ‘S‚Ä‚Ì‹““®‚ªuƒV[ƒ“v‚ÆÃ‚¯‚³‚ğæ‚è–ß‚·‚Ü‚Åâ‘Î‚ÉŸ‚Öi‚Ü‚¹‚È‚¢Œ˜˜S‚È‘Ò‹@‚Å‚·B
 ' =========================================================
 Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitForFullIdle"
+
+
     Dim js As String
     Dim res As String
     
@@ -239,114 +251,64 @@ Public Function WaitForFullIdle(Optional idleTimeoutMs As Long = 1000, Optional 
     If LCase(res) = "ok" Then
         WaitForFullIdle = True
     Else
-        CDP_.printMsg WARN_, "<WaitForFullIdle> " & maxTimeoutMs & "ms å¾…æ©Ÿã—ã¾ã—ãŸãŒå®Œå…¨ã«ã‚¢ã‚¤ãƒ‰ãƒ«ã«ãªã‚Šã¾ã›ã‚“ã§ã—ãŸã€‚(çµæœ: " & LCase(res) & ")", "CDPexpansion_AdvancedWait"
+        CDP_.printMsg WARN_, "<WaitForFullIdle> " & maxTimeoutMs & "ms ‘Ò‹@‚µ‚Ü‚µ‚½‚ªŠ®‘S‚ÉƒAƒCƒhƒ‹‚É‚È‚è‚Ü‚¹‚ñ‚Å‚µ‚½B(Œ‹‰Ê: " & LCase(res) & ")", FromProcedureName
         WaitForFullIdle = False
     End If
 End Function
 
 ' =========================================================
-' 2. URLé·ç§»å®Œäº†å¾…ã¡ (URL Redirect) â€»CDPãƒã‚¤ãƒ†ã‚£ãƒ–ã‚¤ãƒ™ãƒ³ãƒˆç‰ˆ
-' ç”¨é€”ï¼ˆä¾‹ãˆï¼‰: ã€Œåˆ°ç€ã‚²ãƒ¼ãƒˆã®å¿ çŠ¬ã€
-' ãƒ­ã‚°ã‚¤ãƒ³ãƒœã‚¿ãƒ³ã‚’æŠ¼ã—ãŸå¾Œãªã©ã€ã©ã‚Œã ã‘é€šä¿¡ã‚„ãƒªãƒ€ã‚¤ãƒ¬ã‚¯ãƒˆã‚’æŒŸã‚‚ã†ã¨ã€
-' æœ€çµ‚çš„ã«æŒ‡å®šã®URLæ–‡å­—åˆ—ãŒå«ã¾ã‚Œã‚‹ãƒšãƒ¼ã‚¸ã«åˆ°ç€ã™ã‚‹ã¾ã§ãšã£ã¨å¾…ã£ã¦ãã‚Œã¾ã™ã€‚
-'
-' ã€å®Ÿè£…æ–¹é‡ã€‘
-' JSã®Promiseæ³¨å…¥ï¼ˆãƒšãƒ¼ã‚¸é·ç§»æ™‚ã«ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆç ´å£Šã•ã‚Œã‚‹ãŸã‚NGï¼‰ã§ã¯ãªãã€
-' CDPãƒã‚¤ãƒ†ã‚£ãƒ–ã® Page.frameNavigated ã‚¤ãƒ™ãƒ³ãƒˆã‚’ WithEvents ã§ã‚­ãƒ£ãƒƒãƒã™ã‚‹ã€‚
-' BiDiãŒ browsingContext.load ã‚’è³¼èª­ã™ã‚‹ã®ã¨å…¨ãåŒã˜æ­£æ”»æ³•ã®å®Ÿè£…ã§ã™ã€‚
-' =========================================================
-Public Function WaitForUrlRedirect(partialUrl As String, Optional maxWaitTimeSec As Long = 30) As Boolean
-    ' 1. Page ãƒ‰ãƒ¡ã‚¤ãƒ³ã®ã‚¤ãƒ™ãƒ³ãƒˆã‚’æœ‰åŠ¹åŒ–ï¼ˆPage.frameNavigated ãŒé£›ã‚“ã§ãã‚‹ã‚ˆã†ã«ãªã‚‹ï¼‰
-    CDP_.pageEnable True
-    CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> Page.enable å®Œäº†ã€‚'" & partialUrl & "' ã¸ã®é·ç§»ã‚’ç›£è¦–é–‹å§‹ã€‚", "CDPexpansion_AdvancedWait"
-    
-    ' 2. æ¤œçŸ¥ãƒ•ãƒ©ã‚°ã‚’ãƒªã‚»ãƒƒãƒˆã—ã¦ç›£è¦–é–‹å§‹
-    navigated_detected_ = False
-    navigated_url_      = ""
-    
-    ' 3. VBAå´ãƒãƒ¼ãƒªãƒ³ã‚°
-    '    DoEvents ã«ã‚ˆã‚Š CDPBrowser ã®å—ä¿¡ãƒ«ãƒ¼ãƒ—ãŒå›ã‚Šç¶šã‘ã€
-    '    Page.frameNavigated ã‚¤ãƒ™ãƒ³ãƒˆãŒæ¥ãŸç¬é–“ã« CDP__detectionCDPEvent ãŒå‘¼ã°ã‚Œã¦ãƒ•ãƒ©ã‚°ãŒç«‹ã¤
-    Dim startTime As Double: startTime = Timer
-    Do
-        DoEvents
-        
-        If navigated_detected_ Then
-            ' ãªã‚“ã‚‰ã‹ã®é·ç§»ãŒæ¤œçŸ¥ã•ã‚ŒãŸã€‚ç›®çš„ã®URLãŒå«ã¾ã‚Œã¦ã„ã‚‹ã‹ç¢ºèª
-            If InStr(1, navigated_url_, partialUrl, vbTextCompare) > 0 Then
-                CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> ç›®çš„ã®URLã¸ã®åˆ°é”ã‚’ç¢ºèª: " & navigated_url_, "CDPexpansion_AdvancedWait"
-                WaitForUrlRedirect = True
-                ' Page.enable ã¯å‘¼ã³å‡ºã—å…ƒã§å¿…è¦ã«å¿œã˜ã¦ Page.disable ã—ã¦ãã ã•ã„
-                Exit Function
-            End If
-            ' åˆ¥URLã¸ã®é·ç§»ã¯ç„¡è¦–ã—ã¦ãƒ•ãƒ©ã‚°ã‚’ãƒªã‚»ãƒƒãƒˆãƒ»å¾…æ©Ÿç¶™ç¶š
-            CDP_.printMsg DEBUG_, "<WaitForUrlRedirect> åˆ¥URLã¸ã®é·ç§»ã‚’æ¤œçŸ¥ï¼ˆã‚¹ã‚­ãƒƒãƒ—ï¼‰: " & navigated_url_, "CDPexpansion_AdvancedWait"
-            navigated_detected_ = False
-        End If
-        
-        If (Timer - startTime) > maxWaitTimeSec Then
-            CDP_.printMsg WARN_, "<WaitForUrlRedirect> " & maxWaitTimeSec & "ç§’å¾…æ©Ÿã—ã¾ã—ãŸãŒURLã« '" & partialUrl & "' ãŒå«ã¾ã‚Œã¾ã›ã‚“ã§ã—ãŸã€‚", "CDPexpansion_AdvancedWait"
-            WaitForUrlRedirect = False
-            Exit Function
-        End If
-        
-        CDP_.sleep 0.2
-    Loop
-End Function
-
-' =========================================================
-' 3. æ“ä½œèµ·å› ã®æ³¢åŠå¾…æ©Ÿ (Click & Wait for Idle)
-' ç”¨é€”ï¼ˆä¾‹ãˆï¼‰: ã€ŒçŸ³ã‚’æŠ•ã’ã¦æ³¢ç´‹ãŒæ¶ˆãˆã‚‹ã¾ã§å¾…ã¤ã€
-' ã€çµã‚Šè¾¼ã¿ãƒœã‚¿ãƒ³ã€ç­‰ã‚’æŠ¼ã—ãŸç›´å¾Œã«èµ·ã“ã‚‹å¾Œå‡ºã—ã®é€šä¿¡ã‚„DOMæç”»ã®åµãŒ
-' ãƒ‰ã‚¢ãŒé–‰ã¾ã‚‹ã‚ˆã†ã«å®Œå…¨ã«è½ã¡ç€ãã¾ã§ã€ã‚¯ãƒªãƒƒã‚¯ã¨ã‚»ãƒƒãƒˆã§å¾…ã¤æ©Ÿèƒ½ã§ã™ã€‚
+' 3. ‘€ì‹Nˆö‚Ì”g‹y‘Ò‹@ (Click & Wait for Idle)
+' —p“ri—á‚¦j: uÎ‚ğ“Š‚°‚Ä”g–ä‚ªÁ‚¦‚é‚Ü‚Å‘Ò‚Âv
+' wi‚è‚İƒ{ƒ^ƒ“x“™‚ğ‰Ÿ‚µ‚½’¼Œã‚É‹N‚±‚éŒão‚µ‚Ì’ÊM‚âDOM•`‰æ‚Ì—’‚ª
+' ƒhƒA‚ª•Â‚Ü‚é‚æ‚¤‚ÉŠ®‘S‚É—‚¿’…‚­‚Ü‚ÅAƒNƒŠƒbƒN‚ÆƒZƒbƒg‚Å‘Ò‚Â‹@”\‚Å‚·B
 ' =========================================================
 Public Function ClickAndWaitForIdle(elem As CDPElement, Optional idleTimeoutMs As Long = 1000, Optional maxTimeoutMs As Long = 30000) As Boolean
-    ' ã¾ãšè¦ç´ ã‚’ã‚¯ãƒªãƒƒã‚¯
+    ' ‚Ü‚¸—v‘f‚ğƒNƒŠƒbƒN
     elem.click
     
-    ' ãã®ç›´å¾Œã‹ã‚‰ã€æ³¢ç´‹ãŒåºƒãŒã‚Šçµ‚ã‚ã‚‹ã¾ã§å¾…æ©Ÿ
+    ' ‚»‚Ì’¼Œã‚©‚çA”g–ä‚ªL‚ª‚èI‚í‚é‚Ü‚Å‘Ò‹@
     ClickAndWaitForIdle = WaitForFullIdle(idleTimeoutMs, maxTimeoutMs)
 End Function
 
 
 ' =========================================================
-' ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£: jsEvalã®æˆ»ã‚Šå€¤(JSONæ–‡å­—åˆ—ã‚„ç”Ÿå€¤)ã‹ã‚‰çµæœã‚’æŠ½å‡ºã™ã‚‹ç°¡æ˜“ãƒ‘ã‚µãƒ¼
+' ƒ†[ƒeƒBƒŠƒeƒB: jsEval‚Ì–ß‚è’l(JSON•¶š—ñ‚â¶’l)‚©‚çŒ‹‰Ê‚ğ’Šo‚·‚éŠÈˆÕƒpƒT[
 ' =========================================================
 Private Function ParseSimpleValue(ByVal val As String) As String
-    ' CDPElementã‚„CDPBrowserã®jsEvalã®æˆ»ã‚Šå€¤ã§ã‚ã‚‹ãƒ—ãƒªãƒŸãƒ†ã‚£ãƒ–å€¤ã‚’ç°¡å˜ã«æŠ½å‡ºã™ã‚‹
+    ' CDPElement‚âCDPBrowser‚ÌjsEval‚Ì–ß‚è’l‚Å‚ ‚éƒvƒŠƒ~ƒeƒBƒu’l‚ğŠÈ’P‚É’Šo‚·‚é
     If Left(val, 1) = """" Then val = Mid(val, 2)
     If Right(val, 1) = """" Then val = Left(val, Len(val) - 1)
     ParseSimpleValue = val
 End Function
 
 Private Function ProcessPromiseResult(ByVal val As String) As String
-    ' Promiseè‡ªä½“ãŒè¿”ã™æ–‡å­—åˆ—ã‚’æ•´å½¢
+    ' Promise©‘Ì‚ª•Ô‚·•¶š—ñ‚ğ®Œ`
     ProcessPromiseResult = ParseSimpleValue(val)
 End Function
 
 ' =========================================================
-' ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£: Page.frameNavigated JSONã‹ã‚‰URLã‚’ç°¡æ˜“æŠ½å‡º
-' JSONä¾‹: {"method":"Page.frameNavigated","params":{"frame":{"id":"...","url":"https://...","..."}}}
+' ƒ†[ƒeƒBƒŠƒeƒB: Page.frameNavigated JSON‚©‚çURL‚ğŠÈˆÕ’Šo
+' JSON—á: {"method":"Page.frameNavigated","params":{"frame":{"id":"...","url":"https://...","..."}}}
 ' =========================================================
 Private Function ExtractUrlFromFrameNavigated(rawJson As String) As String
-    ' "url":" ã‚’æ¢ã—ã¦ãã®ã‚ã¨ã®æ–‡å­—åˆ—ã‚’å–å¾—ã™ã‚‹
-    Const KEY As String = """url"":"""
-    Dim p As Long: p = InStr(rawJson, KEY)
+    ' "url":" ‚ğ’T‚µ‚Ä‚»‚Ì‚ ‚Æ‚Ì•¶š—ñ‚ğæ“¾‚·‚é
+    Const Key As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, Key)
     If p = 0 Then Exit Function
-    Dim s As Long: s = p + Len(KEY)
+    Dim s As Long: s = p + Len(Key)
     Dim e As Long: e = InStr(s, rawJson, """")
     If e > s Then ExtractUrlFromFrameNavigated = Mid(rawJson, s, e - s)
 End Function
 
 ' =========================================================
-' ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£: Page.navigatedWithinDocument JSONã‹ã‚‰URLã‚’ç°¡æ˜“æŠ½å‡º
-' JSONä¾‹: {"method":"Page.navigatedWithinDocument","params":{"frameId":"...","url":"https://..."}}
+' ƒ†[ƒeƒBƒŠƒeƒB: Page.navigatedWithinDocument JSON‚©‚çURL‚ğŠÈˆÕ’Šo
+' JSON—á: {"method":"Page.navigatedWithinDocument","params":{"frameId":"...","url":"https://..."}}
 ' =========================================================
 Private Function ExtractUrlFromNavigatedWithin(rawJson As String) As String
-    Const KEY As String = """url"":"""
-    Dim p As Long: p = InStr(rawJson, KEY)
+    Const Key As String = """url"":"""
+    Dim p As Long: p = InStr(rawJson, Key)
     If p = 0 Then Exit Function
-    Dim s As Long: s = p + Len(KEY)
+    Dim s As Long: s = p + Len(Key)
     Dim e As Long: e = InStr(s, rawJson, """")
     If e > s Then ExtractUrlFromNavigatedWithin = Mid(rawJson, s, e - s)
 End Function
