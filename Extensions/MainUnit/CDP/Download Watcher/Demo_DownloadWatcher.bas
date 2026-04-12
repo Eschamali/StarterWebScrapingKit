@@ -258,7 +258,6 @@ Sub Demo_DownloadWatcher_04_別名で保存()
     '--- 1. テストサイトを開く ---
     Dim browser As CDPBrowser
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
-    browser.waitForLoad
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New CDPexpansion_DownloadWatcher
