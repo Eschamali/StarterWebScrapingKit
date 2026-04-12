@@ -508,3 +508,218 @@ Private Sub SetDownloadForm(browser As CDPBrowser, Size As Integer, Unit As Stri
     Debug.Print "[SetDownloadForm] extension=" & Extension
 
 End Sub
+
+
+
+'***************************************************************************************************
+'  ■■■ Demo 06：【直リンク型】10MB PNG をリアルタイム進捗表示しながらダウンロード ■■■
+'***************************************************************************************************
+'* テストサイト：https://sample-img.lb-product.com/
+'*   直リンク方式 → <a href="直URL"> をクリックするだけでブラウザが即座にDLを開始します
+'---------------------------------------------------------------------------------------------------
+'* blob型（custom-img）との違い：
+'   [blob型]  クリック → サーバー生成(数十秒) → Blob受信 → <a click> → WillBegin
+'             ・WillBegin が遅れて来る（Phase1 が長い）
+'             ・転送は Blob→PC なので一瞬（Progress が 0%→100%→完了 と一気に来る）
+'             ・ThrottleNetwork は fetch フェーズに効く
+'
+'   [直リンク型] クリック → 即 WillBegin → 転送(ここに時間がかかる) → 完了
+'              ・WillBegin は click 直後に来る（Phase1 がほぼ 0秒）
+'              ・Progress が 0%→...→100% と段階的に来る（リアル進捗を観察できる）
+'              ・ThrottleNetwork は転送フェーズに直接効く ← こっちのほうが実感しやすい！
+'---------------------------------------------------------------------------------------------------
+'* スロットリング: 200 KB/s → 10MB ≒ 約50秒（体感できる速度）
+'* 確認ポイント：
+'   - WillBegin が click 直後に発火すること
+'   - Progress が少しずつ細かく来ること（blob型とは対照的）
+'   - ThrottleNetwork が転送速度に直接効くこと
+'***************************************************************************************************
+Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
+
+    Const SITE_URL  As String = "https://sample-img.lb-product.com/10mb/"
+    Const DL_URL    As String = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/10MB.png"
+    Const OUT_DIR   As String = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
+
+    '--- 1. テストサイトを開く ---
+    Dim browser As CDPBrowser
+    Set browser = 設定シートからのCDP起動(SITE_URL)
+    Debug.Print "[Demo06] ページ読み込み完了"
+    Debug.Print "[Demo06] ★ 直リンク型：click直後に WillBegin が来る（blob型とは逆）"
+
+    '--- 2. DownloadWatcher 初期化 & 監視開始 ---
+    Dim dw As New CDPexpansion_DownloadWatcher
+    dw.Init browser
+    dw.WatchStart OUT_DIR
+
+    '--- 3. throttle（転送フェーズに直接効く） ---
+    dw.ThrottleNetwork DownloadKBps:=200   '200KB/s → 10MB ≒ 50秒
+
+    '--- 4. リンクを href で直接クリック（jsEval で <a> 要素を取得）---
+    '    sample-img はフォームではなく直リンクなので、href 一致で <a> を特定する
+    Dim clickJs As String
+    clickJs = "document.querySelector('a[href=""" & DL_URL & """]').click();"
+    browser.jsEval clickJs
+    Debug.Print "[Demo06] [" & Format(Time, "hh:mm:ss") & "] DLリンクをクリックしました"
+    Debug.Print "[Demo06] ※ 直リンク型なので downloadWillBegin はすぐ来るはずです..."
+
+    '--- 5. カスタムポーリングで進捗をリアルタイム表示 ---
+    Dim t As Double: t = Timer
+    Dim lastPct As Long: lastPct = -1
+    Dim willBeginCame As Boolean: willBeginCame = False
+
+    Do
+        browser.TakeEvents
+        DoEvents
+
+        '--- WillBegin 到達の瞬間を検出 ---
+        If Not willBeginCame And dw.HasStarted Then
+            willBeginCame = True
+            Debug.Print "[Demo06] [" & Format(Time, "hh:mm:ss") & "] " _
+                      & "★ downloadWillBegin 受信！ " _
+                      & "(クリックから " & Format(Timer - t, "0.0") & "秒後) " _
+                      & "← blob型より格段に早いはず"
+            Debug.Print "[Demo06]   SuggestedFilename: " & dw.SuggestedFilename
+        End If
+
+        '--- 進捗表示 ---
+        If dw.HasStarted And dw.Progress >= 0 Then
+            Dim pct As Long: pct = CLng(dw.Progress * 100)
+            If pct <> lastPct Then
+                Debug.Print "[Demo06]   " & Format(pct, "00") & "% | " _
+                          & Format(dw.ReceivedBytes / 1024 / 1024, "0.00") & " / " _
+                          & Format(dw.TotalBytes   / 1024 / 1024, "0.00") & " MB" _
+                          & "  (" & Format(Timer - t, "0.0") & "s)"
+                lastPct = pct
+            End If
+        End If
+
+        '--- 完了判定 ---
+        If dw.IsCompleted Then
+            Debug.Print "[Demo06] ○ 完了！ 合計 " & Format(Timer - t, "0.0") & "秒"
+            Debug.Print "[Demo06]   保存先: " & dw.DownloadedFilePath
+            dw.PrintSummary
+            MsgBox "完了！" & vbCrLf & _
+                   "所要時間: " & Format(Timer - t, "0.0") & "秒" & vbCrLf & _
+                   "保存先: " & dw.DownloadedFilePath, vbInformation
+            Exit Do
+        End If
+
+        If dw.state = "canceled" Then
+            Debug.Print "[Demo06] × キャンセル"
+            Exit Do
+        End If
+
+        If (Timer - t) > 300 Then   '5分タイムアウト
+            Debug.Print "[Demo06] × タイムアウト"
+            Exit Do
+        End If
+
+        browser.sleep 0.3
+    Loop
+
+    dw.UnthrottleNetwork
+    'browser.quit
+
+End Sub
+
+
+
+'***************************************************************************************************
+'  ■■■ Demo 07：【直リンク型】複数サイズを同時クリック → WaitAllCompleted で一括待機 ■■■
+'***************************************************************************************************
+'* テストサイト：https://sample-img.lb-product.com/
+'*   1MB / 10MB / 100MB の 3ファイルを「ほぼ同時」にクリックして並行DLする
+'---------------------------------------------------------------------------------------------------
+'* 直リンク型 × 複数同時DL の確認ポイント：
+'   - downloadWillBegin が 3回すばやく連続して来ること
+'   - downloadProgress が 3つの GUID について交互に来ること（並行転送の証拠）
+'   - WaitAllCompleted(ExpectedCount:=3) で 3件全部の完了を待てること
+'   - PrintSummary で全GUIDのサマリーが出ること
+'---------------------------------------------------------------------------------------------------
+'* スロットリング: 500 KB/s → 1MB≒2秒 / 10MB≒20秒 / 100MB≒200秒
+'*   ※ 100MB は完了まで時間がかかります。確認目的なら途中でブレークしても OK。
+'***************************************************************************************************
+Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
+
+    '--- 各DLの直URL ---
+    Dim dlUrls(1 To 3) As String
+    dlUrls(1) = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/1MB.png"
+    dlUrls(2) = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/10MB.png"
+    dlUrls(3) = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/100MB.png"
+
+    Const SITE_URL  As String = "https://sample-img.lb-product.com/10mb/"   '10MBページから起動
+    Const OUT_DIR   As String = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
+
+    '--- 1. テストサイトを開く ---
+    Dim browser As CDPBrowser
+    Set browser = 設定シートからのCDP起動(SITE_URL)
+    Debug.Print "[Demo07] ページ読み込み完了"
+    Debug.Print "[Demo07] ★ 直リンク型 × 複数同時DL：3件のリンクをほぼ同時にクリック"
+
+    '--- 2. DownloadWatcher 初期化 & 監視開始 ---
+    Dim dw As New CDPexpansion_DownloadWatcher
+    dw.Init browser
+    dw.WatchStart OUT_DIR
+    dw.ThrottleNetwork DownloadKBps:=500   '500KB/s → 1MB≒2秒 / 10MB≒20秒 / 100MB≒200秒
+
+    '--- 3. JS で 3件のダウンロードをほぼ同時にトリガー ---
+    '    直リンク型なので fetch は不要。<a> タグを動的生成して click() するだけ。
+    '    ※ 各 href が別ドメインなどの場合はブロックされる場合がありますが、
+    '       同一サーバーの直リンクであれば問題ありません。
+    Dim js As String
+    js = "(function(){"
+    js = js & "  var urls = ["
+    js = js & "    '" & dlUrls(1) & "',"
+    js = js & "    '" & dlUrls(2) & "',"
+    js = js & "    '" & dlUrls(3) & "'"
+    js = js & "  ];"
+    js = js & "  urls.forEach(function(url) {"
+    js = js & "    var a = document.createElement('a');"
+    js = js & "    a.href = url;"
+    js = js & "    a.download = '';"
+    js = js & "    document.body.appendChild(a);"
+    js = js & "    a.click();"
+    js = js & "    document.body.removeChild(a);"
+    js = js & "  });"
+    js = js & "})();"
+
+    browser.jsEval js
+    Debug.Print "[Demo07] [" & Format(Time, "hh:mm:ss") & "] 3件のリンクをクリックしました"
+    Debug.Print "[Demo07] ★ 直リンク型なので downloadWillBegin が素早く 3回来るはずです..."
+
+    '--- 4. 全3件の完了を待つ ---
+    '    ExpectedCount:=3 → 3件全部の WillBegin & 完了を待つ
+    '    Phase1（WillBegin待ち）は非常に短く終わるはず（直リンク型の特徴）
+    Dim t As Double: t = Timer
+
+    If dw.WaitAllCompleted(ExpectedCount:=3, TimeoutSec:=600) Then
+        Debug.Print "[Demo07] ○ 全3件完了！ 合計 " & Format(Timer - t, "0.0") & "秒"
+        dw.PrintSummary
+
+        '--- 5. 全GUIDを列挙してサマリーを表示 ---
+        Dim guids As Collection: Set guids = dw.GetAllGuids()
+        Dim guid As Variant
+        Dim summary As String: summary = "全3件完了！" & vbCrLf & vbCrLf
+        For Each guid In guids
+            Dim pgP As Scripting.Dictionary
+            Set pgP = dw.GetProgressParams(CStr(guid))
+            Dim wbP As Scripting.Dictionary
+            Set wbP = dw.GetWillBeginParams(CStr(guid))
+            summary = summary & wbP("suggestedFilename") _
+                    & " (" & Format(CDbl(pgP("totalBytes")) / 1024 / 1024, "0.0") & "MB)" _
+                    & vbCrLf
+        Next guid
+        summary = summary & vbCrLf & "保存先: " & OUT_DIR
+
+        MsgBox summary, vbInformation
+    Else
+        Debug.Print "[Demo07] × WaitAllCompleted タイムアウト"
+        Debug.Print "[Demo07]   完了: " & dw.CompletedCount() & "/" & dw.DownloadCount
+        dw.PrintSummary
+        MsgBox "タイムアウト。完了数: " & dw.CompletedCount() & "/" & dw.DownloadCount, vbCritical
+    End If
+
+    dw.UnthrottleNetwork
+    'browser.quit
+
+End Sub
