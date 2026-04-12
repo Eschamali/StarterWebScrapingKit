@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileChooser Interceptor — テキストファイル読み取りデモ</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #7ee787;
+      --warn:      #d29922;
+      --text:      #c9d1d9;
+      --text-dim:  #8b949e;
+      --radius:    12px;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+    }
+
+    /* ヘッダー */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+    header p {
+      color: var(--text-dim);
+      font-size: 0.92rem;
+    }
+
+    /* ステップバッジ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(88,166,255,.15);
+      border: 1px solid rgba(88,166,255,.3);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+
+    /* メインカード群 */
+    .cards {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--accent); }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title .icon {
+      font-size: 1.3rem;
+    }
+
+    /* Zone A : ドロップゾーン風 (input type=file — 静的) */
+    #zone-static {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all .25s;
+    }
+    #zone-static:hover, #zone-static.dragover {
+      border-color: var(--accent);
+      background: rgba(88,166,255,.06);
+    }
+    #zone-static input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    #zone-static .drop-label { pointer-events: none; }
+    #zone-static .drop-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    #zone-static .drop-hint { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
+
+    /* Zone B : ボタン経由 (JS で input を動的生成 — 動的) */
+    #btn-dynamic {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #1f6feb, var(--accent));
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+    }
+    #btn-dynamic:hover { opacity: .88; transform: translateY(-1px); }
+    #btn-dynamic:active { transform: translateY(0); }
+
+    .note {
+      margin-top: 12px;
+      font-size: 0.78rem;
+      color: var(--warn);
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    /* 結果表示エリア */
+    #result-area { display: none; }
+
+    .result-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .meta-chip {
+      background: rgba(126,231,135,.1);
+      border: 1px solid rgba(126,231,135,.25);
+      color: var(--accent2);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* どーん！テキスト表示 */
+    #file-content-box {
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px 28px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.92rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--accent2);
+      max-height: 420px;
+      overflow-y: auto;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .5s ease, transform .5s ease;
+    }
+    #file-content-box.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* 「読み取り中」スピナー */
+    #reading-badge {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+    #reading-badge.show { display: flex; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(88,166,255,.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    #status-line {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-align: right;
+    }
+
+    footer {
+      margin-top: 64px;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📂  FileChooser Interceptor Demo</h1>
+  <p>VBA CDP 拡張による「ファイル選択ダイアログ横取り」デモページ</p>
+</header>
+
+<div class="cards">
+
+  <!-- === Zone A : 静的 input === -->
+  <div class="card">
+    <div class="badge">ZONE A</div>
+    <div class="card-title"><span class="icon">🗂️</span>静的ファイル入力（Static input[type=file]）</div>
+    <div id="zone-static">
+      <input type="file" id="static-file-input" accept=".txt">
+      <div class="drop-label">
+        <div class="drop-icon">📄</div>
+        <div>クリックしてテキストファイルを選択</div>
+        <div class="drop-hint">DOM に最初から存在する &lt;input type="file"&gt; です</div>
+      </div>
+    </div>
+    <p class="note">⚠️ VBA が <code>DOM.setFileInputFiles</code> でファイルを注入 → <code>change</code> イベントが発火 → JS の <code>FileReader</code> が読み取ります</p>
+  </div>
+
+  <!-- === Zone B : 動的生成 === -->
+  <div class="card">
+    <div class="badge">ZONE B</div>
+    <div class="card-title"><span class="icon">⚡</span>動的ファイル選択（JS で input を動的生成）</div>
+    <button id="btn-dynamic">
+      <span>📂</span> ファイルを選ぶ（動的生成）
+    </button>
+    <p class="note">
+      ⚠️ このボタンは JS でその場 &lt;input type="file"&gt; を生成してクリックします。<br>
+      　 <strong>FileChooserインターセプト必須</strong> のケースです。注入後も同じく <code>FileReader</code> で読みます。
+    </p>
+  </div>
+
+  <!-- === 結果表示エリア === -->
+  <div class="card" id="result-area">
+    <div class="badge">RESULT</div>
+    <div class="card-title"><span class="icon">📋</span>読み取ったファイルの内容</div>
+    <div class="result-meta">
+      <span class="meta-chip" id="chip-name">FileName: —</span>
+      <span class="meta-chip" id="chip-chars">Chars: —</span>
+      <span class="meta-chip" id="chip-lines">Lines: —</span>
+      <span class="meta-chip" id="chip-zone">Zone: —</span>
+    </div>
+    <div id="reading-badge"><div class="spinner"></div><span>FileReader で読み取り中...</span></div>
+    <div id="file-content-box"></div>
+    <div id="status-line">— waiting —</div>
+  </div>
+
+</div>
+
+<footer>FileChooser Interceptor Demo — StarterWebScrapingKit / Extensions/CDP</footer>
+
+<script>
+  // =========================================================
+  // ファイル読み取り → どーん！表示 の共通関数
+  // =========================================================
+  function readFileAndShow(file, zoneName) {
+    var badge = document.getElementById('reading-badge');
+    var box   = document.getElementById('file-content-box');
+
+    // 読み取り中バッジを表示
+    badge.classList.add('show');
+    box.classList.remove('visible');
+
+    var reader = new FileReader();
+
+    reader.onload = function(e) {
+      badge.classList.remove('show');
+
+      var content = e.target.result;
+      var lines   = content.split('\n').length;
+      var chars   = content.length;
+
+      document.getElementById('chip-name').textContent  = 'FileName: ' + file.name;
+      document.getElementById('chip-chars').textContent = 'Chars: '    + chars.toLocaleString();
+      document.getElementById('chip-lines').textContent = 'Lines: '    + lines.toLocaleString();
+      document.getElementById('chip-zone').textContent  = 'Zone: '     + zoneName;
+
+      // どーん！
+      box.textContent = content || '（空のファイルです）';
+      document.getElementById('result-area').style.display = 'block';
+
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          box.classList.add('visible');
+        });
+      });
+
+      var now = new Date();
+      document.getElementById('status-line').textContent =
+        '✅  ' + now.toLocaleTimeString() + ' に FileReader で読み取り完了（' + zoneName + '）';
+    };
+
+    reader.onerror = function() {
+      badge.classList.remove('show');
+      document.getElementById('status-line').textContent = '❌ FileReader エラー';
+    };
+
+    // UTF-8 で読む
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  // =========================================================
+  // Zone A : 静的 input[type=file] の change イベント
+  // =========================================================
+  document.getElementById('static-file-input').addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    readFileAndShow(file, 'Zone A (静的 input)');
+  });
+
+  // =========================================================
+  // Zone B : JS で動的に input を生成してクリック
+  //          → 注入後の change も document の event delegation で拾う
+  // =========================================================
+  document.getElementById('btn-dynamic').addEventListener('click', function() {
+    var inp = document.createElement('input');
+    inp.type   = 'file';
+    inp.accept = '.txt';
+    inp.id     = 'dynamic-file-input';   // changeイベント側の識別用
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.click();
+    // 3秒後に要素を除去（注入完了には十分な余裕がある）
+    setTimeout(function() {
+      if (inp.parentNode) inp.parentNode.removeChild(inp);
+    }, 3000);
+  });
+
+  // Event delegation — 動的 input の change を document レベルで拾う
+  document.addEventListener('change', function(e) {
+    // static-file-input は専用リスナーで処理済みなのでスキップ
+    if (e.target.id === 'static-file-input') return;
+    if (e.target.type !== 'file') return;
+
+    var file = e.target.files[0];
+    if (!file) return;
+    readFileAndShow(file, 'Zone B (動的生成 input)');
+  });
+
+  // =========================================================
+  // ドラッグオーバーのビジュアル
+  // =========================================================
+  var zone = document.getElementById('zone-static');
+  zone.addEventListener('dragover',  function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', function()  { zone.classList.remove('dragover'); });
+  zone.addEventListener('drop',      function()  { zone.classList.remove('dragover'); });
+</script>
+
+</body>
+</html>
