@@ -2,7 +2,7 @@
 
 ## 概要
 
-`CDPBrowser.cls` のデフォルト通信方式は **`remote-debugging-pipe`（名前付きパイプ）** です。  
+`CDPBrowser.cls` の通信方式は **`remote-debugging-pipe`（匿名パイプ）** です。  
 これは高速・低レイテンシである一方、Chromium プロセスとの**直接パイプ接続**が前提です。
 
 この拡張機能は、**WebSocket（`ws://`）経由で外部 Chromium に接続したい場合**のために用意されています。  
