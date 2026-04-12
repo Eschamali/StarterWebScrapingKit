@@ -9,12 +9,10 @@
 VBA の名前付きパイプと PowerShell の WebSocket クライアントの間に **中継レイヤー** を挟み、  
 既存の `CDPBrowser.cls` API をそのまま利用できるようにします。
 
-```
-Excel（VBA）
-  ↕ 名前付きパイプ（ Named Pipe ）
-PowerShell（StartWebSocket.ps1）
-  ↕ WebSocket（ws://127.0.0.1:9222/...）
-Chromium
+```mermaid
+flowchart LR
+    A(["Excel（VBA）"]) <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartWebSocket.ps1"])
+    B <-->|"WebSocket\nws://127.0.0.1:9222/..."| C(["Chromium"])
 ```
 
 ---
@@ -28,16 +26,17 @@ Chromium
 
 Android 実機の Chrome を PC から CDP 操作できます。
 
-```
-Android 実機
-  └─ Chrome for Android（開発者向けデバッグを有効化）
-        ↕ adb forward（USB経由でポート転送）
-PC
-  └─ ws://127.0.0.1:9222/... として見える
-        ↕ WebSocket
-     PowerShell（StartWebSocket.ps1）
-        ↕ 名前付きパイプ
-     Excel（VBA）
+```mermaid
+flowchart LR
+    subgraph Android実機
+        A(["Chrome for Android\n開発者デバッグ有効"])
+    end
+    subgraph PC
+        B(["PowerShell\nStartWebSocket.ps1"])
+        C(["Excel（VBA）"])
+    end
+    A <-->|"adb forward\nUSB経由ポート転送"| B
+    B <-->|"名前付きパイプ"| C
 ```
 
 **セットアップ例：**
@@ -69,13 +68,13 @@ Start-Process ".\YourWebView2App.exe"
 
 起動後は通常の Chrome WebSocket 接続と同様に扱えます。
 
-```
-WebView2 アプリ（EXE）
-  └─ ws://127.0.0.1:9222/... として公開
-        ↕ WebSocket
-     PowerShell（StartWebSocket.ps1）
-        ↕ 名前付きパイプ
-     Excel（VBA）
+```mermaid
+flowchart LR
+    A(["WebView2 アプリ（EXE）\nws://127.0.0.1:9222/..."])
+    B(["PowerShell\nStartWebSocket.ps1"])
+    C(["Excel（VBA）"])
+    A <-->|"WebSocket"| B
+    B <-->|"名前付きパイプ"| C
 ```
 
 > [!IMPORTANT]
@@ -98,27 +97,29 @@ WebView2 アプリ（EXE）
 
 ### データ送信（VBA → Chrome）
 
-```
-VBA（CDPBrowser）
-  → 名前付きパイプへJSON書き込み（末尾に Null バイト \0 を付与）
-PowerShell（StartWebSocket.ps1）
-  → ReadAsync でパイプからバイト列を読み取り
-  → Null バイト（0x00）を区切りとしてメッセージ境界を判定
-  → WebSocket.SendAsync で Chrome へ転送
-Chrome
-  → CDP コマンドを処理
+```mermaid
+sequenceDiagram
+    participant V as VBA（CDPBrowser）
+    participant P as PowerShell
+    participant C as Chrome
+    V->>P: JSON + Null バイト(\0) をパイプへ書き込み
+    P->>P: ReadAsync で受信<br/>Null バイトでメッセージ境界を判定
+    P->>C: WebSocket.SendAsync で転送
+    C->>C: CDP コマンドを処理
 ```
 
 ### データ受信（Chrome → VBA）
 
-```
-Chrome
-  → WebSocket でレスポンス送信
-PowerShell（StartWebSocket.ps1）
-  → ReceiveAsync で受信
-  → パイプへ書き込み → EndOfMessage なら Null バイト（0x00）を追加して Flush
-VBA（CDPBrowser）
-  → パイプから読み取り（Null バイトでメッセージ終端を検出）
+```mermaid
+sequenceDiagram
+    participant C as Chrome
+    participant P as PowerShell
+    participant V as VBA（CDPBrowser）
+    C->>P: WebSocket でレスポンス送信
+    P->>P: ReceiveAsync で受信
+    P->>V: パイプへ書き込み
+    P->>V: EndOfMessage なら Null バイト(0x00) を追加して Flush
+    V->>V: Null バイトでメッセージ終端を検出
 ```
 
 > [!NOTE]
