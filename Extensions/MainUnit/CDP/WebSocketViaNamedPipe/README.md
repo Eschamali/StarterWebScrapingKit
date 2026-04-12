@@ -11,8 +11,12 @@ VBA の名前付きパイプと PowerShell の WebSocket クライアントの�
 
 ```mermaid
 flowchart LR
-    A(["Excel（VBA）"]) <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartWebSocket.ps1"])
-    B <-->|"WebSocket\nws://127.0.0.1:9222/..."| C(["Chromium"])
+    classDef windows  fill:#0078D4,color:#fff,stroke:#005a9e
+    classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+    classDef chrome    fill:#4285F4,color:#fff,stroke:#2a6dd9
+
+    A(["Excel（VBA）"]):::windows <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    B <-->|"WebSocket\nws://127.0.0.1:9222/..."| C(["Chromium"]):::chrome
 ```
 
 ---
@@ -28,12 +32,16 @@ Android 実機の Chrome を PC から CDP 操作できます。
 
 ```mermaid
 flowchart LR
+    classDef android   fill:#3DDC84,color:#1c1c1c,stroke:#1ea862
+    classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+    classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+
     subgraph Android実機
-        A(["Chrome for Android\n開発者デバッグ有効"])
+        A(["Chrome for Android\n開発者デバッグ有効"]):::android
     end
     subgraph PC
-        B(["PowerShell\nStartWebSocket.ps1"])
-        C(["Excel（VBA）"])
+        B(["PowerShell\nStartWebSocket.ps1"]):::ps
+        C(["Excel（VBA）"]):::windows
     end
     A <-->|"adb forward\nUSB経由ポート転送"| B
     B <-->|"名前付きパイプ"| C
@@ -70,9 +78,12 @@ Start-Process ".\YourWebView2App.exe"
 
 ```mermaid
 flowchart LR
-    A(["WebView2 アプリ（EXE）\nws://127.0.0.1:9222/..."])
-    B(["PowerShell\nStartWebSocket.ps1"])
-    C(["Excel（VBA）"])
+    classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+    classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+
+    A(["WebView2 アプリ（EXE）\nws://127.0.0.1:9222/..."]):::windows
+    B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    C(["Excel（VBA）"]):::windows
     A <-->|"WebSocket"| B
     B <-->|"名前付きパイプ"| C
 ```
