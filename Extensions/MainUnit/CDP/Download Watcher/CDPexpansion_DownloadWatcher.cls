@@ -57,6 +57,13 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                           ■■■ フォルダ一括作成用Windows API ■■■
+'***************************************************************************************************
+Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExA" (ByVal hwnd As LongPtr, ByVal pszPath As String, ByVal psa As LongPtr) As Long
+
+
+
+'***************************************************************************************************
 '           ■■■ Dictionary キー名 定数（タイプミス防止・補完サポート） ■■■
 '***************************************************************************************************
 
@@ -66,12 +73,16 @@ Private Const KEY_PROGRESS      As String = "Progress"      'downloadProgress の
 Private Const KEY_IS_BROWSER    As String = "isBrowserMethod" 'True=Browser / False=Page
 
 '--- WillBegin params（第2層）のキー ←CDPの生フィールド名に合わせる ---
+'https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadWillBegin
+'https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-downloadWillBegin
 Private Const WB_GUID           As String = "guid"
 Private Const WB_URL            As String = "url"
 Private Const WB_SUGGESTED      As String = "suggestedFilename"
 Private Const WB_FRAME_ID       As String = "frameId"
 
 '--- Progress params（第2層）のキー ←CDPの生フィールド名に合わせる ---
+'https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-downloadProgress
+'https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadProgress
 Private Const PROG_GUID         As String = "guid"
 Private Const PROG_STATE        As String = "state"
 Private Const PROG_RECEIVED     As String = "receivedBytes"
@@ -94,6 +105,9 @@ Private mJson                       As New WebJsonConverter
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean
 Private EnableBrowserEvents         As Boolean
+Private BrowserDomain               As Boolean    ' True="Browser"/False="Page" - WillBegin/Progress イベントのどちらを受けるか（両方受けることも可能）
+
+
 
 '***************************************************************************************************
 '* ★ 多重ダウンロード管理 Dictionary（2層構造）
@@ -113,7 +127,67 @@ Private mLastGuid                   As String
 
 '監視設定
 Private mWatchDir                   As String
-Private mSnapshotFiles              As Object   'WatchStart 時点のフォルダスナップショット
+Private mSnapshotFiles              As Dictionary   'WatchStart 時点のフォルダスナップショット
+
+
+
+'***************************************************************************************************
+'* 機能　　：非同期イベント処理を行うかのスイッチングです
+'            この拡張機能の場合はさらに、ダウンロード監視の有効/無効も合わせて、切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：DownloadDir    ダウンロード先フォルダのフルパス （省略時は一般的なDownloadフォルダ）
+'            AllowAndName   True: "allowAndName" / False: "allow"（通常はFalse）
+'            UsePageDomain  True: Pageドメインのイベントを受ける / False: Browserドメインのイベントを受ける（通常はFalse）
+'* 機能説明：呼ぶたびに downloadInfos をクリアし、フォルダスナップショットを更新します
+'***************************************************************************************************
+Public Property Let EnableEvents(Optional DownloadDir As String, Optional AllowAndName As Boolean, Optional UsePageDomain As Boolean, ByVal v As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableEvents"
+
+
+    '1. `DownloadDir`が省略時は、一般的なDownloadフォルダに指定
+    If StrPtr(DownloadDir) = 0 Then DownloadDir = Environ("USERPROFILE") & "\Downloads"
+    SHCreateDirectoryEx 0, DownloadDir, 0 'フォルダが存在しない場合は作成（存在する場合は何もしない）
+
+    '2. クラスのイベント機能を有効にするか切り替え
+    EnableBrowserEvents = v
+
+    '3. 共通のパラメーターを付与
+    Dim behavior As String
+    '※`behavior`の場合、イベント発火が無効の場合は、`deny`として扱います
+    If v Then
+        behavior = IIf(AllowAndName, "allowAndName", "allow")
+    Else
+        behavior = "deny"
+    End If
+
+    Dim params As New Scripting.Dictionary
+    params.Add "behavior", behavior
+    params.Add "downloadPath", DownloadDir
+
+    '4. method名に応じたパラメーター適用
+    BrowserDomain = Not UsePageDomain
+    Dim UserMethod As String: UserMethod = IIf(BrowserDomain, "Browser.setDownloadBehavior", "Page.setDownloadBehavior")
+
+    'Browserドメインの場合は`eventsEnabled`も付与
+    If BrowserDomain Then params.Add "eventsEnabled", v
+
+    '5. CDPに設定を反映（イベント有効/無効の切り替え）
+    invokeMethod UserMethod, params, True
+
+    '6. 無効化する場合は、内部状態もクリア
+    If v Then
+        Set mSnapshotFiles = New Dictionary
+        SnapshotDirectory DownloadDir, mSnapshotFiles
+        printMsg Debug_, "Snapshot taken. Existing files: " & mSnapshotFiles.Count, FromProcedureName
+    Else
+        ClearDownloadHistory
+        Set mSnapshotFiles = Nothing
+    End If
+
+    printMsg info_, "Event handling " & IIf(v, "enabled", "disabled") & ". " _
+                  & "Method: " & UserMethod & " | behavior=" & behavior & " | DownloadDir=" & DownloadDir, FromProcedureName
+
+End Property
 
 
 
@@ -121,14 +195,6 @@ Private mSnapshotFiles              As Object   'WatchStart 時点のフォルダスナッ
 '                       ■■■ 公開プロパティ - 後方互換（単一DL用） ■■■
 '***************************************************************************************************
 '* 以下のプロパティはすべて「最後に開始したダウンロード」(mLastGuid) の情報を返します
-
-Public Property Get EnableEvents() As Boolean
-    EnableEvents = EnableBrowserEvents
-End Property
-Public Property Let EnableEvents(ByVal v As Boolean)
-    EnableBrowserEvents = v
-End Property
-
 '***************************************************************************************************
 '* 機能　　：最後のダウンロードの状態 ("" / "inProgress" / "completed" / "canceled")
 '***************************************************************************************************
@@ -371,50 +437,6 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分 ■■■
 '***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：ダウンロード監視を開始します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：DownloadDir    ダウンロード先フォルダのフルパス（存在しない場合は自動作成）
-'            AllowAndName   True: "allowAndName" / False: "allow"（通常はFalse）
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：呼ぶたびに downloadInfos をクリアし、フォルダスナップショットを更新します
-'***************************************************************************************************
-Public Sub WatchStart(DownloadDir As String, Optional AllowAndName As Boolean = False)
-    Const FromProcedureName As String = ThisClassName & ".WatchStart"
-
-
-    printMsg info_, "Starting download watch. dir=" & DownloadDir _
-                  & " | AllowAndName=" & AllowAndName, FromProcedureName
-
-    If Dir(DownloadDir, vbDirectory) = "" Then
-        MkDir DownloadDir
-        printMsg Debug_, "Created download directory: " & DownloadDir, FromProcedureName
-    End If
-
-    mWatchDir = DownloadDir
-    If Right$(mWatchDir, 1) = "\" Then mWatchDir = Left$(mWatchDir, Len(mWatchDir) - 1)
-
-    ClearDownloadHistory
-
-    Set mSnapshotFiles = CreateObject("Scripting.Dictionary")
-    SnapshotDirectory mWatchDir, mSnapshotFiles
-    printMsg Debug_, "Snapshot taken. Existing files: " & mSnapshotFiles.Count, FromProcedureName
-
-    Dim behavior As String: behavior = IIf(AllowAndName, "allowAndName", "allow")
-    Dim params As New Scripting.Dictionary
-    params.Add "behavior", behavior
-    params.Add "downloadPath", mWatchDir
-    params.Add "eventsEnabled", True
-
-    invokeMethod "Browser.setDownloadBehavior", params, True
-    EnableBrowserEvents = True
-
-    printMsg info_, "Watch started. behavior=" & behavior & " | watchDir=" & mWatchDir, FromProcedureName
-
-End Sub
-
-'***************************************************************************************************
 '* 機能　　：指定した GUID のダウンロードが完了するまで待機します（単一DL用）
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：True=完了 / False=タイムアウト or キャンセル
@@ -425,7 +447,7 @@ End Sub
 '*   Phase 1 : downloadWillBegin が来るまで待つ（fetch型サイトはサーバー生成に時間がかかるため）
 '*   Phase 2 : 受信した GUID の state が "completed" になるまで待つ
 '***************************************************************************************************
-Public Function WaitCompleted(Optional guid As String = "", Optional TimeoutSec As Long = 60) As Boolean
+Public Function WaitCompleted(Optional guid As String, Optional TimeoutSec As Long = 60) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitCompleted"
 
 
@@ -503,7 +525,7 @@ End Function
 '*   Phase 1 : 少なくとも 1件の downloadWillBegin が来るまで待つ
 '*   Phase 2 : 全件（ExpectedCount件 or 件数確定後）が完了するまで待つ
 '***************************************************************************************************
-Public Function WaitAllCompleted(Optional ExpectedCount As Long = 0, Optional TimeoutSec As Long = 120) As Boolean
+Public Function WaitAllCompleted(Optional ExpectedCount As Long, Optional TimeoutSec As Long = 120) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitAllCompleted"
 
 
@@ -638,8 +660,6 @@ End Sub
 '***************************************************************************************************
 '                       ■■■ 公開メソッド - GUID 指定の個別取得 ■■■
 '***************************************************************************************************
-
-'***************************************************************************************************
 '* 機能　　：指定 GUID のエントリ辞書を返します（WillBegin/Progress/isBrowserMethod を含む）
 '---------------------------------------------------------------------------------------------------
 '* 使い方  ：
@@ -710,7 +730,7 @@ Public Function GetFilePath(guid As String) As String
 End Function
 
 '***************************************************************************************************
-'* 機能　　：指定 GUID の進捗率を 0.0?1.0 で返します（合計不明の場合は -1）
+'* 機能　　：指定 GUID の進捗率を 0.0~1.0 で返します（合計不明の場合は -1）
 '***************************************************************************************************
 Public Function GetProgress(guid As String) As Double
     GetProgress = -1
