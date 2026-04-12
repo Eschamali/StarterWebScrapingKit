@@ -2,12 +2,12 @@
 
 ## 概要
 
-`CDPBrowser.cls` の通信方式は **`remote-debugging-pipe`（匿名パイプ）** です。  
+`CDPCore.cls` の通信方式は **`remote-debugging-pipe`（匿名パイプ）** です。  
 これは高速・低レイテンシである一方、Chromium プロセスとの**直接パイプ接続**が前提です。
 
 この拡張機能は、**WebSocket（`ws://`）経由で外部 Chromium に接続したい場合**のために用意されています。  
 VBA の名前付きパイプと PowerShell の WebSocket クライアントの間に **中継レイヤー** を挟み、  
-既存の `CDPBrowser.cls` API をそのまま利用できるようにします。
+既存の `CDPCore.cls` API をそのまま利用できるようにします。
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
 ```
 
 > [!IMPORTANT]
-> `CDPBrowser.cls` のデフォルト起動（`remote-debugging-pipe`）では WebView2 は操作できません。
+> `CDPCore.cls` のデフォルト起動（`remote-debugging-pipe`）では WebView2 は操作できません。
 > `WebSocketViaNamedPipe` を使うことで、他アプリ内の WebView2 も VBA から制御が可能になります。
 
 ---
@@ -110,7 +110,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant V as VBA（CDPBrowser）
+    participant V as VBA（CDPCore）
     participant P as PowerShell
     participant C as Chrome
     V->>P: JSON + Null バイト(\0) をパイプへ書き込み
@@ -125,7 +125,7 @@ sequenceDiagram
 sequenceDiagram
     participant C as Chrome
     participant P as PowerShell
-    participant V as VBA（CDPBrowser）
+    participant V as VBA（CDPCore）
     C->>P: WebSocket でレスポンス送信
     P->>P: ReceiveAsync で受信
     P->>V: パイプへ書き込み
@@ -135,7 +135,7 @@ sequenceDiagram
 
 > [!NOTE]
 > PowerShell が Null バイト（`0x00`）をメッセージ区切りとして使用するのは、
-> `CDPBrowser.cls` の `ReadFile` ループが同じ規約で動作しているためです。
+> `CDPCore.cls` の `ReadFile` ループが同じ規約で動作しているためです。
 
 ---
 
