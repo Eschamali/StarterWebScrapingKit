@@ -408,6 +408,8 @@ Friend Sub Init(Inheritance As CDPBrowser)
     ex_CDPBrowser.pageEnable
     printMsg Debug_, "Page domain enabled for FileChooser event reception.", FromProcedureName
 
+    'イベント受信の初期状態は有効にしておく
+    EnableEvents = True
 End Sub
 
 '***************************************************************************************************
@@ -417,8 +419,7 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'ブラウザ非同期処理を有効化
-    EnableBrowserEvents = True
+    'パスリストの初期化
     Set mFilePaths = New Collection
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
