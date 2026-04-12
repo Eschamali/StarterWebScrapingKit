@@ -8,75 +8,75 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `CDPBrowser.cls` ã«å¯¾ã™ã‚‹æ©Ÿèƒ½æ‹¡å¼µ - ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ç›£è¦–ãƒ»å®Œäº†å¾…ã¡
+'           `CDPBrowser.cls` ‚É‘Î‚·‚é‹@”\Šg’£ - ƒ_ƒEƒ“ƒ[ƒhŠÄ‹EŠ®—¹‘Ò‚¿
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã‚’ CDP çµŒç”±ã§ç›£è¦–ã—ã€
-'            æŒ‡å®šãƒ•ã‚©ãƒ«ãƒ€ã¸ã®ä¿å­˜å®Œäº†ã¾ã§ VBA å´ã§å¾…æ©Ÿã—ã¾ã™ã€‚
+'* ‹@”\@@Fƒuƒ‰ƒEƒU‚Ìƒtƒ@ƒCƒ‹ƒ_ƒEƒ“ƒ[ƒh‚ğ CDP Œo—R‚ÅŠÄ‹‚µA
+'            w’èƒtƒHƒ‹ƒ_‚Ö‚Ì•Û‘¶Š®—¹‚Ü‚Å VBA ‘¤‚Å‘Ò‹@‚µ‚Ü‚·B
 '---------------------------------------------------------------------------------------------------
-'* åŸºæœ¬çš„ãªä½¿ã„æ–¹ï¼š
+'* Šî–{“I‚Èg‚¢•ûF
 '    Dim dw As New CDPexpansion_DownloadWatcher
 '    dw.Init browser
 '
-'    dw.WatchStart "C:\download_dir"   ' â† ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å…ˆãƒ•ã‚©ãƒ«ãƒ€ã‚’æŒ‡å®šã—ã¦ç›£è¦–é–‹å§‹
-'    browser.getElementByID("dl-btn").click   ' â† ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã‚’ãƒˆãƒªã‚¬ãƒ¼
+'    dw.WatchStart "C:\download_dir"   ' © ƒ_ƒEƒ“ƒ[ƒhæƒtƒHƒ‹ƒ_‚ğw’è‚µ‚ÄŠÄ‹ŠJn
+'    browser.getElementByID("dl-btn").click   ' © ƒ_ƒEƒ“ƒ[ƒh‚ğƒgƒŠƒK[
 '    If dw.WaitCompleted(TimeoutSec:=30) Then
-'        Debug.Print "ä¿å­˜å…ˆ: " & dw.DownloadedFilePath
+'        Debug.Print "•Û‘¶æ: " & dw.DownloadedFilePath
 '    End If
 '---------------------------------------------------------------------------------------------------
-'* å¯¾å¿œCDPã‚¤ãƒ™ãƒ³ãƒˆï¼š
-'    - Browser.downloadWillBegin   (ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰é–‹å§‹é€šçŸ¥)
-'    - Browser.downloadProgress    (é€²æ—é€šçŸ¥ / å®Œäº†ãƒ»å¤±æ•—)
-'    - Page.downloadWillBegin      (Fallback ç”¨ã€Chromeãƒãƒ¼ã‚¸ãƒ§ãƒ³ã«ã‚ˆã‚‹)
-'    - Page.downloadProgress       (Fallback ç”¨ã€Chromeãƒãƒ¼ã‚¸ãƒ§ãƒ³ã«ã‚ˆã‚‹)
+'* ‘Î‰CDPƒCƒxƒ“ƒgF
+'    - Browser.downloadWillBegin   (ƒ_ƒEƒ“ƒ[ƒhŠJn’Ê’m)
+'    - Browser.downloadProgress    (i’»’Ê’m / Š®—¹E¸”s)
+'    - Page.downloadWillBegin      (Fallback —pAChromeƒo[ƒWƒ‡ƒ“‚É‚æ‚é)
+'    - Page.downloadProgress       (Fallback —pAChromeƒo[ƒWƒ‡ƒ“‚É‚æ‚é)
 '---------------------------------------------------------------------------------------------------
-'* å¯¾å¿œCDPã‚³ãƒãƒ³ãƒ‰ï¼š
-'    - Browser.setDownloadBehavior  (ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å ´æ‰€æŒ‡å®š & ã‚¤ãƒ™ãƒ³ãƒˆæœ‰åŠ¹åŒ–)
+'* ‘Î‰CDPƒRƒ}ƒ“ƒhF
+'    - Browser.setDownloadBehavior  (ƒ_ƒEƒ“ƒ[ƒhêŠw’è & ƒCƒxƒ“ƒg—LŒø‰»)
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼š
-'    - WatchStart ã®å‰ã«ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã‚’ãƒˆãƒªã‚¬ãƒ¼ã™ã‚‹ã¨æ¤œå‡ºã‚’é€ƒã™å ´åˆãŒã‚ã‚Šã¾ã™
-'    - ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å…ˆãƒ•ã‚©ãƒ«ãƒ€ã¯äº‹å‰ã«å­˜åœ¨ã—ã¦ã„ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ï¼ˆè‡ªå‹•ä½œæˆã—ã¾ã™ï¼‰
-'    - .crdownload / .part ç­‰ã®ä¸€æ™‚ãƒ•ã‚¡ã‚¤ãƒ«ã¯å®Œäº†ã¨ã¿ãªã—ã¾ã›ã‚“
+'* ’ˆÓ–€F
+'    - WatchStart ‚Ì‘O‚Éƒ_ƒEƒ“ƒ[ƒh‚ğƒgƒŠƒK[‚·‚é‚ÆŒŸo‚ğ“¦‚·ê‡‚ª‚ ‚è‚Ü‚·
+'    - ƒ_ƒEƒ“ƒ[ƒhæƒtƒHƒ‹ƒ_‚Í–‘O‚É‘¶İ‚µ‚Ä‚¢‚é•K—v‚ª‚ ‚è‚Ü‚·i©“®ì¬‚µ‚Ü‚·j
+'    - .crdownload / .part “™‚Ìˆêƒtƒ@ƒCƒ‹‚ÍŠ®—¹‚Æ‚İ‚È‚µ‚Ü‚¹‚ñ
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
-Private Const ThisClassName         As String = "CDPexpansion_DownloadWatcher"  'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
+'“à•”g—p—p
+Private Const ThisClassName         As String = "CDPexpansion_DownloadWatcher"  'ƒƒO‚ÌƒgƒŒ[ƒX—p
 Private mJson                       As New WebJsonConverter
 
-'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
-Private seeRawSendMsgDbg            As Boolean      'rawJSONã‚’ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã«å‡ºã™ã‹ã®èª¿æ•´
-Private EnableBrowserEvents         As Boolean      'ã“ã®æ‹¡å¼µã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚¹ã‚¤ãƒƒãƒ
+'ƒXƒe[ƒgŠÇ—
+Private seeRawSendMsgDbg            As Boolean      'rawJSON‚ğƒfƒoƒbƒOƒƒO‚Éo‚·‚©‚Ì’²®
+Private EnableBrowserEvents         As Boolean      '‚±‚ÌŠg’£‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—ƒXƒCƒbƒ`
 
-'ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰æƒ…å ±ãƒãƒƒãƒ•ã‚¡ï¼ˆã‚¤ãƒ™ãƒ³ãƒˆã‹ã‚‰å—ã‘å–ã£ãŸãƒ‡ãƒ¼ã‚¿ã‚’ä¿æŒï¼‰
-Private mGuid                       As String       'ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã‚’ä¸€æ„ã«è­˜åˆ¥ã™ã‚‹GUID
-Private mSuggestedFilename          As String       'ãƒ–ãƒ©ã‚¦ã‚¶ãŒææ¡ˆã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«å
-Private mDownloadUrl                As String       'ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å¯¾è±¡ã®URL
+'ƒ_ƒEƒ“ƒ[ƒhî•ñƒoƒbƒtƒ@iƒCƒxƒ“ƒg‚©‚çó‚¯æ‚Á‚½ƒf[ƒ^‚ğ•Ûj
+Private mGuid                       As String       'ƒ_ƒEƒ“ƒ[ƒh‚ğˆêˆÓ‚É¯•Ê‚·‚éGUID
+Private mSuggestedFilename          As String       'ƒuƒ‰ƒEƒU‚ª’ñˆÄ‚·‚éƒtƒ@ƒCƒ‹–¼
+Private mDownloadUrl                As String       'ƒ_ƒEƒ“ƒ[ƒh‘ÎÛ‚ÌURL
 Private mState                      As String       '"" / "inProgress" / "completed" / "canceled"
-Private mFilePath                   As String       'å®Œäº†æ™‚ã«ç¢ºå®šã™ã‚‹å®Ÿéš›ã®ä¿å­˜å…ˆãƒ‘ã‚¹
-Private mReceivedBytes              As Double       'å—ä¿¡æ¸ˆã¿ãƒã‚¤ãƒˆæ•°
-Private mTotalBytes                 As Double       'åˆè¨ˆãƒã‚¤ãƒˆæ•°
+Private mFilePath                   As String       'Š®—¹‚ÉŠm’è‚·‚éÀÛ‚Ì•Û‘¶æƒpƒX
+Private mReceivedBytes              As Double       'óMÏ‚İƒoƒCƒg”
+Private mTotalBytes                 As Double       '‡ŒvƒoƒCƒg”
 
-'ç›£è¦–è¨­å®š
-Private mWatchDir                   As String       'ç›£è¦–å¯¾è±¡ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹
-Private mSnapshotFiles              As Object       'WatchStart æ™‚ç‚¹ã§ã®ãƒ•ã‚©ãƒ«ãƒ€ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆï¼ˆæ—¢å­˜ãƒ•ã‚¡ã‚¤ãƒ«æŠŠæ¡ç”¨ï¼‰
+'ŠÄ‹İ’è
+Private mWatchDir                   As String       'ŠÄ‹‘ÎÛƒ_ƒEƒ“ƒ[ƒhƒtƒHƒ‹ƒ_ƒpƒX
+Private mSnapshotFiles              As Object       'WatchStart “_‚Å‚ÌƒtƒHƒ‹ƒ_ƒXƒiƒbƒvƒVƒ‡ƒbƒgiŠù‘¶ƒtƒ@ƒCƒ‹”cˆ¬—pj
 
 
-
-'***************************************************************************************************
-'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ï¼ˆèª­ã¿å–ã‚Šå°‚ç”¨ï¼‰ â– â– â– 
-'***************************************************************************************************
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã§ã™
+'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒBi“Ç‚İæ‚èê—pj ¡¡¡
+'***************************************************************************************************
+
+'***************************************************************************************************
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚Å‚·
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -86,67 +86,67 @@ Public Property Let EnableEvents(ByVal v As Boolean)
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã®ç¾åœ¨ã®çŠ¶æ…‹ã‚’è¿”ã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh‚ÌŒ»İ‚Ìó‘Ô‚ğ•Ô‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* è¿”ã‚Šå€¤ã€€ï¼š"" / "inProgress" / "completed" / "canceled"
+'* •Ô‚è’l@F"" / "inProgress" / "completed" / "canceled"
 '***************************************************************************************************
-Public Property Get State() As String
-    State = mState
+Public Property Get state() As String
+    state = mState
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãŒå®Œäº†ã—ã¦ã„ã‚‹ã‹è¿”ã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh‚ªŠ®—¹‚µ‚Ä‚¢‚é‚©•Ô‚µ‚Ü‚·
 '***************************************************************************************************
 Public Property Get IsCompleted() As Boolean
     IsCompleted = (mState = "completed")
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãŒé–‹å§‹ã•ã‚ŒãŸã‹è¿”ã—ã¾ã™ï¼ˆWillBegin ã‚¤ãƒ™ãƒ³ãƒˆå—ä¿¡æ¸ˆã¿ã‹ï¼‰
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh‚ªŠJn‚³‚ê‚½‚©•Ô‚µ‚Ü‚·iWillBegin ƒCƒxƒ“ƒgóMÏ‚İ‚©j
 '***************************************************************************************************
 Public Property Get HasStarted() As Boolean
     HasStarted = (mGuid <> "")
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šå®Ÿéš›ã«ä¿å­˜ã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã®å®Œå…¨ãƒ‘ã‚¹ã‚’è¿”ã—ã¾ã™
+'* ‹@”\@@FÀÛ‚É•Û‘¶‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ÌŠ®‘SƒpƒX‚ğ•Ô‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼šå®Œäº†å‰ã¯ç©ºæ–‡å­—ãŒè¿”ã‚Šã¾ã™
+'* ’ˆÓ–€FŠ®—¹‘O‚Í‹ó•¶š‚ª•Ô‚è‚Ü‚·
 '***************************************************************************************************
 Public Property Get DownloadedFilePath() As String
     DownloadedFilePath = mFilePath
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ–ãƒ©ã‚¦ã‚¶ãŒææ¡ˆã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«åã‚’è¿”ã—ã¾ã™ï¼ˆæ‹¡å¼µå­ä»˜ãï¼‰
+'* ‹@”\@@Fƒuƒ‰ƒEƒU‚ª’ñˆÄ‚·‚éƒtƒ@ƒCƒ‹–¼‚ğ•Ô‚µ‚Ü‚·iŠg’£q•t‚«j
 '***************************************************************************************************
 Public Property Get SuggestedFilename() As String
     SuggestedFilename = mSuggestedFilename
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å…ƒã®URLã‚’è¿”ã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒhŒ³‚ÌURL‚ğ•Ô‚µ‚Ü‚·
 '***************************************************************************************************
 Public Property Get DownloadUrl() As String
     DownloadUrl = mDownloadUrl
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šå—ä¿¡æ¸ˆã¿ãƒã‚¤ãƒˆæ•°ã‚’è¿”ã—ã¾ã™ï¼ˆé€²æ—è¡¨ç¤ºç”¨ï¼‰
+'* ‹@”\@@FóMÏ‚İƒoƒCƒg”‚ğ•Ô‚µ‚Ü‚·ii’»•\¦—pj
 '***************************************************************************************************
 Public Property Get ReceivedBytes() As Double
     ReceivedBytes = mReceivedBytes
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šåˆè¨ˆãƒã‚¤ãƒˆæ•°ã‚’è¿”ã—ã¾ã™ï¼ˆ0 ã®å ´åˆã¯ä¸æ˜ï¼‰
+'* ‹@”\@@F‡ŒvƒoƒCƒg”‚ğ•Ô‚µ‚Ü‚·i0 ‚Ìê‡‚Í•s–¾j
 '***************************************************************************************************
 Public Property Get TotalBytes() As Double
     TotalBytes = mTotalBytes
 End Property
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šé€²æ—ç‡ã‚’ 0.0 ã€œ 1.0 ã§è¿”ã—ã¾ã™ï¼ˆåˆè¨ˆä¸æ˜ã®å ´åˆã¯ -1ï¼‰
+'* ‹@”\@@Fi’»—¦‚ğ 0.0 ? 1.0 ‚Å•Ô‚µ‚Ü‚·i‡Œv•s–¾‚Ìê‡‚Í -1j
 '***************************************************************************************************
 Public Property Get Progress() As Double
     If mTotalBytes <= 0 Then
@@ -159,20 +159,20 @@ End Property
 
 
 '***************************************************************************************************
-'              â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç·¨ â– â– â– 
+'              ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ”ñ“¯ŠúƒCƒxƒ“ƒg•Ò ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰é–¢é€£ã® CDP ã‚¤ãƒ™ãƒ³ãƒˆã‚’å—ã‘å–ã‚Šã€å†…éƒ¨çŠ¶æ…‹ã«åæ˜ ã—ã¾ã™
-'            å¯¾å¿œã‚¤ãƒ™ãƒ³ãƒˆ:
-'              Browser.downloadWillBegin  â†’ ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰é–‹å§‹æƒ…å ±ã‚’è¨˜éŒ²
-'              Browser.downloadProgress   â†’ é€²æ—ãƒ»å®Œäº†ãƒ»ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã‚’è¨˜éŒ²
-'              Page.downloadWillBegin     â†’ Fallbackï¼ˆå¤ã„ Chrome å‘ã‘ï¼‰
-'              Page.downloadProgress      â†’ Fallbackï¼ˆå¤ã„ Chrome å‘ã‘ï¼‰
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒhŠÖ˜A‚Ì CDP ƒCƒxƒ“ƒg‚ğó‚¯æ‚èA“à•”ó‘Ô‚É”½‰f‚µ‚Ü‚·
+'            ‘Î‰ƒCƒxƒ“ƒg:
+'              Browser.downloadWillBegin  ¨ ƒ_ƒEƒ“ƒ[ƒhŠJnî•ñ‚ğ‹L˜^
+'              Browser.downloadProgress   ¨ i’»EŠ®—¹EƒLƒƒƒ“ƒZƒ‹‚ğ‹L˜^
+'              Page.downloadWillBegin     ¨ FallbackiŒÃ‚¢ Chrome Œü‚¯j
+'              Page.downloadProgress      ¨ FallbackiŒÃ‚¢ Chrome Œü‚¯j
 '***************************************************************************************************
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
-    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
+    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled in this extended class.", FromProcedureName
     Else
@@ -180,20 +180,20 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. å¯¾è±¡ã®ã‚¤ãƒ™ãƒ³ãƒˆä»¥å¤–ã¯å³æŠœã‘
+    '2. ‘ÎÛ‚ÌƒCƒxƒ“ƒgˆÈŠO‚Í‘¦”²‚¯
     Select Case methodName
 
-        '--- ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰é–‹å§‹ï¼ˆGuidãƒ»ãƒ•ã‚¡ã‚¤ãƒ«åãƒ»URLã‚’å–å¾—ï¼‰ ---
+        '--- ƒ_ƒEƒ“ƒ[ƒhŠJniGuidEƒtƒ@ƒCƒ‹–¼EURL‚ğæ“¾j ---
         Case "Browser.downloadWillBegin", "Page.downloadWillBegin"
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
             Dim beginParams As Dictionary: Set beginParams = mJson.ParseJson(EventRawJson)("params")
-            mGuid              = CStr(beginParams("guid"))
+            mGuid = CStr(beginParams("guid"))
             mSuggestedFilename = CStr(beginParams("suggestedFilename"))
-            mDownloadUrl       = CStr(beginParams("url"))
-            mState             = "inProgress"
-            mReceivedBytes     = 0
-            mTotalBytes        = 0
+            mDownloadUrl = CStr(beginParams("url"))
+            mState = "inProgress"
+            mReceivedBytes = 0
+            mTotalBytes = 0
 
             printMsg info_, "[" & methodName & "] Download started. " _
                           & "guid=" & mGuid & " file=" & mSuggestedFilename & " url=" & mDownloadUrl, FromProcedureName
@@ -206,22 +206,22 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                 printMsg Debug_, String(80, "="), FromProcedureName
             End If
 
-        '--- ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰é€²æ—ï¼ˆé€²æ—ãƒ»å®Œäº†ãƒ»ã‚­ãƒ£ãƒ³ã‚»ãƒ«ã‚’æ›´æ–°ï¼‰ ---
+        '--- ƒ_ƒEƒ“ƒ[ƒhi’»ii’»EŠ®—¹EƒLƒƒƒ“ƒZƒ‹‚ğXVj ---
         Case "Browser.downloadProgress", "Page.downloadProgress"
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
             Dim progParams As Dictionary: Set progParams = mJson.ParseJson(EventRawJson)("params")
             Dim evGuid As String: evGuid = CStr(progParams("guid"))
 
-            'è¤‡æ•°ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãŒèµ°ã£ã¦ã„ã‚‹å ´åˆã§ã‚‚ã€ç›£è¦–å¯¾è±¡ã® Guid ã ã‘å‡¦ç†
+            '•¡”ƒ_ƒEƒ“ƒ[ƒh‚ª‘–‚Á‚Ä‚¢‚éê‡‚Å‚àAŠÄ‹‘ÎÛ‚Ì Guid ‚¾‚¯ˆ—
             If evGuid <> mGuid Then
                 printMsg Trace_, "Ignored progress event for different guid: " & evGuid, FromProcedureName
                 Exit Sub
             End If
 
-            mState         = CStr(progParams("state"))
+            mState = CStr(progParams("state"))
             mReceivedBytes = CDbl(progParams("receivedBytes"))
-            mTotalBytes    = CDbl(progParams("totalBytes"))
+            mTotalBytes = CDbl(progParams("totalBytes"))
 
             Select Case mState
                 Case "inProgress"
@@ -236,14 +236,14 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                     End If
 
                 Case "completed"
-                    'ä¿å­˜å…ˆãƒ‘ã‚¹ã‚’ç¢ºå®šã™ã‚‹ï¼ˆBrowser.downloadProgress ã¯ filePath ã‚’å«ã‚€å ´åˆãŒã‚ã‚‹ï¼‰
+                    '•Û‘¶æƒpƒX‚ğŠm’è‚·‚éiBrowser.downloadProgress ‚Í filePath ‚ğŠÜ‚Şê‡‚ª‚ ‚éj
                     If progParams.Exists("filePath") Then
                         If Len(CStr(progParams("filePath"))) > 0 Then
                             mFilePath = CStr(progParams("filePath"))
                         End If
                     End If
 
-                    '--- filePath ãŒå–ã‚Œãªã‹ã£ãŸå ´åˆã¯ãƒ•ã‚©ãƒ«ãƒ€å·®åˆ†ã‹ã‚‰ç‰¹å®š ---
+                    '--- filePath ‚ªæ‚ê‚È‚©‚Á‚½ê‡‚ÍƒtƒHƒ‹ƒ_·•ª‚©‚ç“Á’è ---
                     If Len(mFilePath) = 0 Then
                         mFilePath = ResolveFilePathFromDir(mSuggestedFilename)
                     End If
@@ -268,18 +268,18 @@ End Sub
 
 
 '***************************************************************************************************
-'                           â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† â– â– â– 
+'                           ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ¡¡¡
 '***************************************************************************************************
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ç›£è¦–ã‚’é–‹å§‹ã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒhŠÄ‹‚ğŠJn‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°ã€€ã€€ï¼šDownloadDir    ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å…ˆãƒ•ã‚©ãƒ«ãƒ€ã®ãƒ•ãƒ«ãƒ‘ã‚¹ï¼ˆå­˜åœ¨ã—ãªã„å ´åˆã¯è‡ªå‹•ä½œæˆï¼‰
-'            AllowAndName   True: "allowAndName"ï¼ˆãƒ–ãƒ©ã‚¦ã‚¶ãŒè‡ªå‹•ã§ãƒ¦ãƒ‹ãƒ¼ã‚¯åã‚’ä»˜ã‘ã‚‹ï¼‰
-'                           False: "allow"ï¼ˆSuggestedFilename ãã®ã¾ã¾ï¼‰â† é€šå¸¸ã¯ã“ã¡ã‚‰
+'* ˆø”@@FDownloadDir    ƒ_ƒEƒ“ƒ[ƒhæƒtƒHƒ‹ƒ_‚Ìƒtƒ‹ƒpƒXi‘¶İ‚µ‚È‚¢ê‡‚Í©“®ì¬j
+'            AllowAndName   True: "allowAndName"iƒuƒ‰ƒEƒU‚ª©“®‚Åƒ†ƒj[ƒN–¼‚ğ•t‚¯‚éj
+'                           False: "allow"iSuggestedFilename ‚»‚Ì‚Ü‚Üj© ’Êí‚Í‚±‚¿‚ç
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šå†…éƒ¨ã§ `Browser.setDownloadBehavior` ã‚’é€ä¿¡ã—ã€
-'            ã‚¤ãƒ™ãƒ³ãƒˆå—ä¿¡ã‚’æœ‰åŠ¹åŒ–ã—ãŸã†ãˆã§ã€ãƒ•ã‚©ãƒ«ãƒ€ã®ç¾çŠ¶ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆã‚’å–å¾—ã—ã¾ã™
+'* Ú×à–¾F“à•”‚Å `Browser.setDownloadBehavior` ‚ğ‘—M‚µA
+'            ƒCƒxƒ“ƒgóM‚ğ—LŒø‰»‚µ‚½‚¤‚¦‚ÅAƒtƒHƒ‹ƒ_‚ÌŒ»óƒXƒiƒbƒvƒVƒ‡ƒbƒg‚ğæ“¾‚µ‚Ü‚·
 '***************************************************************************************************
 Public Sub WatchStart(DownloadDir As String, Optional AllowAndName As Boolean = False)
     Const FromProcedureName As String = ThisClassName & ".WatchStart"
@@ -288,32 +288,32 @@ Public Sub WatchStart(DownloadDir As String, Optional AllowAndName As Boolean = 
     printMsg info_, "Starting download watch. dir=" & DownloadDir _
                   & " AllowAndName=" & AllowAndName, FromProcedureName
 
-    '--- ãƒ•ã‚©ãƒ«ãƒ€ãŒå­˜åœ¨ã—ãªã„å ´åˆã¯ä½œæˆ ---
+    '--- ƒtƒHƒ‹ƒ_‚ª‘¶İ‚µ‚È‚¢ê‡‚Íì¬ ---
     If Dir(DownloadDir, vbDirectory) = "" Then
         MkDir DownloadDir
         printMsg Debug_, "Created download directory: " & DownloadDir, FromProcedureName
     End If
 
-    '--- ãƒ‘ã‚¹æœ«å°¾ã‚¹ãƒ©ãƒƒã‚·ãƒ¥ã‚’æ­£è¦åŒ– ---
+    '--- ƒpƒX––”öƒXƒ‰ƒbƒVƒ…‚ğ³‹K‰» ---
     mWatchDir = DownloadDir
     If Right$(mWatchDir, 1) = "\" Then mWatchDir = Left$(mWatchDir, Len(mWatchDir) - 1)
 
-    '--- å†…éƒ¨çŠ¶æ…‹ã‚’ãƒªã‚»ãƒƒãƒˆ ---
+    '--- “à•”ó‘Ô‚ğƒŠƒZƒbƒg ---
     ResetState
 
-    '--- ç¾æ™‚ç‚¹ã®ãƒ•ã‚©ãƒ«ãƒ€å†…å®¹ã‚’ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆï¼ˆæ—¢å­˜ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æŠŠæ¡ï¼‰ ---
+    '--- Œ»“_‚ÌƒtƒHƒ‹ƒ_“à—e‚ğƒXƒiƒbƒvƒVƒ‡ƒbƒgiŠù‘¶ƒtƒ@ƒCƒ‹‚ğ”cˆ¬j ---
     Set mSnapshotFiles = CreateObject("Scripting.Dictionary")
     SnapshotDirectory mWatchDir, mSnapshotFiles
     printMsg Debug_, "Snapshot taken. Existing files in dir: " & mSnapshotFiles.Count, FromProcedureName
 
-    '--- Browser.setDownloadBehavior ã§ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å…ˆã¨ã‚¤ãƒ™ãƒ³ãƒˆã‚’è¨­å®š ---
+    '--- Browser.setDownloadBehavior ‚Åƒ_ƒEƒ“ƒ[ƒhæ‚ÆƒCƒxƒ“ƒg‚ğİ’è ---
     Dim behavior As String: behavior = IIf(AllowAndName, "allowAndName", "allow")
     Dim params As New Scripting.Dictionary
-    params.Add "behavior",       behavior
-    params.Add "downloadPath",   mWatchDir
-    params.Add "eventsEnabled",  True
+    params.Add "behavior", behavior
+    params.Add "downloadPath", mWatchDir
+    params.Add "eventsEnabled", True
 
-    invokeMethod "Browser.setDownloadBehavior", params, True   'alwaysBrowserContext=True ã§ Browser ãƒ‰ãƒ¡ã‚¤ãƒ³
+    invokeMethod "Browser.setDownloadBehavior", params, True   'alwaysBrowserContext=True ‚Å Browser ƒhƒƒCƒ“
     EnableBrowserEvents = True
 
     printMsg info_, "Download behavior set. behavior=" & behavior & " watchDir=" & mWatchDir, FromProcedureName
@@ -321,14 +321,14 @@ Public Sub WatchStart(DownloadDir As String, Optional AllowAndName As Boolean = 
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãŒå®Œäº†ã™ã‚‹ã¾ã§å¾…æ©Ÿã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh‚ªŠ®—¹‚·‚é‚Ü‚Å‘Ò‹@‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* è¿”ã‚Šå€¤ã€€ï¼šTrue=å®Œäº† / False=ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ or ã‚­ãƒ£ãƒ³ã‚»ãƒ«
-'* å¼•æ•°ã€€ã€€ï¼šTimeoutSec     æœ€å¤§å¾…æ©Ÿæ™‚é–“ï¼ˆç§’ï¼‰/ ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆ: 60ç§’
+'* •Ô‚è’l@FTrue=Š®—¹ / False=ƒ^ƒCƒ€ƒAƒEƒg or ƒLƒƒƒ“ƒZƒ‹
+'* ˆø”@@FTimeoutSec     Å‘å‘Ò‹@ŠÔi•bj/ ƒfƒtƒHƒ‹ƒg: 60•b
 '---------------------------------------------------------------------------------------------------
-'* ç¢ºèªæ–¹æ³•ï¼š
+'* Šm”F•û–@F
 '   If dw.WaitCompleted(30) Then
-'       MsgBox "ä¿å­˜å…ˆ: " & dw.DownloadedFilePath
+'       MsgBox "•Û‘¶æ: " & dw.DownloadedFilePath
 '   End If
 '***************************************************************************************************
 Public Function WaitCompleted(Optional TimeoutSec As Long = 60) As Boolean
@@ -339,7 +339,7 @@ Public Function WaitCompleted(Optional TimeoutSec As Long = 60) As Boolean
 
     Dim t As Double: t = Timer
     Do
-        ex_CDPBrowser.TakeEvents    'ãƒ‘ã‚¤ãƒ—ã‹ã‚‰éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å¸ã„ä¸Šã’ã‚‹
+        ex_CDPBrowser.TakeEvents    'ƒpƒCƒv‚©‚ç”ñ“¯ŠúƒCƒxƒ“ƒg‚ğ‹z‚¢ã‚°‚é
         DoEvents
 
         Select Case mState
@@ -362,19 +362,19 @@ Public Function WaitCompleted(Optional TimeoutSec As Long = 60) As Boolean
             Exit Function
         End If
 
-        ex_CDPBrowser.sleep 0.2    'CPUç¯€ç´„
+        ex_CDPBrowser.sleep 0.2    'CPUß–ñ
     Loop
 
 End Function
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã—ãŸå®Œäº†ãƒ•ã‚¡ã‚¤ãƒ«ã‚’åˆ¥ãƒ•ã‚©ãƒ«ãƒ€ãƒ»åˆ¥åã§ç§»å‹•ä¿å­˜ã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh‚µ‚½Š®—¹ƒtƒ@ƒCƒ‹‚ğ•ÊƒtƒHƒ‹ƒ_E•Ê–¼‚ÅˆÚ“®•Û‘¶‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* è¿”ã‚Šå€¤ã€€ï¼šç§»å‹•å¾Œã®ãƒ•ãƒ«ä¿å­˜å…ˆãƒ‘ã‚¹ / å¤±æ•—æ™‚ã¯ç©ºæ–‡å­—
-'* å¼•æ•°ã€€ã€€ï¼šSaveDir        ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹ï¼ˆå­˜åœ¨ã—ãªã„å ´åˆã¯è‡ªå‹•ä½œæˆï¼‰
-'            NewFileName    ä¿å­˜ã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«åï¼ˆçœç•¥æ™‚ã¯ SuggestedFilename ã‚’ãã®ã¾ã¾ä½¿ç”¨ï¼‰
+'* •Ô‚è’l@FˆÚ“®Œã‚Ìƒtƒ‹•Û‘¶æƒpƒX / ¸”s‚Í‹ó•¶š
+'* ˆø”@@FSaveDir        •Û‘¶æƒtƒHƒ‹ƒ_ƒpƒXi‘¶İ‚µ‚È‚¢ê‡‚Í©“®ì¬j
+'            NewFileName    •Û‘¶‚·‚éƒtƒ@ƒCƒ‹–¼iÈ—ª‚Í SuggestedFilename ‚ğ‚»‚Ì‚Ü‚Üg—pj
 '---------------------------------------------------------------------------------------------------
-'* ä½¿ã„æ–¹  ï¼š
+'* g‚¢•û  F
 '   If dw.WaitCompleted(30) Then
 '       Dim saved As String: saved = dw.SaveAs("C:\output", "report_" & Format(Now,"yyyymmdd") & ".pdf")
 '   End If
@@ -395,7 +395,7 @@ Public Function SaveAs(SaveDir As String, Optional NewFileName As String = "") A
     If Dir(SaveDir, vbDirectory) = "" Then MkDir SaveDir
 
     Dim destPath As String: destPath = SaveDir & "\" & NewFileName
-    printMsg Debug_, "SaveAs: " & mFilePath & " â†’ " & destPath, FromProcedureName
+    printMsg Debug_, "SaveAs: " & mFilePath & " ¨ " & destPath, FromProcedureName
 
     On Error GoTo ErrHandler
     FileCopy mFilePath, destPath
@@ -411,26 +411,26 @@ ErrHandler:
 End Function
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šå†…éƒ¨çŠ¶æ…‹ã‚’ãƒªã‚»ãƒƒãƒˆã—ã¾ã™ï¼ˆWatchStart ã§è‡ªå‹•å‘¼ã³å‡ºã—ï¼‰
+'* ‹@”\@@F“à•”ó‘Ô‚ğƒŠƒZƒbƒg‚µ‚Ü‚·iWatchStart ‚Å©“®ŒÄ‚Ño‚µj
 '***************************************************************************************************
 Public Sub ResetState()
-    mGuid              = ""
+    mGuid = ""
     mSuggestedFilename = ""
-    mDownloadUrl       = ""
-    mState             = ""
-    mFilePath          = ""
-    mReceivedBytes     = 0
-    mTotalBytes        = 0
+    mDownloadUrl = ""
+    mState = ""
+    mFilePath = ""
+    mReceivedBytes = 0
+    mTotalBytes = 0
 End Sub
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å†…éƒ¨å‡¦ç† â– â– â– 
+'                               ¡¡¡ “à•”ˆ— ¡¡¡
 '***************************************************************************************************
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ•ã‚©ãƒ«ãƒ€å†…ã®å…¨ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ Dictionary ã«ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆã—ã¾ã™
+'* ‹@”\@@FƒtƒHƒ‹ƒ_“à‚Ì‘Sƒtƒ@ƒCƒ‹‚ğ Dictionary ‚ÉƒXƒiƒbƒvƒVƒ‡ƒbƒg‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub SnapshotDirectory(DirPath As String, ByRef dic As Object)
     Dim f As String: f = Dir(DirPath & "\*.*")
@@ -444,9 +444,9 @@ Private Sub SnapshotDirectory(DirPath As String, ByRef dic As Object)
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šå®Œäº†å¾Œã«ãƒ•ã‚©ãƒ«ãƒ€ã‚’å†ã‚¹ã‚­ãƒ£ãƒ³ã—ã¦ã€ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆå·®åˆ†ã‹ã‚‰ä¿å­˜ãƒ‘ã‚¹ã‚’ç‰¹å®šã—ã¾ã™
+'* ‹@”\@@FŠ®—¹Œã‚ÉƒtƒHƒ‹ƒ_‚ğÄƒXƒLƒƒƒ“‚µ‚ÄAƒXƒiƒbƒvƒVƒ‡ƒbƒg·•ª‚©‚ç•Û‘¶ƒpƒX‚ğ“Á’è‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šBrowser.downloadProgress ã® filePath ãŒãªã„å ´åˆã®ãƒ•ã‚©ãƒ¼ãƒ«ãƒãƒƒã‚¯ã¨ã—ã¦ä½¿ç”¨ã—ã¾ã™
+'* Ú×à–¾FBrowser.downloadProgress ‚Ì filePath ‚ª‚È‚¢ê‡‚ÌƒtƒH[ƒ‹ƒoƒbƒN‚Æ‚µ‚Äg—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Function ResolveFilePathFromDir(SuggestedName As String) As String
     Const FromProcedureName As String = ThisClassName & ".ResolveFilePathFromDir"
@@ -458,7 +458,7 @@ Private Function ResolveFilePathFromDir(SuggestedName As String) As String
         Exit Function
     End If
 
-    '--- 1. SuggestedFilename ãŒãã®ã¾ã¾ã‚ã‚Œã°ãã‚Œã‚’è¿”ã™ ---
+    '--- 1. SuggestedFilename ‚ª‚»‚Ì‚Ü‚Ü‚ ‚ê‚Î‚»‚ê‚ğ•Ô‚· ---
     Dim directPath As String: directPath = mWatchDir & "\" & SuggestedName
     If Dir(directPath) <> "" Then
         printMsg Debug_, "Resolved by SuggestedFilename: " & directPath, FromProcedureName
@@ -466,16 +466,16 @@ Private Function ResolveFilePathFromDir(SuggestedName As String) As String
         Exit Function
     End If
 
-    '--- 2. ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆå·®åˆ†ã‹ã‚‰æ–°è¦ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ¤œç´¢ ---
+    '--- 2. ƒXƒiƒbƒvƒVƒ‡ƒbƒg·•ª‚©‚çV‹Kƒtƒ@ƒCƒ‹‚ğŒŸõ ---
     printMsg Debug_, "SuggestedFilename not found directly, scanning directory for new files...", FromProcedureName
     Dim f As String: f = Dir(mWatchDir & "\*.*")
     Do While f <> ""
         Dim candidate As String: candidate = mWatchDir & "\" & f
         Dim fLower As String: fLower = LCase$(f)
 
-        ' ä¸€æ™‚ãƒ•ã‚¡ã‚¤ãƒ«ã¯ã‚¹ã‚­ãƒƒãƒ—
+        ' ˆêƒtƒ@ƒCƒ‹‚ÍƒXƒLƒbƒv
         If Not IsTemporaryFile(fLower) Then
-            ' ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆæ™‚ç‚¹ã«å­˜åœ¨ã—ãªã‹ã£ãŸ = æ–°è¦ãƒ•ã‚¡ã‚¤ãƒ«
+            ' ƒXƒiƒbƒvƒVƒ‡ƒbƒg“_‚É‘¶İ‚µ‚È‚©‚Á‚½ = V‹Kƒtƒ@ƒCƒ‹
             If Not mSnapshotFiles.Exists(fLower) Then
                 printMsg Debug_, "New file found by directory diff: " & candidate, FromProcedureName
                 ResolveFilePathFromDir = candidate
@@ -491,7 +491,7 @@ Private Function ResolveFilePathFromDir(SuggestedName As String) As String
 End Function
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ä¸­ã®ä¸€æ™‚ãƒ•ã‚¡ã‚¤ãƒ«ï¼ˆ.crdownload / .part ç­‰ï¼‰ã‹åˆ¤å®šã—ã¾ã™
+'* ‹@”\@@Fƒ_ƒEƒ“ƒ[ƒh’†‚Ìˆêƒtƒ@ƒCƒ‹i.crdownload / .part “™j‚©”»’è‚µ‚Ü‚·
 '***************************************************************************************************
 Private Function IsTemporaryFile(fileNameLower As String) As Boolean
     IsTemporaryFile = (Right$(fileNameLower, 11) = ".crdownload") _
@@ -502,7 +502,7 @@ End Function
 
 
 '***************************************************************************************************
-'                           â– â– â–  `CDPBrowser`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
+'                           ¡¡¡ `CDPBrowser`’¼’Êƒƒ\ƒbƒh ¡¡¡
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_CDPBrowser.sleep seconds
@@ -519,33 +519,33 @@ End Function
 
 
 '***************************************************************************************************
-'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šCDPåˆ¶å¾¡ã®ãƒ™ãƒ¼ã‚¹ã¨ãªã‚‹`CDPBrowser.cls`ã‚’ç¶™æ‰¿ã•ã›ã¾ã™
+'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPBrowser)
     Const FromProcedureName As String = ThisClassName & ".Init"
 
 
-    'ç¶™æ‰¿
+    'Œp³
     Set ex_CDPBrowser = Inheritance
     printMsg Debug_, "CDPexpansion_DownloadWatcher initialized.", FromProcedureName
 
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸå‡¦ç†ã‚’æœ‰åŠ¹åŒ–
+    'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
+    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'rawJSONã‚’ãƒ‡ãƒãƒƒã‚°å‡ºåŠ›ã™ã‚‹ã‹
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'rawJSON‚ğƒfƒoƒbƒOo—Í‚·‚é‚©
     End With
 
 End Sub

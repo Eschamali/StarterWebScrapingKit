@@ -58,7 +58,6 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
     '--- 1. テストサイトを開く ---
     Dim browser As CDPBrowser
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
-    browser.waitForLoad
     Debug.Print "[Demo01] ページ読み込み完了"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
@@ -83,8 +82,8 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
                "ファイル名: " & dw.SuggestedFilename & vbCrLf & _
                "保存先: " & dw.DownloadedFilePath, vbInformation
     Else
-        Debug.Print "[Demo01] × タイムアウトまたはキャンセル。State=" & dw.State
-        MsgBox "ダウンロード失敗。State=" & dw.State, vbCritical
+        Debug.Print "[Demo01] × タイムアウトまたはキャンセル。State=" & dw.state
+        MsgBox "ダウンロード失敗。State=" & dw.state, vbCritical
     End If
 
     'browser.quit
@@ -123,7 +122,6 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
     '--- 1. テストサイトを開く ---
     Dim browser As CDPBrowser
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
-    browser.waitForLoad
 
     Dim dw As New CDPexpansion_DownloadWatcher
     dw.Init browser
@@ -147,7 +145,7 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
             Debug.Print "[Demo02]   ○ 保存完了: " & dw.DownloadedFilePath _
                       & " (" & Format(dw.TotalBytes / 1024 / 1024, "0.00") & " MB)"
         Else
-            Debug.Print "[Demo02]   × 失敗 (State=" & dw.State & ")"
+            Debug.Print "[Demo02]   × 失敗 (State=" & dw.state & ")"
             MsgBox "Round " & i & " でダウンロード失敗。", vbCritical
             Exit For
         End If
@@ -168,7 +166,7 @@ End Sub
 '***************************************************************************************************
 '            ■■■ Demo 03：進捗を表示しながら大きめのファイルをダウンロード ■■■
 '***************************************************************************************************
-'* 機能　　：50MB GIF をダウンロードしながらイミディエイトウィンドウに進捗を表示するデモです
+'* 機能　　：1GB PNG をダウンロードしながらイミディエイトウィンドウに進捗を表示するデモです
 '---------------------------------------------------------------------------------------------------
 '* 確認ポイント：
 '   - Progress / ReceivedBytes / TotalBytes が正しく更新されること
@@ -182,15 +180,14 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     '--- 1. テストサイトを開く ---
     Dim browser As CDPBrowser
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
-    browser.waitForLoad
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New CDPexpansion_DownloadWatcher
     dw.Init browser
     dw.WatchStart outDir
 
-    '--- 3. フォームを操作：50MB / GIF ---
-    Call SetDownloadForm(browser, Size:=50, Unit:="MB", Extension:="gif")
+    '--- 3. フォームを操作：1GB / png ---
+    Call SetDownloadForm(browser, Size:=1, Unit:="GB", Extension:="png")
 
     '--- 4. クリック ---
     browser.getElementByID("submit-button").click
@@ -226,7 +223,7 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
             Exit Do
         End If
 
-        If dw.State = "canceled" Then
+        If dw.state = "canceled" Then
             Debug.Print "[Demo03] × キャンセルされました"
             Exit Do
         End If
@@ -256,7 +253,7 @@ End Sub
 Sub Demo_DownloadWatcher_04_別名で保存()
 
     Dim outDir As String:  outDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
-    Dim saveDir As String: saveDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Saved"
+    Dim SaveDir As String: SaveDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Saved"
 
     '--- 1. テストサイトを開く ---
     Dim browser As CDPBrowser
@@ -276,7 +273,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
     Debug.Print "[Demo04] ダウンロード完了待ち..."
 
     If Not dw.WaitCompleted(TimeoutSec:=60) Then
-        MsgBox "ダウンロード失敗。State=" & dw.State, vbCritical
+        MsgBox "ダウンロード失敗。State=" & dw.state, vbCritical
         browser.quit
         Exit Sub
     End If
@@ -284,7 +281,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
 
     '--- 5. 日付付きのファイル名で別フォルダに保存 ---
     Dim newName As String: newName = "testimg_" & Format(Now, "yyyymmdd_HHmmss") & ".webp"
-    Dim saved As String:   saved = dw.SaveAs(saveDir, newName)
+    Dim saved As String:   saved = dw.SaveAs(SaveDir, newName)
 
     If Len(saved) > 0 Then
         Debug.Print "[Demo04] ○ 別名保存完了！ → " & saved
@@ -316,16 +313,16 @@ Private Sub SetDownloadForm(browser As CDPBrowser, Size As Integer, Unit As Stri
 
     '--- サイズ入力 ---
     Dim sizeEl As CDPElement: Set sizeEl = browser.getElementByID("size")
-    sizeEl.clear
-    sizeEl.sendKeys CStr(Size)
+    sizeEl.clearValue
+    sizeEl.sendString CStr(Size)
     Debug.Print "[SetDownloadForm] size=" & Size
 
     '--- 単位セレクト ---
-    browser.getElementByID("unit").SendKeys_SelectBox Unit
+    browser.getElementByID("unit").setSelection Unit
     Debug.Print "[SetDownloadForm] unit=" & Unit
 
     '--- 拡張子セレクト ---
-    browser.getElementByID("extension").SendKeys_SelectBox Extension
+    browser.getElementByID("extension").setSelection Extension
     Debug.Print "[SetDownloadForm] extension=" & Extension
 
 End Sub
