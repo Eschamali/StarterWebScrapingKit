@@ -2603,10 +2603,10 @@ RetrySend:
    'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
 1   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
-    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
+    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
 
 2   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
-    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
+    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
 
    '--------------------------------------------------
    'Send message to the browser
