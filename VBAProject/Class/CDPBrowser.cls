@@ -166,6 +166,7 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
+Private Const RegistryEditor As String = "winmgmts:\\.\root\default:StdRegProv"     'レジストリ操作を行う際の専用パス名
 
 
 
@@ -3488,26 +3489,23 @@ Private Function getBrowserPath(strBrowserType As String) As String
     End Select
 
    'Return the path
-    On Error Resume Next
-    Dim objWSHost As Object, reg As Object, strKeyPath As String
-    Set reg = GetObject("winmgmts://./root/default:StdRegProv")
+    Dim BrowserPathCheck As Object: Set BrowserPathCheck = GetObject(RegistryEditor)    '※ブラウザのパス特定用に使用
+    Dim strKeyPath As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. レジストリで、ブラウザインストールパスを特定
-            Set objWSHost = CreateObject("WScript.Shell")
-            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type & "\Path"
-            getBrowserPath = objWSHost.regread(strKeyPath) & "\" & br.Type
+            '1. レジストリから、ブラウザインストールパスを特定
+            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
+            BrowserPathCheck.GetStringValue &H80000002, strKeyPath, "", getBrowserPath  '「既定」にある値の取り出しを試みる
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
         End If
     End With
 
-    'レジストリ操作にてエラー or バスが空の場合は、次の捜索へ
-    If Err.Number <> 0 Or LenB(getBrowserPath) = 0 Then
-        Err.Clear
+    'パスが空の場合は、次の捜索へ
+    If LenB(getBrowserPath) = 0 Then
 
         '2. デフォルトインストールパスチェック
         Select Case br.Type
@@ -3524,12 +3522,13 @@ Private Function getBrowserPath(strBrowserType As String) As String
                     getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type
                 End If
         End Select
+
         If LenB(getBrowserPath) > 0 Then
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
         End If
 
+
         '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
-        On Error GoTo 0
         If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 
@@ -3673,8 +3672,8 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'レジストリ操作に必要な定数/オブジェクトの定義
-    Dim PolicyCheck As Object: Set PolicyCheck = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    'レジストリ操作に必要な定数/オブジェクトの定義 ※ポリシーチェックに使います。
+    Dim PolicyCheck As Object: Set PolicyCheck = GetObject(RegistryEditor)
     Const HKEY_LOCAL_MACHINE    As Long = &H80000002           'このPCの、"すべて"のユーザーに影響する、強力な設定
     Const HKEY_CURRENT_USER     As Long = &H80000001           '"今、ログインしているユーザー"だけに、影響する設定
     Const wbemNoErr             As Long = 0                    '存在するときは、`0`を返します。　https://learn.microsoft.com/ja-jp/windows/win32/api/wbemdisp/ne-wbemdisp-wbemerrorenum#constants
