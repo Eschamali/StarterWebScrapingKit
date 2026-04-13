@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_DownloadWatcher"
+Attribute VB_Name = "exCDP_DownloadWatcher"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -14,7 +14,7 @@ Attribute VB_Exposed = False
 '            複数同時ダウンロードも含めて完了まで VBA 側で待機します。
 '---------------------------------------------------------------------------------------------------
 '* 基本的な使い方（単一DL）：
-'    Dim dw As New CDPexpansion_DownloadWatcher
+'    Dim dw As New exCDP_DownloadWatcher
 '    dw.Init browser
 '    dw.WatchStart "C:\download_dir"
 '    browser.getElementByID("dl-btn").click
@@ -99,7 +99,7 @@ Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "CDPexpansion_DownloadWatcher"
+Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
 Private mJson                       As New WebJsonConverter
 
 'ステート管理
@@ -996,7 +996,7 @@ Friend Sub Init(Inheritance As CDPBrowser)
 
     '継承
     Set ex_CDPBrowser = Inheritance
-    printMsg Debug_, "CDPexpansion_DownloadWatcher initialized.", FromProcedureName
+    printMsg Debug_, "exCDP_DownloadWatcher initialized.", FromProcedureName
 
 End Sub
 

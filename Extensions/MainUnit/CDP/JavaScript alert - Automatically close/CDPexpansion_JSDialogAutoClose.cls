@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_JSDialogAutoClose"
+Attribute VB_Name = "exCDP_JSDialogAutoClose"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -26,7 +26,7 @@ Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "CDPexpansion_JSDialogAutoClose"
+Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 Private mJson                       As New WebJsonConverter
 
 'ステート管理

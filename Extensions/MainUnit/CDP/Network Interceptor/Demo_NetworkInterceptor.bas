@@ -2,10 +2,10 @@ Attribute VB_Name = "Demo_NetworkInterceptor"
 Option Explicit
 
 ' =========================================================
-' CDPexpansion_NetworkInterceptor のデモマクロ
+' exCDP_NetworkInterceptor のデモマクロ
 ' =========================================================
 ' [前提]
-'   ・このモジュールと CDPexpansion_NetworkInterceptor.cls を
+'   ・このモジュールと exCDP_NetworkInterceptor.cls を
 '     VBAProject にインポートしてから実行してください。
 '
 ' [テスト一覧]
@@ -16,15 +16,15 @@ Option Explicit
 
 Public Sub Demo_NetworkInterceptor_All()
     Dim br As CDPBrowser
-    Dim ni As CDPexpansion_NetworkInterceptor
+    Dim ni As exCDP_NetworkInterceptor
 
     Set br = 設定シートからのCDP起動
     br.navigate "about:blank"
-    Set ni = New CDPexpansion_NetworkInterceptor
+    Set ni = New exCDP_NetworkInterceptor
     ni.Init br
 
     br.printMsg info_, "================================================", "Demo"
-    br.printMsg info_, "  CDPexpansion_NetworkInterceptor デモ開始", "Demo"
+    br.printMsg info_, "  exCDP_NetworkInterceptor デモ開始", "Demo"
     br.printMsg info_, "================================================", "Demo"
     br.sleep 1
 
@@ -45,7 +45,7 @@ End Sub
 ' =========================================================
 ' [A] URL ブロック テスト
 ' =========================================================
-Private Sub Demo_A_BlockURL(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
+Private Sub Demo_A_BlockURL(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
     br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] URLブロック テスト開始", "Demo"
 
     ' httpbin.org をブロック登録
@@ -85,7 +85,7 @@ End Sub
 ' =========================================================
 ' [B] モックレスポンス テスト
 ' =========================================================
-Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
+Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
     br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] モックレスポンス テスト開始", "Demo"
 
     ' /api/user への通信を偽レスポンスで差し替える
@@ -126,7 +126,7 @@ End Sub
 ' =========================================================
 ' [C] レスポンス待機 + Body取得 テスト（CDPネイティブ）
 ' =========================================================
-Private Sub Demo_C_WaitForResponse(br As CDPBrowser, ni As CDPexpansion_NetworkInterceptor)
+Private Sub Demo_C_WaitForResponse(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
     br.printMsg info_, WorksheetFunction.Unichar(9654) & " [C] WaitForResponse(CDPネイティブ) テスト開始", "Demo"
 
     ' CDPの Network ドメインを有効化してキャプチャ開始

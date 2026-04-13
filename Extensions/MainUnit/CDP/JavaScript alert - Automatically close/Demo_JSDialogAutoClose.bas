@@ -1,8 +1,8 @@
 Attribute VB_Name = "Demo_JSDialogAutoClose"
 '==============================================================================
-' Demo - CDPexpansion_JSDialogAutoClose（JavaScript ダイアログ自動クローズ）
+' Demo - exCDP_JSDialogAutoClose（JavaScript ダイアログ自動クローズ）
 '
-' 前提: 本モジュールと CDPexpansion_JSDialogAutoClose.cls を VBA プロジェクトに取り込み、
+' 前提: 本モジュールとexCDP_JSDialogAutoClose.cls を VBA プロジェクトに取り込み、
 '       Demo_CDP の 設定シートからのCDP起動 が使えること。
 '==============================================================================
 Option Explicit
@@ -14,7 +14,7 @@ Sub TestAlertWithExpansion()
     Dim Demo_alerts As CDPBrowser: Set Demo_alerts = 設定シートからのCDP起動("https://www.selenium.dev/selenium/web/alerts.html")
 
     '拡張機能を追加（prompt の入力値は 入力文字内容 と同一にし、Debug.Assert と整合させる）
-    Dim testEX As New CDPexpansion_JSDialogAutoClose
+    Dim testEX As New exCDP_JSDialogAutoClose
     testEX.Init Demo_alerts
 
     '必要な変数を用意

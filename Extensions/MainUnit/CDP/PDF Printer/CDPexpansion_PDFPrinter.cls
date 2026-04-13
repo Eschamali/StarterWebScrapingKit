@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_PDFPrinter"
+Attribute VB_Name = "exCDP_PDFPrinter"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -13,7 +13,7 @@ Attribute VB_Exposed = False
 '* 機能　　：現在ブラウザが表示しているページをPDFファイルとして保存します
 '---------------------------------------------------------------------------------------------------
 '* 使い方　：
-'    Dim pdf As New CDPexpansion_PDFPrinter
+'    Dim pdf As New exCDP_PDFPrinter
 '    pdf.Init browser                              ' CDPBrowserを継承
 '    pdf.PrintToPDF "C:\output\", "report"         ' → report.pdf が生成される
 '---------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "CDPexpansion_PDFPrinter"   'ログのトレース用
+Private Const ThisClassName         As String = "exCDP_PDFPrinter"   'ログのトレース用
 
 
 

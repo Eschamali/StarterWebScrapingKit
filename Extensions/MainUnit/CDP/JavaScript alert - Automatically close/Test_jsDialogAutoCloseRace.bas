@@ -46,7 +46,7 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
     PrintHeader "JSDialogAutoClose 競合ズレ再現テスト 開始"
 
     '拡張機能（イベント駆動の自動 close）
-    Dim ext As New CDPexpansion_JSDialogAutoClose
+    Dim ext As New exCDP_JSDialogAutoClose
     ext.Init br
     ext.DefaultAccept = True
     ext.DefaultPromptText = "N/A"

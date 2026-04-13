@@ -5,7 +5,7 @@ Option Explicit
 ' デモ: Shadow DOM 横断検索機能
 '
 ' 作成した TestHtml.html を開き、通常のCSSセレクタ検索では届かないShadow DOM内部の要素に
-' 「CDPexpansion_ShadowDOMSearch」を使って直接アクセス・操作できることを確認します。
+' 「exCDP_ShadowDOMSearch」を使って直接アクセス・操作できることを確認します。
 '***************************************************************************************************
 
 'ワークスペースパス
@@ -15,7 +15,7 @@ Private Const WORKSPACE_PATH As String = ""
 
 Public Sub Demo_ShadowDOMSearch()
     Dim br As CDPBrowser
-    Dim extShadow As CDPexpansion_ShadowDOMSearch
+    Dim extShadow As exCDP_ShadowDOMSearch
     
     Dim htmlPath As String
     htmlPath = "file:///" & WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_shadowRoot\TestHtml.html"
@@ -24,8 +24,8 @@ Public Sub Demo_ShadowDOMSearch()
     Set br = 設定シートからのCDP起動(htmlPath)
     br.wait
     
-    ' 拡張機能（CDPexpansion_ShadowDOMSearch）のインスタンス化と初期化
-    Set extShadow = New CDPexpansion_ShadowDOMSearch
+    ' 拡張機能（exCDP_ShadowDOMSearch）のインスタンス化と初期化
+    Set extShadow = New exCDP_ShadowDOMSearch
     extShadow.Init br
     
     Dim elem As CDPElement

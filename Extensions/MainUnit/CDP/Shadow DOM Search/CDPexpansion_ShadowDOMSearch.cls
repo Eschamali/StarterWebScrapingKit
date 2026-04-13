@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_ShadowDOMSearch"
+Attribute VB_Name = "exCDP_ShadowDOMSearch"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -21,7 +21,7 @@ Option Explicit
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-Private Const ThisClassName         As String = "CDPexpansion_ShadowDOMSearch"
+Private Const ThisClassName         As String = "exCDP_ShadowDOMSearch"
 Private EnableBrowserEvents         As Boolean
 
 '***************************************************************************************************

@@ -1,13 +1,13 @@
 Attribute VB_Name = "Demo_PDFPrinter"
 '***************************************************************************************************
-'       CDPexpansion_PDFPrinter 拡張 - デモ & 動作確認 モジュール
+'       exCDP_PDFPrinter 拡張 - デモ & 動作確認 モジュール
 '***************************************************************************************************
-'* 機能　　：`CDPexpansion_PDFPrinter.cls` を使ったPDF保存のサンプルコードです
+'* 機能　　：`exCDP_PDFPrinter.cls` を使ったPDF保存のサンプルコードです
 '---------------------------------------------------------------------------------------------------
-'* 対応拡張：Extensions\CDP\PDF Printer\CDPexpansion_PDFPrinter.cls
+'* 対応拡張：Extensions\CDP\PDF Printer\exCDP_PDFPrinter.cls
 '* 参考元  ：ForAI\vba-cdp-webdriver\Module\SampleModule.bas - Sample_11_Screenshot_And_Pdf
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・実行前に「CDPexpansion_PDFPrinter.cls」をVBAプロジェクトに取り込んでください
+'* 注意事項：・実行前に「exCDP_PDFPrinter.cls」をVBAプロジェクトに取り込んでください
 '            ・`Page.printToPDF` は about:blank では動作しません
 '            ・ページ読み込みが完了してから呼び出してください
 '***************************************************************************************************
@@ -31,7 +31,7 @@ Sub Demo_PDFPrinter_01_基本保存()
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://example.com")
 
     '2. PDF拡張の初期化
-    Dim pdf As New CDPexpansion_PDFPrinter
+    Dim pdf As New exCDP_PDFPrinter
     pdf.Init browser
 
     '3. PDF保存（デフォルト設定 = A4縦、背景あり）
@@ -70,7 +70,7 @@ Sub Demo_PDFPrinter_02_パラメーター指定()
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
-    Dim pdf As New CDPexpansion_PDFPrinter
+    Dim pdf As New exCDP_PDFPrinter
     pdf.Init browser
 
     '3. パラメーター指定PDF保存
@@ -119,7 +119,7 @@ Sub Demo_PDFPrinter_03_プリセット指定()
     Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
-    Dim pdf As New CDPexpansion_PDFPrinter
+    Dim pdf As New exCDP_PDFPrinter
     pdf.Init browser
 
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
@@ -150,7 +150,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：同一ページをPNGスクリーンショットとPDFの両方で保存するデモです
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPBrowser.snapPage`（スクショ）と `CDPexpansion_PDFPrinter.PrintToPDF`（PDF）を
+'* 詳細説明：`CDPBrowser.snapPage`（スクショ）と `exCDP_PDFPrinter.PrintToPDF`（PDF）を
 '            組み合わせて使用します。ForAI\vba-cdp-webdriver の Sample_11 に相当する使い方です
 '* 確認ポイント：
 '   - ScreenShotとPDFが同じディレクトリに保存されること
@@ -169,8 +169,8 @@ Sub Demo_PDFPrinter_04_スクショとPDF同時保存()
     browser.snapPage outDir, "capture_shot.png"
     Debug.Print "スクショ保存: " & outDir & "\capture_shot.png"
 
-    '3. PDF保存（CDPexpansion_PDFPrinter）
-    Dim pdf As New CDPexpansion_PDFPrinter
+    '3. PDF保存（exCDP_PDFPrinter）
+    Dim pdf As New exCDP_PDFPrinter
     pdf.Init browser
     Dim pdfPath As String: pdfPath = pdf.PrintToPDF(outDir, "capture_pdf")
     Debug.Print "PDF保存: " & pdfPath

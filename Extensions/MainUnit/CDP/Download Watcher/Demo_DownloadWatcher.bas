@@ -1,10 +1,10 @@
 Attribute VB_Name = "Demo_DownloadWatcher"
 '***************************************************************************************************
-'       CDPexpansion_DownloadWatcher 拡張 - デモ & 動作確認 モジュール
+'       exCDP_DownloadWatcher 拡張 - デモ & 動作確認 モジュール
 '***************************************************************************************************
-'* 機能　　：`CDPexpansion_DownloadWatcher.cls` を使ったダウンロード監視のサンプルコードです
+'* 機能　　：exCDP_DownloadWatcher.cls` を使ったダウンロード監視のサンプルコードです
 '---------------------------------------------------------------------------------------------------
-'* 対応拡張：Extensions\MainUnit\CDP\Download Watcher\CDPexpansion_DownloadWatcher.cls
+'* 対応拡張：Extensions\MainUnit\CDP\Download Watcher\exCDP_DownloadWatcher.cls
 '---------------------------------------------------------------------------------------------------
 '* テストサイト：https://custom-img.lb-product.com/
 '*   サイズ・単位・拡張子を指定して任意サイズの画像を生成＆ダウンロードできる無料サービスです
@@ -70,7 +70,7 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
     Debug.Print "[Demo01] ページ読み込み完了"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart outDir   '← ダウンロードトリガーの前に必ず呼ぶ
 
@@ -146,7 +146,7 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
     Dim browser As CDPBrowser
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
 
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
 
     '--- 3ラウンド連続ダウンロード ---
@@ -209,7 +209,7 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart outDir
 '    dw.ThrottleNetwork DownloadKBps:=1000   '1000KB/s → 1GB ≒ 17分
@@ -292,7 +292,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
     Set browser = 設定シートからのCDP起動(TESTSITE_URL)
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart outDir
     dw.ThrottleNetwork DownloadKBps:=200   '200KB/s → 3MB ≒ 15秒
@@ -362,7 +362,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
     Debug.Print "[Demo05] ページ読み込み完了"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart outDir
     dw.ThrottleNetwork DownloadKBps:=500   '500KB/s → 合計10MB ≒ 20秒
@@ -547,7 +547,7 @@ Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
     Debug.Print "[Demo06] ★ 直リンク型：click直後に WillBegin が来る（blob型とは逆）"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart OUT_DIR
 
@@ -657,7 +657,7 @@ Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
     Debug.Print "[Demo07] ★ 直リンク型 × 複数同時DL：3件のリンクをほぼ同時にクリック"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
-    Dim dw As New CDPexpansion_DownloadWatcher
+    Dim dw As New exCDP_DownloadWatcher
     dw.Init browser
     dw.WatchStart OUT_DIR
     dw.ThrottleNetwork DownloadKBps:=500   '500KB/s → 1MB≒2秒 / 10MB≒20秒 / 100MB≒200秒

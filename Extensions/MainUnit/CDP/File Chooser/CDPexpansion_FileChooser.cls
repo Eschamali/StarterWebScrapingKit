@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_FileChooser"
+Attribute VB_Name = "exCDP_FileChooser"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -15,7 +15,7 @@ Attribute VB_Exposed = False
 '            JSで動的に生成されたダイアログも含め、あらゆるファイル選択トリガーに対応します。
 '---------------------------------------------------------------------------------------------------
 '* 基本的な使い方：
-'    Dim fc As New CDPexpansion_FileChooser
+'    Dim fc As New exCDP_FileChooser
 '    fc.Init browser
 '
 '    fc.AddFilePath = "C:\data\file1.txt"    ' ← ファイルを事前登録（複数可）
@@ -52,7 +52,7 @@ Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "CDPexpansion_FileChooser"  'ログのトレース用
+Private Const ThisClassName         As String = "exCDP_FileChooser"  'ログのトレース用
 Private Const MaxTimeOut            As Long = 10
 Private mJson                       As New WebJsonConverter
 

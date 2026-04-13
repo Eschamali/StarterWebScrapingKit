@@ -2,7 +2,7 @@ Attribute VB_Name = "Demo_AdvancedWait"
 Option Explicit
 
 ' 動作確認用のデモマクロです。
-' このモジュールと `CDPexpansion_AdvancedWait` をインポートして実行してください。
+' このモジュールと `exCDP_AdvancedWait` をインポートして実行してください。
 
 'ワークスペースパス
 '※StarterWebScrapingKitのルートフォルダ を入力してください
@@ -11,7 +11,7 @@ Private Const WORKSPACE_PATH As String = ""
 
 Public Sub Demo_AdvancedWait()
     Dim br As CDPBrowser
-    Dim extWait As CDPexpansion_AdvancedWait
+    Dim extWait As exCDP_AdvancedWait
     Dim elem As CDPElement
     Dim startTime As Double
     Dim htmlPath As String
@@ -22,7 +22,7 @@ Public Sub Demo_AdvancedWait()
     Set br = 設定シートからのCDP起動(htmlPath)
     
     ' 拡張機能（高度な待機）のインスタンス化と初期設定
-    Set extWait = New CDPexpansion_AdvancedWait
+    Set extWait = New exCDP_AdvancedWait
     extWait.Init br
     
     br.printMsg info_, "Test環境にアクセスし、Advanced Waitの初期化が完了しました。デモを開始します。", "Demo"

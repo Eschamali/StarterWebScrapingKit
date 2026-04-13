@@ -1,10 +1,10 @@
 Attribute VB_Name = "Demo_FileChooser"
 '***************************************************************************************************
-'       CDPexpansion_FileChooser 拡張 - デモ & 動作確認 モジュール
+'       exCDP_FileChooser 拡張 - デモ & 動作確認 モジュール
 '***************************************************************************************************
-'* 機能　　：`CDPexpansion_FileChooser.cls` を使ったFileChooserインターセプトのサンプルコードです
+'* 機能　　：exCDP_FileChooser.cls` を使ったFileChooserインターセプトのサンプルコードです
 '---------------------------------------------------------------------------------------------------
-'* 対応拡張：Extensions\MainUnit\CDP\File Chooser\CDPexpansion_FileChooser.cls
+'* 対応拡張：Extensions\MainUnit\CDP\File Chooser\exCDP_FileChooser.cls
 '* テストHTML：Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html
 '---------------------------------------------------------------------------------------------------
 '* 動作の仕組み：
@@ -68,7 +68,7 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     browser.show
 
     '--- 2. FileChooser拡張の初期化 ---
-    Dim fc As New CDPexpansion_FileChooser
+    Dim fc As New exCDP_FileChooser
     fc.Init browser
 
     '--- 3. ★新API：ファイルパスを事前登録 ---
@@ -138,7 +138,7 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     browser.show
 
     '--- 2. FileChooser拡張の初期化 ---
-    Dim fc As New CDPexpansion_FileChooser
+    Dim fc As New exCDP_FileChooser
     fc.Init browser
 
     '--- 3. ★新API：ファイルパスを事前登録 ---
@@ -208,7 +208,7 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     browser.show
 
     '--- FileChooser拡張初期化 ---
-    Dim fc As New CDPexpansion_FileChooser
+    Dim fc As New exCDP_FileChooser
     fc.Init browser
 
     '--- 3ラウンド：毎回ファイルを差し替えて注入 ---

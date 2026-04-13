@@ -2,13 +2,13 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_NetworkInterceptor"
+Attribute VB_Name = "exCDP_NetworkInterceptor"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 ' =========================================================
-' CDPexpansion_NetworkInterceptor
+' exCDP_NetworkInterceptor
 '
 ' [概要]
 ' ネットワーク通信の傍受・モック・レスポンス待機を提供する拡張機能クラス。
@@ -26,7 +26,7 @@ Attribute VB_Exposed = False
 '         全ての通信（タグ起因含む）をキャプチャできる。
 '
 ' [使い方]
-'   Dim ni As New CDPexpansion_NetworkInterceptor
+'   Dim ni As New exCDP_NetworkInterceptor
 '   ni.Init br
 '
 '   ' --- A. URLブロック ---
@@ -60,7 +60,7 @@ Option Explicit
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-Private Const ThisClassName         As String = "CDPexpansion_NetworkInterceptor"
+Private Const ThisClassName         As String = "exCDP_NetworkInterceptor"
 
 ' Network.responseReceived で蓄積するレスポンス情報
 ' 各要素は Scripting.Dictionary {RequestId, Url, Status, MimeType}

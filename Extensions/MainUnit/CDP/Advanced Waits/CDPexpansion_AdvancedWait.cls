@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPexpansion_AdvancedWait"
+Attribute VB_Name = "exCDP_AdvancedWait"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -10,7 +10,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 ' =========================================================
-' CDPexpansion_AdvancedWait
+' exCDP_AdvancedWait
 '
 ' [概要]
 ' ブラウザの非同期動作（DOM変更、非同期通信等）が完了するまで
@@ -20,7 +20,7 @@ Option Explicit
 Private WithEvents CDP_   As CDPBrowser
 Attribute CDP_.VB_VarHelpID = -1
 
-Private Const ThisClassName As String = "CDPexpansion_AdvancedWait"
+Private Const ThisClassName As String = "exCDP_AdvancedWait"
 
 
 ' ナビゲーション検知用フラグ（CDPネイティブイベントで更新される）
