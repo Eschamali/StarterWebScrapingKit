@@ -176,9 +176,11 @@ Private Const ThisClassName As String = "CDPBrowser"        'ログのトレー�
 Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
 'クラスオブジェクト
-Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
-Private LogControl  As New Logger           'ログレベルの制御
 Private core        As CDPCore              'Must be initialized for CDP engine
+Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
+Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
+Private CharConv    As New CharacterCodeConversion  'ファイル保存系統
+Private LogControl  As New Logger           'ログレベルの制御
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
 'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
@@ -3577,19 +3579,15 @@ End Sub
 
 Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As String)
 '----------------------------------------------------------------------------------
-' Decode a base64 string and save to file without external dependencies (late bound).
+' Decode a base64 string and save to file without external dependencies (WindowsAPI:CryptStringToBinary).
 '----------------------------------------------------------------------------------
 
-    Dim dom As Object, el As Object, Bytes() As Byte, CharConv As CharacterCodeConversion
+    'Base64 から、バイト配列に変換
+    Dim tmp() As Byte
+    tmp = DataConv.Decode(strB64, edfBase64)
 
-    Set dom = CreateObject("MSXML2.DOMDocument")
-    Set el = dom.createElement("tmp")
-    el.DataType = "bin.base64"
-    el.Text = strB64
-    Bytes = el.nodeTypedValue
-
-    Set CharConv = New CharacterCodeConversion
-    CharConv.BytesToSaveFile Bytes, FolderPath, FileName
+    'そのバイト配列のまま、保存
+    CharConv.BytesToSaveFile tmp, FolderPath, FileName
 
 End Sub
 
