@@ -166,6 +166,7 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
+Private Const RegistryEditor As String = "winmgmts:\\.\root\default:StdRegProv"     'レジストリ操作を行う際の専用パス名
 
 
 
@@ -176,9 +177,11 @@ Private Const ThisClassName As String = "CDPBrowser"        'ログのトレー�
 Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
 'クラスオブジェクト
-Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
-Private LogControl  As New Logger           'ログレベルの制御
 Private core        As CDPCore              'Must be initialized for CDP engine
+Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
+Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
+Private CharConv    As New CharacterCodeConversion  'ファイル保存系統
+Private LogControl  As New Logger           'ログレベルの制御
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
 'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
@@ -2603,10 +2606,10 @@ RetrySend:
    'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
 1   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
-    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
+    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
 
 2   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
-    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, ""), FromProcedureName
+    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
 
    '--------------------------------------------------
    'Send message to the browser
@@ -3486,26 +3489,23 @@ Private Function getBrowserPath(strBrowserType As String) As String
     End Select
 
    'Return the path
-    On Error Resume Next
-    Dim objWSHost As Object, reg As Object, strKeyPath As String
-    Set reg = GetObject("winmgmts://./root/default:StdRegProv")
+    Dim BrowserPathCheck As Object: Set BrowserPathCheck = GetObject(RegistryEditor)    '※ブラウザのパス特定用に使用
+    Dim strKeyPath As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. レジストリで、ブラウザインストールパスを特定
-            Set objWSHost = CreateObject("WScript.Shell")
-            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type & "\Path"
-            getBrowserPath = objWSHost.regread(strKeyPath) & "\" & br.Type
+            '1. レジストリから、ブラウザインストールパスを特定
+            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
+            BrowserPathCheck.GetStringValue &H80000002, strKeyPath, "", getBrowserPath  '「既定」にある値の取り出しを試みる
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
         End If
     End With
 
-    'レジストリ操作にてエラー or バスが空の場合は、次の捜索へ
-    If Err.Number <> 0 Or LenB(getBrowserPath) = 0 Then
-        Err.Clear
+    'パスが空の場合は、次の捜索へ
+    If LenB(getBrowserPath) = 0 Then
 
         '2. デフォルトインストールパスチェック
         Select Case br.Type
@@ -3522,12 +3522,13 @@ Private Function getBrowserPath(strBrowserType As String) As String
                     getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type
                 End If
         End Select
+
         If LenB(getBrowserPath) > 0 Then
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
         End If
 
+
         '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
-        On Error GoTo 0
         If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 
@@ -3577,19 +3578,15 @@ End Sub
 
 Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As String)
 '----------------------------------------------------------------------------------
-' Decode a base64 string and save to file without external dependencies (late bound).
+' Decode a base64 string and save to file without external dependencies (WindowsAPI:CryptStringToBinary).
 '----------------------------------------------------------------------------------
 
-    Dim dom As Object, el As Object, Bytes() As Byte, CharConv As CharacterCodeConversion
+    'Base64 から、バイト配列に変換
+    Dim tmp() As Byte
+    tmp = DataConv.Decode(strB64, edfBase64)
 
-    Set dom = CreateObject("MSXML2.DOMDocument")
-    Set el = dom.createElement("tmp")
-    el.DataType = "bin.base64"
-    el.Text = strB64
-    Bytes = el.nodeTypedValue
-
-    Set CharConv = New CharacterCodeConversion
-    CharConv.BytesToSaveFile Bytes, FolderPath, FileName
+    'そのバイト配列のまま、保存
+    CharConv.BytesToSaveFile tmp, FolderPath, FileName
 
 End Sub
 
@@ -3675,8 +3672,8 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'レジストリ操作に必要な定数/オブジェクトの定義
-    Dim PolicyCheck As Object: Set PolicyCheck = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    'レジストリ操作に必要な定数/オブジェクトの定義 ※ポリシーチェックに使います。
+    Dim PolicyCheck As Object: Set PolicyCheck = GetObject(RegistryEditor)
     Const HKEY_LOCAL_MACHINE    As Long = &H80000002           'このPCの、"すべて"のユーザーに影響する、強力な設定
     Const HKEY_CURRENT_USER     As Long = &H80000001           '"今、ログインしているユーザー"だけに、影響する設定
     Const wbemNoErr             As Long = 0                    '存在するときは、`0`を返します。　https://learn.microsoft.com/ja-jp/windows/win32/api/wbemdisp/ne-wbemdisp-wbemerrorenum#constants
