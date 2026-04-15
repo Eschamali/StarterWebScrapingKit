@@ -23,18 +23,31 @@ Option Explicit
 '内部クラスオブジェクト
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
+Private JsonConv                    As New WebJsonConverter
 
 '内部使用用
-Private Const ThisClassName         As String = "exCDP_LocalAI"             'ログのトレース用
+Private Const ThisClassName                 As String = "exCDP_LocalAI" 'ログのトレース用
+Private Const InitialAllocationStrBuffer    As Long = 2 ^ 6             '初期バッファー上限
 
 '`Runtime.bindingCalled`の`Name`定義用
 Private Const BindingName01         As String = "sendDLprogressNotification"    'AIモデルデータのDL進捗用
+Private Const BindingName02         As String = "pushAiStream"                  'promptStreaming の受け取り用
+Private Const BindingName02_EOFcode As String = 30                              'promptStreaming 終端目印文字コード
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private AI_ObjectID                 As String       'AIへのセッションに対するObjectID
 Private ProgressValue               As Double       'AIモデルデータの進捗値
+Private StreamingEOF                As Boolean      'ストリーミング受信が終わったかのサイン
+
+'分割記述されたJavaScript配列管理用
+Private Type StateFragmentedJS
+    strBuffer()     As String   '一時的に蓄積するための配列です
+    Index           As Long     '埋まってる位置
+    expansionCount  As Long     '拡張確保回数
+End Type
+Private JSBox As StateFragmentedJS
 
 
 
@@ -60,6 +73,13 @@ Public Property Get DLProgressValue() As Double
     DLProgressValue = ProgressValue
 End Property
 
+'***************************************************************************************************
+'* 機能　　：promptStreamingのEOFサインを取得します
+'***************************************************************************************************
+Public Property Get StreamingEOFExist() As Boolean
+    StreamingEOFExist = StreamingEOF
+End Property
+
 
 
 '***************************************************************************************************
@@ -79,17 +99,38 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. 処理したい対象の非同期イベント名を、各Case に記述してください。
+    '2. 処理したい対象の非同期イベント名を、各Case に記述
     Select Case methodName
-        Case "○○.△△"
-            '3. ↓ここから、あなたの非同期Aの処理イメージをコードに落とし込む↓
+        Case "Runtime.bindingCalled"
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
+            '1. PayloadのName部分を取得
+            Dim NamePayload As String: NamePayload = ExtractName(EventRawJson)
 
-        Case "□□.◇◇"
-            '3. ↓ここから、あなたの非同期Bの処理イメージをコードに落とし込む↓
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+            '2. `Name`値に応じた処理
+            Dim tmp As String
+            Select Case NamePayload
+                Case BindingName01
+                    'PayLoad部分を取り出します
+                    tmp = ExtractPayload(EventRawJson)
+                    printMsg Debug_, "payload :" & tmp, FromProcedureName
 
+                    '進捗値を更新します
+                    ProgressValue = tmp
+                    printMsg Debug_, "Downloading... " & ProgressValue & "%", FromProcedureName
+
+                Case BindingName02
+                    'デコード済みのPayLoad部分を取り出します
+                    tmp = JsonConv.ParseJson(EventRawJson)("params")("payload")
+                    printMsg Debug_, "payload :" & tmp, FromProcedureName
+                    Debug.Print tmp;
+
+                    'EOFサインが来たらフラグを更新
+                    If tmp = Chr(BindingName02_EOFcode) Then StreamingEOF = True
+
+                Case Else
+                    printMsg Debug_, "We detected `Runtime.bindingCalled` instances other than AI. Name :" & NamePayload, FromProcedureName
+            End Select
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
@@ -97,9 +138,62 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 
     End Select
 
-    '基本的には、`Case`内完結が望ましいですが、必要に応じて、下準備や後始末要因で、非同期イベントの処理前後であっても、コードを記述していただいて構いません。
-
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから name 部分を抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`name`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+Private Function ExtractName(resCDP As String) As String
+    Const FromProcedureName As String = ThisClassName & ".ExtractName"
+
+
+    '--------- params-name項目から、`payload`の種類を特定 ---------
+    Const SearchKey_ParamsName As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":"""
+    Dim StartPos As Long, EndPos As Long
+    Dim CalledName As String
+
+    'name項目を抽出
+    StartPos = Len(SearchKey_ParamsName) + 1    '「{"method":"Runtime.bindingCalled","params":{"name":"」分、検索位置をずらす想定
+    EndPos = InStr(StartPos, resCDP, """,""")
+    ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：エスケープ解除済み`payload`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+Private Function ExtractPayload(resCDP As String) As String
+    Const SearchKey As String = """payload"":"""
+    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
+    If StartPos = 0 Then Exit Function
+    
+    StartPos = StartPos + Len(SearchKey)
+    
+    ' payloadの終了位置を探す。通常はexecutionContextIdの前
+    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
+    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
+    
+    If EndPos > StartPos Then
+        ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
+        ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
+        ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
+        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+        
+        ' 文字列内のエスケープ（\" -> "）を復元
+        ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
+        ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
+        ' なので、ここでは「JSONとしての文字列値」を取得するにとどめ、
+        ' クラス内のパース処理にそのまま渡す。
+        ' ただし、CDPのJSONエンコードにより \" になっているものを " に戻す必要がある。
+        ExtractPayload = Replace(ExtractPayload, "\""", """")
+        ExtractPayload = Replace(ExtractPayload, "\\", "\")
+    End If
+End Function
 
 
 
@@ -191,6 +285,77 @@ End Function
 
 
 '***************************************************************************************************
+'                          ■■■ Prompt API - 一度切りトーク編 ■■■
+'***************************************************************************************************
+'* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：必要に応じてタイムアウトに余裕を持たせる必要があります
+'***************************************************************************************************
+Public Function instantSession(ChatString As String) As String
+    ' JSコードの組み立て
+    ' 1. セッション作成 2. 質問送信 3. セッション破棄 を一気に行います
+    Dim JsCode As String
+    JsCode = "(async () => {" & _
+             "  try {" & _
+             "    const session = await LanguageModel.create();" & _
+             "    const result = await session.prompt('" & ChatString & "');" & _
+             "    session.destroy();" & _
+             "    return result;" & _
+             "  } catch (e) {" & _
+             "    return 'Error: ' + e.message;" & _
+             "  }" & _
+             "})()"
+
+    ' 実行と結果取得
+    instantSession = ex_CDPBrowser.jsEval(JsCode, awaitPromise:=True)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：上記のプロシージャと違いこちらは、`Streaming`という滝みたいに流れる仕組みとなります
+'* 注意事項：必要に応じてタイムアウトに余裕を持たせる必要があります
+'***************************************************************************************************
+Public Function instantStreamingSession(ChatString As String) As String
+    '0. ステータスをリセット
+    StreamingEOF = False
+
+    '1. ブラウザ→VBA への受け口を用意
+    Dim params As New Dictionary
+    params.Add "name", BindingName02
+    ex_CDPBrowser.invokeMethod "Runtime.addBinding", params
+
+    ' JSコードの組み立て
+    ' 1. セッション作成 2. 質問送信 3. セッション破棄 を一気に行います
+    FragmentedJS = "(async () => {"
+    ' 新規セッションを作成
+    FragmentedJS = "  const session = await LanguageModel.create();"
+
+    'プロンプトを指定
+    FragmentedJS = "  const stream = session.promptStreaming('" & ChatString & "');"
+
+    'ストリームオブジェクトを使用して、モデルによって生成されたトークンを、生成されると同時に表示します。
+    FragmentedJS = "  for await (const chunk of stream) {"
+    FragmentedJS = "    if (typeof " & BindingName02 & " === 'function') {"
+    FragmentedJS = "      " & BindingName02 & "(chunk);"
+    FragmentedJS = "    }"
+    FragmentedJS = "  }"
+
+    '終了合図として ASCII 30 (Record Separator) を送信
+    FragmentedJS = "  " & BindingName02 & "(String.fromCharCode(" & BindingName02_EOFcode & "));"
+
+    'セッションを切断
+    FragmentedJS = "  session.destroy();"
+    FragmentedJS = "})()"
+    FragmentedJS = vbNullChar
+
+    '非同期で実行開始。結果を待たずに次の処理へ
+    instantStreamingSession = ex_CDPBrowser.jsEval(FragmentedJS)
+End Function
+
+
+
+'***************************************************************************************************
 '                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
@@ -221,6 +386,68 @@ End Sub
 
 
 '***************************************************************************************************
+'                             ■■■ ヘルパープロシージャ ■■■
+'***************************************************************************************************
+Private Property Let FragmentedJS(pieceData As String)
+    Const FromProcedureName As String = ThisClassName & ".FragmentedJS"
+
+
+    With JSBox
+        '1. 上限を越したら、拡張する(高負荷ポイント)
+        If .Index >= InitialAllocationStrBuffer * .expansionCount Then
+            .expansionCount = .expansionCount + 1
+            ReDim Preserve .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+            printMsg Debug_, "The buffer has been expanded to " & InitialAllocationStrBuffer * .expansionCount, FromProcedureName
+        End If
+
+        '2. 配列に入れる
+        .strBuffer(.Index) = pieceData
+        printMsg Trace_, "Data has been placed in array " & .Index, FromProcedureName
+
+        '3. カウント
+        .Index = .Index + 1
+    End With
+End Property
+
+Private Property Get FragmentedJS() As String
+    Const FromProcedureName As String = ThisClassName & ".FragmentedJS"
+
+
+    '1. 確保中の配列を全部結合する
+    printMsg Trace_, "Now we'll begin the buffer merging process...", FromProcedureName
+    Dim tmp As String: tmp = Join(JSBox.strBuffer, "")
+    printMsg Trace_, "concatenated Raw-string: " & tmp, FromProcedureName
+
+    '2. `vbnullchar`がある位置を先頭から探す
+    Dim EndPos As Long: EndPos = searchNull(tmp)
+
+    '3. その目印を元に、1件分返却
+    FragmentedJS = Mid(tmp, 1, EndPos - 1)
+    printMsg Debug_, "Trim complete. Result: " & FragmentedJS, FromProcedureName
+
+    '4. インデックスリセット
+    JSBox.Index = 0
+    printMsg Trace_, "Buffer Index reset.", FromProcedureName
+
+End Property
+
+Private Function searchNull(checkString As String) As Long
+
+    Dim lngPos As Long
+
+    If Len(checkString) = 0 Then Exit Function
+    lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
+    If lngPos > 0 Then
+        searchNull = lngPos
+    Else
+        searchNull = 0
+    End If
+
+End Function
+
+
+
+'***************************************************************************************************
 '                             ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
@@ -239,6 +466,13 @@ Private Sub Class_Initialize()
 
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
+
+    '配列の初期化
+    With JSBox
+        .expansionCount = 1
+        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+        .Index = 0
+    End With
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
