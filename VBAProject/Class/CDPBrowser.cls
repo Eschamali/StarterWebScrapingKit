@@ -3768,6 +3768,8 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
 
     'Assign an objID for easy debug identification
     br.id = "BRID" & Format(Rnd * 1000, "000")
@@ -3777,10 +3779,10 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, "CDPBrowser.Class_Initialize")).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     
         '2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, "CDPBrowser.Class_Initialize")).value
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
         If LogFolderPath <> "" Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
@@ -3789,7 +3791,7 @@ Private Sub Class_Initialize()
         '3. いくつかのポリシーチェックを行います。
         'この確認を使用することで、原因調査の時短につながる可能性があります。
         '※主要なブラウザのみチェックします
-        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, "CDPBrowser.Class_Initialize")).value, brChrome, brEdge)
+        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, FromProcedureName)).value, brChrome, brEdge)
     End With
 
     'タイムアウト設定(デフォルトで、30s)
@@ -3818,6 +3820,21 @@ Private Sub Class_Initialize()
         'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
         'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
     End Select
+
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このClassを破棄する際、`SessionID`も併せて破棄します
+'***************************************************************************************************
+Private Sub Class_Terminate()
+    Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
+
+
+    printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
+
+    Dim CDPparameters As New Dictionary
+    CDPparameters.Add "sessionId", brTab.sessionID
+    invokeMethod "Target.detachFromTarget", CDPparameters, StopError:=False
 
 End Sub
 
