@@ -40,6 +40,7 @@ Private EnableBrowserEvents         As Boolean      '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”
 Private AI_ObjectID                 As String       'AI‚Ö‚ÌƒZƒbƒVƒ‡ƒ“‚É‘Î‚·‚éObjectID
 Private ProgressValue               As Double       'AIƒ‚ƒfƒ‹ƒf[ƒ^‚Ìi’»’l
 Private StreamingEOF                As Boolean      'ƒXƒgƒŠ[ƒ~ƒ“ƒOóM‚ªI‚í‚Á‚½‚©‚ÌƒTƒCƒ“
+Private StreamingCol                As Collection   'Streaming ‚Ì’~Ï—p
 
 '•ªŠ„‹Lq‚³‚ê‚½JavaScript”z—ñŠÇ——p
 Private Type StateFragmentedJS
@@ -71,6 +72,23 @@ End Property
 '***************************************************************************************************
 Public Property Get DLProgressValue() As Double
     DLProgressValue = ProgressValue
+End Property
+
+'***************************************************************************************************
+'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½‚Ì‚ğŒÄ‚Ño‚·“x‚Éæ“ª‚¾‚¯æ‚èo‚µ‚ÄAæ“ª‚ğíœ‚µ‚Ü‚·
+'***************************************************************************************************
+Public Property Get StreamingTopTake() As String
+    If StreamingCol.Count = 0 Then Exit Property
+
+    StreamingTopTake = StreamingCol(1)
+    StreamingCol.Remove (1)
+End Property
+
+'***************************************************************************************************
+'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½‚Ì‚ğƒRƒŒƒNƒVƒ‡ƒ“‚Æ‚µ‚ÄŠÛ‚²‚Æó‚¯æ‚è‚Ü‚·
+'***************************************************************************************************
+Public Property Get StreamingColTake() As Collection
+    Set StreamingColTake = StreamingCol
 End Property
 
 '***************************************************************************************************
@@ -123,7 +141,10 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                     'ƒfƒR[ƒhÏ‚İ‚ÌPayLoad•”•ª‚ğæ‚èo‚µ‚Ü‚·
                     tmp = JsonConv.ParseJson(EventRawJson)("params")("payload")
                     printMsg Debug_, "payload :" & tmp, FromProcedureName
-                    Debug.Print tmp;
+
+                    'ƒXƒgƒŠ[ƒ€‚É’Ç‰Á
+                    StreamingCol.Add tmp
+                    'Debug.Print tmp;
 
                     'EOFƒTƒCƒ“‚ª—ˆ‚½‚çƒtƒ‰ƒO‚ğXV
                     If tmp = Chr(BindingName02_EOFcode) Then StreamingEOF = True
@@ -319,6 +340,7 @@ End Function
 Public Function instantStreamingSession(ChatString As String) As String
     '0. ƒXƒe[ƒ^ƒX‚ğƒŠƒZƒbƒg
     StreamingEOF = False
+    Set StreamingCol = New Collection
 
     '1. ƒuƒ‰ƒEƒU¨VBA ‚Ö‚Ìó‚¯Œû‚ğ—pˆÓ
     Dim params As New Dictionary

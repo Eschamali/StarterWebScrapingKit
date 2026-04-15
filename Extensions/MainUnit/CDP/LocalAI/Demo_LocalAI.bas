@@ -104,7 +104,7 @@ Sub PromptAPI即席チャット()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
     With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+        UserName = .Range(.UseRangeName(2, "Demo_LocalAI.PromptAPI即席チャット")).value
     End With
 
     '1. 既存のTargetIDに接続できるか？
@@ -138,7 +138,7 @@ Sub PromptAPI即席Streamingチャット()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
     With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+        UserName = .Range(.UseRangeName(2, "Demo_LocalAI.PromptAPI即席Streamingチャット")).value
     End With
 
     '1. 既存のTargetIDに接続できるか？
@@ -161,10 +161,30 @@ Sub PromptAPI即席Streamingチャット()
     Debug.Print "--- AIからのストリーミング回答 ---"
     PromptAPI.instantStreamingSession チャット内容
 
+    '----パターン1----
+    'リアルタイム重視
+    Dim StreamingData As String
     Do
         DoEvents
         RunAI.TakeEvents
-    Loop Until PromptAPI.StreamingEOFExist
+        StreamingData = PromptAPI.StreamingTopTake
+
+        If StrPtr(StreamingData) Then Debug.Print StreamingData;
+    Loop Until StreamingData = Chr(30)
+    '-----------------
+
+    '----パターン2----
+    '後から高速表示
+'    Dim StreamingData
+'    Do
+'        DoEvents
+'        RunAI.TakeEvents
+'    Loop Until PromptAPI.StreamingEOFExist
+'
+'    For Each StreamingData In PromptAPI.StreamingColTake
+'        Debug.Print StreamingData;
+'    Next
+    '-----------------
 
     Debug.Print vbCrLf & "--- AIからのストリーミング回答終了 ---"
 
