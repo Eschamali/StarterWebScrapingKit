@@ -3,28 +3,83 @@ Option Explicit
 
 
 
-
-
-Sub AIã«ã‚ˆã‚‹å†’é™ºã®å§‹ã¾ã‚Š()
-    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’
-    Dim AI As CDPBrowser: Set AI = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
-
-    'â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
-    AI.navigate "edge://version"
+Private Const ThisClassName As String = "Demo_LocalAI"
 
 
 
-    Dim testAi As New exCDP_LocalAI
-    Dim AIObjectID As String
-    testAi.Init AI
-    AIObjectID = testAi.createSession
+'***************************************************************************************************
+'* ‹@”\@@FAIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLˆ—‚ðs‚¢‚Ü‚·
+'---------------------------------------------------------------------------------------------------
+'* Ú×à–¾F‹N“®‚©‚çAAIƒ‚ƒfƒ‹ƒf[ƒ^‚Ì•Û‘¶‚Ü‚Å’S‚¢‚Ü‚·
+'* ’ˆÓŽ–€FŠù‚ÉAIƒ‚ƒfƒ‹ƒf[ƒ^‚ð•Û‘¶’†‚Å‚ ‚Á‚Ä‚àA‚±‚ÌƒvƒƒV[ƒWƒƒ‚©‚çŽÀs‚µ‚Ä‚­‚¾‚³‚¢B
+'            ˆÈ~‚ÌƒvƒƒV[ƒWƒƒ‚ÍAƒŠƒAƒ^ƒbƒ`‚©‚çŽn‚ß‚é‚½‚ß‚Å‚·
+'***************************************************************************************************
+Sub PromptAPI‚Ì€”õ()
+    Const FromProcedureName As String = ThisClassName & ".PromptAPI‚Ì€”õ"
 
 
-    Debug.Print testAi.runAI(AIObjectID)
-    Stop
+    'Ý’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°
+    Dim ReadyAI As CDPBrowser: Set ReadyAI = Ý’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
 
-    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’æ­£å¸¸ã«é–‰ã˜ã‚‹
-    AI.quit
+    '`PromptAPI`‚ÍA“®ìURLêŠ‚ªŒÀ‚ç‚ê‚é‚½‚ßAƒuƒ‰ƒEƒUŒÅ—L‚Ìê—pƒy[ƒW‚É‘JˆÚ‚³‚¹‚é
+    '¦ƒIƒtƒ‰ƒCƒ“‚Å‚à‘JˆÚ‚Å‚«‚éuƒo[ƒWƒ‡ƒ“î•ñv‚É‚Ð‚Æ‚Ü‚¸Ý’è
+    ReadyAI.navigate "edge://version"
+
+    'Šg’£‹@”\ƒNƒ‰ƒX‚ÉŒp³‚³‚¹‚é
+    Dim PromptAPI  As New exCDP_LocalAI
+    PromptAPI.Init ReadyAI
+
+    '1. API ‚ª—LŒø‚©‚Ç‚¤‚©‚ðŠm”F
+    If PromptAPI.IsPromptApiAvailable Then
+        ReadyAI.printMsg info_, "‚¨Žg‚¢‚ÌŠÂ‹«‚Å‚ÍAPrompt API‚ª—˜—p‰Â”\‚Å‚·I", FromProcedureName
+    Else
+        'uhttps://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-apiv‚ðŽQl‚ÉA—LŒø‰»‚µ‚Ä‚­‚¾‚³‚¢
+        ReadyAI.printMsg WARN_, "‚¨Žg‚¢‚ÌŠÂ‹«‚Å‚ÍAPrompt API‚ÍA—˜—p‚Å‚«‚Ü‚¹‚ñBƒo[ƒWƒ‡ƒ“Ž©‘Ì‚ª”ñ‘Î‰ž‚©Aê—p‚ÌFLAGS‚ªEnable‚É‚È‚Á‚Ä‚Ü‚¹‚ñ", FromProcedureName
+        MsgBox "‚¨Žg‚¢‚ÌŠÂ‹«‚Å‚ÍAPrompt API‚ÍA—˜—p‚Å‚«‚Ü‚¹‚ñBƒo[ƒWƒ‡ƒ“Ž©‘Ì‚ª”ñ‘Î‰ž‚©Aê—p‚ÌFLAGS‚ªEnable‚É‚È‚Á‚Ä‚Ü‚¹‚ñ", vbCritical
+        ReadyAI.quit
+        Exit Sub
+    End If
+
+    '2. ƒ‚ƒfƒ‹‚ÌŽg—pó‹µ‚ðcheck
+    Dim ModeAvailability As String: ModeAvailability = PromptAPI.CheckAvailability
+    Debug.Print ModeAvailability
+
+    '3. ó‹µ‚É‰ž‚¶‚½•ªŠò
+    Dim Continue As Long
+    Select Case ModeAvailability
+        Case "unavailable"
+            MsgBox "‚¨Žg‚¢‚ÌŠÂ‹«‚ÅŽg‚¦‚éAIƒ‚ƒfƒ‹‚ª‚ ‚è‚Ü‚¹‚ñB", vbCritical
+            ReadyAI.quit
+            Exit Sub
+
+        Case "downloadable", "downloading"
+            Continue = MsgBox("‚±‚Ì‹@”\‚ð‰‚ß‚Ä—˜—p‚·‚é‚É‚ÍAAIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDL‚ª•K—v‚Å‚·B" & vbCrLf & "DL‚ðŠJŽn‚µ‚Ä‚à‚æ‚ë‚µ‚¢‚Å‚µ‚å‚¤‚©H", vbExclamation + vbYesNo, "’ÊM‚ª”­¶‚µ‚Ü‚·")
+
+            If Continue = vbYes Then
+                Debug.Print PromptAPI.ModelDownloadProgress
+            Else
+                ReadyAI.quit
+                Exit Sub
+            End If
+
+        Case "available":
+            MsgBox "Šù‚ÉAIƒ‚ƒfƒ‹ƒf[ƒ^‚ªDL‚³‚ê‚Ä‚¢‚Ü‚·B" & vbCrLf & "ŽŸ€‚ÌƒvƒƒV[ƒWƒƒ‚ðŽÀs‚µ‚Ä‚­‚¾‚³‚¢B", vbInformation, "Ready!"
+            Exit Sub
+    End Select
+
+    '”ñ“¯ŠúƒCƒxƒ“ƒg‚ð”­‰Î‚³‚¹Ai’»’l‚ð•\Ž¦
+    Dim AIƒf[ƒ^i’»’l As Double
+    Do
+        ReadyAI.TakeEvents
+        DoEvents
+        AIƒf[ƒ^i’»’l = PromptAPI.DLProgressValue
+
+        Debug.Print "AIƒ‚ƒfƒ‹ƒf[ƒ^‚ðƒ_ƒEƒ“ƒ[ƒh’†... " & AIƒf[ƒ^i’»’l & "%"
+        ReadyAI.sleep
+
+    Loop Until AIƒf[ƒ^i’»’l >= 100
+
+    '4. Š®—¹I
+    MsgBox "AIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDL‚ªŠ®—¹‚µ‚Ü‚µ‚½I" & vbCrLf & "ŽŸ€‚ÌƒvƒƒV[ƒWƒƒ‚ðŽÀs‚µ‚Ä‚­‚¾‚³‚¢B", vbInformation, "Finish!"
+
 End Sub
-
-Dim objectId

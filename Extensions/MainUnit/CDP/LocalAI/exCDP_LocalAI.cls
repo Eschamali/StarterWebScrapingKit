@@ -8,34 +8,42 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           ãƒ–ãƒ©ã‚¦ã‚¶ã®ãƒ­ãƒ¼ã‚«ãƒ«AI(Prompt API)ã«å¯¾ã™ã‚‹æ©Ÿèƒ½æ‹¡å¼µã‚’æä¾›ã™ã‚‹ã‚¯ãƒ©ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™
+'           ƒuƒ‰ƒEƒU‚Ìƒ[ƒJƒ‹AI(Prompt API)‚É‘Î‚·‚é‹@”\Šg’£‚ğ’ñ‹Ÿ‚·‚éƒNƒ‰ƒXƒtƒ@ƒCƒ‹‚Å‚·
+'   À‘•“à—e‚Í‘S‚ÄA2026/4/15“_‚Ìuhttps://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-apiv‚ğQl‚É‹Lq‚µ‚Ä‚Ü‚·
+'           ‚Ü‚¾‚Ü‚¾AŒ±“Iˆµ‚¢‚Ì‚½‚ß‚ ‚é“ú“Ë‘RA“®ì‚µ‚È‚­‚È‚é‚±‚Æ‚ğ‚²—¹³‚­‚¾‚³‚¢
+'   Œ»“_‚Å‚ÍA‘S‚Ä‚ÌƒTƒCƒg‚Å“®ì‚·‚é‚±‚Æ‚ª‚Å‚«‚Ü‚¹‚ñBuedge://v“™‚ÆŒ¾‚Á‚½ŒÀ‚ç‚ê‚½êŠ‚Ì‚İ“®ì‚µ‚Ü‚·
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'“à•”ƒNƒ‰ƒXƒIƒuƒWƒFƒNƒg
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
-Private Const ThisClassName         As String = "exCDP_LocalAI"             'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
+'“à•”g—p—p
+Private Const ThisClassName         As String = "exCDP_LocalAI"             'ƒƒO‚ÌƒgƒŒ[ƒX—p
 
-'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
-Private seeRawSendMsgDbg            As Boolean      'responseã‚’ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã«å‡ºã™ã‹ã®èª¿æ•´
-Private EnableBrowserEvents         As Boolean      'ã“ã®æ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ã—ãªã„ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°
+'`Runtime.bindingCalled`‚Ì`Name`’è‹`—p
+Private Const BindingName01         As String = "sendDLprogressNotification"    'AIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLi’»—p
+
+'ƒXƒe[ƒgŠÇ—
+Private seeRawSendMsgDbg            As Boolean      'response‚ğƒfƒoƒbƒOƒƒO‚Éo‚·‚©‚Ì’²®
+Private EnableBrowserEvents         As Boolean      '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
+Private AI_ObjectID                 As String       'AI‚Ö‚ÌƒZƒbƒVƒ‡ƒ“‚É‘Î‚·‚éObjectID
+Private ProgressValue               As Double       'AIƒ‚ƒfƒ‹ƒf[ƒ^‚Ìi’»’l
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
+'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒB ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚³ãƒ¼ãƒ—ç¯„å›²ã®èª¿æ•´ã«ã©ã†ãã€‚åç§°ã¯ã€ã€ŒApplication.EnableEventsã€ã‹ã‚‰å–ã‚Šã¾ã—ãŸ
+'* Ú×à–¾FƒXƒR[ƒv”ÍˆÍ‚Ì’²®‚É‚Ç‚¤‚¼B–¼Ì‚ÍAuApplication.EnableEventsv‚©‚çæ‚è‚Ü‚µ‚½
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -45,19 +53,25 @@ Public Property Let EnableEvents(ByVal v As Boolean)
     EnableBrowserEvents = v
 End Property
 
+'***************************************************************************************************
+'* ‹@”\@@FAIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLi’»’l‚ğæ“¾‚µ‚Ü‚·
+'***************************************************************************************************
+Public Property Get DLProgressValue() As Double
+    DLProgressValue = ProgressValue
+End Property
 
 
 
 '***************************************************************************************************
-'                     â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç·¨ â– â– â– 
+'                     ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ”ñ“¯ŠúƒCƒxƒ“ƒg•Ò ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å‡¦ç†ã—ãŸã„ã¨ãã«ã”åˆ©ç”¨ãã ã•ã„ã€‚ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€å ´æ‰€ã®1ã¤ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒg‚ğˆ—‚µ‚½‚¢‚Æ‚«‚É‚²—˜—p‚­‚¾‚³‚¢B‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚ŞêŠ‚Ì1‚Â‚Å‚·
 '***************************************************************************************************
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
-    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
+    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled in this extended class.", FromProcedureName
     Else
@@ -65,15 +79,15 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. å‡¦ç†ã—ãŸã„å¯¾è±¡ã®éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆåã‚’ã€å„Case ã«è¨˜è¿°ã—ã¦ãã ã•ã„ã€‚
+    '2. ˆ—‚µ‚½‚¢‘ÎÛ‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg–¼‚ğAŠeCase ‚É‹Lq‚µ‚Ä‚­‚¾‚³‚¢B
     Select Case methodName
-        Case "â—‹â—‹.â–³â–³"
-            '3. â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®éåŒæœŸAã®å‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+        Case "››.¢¢"
+            '3. «‚±‚±‚©‚çA‚ ‚È‚½‚Ì”ñ“¯ŠúA‚Ìˆ—ƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
 
-        Case "â–¡â–¡.â—‡â—‡"
-            '3. â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®éåŒæœŸBã®å‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+        Case "  ."
+            '3. «‚±‚±‚©‚çA‚ ‚È‚½‚Ì”ñ“¯ŠúB‚Ìˆ—ƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
 
 
@@ -83,75 +97,123 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 
     End Select
 
-    'åŸºæœ¬çš„ã«ã¯ã€`Case`å†…å®ŒçµãŒæœ›ã¾ã—ã„ã§ã™ãŒã€å¿…è¦ã«å¿œã˜ã¦ã€ä¸‹æº–å‚™ã‚„å¾Œå§‹æœ«è¦å› ã§ã€éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã®å‡¦ç†å‰å¾Œã§ã‚ã£ã¦ã‚‚ã€ã‚³ãƒ¼ãƒ‰ã‚’è¨˜è¿°ã—ã¦ã„ãŸã ã„ã¦æ§‹ã„ã¾ã›ã‚“ã€‚
+    'Šî–{“I‚É‚ÍA`Case`“àŠ®Œ‹‚ª–]‚Ü‚µ‚¢‚Å‚·‚ªA•K—v‚É‰‚¶‚ÄA‰º€”õ‚âŒãn––—vˆö‚ÅA”ñ“¯ŠúƒCƒxƒ“ƒg‚Ìˆ—‘OŒã‚Å‚ ‚Á‚Ä‚àAƒR[ƒh‚ğ‹Lq‚µ‚Ä‚¢‚½‚¾‚¢‚Ä\‚¢‚Ü‚¹‚ñB
 
 End Sub
 
 
 
 '***************************************************************************************************
-'                           â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ç·¨ â– â– â– 
+'                               ¡¡¡ Prompt API - €”õ•Ò ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ã®1ã¤ã§ã™ã€‚ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€å ´æ‰€ã®1ã¤ã§ã™
-'***************************************************************************************************
-Public Function createSession() As String
-    Const FromProcedureName As String = ThisClassName & ".createSession"
-
-
-    'â†“ã“ã“ã‹ã‚‰ã€ç‹¬è‡ªã®æ©Ÿèƒ½æ‹¡å¼µå‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
-    Dim JsCode As String
-    JsCode = "(async () => {" & _
-         "  return await LanguageModel.create();" & _
-         "})()"
-
-    
-    
-    createSession = ex_CDPBrowser.jsEval(JsCode, awaitPromise:=True, StopException:=True)
-
-
-End Function
-
-Public Function runAI(objectId As String) As String
-    Const FromProcedureName As String = ThisClassName & ".createSession"
-
-
-    'â†“ã“ã“ã‹ã‚‰ã€ç‹¬è‡ªã®æ©Ÿèƒ½æ‹¡å¼µå‡¦ç†ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
-    Dim JsCode As String
-    JsCode = "async function() { return await this.prompt('IEã¯ä½•æ•…ã€ã‚µãƒãƒ¼ãƒˆçµ‚äº†ã«ãªã£ãŸã®ã§ã—ã‚‡ã†ã‹ï¼Ÿ'); }"
-
-    
-    
-    runAI = ex_CDPBrowser.jsEval(JsCode, objectId, awaitPromise:=True)
-
-
-End Function
-
-
-
-'***************************************************************************************************
-'                           â– â– â–  `CDPBrowser`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
-'***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã„ã¡ã„ã¡ã€`â—‹â—‹.invokeMethod`ã¨ã„ã£ãŸè¨˜è¿°ã‚’é˜²ãæªç½®ã¨ãªã‚Šã¾ã™ã€‚
+'* ‹@”\@@FAPI ‚ª—LŒø‚©‚Ç‚¤‚©‚ğŠm”F‚·‚é
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼šãƒ»ãƒ¡ã‚¤ãƒ³ã®`CDPBrowser`ãƒ¡ã‚½ãƒƒãƒ‰ã‚’è¡Œã†å‰å¾Œã®å‡¦ç†ç­‰ã‚‚å‡ºæ¥ã¾ã™ãŒåŸºæœ¬ã¯ã€1è¡Œã ã‘ã«ç•™ã‚ã¦ãŠãã“ã¨ã‚’ãŠå‹§ã‚ã—ã¾ã™
-'            ãƒ»å„è©³ç´°ã¯ã€`CDPBrowser`ã®æ–¹ã‚’ã”è¦§ãã ã•ã„
+'* •Ô‚è’l  F—˜—p‰Â”Û˜_—’l
+'---------------------------------------------------------------------------------------------------
+'* Ú×à–¾FPrompt API ‚ğg—p‚·‚é‘O‚ÉALanguageModel ƒIƒuƒWƒFƒNƒg‚Ì‘¶İ‚ğƒeƒXƒg‚µ‚Ä API ‚ª—LŒø‚É‚È‚Á‚Ä‚¢‚é‚±‚Æ‚ğŠm”F‚µ‚Ü‚·
 '***************************************************************************************************
-'è² è·ã‚’æŠ‘ãˆã‚‹ã¨ãã«ã©ã†ã
+Public Function IsPromptApiAvailable() As Boolean
+    '1. Š’è‚ÌJavaScriptƒR[ƒh‚ğ‹Lq
+    Dim JsCode As String
+    JsCode = "!LanguageModel"
+
+    '2. CDP‚ÌJavaScriptÀsƒƒ\ƒbƒh‚ğg—p‚µAƒuƒ‰ƒEƒU“à‚ÅAJavaScriptƒR[ƒh‚ğÀs
+    Dim tmp
+    tmp = ex_CDPBrowser.jsEval(JsCode)
+
+    '3. Œ‹‰Ê‚ğ®—
+    '‚»‚à‚»‚àA—pˆÓ‚³‚ê‚Ä‚È‚¢‚©H
+    If IsError(tmp) Then
+        'uUncaught ReferenceError: LanguageModel is not definedv‚Æo‚é‚Ì‚ÅA`False`‚Æ‚·‚é
+        IsPromptApiAvailable = False
+    Else
+        '‹@”\‚ª‚ ‚ê‚ÎA•’Ê‚Ì˜_—’l‚È‚Ì‚ÅA‚»‚ê‚ğ•Ô‹p
+        '¦Œ³‚ÌJS‚ªA”Û’è‰‰Zq‚ğg—p‚µ‚Ä‚é‚½‚ßAŒ‹‰Ê‚à”½“]‚µ‚Ä‚¨‚­
+        IsPromptApiAvailable = Not tmp
+    End If
+
+End Function
+
+'***************************************************************************************************
+'* ‹@”\@@Fƒ‚ƒfƒ‹‚ğg—p‚Å‚«‚é‚©‚Ç‚¤‚©‚ğŠm”F‚·‚é
+'---------------------------------------------------------------------------------------------------
+'* •Ô‚è’l  FŒ»İ‚ÍA‰º‹L‚Ì4í—Ş‚ª•Ô‚è‚Ü‚·
+'            E"unavailable"
+'            E"downloadable"
+'            E"downloading"
+'            E"available"
+'---------------------------------------------------------------------------------------------------
+'* Ú×à–¾FŒ¾Œêƒ‚ƒfƒ‹‚Æƒ‚ƒfƒ‹ ƒ‰ƒ“ƒ^ƒCƒ€‚ª Microsoft Edge ‚É‚æ‚Á‚Äƒ_ƒEƒ“ƒ[ƒh‚³‚ê‚½‚©‚ğŠm”F‚µ‚Ü‚·
+'* ’ˆÓ–€F‚±‚ê‚ğs‚¤‘O‚É`IsPromptApiAvailable`‚ÌŠm”F‚ğ‚µ‚È‚¢‚ÆƒGƒ‰[—‚¿‚µ‚Ü‚·
+'***************************************************************************************************
+Public Function CheckAvailability() As String
+    '1. Š’è‚ÌJavaScriptƒR[ƒh‚ğ‹Lq
+    Dim JsCode As String
+    JsCode = "(async () => { return await LanguageModel.availability(); })()"
+
+    '2. CDP‚ÌJavaScriptÀsƒƒ\ƒbƒh‚ğg—p‚µAƒuƒ‰ƒEƒU“à‚ÅAJavaScriptƒR[ƒh‚ğÀs‚µAŒ‹‰Ê‚ğ•Ô‹p
+    CheckAvailability = ex_CDPBrowser.jsEval(JsCode, awaitPromise:=True, StopException:=True)
+End Function
+
+'***************************************************************************************************
+'* ‹@”\@@Fƒ‚ƒfƒ‹‚ğDL‚µAi’»•\¦‹@”\‚ğ—LŒø‰»‚µ‚Ü‚·
+'---------------------------------------------------------------------------------------------------
+'* Ú×à–¾F`monitor`ƒIƒvƒVƒ‡ƒ“‚ğg—p‚µ‚ÄAƒ‚ƒfƒ‹‚Ìƒ_ƒEƒ“ƒ[ƒh‚Ìisó‹µ‚ğ’ÇÕ‚Å‚«‚Ü‚·
+'***************************************************************************************************
+Public Function ModelDownloadProgress() As String
+    With ex_CDPBrowser
+        '1. ƒuƒ‰ƒEƒU¨VBA ‚Ö‚Ìó‚¯Œû‚ğ—pˆÓ
+        Dim params As New Dictionary
+        params.Add "name", BindingName01
+        .invokeMethod "Runtime.addBinding", params
+
+        '2. JavaScript‘¤‚Å‚»‚Ì‘‹Œû‚ğ’@‚­ƒR[ƒh‚ğ€”õ
+        Dim jsProgressCode As String
+        jsProgressCode = "(function() { " & _
+            "  LanguageModel.create({ " & _
+            "    monitor: m => { " & _
+            "      m.addEventListener('downloadprogress', event => { " & _
+            "        const progress = (event.loaded / event.total) * 100; " & _
+            "        if (typeof " & BindingName01 & " === 'function') { " & _
+            "          " & BindingName01 & "(progress.toFixed(2)) " & _
+            "        } " & _
+            "      }); " & _
+            "    } " & _
+            "  }); " & _
+            "  return 'DOWNLOAD_STARTED'; " & _
+            "})()"
+
+        '3. Run!
+        ModelDownloadProgress = .jsEval(jsProgressCode, userGesture:=True, StopException:=True)
+    End With
+End Function
+
+
+
+'***************************************************************************************************
+'                           ¡¡¡ `CDPBrowser`’¼’Êƒƒ\ƒbƒh ¡¡¡
+'***************************************************************************************************
+'* ‹@”\@@F‚¢‚¿‚¢‚¿A`››.invokeMethod`‚Æ‚¢‚Á‚½‹Lq‚ğ–h‚®‘[’u‚Æ‚È‚è‚Ü‚·B
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€FEƒƒCƒ“‚Ì`CDPBrowser`ƒƒ\ƒbƒh‚ğs‚¤‘OŒã‚Ìˆ—“™‚ào—ˆ‚Ü‚·‚ªŠî–{‚ÍA1s‚¾‚¯‚É—¯‚ß‚Ä‚¨‚­‚±‚Æ‚ğ‚¨Š©‚ß‚µ‚Ü‚·
+'            EŠeÚ×‚ÍA`CDPBrowser`‚Ì•û‚ğ‚²——‚­‚¾‚³‚¢
+'***************************************************************************************************
+'•‰‰×‚ğ—}‚¦‚é‚Æ‚«‚É‚Ç‚¤‚¼
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_CDPBrowser.sleep seconds
 End Sub
 
-'ãƒ­ã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºã™ã¨ãã«ã©ã†ã
+'ƒƒOƒƒbƒZ[ƒW‚ğo‚·‚Æ‚«‚É‚Ç‚¤‚¼
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-'CDPå®Ÿè¡Œã«å¿…è¦ã§ã™
+'CDPÀs‚É•K—v‚Å‚·
 Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
     Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
 End Function
 
-'éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç™ºç«(RaiseEvent)ã«å¿…è¦ã§ã™
+'”ñ“¯ŠúƒCƒxƒ“ƒg”­‰Î(RaiseEvent)‚É•K—v‚Å‚·
 Private Sub TakeEvents(Optional destruction As Boolean)
     ex_CDPBrowser.TakeEvents destruction
 End Sub
@@ -159,27 +221,27 @@ End Sub
 
 
 '***************************************************************************************************
-'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šCDPåˆ¶å¾¡ã®ãƒ™ãƒ¼ã‚¹ã¨ãªã‚‹`CDPBrowser.cls`ã‚’ç¶™æ‰¿ã•ã›ã¾ã™
+'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPBrowser)
-    'ç¶™æ‰¿
+    'Œp³
     Set ex_CDPBrowser = Inheritance
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸå‡¦ç†ã‚’æœ‰åŠ¹åŒ–
+    'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
+    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰å—ä¿¡ã—ãŸç”Ÿã®JSONãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã‚‹ã‹ï¼Ÿ
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
     End With
 End Sub
