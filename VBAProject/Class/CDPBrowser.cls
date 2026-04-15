@@ -463,7 +463,7 @@ Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
 
         CDPparameters.Add "sessionId", oldSessionID
         printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
-6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, StopError:=False)
+6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False)
 
         '結果を判定
         '※エラーによるエラーメッセージは、`invokeMethod`が担います
@@ -3834,7 +3834,7 @@ Private Sub Class_Terminate()
 
     Dim CDPparameters As New Dictionary
     CDPparameters.Add "sessionId", brTab.sessionID
-    invokeMethod "Target.detachFromTarget", CDPparameters, StopError:=False
+    invokeMethod "Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False
 
 End Sub
 
