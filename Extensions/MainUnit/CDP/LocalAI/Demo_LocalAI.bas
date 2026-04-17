@@ -36,7 +36,7 @@ Sub PromptAPIの準備()
     ReadyAI.navigate "edge://version"
 
     '拡張機能クラスに継承させる
-    Dim PromptAPI  As New exCDP_LocalAI
+    Dim PromptAPI  As New LocalAI_PromptAPI
     PromptAPI.Init ReadyAI
 
     '1. API が有効かどうかを確認
@@ -120,7 +120,7 @@ Sub PromptAPI即席チャット()
     End If
 
     '2. 拡張機能クラスに継承させる
-    Dim PromptAPI  As New exCDP_LocalAI
+    Dim PromptAPI  As New LocalAI_PromptAPI
     PromptAPI.Init RunAI
 
     '3. 結果をイミディエイトウィンドウに表示
@@ -154,7 +154,7 @@ Sub PromptAPI即席Streamingチャット()
     End If
 
     '2. 拡張機能クラスに継承させる
-    Dim PromptAPI  As New exCDP_LocalAI
+    Dim PromptAPI  As New LocalAI_PromptAPI
     PromptAPI.Init RunAI
 
     '3. 結果をイミディエイトウィンドウに表示

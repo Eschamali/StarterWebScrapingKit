@@ -26,8 +26,8 @@ Attribute ex_CDPBrowser.VB_VarHelpID = -1
 Private JsonConv                    As New WebJsonConverter
 
 '内部使用用
-Private Const ThisClassName                 As String = "exCDP_LocalAI" 'ログのトレース用
-Private Const InitialAllocationStrBuffer    As Long = 2 ^ 6             '初期バッファー上限
+Private Const ThisClassName                 As String = "LocalAI_PromptAPI" 'ログのトレース用
+Private Const InitialAllocationStrBuffer    As Long = 2 ^ 6                 '初期バッファー上限
 
 '`Runtime.bindingCalled`の`Name`定義用
 Private Const BindingName01         As String = "sendDLprogressNotification"    'AIモデルデータのDL進捗用
@@ -310,7 +310,8 @@ End Function
 '***************************************************************************************************
 '* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：必要に応じてタイムアウトに余裕を持たせる必要があります
+'* 注意事項：・必要に応じてタイムアウトに余裕を持たせる必要があります
+'            ・システム プロンプト は、非対応です
 '***************************************************************************************************
 Public Function instantSession(ChatString As String) As String
     '1. JSコードの組み立て
@@ -339,7 +340,7 @@ End Function
 '* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：上記のプロシージャと違いこちらは、`Streaming`という滝みたいに流れる仕組みとなります
-'* 注意事項：必要に応じてタイムアウトに余裕を持たせる必要があります
+'* 注意事項：システム プロンプト は、非対応です
 '***************************************************************************************************
 Public Function instantStreamingSession(ChatString As String) As String
     '0. ステータスをリセット
