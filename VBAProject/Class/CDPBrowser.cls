@@ -105,6 +105,19 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     lpdwProcessId As Long) As Long
 
+'ポリシー情報確認用API(ReadOnly)
+Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
+    ByVal hKey As LongPtr, _
+    ByVal lpSubKey As LongPtr, _
+    ByVal lpValue As LongPtr, _
+    ByVal dwFlags As Long, _
+    ByRef pdwType As Long, _
+    ByVal pvData As LongPtr, _
+    ByRef pcbData As Long _
+) As Long
+
+
+
 '===================================
 ' Constants
 '===================================
@@ -162,11 +175,23 @@ Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
+'レジストリ関連の定数==============================
+' ルートキー
+Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
+Private Const HKEY_CURRENT_USER     As Long = &H80000001    '"今、ログインしているユーザー"だけ
+' 戻り値の型（RegGetValueW の dwFlags に指定する制限）
+Private Const RRF_RT_REG_SZ         As Long = &H2           ' 文字列 (REG_SZ) に限定
+Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 (REG_DWORD) に限定
+' 型サイズ
+Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
+' APIの戻り値
+Private Const RRF_SUCCESS           As Long = 0
+'==================================================
+
 'その他
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
-Private Const RegistryEditor As String = "winmgmts:\\.\root\default:StdRegProv"     'レジストリ操作を行う際の専用パス名
 
 
 
@@ -3488,16 +3513,26 @@ Private Function getBrowserPath(strBrowserType As String) As String
         Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
     End Select
 
-   'Return the path
-    Dim BrowserPathCheck As Object: Set BrowserPathCheck = GetObject(RegistryEditor)    '※ブラウザのパス特定用に使用
-    Dim strKeyPath As String
-
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. レジストリから、ブラウザインストールパスを特定
-            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
-            BrowserPathCheck.GetStringValue &H80000002, strKeyPath, "", getBrowserPath  '「既定」にある値の取り出しを試みる
+            '1. 必要な変数を用意
+            Dim strKeyPath      As String   'ベースパス
+            Dim ValueSize       As Long     '値の大きさ
+
+            '2. ブラウザのインストールパスのあるレジストリ場所を指定
+            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
+
+            '3. レジストリから、ブラウザインストールパスを特定
+            '※文字列の場合、仕組み上まず、文字数チェックを行います
+            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
+                '4. 得た文字数を基に改めて、値の中身を取り出す
+                getBrowserPath = String(ValueSize / 2, vbNullChar)
+                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
+
+                '5. `vbnullchar`以前を取り出す(Trim)
+                getBrowserPath = Mid(getBrowserPath, 1, searchNull(getBrowserPath) - 1)
+            End If
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
@@ -3672,12 +3707,8 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'レジストリ操作に必要な定数/オブジェクトの定義 ※ポリシーチェックに使います。
-    Dim PolicyCheck As Object: Set PolicyCheck = GetObject(RegistryEditor)
-    Const HKEY_LOCAL_MACHINE    As Long = &H80000002           'このPCの、"すべて"のユーザーに影響する、強力な設定
-    Const HKEY_CURRENT_USER     As Long = &H80000001           '"今、ログインしているユーザー"だけに、影響する設定
-    Const wbemNoErr             As Long = 0                    '存在するときは、`0`を返します。　https://learn.microsoft.com/ja-jp/windows/win32/api/wbemdisp/ne-wbemdisp-wbemerrorenum#constants
-    Const DisableRemote         As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
+    'レジストリ確認に必要な定数　※ポリシーチェックに使います。
+    Const DisableRemote As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
 
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
@@ -3692,9 +3723,11 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
 
 
     '必要な変数を用意
-    Dim checkValueName  As String   '値の名前
-    Dim ValueExists     As Long     '存在有無結果
-    Dim ValueContents   As Variant  '値の中身
+    Dim checkValueName          As String   '値の名前
+    Dim ValueExists             As Long     '存在有無結果
+    Dim ValueContents_long      As Long     '値の中身(数字のみ)
+    Dim ValueContents_String    As String   '値の中身(文字列のみ)
+    Dim ValueSize               As Long     '値の大きさ
 
     '"HKLM"と"HKCU"を確認する
     Dim i As Long, SetRegistryTree As Long
@@ -3711,15 +3744,16 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "RemoteDebuggingAllowed"
 
         '1-1. 32bit値としてチェックする
-        ValueExists = PolicyCheck.GetDWORDValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        ValueSize = SIZE_REG_DWORD
+        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents_long), ValueSize)
         printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '1-2. そのデータ名があるか？
-        If ValueExists = wbemNoErr Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+        If ValueExists = RRF_SUCCESS Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_long, FromProcedureName
 
             '1-3. リモートできない設定値になってるか？
-            If CLng(ValueContents) = DisableRemote Then
+            If ValueContents_long = DisableRemote Then
                 '通達
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
                                   "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
@@ -3736,17 +3770,25 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "UserDataDir"
 
         '2-1. 文字列として、チェックする
-        ValueExists = PolicyCheck.GetStringValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        '※文字列の場合、仕組み上まず、文字数チェックを行います
+        ValueSize = 0   'リセット
+        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, 0, ValueSize)
         printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '2-2. そのデータ名があるか？
-        If ValueExists = wbemNoErr Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+        If ValueExists = RRF_SUCCESS Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_String, FromProcedureName
 
             'フラグ立て
-            '※中身が空の場合は、`User Data`配下になります。
             currentPolicy.UserDataDir.Exists = True
-            currentPolicy.UserDataDir.Contents = IIf(CStr(ValueContents) = "", Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", CStr(ValueContents))
+
+            '得た文字数を基に改めて、値の中身を取り出す
+            ValueContents_String = String(ValueSize / 2, vbNullChar)
+            RegGetValueW SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(ValueContents_String), ValueSize
+
+            '中身が空の場合は、`User Data`配下として返します
+            '※厳密には、`vbnullchar`が、先頭にある時
+            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Mid(ValueContents_String, 1, searchNull(ValueContents_String) - 1))
 
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
