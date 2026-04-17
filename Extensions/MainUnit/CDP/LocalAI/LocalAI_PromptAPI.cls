@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "exCDP_LocalAI"
+Attribute VB_Name = "LocalAI_PromptAPI"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -37,10 +37,17 @@ Private Const BindingName02_EOFcode As String = 30                              
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private AI_ObjectID                 As String       'AIへのセッションに対するObjectID
-Private ProgressValue               As Double       'AIモデルデータの進捗値
+Private ProgressValue               As Double       'AIモデルデータのDL進捗値
 Private StreamingEOF                As Boolean      'ストリーミング受信が終わったかのサイン
 Private StreamingCol                As Collection   'Streaming の蓄積用
+
+'Prompt APIに関する設定群
+Private Type PromptAPI
+    objectId As String  'AIへのセッションに対するObjectID
+
+
+End Type
+Private SettingAI As PromptAPI
 
 '分割記述されたJavaScript配列管理用
 Private Type StateFragmentedJS
@@ -284,22 +291,26 @@ Public Function ModelDownloadProgress() As String
 
         '2. JavaScript側でその窓口を叩くコードを準備
         Dim jsProgressCode As String
-        jsProgressCode = "(function() { " & _
-            "  LanguageModel.create({ " & _
-            "    monitor: m => { " & _
-            "      m.addEventListener('downloadprogress', event => { " & _
-            "        const progress = (event.loaded / event.total) * 100; " & _
-            "        if (typeof " & BindingName01 & " === 'function') { " & _
-            "          " & BindingName01 & "(progress.toFixed(2)) " & _
-            "        } " & _
-            "      }); " & _
-            "    } " & _
-            "  }); " & _
-            "  return 'DOWNLOAD_STARTED'; " & _
-            "})()"
+        jsProgressCode = "function(funcName) { " & _
+           "  LanguageModel.create({ " & _
+           "    monitor: m => { " & _
+           "      m.addEventListener('downloadprogress', event => { " & _
+           "        const progress = (event.loaded / event.total) * 100; " & _
+           "        if (typeof window[funcName] === 'function') { " & _
+           "          window[funcName](progress.toFixed(2)); " & _
+           "        } " & _
+           "      }); " & _
+           "    } " & _
+           "  }); " & _
+           "  return 'DOWNLOAD_STARTED'; " & _
+           "}"
 
-        '3. Run!
-        ModelDownloadProgress = .jsEval(jsProgressCode, userGesture:=True, StopException:=True)
+        '3. 引数を設定
+        Dim args As New Collection
+        Dim arg1 As New Dictionary: arg1.Add "value", BindingName01: args.Add arg1
+
+        '4. Run!
+        ModelDownloadProgress = .jsEval(jsProgressCode, contextId:=1, objectArguments:=args, userGesture:=True, StopException:=True)
     End With
 End Function
 
