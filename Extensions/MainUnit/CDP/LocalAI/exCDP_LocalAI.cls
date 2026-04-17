@@ -313,22 +313,26 @@ End Function
 '* 注意事項：必要に応じてタイムアウトに余裕を持たせる必要があります
 '***************************************************************************************************
 Public Function instantSession(ChatString As String) As String
-    ' JSコードの組み立て
+    '1. JSコードの組み立て
     ' 1. セッション作成 2. 質問送信 3. セッション破棄 を一気に行います
     Dim JsCode As String
-    JsCode = "(async () => {" & _
-             "  try {" & _
-             "    const session = await LanguageModel.create();" & _
-             "    const result = await session.prompt('" & ChatString & "');" & _
-             "    session.destroy();" & _
-             "    return result;" & _
-             "  } catch (e) {" & _
-             "    return 'Error: ' + e.message;" & _
-             "  }" & _
-             "})()"
+    JsCode = "async function(chatText) {" & _
+           "  try {" & _
+           "    const session = await LanguageModel.create();" & _
+           "    const result = await session.prompt(chatText);" & _
+           "    session.destroy();" & _
+           "    return result;" & _
+           "  } catch (e) {" & _
+           "    return 'Error: ' + e.message;" & _
+           "  }" & _
+           "}"
 
-    ' 実行と結果取得
-    instantSession = ex_CDPBrowser.jsEval(JsCode, awaitPromise:=True)
+    '2. 引数を設定
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", ChatString: args.Add arg1
+
+    '3. 実行と結果取得
+    instantSession = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args, awaitPromise:=True)
 End Function
 
 '***************************************************************************************************
@@ -347,32 +351,31 @@ Public Function instantStreamingSession(ChatString As String) As String
     params.Add "name", BindingName02
     ex_CDPBrowser.invokeMethod "Runtime.addBinding", params
 
-    ' JSコードの組み立て
-    ' 1. セッション作成 2. 質問送信 3. セッション破棄 を一気に行います
-    FragmentedJS = "(async () => {"
-    ' 新規セッションを作成
-    FragmentedJS = "  const session = await LanguageModel.create();"
+    '2. JSコードの組み立て
+    ' window[funcName] で動的に呼び出すことで引数化が可能です'
+    Dim JsCode As String
+    JsCode = "async function(funcName, chatText, eofCode) {" & _
+               "  const session = await LanguageModel.create();" & _
+               "  const stream = session.promptStreaming(chatText);" & _
+               "  for await (const chunk of stream) {" & _
+               "    if (typeof window[funcName] === 'function') {" & _
+               "      window[funcName](chunk);" & _
+               "    }" & _
+               "  }" & _
+               "  if (typeof window[funcName] === 'function') {" & _
+               "    window[funcName](String.fromCharCode(eofCode));" & _
+               "  }" & _
+               "  session.destroy();" & _
+               "}"
 
-    'プロンプトを指定
-    FragmentedJS = "  const stream = session.promptStreaming('" & ChatString & "');"
-
-    'ストリームオブジェクトを使用して、モデルによって生成されたトークンを、生成されると同時に表示します。
-    FragmentedJS = "  for await (const chunk of stream) {"
-    FragmentedJS = "    if (typeof " & BindingName02 & " === 'function') {"
-    FragmentedJS = "      " & BindingName02 & "(chunk);"
-    FragmentedJS = "    }"
-    FragmentedJS = "  }"
-
-    '終了合図として ASCII 30 (Record Separator) を送信
-    FragmentedJS = "  " & BindingName02 & "(String.fromCharCode(" & BindingName02_EOFcode & "));"
-
-    'セッションを切断
-    FragmentedJS = "  session.destroy();"
-    FragmentedJS = "})()"
-    FragmentedJS = vbNullChar
+    '3. 引数を設定
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", BindingName02:            args.Add arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ChatString:               args.Add arg2
+    Dim arg3 As New Dictionary: arg3.Add "value", BindingName02_EOFcode:    args.Add arg3
 
     '非同期で実行開始。結果を待たずに次の処理へ
-    instantStreamingSession = ex_CDPBrowser.jsEval(FragmentedJS)
+    instantStreamingSession = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args)
 End Function
 
 
