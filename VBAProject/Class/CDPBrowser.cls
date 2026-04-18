@@ -499,7 +499,7 @@ Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
         printMsg info_, "A new session ID has been assigned. - " & brTab.sessionID, FromProcedureName
 
         '新SessionIDを記録しておく
-9       ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
+9       ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
     Else
         '旧SessionIDを再利用
         brTab.sessionID = objSerialize.Item("sessionID")
@@ -1295,12 +1295,11 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
     If Url <> "" Then newTab.wait
 
-   'Set as main session tab if required
-    If Not setMain Then Exit Function
-    Me.id = sessionID_
-    getSessionInfo
-    serialize
-    printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+        'Set as main session tab if required
+        Me.id = sessionID_
+        getSessionInfo
+        serialize
+        printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
 
 End Function
 
@@ -1422,12 +1421,12 @@ searchfound:
    'Return the session object for reference
     sessionID_ = attachToTab(tabId)
 
-   'Return the new CDP object
-   '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
-    Set getTab = New CDPBrowser
-    getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
-    getTab.id = sessionID_  'will also update the targetID
-    sleep 'give some time so that the debugging session can switch to the new tab
+        'Return the new CDP object
+        '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
+        Set getTab = New CDPBrowser
+        getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
+        getTab.id = sessionID_  'will also update the targetID
+        sleep 'give some time so that the debugging session can switch to the new tab
 
    'Set as main session tab if required
     If Not setMain Then Exit Function
