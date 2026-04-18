@@ -823,8 +823,9 @@ Sub demoReattachmentPart2()
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブか、今開いている直近のタブに再接続して、そこから処理を再開します。"
 
         '2. 未接続のタブに接続
+        '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
         c.getTab setMain:=True
-        'c.newTab setMain:=True     '新しいタブでもOK
+        'c.newTab setMain:=True     '新しいタブ生成からでもOK
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
     End If

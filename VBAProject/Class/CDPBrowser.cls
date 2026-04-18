@@ -1290,16 +1290,21 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    'Switch attachment to the new tab
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
     printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
-    Set newTab = New CDPBrowser
-    newTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
-    newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
-    If Url <> "" Then newTab.wait
 
+    '`setMain`に応じた分岐
+    If setMain Then
         'Set as main session tab if required
         Me.id = sessionID_
         getSessionInfo
         serialize
         printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    Else
+        '新しく生成したクラスとして返却
+        Set newTab = New CDPBrowser
+        newTab.reattach br.User, False  '親子Session関係により、親SessionIDは破棄しないようにする
+        newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
+        If Url <> "" Then newTab.wait
+    End If
 
 End Function
 
@@ -1421,19 +1426,21 @@ searchfound:
    'Return the session object for reference
     sessionID_ = attachToTab(tabId)
 
+    '`setMain`に応じた分岐
+    If setMain Then
+        'Set as main session tab if required
+        Me.id = sessionID_
+        getSessionInfo
+        serialize
+        printMsg info_, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    Else
         'Return the new CDP object
         '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
         Set getTab = New CDPBrowser
         getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
         getTab.id = sessionID_  'will also update the targetID
         sleep 'give some time so that the debugging session can switch to the new tab
-
-   'Set as main session tab if required
-    If Not setMain Then Exit Function
-    Me.id = sessionID_
-    getSessionInfo
-    serialize
-    printMsg info_, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    End If
 
 End Function
 
