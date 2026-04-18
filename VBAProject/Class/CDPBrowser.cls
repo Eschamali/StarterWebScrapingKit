@@ -1258,7 +1258,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If isBackground Then params("background") = CBool(isBackground)
 
     Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.createTarget", params)
+    Set results = invokeMethod("Target.createTarget", params, True)
 
    'Return the new tab's Session ID
     Dim tabId As String
@@ -1331,7 +1331,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 searchit:
 
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
     'スコア方式を利用して、理想の対象タブ情報を取得します
@@ -1444,7 +1444,7 @@ Public Sub closeTab()
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    invokeMethod "Target.closeTarget", params
+    invokeMethod "Target.closeTarget", params, True
     printMsg info_, br.id & " was closed", FromProcedureName
 
 End Sub
@@ -1864,7 +1864,7 @@ Public Sub printTabs()
     Dim results As Scripting.Dictionary, target_ As Scripting.Dictionary
     Dim i As Long
     Dim targets As Collection
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
    'Read info
@@ -1929,7 +1929,7 @@ Public Function tabCount() As Long
     Dim results, targets, target_ As Scripting.Dictionary
     Dim i As Integer
 
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
    'Read info
@@ -1975,7 +1975,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    If focus Then invokeMethod "Target.activateTarget", params
+    If focus Then invokeMethod "Target.activateTarget", params, True
 
 End Sub
 
