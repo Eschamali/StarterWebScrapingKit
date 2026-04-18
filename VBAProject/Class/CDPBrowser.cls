@@ -657,7 +657,7 @@ step1:
     If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
         printMsg info_, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
-        brTab.sessionID = attachToTab(brTab.targetID)
+        Me.id = attachToTab(brTab.targetID)
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
@@ -2232,6 +2232,10 @@ Property Let id(newID As String)
 
     '渡されたIDで、再設定
     brTab.sessionID = newID
+
+    '新SessionIDを記録しておく
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
+
     getSessionInfo        'update all session infos
     printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
@@ -3468,7 +3472,7 @@ Private Function attachToTab(tabId As String) As String
     params("flatten") = True
 
     Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.attachToTarget", params)
+    Set results = invokeMethod("Target.attachToTarget", params, True)
     attachToTab = results("sessionId")
 
 End Function
