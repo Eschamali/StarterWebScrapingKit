@@ -469,42 +469,21 @@ Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
-    '`UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
+    '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
 1   Call core.deserialize(UserName)
 
-    'Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
+    '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
 2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, FromProcedureName)
 
-    'クラス内変数に適用
-3   brTab.lngLastID = objSerialize.Item("lngLastID")
-4   brTab.targetID = objSerialize.Item("targetID")
+    '3. 指定のクラス内変数に、ブラウザセッション情報を適用
+    With brTab
+3       .lngLastID = objSerialize.Item("lngLastID")
+4       .targetID = objSerialize.Item("targetID")
+5       .sessionID = objSerialize.Item("sessionID")
+    End With
 
-    '旧SessionIDの破棄を試み、新しいSessionIDを取得します
-    '※`getTab`,`newTab`からの場合は破棄すると、親子関係Sessionの影響で道ずれ破棄されるので、破棄しないように引数で制御します
-    If refreshSessionID Then
-        Dim ResultDetach As Dictionary, CDPparameters As Dictionary
-5       Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
-        Set CDPparameters = New Dictionary
-
-        CDPparameters.Add "sessionId", oldSessionID
-        printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
-6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False)
-
-        '結果を判定
-        '※エラーによるエラーメッセージは、`invokeMethod`が担います
-7       If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
-
-        '既存のタブIDから、SessionIDを再生成し、適用
-8       brTab.sessionID = attachToTab(brTab.targetID)
-        printMsg info_, "A new session ID has been assigned. - " & brTab.sessionID, FromProcedureName
-
-        '新SessionIDを記録しておく
-9       ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
-    Else
-        '旧SessionIDを再利用
-        brTab.sessionID = objSerialize.Item("sessionID")
-        printMsg info_, "Reattached by reusing the Session ID. - " & brTab.sessionID, FromProcedureName
-    End If
+    '4. SessionIDを更新する場合は、既存のタブIDに対して、SessionIDを再生成し、適用
+6   If refreshSessionID Then Me.id = attachToTab(brTab.targetID)
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
