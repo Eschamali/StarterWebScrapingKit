@@ -452,7 +452,7 @@ Private Sub serialize()
 
 End Sub
 
-Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
+Private Sub deserialize(refreshSessionID As Boolean)
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -470,20 +470,19 @@ Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
     Set core = New CDPCore
 
     '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-1   Call core.deserialize(UserName)
+1   Call core.deserialize(br.User)
 
     '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
-2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, FromProcedureName)
+2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
 
     '3. 指定のクラス内変数に、ブラウザセッション情報を適用
     With brTab
 3       .lngLastID = objSerialize.Item("lngLastID")
 4       .targetID = objSerialize.Item("targetID")
-5       .sessionID = objSerialize.Item("sessionID")
     End With
 
     '4. SessionIDを更新する場合は、既存のタブIDに対して、SessionIDを再生成し、適用
-6   If refreshSessionID Then Me.id = attachToTab(brTab.targetID)
+5   If refreshSessionID Then Me.id = attachToTab(brTab.targetID)
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -1724,7 +1723,7 @@ Public Function reattach(userProfile As String, Optional refreshSessionID As Boo
 
 
     br.User = userProfile
-    deserialize br.User, refreshSessionID
+    deserialize refreshSessionID
 
     If isLive Then
         reattach = True
