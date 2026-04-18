@@ -2247,6 +2247,11 @@ Property Let id(newID As String)
     Const FromProcedureName As String = ThisClassName & ".id"
 
 
+    '再設定されるので、元のSessionIDを破棄させる
+    printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+    DiscardSessionID brTab.sessionID
+
+    '渡されたIDで、再設定
     brTab.sessionID = newID
     getSessionInfo        'update all session infos
     printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
@@ -3699,6 +3704,36 @@ Private Function checkURI(URI As String) As String
 End Function
 
 '***************************************************************************************************
+'* 機能　　：SessionID の破棄を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：破棄成功論理値
+'* 引数　　：SessionID      破棄したいSessionID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：不必要なSessionIDを破棄することで、ブラウザの安定性が向上し、奇妙な不具合も消えるかもしれません
+'* 注意事項：・ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
+'            ・念のため成功論理値を返してますが基本、確認するほどでもないと思います
+'***************************************************************************************************
+Private Function DiscardSessionID(sessionID As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
+
+
+    '空は即抜け
+    If sessionID = "" Then printMsg Debug_, "SessionID is empty." & sessionID, FromProcedureName: Exit Function
+
+    'パラメーターを組んで破棄コマンド実行
+    Dim CDPparameters As New Dictionary
+    CDPparameters.Add "sessionId", sessionID
+    DiscardSessionID = Not (invokeMethod("Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False) Is Nothing)
+
+    'ログとして出しておく
+    If DiscardSessionID Then
+        printMsg Debug_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
+    Else
+        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
 '* 機能　　：リモート デバッグに関するポリシーチェックを行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：BrowserExeName        "msedge.exe" とかを指定します。本家ライブラリに沿った形です
@@ -3872,17 +3907,14 @@ Private Sub Class_Initialize()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：このClassを破棄する際、`SessionID`も併せて破棄します
+'* 機能　　：このClassを破棄する際、持ってる`SessionID`も併せて破棄します
 '***************************************************************************************************
 Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
 
     printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
-
-    Dim CDPparameters As New Dictionary
-    CDPparameters.Add "sessionId", brTab.sessionID
-    invokeMethod "Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False
+    DiscardSessionID brTab.sessionID
 
 End Sub
 
