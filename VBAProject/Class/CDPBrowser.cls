@@ -158,6 +158,14 @@ Public Enum edgeKioskType
     publicBrowsing  'キオスクモード パブリック ブラウジング
 End Enum
 
+'SessionIDの紐づけ手段
+Public Enum ReConnectSessionID
+    refresh_    '現在のExcelテーブルに記録されてる`targetID`を基に、SessionIDを更新して、続行します
+    empty_      'SessionIDなしで続行します。基本的に、内部用を想定してます。後で手動でSessionIDを設定する際に使います
+    existing_   'SessionIDを更新せずに、現在のExcelテーブルに記録されてる`SessionID`を流用します。主にJavaScriptで実行した内容を別プロシージャで使いまわすときに使います。事前に、`KeepSession`を`True`にしておく必要があります
+End Enum
+
+
 'このツール独自のエラーコード
 Private Enum CustomErrorCodes
     TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
@@ -280,8 +288,9 @@ Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の
 Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後のエラー情報
 
 'その他
-Private thisApp As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private timerOut As Long    'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
+Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
+Private timerOut    As Long     'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
 
@@ -452,7 +461,7 @@ Private Sub serialize()
 
 End Sub
 
-Private Sub deserialize(refreshSessionID As Boolean)
+Private Sub deserialize(r As ReConnectSessionID)
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -481,8 +490,20 @@ Private Sub deserialize(refreshSessionID As Boolean)
 4       .targetID = objSerialize.Item("targetID")
     End With
 
-    '4. SessionIDを更新する場合は、既存のタブIDに対して、SessionIDを再生成し、適用
-5   If refreshSessionID Then Me.id = attachToTab(brTab.targetID)
+    '4. SessionIDの適用方法に応じた分岐を行う
+5   Select Case r
+        Case ReConnectSessionID.refresh_
+            Me.id = attachToTab(brTab.targetID)
+
+        Case ReConnectSessionID.existing_
+            brTab.sessionID = objSerialize.Item("sessionID")
+            printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
+
+        Case Else
+            printMsg info_, "The SessionID remains empty.", FromProcedureName
+
+    End Select
+
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -1279,7 +1300,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Else
         '新しく生成したクラスとして返却
         Set newTab = New CDPBrowser
-        newTab.reattach br.User, False  '親子Session関係により、親SessionIDは破棄しないようにする
+        newTab.reattach br.User, empty_ 'SessionIDは次で、手動で割り当てるので、空で続行
         newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
         If Url <> "" Then newTab.wait
     End If
@@ -1415,7 +1436,7 @@ searchfound:
         'Return the new CDP object
         '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
         Set getTab = New CDPBrowser
-        getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
+        getTab.reattach br.User, empty_   'SessionIDは次で、手動で割り当てるので、空で続行
         getTab.id = sessionID_  'will also update the targetID
         sleep 'give some time so that the debugging session can switch to the new tab
     End If
@@ -1696,8 +1717,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：成功可否論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            refreshSessionID   True ：Excelに記録してるSessionIDを破棄し、再更新したのに置き換えます(規定値-推奨)
-'                               False：SessionIDを再利用します。基本的に非推奨。内部クラスの処理都合で利用することがあります。
+'            meansSessionID     SessionIDの紐づけ手段を指定します。詳細は、定義部分にて
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -1705,8 +1725,8 @@ End Sub
 '            and thus enables the possibility of running multiple CDP automation operations
 '            on entirely different tasks simultaneously.
 '
-'* 注意事項：・`refreshSessionID`の`False`は、下記の内部処理にて使用する想定です。
-'            　親子関係SessionIDを維持するために破棄しないようにしてます。それ以外は基本的に`True`で、SessionIDの更新で`reattach`するようにしてください。
+'* 注意事項：・`meansSessionID`の`empty_`は、下記の内部処理にて使用する想定です。
+'            　親子関係SessionIDを維持するために破棄しないようにしてます。それ以外は基本的に`refresh_`で、SessionIDの更新で`reattach`するようにしてください。
 '            　・newTab
 '            　・getTab
 '
@@ -1716,14 +1736,14 @@ End Sub
 '            　・newTab
 '            　・getTab
 '
-'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=False`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
+'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=existing_`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional refreshSessionID As Boolean = True) As Boolean
+Public Function reattach(userProfile As String, Optional meansSessionID As ReConnectSessionID) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     br.User = userProfile
-    deserialize refreshSessionID
+    deserialize meansSessionID
 
     If isLive Then
         reattach = True
@@ -3709,7 +3729,7 @@ Private Function DiscardSessionID(sessionID As String) As Boolean
 
     'ログとして出しておく
     If DiscardSessionID Then
-        printMsg Debug_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
+        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
     Else
         printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
     End If
@@ -3894,9 +3914,15 @@ End Sub
 Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
+    'SessionIDを保持するオプションになってるか確認
+    If KeepSession Then
+        printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+    Else
+        printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
 
-    printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
-    DiscardSessionID brTab.sessionID
+        'SessionIDを破棄しておく
+        DiscardSessionID brTab.sessionID
+    End If
 
 End Sub
 
