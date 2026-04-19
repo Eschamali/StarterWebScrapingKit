@@ -43,9 +43,10 @@ Private StreamingCol                As Collection   'Streaming の蓄積用
 
 'Prompt APIに関する設定群
 Private Type PromptAPI
-    objectId As String  'AIへのセッションに対するObjectID
-
-
+    objectId        As String       'AIへのセッションに対するObjectID
+    initialPrompts  As Collection   'プロンプトが表示されたときにモデルで引き続き使用するユーザー/アシスタント操作の例を提供する
+    topK            As Long         'モデルの出力分布から上位Kの次期トークンを選択するサンプリング手法です。 モデルはその後、このトークンのサブセットからサンプルを抽出して、シーケンス内の次のトークンを生成します。この方法は可能です 生成されたテキストのランダム性を低減し、より一貫性のあるものにするのに役立ちます
+    temperature     As Double       'モデルの出力のランダム性を制御するパラメータです。低温(例:0.1) モデルをより決定論的で集中的にする一方で、温度が高くなる(例:1.0)と、よりランダムな状態にする。 創造的。温度を調整することで、一貫性と創造性の適切なバランスを見つけるのに役立ちます 生成されたテキスト
 End Type
 Private SettingAI As PromptAPI
 
@@ -69,9 +70,18 @@ Private JSBox As StateFragmentedJS
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
 End Property
-
 Public Property Let EnableEvents(ByVal v As Boolean)
     EnableBrowserEvents = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Prompt APIへのObjectIDを取得/再設定をします
+'***************************************************************************************************
+Public Property Get objectidPromptAPI() As String
+    objectidPromptAPI = SettingAI.objectId
+End Property
+Public Property Let objectidPromptAPI(AIobjectis As String)
+    SettingAI.objectId = AIobjectis
 End Property
 
 '***************************************************************************************************
@@ -104,6 +114,118 @@ End Property
 Public Property Get StreamingEOFExist() As Boolean
     StreamingEOFExist = StreamingEOF
 End Property
+
+'***************************************************************************************************
+'* 機能　　：SystemPrompt の設定をします
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：現時点での`SystemPrompt`の内容
+'* LET引数 ：`SystemPrompt`内容
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`vbnullstring`で渡すと、削除扱いとします
+'***************************************************************************************************
+Public Property Let setSystemPrompt(SystemPrompt As String)
+    Const FromProcedureName As String = ThisClassName & ".setSystemPrompt"
+
+
+    Const UserRoleName As String = "system"
+
+    '1. システムプロンプトを作成
+    Dim prompt As New Dictionary
+    prompt.Add "role", UserRoleName
+    prompt.Add "content", SystemPrompt
+
+    '`initialPrompts`の構造を解析
+    '`initialPrompts`にプロンプト情報が既にあるか？
+    If SettingAI.initialPrompts.Count > 0 Then
+        '既に`system`ロールがあるか？
+        If SettingAI.initialPrompts(1)("role") = UserRoleName Then
+            '有効な値が渡されてるか？
+            If StrPtr(SystemPrompt) Then
+                '置き換え
+                SettingAI.initialPrompts(1)("content") = SystemPrompt
+                printMsg Debug_, "The existing system prompt has been replaced.", FromProcedureName
+            Else
+                '削除
+                SettingAI.initialPrompts.Remove 1
+                printMsg Debug_, "The system prompt was removed because it was passed as `null`.", FromProcedureName
+            End If
+        Else
+            '有効な値が渡されてない場合は、何もしない
+            If StrPtr(SystemPrompt) = 0 Then printMsg Debug_, "The system prompt was passed as `null`, so nothing happens.", FromProcedureName: Exit Property
+
+            '先頭部分に置くようにする
+            SettingAI.initialPrompts.Add prompt, Before:=1
+            printMsg Debug_, "Added a system prompt to the beginning of the existing `initialPrompts`.", FromProcedureName
+        End If
+    Else
+        '有効な値が渡されてない場合は、何もしない
+        If StrPtr(SystemPrompt) = 0 Then printMsg Debug_, "The system prompt was passed as `null`, so nothing happens.", FromProcedureName: Exit Property
+
+        'まだ何もないので新規追加
+        SettingAI.initialPrompts.Add prompt
+        printMsg Debug_, "Added a new system prompt.", FromProcedureName
+    End If
+End Property
+Public Property Get setSystemPrompt() As String
+    Const FromProcedureName As String = ThisClassName & ".setSystemPrompt"
+
+
+    Const UserRoleName As String = "system"
+
+    'initialPrompts の構造を解析
+    'Collection の格納数チェック
+    If SettingAI.initialPrompts.Count > 0 Then
+        If SettingAI.initialPrompts(1)("role") = UserRoleName Then
+            '既に`system`ロールがあるならそれを返す
+            setSystemPrompt = SettingAI.initialPrompts(1)("content")
+        End If
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：initialPrompts を使用した N ショット プロンプトの設定をします
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：現時点での`initialPrompts`の内容　※Json-Stringで返します
+'* LET引数 ：`content`内容
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：LETするたびに、"user"→"assistant"→"user"→... としてどんどん追加されます
+'***************************************************************************************************
+Public Property Let addInitialPrompt(contentInitialPrompt As String)
+    '1. システムプロンプト有無チェック
+    Const UserRoleName As String = "system"
+    Dim SystemPromptExist As Boolean
+    If SettingAI.initialPrompts.Count > 0 Then
+        If SettingAI.initialPrompts(1)("role") = UserRoleName Then
+            '既に`system`ロールがあるなら、フラグ適用
+            SystemPromptExist = True
+        End If
+    End If
+
+    '2. プロンプトを作成
+    Dim prompt As New Dictionary
+    prompt.Add "role", IIf((SettingAI.initialPrompts.Count + SystemPromptExist) Mod 2, "assistant", "user")
+    prompt.Add "content", contentInitialPrompt
+
+    '3. 追加
+    SettingAI.initialPrompts.Add prompt
+End Property
+Public Property Get addInitialPrompt() As String
+    'Json文字列で返却
+    addInitialPrompt = JsonConv.ConvertToJson(SettingAI.initialPrompts)
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ 便利プロシージャ ■■■
+'***************************************************************************************************
+Public Sub clearInitialPrompts()
+    Const FromProcedureName As String = ThisClassName & ".clearInitialPrompts"
+
+
+    Set SettingAI.initialPrompts = New Collection
+    printMsg Debug_, "I have cleared all `initialPrompts`.", FromProcedureName
+End Sub
 
 
 
@@ -280,9 +402,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：モデルをDLし、進捗表示機能を有効化します
 '---------------------------------------------------------------------------------------------------
+'* 返り値  ：実行に成功すると、`True`を返します
+'---------------------------------------------------------------------------------------------------
 '* 詳細説明：`monitor`オプションを使用して、モデルのダウンロードの進行状況を追跡できます
 '***************************************************************************************************
-Public Function ModelDownloadProgress() As String
+Public Function ModelDownloadProgress() As Boolean
     With ex_CDPBrowser
         '1. ブラウザ→VBA への受け口を用意
         Dim params As New Dictionary
@@ -302,7 +426,7 @@ Public Function ModelDownloadProgress() As String
            "      }); " & _
            "    } " & _
            "  }); " & _
-           "  return 'DOWNLOAD_STARTED'; " & _
+           "  return true; " & _
            "}"
 
         '3. 引数を設定
@@ -320,6 +444,9 @@ End Function
 '                          ■■■ Prompt API - 一度切りトーク編 ■■■
 '***************************************************************************************************
 '* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：チャットの返答内容
+'* 引数　　：ChatString     チャット内容
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・必要に応じてタイムアウトに余裕を持たせる必要があります
 '            ・システム プロンプト は、非対応です
@@ -350,10 +477,12 @@ End Function
 '***************************************************************************************************
 '* 機能　　：履歴を持たない一回限りのAIとのやり取りを行います
 '---------------------------------------------------------------------------------------------------
+'* 引数　　：ChatString     チャット内容
+'---------------------------------------------------------------------------------------------------
 '* 詳細説明：上記のプロシージャと違いこちらは、`Streaming`という滝みたいに流れる仕組みとなります
 '* 注意事項：システム プロンプト は、非対応です
 '***************************************************************************************************
-Public Function instantStreamingSession(ChatString As String) As String
+Public Sub instantStreamingSession(ChatString As String)
     '0. ステータスをリセット
     StreamingEOF = False
     Set StreamingCol = New Collection
@@ -387,7 +516,67 @@ Public Function instantStreamingSession(ChatString As String) As String
     Dim arg3 As New Dictionary: arg3.Add "value", BindingName02_EOFcode:    args.Add arg3
 
     '非同期で実行開始。結果を待たずに次の処理へ
-    instantStreamingSession = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args)
+    ex_CDPBrowser.jsEval JsCode, contextId:=1, objectArguments:=args
+End Sub
+
+
+
+'***************************************************************************************************
+'                          ■■■ Prompt API - 継続トーク編 ■■■
+'***************************************************************************************************
+'* 機能　　：セッションを作成（初期化）する
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このセッションの`ObjectID`
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このクラスに持ってるプロパティメソッドを使って設定したのを元に、セッションを作成します
+'***************************************************************************************************
+Public Sub createSession()
+    'JSコードの組み立て
+    Dim JsCode As String
+    JsCode = "async function(promptsJson, tK, temp) {" & _
+             "  const options = { " & _
+             "    initialPrompts: JSON.parse(promptsJson), " & _
+             "    topK: tK, " & _
+             "    temperature: temp " & _
+             "  };" & _
+             "  return await ai.languageModel.create(options);" & _
+             "}"
+
+    '引数を設定
+    Dim args As New Collection
+    With SettingAI
+        Dim arg1 As New Dictionary: arg1.Add "value", JsonConv.ConvertToJson(.initialPrompts):  args.Add arg1
+        Dim arg2 As New Dictionary: arg2.Add "value", .topK:                                    args.Add arg2
+        Dim arg3 As New Dictionary: arg3.Add "value", .temperature:                             args.Add arg3
+    End With
+
+    'Run
+    SettingAI.objectId = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args, StopException:=True)
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：上記の作ったセッションを元に、チャットを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：チャットの返答内容
+'* 引数　　：ChatString     チャット内容
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・必要に応じてタイムアウトに余裕を持たせる必要があります
+'            ・当然ですが、`createSession`をまず行うこと
+'***************************************************************************************************
+Public Function advancePrompt(ChatString As String) As String
+    ' 1. JSコードの組み立て
+    ' ※Runtime.callFunctionOn では、指定した objectId の実体が 'this' として扱われます
+    Dim JsCode As String
+    JsCode = "async function(text) { " & _
+             "  return await this.prompt(text);" & _
+             "}"
+
+    ' 2. 引数を設定
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", ChatString:  args.Add arg1
+
+    ' 3.Run
+    advancePrompt = ex_CDPBrowser.jsEval(JsCode, SettingAI.objectId, objectArguments:=args, awaitPromise:=True, StopException:=True)
 End Function
 
 
@@ -509,6 +698,15 @@ Private Sub Class_Initialize()
         .expansionCount = 1
         ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
         .Index = 0
+    End With
+
+    '初期設定化
+    With SettingAI
+        Set .initialPrompts = New Collection
+
+        'ブラウザのデフォルト設定に従う
+        .topK = 10
+        .temperature = 0.7
     End With
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
