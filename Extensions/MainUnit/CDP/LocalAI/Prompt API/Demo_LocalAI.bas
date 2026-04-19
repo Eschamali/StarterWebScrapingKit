@@ -254,6 +254,7 @@ Sub PromptAPIセッション保持からトーク()
     Const チャット内容  As String = "It was a color that didn't suit me."
     Const AISessionID   As String = "-5944820599456107219.1.1"
 
+
     Dim RunAI As New CDPBrowser
 
     '設定セルから、ユーザ名を取得
@@ -281,5 +282,56 @@ Sub PromptAPIセッション保持からトーク()
     '3. 結果をイミディエイトウィンドウに表示
     Debug.Print "--- AIからの回答 ---"
     Debug.Print PromptAPI.advancePrompt(チャット内容)
+
+End Sub
+
+Sub PromptAPIセッション保持からストリーミングトーク()
+    Const チャット内容  As String = "テーブルを作成するコードって何だっけ？"
+    Const AISessionID   As String = "-5961146282102826498.1.1"
+
+
+    Dim RunAI As New CDPBrowser
+
+    '設定セルから、ユーザ名を取得
+    Dim UserName As String
+    With ShSetting01_StartBrowser
+        UserName = .Range(.UseRangeName(2, "Demo_LocalAI.PromptAPIセッション保持設定")).value
+    End With
+
+    '1. 既存のTargetIDに接続できるか？
+    If Not RunAI.reattach(UserName, existing_) Then
+        '既存のTargetIDじゃないと使えないので終わり
+        MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
+
+        RunAI.quit
+        Exit Sub
+    Else
+        Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
+    End If
+
+    '2. 拡張機能クラスに継承させ、生成したSessionIDを付与
+    Dim PromptAPI  As New LocalAI_PromptAPI
+    PromptAPI.Init RunAI
+    PromptAPI.objectidPromptAPI = AISessionID
+
+    '3. 結果をイミディエイトウィンドウに表示
+    Debug.Print "--- AIからのストリーミング回答 ---"
+    PromptAPI.advancePromptStreaming チャット内容
+
+    '----パターン1----
+    'リアルタイム重視
+    Dim StreamingData As String
+    Do
+        DoEvents
+        RunAI.TakeEvents
+        StreamingData = PromptAPI.StreamingTopTake
+
+        If StrPtr(StreamingData) Then Debug.Print StreamingData;
+    Loop Until StreamingData = Chr(30)
+    '-----------------
+
+    '4. セッションを保持
+    RunAI.KeepSession = True
+    Debug.Print vbCrLf & "--- AIからのストリーミング回答終了 ---"
 
 End Sub

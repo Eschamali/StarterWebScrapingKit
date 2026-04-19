@@ -579,6 +579,47 @@ Public Function advancePrompt(ChatString As String) As String
     advancePrompt = ex_CDPBrowser.jsEval(JsCode, SettingAI.objectId, objectArguments:=args, awaitPromise:=True, StopException:=True)
 End Function
 
+'***************************************************************************************************
+'* 機能　　：上記の作ったセッションを元に、チャットを行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ChatString     チャット内容
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：上記のプロシージャと違いこちらは、`Streaming`という滝みたいに流れる仕組みとなります
+'***************************************************************************************************
+Public Sub advancePromptStreaming(ChatString As String)
+    '0. ステータスをリセット
+    StreamingEOF = False
+    Set StreamingCol = New Collection
+
+    '1. ブラウザ→VBA への受け口を用意
+    Dim params As New Dictionary
+    params.Add "name", BindingName02
+    ex_CDPBrowser.invokeMethod "Runtime.addBinding", params
+
+    '2. JSコードの組み立て
+    ' window[funcName] で動的に呼び出すことで引数化が可能です'
+    Dim JsCode As String
+    JsCode = "async function(funcName, chatText, eofCode) {" & _
+               "  const stream = this.promptStreaming(chatText);" & _
+               "  for await (const chunk of stream) {" & _
+               "    if (typeof window[funcName] === 'function') {" & _
+               "      window[funcName](chunk);" & _
+               "    }" & _
+               "  }" & _
+               "  if (typeof window[funcName] === 'function') {" & _
+               "    window[funcName](String.fromCharCode(eofCode));" & _
+               "  }" & _
+               "}"
+
+    '3. 引数を設定
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", BindingName02:            args.Add arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ChatString:               args.Add arg2
+    Dim arg3 As New Dictionary: arg3.Add "value", BindingName02_EOFcode:    args.Add arg3
+
+    '非同期で実行開始。結果を待たずに次の処理へ
+    ex_CDPBrowser.jsEval JsCode, SettingAI.objectId, objectArguments:=args
+End Sub
 
 
 '***************************************************************************************************
