@@ -539,7 +539,7 @@ Public Sub createSession()
              "    topK: tK, " & _
              "    temperature: temp " & _
              "  };" & _
-             "  return await ai.languageModel.create(options);" & _
+             "  return await LanguageModel.create(options);" & _
              "}"
 
     'à¯êîÇê›íË
@@ -551,7 +551,7 @@ Public Sub createSession()
     End With
 
     'Run
-    SettingAI.objectId = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args, StopException:=True)
+    SettingAI.objectId = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args, awaitPromise:=True, StopException:=True)
 End Sub
 
 '***************************************************************************************************
