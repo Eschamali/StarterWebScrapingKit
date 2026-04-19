@@ -105,6 +105,19 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     lpdwProcessId As Long) As Long
 
+'ポリシー情報確認用API(ReadOnly)
+Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
+    ByVal hKey As LongPtr, _
+    ByVal lpSubKey As LongPtr, _
+    ByVal lpValue As LongPtr, _
+    ByVal dwFlags As Long, _
+    ByRef pdwType As Long, _
+    ByVal pvData As LongPtr, _
+    ByRef pcbData As Long _
+) As Long
+
+
+
 '===================================
 ' Constants
 '===================================
@@ -162,11 +175,23 @@ Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
+'レジストリ関連の定数==============================
+' ルートキー
+Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
+Private Const HKEY_CURRENT_USER     As Long = &H80000001    '"今、ログインしているユーザー"だけ
+' 戻り値の型（RegGetValueW の dwFlags に指定する制限）
+Private Const RRF_RT_REG_SZ         As Long = &H2           ' 文字列 (REG_SZ) に限定
+Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 (REG_DWORD) に限定
+' 型サイズ
+Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
+' APIの戻り値
+Private Const RRF_SUCCESS           As Long = 0
+'==================================================
+
 'その他
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
-Private Const RegistryEditor As String = "winmgmts:\\.\root\default:StdRegProv"     'レジストリ操作を行う際の専用パス名
 
 
 
@@ -427,7 +452,7 @@ Private Sub serialize()
 
 End Sub
 
-Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
+Private Sub deserialize(refreshSessionID As Boolean)
 '------------------------------------------------------------------
 ' This method deciphers a serialized string to obtain the currently
 ' active session ID of the already open instance. The serial
@@ -444,42 +469,20 @@ Private Sub deserialize(UserName As String, refreshSessionID As Boolean)
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
-    '`UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-1   Call core.deserialize(UserName)
+    '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
+1   Call core.deserialize(br.User)
 
-    'Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
-2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(UserName, 2, FromProcedureName)
+    '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
+2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
 
-    'クラス内変数に適用
-3   brTab.lngLastID = objSerialize.Item("lngLastID")
-4   brTab.targetID = objSerialize.Item("targetID")
+    '3. 指定のクラス内変数に、ブラウザセッション情報を適用
+    With brTab
+3       .lngLastID = objSerialize.Item("lngLastID")
+4       .targetID = objSerialize.Item("targetID")
+    End With
 
-    '旧SessionIDの破棄を試み、新しいSessionIDを取得します
-    '※`getTab`,`newTab`からの場合は破棄すると、親子関係Sessionの影響で道ずれ破棄されるので、破棄しないように引数で制御します
-    If refreshSessionID Then
-        Dim ResultDetach As Dictionary, CDPparameters As Dictionary
-5       Dim oldSessionID As String: oldSessionID = objSerialize.Item("sessionID")
-        Set CDPparameters = New Dictionary
-
-        CDPparameters.Add "sessionId", oldSessionID
-        printMsg Debug_, "Discard the old session ID... - " & oldSessionID, FromProcedureName
-6       Set ResultDetach = invokeMethod("Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False)
-
-        '結果を判定
-        '※エラーによるエラーメッセージは、`invokeMethod`が担います
-7       If Not (ResultDetach Is Nothing) Then printMsg info_, "The old session ID has been detached. - " & oldSessionID, FromProcedureName
-
-        '既存のタブIDから、SessionIDを再生成し、適用
-8       brTab.sessionID = attachToTab(brTab.targetID)
-        printMsg info_, "A new session ID has been assigned. - " & brTab.sessionID, FromProcedureName
-
-        '新SessionIDを記録しておく
-9       ShSetting01_StartBrowser.serializeSingleToHandleInfoTable(UserName, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
-    Else
-        '旧SessionIDを再利用
-        brTab.sessionID = objSerialize.Item("sessionID")
-        printMsg info_, "Reattached by reusing the Session ID. - " & brTab.sessionID, FromProcedureName
-    End If
+    '4. SessionIDを更新する場合は、既存のタブIDに対して、SessionIDを再生成し、適用
+5   If refreshSessionID Then Me.id = attachToTab(brTab.targetID)
     Exit Sub
 
 iferr: 'if deserialize fails, simply move on to starting anew
@@ -653,7 +656,7 @@ step1:
     If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
         printMsg info_, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
-        brTab.sessionID = attachToTab(brTab.targetID)
+        Me.id = attachToTab(brTab.targetID)
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
@@ -1255,7 +1258,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If isBackground Then params("background") = CBool(isBackground)
 
     Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.createTarget", params)
+    Set results = invokeMethod("Target.createTarget", params, True)
 
    'Return the new tab's Session ID
     Dim tabId As String
@@ -1265,17 +1268,21 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    'Switch attachment to the new tab
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
     printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
-    Set newTab = New CDPBrowser
-    newTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
-    newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
-    If Url <> "" Then newTab.wait
 
-   'Set as main session tab if required
-    If Not setMain Then Exit Function
-    Me.id = sessionID_
-    getSessionInfo
-    serialize
-    printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    '`setMain`に応じた分岐
+    If setMain Then
+        'Set as main session tab if required
+        Me.id = sessionID_
+        getSessionInfo
+        serialize
+        printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    Else
+        '新しく生成したクラスとして返却
+        Set newTab = New CDPBrowser
+        newTab.reattach br.User, False  '親子Session関係により、親SessionIDは破棄しないようにする
+        newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
+        If Url <> "" Then newTab.wait
+    End If
 
 End Function
 
@@ -1324,7 +1331,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 searchit:
 
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
     'スコア方式を利用して、理想の対象タブ情報を取得します
@@ -1397,19 +1404,21 @@ searchfound:
    'Return the session object for reference
     sessionID_ = attachToTab(tabId)
 
-   'Return the new CDP object
-   '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
-    Set getTab = New CDPBrowser
-    getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
-    getTab.id = sessionID_  'will also update the targetID
-    sleep 'give some time so that the debugging session can switch to the new tab
-
-   'Set as main session tab if required
-    If Not setMain Then Exit Function
-    Me.id = sessionID_
-    getSessionInfo
-    serialize
-    printMsg info_, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    '`setMain`に応じた分岐
+    If setMain Then
+        'Set as main session tab if required
+        Me.id = sessionID_
+        getSessionInfo
+        serialize
+        printMsg info_, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+    Else
+        'Return the new CDP object
+        '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
+        Set getTab = New CDPBrowser
+        getTab.reattach br.User, False   '親子Session関係により、旧SessionIDは破棄しないようにする
+        getTab.id = sessionID_  'will also update the targetID
+        sleep 'give some time so that the debugging session can switch to the new tab
+    End If
 
 End Function
 
@@ -1435,7 +1444,7 @@ Public Sub closeTab()
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    invokeMethod "Target.closeTarget", params
+    invokeMethod "Target.closeTarget", params, True
     printMsg info_, br.id & " was closed", FromProcedureName
 
 End Sub
@@ -1714,7 +1723,7 @@ Public Function reattach(userProfile As String, Optional refreshSessionID As Boo
 
 
     br.User = userProfile
-    deserialize br.User, refreshSessionID
+    deserialize refreshSessionID
 
     If isLive Then
         reattach = True
@@ -1855,7 +1864,7 @@ Public Sub printTabs()
     Dim results As Scripting.Dictionary, target_ As Scripting.Dictionary
     Dim i As Long
     Dim targets As Collection
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
    'Read info
@@ -1920,7 +1929,7 @@ Public Function tabCount() As Long
     Dim results, targets, target_ As Scripting.Dictionary
     Dim i As Integer
 
-    Set results = invokeMethod("Target.getTargets")
+    Set results = invokeMethod("Target.getTargets", alwaysBrowserContext:=True)
     Set targets = results("targetInfos")
 
    'Read info
@@ -1966,7 +1975,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    If focus Then invokeMethod "Target.activateTarget", params
+    If focus Then invokeMethod "Target.activateTarget", params, True
 
 End Sub
 
@@ -2216,7 +2225,16 @@ Property Let id(newID As String)
     Const FromProcedureName As String = ThisClassName & ".id"
 
 
+    '再設定されるので、元のSessionIDを破棄させる
+    printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+    DiscardSessionID brTab.sessionID
+
+    '渡されたIDで、再設定
     brTab.sessionID = newID
+
+    '新SessionIDを記録しておく
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
+
     getSessionInfo        'update all session infos
     printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
@@ -3453,7 +3471,7 @@ Private Function attachToTab(tabId As String) As String
     params("flatten") = True
 
     Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.attachToTarget", params)
+    Set results = invokeMethod("Target.attachToTarget", params, True)
     attachToTab = results("sessionId")
 
 End Function
@@ -3488,16 +3506,26 @@ Private Function getBrowserPath(strBrowserType As String) As String
         Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
     End Select
 
-   'Return the path
-    Dim BrowserPathCheck As Object: Set BrowserPathCheck = GetObject(RegistryEditor)    '※ブラウザのパス特定用に使用
-    Dim strKeyPath As String
-
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
         If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. レジストリから、ブラウザインストールパスを特定
-            strKeyPath = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
-            BrowserPathCheck.GetStringValue &H80000002, strKeyPath, "", getBrowserPath  '「既定」にある値の取り出しを試みる
+            '1. 必要な変数を用意
+            Dim strKeyPath      As String   'ベースパス
+            Dim ValueSize       As Long     '値の大きさ
+
+            '2. ブラウザのインストールパスのあるレジストリ場所を指定
+            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
+
+            '3. レジストリから、ブラウザインストールパスを特定
+            '※文字列の場合、仕組み上まず、文字数チェックを行います
+            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
+                '4. 得た文字数を基に改めて、値の中身を取り出す
+                getBrowserPath = String(ValueSize / 2, vbNullChar)
+                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
+
+                '5. `vbnullchar`以前を取り出す(Trim)
+                getBrowserPath = Mid(getBrowserPath, 1, searchNull(getBrowserPath) - 1)
+            End If
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
             getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
@@ -3658,6 +3686,36 @@ Private Function checkURI(URI As String) As String
 End Function
 
 '***************************************************************************************************
+'* 機能　　：SessionID の破棄を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：破棄成功論理値
+'* 引数　　：SessionID      破棄したいSessionID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：不必要なSessionIDを破棄することで、ブラウザの安定性が向上し、奇妙な不具合も消えるかもしれません
+'* 注意事項：・ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
+'            ・念のため成功論理値を返してますが基本、確認するほどでもないと思います
+'***************************************************************************************************
+Private Function DiscardSessionID(sessionID As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
+
+
+    '空は即抜け
+    If sessionID = "" Then printMsg Debug_, "SessionID is empty." & sessionID, FromProcedureName: Exit Function
+
+    'パラメーターを組んで破棄コマンド実行
+    Dim CDPparameters As New Dictionary
+    CDPparameters.Add "sessionId", sessionID
+    DiscardSessionID = Not (invokeMethod("Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False) Is Nothing)
+
+    'ログとして出しておく
+    If DiscardSessionID Then
+        printMsg Debug_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
+    Else
+        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
 '* 機能　　：リモート デバッグに関するポリシーチェックを行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：BrowserExeName        "msedge.exe" とかを指定します。本家ライブラリに沿った形です
@@ -3672,12 +3730,8 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
-    'レジストリ操作に必要な定数/オブジェクトの定義 ※ポリシーチェックに使います。
-    Dim PolicyCheck As Object: Set PolicyCheck = GetObject(RegistryEditor)
-    Const HKEY_LOCAL_MACHINE    As Long = &H80000002           'このPCの、"すべて"のユーザーに影響する、強力な設定
-    Const HKEY_CURRENT_USER     As Long = &H80000001           '"今、ログインしているユーザー"だけに、影響する設定
-    Const wbemNoErr             As Long = 0                    '存在するときは、`0`を返します。　https://learn.microsoft.com/ja-jp/windows/win32/api/wbemdisp/ne-wbemdisp-wbemerrorenum#constants
-    Const DisableRemote         As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
+    'レジストリ確認に必要な定数　※ポリシーチェックに使います。
+    Const DisableRemote As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
 
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
@@ -3692,9 +3746,11 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
 
 
     '必要な変数を用意
-    Dim checkValueName  As String   '値の名前
-    Dim ValueExists     As Long     '存在有無結果
-    Dim ValueContents   As Variant  '値の中身
+    Dim checkValueName          As String   '値の名前
+    Dim ValueExists             As Long     '存在有無結果
+    Dim ValueContents_long      As Long     '値の中身(数字のみ)
+    Dim ValueContents_String    As String   '値の中身(文字列のみ)
+    Dim ValueSize               As Long     '値の大きさ
 
     '"HKLM"と"HKCU"を確認する
     Dim i As Long, SetRegistryTree As Long
@@ -3711,15 +3767,16 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "RemoteDebuggingAllowed"
 
         '1-1. 32bit値としてチェックする
-        ValueExists = PolicyCheck.GetDWORDValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        ValueSize = SIZE_REG_DWORD
+        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents_long), ValueSize)
         printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '1-2. そのデータ名があるか？
-        If ValueExists = wbemNoErr Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+        If ValueExists = RRF_SUCCESS Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_long, FromProcedureName
 
             '1-3. リモートできない設定値になってるか？
-            If CLng(ValueContents) = DisableRemote Then
+            If ValueContents_long = DisableRemote Then
                 '通達
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
                                   "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
@@ -3736,17 +3793,25 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         checkValueName = "UserDataDir"
 
         '2-1. 文字列として、チェックする
-        ValueExists = PolicyCheck.GetStringValue(SetRegistryTree, BaseKeyPath, checkValueName, ValueContents)
+        '※文字列の場合、仕組み上まず、文字数チェックを行います
+        ValueSize = 0   'リセット
+        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, 0, ValueSize)
         printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '2-2. そのデータ名があるか？
-        If ValueExists = wbemNoErr Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents, FromProcedureName
+        If ValueExists = RRF_SUCCESS Then
+            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_String, FromProcedureName
 
             'フラグ立て
-            '※中身が空の場合は、`User Data`配下になります。
             currentPolicy.UserDataDir.Exists = True
-            currentPolicy.UserDataDir.Contents = IIf(CStr(ValueContents) = "", Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", CStr(ValueContents))
+
+            '得た文字数を基に改めて、値の中身を取り出す
+            ValueContents_String = String(ValueSize / 2, vbNullChar)
+            RegGetValueW SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(ValueContents_String), ValueSize
+
+            '中身が空の場合は、`User Data`配下として返します
+            '※厳密には、`vbnullchar`が、先頭にある時
+            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Mid(ValueContents_String, 1, searchNull(ValueContents_String) - 1))
 
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
@@ -3824,17 +3889,14 @@ Private Sub Class_Initialize()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：このClassを破棄する際、`SessionID`も併せて破棄します
+'* 機能　　：このClassを破棄する際、持ってる`SessionID`も併せて破棄します
 '***************************************************************************************************
 Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
 
     printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
-
-    Dim CDPparameters As New Dictionary
-    CDPparameters.Add "sessionId", brTab.sessionID
-    invokeMethod "Target.detachFromTarget", CDPparameters, alwaysBrowserContext:=True, StopError:=False
+    DiscardSessionID brTab.sessionID
 
 End Sub
 
