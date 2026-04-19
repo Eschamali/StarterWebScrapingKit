@@ -245,6 +245,9 @@ Sub PromptAPIセッション保持設定()
     '4. 上記を基にセッションを作成
     PromptAPI.createSession
     Debug.Print PromptAPI.objectidPromptAPI
+
+    '5. セッションを保持
+    RunAI.KeepSession = True
 End Sub
 
 Sub PromptAPIセッション保持からトーク()
@@ -260,7 +263,7 @@ Sub PromptAPIセッション保持からトーク()
     End With
 
     '1. 既存のTargetIDに接続できるか？
-    If Not RunAI.reattach(UserName) Then
+    If Not RunAI.reattach(UserName, existing_) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
