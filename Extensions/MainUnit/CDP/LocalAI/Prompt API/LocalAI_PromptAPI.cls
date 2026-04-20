@@ -115,6 +115,16 @@ Public Property Get StreamingEOFExist() As Boolean
     StreamingEOFExist = StreamingEOF
 End Property
 
+Public Property Let SetTopK(K As Long)
+    SettingAI.topK = K
+End Property
+
+Public Property Let SetTemperature(t As Double)
+    SettingAI.temperature = t
+End Property
+
+
+
 '***************************************************************************************************
 '* 機能　　：SystemPrompt の設定をします
 '---------------------------------------------------------------------------------------------------
@@ -189,8 +199,12 @@ End Property
 '* LET引数 ：`content`内容
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：LETするたびに、"user"→"assistant"→"user"→... としてどんどん追加されます
+'* 注意事項：`vbnullstring`で渡すと、システムプロンプトも含め、削除扱いとします
 '***************************************************************************************************
 Public Property Let addInitialPrompt(contentInitialPrompt As String)
+    '0. `vbnullstring`時は削除しておわり
+    If StrPtr(contentInitialPrompt) = 0 Then Set SettingAI.initialPrompts = New Collection: Exit Property
+
     '1. システムプロンプト有無チェック
     Const UserRoleName As String = "system"
     Dim SystemPromptExist As Boolean
