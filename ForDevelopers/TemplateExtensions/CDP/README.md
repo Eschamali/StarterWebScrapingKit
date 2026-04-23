@@ -119,9 +119,9 @@ LibTimers.bas                     ← サポートモジュール
 TimerForm.frm / .frx              ← サポートフォーム
 ```
 
-> **Note**\
+> [!NOTE]
 > `TimerForm` はフォームを新規作成して `TimerForm` にリネームすることでも代替できます。\
-> 詳細は `ForAI/VBA-SafeTimer-master/README.md` を参照してください。
+> 詳細は [本家リポジトリ](https://github.com/cristianbuse/VBA-SafeTimer) を参照してください。
 
 ***
 
