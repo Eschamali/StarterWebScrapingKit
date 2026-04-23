@@ -163,10 +163,10 @@ End Property
 '* 注意事項：・新規追加はできません。既存データのみ有効です
 '            ・ハンドル情報管理テーブルは非対応です
 '***************************************************************************************************
-Property Let serializeSingleToHandleInfoTable(UserName As String, ReplaceID As Table02RowID, ErrorSource As String, SetValue As String)
+Property Let serializeSingleToBrowserInfoTable(UserName As String, ReplaceID As Table02RowID, ErrorSource As String, SetValue As String)
     '操作するテーブルオブジェクトの基準セルを取得
-    Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToHandleInfoTable." & ErrorSource)
+    Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
+    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
 
     '存在したら、、先頭セルを基準にオフセットして上書き
     '※オフセットは、0始まりなので補正しておく
