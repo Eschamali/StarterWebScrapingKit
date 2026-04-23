@@ -130,8 +130,8 @@ TimerForm.frm / .frx              ← サポートフォーム
 ```mermaid
 flowchart TD
     A[🚀 CDP拡張機能を作りたい] --> B{ブラウザイベントを\n常時・自動で監視したい？}
-    B -- Yes --> C["⚡ **Advanced**\nSafeTimer 統合テンプレート\n`exCDP_TemplateWithSafeTimer.cls`"]
-    B -- No  --> D["🔰 **Normal**\n基本テンプレート\n`exCDP_Template.cls`"]
+    B -- Yes --> C["⚡ Advanced\nSafeTimer 統合テンプレート\n`exCDP_TemplateWithSafeTimer.cls`"]
+    B -- No  --> D["🔰 Normal\n基本テンプレート\n`exCDP_Template.cls`"]
 
     C --> C1[タイマーが自動で TakeEvents を呼ぶ\n常駐監視・リアルタイム処理向け]
     D --> D1[手動で TakeEvents を呼ぶ\n同期操作中心の拡張向け]
