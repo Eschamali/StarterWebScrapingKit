@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "Template_WebDriverBiDi_expansion"
+Attribute VB_Name = "exBiDi_Template.cls"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -21,7 +21,7 @@ Option Explicit
 Private WithEvents ex_WebDriverBiDi As WebDriverBiDiCore
 
 '内部使用用
-Private Const ThisClassName         As String = "Template_WebDriverBiDi_expansion"             'ログのトレース用
+Private Const ThisClassName         As String = "exBiDi_Template.cls"             'ログのトレース用
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整

@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "Template_CDPexpansion"
+Attribute VB_Name = "exCDP_Template"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -22,7 +22,7 @@ Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
 '内部使用用
-Private Const ThisClassName         As String = "Template_CDPexpansion"             'ログのトレース用
+Private Const ThisClassName         As String = "exCDP_Template.cls"             'ログのトレース用
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
