@@ -12,16 +12,14 @@ Option Explicit
 '***************************************************************************************************
 Private Const DefaultName   As String = "ChromiumWebSocket" 'デフォルト識別名称
 
-Private ErrorDetail         As New WinApiError  'エラーコードから、詳細を取得するやつ
-
 
 
 '***************************************************************************************************
-'                        ■■■ 名前付きパイプ関連の処理プロシージャ ■■■
+'                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：名前付きパイプを作成し、PowerShellが繋いでくるまで待機します
+'* 機能　　：PowerShell が待受けしている名前付きパイプに Excel から接続します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* 注意事項：先に`StartWebSocket.ps1`を実行して待受けさせてください。待受けが無いと エラー番号:2 を返します
 '***************************************************************************************************
 Sub FirstStep()
     '識別名称を設定する
@@ -31,61 +29,17 @@ Sub FirstStep()
         UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
     End With
 
-    '名前付きパイプを作成し、接続処理
+    '名前付きパイプへクライアント接続
     Dim WebSocketMode As New WebSocketViaNamedPipe
-    Dim ResultCode As Long: ResultCode = WebSocketMode.OpenAndConnectNamePipe(UseName)
+    Dim ResultCode As Long: ResultCode = WebSocketMode.ConnectNamePipe(UseName)
 
     'エラーチェック
+    Dim ErrorDetail As New WinApiError  'エラーコードから、詳細を取得するやつ
     If ResultCode Then
-        MsgBox "名前付きパイプの作成に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
+        MsgBox "名前付きパイプへの接続に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
     Else
-        MsgBox "名前付きパイプの作成に成功し、接続が完了しました。", vbInformation, "Success"
+        MsgBox "名前付きパイプへの接続が完了しました。", vbInformation, "Success"
     End If
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、再接続を行います
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
-'***************************************************************************************************
-Sub ReConnect()
-    '識別名称を設定する
-    Dim UseName As String
-    With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
-    End With
-
-    'Excelテーブルから、既存の名前付きパイプを読み込み、再接続する
-    Dim WebSocketMode As New WebSocketViaNamedPipe
-    Dim ResultCode As Long: ResultCode = WebSocketMode.ReConnectNamedPipe(DefaultName)
-
-    'エラーチェック
-    If ResultCode Then
-        MsgBox "既存の名前付きパイプへの再接続に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & ErrorDetail.GetMessage(ResultCode, "kernel32"), vbCritical, "ErrorCode: " & ResultCode
-    Else
-        MsgBox "既存の名前付きパイプへの再接続に成功しました。", vbInformation, "Success"
-    End If
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、破棄処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：Excelに記録されてない作成済みの名前付きパイプハンドルは破棄できません。
-''           破棄したにもかかわらず接続等でエラーが出る場合は、Excelプロセスの再起動が必要です。
-'***************************************************************************************************
-Sub cleanNamedPipe()
-    '識別名称を設定する
-    Dim UseName As String
-    With ShSetting01_StartBrowser
-        'UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaNamedPipe.FirstStep")).value  '設定セルから、ユーザ名を取得する場合
-        UseName = DefaultName   'こちらで用意された`PowerShell`の名称で
-    End With
-
-    'Excelテーブルから、既存の名前付きパイプを読み込み、clean処理しておく
-    Dim WebSocket As New WebSocketViaNamedPipe
-    WebSocket.ClosePipeCDP UseName
-    Debug.Print "クリーン処理、完了"
 End Sub
 
 
@@ -93,8 +47,8 @@ End Sub
 '***************************************************************************************************
 '                           ■■■テンプレートプロシージャ ■■■
 '***************************************************************************************************
-'* 注意事項：・事前に、`ConnectNamedPipe`を済ませること
-'            ・専用の`PowerShell`が起動中であること
+'* 注意事項：・事前に、パイプへ接続（ConnectNamePipe）を済ませること
+'            ・専用の`PowerShell`（StartWebSocket.ps1）が起動中であること
 '            ・WebSocket経由の場合は常に`.reattach`始まりとなります
 '***************************************************************************************************
 Sub WebSocketによる冒険の始まり()
@@ -126,5 +80,5 @@ Sub WebSocketによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    WebSocketCDP.quit
+    WebSocketCDP.quit   '実行と共に、名前付きパイプのハンドルもクリーンします
 End Sub

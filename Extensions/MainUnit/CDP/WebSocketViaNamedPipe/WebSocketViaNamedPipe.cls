@@ -15,6 +15,9 @@ Attribute VB_Exposed = False
 ' 予め、所定の`PowerShell`を起動しておくことで、下記のようなニッチな目的にも対応できます
 ' ・AndroidスマートフォンのChromiumブラウザの自動制御
 ' ・WebView2向けの環境変数`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`に、`--remote-debugging-port=9222`を付与した自動制御
+' ・`inspect/#remote-debugging`による今、目の前のブラウザから、自動制御
+'
+' 【パイプ役割】PowerShell が NamedPipe サーバー（待受け）、Excel がクライアント（接続側）です。
 '***************************************************************************************************
 Option Explicit
 
@@ -23,9 +26,15 @@ Option Explicit
 '***************************************************************************************************
 '                               ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
-Private Declare PtrSafe Function CreateNamedPipe Lib "kernel32" Alias "CreateNamedPipeA" (ByVal lpName As String, ByVal dwOpenMode As Long, ByVal dwPipeMode As Long, ByVal nMaxInstances As Long, ByVal nOutBufferSize As Long, ByVal nInBufferSize As Long, ByVal nDefaultTimeOut As Long, ByVal lpSecurityAttributes As LongPtr) As LongPtr
-Private Declare PtrSafe Function ConnectNamedPipe Lib "kernel32" (ByVal hNamedPipe As LongPtr, ByVal lpOverlapped As LongPtr) As Long
-Private Declare PtrSafe Function DisconnectNamedPipe Lib "kernel32" (ByVal hNamedPipe As LongPtr) As Long
+Private Declare PtrSafe Function CreateFile Lib "kernel32" Alias "CreateFileA" ( _
+    ByVal lpFileName As String, _
+    ByVal dwDesiredAccess As Long, _
+    ByVal dwShareMode As Long, _
+    ByVal lpSecurityAttributes As LongPtr, _
+    ByVal dwCreationDisposition As Long, _
+    ByVal dwFlagsAndAttributes As Long, _
+    ByVal hTemplateFile As LongPtr) As LongPtr
+
 Private Declare PtrSafe Function CloseHandle Lib "kernel32" (ByVal hObject As LongPtr) As Long
 
 
@@ -34,12 +43,14 @@ Private Declare PtrSafe Function CloseHandle Lib "kernel32" (ByVal hObject As Lo
 '                               ■■■ 変数/定数宣言 ■■■
 '***************************************************************************************************
 '名前付きパイプ名である接頭辞
-Private Const PIPE_NAME     As String = "\\.\pipe\"
+Private Const PIPE_Landmark As String = "\\.\pipe\"
 
-'名前付きパイプのセッティング
-Private Const PIPE_ACCESS_DUPLEX    As Long = &H3   '送受信可能
-Private Const PIPE_TYPE_BYTE        As Long = &H0   'バイトモード
-Private Const PIPE_WAIT             As Long = &H0   '同期モード
+'名前付きパイプ関連の設定定数
+Private Const GENERIC_READ            As Long = &H80000000  '名前付きパイプの読み取り
+Private Const GENERIC_WRITE           As Long = &H40000000  '名前付きパイプへ書き込み
+Private Const OPEN_EXISTING           As Long = 3           '開設済み名前付きパイプへの接続
+Private Const FILE_ATTRIBUTE_NORMAL   As Long = &H80
+
 Private Const INVALID_HANDLE_VALUE  As LongPtr = -1 '失敗サイン
 
 'このクラスで使用するハンドル値
@@ -50,72 +61,32 @@ Private hNamePipe As LongPtr
 '***************************************************************************************************
 '                               ■■■ メイン処理 ■■■
 '***************************************************************************************************
-'* 機能　　：名前付きパイプを作成し、接続処理し、接続情報等を記録します
+'* 機能　　：PowerShell が作成済みの名前付きパイプにクライアントとして接続し、接続情報等を記録します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：エラーコード
-'* 引数　　：UserName   接続名称
+'* 返り値  ：エラーコード　 ※0＝成功
+'* 引数　　：UserName       接続名称
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
+'* 注意事項：・PowerShell 側でまず、名前付きパイプを生成しないと接続に失敗します
+'            ・ツール側の仕様上、この`UserName`は設定シートの`ユーザーデータフォルダ名`と共存します。
+'            　スクレイピングする際は、この設定値に紐づけられたパイプ値としてやり取りが行われます
 '***************************************************************************************************
-Function OpenAndConnectNamePipe(UserName As String) As Long
-    '1. 先着1つ分の、名前付き接続パイプを作成
-    Dim UsePipeName As String: UsePipeName = PIPE_NAME & UserName
-    hNamePipe = CreateNamedPipe(UsePipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE Or PIPE_WAIT, 1, 2 ^ 20, 2 ^ 20, 0, 0)  'パイプ容量は、`CDPCore`に合わせる
+Public Function ConnectNamePipe(UserName As String) As Long
+    '0. Excelに記録中のパイプがあったらCloseする
+    deserialize UserName
+    CloseHandle hNamePipe
 
-    '失敗時は、エラーコードを返却して、抜ける
-    If hNamePipe = INVALID_HANDLE_VALUE Then OpenAndConnectNamePipe = Err.LastDllError: Exit Function
+    '1. 名前付きパイプのフルパス作成
+    Dim UsePipeName As String: UsePipeName = PIPE_Landmark & UserName
 
-    '2. 接続
-    '★注意★ ここでExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります！
-    Application.StatusBar = "PowerShell からのパイプ接続 `" & UsePipeName & "` を待機してます...　※接続が来ない限り、フリーズは解消しません"
-    ConnectNamedPipe hNamePipe, 0
-    Application.StatusBar = False
+    '2. そのフルパスの名前付きパイプへ接続
+    hNamePipe = CreateFile(UsePipeName, GENERIC_READ Or GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0)
 
-    '3. PowerShellが繋ぐとフリーズが解けてここに進む
-    serialize UserName      'パイプ情報などをExcelテーブルにメモする
+    '3. 成功判定
+    If hNamePipe = INVALID_HANDLE_VALUE Then ConnectNamePipe = Err.LastDllError: Exit Function
+
+    '4. パイプハンドルを記録するプロシージャへ
+    serialize UserName
 End Function
-
-'***************************************************************************************************
-'* 機能　　：作成済みの名前付きパイプハンドルを基に、再接続を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続識別名称
-'* 返り値  ：エラーコード
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：リアタッチする際にこれを呼び出します。一旦切断後、再接続する形です。
-'* 注意事項：・事前に、`deserialize` or `OpenAndConnectNamePipe` をした状態にすること
-'            ・ExcelはPowerShellが繋いでくるまで「フリーズ（待機状態）」になります
-'***************************************************************************************************
-Public Function ReConnectNamedPipe(Optional UserName As String) As Long
-    '識別名称が指定されてる場合は、それを利用して、`hNamePipe`を上書き
-    If StrPtr(UserName) Then deserialize UserName
-
-    '一旦切断して、再接続する
-    Application.StatusBar = "PowerShell からのパイプ再接続を待機してます...　※接続が来ない限り、フリーズは解消しません"
-    DisconnectNamedPipe hNamePipe   'ErrorCode: 232 を回避するため
-    ConnectNamedPipe hNamePipe, 0
-    Application.StatusBar = False
-
-    'エラーコードを返却　※正常時は、0
-    ReConnectNamedPipe = Err.LastDllError
-End Function
-
-'***************************************************************************************************
-'* 機能　　：正式にパイプハンドル情報をクリーニングします
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   接続識別名称
-'            OnlyDisconnect     True ：ハンドル自体を使いまわす場合に
-'                               False：ハンドル自体もクリーンしたい場合に
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`deserialize` or `OpenAndConnectNamePipe` をした状態にすること
-'            ・これをしないと、`OpenAndConnectNamePipe`や`ReConnectNamedPipe`にて、エラーになります
-'***************************************************************************************************
-Public Sub ClosePipeCDP(Optional UserName As String, Optional OnlyDisconnect As Boolean)
-    '識別名称が指定されてる場合は、それを利用して、`hNamePipe`を上書き
-    If StrPtr(UserName) Then deserialize UserName
-
-    DisconnectNamedPipe hNamePipe
-    If Not OnlyDisconnect Then CloseHandle hNamePipe
-End Sub
 
 
 
