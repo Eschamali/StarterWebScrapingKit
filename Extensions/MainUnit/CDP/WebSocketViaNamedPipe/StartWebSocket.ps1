@@ -11,10 +11,17 @@
 
 
 
-#----------------------------- 1. 初期パラメータ一式 -----------------------------
-$wsUrl    = "ws://127.0.0.1:9222/devtools/browser/cbb667e3-758f-4cb3-b2a9-85f1b2e3953a"	#`remote-debugging-pipe`相当の`ws`に接続します。`http://127.0.0.1:9222/json/version`にて、確認可能です。
-$pipeName = "ChromiumWebSocket"	#Excelから接続する名前付きパイプと一致するようにしてください。
-#---------------------------------------------------------------------------------
+#----------------------------- 1. 初期パラメータ一式(コマンドライン引数対応) -----------------------------
+param(
+    [string]$wsUrl    = "",			#`remote-debugging-pipe`相当の`ws`に接続します。`http://127.0.0.1:9222/json/version`にて、確認可能です。
+    [string]$pipeName = "ChromiumWebSocket",	#Excel側の `ConnectNamePipe` に渡す引数名と一致させてください。
+    [uint16]$port     = 9222			#`Remote debugging`でのデフォルトポート番号
+)
+#---------------------------------------------------------------------------------------------------------
+
+# 🌟 GUI用のライブラリをロード
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 # 🌟 ミリ秒付きでログを出す便利関数
 function Log($msg, $AddArg = @{}) {
@@ -26,6 +33,195 @@ function Log($msg, $AddArg = @{}) {
 }
 
 #------------------------2. WebSocketの準備と接続------------------------
+# 2-1. 引数`$wsUrl`が省略されたら、接続リストを取得して、接続リストウィンドウを表示させます
+if ([string]::IsNullOrWhiteSpace($wsUrl)) {
+    Log "🔎 WebSocketURLが省略されてるため、接続リストを取得します。しばらく経つと、GUI画面が出ますので、接続リスト先を選んでください" @{ForegroundColor="DarkYellow"}
+
+    # --- 接続リストの基となる基本的な場所 ---
+    $edgePortFile = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\DevToolsActivePort"
+    $baseUrl      = "http://127.0.0.1:$port"
+
+
+    # 2-1-1. `DevToolsActivePort`があるか？
+    if (Test-Path $edgePortFile) {
+        try {
+            $portInfo = Get-Content $edgePortFile -ErrorAction SilentlyContinue
+            if ($portInfo) {
+                $directport = $portInfo[0]
+                if ($portInfo.Count -gt 1) { $directWsPath = $portInfo[1] }
+            }
+        } catch {}
+    }
+
+    # --- 2-1-2. データの取得試行 ---
+    $tabsJson = @()
+    $verJson = $null
+
+    # HTTP経由での取得（タブ情報）
+    try {
+        $tabsJson = Invoke-RestMethod "$baseUrl/json" -ErrorAction Stop -TimeoutSec 2
+    } catch {}
+
+    # HTTP経由での取得（バージョン情報）
+    try {
+        $verJson = Invoke-RestMethod "$baseUrl/json/version" -ErrorAction Stop -TimeoutSec 2
+    } catch {}
+
+    # --- 2-1-3. 最終判定：どこにも繋がる気配がない場合 ---
+    $hasTabs = ($tabsJson.Count -gt 0)
+    $hasVer = ($verJson -and $verJson.webSocketDebuggerUrl)
+    $hasDirect = (![string]::IsNullOrEmpty($directWsPath))
+
+    if (!$hasTabs -and !$hasVer -and !$hasDirect) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "有効な接続先が見つかりませんでした。`n`n" +
+            "・ブラウザがデバッグモードで起動しているか`n" +
+            "・ポート番号 ($port) が正しいか`n" +
+            "を確認してください。", "接続エラー", 0, 16)
+        exit 1
+    }
+
+    # --- 2-1-4. GUI構築 ---
+    $script:sortColumn = -1
+    $script:isDescending = $false
+
+    $form = New-Object Windows.Forms.Form
+    $form.Text = "Chromium 接続先詳細セレクター (Smart Search)"
+    $form.Size = "800, 550"; $form.StartPosition = "CenterScreen"; $form.Font = "Yu Gothic UI, 10"
+    $form.MinimumSize = New-Object Drawing.Size(640, 360)
+
+    $tabControl = New-Object Windows.Forms.TabControl
+    $tabControl.Dock = "Fill"
+
+    # --- 🌟 無効なタブへの切り替えを物理的にブロックする ---
+    $tabControl.add_Selecting({
+        param($s, $e)
+        if ($e.TabPage -and !$e.TabPage.Enabled) { $e.Cancel = $true }
+    })
+
+    # --- タブ1: [タブ情報] ---
+    $tab1 = New-Object Windows.Forms.TabPage; $tab1.Text = " タブ情報 "
+    $listView = New-Object Windows.Forms.ListView; $listView.View = "Details"; $listView.FullRowSelect = $true; $listView.GridLines = $true; $listView.Dock = "Fill"
+
+    # 🌟 列クリックイベント
+    $listView.add_ColumnClick({
+        param($sender, $e)
+        
+        # クリックされた列のフィールド名を取得
+        $clickedField = $visibleFields[$e.Column]
+        
+        # 同じ列をクリックしたら昇順/降順を反転
+        if ($script:sortColumn -eq $e.Column) {
+            $script:isDescending = !$script:isDescending
+        } else {
+            $script:sortColumn = $e.Column
+            $script:isDescending = $false
+        }
+
+        # 🌟 データを並び替える（PowerShellの魔法）
+        $tabsJson = $tabsJson | Sort-Object -Property $clickedField -Descending:$script:isDescending
+        
+        # リストを更新
+        &$UpdateList
+    })
+
+    # 全フィールド定義
+    $allFields = @("type", "title", "url", "id", "description", "devtoolsFrontendUrl", "faviconUrl", "webSocketDebuggerUrl")
+    $visibleFields = New-Object System.Collections.Generic.List[string]
+    $visibleFields.AddRange([string[]]@("type", "title")) # 固定列
+
+    $UpdateList = {
+        $listView.BeginUpdate(); $listView.Columns.Clear(); $listView.Items.Clear()
+        foreach ($f in $visibleFields) { $listView.Columns.Add($f, 150) | Out-Null }
+        foreach ($t in $tabsJson) {
+            $item = New-Object Windows.Forms.ListViewItem([string]$t.$($visibleFields[0]))
+            for ($i = 1; $i -lt $visibleFields.Count; $i++) { $item.SubItems.Add([string]$t.$($visibleFields[$i])) | Out-Null }
+            $item.Tag = $t.webSocketDebuggerUrl; $listView.Items.Add($item) | Out-Null
+        }
+        $listView.EndUpdate()
+    }
+
+    $menu = New-Object Windows.Forms.ContextMenuStrip
+    foreach ($field in $allFields) {
+        $m = New-Object Windows.Forms.ToolStripMenuItem($field)
+        $m.CheckOnClick = $true; if ($visibleFields.Contains($field)) { $m.Checked = $true }
+        if ($field -eq "type" -or $field -eq "title") { $m.Enabled = $false }
+        else { $m.Add_Click({ if ($this.Checked) { $visibleFields.Add($this.Text) } else { $visibleFields.Remove($this.Text) }; &$UpdateList }) }
+        $menu.Items.Add($m) | Out-Null
+    }
+    $listView.ContextMenuStrip = $menu
+    $tab1.Controls.Add($listView); &$UpdateList
+
+    # --- タブ2: [ブラウザ本体] ---
+    $tab2 = New-Object Windows.Forms.TabPage; $tab2.Text = " ブラウザ本体 "
+    $radioPanel = New-Object Windows.Forms.Panel; $radioPanel.Dock = "Fill"; $radioPanel.Padding = "30, 30, 30, 30"
+    
+    $r1 = New-Object Windows.Forms.RadioButton; $r1.Text = "API (json/version) 接続"; $r1.Location = "20, 30"; $r1.AutoSize = $true
+    if ($hasVer) { 
+        $r1.Tag = $verJson.webSocketDebuggerUrl; $r1.Text += " ($($verJson.Browser))"
+        $r1.Checked = $true # 🌟 第一候補
+    } else { $r1.Enabled = $false }
+
+    $r2 = New-Object Windows.Forms.RadioButton; $r2.Text = "ActivePort (Direct) 接続"; $r2.Location = "20, 70"; $r2.AutoSize = $true
+    if ($hasDirect) { 
+        $r2.Tag = "ws://127.0.0.1:$directport$directWsPath"
+        # 🌟 r1が使えない場合のみ、r2を初期選択にする
+        if (!$r1.Enabled) { $r2.Checked = $true }
+    } else { $r2.Enabled = $false }
+
+    $radioPanel.Controls.AddRange(@($r1, $r2))
+    $tab2.Controls.Add($radioPanel)
+
+    $tabControl.TabPages.AddRange(@($tab1, $tab2))
+
+    # 🌟 表示・選択不可制御
+    if (!$hasTabs) {
+        $tab1.Enabled = $false
+        $tabControl.SelectedTab = $tab2 # 最初からブラウザ本体タブを表示
+    }
+
+    # --- 1. 下部パネルの作成 ---
+    $bottom = New-Object Windows.Forms.Panel
+    $bottom.Height = 60
+    $bottom.Dock = "Bottom"
+    # $bottom.BackColor = "LightGray" # 👈 デバッグ用：もしボタンが出なかったらここを有効にしてパネルが見えるか確認
+
+    # --- 2. 接続ボタンの作成 ---
+    $btn = New-Object Windows.Forms.Button
+    $btn.Text = "接続開始"
+    $btn.Size = "120, 35"
+    $btn.FlatStyle = "System"
+    $btn.DialogResult = [Windows.Forms.DialogResult]::OK
+
+    # 🌟 まずは「左上」の適当な位置に置いて、パネルに追加しちゃう！
+    $btn.Location = New-Object Drawing.Point(10, 10) 
+    $bottom.Controls.Add($btn)
+
+    # --- 3. フォームにパーツを追加（順番が大事！） ---
+    # 先に Bottom を追加して場所を確保！
+    $form.Controls.Add($bottom)
+    $form.Controls.Add($tabControl)
+
+    # 🌟 追加された「後」で、正しい位置（右端）に移動させる！
+    # パネルの幅 ($bottom.Width) を基準に計算
+    $btn.Left = $bottom.Width - $btn.Width - 25
+    $btn.Top = ($bottom.Height - $btn.Height) / 2
+
+    # 🌟 位置が決まってから「Anchor（いかり）」を下ろす！
+    $btn.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right
+
+    # --- 最終実行 ---
+    if ($form.ShowDialog() -eq [Windows.Forms.DialogResult]::OK) {
+        if ($tabControl.SelectedTab -eq $tab1) { 
+            if ($listView.SelectedItems.Count -gt 0) { $wsUrl = $listView.SelectedItems[0].Tag } 
+        } else { 
+            if ($r1.Checked) { $wsUrl = $r1.Tag } elseif ($r2.Checked) { $wsUrl = $r2.Tag } 
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($wsUrl)) { exit 1 }
+}
+
+# --- 2-2. 実際に接続 ---
 try {
     Log "🚀 接続先確定 → $wsUrl" @{ForegroundColor="Cyan"}
 
