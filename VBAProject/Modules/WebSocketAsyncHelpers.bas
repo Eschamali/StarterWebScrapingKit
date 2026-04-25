@@ -105,14 +105,15 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（計34バイト）---
+    '--- x64 マシンコード（計29バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
     '   RCX=hInternet, RDX=dwContext(=ObjPtr), R8=dwInternetStatus,
     '   R9=lpvStatusInformation, [RSP+28h]=dwStatusInformationLength
     '
     ' 目標：RDX(ObjPtr) → RCX(this)、残り引数をシフト、vtable[7] を呼ぶ
     '
-    ' 注意：[RSP+28h] の読み取りは PUSH/SUB の前に行う（スタックシフト後はオフセットがずれる）
+    ' 注意：[RSP+28h] の読み取りは SUB の前に行う（スタックシフト後はオフセットがずれる）
+    '       Windows x64 ABI の 16byte アライン維持のため、PUSH RBP は使わない。
     '
     If (pa.arr(0) And &HFFFFFF) <> &HD18948 Then
         '48 89 D1          MOV RCX, RDX          ; dwContext(ObjPtr) → this
@@ -126,14 +127,11 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
         '28                MOV R9, [RSP+28h] の最終バイト（+ 次命令の開始）
         pa.sa.pvData = aPtr + 13: pa.arr(0) = &H18B4828    '28 48 8B 01
         '                  ↑ 28=MOV R9[RSP+28h]終端, 48 8B 01=MOV RAX,[RCX]の開始
-        pa.sa.pvData = aPtr + 17: pa.arr(0) = &H55&        '55       PUSH RBP
-        pa.sa.pvData = aPtr + 18: pa.arr(0) = &HEC8B48     '48 8B EC MOV RBP,RSP
-        pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28EC8348   '48 83 EC 28  SUB RSP,0x28
+        pa.sa.pvData = aPtr + 17: pa.arr(0) = &H28EC8348   '48 83 EC 28  SUB RSP,0x28
         'FF 50 38          CALL [RAX+0x38]       ; vtable[7]=WinHttpCallbackProc (7×8=0x38)
-        pa.sa.pvData = aPtr + 25: pa.arr(0) = &H3850FF
-        pa.sa.pvData = aPtr + 28: pa.arr(0) = &H28C48348   '48 83 C4 28  ADD RSP,0x28
-        pa.sa.pvData = aPtr + 32: pa.arr(0) = &H5D&        '5D       POP RBP
-        pa.sa.pvData = aPtr + 33: pa.arr(0) = &HC3&        'C3       RET
+        pa.sa.pvData = aPtr + 21: pa.arr(0) = &H3850FF
+        pa.sa.pvData = aPtr + 24: pa.arr(0) = &H28C48348   '48 83 C4 28  ADD RSP,0x28
+        pa.sa.pvData = aPtr + 28: pa.arr(0) = &HC3&        'C3       RET
     End If
     'DummyASM アドレスを EntryPoint+55 の位置に書き込む（EBMode トランポリン完成）
     pa.sa.pvData = GetWinHttpCallbackProc + 55
