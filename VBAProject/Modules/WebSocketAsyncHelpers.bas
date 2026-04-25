@@ -60,7 +60,7 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
     '万が一、WebSocket 関連以外のコールバックが来ても問題ないように排除する
     Select Case dwInternetStatus
         'WebSocket関連のコールバック値を列挙する
-        Case 524288, 1048576, 2097152, 33554432
+        Case 524288, 1048576, 67108864, 33554432
 
             'WINHTTP_WEB_SOCKET_STATUS のポインタを基にコピー
             ' memcpy でコピー！
@@ -101,9 +101,9 @@ Public Sub WebSocketCallback(ByVal HINTERNET As LongPtr, ByVal dwContext As Long
                 Case 1048576
                     ViewLog.LogInfo "非同期処理により、送信の確認が取れました。必要に応じて、受信予約を行ってください。", ErrorSource
                     
-                'REQUEST_ERROR
-                Case 2097152
-                    ViewLog.LogError "WebSocket の処理にて問題が発生しました。", ErrorSource
+                'SHUTDOWN_COMPLETE
+                Case 67108864
+                    ViewLog.LogError "WebSocket の接続が正常にシャットダウンされました。", ErrorSource
                 
                 'CLOSE_COMPLETE
                 Case 33554432
