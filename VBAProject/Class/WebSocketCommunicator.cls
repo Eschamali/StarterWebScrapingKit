@@ -292,8 +292,11 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     'エラーコードの初期化
     ResultCode = 0
     
-    '既に受信予約済みの場合は、即抜け
-    If m_isDataReady Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
+    '既に受信予約済みでも、再ポーリングして受信完了を取りに行く
+    If m_isDataReady Then
+        ViewLog.LogDebug "受信予約継続中のため、再ポーリングします。", "WebSocketCommunicator.GetAsyncMessage"
+        m_isDataReady = False
+    End If
 
     '非同期処理側で既に、受信済みデータがあるか？
     If Not (m_isReceiving) Then
@@ -581,7 +584,7 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
     Select Case Param.Status
         '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-            m_isDataReady = True
+            m_isDataReady = False
             ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
