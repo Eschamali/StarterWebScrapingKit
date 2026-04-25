@@ -33,6 +33,18 @@ Public Event OnCallback(ByVal HINTERNET As LongPtr, _
 'フォームインスタンス（SafeTimer の m_form 相当。ハンドル取得＆ライフタイム管理に使用）
 Private m_form As New WinHttpSetStatusCallbackForm
 
+Private Type CallbackQueueItem
+    HINTERNET As LongPtr
+    dwInternetStatus As Long
+    lpvStatusInformation As LongPtr
+    dwStatusInformationLength As Long
+End Type
+Private Const CALLBACK_QUEUE_SIZE As Long = 128
+Private m_callbackQueue(0 To CALLBACK_QUEUE_SIZE - 1) As CallbackQueueItem
+Private m_queueRead As Long
+Private m_queueWrite As Long
+Private m_droppedCallbacks As Long
+
 
 
 
@@ -188,8 +200,47 @@ Private Sub WinHttpCallbackProc(ByVal HINTERNET As LongPtr, _
                                  ByVal lpvStatusInformation As LongPtr, _
                                  ByVal dwStatusInformationLength As Long)
     On Error Resume Next
-    RaiseEvent OnCallback(HINTERNET, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength)
+    EnqueueCallback HINTERNET, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength
     On Error GoTo 0
+End Sub
+
+Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
+                            ByVal dwInternetStatus As Long, _
+                            ByVal lpvStatusInformation As LongPtr, _
+                            ByVal dwStatusInformationLength As Long)
+    Dim nextWrite As Long
+    nextWrite = (m_queueWrite + 1) Mod CALLBACK_QUEUE_SIZE
+    If nextWrite = m_queueRead Then
+        m_droppedCallbacks = m_droppedCallbacks + 1
+        Exit Sub
+    End If
+
+    With m_callbackQueue(m_queueWrite)
+        .HINTERNET = HINTERNET
+        .dwInternetStatus = dwInternetStatus
+        .lpvStatusInformation = lpvStatusInformation
+        .dwStatusInformationLength = dwStatusInformationLength
+    End With
+    m_queueWrite = nextWrite
+End Sub
+
+Public Sub DispatchQueuedCallbacks()
+    On Error Resume Next
+    Do While m_queueRead <> m_queueWrite
+        With m_callbackQueue(m_queueRead)
+            RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, .lpvStatusInformation, .dwStatusInformationLength)
+        End With
+        m_queueRead = (m_queueRead + 1) Mod CALLBACK_QUEUE_SIZE
+    Loop
+    On Error GoTo 0
+End Sub
+
+Public Property Get DroppedCallbackCount() As Long
+    DroppedCallbackCount = m_droppedCallbacks
+End Property
+
+Public Sub ResetDroppedCallbackCount()
+    m_droppedCallbacks = 0
 End Sub
 
 

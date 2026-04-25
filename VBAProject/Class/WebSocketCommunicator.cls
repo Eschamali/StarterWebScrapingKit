@@ -277,6 +277,14 @@ End Function
 '            ・WinHttpWebSocketReceive に渡す際は、グローバル引数として渡す必要があります
 '***************************************************************************************************
 Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
+    If Not (Http Is Nothing) Then
+        Http.DispatchQueuedCallbacks
+        If Http.DroppedCallbackCount > 0 Then
+            ViewLog.LogWarn "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", "WebSocketCommunicator.GetAsyncMessage"
+            Http.ResetDroppedCallbackCount
+        End If
+    End If
+
     '再接続のハンドル情報があったらそっちを使用する
     Dim UseWebsockethandle As LongPtr
     If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
@@ -310,6 +318,8 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
             'エラーなら即抜け
             If m_res.result Then ResultCode = m_res.result: Exit Function
         End If
+
+        If Not (Http Is Nothing) Then Http.DispatchQueuedCallbacks
     
         'インスタンス変数と仲介しながら、バッファー管理処理へ移る
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
