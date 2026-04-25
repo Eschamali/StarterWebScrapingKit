@@ -51,6 +51,7 @@ Private m_callbackQueue(0 To CALLBACK_QUEUE_SIZE - 1) As CallbackQueueItem
 Private m_queueRead As Long
 Private m_queueWrite As Long
 Private m_droppedCallbacks As Long
+Private m_callbackHitCount As Long
 
 
 
@@ -207,6 +208,7 @@ Private Sub WinHttpCallbackProc(ByVal HINTERNET As LongPtr, _
                                  ByVal lpvStatusInformation As LongPtr, _
                                  ByVal dwStatusInformationLength As Long)
     On Error Resume Next
+    m_callbackHitCount = m_callbackHitCount + 1
     EnqueueCallback HINTERNET, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength
     On Error GoTo 0
 End Sub
@@ -256,6 +258,10 @@ End Property
 Public Sub ResetDroppedCallbackCount()
     m_droppedCallbacks = 0
 End Sub
+
+Public Property Get CallbackHitCount() As Long
+    CallbackHitCount = m_callbackHitCount
+End Property
 
 
 

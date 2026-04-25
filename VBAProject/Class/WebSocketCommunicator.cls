@@ -279,6 +279,7 @@ End Function
 Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
     If Not (Http Is Nothing) Then
         Http.DispatchQueuedCallbacks
+        ViewLog.LogDebug "CallbackHitCount=" & Http.CallbackHitCount, "WebSocketCommunicator.GetAsyncMessage"
         If Http.DroppedCallbackCount > 0 Then
             ViewLog.LogWarn "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", "WebSocketCommunicator.GetAsyncMessage"
             Http.ResetDroppedCallbackCount
