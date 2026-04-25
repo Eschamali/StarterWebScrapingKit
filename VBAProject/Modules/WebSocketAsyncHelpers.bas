@@ -62,7 +62,7 @@ Private Sub DummyASM():   End Sub   ' マシンコード書き込み先
 '***************************************************************************************************
 '* 機能    ：WinHttpSetStatusCallback に渡せる安全なコールバック関数ポインタを生成します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：コールバック関数ポインタ（EntryPoint アドレス）
+'* 返り値  ：コールバック関数ポインタ（DummyASM アドレス）
 '* 引数    ：target   コールバックを受け取る WebSocketHTTPCommunicator インスタンス
 '---------------------------------------------------------------------------------------------------
 '* 仕組み  ：SafeTimer の GetTimerProc と同じ原理。
@@ -70,8 +70,7 @@ Private Sub DummyASM():   End Sub   ' マシンコード書き込み先
 '            WinHttp から渡される dwContext（= ObjPtr(target)）を RCX/[ESP+04] に置き換えて
 '            target.WinHttpCallbackProc（vtable[7]）を呼び出す。
 '
-'* 注意事項：VBA が Break モード中はコールバック呼び出しをスキップします（EBMode チェック）。
-'            target.WinHttpCallbackProc は vtable の先頭ユーザーメソッド（7番目、0-indexed）
+'* 注意事項：target.WinHttpCallbackProc は vtable の先頭ユーザーメソッド（7番目、0-indexed）
 '            として固定配置されている必要があります。
 '***************************************************************************************************
 Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator) As LongPtr
@@ -95,9 +94,9 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = pa.arr(0) + PtrSize * 7
     Dim tProcPtr As LongPtr: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
 
-    'EntryPoint アドレスを戻り値にセット（EBMode チェック付きトランポリン）
-    GetWinHttpCallbackProc = VBA.Int(AddressOf EntryPoint)
+    'DummyASM アドレスを戻り値にセット
     aPtr = VBA.Int(AddressOf DummyASM)
+    GetWinHttpCallbackProc = aPtr
     pa.sa.pvData = aPtr
 
 #If x64 Then
@@ -132,9 +131,6 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr + 37: pa.arr(0) = &H28C48348
     'C3                 RET
     pa.sa.pvData = aPtr + 41: pa.arr(0) = &HC3&
-    'DummyASM アドレスを EntryPoint+55 の位置に書き込む（EBMode トランポリン完成）
-    pa.sa.pvData = GetWinHttpCallbackProc + 55
-
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
@@ -154,13 +150,8 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr + 13: pa.arr(0) = &HE0FF&
     'C2 14 00          RET 0x14              ; 5引数 × 4byte = 0x14（SetTimer は 0x10）
     pa.sa.pvData = aPtr + 15: pa.arr(0) = &H14C2&
-    'DummyASM アドレスを EntryPoint+22 の位置に書き込む（EBMode トランポリン完成）
-    pa.sa.pvData = GetWinHttpCallbackProc + 22
-
 #End If
 
-    'DummyASM の先頭アドレスを書き込んでトランポリンを完成させる
-    pa.arr(0) = aPtr
     pa.sa.rgsabound0.cElements = 0
     pa.sa.pvData = NullPtr
 End Function
