@@ -292,9 +292,14 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     'エラーコードの初期化
     ResultCode = 0
     
-    '既に受信予約済みでも、再ポーリングして受信完了を取りに行く
+    '既に受信予約済みなら、新規予約はせずコールバック待ち
     If m_isDataReady Then
-        ViewLog.LogDebug "受信予約継続中のため、再ポーリングします。", "WebSocketCommunicator.GetAsyncMessage"
+        ViewLog.LogDebug "受信予約済みのため、コールバック到着待ちです。", "WebSocketCommunicator.GetAsyncMessage"
+        If Not (Http Is Nothing) Then Http.DispatchQueuedCallbacks
+        If Not (m_isReceiving) Then
+            GetAsyncMessage = vbNullString
+            Exit Function
+        End If
         m_isDataReady = False
     End If
 
@@ -318,8 +323,23 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
                             UseWebsockethandle, m_res.Buffer(m_res.CurrentPointer), m_res.BufferLength, _
                             m_res.ReceiveBytes, m_res.Status)
 
+            '既に予約済み(4317)は非同期待機中として扱う
+            If m_res.result = 4317 Then
+                m_isDataReady = True
+                ResultCode = 0
+                GetAsyncMessage = vbNullString
+                Exit Function
+            End If
+
             'エラーなら即抜け
             If m_res.result Then ResultCode = m_res.result: Exit Function
+
+            '予約のみ完了（まだ受信データなし）の場合は、次回コールバック待ち
+            If m_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE And m_res.ReceiveBytes = 0 Then
+                m_isDataReady = True
+                GetAsyncMessage = vbNullString
+                Exit Function
+            End If
         End If
 
         If Not (Http Is Nothing) Then Http.DispatchQueuedCallbacks
@@ -584,7 +604,7 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
     Select Case Param.Status
         '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-            m_isDataReady = False
+            m_isDataReady = True
             ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
