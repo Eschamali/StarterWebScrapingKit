@@ -64,7 +64,7 @@ Sub WebSocketDemoASync1_2_受信リクエスト()
 
     '受信メッセージを受け取る
     Dim ResultCode As Long
-    Debug.Print g_WebsocketObj.GetAsyncMessage(, ResultCode)
+    Debug.Print "受信内容：" & g_WebsocketObj.GetAsyncMessage(, ResultCode)
 
     Dim ErrorMes As New WinApiError
     If ResultCode Then
