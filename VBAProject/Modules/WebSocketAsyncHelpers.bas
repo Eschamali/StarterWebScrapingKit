@@ -100,37 +100,32 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（計42バイト）---
-    ' WinHttp コールバックシグネチャ（stdcall 5引数）:
+    '--- x64 マシンコード（計37バイト）---
+    ' WinHttp コールバックシグネチャ:
     '   RCX=hInternet, RDX=dwContext(=ObjPtr), R8=dwInternetStatus,
     '   R9=lpvStatusInformation, [RSP+28h]=dwStatusInformationLength
     '
-    ' 目標：RCX に this(ObjPtr(target)) を即値で設定し、メソッドポインタを直接 CALL する
-    '
-    ' 注意：[RSP+28h] の読み取りは SUB の前に行う（スタックシフト後はオフセットがずれる）
-    '       Windows x64 ABI の 16byte アライン維持のため、PUSH RBP は使わない。
-    '
-    '48 B9 <imm64>      MOV RCX, targetObjPtr
-    pa.arr(0) = &HB948
-    pa.sa.pvData = aPtr + 2: pa.arr(0) = targetObjPtr
-    '4C 89 C2           MOV RDX, R8
-    pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2894C
-    '4D 89 C8           MOV R8, R9
-    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HC8894D
-    '4C 8B 4C 24 28     MOV R9, [RSP+28h]
-    pa.sa.pvData = aPtr + 16: pa.arr(0) = &H244C8B4C
-    pa.sa.pvData = aPtr + 20: pa.arr(0) = &H28&
+    ' 目標：COMメソッド呼び出し規約に合わせて、this を RCX に載せたうえで
+    '       第1引数(HINTERNET)を RDX に正しく渡す。
+    '4C 8B D1           MOV R10, RCX            ; hInternet を退避
+    pa.arr(0) = &HD18B4C
+    '48 B9 <imm64>      MOV RCX, targetObjPtr   ; this
+    pa.sa.pvData = aPtr + 3: pa.arr(0) = &HB948
+    pa.sa.pvData = aPtr + 5: pa.arr(0) = targetObjPtr
+    '4C 89 D2           MOV RDX, R10            ; arg1 = hInternet
+    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HD2894C
+    'R8(dwInternetStatus), R9(lpvStatusInformation), [RSP+28](length) はそのまま使う
     '48 83 EC 28        SUB RSP, 28h
-    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28EC8348
+    pa.sa.pvData = aPtr + 16: pa.arr(0) = &H28EC8348
     '48 B8 <imm64>      MOV RAX, tProcPtr
-    pa.sa.pvData = aPtr + 25: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 27: pa.arr(0) = tProcPtr
+    pa.sa.pvData = aPtr + 20: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 22: pa.arr(0) = tProcPtr
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 35: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 30: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 37: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 32: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 41: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 36: pa.arr(0) = &HC3&
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
