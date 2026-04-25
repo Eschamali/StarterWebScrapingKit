@@ -91,7 +91,7 @@ Sub WebSocketDemoASync1_3_ハンドルから送信()
     If ResultCode Then
         Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print ErrorMes.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "送信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
