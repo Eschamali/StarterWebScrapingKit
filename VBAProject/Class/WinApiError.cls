@@ -8,14 +8,14 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'                    VBA‚©‚çAWindowsAPIg—p‚ÌƒGƒ‰[ƒR[ƒh‚ğÚ×î•ñ‚ğo—Í‚µ‚Ü‚·
+'                    VBAã‹ã‚‰ã€WindowsAPIä½¿ç”¨æ™‚ã®ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’è©³ç´°æƒ…å ±ã‚’å‡ºåŠ›ã—ã¾ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                             ¡¡¡ WindowsAPI‚Æ’è”éŒ¾ ¡¡¡
+'                             â– â– â–  WindowsAPIã¨å®šæ•°å®£è¨€ â– â– â– 
 '***************************************************************************************************
 Private Declare PtrSafe Function FormatMessage Lib "kernel32" Alias "FormatMessageA" ( _
     ByVal dwFlags As Long, ByVal lpSource As LongPtr, ByVal dwMessageId As Long, _
@@ -32,15 +32,15 @@ Const FORMAT_MESSAGE_IGNORE_INSERTS = &H200
 
 
 '***************************************************************************************************
-'                               ¡¡¡ ŒöŠJƒvƒƒV[ƒWƒƒ ¡¡¡
+'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FƒGƒ‰[”Ô†‚©‚çƒƒbƒZ[ƒW‚ğæ“¾‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã‚¨ãƒ©ãƒ¼ç•ªå·ã‹ã‚‰ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å–å¾—ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@Fˆø”‚É‰ˆ‚Á‚½ƒGƒ‰[ƒƒbƒZ[ƒW
-'* ˆø”@@FErrorCode      ’Êí‚ÍAErr.LastDllError ‚ğw’è‚µ‚Ü‚·
-'            DllName        “Á’è‚ÌWinAPI(››.dll)‚ÌƒGƒ‰[‚Æ•ª‚©‚Á‚Ä‚é‚È‚çA‚»‚ê‚ğw’è‚µ‚Ü‚·
+'* è¿”ã‚Šå€¤ã€€ï¼šå¼•æ•°ã«æ²¿ã£ãŸã‚¨ãƒ©ãƒ¼ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸
+'* å¼•æ•°ã€€ã€€ï¼šErrorCode      é€šå¸¸ã¯ã€Err.LastDllError ã‚’æŒ‡å®šã—ã¾ã™
+'            DllName        ç‰¹å®šã®WinAPI(â—‹â—‹.dll)ã®ã‚¨ãƒ©ãƒ¼ã¨åˆ†ã‹ã£ã¦ã‚‹ãªã‚‰ã€ãã‚Œã‚’æŒ‡å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€F•Ô‚éŒ¾Œê‚ÍAWindows‚Ìİ’èŒ¾Œê‚ÉˆË‘¶‚µ‚Ü‚·
+'* æ³¨æ„äº‹é …ï¼šè¿”ã‚‹è¨€èªã¯ã€Windowsã®è¨­å®šè¨€èªã«ä¾å­˜ã—ã¾ã™
 '***************************************************************************************************
 Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As String) As String
     Dim Buffer As String
@@ -52,12 +52,12 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
     Buffer = Space(1024)
     Flags = FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_IGNORE_INSERTS
     
-    ' DLLw’è‚ª‚ ‚éê‡
+    ' DLLæŒ‡å®šãŒã‚ã‚‹å ´åˆ
     If DllName <> "" Then
-        ' ‚Ü‚¸ƒ[ƒhÏ‚İ‚©’T‚·
+        ' ã¾ãšãƒ­ãƒ¼ãƒ‰æ¸ˆã¿ã‹æ¢ã™
         hModule = GetModuleHandle(DllName)
         
-        ' ‚È‚¯‚ê‚Îƒ[ƒh‚·‚é
+        ' ãªã‘ã‚Œã°ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
         If hModule = 0 Then
             hModule = LoadLibrary(DllName)
             isLoaded = True
@@ -67,14 +67,14 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
             Flags = Flags Or FORMAT_MESSAGE_FROM_HMODULE
         End If
     End If
-    
-    ' ƒƒbƒZ[ƒWæ“¾
+
+    ' ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å–å¾—
     length = FormatMessage(Flags, hModule, ErrorCode, 0, Buffer, Len(Buffer), 0)
-    
+
     If length > 0 Then
-        ' ––”ö‚Ì‰üs‚Æ‚©ƒkƒ‹•¶š‚ğÁ‚µ‚Ä•Ô‚·
-        GetMessage = Replace(Left(Buffer, length), vbCrLf, "")
+        ' æœ«å°¾ã®æ”¹è¡Œã¨ã‹ãƒŒãƒ«æ–‡å­—ã‚’æ¶ˆã—ã¦è¿”ã™
+        GetMessage = Replace(Split(Buffer, vbNullChar)(0), vbCrLf, "")
     Else
-        GetMessage = "’è‹`‚³‚ê‚Ä‚¢‚È‚¢ƒGƒ‰[‚Å‚· (Code: " & ErrorCode & ")"
+        GetMessage = "å®šç¾©ã•ã‚Œã¦ã„ãªã„ã‚¨ãƒ©ãƒ¼ã§ã™ (Code: " & ErrorCode & ")"
     End If
 End Function

@@ -30,6 +30,8 @@ Attribute VB_Exposed = False
 '' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
 Option Explicit
 
+#If Not Mac Then
+
 ' --------------------------------------------- '
 ' Windows API Headers
 ' --------------------------------------------- '
@@ -54,12 +56,20 @@ Private Const HP_HASHVAL                 As Long = 2
 Private Const HP_HASHSIZE                As Long = 4
 Private Const HP_HMAC_INFO               As Long = 5
 
-Private Const CRYPT_STRING_BASE64        As Long = &H1&
-Private Const CRYPT_STRING_HEX           As Long = &H4&
-Private Const CRYPT_STRING_HEXASCII      As Long = &H5&
-Private Const CRYPT_STRING_HEXADDR       As Long = &HA&
-Private Const CRYPT_STRING_HEXASCIIADDR  As Long = &HB&
-Private Const CRYPT_STRING_HEXRAW        As Long = &HC&       'Requires Vista or later, so we emulate.
+'https://learn.microsoft.com/ja-jp/windows/win32/api/wincrypt/nf-wincrypt-cryptbinarytostringa
+Private Const CRYPT_STRING_BASE64HEADER As Long = &H0
+Private Const CRYPT_STRING_BASE64       As Long = &H1
+Private Const CRYPT_STRING_BINARY       As Long = &H2
+Private Const CRYPT_STRING_BASE64REQUESTHEADER  As Long = &H3
+Private Const CRYPT_STRING_HEX          As Long = &H4
+Private Const CRYPT_STRING_HEXASCII     As Long = &H5
+Private Const CRYPT_STRING_BASE64X509CRLHEADER  As Long = &H9
+Private Const CRYPT_STRING_HEXADDR      As Long = &HA
+Private Const CRYPT_STRING_HEXASCIIADDR As Long = &HB
+Private Const CRYPT_STRING_HEXRAW       As Long = &HC         'Requires Vista or later, so we emulate.
+Private Const CRYPT_STRING_BASE64URI    As Long = &HD
+Private Const CRYPT_STRING_STRICT       As Long = &H20000000
+
 Private Const CRYPT_STRING_NOCR          As Long = &H80000000
 Private Const CRYPT_STRING_NOCRLF        As Long = &H40000000 'Requires Vista or later!
 
@@ -205,13 +215,21 @@ Private IsWin5_1 As Boolean 'XP or Windows 2003 Server.
 ' @param edfHexAsciiAddr    Hex plus ASCII plus an address/count, with line-wrap.
 ' @param edfHexRaw          Hexadecimal encoding with NO line-wrap.
 ''
+
+'https://learn.microsoft.com/ja-jp/windows/win32/api/wincrypt/nf-wincrypt-cryptbinarytostringa
 Public Enum EncDecFormat
+    edfBase64header
     edfBase64
+    edfBinary
+    edfBase64Requestheader
     edfHex
     edfHexAscii
+    edfBase64x509crlheader
     edfHexAddr
     edfHexAsciiAddr
     edfHexRaw
+    edfBase64Uri
+    edfStrict
 End Enum
 
 ''
@@ -225,6 +243,28 @@ Public Enum EncodeFolding
     efLf
     efNoFolding
 End Enum
+
+' ============================================= '
+' Enum ←→ Select Case Mapping
+' ============================================= '
+Private Function EnumMapping_EncDecFormat(x As EncDecFormat) As Long
+    Select Case x
+        Case EncDecFormat.edfBase64header:          EnumMapping_EncDecFormat = CRYPT_STRING_BASE64HEADER
+        Case EncDecFormat.edfBase64:                EnumMapping_EncDecFormat = CRYPT_STRING_BASE64
+        Case EncDecFormat.edfBinary:                EnumMapping_EncDecFormat = CRYPT_STRING_BINARY
+        Case EncDecFormat.edfBase64Requestheader:   EnumMapping_EncDecFormat = CRYPT_STRING_BASE64REQUESTHEADER
+        Case EncDecFormat.edfHex:                   EnumMapping_EncDecFormat = CRYPT_STRING_HEX
+        Case EncDecFormat.edfHexAscii:              EnumMapping_EncDecFormat = CRYPT_STRING_HEXASCII
+        Case EncDecFormat.edfBase64x509crlheader:   EnumMapping_EncDecFormat = CRYPT_STRING_BASE64X509CRLHEADER
+        Case EncDecFormat.edfHexAddr:               EnumMapping_EncDecFormat = CRYPT_STRING_HEXADDR
+        Case EncDecFormat.edfHexAsciiAddr:          EnumMapping_EncDecFormat = CRYPT_STRING_HEXASCIIADDR
+        Case EncDecFormat.edfHexRaw:                EnumMapping_EncDecFormat = CRYPT_STRING_HEXRAW
+        Case EncDecFormat.edfBase64Uri:             EnumMapping_EncDecFormat = CRYPT_STRING_BASE64URI
+        Case EncDecFormat.edfStrict:                EnumMapping_EncDecFormat = CRYPT_STRING_STRICT
+    End Select
+End Function
+
+
 
 ' ============================================= '
 ' Public Methods
@@ -246,20 +286,7 @@ Public Function Decode(ByVal Encoded As String, Optional ByVal Format As EncDecF
     Dim lngOutLen As Long
     Dim dwActualUsed As Long
     
-    Select Case Format
-        Case edfBase64
-            dwFlags = CRYPT_STRING_BASE64
-        Case edfHex
-            dwFlags = CRYPT_STRING_HEX
-        Case edfHexAscii
-            dwFlags = CRYPT_STRING_HEXASCII
-        Case edfHexAddr
-            dwFlags = CRYPT_STRING_HEXADDR
-        Case edfHexAsciiAddr
-            dwFlags = CRYPT_STRING_HEXASCIIADDR
-        Case edfHexRaw
-            dwFlags = CRYPT_STRING_HEXRAW
-    End Select
+    dwFlags = EnumMapping_EncDecFormat(Format)
     
     If IsWin5_1 And (Format = edfHexRaw) Then
         'Emulate missing format.
@@ -318,20 +345,7 @@ Public Function Encode(ByRef Bytes() As Byte, Optional ByVal Format As EncDecFor
     Dim lngOutLen As Long
     Dim strEncoded As String
     
-    Select Case Format
-        Case edfBase64
-            dwFlags = CRYPT_STRING_BASE64
-        Case edfHex
-            dwFlags = CRYPT_STRING_HEX
-        Case edfHexAscii
-            dwFlags = CRYPT_STRING_HEXASCII
-        Case edfHexAddr
-            dwFlags = CRYPT_STRING_HEXADDR
-        Case edfHexAsciiAddr
-            dwFlags = CRYPT_STRING_HEXASCIIADDR
-        Case edfHexRaw
-            dwFlags = CRYPT_STRING_HEXRAW
-    End Select
+    dwFlags = EnumMapping_EncDecFormat(Format)
     
     Select Case Folding
         Case efNoFolding
@@ -813,3 +827,5 @@ Private Sub Class_Initialize()
         End If
     End If
 End Sub
+
+#End If

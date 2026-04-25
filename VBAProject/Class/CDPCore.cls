@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 ' Contributors:
 '       Long Vh (long.hoang.vu@hsbc.com.sg)
 ' Last Update :
+'       24/10/25 Daniel Polak: added Option Explicit
 '       29/11/22 Long Vh: removed the serializability check + class_terminate to keep handles constantly
 '                         open for subsequent deserializations if needed.
 '       03/06/22 Long Vh: added extensive commentations + refactored codes for HSBC usages
@@ -27,10 +28,12 @@ Attribute VB_Exposed = False
 ' Sources     :
 '       Creating Pipe: https://stackoverflow.com/questions/62172551/error-with-createpipe-in-vba-office-64bit
 '==============================================================================================================
+
+Option Explicit
+
 '===================================
 ' Win APIs Declarations
 '===================================
-Option Explicit
 
 Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
     phReadPipe As LongPtr, _
@@ -56,7 +59,7 @@ Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProce
     ByVal lpCurrentDirectory As LongPtr, _
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
-    
+
 Private Declare PtrSafe Function CloseHandle Lib "kernel32" ( _
     ByVal hObject As LongPtr) As Long
  
@@ -151,16 +154,15 @@ End Type
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
 Private Const STARTF_USESHOWWINDOW As Long = &H1&
-Private Const SW_SHOWMINIMIZED = 2
-Private Const SW_SHOWMAXIMIZED = 3
-Private Const SW_RESTORE = 9
- 
+
 '===================================
 ' Shared Variables
 '===================================
  
 Private hStdOutWr As LongPtr
 Public hStdOutRd As LongPtr
+Private hStderrOutWr As LongPtr
+Public hStderrOutRd As LongPtr
 Public hStdInWr As LongPtr
 Private hStdInRd As LongPtr
 Private hCDPOutWr As LongPtr
@@ -168,20 +170,22 @@ Public hCDPOutRd As LongPtr
 Public hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
+Private setShowWindow As Integer
+Public dwProcessId As LongPtr 'プロセスID
 Private Utf8Converter As CharacterCodeConversion
 
 
 
 '***************************************************************************************************
-'                               ������ �v���p�e�B�@�\ ������
+'                               ■■■ プロパティ機能 ■■■
 '***************************************************************************************************
-'* �@�\�@�@�F�R�}���h�𑗂�(WriteFile)�O�ɁAVBA�́uUnicode�v�������UTF-8�ŃG���R�[�h�����o�C�g�z��Ƃ��āA�R�}���h�𑗂邩��ݒ肵�܂�
+'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
 '---------------------------------------------------------------------------------------------------
-'* GET�Ԓl �FUTF-8 �̕ϊ����쓮���Ă邩�̘_���l
-'* LET���� �F�E`True`   VBA�́uUnicode�v�������UTF-8�ŃG���R�[�h�����o�C�g�z��Ƃ��āA�R�}���h�𑗂�܂�
-'            �E`False`  VBA�́uUnicode�v�����񂻂̂܂�܂ŁA�R�}���h�𑗂�܂�
+'* GET返値 ：UTF-8 の変換が作動してるかの論理値
+'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
+'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
 '---------------------------------------------------------------------------------------------------
-'* �ڍא����F���{��ł̑��M���K�v�̏ꍇ��`True`�Őݒ肵�Ȃ��ƁA�r���œ��삪�~�܂邱�Ƃ����邽�߁A���̃v���p�e�B��݂��܂�
+'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
 '***************************************************************************************************
 Property Let UseConverterUtf8FromString(Flag As Boolean)
     If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
@@ -197,41 +201,69 @@ End Property
 ' Class Functions
 '===================================
  
-Public Sub serialize()
+Public Function serialize(UserName As String) As String
 '-------------------------------------------------------------------
 ' Create serialized Json string from the current browser instance.
 '-------------------------------------------------------------------
 
-    '�e�[�u���ɁA�n���h�������L�^����
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
-            WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2)).value = hStdOutRd
-            WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2)).value = hStdInWr
-            WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2)).value = hCDPOutRd
-            WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2)).value = hCDPInWr
-        End With
+    'データ記録準備
+    Dim tmp As String
+    With WorksheetFunction
+        tmp = "{""" & .TextJoin(""";""", False, _
+                            .TextJoin(""",""", False, UserName, "hStdOutRd", hStdOutRd), _
+                            .TextJoin(""",""", False, UserName, "hStderrOutRd", hStderrOutRd), _
+                            .TextJoin(""",""", False, UserName, "hStdInWr", hStdInWr), _
+                            .TextJoin(""",""", False, UserName, "hCDPOutRd", hCDPOutRd), _
+                            .TextJoin(""",""", False, UserName, "hCDPInWr", hCDPInWr), _
+                            .TextJoin(""",""", False, UserName, "dwProcessId", dwProcessId) _
+        ) & """}"
     End With
-End Sub
- 
- 
-Public Sub deserialize()
+
+    'Excelテーブルに、パイプハンドル情報を記録する
+    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
+    ShSetting01_StartBrowser.serializeToTable(1, "CDPCore.serialize") = Evaluate(tmp)
+
+    '作成情報の返却
+    serialize = tmp
+
+End Function
+
+Public Sub deserialize(UserName As String)
 '--------------------------------------------------------------------
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
 
-    '�e�[�u������A�n���h������ǂݍ���
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.serialize")).DataBodyRange
-            hStdOutRd = WorksheetFunction.XLookup("hStdOutRd", .Columns(1), .Columns(2), 0)
-            hStdInWr = WorksheetFunction.XLookup("hStdInWr", .Columns(1), .Columns(2), 0)
-            hCDPOutRd = WorksheetFunction.XLookup("hCDPOutRd", .Columns(1), .Columns(2), 0)
-            hCDPInWr = WorksheetFunction.XLookup("hCDPInWr", .Columns(1), .Columns(2), 0)
-        End With
-    End With
+    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    Dim PipeInfo As Dictionary
+    Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
+
+    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    If PipeInfo Is Nothing Then Exit Sub
+
+    'クラス内変数に適用
+    hStdOutRd = PipeInfo("hStdOutRd")
+    hStderrOutRd = PipeInfo("hStderrOutRd")
+    hStdInWr = PipeInfo("hStdInWr")
+    hCDPOutRd = PipeInfo("hCDPOutRd")
+    hCDPInWr = PipeInfo("hCDPInWr")
+    dwProcessId = PipeInfo("dwProcessId")
+
 End Sub
- 
- 
-Public Function Init(strExec As String) As Long
+
+'***************************************************************************************************
+'* 機能　　：正式にパイプハンドル情報をクリーニングします
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
+'***************************************************************************************************
+Public Sub ClosePipeCDP()
+    CloseHandle hStdOutRd
+    CloseHandle hStdInWr
+    CloseHandle hCDPOutRd
+    CloseHandle hCDPInWr
+    CloseHandle hStderrOutRd
+End Sub
+
+Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -243,36 +275,42 @@ Public Function Init(strExec As String) As Long
     Dim pipes As STDIO_BUFFER
     Dim pipes2 As STDIO_BUFFER2
  
-   'First we create all 4 pipes
+   'First we create all 5 pipes
    'We start with stdout of the edge process
-   'This pipe is used for stderr, too
     sa.nLength = LenB(sa)
     sa.bInheritHandle = 1&
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
-    
+
+    'stderr
+    result = CreatePipe(hStderrOutRd, hStderrOutWr, sa, 0)
+    If result = 0 Then
+        Init = Err.LastDllError     'エラーコードで返す
+        Exit Function
+    End If
+
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
    'Then the out pipe for the CDP Protocol
-    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)
+    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
    'And finally the in pipe
-    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 0)
+    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
-        Init = -2
+        Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
     
@@ -280,7 +318,7 @@ Public Function Init(strExec As String) As Long
     pipes.number_of_fds = 5
     pipes.os_handle(0) = hStdInRd
     pipes.os_handle(1) = hStdOutWr
-    pipes.os_handle(2) = hStdOutWr
+    pipes.os_handle(2) = hStderrOutWr
     pipes.os_handle(3) = hCDPInRd
     pipes.os_handle(4) = hCDPOutWr
     pipes.crt_flags(0) = 9
@@ -301,140 +339,182 @@ Public Function Init(strExec As String) As Long
         .dwFlags = STARTF_USESHOWWINDOW
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
-        .hStdError = hStdOutWr
-        .wShowWindow = SW_SHOWMINIMIZED 'minimize the window at start
+        .hStdError = hStderrOutWr
+        .wShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
-    
+
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
- 
-    If result = 0 Then Init = -1
-    
+
+    '実行結果チェック
+    If result = 0 Then
+        'エラーコードを返す
+        Init = Err.LastDllError
+
+        '失敗なので、自身で使用するはずだったハンドルも削除
+        ClosePipeCDP
+    Else
+        '成功は、0として返却
+        Init = 0
+    End If
+
    'We close the sides of the handles that we dont need anymore
     CloseHandle hStdOutWr
     CloseHandle hStdInRd
     CloseHandle hCDPOutWr
     CloseHandle hCDPInRd
-    
+    CloseHandle hStderrOutWr
+
     hProcess = proc.hProcess
-
-    '�v���Z�XID���c��
-    With ShSetting01_StartBrowser
-        With .ListObjects(.UseTableName(1, "CDPCore.Init")).DataBodyRange
-            WorksheetFunction.XLookup("dwProcessId", .Columns(1), .Columns(2)).value = proc.dwProcessId
-        End With
-    End With
-
-    Init = 0
+    dwProcessId = proc.dwProcessId
 
 End Function
 
 '***************************************************************************************************
-'* �@�\�@�@�FCDP �o�̓p�C�v����̓ǂݎ������݂܂�
+'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
 '---------------------------------------------------------------------------------------------------
-'* �Ԃ�l�@�F�ǂݎ�����o�C�g����Ԃ��܂��B
-'* �����@�@�FstrData            CDP-Json �̎��s���ʁA�u���E�U����̃C�x���g�����i�[�������ϐ��B�����Ԃ�l�ł�
-'            Err_PeekNamedPipe  PeekNamedPipe �ɂăG���[���N�������ۂ̃G���[�R�[�h���i�[���܂��B�����Ԃ�l�ł�
-'            Err_ReadFile       ReadFile �ɂăG���[���N�������ۂ̃G���[�R�[�h���i�[���܂��B�����Ԃ�l�ł�
+'* 返り値　：読み取ったバイト数を返します。
+'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
+'            Err_PeekNamedPipe  PeekNamedPipe にてエラーが起こった際のエラーコードを格納します。実質返り値です
+'            Err_ReadFile       ReadFile にてエラーが起こった際のエラーコードを格納します。実質返り値です
 '---------------------------------------------------------------------------------------------------
-'* �@�\�����F�ǂݎ��͔�u���b�L���O�ł��B�f�[�^���Ȃ��Ă��A���ɐi�߂�܂��B�e��G���[�R�[�h�́A��2�����ȍ~�Ŋm�F���ĉ������B
+'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、第2引数以降で確認して下さい。
+'* 注意事項：`strData`を初期化せずに、使いまわす場合、次のような仕様になります
+'            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：最後に受け取った`ReadFile`の内容を保持します
+'            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：その受信した`ReadFile`の内容に置き換わります
 '***************************************************************************************************
 Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As Long, ByRef Err_ReadFile As Long) As Long
-    '�G���[�R�[�h�̏�����
+    'エラーコードの初期化
     Err_PeekNamedPipe = 0
     Err_ReadFile = 0
 
     Dim lPeekData As Long
     Dim lngRes As Long
     
-    '��������������ƁA�߂�l�� 0 �ȊO�ɂȂ�܂��B
+    '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
-    
-    'API�֐�:PeekNamedPipe �����s�����ꍇ�́A0 ��Ԃ����߁A`Err_PeekNamedPipe`�ɃG���[�R�[�h���i�[
+
+    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
     If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
 
 
-    '�f�[�^������������ۂɁA�f�[�^����肷�鏈����
+    'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer As String
-        Dim L As Long
+        Dim Buffer() As Byte
         Dim bSuccess As Long
-        Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hCDPOutRd, ByVal Buffer, Len(Buffer), L, 0&)
-            
-        '0�ȊO�Ȃ琬���ł�
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
+
+        '0以外なら成功です
         If bSuccess Then
-            strData = Buffer
-            readProcCDP = Len(strData)
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
+            readProcCDP = lPeekData
         Else
-            'API�֐�:ReadFile �����s�����ꍇ�́A0 ��Ԃ����߁A`Err_ReadFile`�ɃG���[�R�[�h���i�[
+            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
             Err_ReadFile = Err.LastDllError
         End If
     End If
 End Function
 
-Public Function readProcSTD(ByRef strData As String) As Long
-' --------------------------------------------------------------------------------
-' Same as ReadProcCDP.
-'---------------------------------------------------------------------------------
- 
+'***************************************************************************************************
+'* 機能　　：標準出力エラーと標準出力を読み取ります
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：基本は、読み取ったバイト数を返しますが、
+'               -1：データなし or `PeekNamedPipe`でエラー
+'               -2：`ReadFile`でエラー
+'
+'* 引数　　：strData            標準出力エラーあるいは、標準出力内容を格納したい変数。実質返り値です
+'            ErrorMode          `True`  標準出力エラーで読み取り
+'                               `False` 標準出力で読み取り
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。
+'* 注意事項：ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます。
+'            実際のエラーコードも特に確認しません。
+'***************************************************************************************************
+Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
+    '使用するパイプ通信判定
+    Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
+
+    '処理が成功すると、戻り値は 0 以外になります。
     Dim lPeekData As Long
-    
-    PeekNamedPipe hStdOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
-    
+    PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
+
+
+    'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer As String
-        Dim L As Long
+        Dim Buffer() As Byte
         Dim bSuccess As Long
-        Buffer = Space$(lPeekData)
-        bSuccess = ReadFile(hStdOutRd, ByVal Buffer, Len(Buffer), L, 0&)
-        
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(UsehStdRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
+
         If bSuccess = 1 Then
-            strData = Buffer
-            readProcSTD = Len(strData)
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
+            readProcSTD = lPeekData
         Else
             readProcSTD = -2
         End If
-        
+
     Else
         readProcSTD = -1
     End If
  
 End Function
- 
- 
+
 Public Function writeProc(ByVal strData As String) As Long
 ' --------------------------------------------------------------------------------
 ' This functions sends a CDP message to the Chromium browser.
 '---------------------------------------------------------------------------------
  
     Dim lngWritten As Long
-    
-    'UTF-8�o�C�g�z����g�p���邩�H
-    If Utf8Converter Is Nothing Then
-        'VBA�́uUnicode�v�����񂻂̂܂�܂ŁA�R�}���h�𑗂�܂�
-        writeProc = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
-    Else
-        'VBA�́uUnicode�v�������UTF-8�ŃG���R�[�h�����o�C�g�z����擾���܂�
-        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData, True)
+    Dim ResultCode As Long
 
-        '���̃o�C�g�z��Ƃ��āA�R�}���h�𑗂�܂�
-        writeProc = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
+    'UTF-8バイト配列を使用するか？
+    If Utf8Converter Is Nothing Then
+        'VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+        ResultCode = WriteFile(hCDPInWr, ByVal strData, Len(strData), lngWritten, ByVal 0&)
+    Else
+        'VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列を取得します
+        Dim BinData() As Byte: BinData = Utf8Converter.BytesFromString(strData)
+
+        'そのバイト配列として、コマンドを送ります
+        ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
+
+    '失敗時は、実際のエラーコードで返します
+    If ResultCode = 0 Then writeProc = Err.LastDllError
 End Function
 
 
 
 '***************************************************************************************************
-'* �@�\�@�@�F�ݒ�V�[�g����A�ݒ�l��ǂݍ��݂܂�
+'* 機能　　：設定シートから、設定値を読み込みます
 '---------------------------------------------------------------------------------------------------
-'* �@�\�����F�N���X���W���[���\�z���A�ݒ�l��K�p�����܂�
+'* 機能説明：クラスモジュール構築時、設定値を適用させます
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    '------------------------- �N���X���ϐ��̈ꕔ�������� -------------------------
-    '�ݒ�V�[�g�̊e�Z������ݒ�l���擾���A�N���X���ϐ��ɓK�p���܂�
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
+        setShowWindow = .Range(.UseRangeName(12, "CDPCore.Class_Initialize")).value
     End With
 End Sub

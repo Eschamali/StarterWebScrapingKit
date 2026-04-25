@@ -8,10 +8,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'       VBA‚ÌuUnicodev(UTF-16)•¶š—ñ‚ğ•Ê‚Ì•¶šƒR[ƒh‚É•ÏŠ·‚µ‚½‚èA‚»‚Ì‹t‚ğs‚Á‚½‚è‚µ‚Ü‚·B
-'           WebAPI‚Ì‚â‚èæ‚è‚Æ‚©A“ú–{Œê‚ğŠÜ‚ñ‚¾CDP-JsonƒRƒ}ƒ“ƒh‚ğs‚¤Û‚É—˜—p‚µ‚Ü‚·B
-'          ‚¨‚Ü‚¯‚Æ‚µ‚ÄAƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‘‚«‚à‘Î‰‚µ‚Ü‚·BADODB.Stream ‚Ì‘ã‚í‚è‚É‚Ç‚¤‚¼!
-
+'       VBAã®ã€ŒUnicodeã€(UTF-16)æ–‡å­—åˆ—ã‚’åˆ¥ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰ã«å¤‰æ›ã—ãŸã‚Šã€ãã®é€†ã‚’è¡Œã£ãŸã‚Šã—ã¾ã™ã€‚
+'           WebAPIã®ã‚„ã‚Šå–ã‚Šã¨ã‹ã€æ—¥æœ¬èªã‚’å«ã‚“ã CDP-Jsonã‚³ãƒãƒ³ãƒ‰ã‚’è¡Œã†éš›ã«åˆ©ç”¨ã—ã¾ã™ã€‚
+'          ãŠã¾ã‘ã¨ã—ã¦ã€ãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿æ›¸ãã‚‚å¯¾å¿œã—ã¾ã™ã€‚ADODB.Stream ã®ä»£ã‚ã‚Šã«ã©ã†ã!
+'
+'   https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2
+'
 ' Written by David Ireland DI Management Services Pty Limited 2015
 ' <http://di-mgt.com.au> <http://cryptosys.net>
 ' @license MIT license <http://opensource.org/licenses/MIT>
@@ -19,19 +21,18 @@ Attribute VB_Exposed = False
 ' [2018-07-27] Updated to cope with empty or null input string.
 ' [2018-08-15] Added Utf8BytesToString and BytesLength functions.
 ' [2018-08-17] Added declaration for 64-bit Office.
-' [2026-01-15] ”CˆÓ‚Ì•ÏŠ·Œ³/•ÏŠ·æ‚ÌƒR[ƒhƒy[ƒW‚Ìİ’è‚ª‚Å‚«‚é‚æ‚¤‚É‰ü—ÇB
-'              `BytesFromString`ƒƒ\ƒbƒh‚É‚ÄAI’[null•¶š‚ğ•Û‚·‚é‚©œ‹‚·‚é‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚ğÀ‘•B
-'              ƒVƒ“ƒvƒ‹‚Èƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‘‚«‹@”\‚ğ’Ç‰Á(ƒoƒCƒiƒŠ[ƒ‚[ƒh‚Ì‚İ)
+' [2026-01-15] ä»»æ„ã®å¤‰æ›å…ƒ/å¤‰æ›å…ˆã®ã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã®è¨­å®šãŒã§ãã‚‹ã‚ˆã†ã«æ”¹è‰¯ã€‚
+'              `BytesFromString`ãƒ¡ã‚½ãƒƒãƒ‰ã«ã¦ã€çµ‚ç«¯nullæ–‡å­—ã‚’ä¿æŒã™ã‚‹ã‹é™¤å»ã™ã‚‹ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã‚’å®Ÿè£…ã€‚
+'              ã‚·ãƒ³ãƒ—ãƒ«ãªãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿æ›¸ãæ©Ÿèƒ½ã‚’è¿½åŠ (ãƒã‚¤ãƒŠãƒªãƒ¼ãƒ¢ãƒ¼ãƒ‰ã®ã¿)
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               ¡¡¡ •K—v‚ÈAPIéŒ¾ ¡¡¡
+'                               â– â– â–  å¿…è¦ãªAPIå®£è¨€ â– â– â– 
 '***************************************************************************************************
 ''' WinApi function that maps a UTF-16 (wide character) string to a new character string
-#If VBA7 Then
 Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
@@ -42,21 +43,8 @@ Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
     ByVal lpDefaultChar As Long, _
     ByVal lpUsedDefaultChar As Long _
     ) As Long
-#Else
-Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpWideCharStr As Long, _
-    ByVal cchWideChar As Long, _
-    ByVal lpMultiByteStr As Long, _
-    ByVal cbMultiByte As Long, _
-    ByVal lpDefaultChar As Long, _
-    ByVal lpUsedDefaultChar As Long _
-    ) As Long
-#End If
     
 ''' Maps a character string to a UTF-16 (wide character) string
-#If VBA7 Then
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
@@ -65,41 +53,57 @@ Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal lpWideCharStr As LongPtr, _
     ByVal cchWideChar As Long _
     ) As Long
-#Else
-Private Declare Function MultiByteToWideChar Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpMultiByteStr As Long, _
-    ByVal cchMultiByte As Long, _
-    ByVal lpWideCharStr As Long, _
-    ByVal cchWideChar As Long _
-    ) As Long
-#End If
+
+'å¤§å®¹é‡ãƒ•ã‚¡ã‚¤ãƒ«ã®æ›¸ãè¾¼ã¿ç”¨API
+'â€»2GBã‚’è¶…ãˆã‚‹æ›¸ãè¾¼ã¿ãŒå¿…è¦ã®å ´åˆã¯ä¸‹è¨˜ã‚’ã”åˆ©ç”¨ãã ã•ã„
+'Private Declare PtrSafe Function CreateFileW Lib "kernel32" (ByVal lpFileName As LongPtr, ByVal dwDesiredAccess As Long, ByVal dwShareMode As Long, ByVal lpSecurityAttributes As LongPtr, ByVal dwCreationDisposition As Long, ByVal dwFlagsAndAttributes As Long, ByVal hTemplateFile As LongPtr) As LongPtr
+'Private Declare PtrSafe Function WriteFile Lib "kernel32" (ByVal hFile As LongPtr, lpBuffer As Any, ByVal nNumberOfBytesToWrite As Long, lpNumberOfBytesWritten As Long, ByVal lpOverlapped As LongPtr) As Long
+'Private Declare PtrSafe Function CloseHandle Lib "kernel32" (ByVal hObject As LongPtr) As Long
+
 
 
 '***************************************************************************************************
-'                            ¡¡¡ •K—v‚ÈƒNƒ‰ƒX•Ï”/’è”éŒ¾ ¡¡¡
+'                            â– â– â–  å¿…è¦ãªã‚¯ãƒ©ã‚¹å¤‰æ•°/å®šæ•°å®£è¨€ â– â– â– 
 '***************************************************************************************************
-'------ ’è” ------
-Private Const CP_UTF8 As Long = 65001   ' CodePage constant for UTF-8
+'------ å®šæ•° ------
+'ã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ä¸€è¦§
+Public Enum CodePageParam
+    Shift_JIS = 932
+    UTF8 = 65001       ' CodePage constant for UTF-8
+End Enum
 
-'------ •Ï” ------
+'=== ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚„ã‚Šå–ã‚Šé–¢é€£å®šæ•° ===
+Private Const GENERIC_WRITE As Long = &H40000000
+Private Const FILE_SHARE_READ As Long = &H1
+Private Const FILE_ATTRIBUTE_NORMAL As Long = &H80
+
+' ãƒ¢ãƒ¼ãƒ‰ã®ä½¿ã„åˆ†ã‘
+Private Const CREATE_ALWAYS As Long = 2  ' ãƒ•ã‚¡ã‚¤ãƒ«ã‚’æ–°è¦ä½œæˆï¼ˆæ—¢ã«ã‚ã‚‹å ´åˆã¯ä¸Šæ›¸ãï¼‰
+Private Const OPEN_ALWAYS As Long = 4    ' ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã‚Œã°é–‹ãã€ãªã‘ã‚Œã°æ–°è¦ä½œæˆï¼ˆè¿½è¨˜ç”¨ï¼‰
+
+' ãƒã‚¤ãƒ³ã‚¿ç§»å‹•ç”¨
+Private Const FILE_END As Long = 2
+Private Const INVALID_HANDLE_VALUE As LongPtr = -1
+Private Const FILE_APPEND_DATA As Long = &H4
+
+'------ å¤‰æ•° ------
 Private UseCharacterCode As Long
+Private hFile As LongPtr
 
 
 
 '***************************************************************************************************
-'                                ¡¡¡ ƒvƒƒpƒeƒBƒƒ\ƒbƒh ¡¡¡
+'                                â– â– â–  ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F•ÏŠ·Œ³/•ÏŠ·æ‚Ì•¶šƒR[ƒh‚ğw’è‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šå¤‰æ›å…ƒ/å¤‰æ›å…ˆã®æ–‡å­—ã‚³ãƒ¼ãƒ‰ã‚’æŒ‡å®šã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* GET•Ô’l FŒ»İ‚ÌƒR[ƒhƒy[ƒW
-'* LETˆø” FƒZƒbƒg‚µ‚½‚¢ƒR[ƒhƒy[ƒW
+'* GETè¿”å€¤ ï¼šç¾åœ¨ã®ã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸
+'* LETå¼•æ•° ï¼šã‚»ãƒƒãƒˆã—ãŸã„ã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FVBA‚ÌuUnicodev(UTF-16)•¶š—ñ‚ğA‚Ç‚ñ‚È•¶šƒR[ƒh‚É•ÏŠ·‚·‚é‚©A‚ ‚é‚¢‚ÍŠO•”‚©‚ç“¾‚½‚Ç‚ñ‚È•¶šƒR[ƒh‚ğVBA‚ÌuUnicodev(UTF-16)•¶š—ñ‚É–ß‚·‚©‚ğİ’è‚Å‚«‚Ü‚·
-'* ’ˆÓ–€FƒfƒtƒHƒ‹ƒg‚ÍA65001(UTF-8)‚É‚µ‚Ä‚é‚Ì‚ÅŠî–{“I‚É‚Í•ÏX‚·‚é•K—v‚Í‚È‚¢‚Æv‚¢‚Ü‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šVBAã®ã€ŒUnicodeã€(UTF-16)æ–‡å­—åˆ—ã‚’ã€ã©ã‚“ãªæ–‡å­—ã‚³ãƒ¼ãƒ‰ã«å¤‰æ›ã™ã‚‹ã‹ã€ã‚ã‚‹ã„ã¯å¤–éƒ¨ã‹ã‚‰å¾—ãŸã©ã‚“ãªæ–‡å­—ã‚³ãƒ¼ãƒ‰ã‚’VBAã®ã€ŒUnicodeã€(UTF-16)æ–‡å­—åˆ—ã«æˆ»ã™ã‹ã‚’è¨­å®šã§ãã¾ã™
+'* æ³¨æ„äº‹é …ï¼šãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯ã€65001(UTF-8)ã«ã—ã¦ã‚‹ã®ã§åŸºæœ¬çš„ã«ã¯å¤‰æ›´ã™ã‚‹å¿…è¦ã¯ãªã„ã¨æ€ã„ã¾ã™
 '***************************************************************************************************
-Property Let CodePage(Code As Long)
+Property Let CodePage(Code As CodePageParam)
     UseCharacterCode = Code
 End Property
 
@@ -110,9 +114,15 @@ End Property
 
 
 '***************************************************************************************************
-'                            ¡¡¡ ƒvƒ‰ƒCƒx[ƒgƒƒ\ƒbƒh ¡¡¡
+'                            â– â– â–  ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-''' Return length of byte array or zero if uninitialized
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒã‚¤ãƒˆé…åˆ—ã®ã‚µã‚¤ã‚ºã‚’å–å¾—ã—ã¾ã™
+'---------------------------------------------------------------------------------------------------
+'* è¿”ã‚Šå€¤  ï¼šã‚µã‚¤ã‚º
+'* å¼•æ•°    ï¼šã‚µã‚¤ã‚ºã‚’è¨ˆæ¸¬ã—ãŸã„ãƒã‚¤ãƒˆé…åˆ—
+'---------------------------------------------------------------------------------------------------
+'* æ©Ÿèƒ½èª¬æ˜ï¼šReturn length of byte array or zero if uninitialized
+'***************************************************************************************************
 Private Function BytesLength(abBytes() As Byte) As Long
     ' Trap error if array is uninitialized
     On Error Resume Next
@@ -122,88 +132,147 @@ End Function
 
 
 '***************************************************************************************************
-'                            ¡¡¡ ƒƒCƒ“‚Ì•¶šƒR[ƒh•ÏŠ·ƒƒ\ƒbƒh ¡¡¡
+'                            â– â– â–  ãƒ¡ã‚¤ãƒ³ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰å¤‰æ›ãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-''' Return byte array with VBA "Unicode" string encoded in Specified character code
-Public Function BytesFromString(strInput As String, Optional TerminatingNullHold As Boolean) As Byte()
+'* æ©Ÿèƒ½ã€€ã€€ï¼šUnicodeæ–‡å­—åˆ—ã‚’æŒ‡å®šã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã®ãƒã‚¤ãƒˆé…åˆ—ã«å¤‰æ›ã—ã¾ã™
+'---------------------------------------------------------------------------------------------------
+'* è¿”ã‚Šå€¤  ï¼šæŒ‡å®šã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã®ãƒã‚¤ãƒˆé…åˆ—
+'* å¼•æ•°    ï¼šæŒ‡å®šã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã«å¤‰æ›ã—ãŸã„Unicodeæ–‡å­—åˆ—
+'---------------------------------------------------------------------------------------------------
+'* æ©Ÿèƒ½èª¬æ˜ï¼šReturn byte array with VBA "Unicode" string encoded in Specified character code
+'***************************************************************************************************
+Public Function BytesFromString(strInput As String) As Byte()
     Dim nBytes As Long
     Dim abBuffer() As Byte
-    
+    Dim InputSize As Long: InputSize = Len(strInput)
+
     ' Catch empty or null input string
     BytesFromString = vbNullString
-    If Len(strInput) < 1 Then Exit Function
-    
-    ' Get length in bytes *including* terminating null
-    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    If InputSize < 1 Then Exit Function
 
-    ' Booleanˆø”`TerminatingNullHold`‚Ìd—l‚ğ—˜—p‚µ‚ÄAI’[null‚ğœ‹‚·‚é‚©‚Ì•â³‚ğs‚¤
-    ReDim abBuffer(nBytes - 2 - TerminatingNullHold) ' NB ReDim with one less byte than you need
-    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), -1, VarPtr(abBuffer(0)), nBytes - 1 - TerminatingNullHold, 0&, 0&)
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), InputSize, 0&, 0&, 0&, 0&)
+
+    ReDim abBuffer(nBytes - 1) ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(UseCharacterCode, 0&, StrPtr(strInput), InputSize, VarPtr(abBuffer(0)), nBytes, 0&, 0&)
     BytesFromString = abBuffer
 End Function
 
-''' Return VBA "Unicode" string from byte array encoded in Specified character code
+'***************************************************************************************************
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã®ãƒã‚¤ãƒˆé…åˆ—ã‚’VBAã§æ‰±ãˆã‚‹Unicodeæ–‡å­—åˆ—ã«å¤‰æ›ã—ã¾ã™
+'---------------------------------------------------------------------------------------------------
+'* è¿”ã‚Šå€¤  ï¼šUnicodeæ–‡å­—åˆ—
+'* å¼•æ•°    ï¼šæŒ‡å®šã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã®ãƒã‚¤ãƒˆé…åˆ—
+'---------------------------------------------------------------------------------------------------
+'* æ©Ÿèƒ½èª¬æ˜ï¼šReturn VBA "Unicode" string from byte array encoded in Specified character code
+'***************************************************************************************************
 Public Function BytesToString(abArray() As Byte) As String
     Dim nBytes As Long
     Dim nChars As Long
     Dim strOut As String
-    BytesToString = ""
+
+    'åˆæœŸåŒ–
+    BytesToString = vbNullString
+
     ' Catch uninitialized input array
     nBytes = BytesLength(abArray)
-    If nBytes <= 0 Then Exit Function
+    If nBytes < 1 Then Exit Function
+
     ' Get number of characters in output string
-    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(0)), nBytes, 0&, 0&)
+    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, 0&, 0&)
+
     ' Dimension output buffer to receive string
-    strOut = String(nChars, 0)
-    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(0)), nBytes, StrPtr(strOut), nChars)
+    strOut = String(nChars, vbNullChar)
+    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, StrPtr(strOut), nChars)
     BytesToString = Left$(strOut, nChars)
 End Function
 
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒtƒ@ƒCƒ‹‚â‚èæ‚èƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â–  ãƒ•ã‚¡ã‚¤ãƒ«ã‚„ã‚Šå–ã‚Šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FƒoƒCƒg”z—ñ‚ğw’èƒpƒX‚É•Û‘¶‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒã‚¤ãƒˆé…åˆ—ã‚’æŒ‡å®šãƒ‘ã‚¹ã«ä¿å­˜ã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”@@FabArray    w’è‚Ì•¶šƒR[ƒh‚Ìƒ‹[ƒ‹‚É]‚Á‚½ƒoƒCƒiƒŠ”z—ñ
-'            FolderPath •Û‘¶æƒtƒHƒ‹ƒ_ƒpƒX
-'            FileName   ƒtƒ@ƒCƒ‹–¼
+'* å¼•æ•°ã€€ã€€ï¼šabArray    æŒ‡å®šã®æ–‡å­—ã‚³ãƒ¼ãƒ‰ã®ãƒ«ãƒ¼ãƒ«ã«å¾“ã£ãŸãƒã‚¤ãƒŠãƒªé…åˆ—
+'            FolderPath ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹
+'            FileName   ãƒ•ã‚¡ã‚¤ãƒ«å
+'            AddMode
+'               `True`  è¿½è¨˜ãƒ¢ãƒ¼ãƒ‰
+'               `False` ä¸Šæ›¸ããƒ¢ãƒ¼ãƒ‰
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FƒeƒLƒXƒg‚àŠ‘FAƒoƒCƒiƒŠƒf[ƒ^‚Å‚·BuOpen ƒXƒe[ƒgƒƒ“ƒgv‚ğg‚Á‚½ƒoƒCƒiƒŠ‘‚«‚İ‚ğs‚¢‚Ü‚·B
-'* ’ˆÓ–€FE–‘O‚ÉA`BytesFromString`‚ÅA•ÏŠ·Œã‚ÌƒoƒCƒg”z—ñ‚ğ“¾‚é•K—v‚ª‚ ‚è‚Ü‚·B
-'            E“¯–¼ƒpƒX‚ªAŠù‚É‚ ‚éê‡‚ÍAã‘‚«‚³‚ê‚Ü‚·BŒÄ‚Ño‚µ‘¤‚Å‘Îˆ‚µ‚Ä‚­‚¾‚³‚¢B
-'            E‹£‡‘Îô‚ÅA‘¼‚ÌƒvƒƒZƒX‚©‚ç‚Ì‘€ì‚Ì§ŒÀ‚ğİ‚¯‚Ü‚·B
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ†ã‚­ã‚¹ãƒˆã‚‚æ‰€è©®ã€ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿ã§ã™ã€‚ã€ŒOpen ã‚¹ãƒ†ãƒ¼ãƒˆãƒ¡ãƒ³ãƒˆã€ã‚’ä½¿ã£ãŸãƒã‚¤ãƒŠãƒªæ›¸ãè¾¼ã¿ã‚’è¡Œã„ã¾ã™ã€‚
+'* æ³¨æ„äº‹é …ï¼šãƒ»äº‹å‰ã«ã€`BytesFromString`ã§ã€å¤‰æ›å¾Œã®ãƒã‚¤ãƒˆé…åˆ—ã‚’å¾—ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚
+'            ãƒ»åŒåãƒ‘ã‚¹ãŒã€æ—¢ã«ã‚ã‚‹å ´åˆã¯ã€å‰Šé™¤â†’æ–°è¦ã«ã‚ˆã‚‹å®Ÿè³ªä¸Šæ›¸ãã¨ãªã‚Šã¾ã™ã€‚
+'            ãƒ»ç«¶åˆå¯¾ç­–ã§ã€ä»–ã®ãƒ—ãƒ­ã‚»ã‚¹ã‹ã‚‰ã®æ“ä½œã®åˆ¶é™ã‚’è¨­ã‘ã¾ã™ã€‚
+'            ãƒ»2GB(2^31æ–‡å­—)ã‚’è¶…ãˆã‚‹å®¹é‡ã¯éå¯¾å¿œã§ã™ã€‚ã©ã†ã—ã¦ã‚‚ãã®ä¸Šé™ã‚’è¶Šã—ãŸã„å ´åˆã¯ä¸‹è¨˜ã®ã‚³ãƒ¡ãƒ³ãƒˆã‚¢ã‚¦ãƒˆã‚’è§£é™¤ã—ã¦ã€Windows APIç‰ˆã«ã‚ˆã‚‹æ›¸ãè¾¼ã¿ã«åˆ‡ã‚Šæ›¿ãˆã¦ä¸‹ã•ã„ã€‚
 '***************************************************************************************************
-Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String)
+Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String, Optional AddMode As Boolean)
+    'ãƒ•ãƒ«ãƒ‘ã‚¹ç”Ÿæˆ
+    Dim FileFullpath As String: FileFullpath = FolderPath & "\" & FileName
+
+    'è¿½è¨˜ã˜ã‚ƒãªã„å ´åˆã¯ã€ãƒ‘ã‚¹ã«ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã£ãŸã‚‰å‰Šé™¤ã™ã‚‹ã‚ˆã†ã«ã—ã¾ã™
+    If Dir(FileFullpath) <> "" And Not (AddMode) Then Kill FileFullpath
+
+    'æ›¸ãè¾¼ã¿æº–å‚™
     Dim fNum As Integer: fNum = FreeFile
-    Open FolderPath & "\" & FileName For Binary Access Write Lock Read Write As #fNum
+    Open FileFullpath For Binary Access Write Lock Write As #fNum
+        'è¿½è¨˜ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã€ãƒ•ã‚¡ã‚¤ãƒ«ã®ã€Œ"ä¸€ç•ªã€æœ€å¾Œ"ã€ã¾ã§ã€ãƒã‚¤ãƒ³ã‚¿ã‚’ã€"ç§»å‹•"ã•ã›ã€ãã®ã€Œæ¬¡ã€ã®ä½ç½®ã‚’æ›¸ãè¾¼ã¿ã‚¹ã‚¿ãƒ¼ãƒˆä½ç½®ã«ã™ã‚‹
+        If AddMode Then Seek #fNum, LOF(fNum) + 1
+
+        'æ›¸ãè¾¼ã¿
         Put #fNum, , abArray
     Close #fNum
 End Sub
 
+'Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, fileName As String, Optional AddMode As Boolean, Optional ForceClose As Boolean = False)
+'    ' ãƒ•ãƒ«ãƒ‘ã‚¹ç”Ÿæˆ
+'    Dim FileFullpath As String: FileFullpath = FolderPath & "\" & fileName
+'    Static currentPath As String
+'
+'    ' 1. ã€Œé–‰ã˜ã¦ãã‚Œã€ã¨è¨€ã‚ã‚ŒãŸã‚‰é–‰ã˜ã‚‹
+'    If ForceClose Then
+'        If hFile <> 0 And hFile <> -1 Then CloseHandle hFile: hFile = 0
+'        Exit Sub
+'    End If
+'
+'    ' 2. ã¾ã é–‹ã„ã¦ã„ãªã„ã€ã¾ãŸã¯ãƒ‘ã‚¹ãŒå¤‰ã‚ã£ãŸã‚‰é–‹ãç›´ã™
+'    If hFile = 0 Or hFile = -1 Or currentPath <> FileFullpath Then
+'        If hFile <> 0 Then CloseHandle hFile
+'        hFile = CreateFileW(StrPtr(FileFullpath), FILE_APPEND_DATA, FILE_SHARE_READ, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0)
+'        currentPath = FileFullpath
+'    End If
+'
+'    ' 3. æ›¸ãè¾¼ã¿ï¼ˆãƒãƒ³ãƒ‰ãƒ«ãŒç”Ÿãã¦ã„ã‚‹ã®ã§çˆ†é€Ÿï¼ï¼‰
+'    If hFile <> -1 Then
+'        Call WriteFile(hFile, abArray(0), UBound(abArray) + 1, bytesWritten, 0)
+'    End If
+'
+'End Sub
+
 '***************************************************************************************************
-'* ‹@”\@@Fƒtƒ@ƒCƒ‹‚Ì’†g‚ğƒoƒCƒiƒŠƒf[ƒ^‚Æ‚µ‚Ä“Ç‚İ‚İ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ•ã‚¡ã‚¤ãƒ«ã®ä¸­èº«ã‚’ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿ã¨ã—ã¦èª­ã¿è¾¼ã¿ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* •Ô‚è’l@FƒoƒCƒg”z—ñ
-'* ˆø”@@FFolderPath •Û‘¶æƒtƒHƒ‹ƒ_ƒpƒX
-'            FileName   ƒtƒ@ƒCƒ‹–¼
+'* è¿”ã‚Šå€¤ã€€ï¼šãƒã‚¤ãƒˆé…åˆ—
+'* å¼•æ•°ã€€ã€€ï¼šFolderPath ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€ãƒ‘ã‚¹
+'            FileName   ãƒ•ã‚¡ã‚¤ãƒ«å
 '---------------------------------------------------------------------------------------------------
-'* ‹@”\à–¾FƒeƒLƒXƒg‚àŠ‘FAƒoƒCƒiƒŠƒf[ƒ^‚Å‚·BuOpen ƒXƒe[ƒgƒƒ“ƒgv‚ÅƒoƒCƒiƒŠƒf[ƒ^‚Å“Ç‚İ‚ñ‚¾ŒãA`BytesToString`‚ÅƒfƒR[ƒh‚µ‚Ä‚­‚¾‚³‚¢B
-'* ’ˆÓ–€F‹£‡‘Îô‚ÅA‘¼‚ÌƒvƒƒZƒX‚©‚ç‚Ì‘€ì‚Ì§ŒÀ‚ğİ‚¯‚Ü‚·
+'* æ©Ÿèƒ½èª¬æ˜ï¼šãƒ†ã‚­ã‚¹ãƒˆã‚‚æ‰€è©®ã€ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿ã§ã™ã€‚ã€ŒOpen ã‚¹ãƒ†ãƒ¼ãƒˆãƒ¡ãƒ³ãƒˆã€ã§ãƒã‚¤ãƒŠãƒªãƒ‡ãƒ¼ã‚¿ã§èª­ã¿è¾¼ã‚“ã å¾Œã€`BytesToString`ã§ãƒ‡ã‚³ãƒ¼ãƒ‰ã—ã¦ãã ã•ã„ã€‚
+'* æ³¨æ„äº‹é …ï¼šãƒ»ç«¶åˆå¯¾ç­–ã§ã€ä»–ã®ãƒ—ãƒ­ã‚»ã‚¹ã‹ã‚‰ã®æ“ä½œã®åˆ¶é™ã‚’è¨­ã‘ã¾ã™
+'            ãƒ»2GB(2^31æ–‡å­—)ã‚’è¶…ãˆã‚‹å®¹é‡ã¯éå¯¾å¿œã§ã™ãŒã€ã¾ãï½å¤šåˆ†ã¤ã‹ã†ã“ã¨ã¯ãªã„ã¯ãšã§ã™...
 '***************************************************************************************************
 Function BytesFromSavedFile(FolderPath As String, FileName As String) As Byte()
     Dim fNum As Integer: fNum = FreeFile
-    Open FolderPath & "\" & FileName For Binary Access Read Lock Read Write As #fNum
-        'ƒtƒ@ƒCƒ‹ƒTƒCƒY‚ª‚ ‚é‚©H
+    Open FolderPath & "\" & FileName For Binary Access Read Lock Read As #fNum
+        'ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºãŒã‚ã‚‹ã‹ï¼Ÿ
         If LOF(fNum) > 0 Then
-            ' ƒtƒ@ƒCƒ‹ƒTƒCƒY•ª‚Ì”z—ñ‚ğŠm•Ûi0ƒx[ƒX‚È‚Ì‚Å -1j
+            ' ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºåˆ†ã®é…åˆ—ã‚’ç¢ºä¿ï¼ˆ0ãƒ™ãƒ¼ã‚¹ãªã®ã§ -1ï¼‰
             ReDim BytesFromSavedFile(0 To LOF(fNum) - 1)
             
-            ' ˆêŠ‡“Ç‚İ‚İI
+            ' ä¸€æ‹¬èª­ã¿è¾¼ã¿ï¼
             Get #fNum, , BytesFromSavedFile
         Else
-            ' 0ƒoƒCƒgƒtƒ@ƒCƒ‹‚Ìê‡
+            ' 0ãƒã‚¤ãƒˆãƒ•ã‚¡ã‚¤ãƒ«ã®å ´åˆ
             BytesFromSavedFile = vbNullString
         End If
     Close #fNum
@@ -212,9 +281,9 @@ End Function
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒNƒ‰ƒX\’zƒvƒƒV[ƒWƒƒ ¡¡¡
+'                           â– â– â–  ã‚¯ãƒ©ã‚¹æ§‹ç¯‰æ™‚ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    '•ÏŠ·æ/•ÏŠ·Œ³ ‚ÌƒfƒtƒHƒ‹ƒgƒR[ƒhƒy[ƒW‚ÍAUTF-8‚É‚µ‚Ü‚·
-    UseCharacterCode = CP_UTF8
+    'å¤‰æ›å…ˆ/å¤‰æ›å…ƒ ã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã‚³ãƒ¼ãƒ‰ãƒšãƒ¼ã‚¸ã¯ã€UTF-8ã«ã—ã¾ã™
+    UseCharacterCode = CodePageParam.UTF8
 End Sub

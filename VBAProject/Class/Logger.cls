@@ -73,6 +73,35 @@ Option Explicit
 
 
 
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)    'ミリ秒単位を扱うためのAPI(時差は、ローカルPCに準拠)
+Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)   'ミリ秒単位を扱うためのAPI(UTC準拠)
+
+'構造体宣言
+Private Type SYSTEMTIME
+    wYear As Integer
+    wMonth As Integer
+    wDayOfWeek As Integer
+    wDay As Integer
+    wHour As Integer
+    wMinute As Integer
+    wSecond As Integer
+    wMilliseconds As Integer
+End Type
+
+'ログレベル設定用ユーザー定義
+Public Enum LogLevelName
+    Trace_
+    Debug_
+    info_
+    WARN_
+    ERROR_
+End Enum
+
+
+
 Public LogCallback As Variant
 
 ''
@@ -86,6 +115,10 @@ Public LogCallback As Variant
 ' @default 0
 ''
 Private LogThreshold As Long
+Private UTCMode As Boolean
+Private doPrintDbgMsg As Boolean        'イミディエイトに、デバッグメッセージを出すか
+
+Private SaveLogObj As New CharacterCodeConversion
 
 ''
 ' @property LogEnabled
@@ -100,8 +133,10 @@ Public Property Let LogLevel(value As Long)
     LogThreshold = value
 End Property
 
+
+
 ' ============================================= '
-' Public Methods
+' Private Methods
 ' ============================================= '
 
 ''
@@ -110,7 +145,7 @@ End Property
 ' @param {String} Message
 ' @param {String} [From = ""]
 ''
-Private Sub Log(Level As Long, message As String, Optional From As String)
+Private Sub Log(Level As Long, message As String, Optional From As String, Optional SaveLogFolderPath As String, Optional LogFileName As String)
     If LogThreshold = 0 Or Level < LogThreshold Then
         Exit Sub
     End If
@@ -131,31 +166,77 @@ Private Sub Log(Level As Long, message As String, Optional From As String)
         ' comment out the above Application.Run code to fix compilation issues
         ' and manually insert the logging functionality here
         '
-        Dim log_LevelValue As String
+        Dim log_LevelValue As String * 5
         Select Case Level
         Case 1
-            log_LevelValue = "Trace"
+            log_LevelValue = "TRACE"
         Case 2
-            log_LevelValue = "Debug"
+            log_LevelValue = "DEBUG"
         Case 3
-            log_LevelValue = "Info "
+            log_LevelValue = "INFO"
         Case 4
-            log_LevelValue = "WARN "
+            log_LevelValue = "WARN"
         Case 5
             log_LevelValue = "ERROR"
         End Select
-    
-        Debug.Print "[" & Format(Now(), "yyyy/mm/dd hh:mm:ss") & "] " & log_LevelValue & " " & IIf(From <> "", "{" & From & "} ", "") & message
+
+        '文字列生成
+        Dim fromFixedLength As String * 50: fromFixedLength = From  '固定長文字列に変換して、ログの見た目を整える
+        Dim LogString As String: LogString = "[" & GetNowFormat(UTCMode) & "] " & log_LevelValue & " | " & fromFixedLength & " " & message
+
+        'イミディエイトへ表示
+        If doPrintDbgMsg Then Debug.Print LogString
+
+        'ファイルパスが指定されてたら、ログファイルへ保存
+        If SaveLogFolderPath <> "" And LogFileName <> "" Then
+            With SaveLogObj
+                .BytesToSaveFile .BytesFromString(LogString & vbCrLf), SaveLogFolderPath, LogFileName, True
+            End With
+        End If
     End If
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：現在日時をミリ秒単位で取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`yyyy/mm/dd hh:mm:ss.fff`という書式
+'* 引数　　：UseUTC
+'               `True`　UTC基準で取得
+'               `False` 時差込みで取得(ローカルPCの設定に依存)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：関数自体やPC環境ごとにミリ秒の精度に誤差があるため、実際の時刻とはどうしても数ミリ秒から数10ミリ秒程度でズレてしまうことは認識しておく必要があります。
+'***************************************************************************************************
+Private Function GetNowFormat(Optional UseUTC As Boolean) As String
+    Dim t As SYSTEMTIME
+
+    ' 現在日時取得
+    If UseUTC Then GetSystemTime t Else GetLocalTime t
+
+    ' `yyyy/mm/dd hh:mm:ss.fff`に整形
+    With t
+        GetNowFormat = Format(.wYear, "0000") & "/" & _
+                       Format(.wMonth, "00") & "/" & _
+                       Format(.wDay, "00") & " " & _
+                       Format(.wHour, "00") & ":" & _
+                       Format(.wMinute, "00") & ":" & _
+                       Format(.wSecond, "00") & "." & _
+                       Format(.wMilliseconds, "000")
+    End With
+End Function
+
+
+
+' ============================================= '
+' Public Methods
+' ============================================= '
 
 ''
 ' @method LogTrace
 ' @param {String} Message
 ' @param {String} From
 ''
-Public Sub LogTrace(message As String, Optional From As String)
-    Log 1, message, From
+Public Sub LogTrace(message As String, Optional From As String, Optional FolderPath As String, Optional FileName As String)
+    Log 1, message, From, FolderPath, FileName
 End Sub
 
 ''
@@ -163,8 +244,8 @@ End Sub
 ' @param {String} Message
 ' @param {String} [From = ""]
 ''
-Public Sub LogDebug(message As String, Optional From As String)
-    Log 2, message, From
+Public Sub LogDebug(message As String, Optional From As String, Optional FolderPath As String, Optional FileName As String)
+    Log 2, message, From, FolderPath, FileName
 End Sub
 
 ''
@@ -172,8 +253,8 @@ End Sub
 ' @param {String} Message
 ' @param {String} [From = ""]
 ''
-Public Sub LogInfo(message As String, Optional From As String)
-    Log 3, message, From
+Public Sub LogInfo(message As String, Optional From As String, Optional FolderPath As String, Optional FileName As String)
+    Log 3, message, From, FolderPath, FileName
 End Sub
 
 ''
@@ -181,8 +262,8 @@ End Sub
 ' @param {String} Message
 ' @param {String} [From = ""]
 ''
-Public Sub LogWarn(message As String, Optional From As String)
-    Log 4, message, From
+Public Sub LogWarn(message As String, Optional From As String, Optional FolderPath As String, Optional FileName As String)
+    Log 4, message, From, FolderPath, FileName
 End Sub
 
 ''
@@ -191,7 +272,7 @@ End Sub
 ' @param {String} [From = ""]
 ' @param {Long} [ErrNumber = 0]
 ''
-Public Sub LogError(message As String, Optional From As String, Optional ErrNumber As Long = 0)
+Public Sub LogError(message As String, Optional From As String, Optional FolderPath As String, Optional FileName As String, Optional ErrNumber As Long = 0)
     Dim log_ErrorValue As String
     If ErrNumber <> 0 Then
         log_ErrorValue = ErrNumber
@@ -201,30 +282,20 @@ Public Sub LogError(message As String, Optional From As String, Optional ErrNumb
             log_ErrorValue = log_ErrorValue & " (" & (ErrNumber - vbObjectError) & " / " & VBA.LCase$(VBA.Hex$(ErrNumber)) & ")"
         End If
         
-        log_ErrorValue = log_ErrorValue & ", "
+        log_ErrorValue = " | ErrorCode: " & log_ErrorValue
     End If
 
-    Log 5, log_ErrorValue & message, From
+    Log 5, message & log_ErrorValue, From, FolderPath, FileName
 End Sub
 
 
 
-'���������ɁA�����t���R���p�C������ ����ɁA�������O���x�������߂�
 Private Sub Class_Initialize()
-    #If LOG_LEVEL = 4 Then
-        LogThreshold = 4
-    
-    #ElseIf LOG_LEVEL = 3 Then
-        LogThreshold = 3
-    
-    #ElseIf LOG_LEVEL = 2 Then
-        LogThreshold = 2
-        
-    #ElseIf LOG_LEVEL = 1 Then
-        LogThreshold = 1
-    
-    #Else
-        LogThreshold = 0
-
-    #End If
+    '------------------------- クラス内変数の一部を初期化 -------------------------
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'イミディエイトに表示させるか？
+        LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ログレベルの設定
+    End With
+    '------------------------------------------------------------------------------
 End Sub

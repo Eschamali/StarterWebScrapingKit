@@ -1,6 +1,6 @@
 Attribute VB_Name = "XmlConverter"
 ''
-' VBA-XML v0.4.3
+' VBA-XML v0.4.4
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-XML
 '
 ' XML Converter for VBA
@@ -593,7 +593,7 @@ Public Function ConvertToXml(ByVal XmlValue As Variant, Optional ByVal Whitespac
             
             ConvertToXml = xml_BufferToString(xml_Buffer, xml_BufferPosition)
         Else
-            If Not XmlValue Is Nothing Then 
+            If Not XmlValue Is Nothing Then
                 Err.Raise 11001, "XMLConverter", "Error parsing XML:" & VBA.vbNewLine & _
                     "`" & VBA.TypeName(XmlValue) & "` is a unrecognised XML object. ConvertToXml method will need " & _
                     "to be updated to correctly convert this XML object."
@@ -702,13 +702,14 @@ End Function
 ''
 Private Function xml_ParseAttributes(xml_String As String, ByRef xml_Index As Long) As Collection
     Dim xml_Char As String
-    Dim xml_StartIndex As Long
+    Dim xml_Buffer As String
+    Dim xml_BufferPosition As Long
+    Dim xml_BufferLength As Long
     Dim xml_Quote As String
     Dim xml_Name As String
     
     Set xml_ParseAttributes = New Collection
     xml_SkipWhiteSpace xml_String, xml_Index
-    xml_StartIndex = xml_Index
     
     Do While xml_Index > 0 And xml_Index <= VBA.Len(xml_String)
         xml_Char = VBA.Mid$(xml_String, xml_Index, 1)
@@ -717,12 +718,11 @@ Private Function xml_ParseAttributes(xml_String As String, ByRef xml_Index As Lo
         Case "="
             If xml_Name = vbNullString Then
                 ' Found end of attribute name
-                ' Extract name, skip '=', find quote char, reset start index
-                xml_Name = VBA.Mid$(xml_String, xml_StartIndex, xml_Index - xml_StartIndex)
-                xml_Index = xml_Index + 1
-                xml_Quote = VBA.Mid$(xml_String, xml_Index, 1)
-                xml_Index = xml_Index + 1
-                xml_StartIndex = xml_Index
+                xml_Name = xml_BufferToString(xml_Buffer, xml_BufferPosition)           ' Extract name from buffer.
+                xml_Buffer = vbNullString: xml_BufferPosition = 0: xml_BufferLength = 0 ' Reset buffer.
+                xml_Index = xml_Index + 1                                               ' Skip '='.
+                xml_Quote = VBA.Mid$(xml_String, xml_Index, 1)                          ' Find & store quote character.
+                xml_Index = xml_Index + 1                                               ' Skip quote character.
                 
                 ' Check for valid quote style of attribute value
                 If Not xml_Quote = """" And Not xml_Quote = "'" Then
@@ -733,29 +733,32 @@ Private Function xml_ParseAttributes(xml_String As String, ByRef xml_Index As Lo
                 ' '=' exists within attribute value. Continue.
                 xml_Index = xml_Index + 1
             End If
+        Case "&"
+            ' Remove encoding from XML string. See `xml_Encode`/`xml_Decode` for additional information.
+            xml_BufferAppend xml_Buffer, xml_Decode(xml_String, xml_Index), xml_BufferPosition, xml_BufferLength
+            
         Case xml_Quote
             ' Found end of attribute value
             ' Store name, value as new attribute.
             With xml_ParseAttributes
                 .Add New Dictionary
                 .Item(.Count).Add "name", xml_Name
-                .Item(.Count).Add "value", VBA.Mid$(xml_String, xml_StartIndex, xml_Index - xml_StartIndex)
+                .Item(.Count).Add "value", xml_BufferToString(xml_Buffer, xml_BufferPosition)
             End With
             
-            ' Reset variables.
-            xml_Name = vbNullString
-            xml_Quote = vbNullString
+            ' Reset loop variables & buffer.
+            xml_Name = vbNullString: xml_Quote = vbNullString: xml_Buffer = vbNullString: xml_BufferPosition = 0: xml_BufferLength = 0
             
             ' Increment.
             xml_Index = xml_Index + 1
             xml_SkipWhiteSpace xml_String, xml_Index
-            xml_StartIndex = xml_Index
             
             ' Check for end of tag.
             If VBA.Mid$(xml_String, xml_Index, 1) = ">" Or VBA.Mid$(xml_String, xml_Index, 2) = "/>" Then
                 Exit Function ' End of tag, exit.
             End If
         Case Else
+            xml_BufferAppend xml_Buffer, xml_Char, xml_BufferPosition, xml_BufferLength
             xml_Index = xml_Index + 1
         End Select
     Loop
@@ -960,38 +963,8 @@ Private Function xml_ParseText(xml_String As String, ByRef xml_Index As Long) As
             xml_ParseText = xml_BufferToString(xml_Buffer, xml_BufferPosition)
             Exit Function
         Case "&"
-            ' Remove encoding from XML string. See `xml_Encode` for additional information.
-            ' Store start of encoded char and continue.
-            xml_StartIndex = xml_Index
-            xml_Index = xml_Index + 1
-            xml_EncodedFound = False
-            ' Find close of encoded char.
-            Do While xml_Index > 0 And xml_Index <= VBA.Len(xml_String)
-                xml_Char = VBA.Mid$(xml_String, xml_Index, 1)
-                Select Case xml_Char
-                Case ";"
-                    xml_EncodedFound = True
-                    Select Case VBA.Mid$(xml_String, xml_StartIndex, xml_Index - xml_StartIndex + 1)
-                    Case "&quot;"
-                        xml_BufferAppend xml_Buffer, """", xml_BufferPosition, xml_BufferLength
-                    Case "&amp;"
-                        xml_BufferAppend xml_Buffer, "&", xml_BufferPosition, xml_BufferLength
-                    Case "&apos;"
-                        xml_BufferAppend xml_Buffer, "'", xml_BufferPosition, xml_BufferLength
-                    Case "&lt;"
-                        xml_BufferAppend xml_Buffer, "<", xml_BufferPosition, xml_BufferLength
-                    Case "&gt;"
-                        xml_BufferAppend xml_Buffer, ">", xml_BufferPosition, xml_BufferLength
-                    Case Else
-                        Err.Raise 10101, "XMLConverter", xml_ParseErrorMessage(xml_String, xml_Index, "Expecting '&quot;', '&amp;', '&apos;', '&lt;' or '&gt;'")
-                    End Select
-                    xml_Index = xml_Index + 1
-                    Exit Do
-                Case Else
-                    xml_Index = xml_Index + 1
-                End Select
-            Loop
-            If Not xml_EncodedFound Then Err.Raise 10101, "XMLConverter", xml_ParseErrorMessage(xml_String, xml_Index, "Expecting ';'")
+            ' Remove encoding from XML string. See `xml_Encode`/`xml_Decode` for additional information.
+            xml_BufferAppend xml_Buffer, xml_Decode(xml_String, xml_Index), xml_BufferPosition, xml_BufferLength
         Case Else
             xml_BufferAppend xml_Buffer, xml_Char, xml_BufferPosition, xml_BufferLength
             xml_Index = xml_Index + 1
@@ -1073,6 +1046,57 @@ Private Function xml_IsVoidNode(xml_Node As Variant) As Boolean
     Case "CustomXMLNode"
         xml_IsVoidNode = (xml_Node.ChildNodes.Count = 0 And xml_Node.Text = vbNullString)
     End Select
+End Function
+
+''
+' Remove encoding from XML string.
+'
+' <title lang="en">Harry Potter &amp; the prisoner...</title>
+'                               ^    ^
+'                             Start End
+' Text --> '&'
+'
+' @method xml_Decode
+' @param {String} xml_String | Complete XML string to parse.
+' @param {Long} xml_Index | Current index position in XML string.
+' @return {String} Decoded Character.
+''
+Private Function xml_Decode(xml_String As String, ByRef xml_Index As Long) As String
+    Dim xml_Char As String
+    Dim xml_StartIndex As Long
+    Dim xml_EncodedFound As Boolean
+    
+    ' Store start of encoded char and continue.
+    xml_StartIndex = xml_Index
+    xml_Index = xml_Index + 1
+    xml_EncodedFound = False
+    ' Find close of encoded char.
+    Do While xml_Index > 0 And xml_Index <= VBA.Len(xml_String)
+        xml_Char = VBA.Mid$(xml_String, xml_Index, 1)
+        Select Case xml_Char
+        Case ";"
+            xml_EncodedFound = True
+            Select Case VBA.Mid$(xml_String, xml_StartIndex, xml_Index - xml_StartIndex + 1)
+            Case "&quot;"
+                xml_Decode = """"
+            Case "&amp;"
+                xml_Decode = "&"
+            Case "&apos;"
+                xml_Decode = "'"
+            Case "&lt;"
+                xml_Decode = "<"
+            Case "&gt;"
+                xml_Decode = ">"
+            Case Else
+                Err.Raise 10101, "XMLConverter", xml_ParseErrorMessage(xml_String, xml_Index, "Expecting '&quot;', '&amp;', '&apos;', '&lt;' or '&gt;'")
+            End Select
+            xml_Index = xml_Index + 1
+            Exit Do
+        Case Else
+            xml_Index = xml_Index + 1
+        End Select
+    Loop
+    If Not xml_EncodedFound Then Err.Raise 10101, "XMLConverter", xml_ParseErrorMessage(xml_String, xml_Index, "Expecting ';' to indicate end of escaped character")
 End Function
 
 Private Function xml_Encode(xml_Text As Variant, Optional xml_QuoteChar As String = vbNullString) As String
