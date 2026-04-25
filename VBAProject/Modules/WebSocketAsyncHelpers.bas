@@ -91,13 +91,9 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     'ObjPtr(target) → vtable ポインタを読む
     pa.sa.pvData = ObjPtr(Target)
     pa.sa.rgsabound0.cElements = 1
-
-#If x32 Then
-    '--- x32: vtable[7] = WinHttpCallbackProc のアドレスを事前取得 ---
-    ' (SafeTimer は vtable[8] = TimerProc だったが、本実装は vtable[7] = 先頭ユーザーメソッド)
+    Dim targetObjPtr As LongPtr: targetObjPtr = ObjPtr(Target)
     pa.sa.pvData = pa.arr(0) + PtrSize * 7
-    Dim tProcPtr As Long: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
-#End If
+    Dim tProcPtr As LongPtr: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
 
     'EntryPoint アドレスを戻り値にセット（EBMode チェック付きトランポリン）
     GetWinHttpCallbackProc = VBA.Int(AddressOf EntryPoint)
@@ -105,34 +101,37 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（計29バイト）---
+    '--- x64 マシンコード（計42バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
     '   RCX=hInternet, RDX=dwContext(=ObjPtr), R8=dwInternetStatus,
     '   R9=lpvStatusInformation, [RSP+28h]=dwStatusInformationLength
     '
-    ' 目標：RDX(ObjPtr) → RCX(this)、残り引数をシフト、vtable[7] を呼ぶ
+    ' 目標：RCX に this(ObjPtr(target)) を即値で設定し、メソッドポインタを直接 CALL する
     '
     ' 注意：[RSP+28h] の読み取りは SUB の前に行う（スタックシフト後はオフセットがずれる）
     '       Windows x64 ABI の 16byte アライン維持のため、PUSH RBP は使わない。
     '
-    If (pa.arr(0) And &HFFFFFF) <> &HD18948 Then
-        '48 89 D1          MOV RCX, RDX          ; dwContext(ObjPtr) → this
-        pa.arr(0) = &HD18948
-        '4C 89 C2          MOV RDX, R8           ; dwInternetStatus をシフト
-        pa.sa.pvData = aPtr + 3:  pa.arr(0) = &HC2894C
-        '4D 89 C8          MOV R8, R9            ; lpvStatusInformation をシフト
-        pa.sa.pvData = aPtr + 6:  pa.arr(0) = &HC8894D
-        '4C 8B 4C 24       MOV R9, [RSP+28h] の前半4バイト
-        pa.sa.pvData = aPtr + 9:  pa.arr(0) = &H244C8B4C
-        '28                MOV R9, [RSP+28h] の最終バイト（+ 次命令の開始）
-        pa.sa.pvData = aPtr + 13: pa.arr(0) = &H18B4828    '28 48 8B 01
-        '                  ↑ 28=MOV R9[RSP+28h]終端, 48 8B 01=MOV RAX,[RCX]の開始
-        pa.sa.pvData = aPtr + 17: pa.arr(0) = &H28EC8348   '48 83 EC 28  SUB RSP,0x28
-        'FF 50 38          CALL [RAX+0x38]       ; vtable[7]=WinHttpCallbackProc (7×8=0x38)
-        pa.sa.pvData = aPtr + 21: pa.arr(0) = &H3850FF
-        pa.sa.pvData = aPtr + 24: pa.arr(0) = &H28C48348   '48 83 C4 28  ADD RSP,0x28
-        pa.sa.pvData = aPtr + 28: pa.arr(0) = &HC3&        'C3       RET
-    End If
+    '48 B9 <imm64>      MOV RCX, targetObjPtr
+    pa.arr(0) = &HB948
+    pa.sa.pvData = aPtr + 2: pa.arr(0) = targetObjPtr
+    '4C 89 C2           MOV RDX, R8
+    pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2894C
+    '4D 89 C8           MOV R8, R9
+    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HC8894D
+    '4C 8B 4C 24 28     MOV R9, [RSP+28h]
+    pa.sa.pvData = aPtr + 16: pa.arr(0) = &H244C8B4C
+    pa.sa.pvData = aPtr + 20: pa.arr(0) = &H28&
+    '48 83 EC 28        SUB RSP, 28h
+    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28EC8348
+    '48 B8 <imm64>      MOV RAX, tProcPtr
+    pa.sa.pvData = aPtr + 25: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 27: pa.arr(0) = tProcPtr
+    'FF D0              CALL RAX
+    pa.sa.pvData = aPtr + 35: pa.arr(0) = &HD0FF&
+    '48 83 C4 28        ADD RSP, 28h
+    pa.sa.pvData = aPtr + 37: pa.arr(0) = &H28C48348
+    'C3                 RET
+    pa.sa.pvData = aPtr + 41: pa.arr(0) = &HC3&
     'DummyASM アドレスを EntryPoint+55 の位置に書き込む（EBMode トランポリン完成）
     pa.sa.pvData = GetWinHttpCallbackProc + 55
 
@@ -144,20 +143,17 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     '
     ' 目標：[ESP+08](ObjPtr) を [ESP+04] に上書き → this として WinHttpCallbackProc へジャンプ
     '
-    If pa.arr(0) <> &H824448B Then
-        '8B 44 24 08       MOV EAX, [ESP+08]     ; dwContext(ObjPtr) 取得
-        pa.arr(0) = &H824448B
-        '89 44 24 04       MOV [ESP+04], EAX     ; hInternet 位置に上書き（this として渡す）
-        pa.sa.pvData = aPtr + 4:  pa.arr(0) = &H4244489
-        'B8                MOV EAX, ...          ; WinHttpCallbackProc アドレスを即値ロード
-        pa.sa.pvData = aPtr + 8:  pa.arr(0) = &HB8&
-        '                  (WinHttpCallbackProc の絶対アドレス)
-        pa.sa.pvData = aPtr + 9:  pa.arr(0) = tProcPtr
-        'FF E0             JMP EAX
-        pa.sa.pvData = aPtr + 13: pa.arr(0) = &HE0FF&
-        'C2 14 00          RET 0x14              ; 5引数 × 4byte = 0x14（SetTimer は 0x10）
-        pa.sa.pvData = aPtr + 15: pa.arr(0) = &H14C2&
-    End If
+    '8B 44 24 08       MOV EAX, [ESP+08]     ; dwContext(ObjPtr) 取得
+    pa.arr(0) = &H824448B
+    '89 44 24 04       MOV [ESP+04], EAX     ; hInternet 位置に上書き（this として渡す）
+    pa.sa.pvData = aPtr + 4:  pa.arr(0) = &H4244489
+    'B8 + imm32        MOV EAX, tProcPtr
+    pa.sa.pvData = aPtr + 8:  pa.arr(0) = &HB8&
+    pa.sa.pvData = aPtr + 9:  pa.arr(0) = tProcPtr
+    'FF E0             JMP EAX
+    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HE0FF&
+    'C2 14 00          RET 0x14              ; 5引数 × 4byte = 0x14（SetTimer は 0x10）
+    pa.sa.pvData = aPtr + 15: pa.arr(0) = &H14C2&
     'DummyASM アドレスを EntryPoint+22 の位置に書き込む（EBMode トランポリン完成）
     pa.sa.pvData = GetWinHttpCallbackProc + 22
 
