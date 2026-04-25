@@ -25,7 +25,7 @@ Option Explicit
 '***************************************************************************************************
 
 'コールバックイベント（WithEvents で受け取る側がハンドルする）
-Public Event OnCallback(ByVal hInternet As LongPtr, _
+Public Event OnCallback(ByVal HINTERNET As LongPtr, _
                         ByVal dwInternetStatus As Long, _
                         ByVal lpvStatusInformation As LongPtr, _
                         ByVal dwStatusInformationLength As Long)
@@ -175,12 +175,12 @@ Private hwebsockethandle_ As LongPtr
 '   WinHttp からのコールバックを受け取り、OnCallback イベントを発火させます。
 '   引数は WINHTTP_STATUS_CALLBACK のシグネチャと一致させること。
 '***************************************************************************************************
-Private Sub WinHttpCallbackProc(ByVal hInternet As LongPtr, _
+Private Sub WinHttpCallbackProc(ByVal HINTERNET As LongPtr, _
                                  ByVal dwInternetStatus As Long, _
                                  ByVal lpvStatusInformation As LongPtr, _
                                  ByVal dwStatusInformationLength As Long)
     On Error Resume Next
-    RaiseEvent OnCallback(hInternet, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength)
+    RaiseEvent OnCallback(HINTERNET, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength)
     On Error GoTo 0
 End Sub
 

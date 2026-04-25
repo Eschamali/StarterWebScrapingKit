@@ -74,8 +74,8 @@ Private Sub DummyASM():   End Sub   ' マシンコード書き込み先
 '            target.WinHttpCallbackProc は vtable の先頭ユーザーメソッド（7番目、0-indexed）
 '            として固定配置されている必要があります。
 '***************************************************************************************************
-Public Function GetWinHttpCallbackProc(ByVal target As WebSocketHTTPCommunicator) As LongPtr
-    If target Is Nothing Then Exit Function
+Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator) As LongPtr
+    If Target Is Nothing Then Exit Function
     Static pa As PointerAccessor
     Dim aPtr As LongPtr
 
@@ -89,7 +89,7 @@ Public Function GetWinHttpCallbackProc(ByVal target As WebSocketHTTPCommunicator
     End If
 
     'ObjPtr(target) → vtable ポインタを読む
-    pa.sa.pvData = ObjPtr(target)
+    pa.sa.pvData = ObjPtr(Target)
     pa.sa.rgsabound0.cElements = 1
 
 #If x32 Then

@@ -19,7 +19,7 @@ Option Explicit
 '                     ■■■ コールバック受信用 WindowsAPI・構造体定義 ■■■
 '   (旧: WebSocketAsyncHelpers.bas に置いていたものをインスタンス管理のためここへ移動)
 '***************************************************************************************************
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As LongPtr)
 
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ns-winhttp-winhttp_web_socket_status
 Private Type WINHTTP_WEB_SOCKET_STATUS
@@ -97,6 +97,7 @@ End Type
 
 Private ExistingWebsockethandle_ As LongPtr
 Private WithEvents Http As WebSocketHTTPCommunicator   ' SafeTimer の WithEvents st As SafeTimer 相当
+Attribute Http.VB_VarHelpID = -1
 Private CharConv As New CharacterCodeConversion
 Private ViewLog As New Logger
 
@@ -330,7 +331,7 @@ End Function
 '*           旧 WebSocketAsyncHelpers::WebSocketCallback の処理をここに移植
 '*           G_res → m_res、isReceiving → m_isReceiving、isDataReady → m_isDataReady
 '***************************************************************************************************
-Private Sub Http_OnCallback(ByVal hInternet As LongPtr, _
+Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
                              ByVal dwInternetStatus As Long, _
                              ByVal lpvStatusInformation As LongPtr, _
                              ByVal dwStatusInformationLength As Long)
