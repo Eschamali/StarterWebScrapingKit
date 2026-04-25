@@ -152,9 +152,17 @@ Private Declare PtrSafe Function WinHttpSetStatusCallback Lib "WinHttp" ( _
   ByVal lpfnInternetCallback As LongPtr, _
   ByVal dwNotificationFlags As Long, _
   ByVal dwReserved As LongPtr _
-   ) As Long
-
-Private Const WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS = &HFFFFFFFF
+   ) As LongPtr
+Private Const WINHTTP_INVALID_STATUS_CALLBACK As LongPtr = -1
+Private Const WINHTTP_CALLBACK_STATUS_READ_COMPLETE = &H80000
+Private Const WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE = &H100000
+Private Const WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE = &H2000000
+Private Const WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE = &H4000000
+Private Const WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS As Long = _
+      WINHTTP_CALLBACK_STATUS_READ_COMPLETE _
+    Or WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE _
+    Or WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE _
+    Or WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE
 
 
 Private Const AGENT As String = "Client"
@@ -257,6 +265,7 @@ End Function
 '***************************************************************************************************
 Public Function UpgradeToWebSocket() As Boolean
     Dim result As Long
+    Dim callbackResult As LongPtr
     result = WinHttpSetOption(hRequestHandle_, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
     Debug.Print "[Upgrade] A: SetOption=" & result
     If result = 0 Then GoTo quit
@@ -283,17 +292,17 @@ Public Function UpgradeToWebSocket() As Boolean
     Debug.Print "[Upgrade] F: CallbackPtr=" & cbPtr
     If cbPtr = 0 Then GoTo quit
 
-    result = WinHttpSetStatusCallback(hwebsockethandle_, cbPtr, WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
-    Debug.Print "[Upgrade] G: SetStatusCallback=" & result
-    If result < 0 Then GoTo quit
+    callbackResult = WinHttpSetStatusCallback(hwebsockethandle_, cbPtr, WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS, 0)
+    Debug.Print "[Upgrade] G: SetStatusCallback=" & callbackResult
+    If callbackResult = WINHTTP_INVALID_STATUS_CALLBACK Then GoTo quit
 
     Debug.Print "[Upgrade] 成功"
     UpgradeToWebSocket = True
 Exit Function
 
 quit:
-    Debug.Print "[Upgrade] FAIL ゴート: result=" & result & "  LastDllError=" & Err.LastDllError
-    If result < 0 Then CloseHWebsocketHandle
+    Debug.Print "[Upgrade] FAIL ゴート: result=" & result & " callbackResult=" & callbackResult & " LastDllError=" & Err.LastDllError
+    If callbackResult = WINHTTP_INVALID_STATUS_CALLBACK Then CloseHWebsocketHandle
     UpgradeToWebSocket = False
 End Function
 

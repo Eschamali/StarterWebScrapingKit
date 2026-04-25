@@ -345,7 +345,14 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
 
             'WINHTTP_WEB_SOCKET_STATUS のポインタを基にコピー
             Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
-            CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
+            If lpvStatusInformation <> 0 And dwStatusInformationLength >= LenB(WebSocketStatus) Then
+                CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
+            Else
+                'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
+                WebSocketStatus.dwBytesTransferred = 0
+                WebSocketStatus.eBufferType = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+                ViewLog.LogWarn "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, ErrorSource
+            End If
             
             ViewLog.LogDebug "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
             ViewLog.LogDebug "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
