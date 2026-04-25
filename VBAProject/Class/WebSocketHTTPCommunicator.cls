@@ -15,6 +15,13 @@ Attribute VB_Exposed = False
 '***************************************************************************************************
 Option Explicit
 
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As LongPtr)
+
+Private Type WINHTTP_WEB_SOCKET_STATUS
+    dwBytesTransferred As Long
+    eBufferType        As Long
+End Type
+
 
 
 '***************************************************************************************************
@@ -36,8 +43,8 @@ Private m_form As New WinHttpSetStatusCallbackForm
 Private Type CallbackQueueItem
     HINTERNET As LongPtr
     dwInternetStatus As Long
-    lpvStatusInformation As LongPtr
-    dwStatusInformationLength As Long
+    hasStatusInformation As Long
+    statusInformation As WINHTTP_WEB_SOCKET_STATUS
 End Type
 Private Const CALLBACK_QUEUE_SIZE As Long = 128
 Private m_callbackQueue(0 To CALLBACK_QUEUE_SIZE - 1) As CallbackQueueItem
@@ -218,8 +225,11 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
     With m_callbackQueue(m_queueWrite)
         .HINTERNET = HINTERNET
         .dwInternetStatus = dwInternetStatus
-        .lpvStatusInformation = lpvStatusInformation
-        .dwStatusInformationLength = dwStatusInformationLength
+        .hasStatusInformation = 0
+        If lpvStatusInformation <> 0 And dwStatusInformationLength >= LenB(.statusInformation) Then
+            CopyMemory .statusInformation, ByVal lpvStatusInformation, LenB(.statusInformation)
+            .hasStatusInformation = 1
+        End If
     End With
     m_queueWrite = nextWrite
 End Sub
@@ -228,7 +238,11 @@ Public Sub DispatchQueuedCallbacks()
     On Error Resume Next
     Do While m_queueRead <> m_queueWrite
         With m_callbackQueue(m_queueRead)
-            RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, .lpvStatusInformation, .dwStatusInformationLength)
+            If .hasStatusInformation <> 0 Then
+                RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, VarPtr(.statusInformation), LenB(.statusInformation))
+            Else
+                RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, 0, 0)
+            End If
         End With
         m_queueRead = (m_queueRead + 1) Mod CALLBACK_QUEUE_SIZE
     Loop
