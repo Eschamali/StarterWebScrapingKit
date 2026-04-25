@@ -310,21 +310,12 @@ Public Function Connect(Host As String, Path As String, port As Long, SecureFlag
                                     StrPtr(GET_METHOD), StrPtr(Path), StrPtr(HTTP_VERSION), 0, 0, SecureMode)
     If hRequestHandle_ = 0 Then GoTo quit
 
-    Dim result As Long
-    result = WinHttpSendRequest(hRequestHandle_, WINHTTP_NO_ADDITIONAL_HEADERS, _
-                    0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)
-    If (result = 0) Then GoTo quit
-
-    result = WinHttpReceiveResponse(hRequestHandle_, 0)
-    If (result = 0) Then GoTo quit
-
-    If IsResponseStatus(200) = False Then GoTo quit
-    
-    '一連の処理やチェックを超えたら成功とみなす
+    'WebSocket 用は UpgradeToWebSocket() で初回 Send/Receive を実行する。
+    'ここではハンドル確立までを成功条件にする。
     Connect = True
 Exit Function
 quit:
-    Debug.Print "Http.Connect失敗"
+    Debug.Print "Http.Connect失敗 LastDllError=" & Err.LastDllError
     Connect = False
 End Function
 
