@@ -7,6 +7,9 @@ Attribute VB_Name = "Demo_WebSocket"
 '***************************************************************************************************
 Option Explicit
 
+Private g_WebsocketObj As WebSocketCommunicator
+Private g_ReConnectionHandle As LongPtr
+
 
 
 '***************************************************************************************************
@@ -18,18 +21,19 @@ Option Explicit
 '***************************************************************************************************
 Sub WebSocketDemoASync1_1_初期化()
     'オブジェクトを作成（SafeTimer 方式のコールバックは Init 内で自動登録される）
-    Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
+    Set g_WebsocketObj = New WebSocketCommunicator
 
     '接続先を設定します（AddressOf 不要）
-    Dim ResultHandleCode As LongPtr: ResultHandleCode = WebsocketObj.Init("echo.websocket.org", "")
+    Dim ResultHandleCode As LongPtr: ResultHandleCode = g_WebsocketObj.Init("echo.websocket.org", "")
 
     '成功判定
     If ResultHandleCode Then
+        g_ReConnectionHandle = ResultHandleCode
         Debug.Print "Websocket connect is success. AsyncMode."
         Debug.Print "再接続時のハンドルコード：" & ResultHandleCode
 
         '1件分の送信をしてみる
-        Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418))
+        Dim ResultCode As Long: ResultCode = g_WebsocketObj.SendMessage("うみねこ！みゃ～お！" & WorksheetFunction.Unichar(129418))
 
         '実行結果確認
         Dim ErrorMes As New WinApiError
@@ -40,7 +44,7 @@ Sub WebSocketDemoASync1_1_初期化()
         End If
 
         '受信予約を行う（コールバック経由で Http_OnCallback が発火し m_isReceiving がセットされる）
-        Debug.Print WebsocketObj.GetAsyncMessage(, ResultCode)
+        Debug.Print g_WebsocketObj.GetAsyncMessage(, ResultCode)
 
         If ResultCode Then
             Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
@@ -53,16 +57,14 @@ Sub WebSocketDemoASync1_1_初期化()
 End Sub
 
 Sub WebSocketDemoASync1_2_受信リクエスト()
-    '前項で得たハンドル値
-    Const ReConnectionHandle As LongPtr = 2172043420336^
-
-    'オブジェクトを作成して、再接続用の LET メソッドにセット
-    Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
-    WebsocketObj.ReConnect = ReConnectionHandle
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync1_1_初期化 を実行してください。"
+        Exit Sub
+    End If
 
     '受信メッセージを受け取る
     Dim ResultCode As Long
-    Debug.Print WebsocketObj.GetAsyncMessage(, ResultCode)
+    Debug.Print g_WebsocketObj.GetAsyncMessage(, ResultCode)
 
     Dim ErrorMes As New WinApiError
     If ResultCode Then
@@ -73,19 +75,17 @@ Sub WebSocketDemoASync1_2_受信リクエスト()
 End Sub
 
 Sub WebSocketDemoASync1_3_ハンドルから送信()
-    '前項で得たハンドル値
-    Const ReConnectionHandle As LongPtr = 2172043420336^
-
     'カウント用
     Static Count As Long
     Count = Count + 1
 
-    'オブジェクトを作成して、再接続用の LET メソッドにセット
-    Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
-    WebsocketObj.ReConnect = ReConnectionHandle
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync1_1_初期化 を実行してください。"
+        Exit Sub
+    End If
 
     '1件分の送信をしてみる
-    Dim ResultCode As Long: ResultCode = WebsocketObj.SendMessage("うみねこ！みゃ～お！" & Count & WorksheetFunction.Unichar(129418))
+    Dim ResultCode As Long: ResultCode = g_WebsocketObj.SendMessage("うみねこ！みゃ～お！" & Count & WorksheetFunction.Unichar(129418))
 
     Dim ErrorMes As New WinApiError
     If ResultCode Then
@@ -96,14 +96,12 @@ Sub WebSocketDemoASync1_3_ハンドルから送信()
 End Sub
 
 Sub WebSocketDemoASync1_4_後始末()
-    '前項で得たハンドル値
-    Const ReConnectionHandle As LongPtr = 2519160849248^
-
-    Dim WebsocketObj As WebSocketCommunicator: Set WebsocketObj = New WebSocketCommunicator
-    WebsocketObj.ReConnect = ReConnectionHandle
+    If g_WebsocketObj Is Nothing Then Exit Sub
 
     '後始末
-    WebsocketObj.CloseWebSocket (True)
+    g_WebsocketObj.CloseWebSocket (True)
+    Set g_WebsocketObj = Nothing
+    g_ReConnectionHandle = 0
 End Sub
 
 '***************************************************************************************************
