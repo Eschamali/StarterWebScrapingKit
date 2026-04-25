@@ -257,40 +257,43 @@ End Function
 '***************************************************************************************************
 Public Function UpgradeToWebSocket() As Boolean
     Dim result As Long
-    result = WinHttpSetOption(hRequestHandle_, _
-                    WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
+    result = WinHttpSetOption(hRequestHandle_, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
+    Debug.Print "[Upgrade] A: SetOption=" & result
     If result = 0 Then GoTo quit
-    
-    result = WinHttpSendRequest(hRequestHandle_, _
-                    WINHTTP_NO_ADDITIONAL_HEADERS, _
-                    0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)
+
+    result = WinHttpSendRequest(hRequestHandle_, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)
+    Debug.Print "[Upgrade] B: SendRequest=" & result
     If result = 0 Then GoTo quit
 
     result = WinHttpReceiveResponse(hRequestHandle_, 0)
+    Debug.Print "[Upgrade] C: ReceiveResponse=" & result
     If result = 0 Then GoTo quit
-    
-    '101でアップグレード確認
-    If IsResponseStatus(101) = False Then GoTo quit
 
-    '※ObjPtr(Me) を pContext として渡す（dwContext として WinHttp がコールバック時に返してくる）
-    '  SafeTimer の ObjPtr(Me) → nIDEvent と同じ役割
+    If IsResponseStatus(101) = False Then
+        Debug.Print "[Upgrade] D: HTTP101 失敗"
+        GoTo quit
+    End If
+    Debug.Print "[Upgrade] D: HTTP101 OK"
+
     hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, ObjPtr(Me))
+    Debug.Print "[Upgrade] E: WebSocketHandle=" & hwebsockethandle_ & "  ObjPtr(Me)=" & ObjPtr(Me)
     If hwebsockethandle_ = 0 Then GoTo quit
 
-    '※GetWinHttpCallbackProc(Me) でマシンコード経由の関数ポインタを生成してコールバック登録
-    '  SafeTimer の GetTimerProc(Me) と同じ役割
-    result = WinHttpSetStatusCallback(hwebsockethandle_, _
-                    GetWinHttpCallbackProc(Me), WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
+    Dim cbPtr As LongPtr: cbPtr = GetWinHttpCallbackProc(Me)
+    Debug.Print "[Upgrade] F: CallbackPtr=" & cbPtr
+    If cbPtr = 0 Then GoTo quit
+
+    result = WinHttpSetStatusCallback(hwebsockethandle_, cbPtr, WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
+    Debug.Print "[Upgrade] G: SetStatusCallback=" & result
     If result < 0 Then GoTo quit
 
-    '全ての関門を超えたら、成功とする
+    Debug.Print "[Upgrade] 成功"
     UpgradeToWebSocket = True
-
 Exit Function
+
 quit:
-    If result = 0 Then Debug.Print "Upgrade：" & result
-    If result < 0 Then Debug.Print "コールバック登録失敗。ErrorCode：" & result: CloseHWebsocketHandle
-    If hwebsockethandle_ = 0 Then Debug.Print "Upgrade：" & Err.LastDllError
+    Debug.Print "[Upgrade] FAIL ゴート: result=" & result & "  LastDllError=" & Err.LastDllError
+    If result < 0 Then CloseHWebsocketHandle
     UpgradeToWebSocket = False
 End Function
 

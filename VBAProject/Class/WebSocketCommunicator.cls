@@ -207,18 +207,20 @@ End Property
 '            ・Cookie や認証ヘッダー等は未対応です（匿名アクセス用）
 '***************************************************************************************************
 Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True) As LongPtr
-    '常に非同期モード（コールバックは WithEvents Http_OnCallback で受け取る）
+    Debug.Print "[Init] Step1: 接続開始"
     Set Http = New WebSocketHTTPCommunicator
     If Http.Connect(Host, Path, port, SecureMode) = False Then GoTo quit
+    Debug.Print "[Init] Step2: Connect 成功"
 
-    'WebSocket へ昇格（内部で ObjPtr(Http) を pContext に渡しコールバック登録）
     If Http.UpgradeToWebSocket() = False Then GoTo quit
+    Debug.Print "[Init] Step3: UpgradeToWebSocket 成功"
 
-    '成功したときの WebSocket ハンドル値を返す
     Init = Http.websockethandle
+    Debug.Print "[Init] Step4: 完了。ハンドル=" & Init
 Exit Function
 
 quit:
+    Debug.Print "[Init] FAIL: ゴートした"
     Init = 0
 End Function
 
