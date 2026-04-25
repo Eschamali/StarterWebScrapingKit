@@ -18,6 +18,26 @@ Option Explicit
 
 
 '***************************************************************************************************
+'   !! SafeTimer の SafeTimer.cls に相当するセクション !!
+'   !! 以下の Public Event / WinHttpCallbackProc は vtable の先頭ユーザーメソッド位置に固定 !!
+'   !! 絶対にこのブロックより上に新しいメソッド・プロパティを追加しないこと              !!
+'   !! （vtable[7] の位置がずれるとクラッシュします）                                  !!
+'***************************************************************************************************
+
+'コールバックイベント（WithEvents で受け取る側がハンドルする）
+Public Event OnCallback(ByVal hInternet As LongPtr, _
+                        ByVal dwInternetStatus As Long, _
+                        ByVal lpvStatusInformation As LongPtr, _
+                        ByVal dwStatusInformationLength As Long)
+
+'フォームインスタンス（SafeTimer の m_form 相当。ハンドル取得＆ライフタイム管理に使用）
+Private m_form As New WinHttpSetStatusCallbackForm
+
+
+
+
+
+'***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
 Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
@@ -38,8 +58,7 @@ Private Const WINHTTP_ACCESS_TYPE_NO_PROXY = 1 '＝プロキシを介さず、�
 Private Const WINHTTP_ACCESS_TYPE_NAMED_PROXY = 3
 Private Const WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY = 4
 Private Const WINHTTP_NO_PROXY_BYPASS = 0
-Private Const WINHTTP_FLAG_SYNC = &H0          ' セッションは同期
-Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' セッション非同期
+Private Const WINHTTP_FLAG_ASYNC = &H10000000  ' セッションは常に非同期（SafeTimer 方式のコールバックに必須）
 
 Private Declare PtrSafe Function WinHttpConnect Lib "WinHttp" ( _
    ByVal hSession As LongPtr, _
@@ -151,6 +170,23 @@ Private hwebsockethandle_ As LongPtr
 
 
 '***************************************************************************************************
+'!! Do not move. This must be the 1st user-defined method (vtable[7], offset +0x38 on x64) !!
+'   SafeTimer::TimerProc に相当。
+'   WinHttp からのコールバックを受け取り、OnCallback イベントを発火させます。
+'   引数は WINHTTP_STATUS_CALLBACK のシグネチャと一致させること。
+'***************************************************************************************************
+Private Sub WinHttpCallbackProc(ByVal hInternet As LongPtr, _
+                                 ByVal dwInternetStatus As Long, _
+                                 ByVal lpvStatusInformation As LongPtr, _
+                                 ByVal dwStatusInformationLength As Long)
+    On Error Resume Next
+    RaiseEvent OnCallback(hInternet, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength)
+    On Error GoTo 0
+End Sub
+
+
+
+'***************************************************************************************************
 '                                   ■■■ プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：確立したwebsocketのハンドル値を取得をします
@@ -169,22 +205,19 @@ End Property
 '* 機能　　：通常の http-GET 接続を行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功/失敗
-'* 引数    ：Host           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
-'            Path           https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port           http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
-'            SecureFlag     http始まりならFalse、https始まりなら、Trueですが、無視もできます。
-'            Async          Trueで､非同期として､WebSocketを利用できるように処理します｡なお､WebSocketへのアップグレードまでは､同期的な処理とします｡
+'* 引数    ：Host           接続先のホスト名
+'            Path           接続先のパス
+'            port           httpは80、httpsは443、カスタムも可
+'            SecureFlag     httpsの場合はTrue
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：最初はhttp通信を行って、200が返るか確認します
-'* 注意事項：・secureモードが正しくないと、処理に失敗します
-'            ・cookieや認証ヘッダー等は未対応です。匿名アクセス用です
+'* 機能説明：常に非同期モード（WINHTTP_FLAG_ASYNC）でセッションを開く。
+'*           WebSocketへのアップグレードまでのハンドシェイク自体は同期的に実行される。
+'* 注意事項：・セキュアモードが正しくないと、処理に失敗します
+'            ・クッキーや認証ヘッダー等は未対応です。匿名アクセス用です
 '***************************************************************************************************
-Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean, Async As Boolean) As Boolean
-    '非同期/同期の設定
-    Dim UseMode As Long
-    If Async Then UseMode = WINHTTP_FLAG_ASYNC Else UseMode = WINHTTP_FLAG_SYNC
-    
-    hSessionHandle_ = WinHttpOpen(StrPtr(AGENT), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 0, 0, UseMode)
+Public Function Connect(Host As String, Path As String, port As Long, SecureFlag As Boolean) As Boolean
+    '常に非同期モードでセッションを開く（SafeTimer 方式のコールバック登録に必須）
+    hSessionHandle_ = WinHttpOpen(StrPtr(AGENT), WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, 0, 0, WINHTTP_FLAG_ASYNC)
     If hSessionHandle_ = 0 Then GoTo quit
     hConnectionHandle_ = WinHttpConnect(hSessionHandle_, StrPtr(Host), port, 0)
     If hConnectionHandle_ = 0 Then GoTo quit
@@ -222,7 +255,7 @@ End Function
 '* 返り値  ：成功/失敗
 '* 引数    ：CallBackProcedure  外部から呼び出す標準モジュール内のプロシージャ名(AddressOf ○○)を指定します
 '***************************************************************************************************
-Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boolean
+Public Function UpgradeToWebSocket() As Boolean
     Dim result As Long
     result = WinHttpSetOption(hRequestHandle_, _
                     WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
@@ -239,19 +272,16 @@ Public Function UpgradeToWebSocket(Optional CallBackProcedure As LongPtr) As Boo
     '101でアップグレード確認
     If IsResponseStatus(101) = False Then GoTo quit
 
-    'アップグレードしたハンドル値を取得します
-    hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, 0)
+    '※ObjPtr(Me) を pContext として渡す（dwContext として WinHttp がコールバック時に返してくる）
+    '  SafeTimer の ObjPtr(Me) → nIDEvent と同じ役割
+    hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, ObjPtr(Me))
     If hwebsockethandle_ = 0 Then GoTo quit
-'    Debug.Print "Upgrade成功"
 
-    'コールバック関数が指定されてる場合は、コールバック登録を行います
-    If CallBackProcedure Then
-        result = WinHttpSetStatusCallback(hwebsockethandle_, CallBackProcedure, _
-                WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
-        If result < 0 Then GoTo quit
-        
-'        Debug.Print "コールバック　登録成功"
-    End If
+    '※GetWinHttpCallbackProc(Me) でマシンコード経由の関数ポインタを生成してコールバック登録
+    '  SafeTimer の GetTimerProc(Me) と同じ役割
+    result = WinHttpSetStatusCallback(hwebsockethandle_, _
+                    GetWinHttpCallbackProc(Me), WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)
+    If result < 0 Then GoTo quit
 
     '全ての関門を超えたら、成功とする
     UpgradeToWebSocket = True

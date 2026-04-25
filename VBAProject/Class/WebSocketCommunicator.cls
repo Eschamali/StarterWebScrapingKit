@@ -16,6 +16,20 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                     ■■■ コールバック受信用 WindowsAPI・構造体定義 ■■■
+'   (旧: WebSocketAsyncHelpers.bas に置いていたものをインスタンス管理のためここへ移動)
+'***************************************************************************************************
+Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal Length As LongPtr)
+
+'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ns-winhttp-winhttp_web_socket_status
+Private Type WINHTTP_WEB_SOCKET_STATUS
+    dwBytesTransferred As Long
+    eBufferType        As Long
+End Type
+
+
+
+'***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
@@ -69,6 +83,7 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ) As Long
 
 'Websocket蓄積受信状況把握に使用
+Private Const BufferToAllocate As Long = 4096   '旧: WebSocketAsyncHelpers.bas の Public Const から移動
 Private Type WebSocketReceiveManage
     Buffer(BufferToAllocate - 1) As Byte    '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
     BufferLength As Long                    '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
@@ -81,9 +96,14 @@ End Type
 
 
 Private ExistingWebsockethandle_ As LongPtr
-Private Http As WebSocketHTTPCommunicator
+Private WithEvents Http As WebSocketHTTPCommunicator   ' SafeTimer の WithEvents st As SafeTimer 相当
 Private CharConv As New CharacterCodeConversion
 Private ViewLog As New Logger
+
+'--- グローバル変数から移行したインスタンス変数（旧: WebSocketAsyncHelpers.bas の Global 宣言） ---
+Private m_res         As WebSocketReceiveManage   ' 旧: G_res
+Private m_isReceiving As Boolean                  ' 旧: isReceiving
+Private m_isDataReady As Boolean                  ' 旧: isDataReady
 
 
 
@@ -173,37 +193,29 @@ End Property
 '***************************************************************************************************
 '                                   ■■■ 公開メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：websocketのハンドル値を新規に取得します
+'* 機能　　：WebSocket 接続を確立し、コールバックを登録します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：指定したURIのwebsocketのハンドル値　※失敗時は、0です
-'* 引数    ：Host               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"github.com"
-'            Path               https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON なら、"24000/ChromeControler-No-Selenium-WebDriver-VBAJSON"
-'            port               http始まりなら80、https始まりなら、443ですが、カスタムも可能です。
-'            SecureMode         http始まりならFalse、https始まりなら、Trueですが、無視もできます。
-'            CallBackProcedure  外部から呼び出す標準モジュール内のプロシージャ名(AddressOf ○○)を指定します
+'* 返り値  ：確立した WebSocket のハンドル値（失敗時は 0）
+'* 引数    ：Host       接続先ホスト名
+'            Path       接続先パス
+'            port       http=80、https=443、カスタムも可（省略時=443）
+'            SecureMode https なら True（省略時=True）
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：ヘルパークラスを伝って、websocketのハンドル値を取得する仕組みとなっています
-'* 注意事項：・secureモードが正しくないと、処理に失敗します
-'            ・cookieや認証ヘッダー等は未対応です。匿名アクセス用です
-'            ・既存のwebsocketのハンドル値を使う際は、次項のメソッドをご利用下さい
-'            ・引数のデフォルトOptional構成は、httpsプロトコルです
+'* 機能説明：常に非同期モードで動作します。コールバックは Http_OnCallback で自動受信されます。
+'* 注意事項：・SecureMode が正しくないと失敗します
+'            ・Cookie や認証ヘッダー等は未対応です（匿名アクセス用）
 '***************************************************************************************************
-Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True, Optional CallBackProcedure As LongPtr) As LongPtr
-    '非同期/同期の設定
-    Dim UseMode As Boolean
-    If CallBackProcedure Then UseMode = True Else UseMode = False
-    
-    '通常のHTTP接続を行う
+Public Function Init(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True) As LongPtr
+    '常に非同期モード（コールバックは WithEvents Http_OnCallback で受け取る）
     Set Http = New WebSocketHTTPCommunicator
-    If Http.Connect(Host, Path, port, SecureMode, UseMode) = False Then GoTo quit
-    
-    'WebSocketへの昇格処理を行う
-    If Http.UpgradeToWebSocket(CallBackProcedure) = False Then GoTo quit
+    If Http.Connect(Host, Path, port, SecureMode) = False Then GoTo quit
 
-    '成功したときのWebSocketハンドル値を返す
+    'WebSocket へ昇格（内部で ObjPtr(Http) を pContext に渡しコールバック登録）
+    If Http.UpgradeToWebSocket() = False Then GoTo quit
+
+    '成功したときの WebSocket ハンドル値を返す
     Init = Http.websockethandle
 Exit Function
-
 
 quit:
     Init = 0
@@ -242,51 +254,7 @@ Public Function SendMessage(SendData As Variant) As Long
                         VarPtr(UseData(0)), messageByteSize)
 End Function
 
-'***************************************************************************************************
-'* 機能　　：WebSocketからの同期受信を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：GetBinaryMode
-'               `True`  バイト配列として受け取る場合
-'               `False` テキストとして受け取る場合
-'
-'            ResultCode     WinHttpWebSocketReceive の実行結果。実質返り値です。
-'* 返り値  ：WebSocketからの受信メッセージ。※エラーだと、vbnullstring です
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：ErrorCode：12152　対策により、WideCharToMultiByte を介したバイト配列変換を使用してます
-'* 注意事項：・受信データがない状態でこれを呼び出すと、受信データが来るまで、フ　リ　ー　ズ　します。ネット切断することで、40s前後でフリーズ回避できます。
-'            ・現時点は、プレーンテキスト受信のみ対応です
-'            ・送信と違って受信は内部で、固定のバッファーサイズ受信によるストリーミング受信方式を取っています。そのため、受信データ量が多いと返るまで時間がかかります。
-'***************************************************************************************************
-Public Function GetSyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
-    '再接続のハンドル情報があったらそっちを使用する
-    Dim UseWebsockethandle As LongPtr
-    If ExistingWebsockethandle_ Then UseWebsockethandle = ExistingWebsockethandle_ Else UseWebsockethandle = Http.websockethandle
-    
-    'ストリーミング受信準備による初期化
-    Dim res As WebSocketReceiveManage
-    InitializeBuffer res.Buffer, res.CurrentPointer, res.BufferLength
-    Set res.collect = New Collection
-    ResultCode = 0
 
-    'データが尽きるまで、レスポンス受信ループ
-    Dim tmp() As Byte
-    Do
-        '受信処理
-        res.result = WinHttpWebSocketReceive( _
-                        UseWebsockethandle, res.Buffer(res.CurrentPointer), res.BufferLength, _
-                        res.ReceiveBytes, res.Status)
-        
-        'エラーなら即抜け
-        '※呼び出し側で、エラーかの確認をしてください
-        If res.result Then ResultCode = res.result: Exit Function
-        
-        'バッファー管理処理へ移る
-        tmp = BufferManagement(res)
-    Loop Until res.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or res.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-
-    'テキスト変換するか判断して、返却
-    If GetBinaryMode Then GetSyncMessage = tmp Else GetSyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
-End Function
 
 '***************************************************************************************************
 '* 機能　　：WebSocketからの非同期受信を行います
@@ -314,35 +282,33 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     ResultCode = 0
     
     '既に受信予約済みの場合は、即抜け
-    If isDataReady Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
+    If m_isDataReady Then ViewLog.LogWarn "既に受信予約済みです。", "WebSocketCommunicator.GetAsyncMessage": Exit Function
 
     '非同期処理側で既に、受信済みデータがあるか？
-    If Not (isReceiving) Then
+    If Not (m_isReceiving) Then
         'ない場合は、初期化
-        InitializeBuffer G_res.Buffer, G_res.CurrentPointer, G_res.BufferLength
-        Set G_res.collect = New Collection
+        InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
+        Set m_res.collect = New Collection
 
         '非同期モードの場合は、こっちも追加で初期化しておく
-        G_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-        G_res.ReceiveBytes = 0
+        m_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
+        m_res.ReceiveBytes = 0
     End If
 
     'データが尽きるまで、レスポンス受信ループ
     Dim tmp() As Byte, InsiderRes As WebSocketReceiveManage
     Do
         '非同期処理側で既に、受信済みデータがある場合は、処理を飛ばします
-        '※次の受信データがある状態で、この処理が走ると、コールバック側のプロシージャへ遷移し、グローバル変数側に、メッセージが格納されます。
-        If Not (isReceiving) Then
-            G_res.result = WinHttpWebSocketReceive( _
-                            UseWebsockethandle, G_res.Buffer(G_res.CurrentPointer), G_res.BufferLength, _
-                            G_res.ReceiveBytes, G_res.Status)
+        If Not (m_isReceiving) Then
+            m_res.result = WinHttpWebSocketReceive( _
+                            UseWebsockethandle, m_res.Buffer(m_res.CurrentPointer), m_res.BufferLength, _
+                            m_res.ReceiveBytes, m_res.Status)
 
             'エラーなら即抜け
-            '※呼び出し側で、エラーかの確認をしてください
-            If G_res.result Then ResultCode = G_res.result: Exit Function
+            If m_res.result Then ResultCode = m_res.result: Exit Function
         End If
     
-        'グローバル変数側と仲介しながら、バッファー管理処理へ移る
+        'インスタンス変数と仲介しながら、バッファー管理処理へ移る
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
     Loop Until InsiderRes.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
 
@@ -355,6 +321,56 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
         GetAsyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
     End If
 End Function
+
+
+
+'***************************************************************************************************
+'* 機能    ：WinHttp コールバックイベントハンドラ（SafeTimer の st_TimerCall 相当）
+'---------------------------------------------------------------------------------------------------
+'*           旧 WebSocketAsyncHelpers::WebSocketCallback の処理をここに移植
+'*           G_res → m_res、isReceiving → m_isReceiving、isDataReady → m_isDataReady
+'***************************************************************************************************
+Private Sub Http_OnCallback(ByVal hInternet As LongPtr, _
+                             ByVal dwInternetStatus As Long, _
+                             ByVal lpvStatusInformation As LongPtr, _
+                             ByVal dwStatusInformationLength As Long)
+    Const ErrorSource As String = "WebSocketCommunicator.Http_OnCallback"
+    
+    'WebSocket 関連コールバックのみ処理する
+    Select Case dwInternetStatus
+        Case 524288, 1048576, 67108864, 33554432
+
+            'WINHTTP_WEB_SOCKET_STATUS のポインタを基にコピー
+            Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
+            CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
+            
+            ViewLog.LogDebug "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
+            ViewLog.LogDebug "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
+            ViewLog.LogDebug "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
+            ViewLog.LogDebug "---------------------------------------------------", ErrorSource
+            ViewLog.LogDebug "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
+
+            'バッファー管理に必要なパラメーターを適用
+            m_res.Status = WebSocketStatus.eBufferType
+            m_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
+
+            Select Case dwInternetStatus
+                Case 524288    'READ_COMPLETE
+                    m_isReceiving = True
+                    m_isDataReady = False
+                    ViewLog.LogInfo "非同期処理により、受信メッセージを格納しました。", ErrorSource
+                Case 1048576   'WRITE_COMPLETE
+                    ViewLog.LogInfo "非同期処理により、送信の確認が取れました。", ErrorSource
+                Case 67108864  'SHUTDOWN_COMPLETE
+                    ViewLog.LogInfo "WebSocket の接続が正常にシャットダウンされました。", ErrorSource
+                Case 33554432  'CLOSE_COMPLETE
+                    ViewLog.LogInfo "WebSocket を閉じました。", ErrorSource
+            End Select
+
+        Case Else
+            ViewLog.LogWarn "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, ErrorSource
+    End Select
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
@@ -478,34 +494,30 @@ End Function
 Private Function IntermediaryProcessing_BufferManagement(ByRef tmp As WebSocketReceiveManage) As Byte()
     Dim i As Long
     
-    'コールバック側で受け取ったグローバル変数で、クラス内変数へコピーする
+    'm_res（インスタンス変数）からクラス内ローカル変数へコピー
     With tmp
-        '固定配列なので、愚直にループでコピー
         For i = LBound(.Buffer) To UBound(.Buffer)
-            .Buffer(i) = G_res.Buffer(i)
+            .Buffer(i) = m_res.Buffer(i)
         Next
-        
-        .BufferLength = G_res.BufferLength
-        Set .collect = G_res.collect
-        .CurrentPointer = G_res.CurrentPointer
-        .ReceiveBytes = G_res.ReceiveBytes
-        .result = G_res.result
-        .Status = G_res.Status
+        .BufferLength = m_res.BufferLength
+        Set .collect = m_res.collect
+        .CurrentPointer = m_res.CurrentPointer
+        .ReceiveBytes = m_res.ReceiveBytes
+        .result = m_res.result
+        .Status = m_res.Status
     End With
     
-    'コピーしたクラス内変数で、バッファー管理へ移し、結果を返却
+    'バッファー管理へ移し、結果を返却
     IntermediaryProcessing_BufferManagement = BufferManagement(tmp)
     
-    'メッセージ処理したので、受信済みフラグを消す
-    isReceiving = False
+    '受信済みフラグをリセット
+    m_isReceiving = False
 
-    'バッファー処理した結果を、グローバル変数側へ反映する
-    With G_res
-        '固定配列なので、愚直にループで転記
+    'バッファー処理した結果を m_res へ反映
+    With m_res
         For i = LBound(.Buffer) To UBound(.Buffer)
             .Buffer(i) = tmp.Buffer(i)
         Next
-
         .BufferLength = tmp.BufferLength
         Set .collect = tmp.collect
         .CurrentPointer = tmp.CurrentPointer
@@ -549,7 +561,7 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
     Select Case Param.Status
         '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-            isDataReady = True
+            m_isDataReady = True
             ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
