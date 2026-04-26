@@ -15,6 +15,12 @@ Attribute VB_Name = "WebSocketAsyncHelpers"
 '***************************************************************************************************
 Option Explicit
 
+Private Declare PtrSafe Function GetModuleHandleW Lib "kernel32" (ByVal lpModuleName As LongPtr) As LongPtr
+Private Declare PtrSafe Function GetProcAddress Lib "kernel32" (ByVal hModule As LongPtr, ByVal lpProcName As String) As LongPtr
+
+Private Const WM_APP As Long = &H8000&
+Private Const WM_APP_WINHTTP_CALLBACK As Long = WM_APP + 711
+
 #If VBA7 = 0 Then
     Public Enum LongPtr: [_]: End Enum
     Private Enum LONG_PTR: [_]: End Enum
@@ -93,6 +99,8 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     Dim targetObjPtr As LongPtr: targetObjPtr = ObjPtr(Target)
     pa.sa.pvData = pa.arr(0) + PtrSize * 7
     Dim tProcPtr As LongPtr: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
+    Dim notifyHwnd As LongPtr: notifyHwnd = Target.NotifyHwnd
+    Dim postMessageProc As LongPtr: postMessageProc = GetPostMessageWProc()
 
     'DummyASM アドレスを戻り値にセット
     aPtr = VBA.Int(AddressOf DummyASM)
@@ -100,36 +108,30 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（47バイト）---
-    ' WinHttp callback:
-    '   RCX=hInternet, RDX=dwContext, R8=dwInternetStatus, R9=lpvStatusInformation, [RSP+28]=dwStatusInformationLength
-    ' COM instance method:
-    '   RCX=this, RDX=HINTERNET, R8=dwInternetStatus, R9=lpvStatusInformation, [RSP+20]=dwStatusInformationLength
-
-    '4C 8B D1           MOV R10, RCX            ; hInternet 退避
-    pa.arr(0) = &HD18B4C
-    '48 B9 <imm64>      MOV RCX, targetObjPtr   ; this
-    pa.sa.pvData = aPtr + 3: pa.arr(0) = &HB948
-    pa.sa.pvData = aPtr + 5: pa.arr(0) = targetObjPtr
-    '4C 89 D2           MOV RDX, R10            ; arg1 = hInternet
-    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HD2894C
-    '4C 8B 54 24 28     MOV R10, [RSP+28h]      ; 4th arg 退避
-    pa.sa.pvData = aPtr + 16: pa.arr(0) = &H24548B4C
-    pa.sa.pvData = aPtr + 20: pa.arr(0) = &H28&
-    '48 83 EC 28        SUB RSP, 28h            ; shadow space + align
-    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28EC8348
-    '4C 89 54 24 20     MOV [RSP+20h], R10      ; 4th arg を配置
-    pa.sa.pvData = aPtr + 25: pa.arr(0) = &H2454894C
-    pa.sa.pvData = aPtr + 29: pa.arr(0) = &H20&
-    '48 B8 <imm64>      MOV RAX, tProcPtr
-    pa.sa.pvData = aPtr + 30: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 32: pa.arr(0) = tProcPtr
+    '--- x64 マシンコード（44バイト）---
+    ' PostMessageW(hwnd, WM_APP_WINHTTP_CALLBACK, 0, 0) を直接呼ぶ
+    If notifyHwnd = 0 Or postMessageProc = 0 Then Exit Function
+    '48 B9 <imm64>      MOV RCX, notifyHwnd
+    pa.arr(0) = &HB948
+    pa.sa.pvData = aPtr + 2: pa.arr(0) = notifyHwnd
+    '48 C7 C2 <imm32>   MOV RDX, WM_APP_WINHTTP_CALLBACK
+    pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2C748
+    pa.sa.pvData = aPtr + 13: pa.arr(0) = WM_APP_WINHTTP_CALLBACK
+    '45 33 C0           XOR R8D, R8D
+    pa.sa.pvData = aPtr + 17: pa.arr(0) = &HC03345
+    '45 33 C9           XOR R9D, R9D
+    pa.sa.pvData = aPtr + 20: pa.arr(0) = &HC93345
+    '48 83 EC 28        SUB RSP, 28h
+    pa.sa.pvData = aPtr + 23: pa.arr(0) = &H28EC8348
+    '48 B8 <imm64>      MOV RAX, postMessageProc
+    pa.sa.pvData = aPtr + 27: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 29: pa.arr(0) = postMessageProc
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 40: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 37: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 42: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 39: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 46: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 43: pa.arr(0) = &HC3&
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
@@ -153,6 +155,13 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
 
     pa.sa.rgsabound0.cElements = 0
     pa.sa.pvData = NullPtr
+End Function
+
+Private Function GetPostMessageWProc() As LongPtr
+    Dim hUser32 As LongPtr
+    hUser32 = GetModuleHandleW(StrPtr("user32.dll"))
+    If hUser32 = 0 Then Exit Function
+    GetPostMessageWProc = GetProcAddress(hUser32, "PostMessageW")
 End Function
 
 
