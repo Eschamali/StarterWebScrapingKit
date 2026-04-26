@@ -270,6 +270,8 @@ End Sub
 '* Page.captureScreenshot → result.data に base64 PNG（長文になりがち）
 Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     Dim ResultCode As Long
+    Dim ReceiveCode As Long
+    Dim ResponseText As String
     Dim Payload As String
     Dim rid As Long
     Dim ErrorMes As New WinApiError
@@ -285,7 +287,9 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     If ResultCode Then
         Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "CDP送信OK(id=" & rid & ", Page.captureScreenshot) → 続けて 2_3 で受信（base64 が長いので Immediate は要約表示）"
+        Debug.Print "CDP送信OK(id=" & rid & ", Page.captureScreenshot) → 受信完了まで待機します"
+        ResponseText = WsReceiveUntilNonEmpty(20, ReceiveCode)
+        Call CdpDebugPrintReceived(ResponseText, ReceiveCode, ErrorMes)
     End If
 End Sub
 
@@ -324,8 +328,8 @@ Sub WebSocketDemoASync2_8_CDP_シナリオ_遷移とスクショ()
         Debug.Print "シナリオ: captureScreenshot 送信エラー " & ResultCode
         Exit Sub
     End If
-    Debug.Print "シナリオ(2/3): Page.captureScreenshot 送信 id=" & rid & " → 1回受信（base64 が長い）"
-    ResponseText = g_WebsocketObj.GetAsyncMessage(, ResultCode)
+    Debug.Print "シナリオ(2/3): Page.captureScreenshot 送信 id=" & rid & " → 受信完了まで待機"
+    ResponseText = WsReceiveUntilNonEmpty(20, ResultCode)
     Call CdpDebugPrintReceived(ResponseText, ResultCode, ErrorMes)
 
     rid = CdpNextRequestId()
@@ -345,4 +349,32 @@ Private Function CdpJsonEscape(ByVal s As String) As String
     t = Replace(s, "\", "\\")
     t = Replace(t, """", "\""")
     CdpJsonEscape = t
+End Function
+
+' CDP専用の判定は行わず、非空メッセージが届くまで待つ汎用受信ヘルパー
+Private Function WsReceiveUntilNonEmpty(Optional ByVal TimeoutSec As Double = 10, Optional ByRef ResultCode As Long = 0) As String
+    Dim tStart As Double
+    Dim onceText As String
+    Dim ErrorMes As New WinApiError
+
+    tStart = Timer
+    ResultCode = 0
+
+    Do
+        onceText = g_WebsocketObj.GetAsyncMessage(, ResultCode)
+        If ResultCode <> 0 Then Exit Do
+        If Len(onceText) > 0 Then
+            WsReceiveUntilNonEmpty = onceText
+            Exit Function
+        End If
+
+        DoEvents
+        If Timer - tStart >= TimeoutSec Then Exit Do
+    Loop
+
+    If ResultCode <> 0 Then
+        Debug.Print "受信エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+    Else
+        Debug.Print "受信タイムアウト(" & TimeoutSec & "秒)。"
+    End If
 End Function

@@ -382,7 +382,9 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     ElseIf GetBinaryMode Then
         GetAsyncMessage = tmp
     Else
-        GetAsyncMessage = Split(CharConv.BytesToString(tmp), vbNullChar)(0)
+        ' 受信チャンクは実データ長で結合するため、ここでの Null 区切り切り捨ては不要。
+        ' Null を含むテキストでも途中切断しないよう、そのまま UTF-8 文字列化する。
+        GetAsyncMessage = CharConv.BytesToString(tmp)
     End If
 End Function
 
@@ -535,6 +537,12 @@ Private Function MakeResponseFullBytes(collect As Collection) As Byte()
         totalSize = totalSize + (UBound(chunk) + 1)
     Next chunk
     
+    If totalSize <= 0 Then
+        Dim emptyBytes() As Byte
+        MakeResponseFullBytes = emptyBytes
+        Exit Function
+    End If
+
     ' 2. 巨大な配列を確保
     ReDim fullBytes(0 To totalSize - 1)
 
@@ -549,6 +557,25 @@ Private Function MakeResponseFullBytes(collect As Collection) As Byte()
 
     '4. 返却
     MakeResponseFullBytes = fullBytes
+End Function
+
+'***************************************************************************************************
+'* 機能　　：先頭から指定サイズ分だけ切り出したバイト配列を返します
+'***************************************************************************************************
+Private Function SliceBytes(ByRef source() As Byte, ByVal dataSize As Long) As Byte()
+    Dim clipped() As Byte
+    Dim i As Long
+
+    If dataSize <= 0 Then
+        SliceBytes = clipped
+        Exit Function
+    End If
+
+    ReDim clipped(0 To dataSize - 1)
+    For i = 0 To dataSize - 1
+        clipped(i) = source(i)
+    Next
+    SliceBytes = clipped
 End Function
 
 '***************************************************************************************************
@@ -638,8 +665,8 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
             WsLogInfo "全ての" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "バイナリ", "UTF-8") & "データが届きました。", TraceName
             
-            '1. 最後のパケットデータを追加
-            Param.collect.Add Param.Buffer
+            '1. 最後のパケットデータを追加（未使用領域を含めない）
+            Param.collect.Add SliceBytes(Param.Buffer, Param.CurrentPointer)
             WsLogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
 
             '2. 全てのチャンクを結合して、返却
@@ -658,7 +685,7 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
                 WsLogInfo "バッファーを使い果たしました。", TraceName
                 
                 '2. 満たしたパケットをコレクションへ追加
-                Param.collect.Add Param.Buffer
+                Param.collect.Add SliceBytes(Param.Buffer, UBound(Param.Buffer) + 1)
                 WsLogInfo "満たしたバッファーを一時Collectionキューに追加しました。", TraceName
 
                 '3. バッファー初期化して、空きを確保
