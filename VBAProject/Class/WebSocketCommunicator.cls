@@ -421,12 +421,12 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
             WsLogDebug "---------------------------------------------------", ErrorSource
             WsLogDebug "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
 
-            'バッファー管理に必要なパラメーターを適用
-            m_res.Status = WebSocketStatus.eBufferType
-            m_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
-
             Select Case dwInternetStatus
                 Case 524288    'READ_COMPLETE
+                    '受信バッファ管理情報の更新は READ_COMPLETE のときだけ行う。
+                    'WRITE_COMPLETE 等でここを上書きすると、巨大レスポンス分割受信中に m_res が壊れる。
+                    m_res.Status = WebSocketStatus.eBufferType
+                    m_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
                     m_isReceiving = True
                     m_isDataReady = False
                     WsLogInfo "非同期処理により、受信メッセージを格納しました。", ErrorSource
