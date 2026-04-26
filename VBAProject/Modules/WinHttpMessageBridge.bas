@@ -4,7 +4,7 @@ Option Explicit
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
     ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowProcA" ( _
-    ByVal lpPrevWndFunc As LongPtr, ByVal hWnd As LongPtr, ByVal Msg As Long, _
+    ByVal lpPrevWndFunc As LongPtr, ByVal hWnd As LongPtr, ByVal msg As Long, _
     ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
 
 Private Const GWLP_WNDPROC As Long = -4
@@ -39,14 +39,13 @@ Public Function GetWinHttpMessageCount() As Long
     GetWinHttpMessageCount = g_msgCount
 End Function
 
-Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal Msg As Long, _
+Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, _
                                       ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
-    If Msg = WM_APP_WINHTTP_CALLBACK Then
+    If msg = WM_APP_WINHTTP_CALLBACK Then
         g_msgCount = g_msgCount + 1
         WinHttpBridgeWndProc = 0
         Exit Function
     End If
 
-    WinHttpBridgeWndProc = CallWindowProc(g_prevWndProc, hWnd, Msg, wParam, lParam)
+    WinHttpBridgeWndProc = CallWindowProc(g_prevWndProc, hWnd, msg, wParam, lParam)
 End Function
-

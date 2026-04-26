@@ -99,7 +99,7 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     Dim targetObjPtr As LongPtr: targetObjPtr = ObjPtr(Target)
     pa.sa.pvData = pa.arr(0) + PtrSize * 7
     Dim tProcPtr As LongPtr: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
-    Dim notifyHwnd As LongPtr: notifyHwnd = Target.NotifyHwnd
+    Dim NotifyHwnd As LongPtr: NotifyHwnd = Target.NotifyHwnd
     Dim postMessageProc As LongPtr: postMessageProc = GetPostMessageWProc()
 
     'DummyASM アドレスを戻り値にセット
@@ -110,10 +110,10 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
 #If x64 Then
     '--- x64 マシンコード（44バイト）---
     ' PostMessageW(hwnd, WM_APP_WINHTTP_CALLBACK, 0, 0) を直接呼ぶ
-    If notifyHwnd = 0 Or postMessageProc = 0 Then Exit Function
+    If NotifyHwnd = 0 Or postMessageProc = 0 Then Exit Function
     '48 B9 <imm64>      MOV RCX, notifyHwnd
     pa.arr(0) = &HB948
-    pa.sa.pvData = aPtr + 2: pa.arr(0) = notifyHwnd
+    pa.sa.pvData = aPtr + 2: pa.arr(0) = NotifyHwnd
     '48 C7 C2 <imm32>   MOV RDX, WM_APP_WINHTTP_CALLBACK
     pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2C748
     pa.sa.pvData = aPtr + 13: pa.arr(0) = WM_APP_WINHTTP_CALLBACK
