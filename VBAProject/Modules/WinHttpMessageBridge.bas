@@ -16,13 +16,13 @@ Private g_prevWndProc As LongPtr
 Private g_msgCount As Long
 Private g_target As WebSocketHTTPCommunicator
 
-Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal target As WebSocketHTTPCommunicator)
+Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target As WebSocketHTTPCommunicator)
     If targetHwnd = 0 Then Exit Sub
     If g_hookHwnd = targetHwnd And g_prevWndProc <> 0 Then Exit Sub
 
     RemoveWinHttpMessageHook
     g_msgCount = 0
-    Set g_target = target
+    Set g_target = Target
     g_hookHwnd = targetHwnd
     g_prevWndProc = SetWindowLongPtr(g_hookHwnd, GWLP_WNDPROC, AddressOf WinHttpBridgeWndProc)
 End Sub
