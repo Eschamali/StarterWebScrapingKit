@@ -289,6 +289,8 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     Else
         Debug.Print "CDP送信OK(id=" & rid & ", Page.captureScreenshot) → 受信完了まで待機します"
         ResponseText = WsReceiveUntilNonEmpty(20, ReceiveCode)
+        g_WebsocketObj.WsLogInfo "スクショ結果: " & ResponseText, "Demoスクショ"
+        
         Call CdpDebugPrintReceived(ResponseText, ReceiveCode, ErrorMes)
     End If
 End Sub
