@@ -108,8 +108,8 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（38バイト）---
-    ' PostMessageW(hwnd, WM_APP_WINHTTP_CALLBACK, dwInternetStatus, lpvStatusInformation) を直接呼ぶ
+    '--- x64 マシンコード（64バイト）---
+    ' PostMessageW(hwnd, WM_APP_WINHTTP_CALLBACK, packed(status+len), packed(wsStatus)) を直接呼ぶ
     If NotifyHwnd = 0 Or postMessageProc = 0 Then Exit Function
     '48 B9 <imm64>      MOV RCX, notifyHwnd
     pa.arr(0) = &HB948
@@ -129,18 +129,24 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr + 29: pa.arr(0) = &HD30B4D
     '4D 89 D0           MOV R8, R10             ; wParam
     pa.sa.pvData = aPtr + 32: pa.arr(0) = &HD0894D
-    'R9 は lpvStatusInformation をそのまま使用（lParam）
+    'R9 を packed(WS_STATUS) に変換（ポインタ直接渡しを避ける）
+    '4D 85 C9           TEST R9, R9
+    pa.sa.pvData = aPtr + 35: pa.arr(0) = &HC9854D
+    '74 03              JE +3
+    pa.sa.pvData = aPtr + 38: pa.arr(0) = &H374&
+    '4D 8B 09           MOV R9, [R9]
+    pa.sa.pvData = aPtr + 40: pa.arr(0) = &H98B4D
     '48 83 EC 28        SUB RSP, 28h
-    pa.sa.pvData = aPtr + 35: pa.arr(0) = &H28EC8348
+    pa.sa.pvData = aPtr + 43: pa.arr(0) = &H28EC8348
     '48 B8 <imm64>      MOV RAX, postMessageProc
-    pa.sa.pvData = aPtr + 39: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 41: pa.arr(0) = postMessageProc
+    pa.sa.pvData = aPtr + 47: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 49: pa.arr(0) = postMessageProc
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 49: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 57: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 51: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 59: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 55: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 63: pa.arr(0) = &HC3&
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
