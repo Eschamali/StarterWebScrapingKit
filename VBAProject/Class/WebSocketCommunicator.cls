@@ -83,7 +83,7 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ) As Long
 
 'Websocket蓄積受信状況把握に使用
-Private Const BufferToAllocate As Long = 4096   '旧: WebSocketAsyncHelpers.bas の Public Const から移動
+Private Const BufferToAllocate As Long = 16384  '大きいと 1 メッセージあたりのフラグメント数が減り CDP 長文に有利（旧 4096）
 Private Type WebSocketReceiveManage
     Buffer(BufferToAllocate - 1) As Byte    '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
     BufferLength As Long                    '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します

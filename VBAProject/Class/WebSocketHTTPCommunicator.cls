@@ -46,7 +46,7 @@ Private Type CallbackQueueItem
     hasStatusInformation As Long
     statusInformation As WINHTTP_WEB_SOCKET_STATUS
 End Type
-Private Const CALLBACK_QUEUE_SIZE As Long = 128
+Private Const CALLBACK_QUEUE_SIZE As Long = 4096
 Private m_callbackQueue(0 To CALLBACK_QUEUE_SIZE - 1) As CallbackQueueItem
 Private m_queueRead As Long
 Private m_queueWrite As Long
@@ -268,6 +268,9 @@ Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, B
 #Else
     EnqueueCallback 0, dwInternetStatus, packedStatusInformation, dwStatusInformationLength
 #End If
+    ' PostMessage が短時間に大量に積まれると Enqueue だけだとキューが溢れ、READ_COMPLETE が落ちる。
+    ' WM 処理のたびに即 Dispatch してキューを常に空に近づける（巨大 UTF8 フラグメント連打対策）。
+    DispatchQueuedCallbacks
     On Error GoTo 0
 End Sub
 
