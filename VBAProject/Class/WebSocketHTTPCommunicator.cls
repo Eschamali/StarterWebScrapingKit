@@ -238,6 +238,13 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
     m_queueWrite = nextWrite
 End Sub
 
+Public Sub HandlePostedWinHttpCallback(ByVal dwInternetStatus As Long, ByVal lpvStatusInformation As LongPtr)
+    On Error Resume Next
+    m_callbackHitCount = m_callbackHitCount + 1
+    EnqueueCallback 0, dwInternetStatus, lpvStatusInformation, LenB(m_callbackQueue(0).statusInformation)
+    On Error GoTo 0
+End Sub
+
 Public Sub DispatchQueuedCallbacks()
     On Error Resume Next
     Do While m_queueRead <> m_queueWrite
@@ -343,7 +350,7 @@ Public Function UpgradeToWebSocket() As Boolean
         m_notifyHwnd = m_form.Controls.Add("Forms.Frame.1").[_GethWnd]
         Debug.Print "[Upgrade] F0: NotifyHwnd=" & m_notifyHwnd
     End If
-    InstallWinHttpMessageHook m_notifyHwnd
+    InstallWinHttpMessageHook m_notifyHwnd, Me
 
     Dim requestCallbackResult As LongPtr
     Dim cbPtr As LongPtr: cbPtr = GetWinHttpCallbackProc(Me)

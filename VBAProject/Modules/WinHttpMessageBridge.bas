@@ -14,13 +14,15 @@ Public Const WM_APP_WINHTTP_CALLBACK As Long = WM_APP + 711
 Private g_hookHwnd As LongPtr
 Private g_prevWndProc As LongPtr
 Private g_msgCount As Long
+Private g_target As WebSocketHTTPCommunicator
 
-Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr)
+Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal target As WebSocketHTTPCommunicator)
     If targetHwnd = 0 Then Exit Sub
     If g_hookHwnd = targetHwnd And g_prevWndProc <> 0 Then Exit Sub
 
     RemoveWinHttpMessageHook
     g_msgCount = 0
+    Set g_target = target
     g_hookHwnd = targetHwnd
     g_prevWndProc = SetWindowLongPtr(g_hookHwnd, GWLP_WNDPROC, AddressOf WinHttpBridgeWndProc)
 End Sub
@@ -30,6 +32,7 @@ Public Sub RemoveWinHttpMessageHook()
     If g_hookHwnd <> 0 And g_prevWndProc <> 0 Then
         SetWindowLongPtr g_hookHwnd, GWLP_WNDPROC, g_prevWndProc
     End If
+    Set g_target = Nothing
     g_hookHwnd = 0
     g_prevWndProc = 0
     On Error GoTo 0
@@ -43,6 +46,9 @@ Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, 
                                       ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
     If msg = WM_APP_WINHTTP_CALLBACK Then
         g_msgCount = g_msgCount + 1
+        If Not (g_target Is Nothing) Then
+            g_target.HandlePostedWinHttpCallback CLng(wParam), lParam
+        End If
         WinHttpBridgeWndProc = 0
         Exit Function
     End If
