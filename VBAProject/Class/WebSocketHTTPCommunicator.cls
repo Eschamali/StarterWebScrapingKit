@@ -242,9 +242,14 @@ Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, B
     On Error Resume Next
     Dim dwInternetStatus As Long
     Dim dwStatusInformationLength As Long
-    dwInternetStatus = CLng(packedStatusAndLength And &HFFFFFFFF)
+    dwInternetStatus = CLng(packedStatusAndLength)
 #If Win64 Then
-    dwStatusInformationLength = CLng((packedStatusAndLength And &H7FFFFFFF00000000^) \ &H100000000)
+    Dim packedParts(0 To 1) As Long
+    Dim packed64 As LongLong
+    packed64 = packedStatusAndLength
+    CopyMemory packedParts(0), packed64, 8
+    dwInternetStatus = packedParts(0)
+    dwStatusInformationLength = packedParts(1)
 #Else
     dwStatusInformationLength = 0
 #End If
