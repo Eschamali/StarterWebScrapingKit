@@ -110,23 +110,6 @@ Private m_isDataReady As Boolean                  ' 旧: isDataReady
 Private m_logFolderPath As String
 Private m_logFileName As String
 
-Private Sub Class_Initialize()
-    Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
-    On Error Resume Next
-    With ShSetting01_StartBrowser
-        Dim logFolder As String
-        logFolder = Trim$(CStr(.Range(.UseRangeName(9, FromProcedureName)).Value))
-        If Len(logFolder) > 0 Then
-            If Dir(logFolder, vbDirectory) = "" Then MkDir logFolder
-            If Dir(logFolder, vbDirectory) <> "" Then
-                m_logFolderPath = logFolder
-                m_logFileName = "WebSocket_" & CStr(Year(Now)) & Format$(Month(Now), "00") & Format$(Day(Now), "00") & ".log"
-            End If
-        End If
-    End With
-    On Error GoTo 0
-End Sub
-
 Private Sub WsLogDebug(ByVal message As String, Optional ByVal From As String = "")
     If Len(m_logFolderPath) > 0 And Len(m_logFileName) > 0 Then
         ViewLog.LogDebug message, From, m_logFolderPath, m_logFileName
@@ -696,3 +679,22 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
             WsLogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコードが来てます：" & Param.Status, TraceName
     End Select
 End Function
+
+
+
+Private Sub Class_Initialize()
+    Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
+    On Error Resume Next
+    With ShSetting01_StartBrowser
+        Dim logFolder As String
+        logFolder = Trim$(CStr(.Range(.UseRangeName(9, FromProcedureName)).value))
+        If Len(logFolder) > 0 Then
+            If Dir(logFolder, vbDirectory) = "" Then MkDir logFolder
+            If Dir(logFolder, vbDirectory) <> "" Then
+                m_logFolderPath = logFolder
+                m_logFileName = "WebSocket_" & CStr(Year(Now)) & Format$(Month(Now), "00") & Format$(Day(Now), "00") & ".log"
+            End If
+        End If
+    End With
+    On Error GoTo 0
+End Sub
