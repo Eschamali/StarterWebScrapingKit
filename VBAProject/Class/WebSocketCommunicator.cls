@@ -562,7 +562,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：先頭から指定サイズ分だけ切り出したバイト配列を返します
 '***************************************************************************************************
-Private Function SliceBytes(ByRef source() As Byte, ByVal dataSize As Long) As Byte()
+Private Function SliceBytes(ByRef Source() As Byte, ByVal dataSize As Long) As Byte()
     Dim clipped() As Byte
     Dim i As Long
 
@@ -573,7 +573,7 @@ Private Function SliceBytes(ByRef source() As Byte, ByVal dataSize As Long) As B
 
     ReDim clipped(0 To dataSize - 1)
     For i = 0 To dataSize - 1
-        clipped(i) = source(i)
+        clipped(i) = Source(i)
     Next
     SliceBytes = clipped
 End Function
