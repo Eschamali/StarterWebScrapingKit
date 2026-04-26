@@ -69,13 +69,13 @@ Sub WebSocketDemoASync1_2_受信リクエスト()
 
     '受信メッセージを受け取る
     Dim ResultCode As Long
-    g_WebsocketObj.WsLogInfo "受信内容：" & g_WebsocketObj.GetAsyncMessage(, ResultCode), "Demo"
+    g_WebsocketObj.printMsg info_, "受信内容：" & g_WebsocketObj.GetAsyncMessage(, ResultCode), "Demo"
 
     Dim ErrorMes As New WinApiError
     If ResultCode Then
-        g_WebsocketObj.WsLogInfo "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"), "Demo"
+        g_WebsocketObj.printMsg info_, "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"), "Demo"
     Else
-        g_WebsocketObj.WsLogInfo "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
+        g_WebsocketObj.printMsg info_, "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
     End If
 End Sub
 
@@ -289,7 +289,7 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     Else
         Debug.Print "CDP送信OK(id=" & rid & ", Page.captureScreenshot) → 受信完了まで待機します"
         ResponseText = WsReceiveUntilNonEmpty(20, ReceiveCode)
-        g_WebsocketObj.WsLogInfo "スクショ結果: " & ResponseText, "Demoスクショ"
+        g_WebsocketObj.printMsg info_, "スクショ結果: " & ResponseText, "Demoスクショ"
         
         Call CdpDebugPrintReceived(ResponseText, ReceiveCode, ErrorMes)
     End If
