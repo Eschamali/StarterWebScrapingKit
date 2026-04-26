@@ -186,7 +186,7 @@ Private Const WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS As Long = _
     Or WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE _
     Or WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE
 Private Declare PtrSafe Function PostMessageW Lib "user32" ( _
-  ByVal hwnd As LongPtr, _
+  ByVal hWnd As LongPtr, _
   ByVal wMsg As Long, _
   ByVal wParam As LongPtr, _
   ByVal lParam As LongPtr _
