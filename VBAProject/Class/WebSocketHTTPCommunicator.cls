@@ -238,10 +238,18 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
     m_queueWrite = nextWrite
 End Sub
 
-Public Sub HandlePostedWinHttpCallback(ByVal dwInternetStatus As Long, ByVal lpvStatusInformation As LongPtr)
+Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, ByVal lpvStatusInformation As LongPtr)
     On Error Resume Next
+    Dim dwInternetStatus As Long
+    Dim dwStatusInformationLength As Long
+    dwInternetStatus = CLng(packedStatusAndLength And &HFFFFFFFF)
+#If Win64 Then
+    dwStatusInformationLength = CLng((packedStatusAndLength And &H7FFFFFFF00000000^) \ &H100000000)
+#Else
+    dwStatusInformationLength = 0
+#End If
     m_callbackHitCount = m_callbackHitCount + 1
-    EnqueueCallback 0, dwInternetStatus, lpvStatusInformation, LenB(m_callbackQueue(0).statusInformation)
+    EnqueueCallback 0, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength
     On Error GoTo 0
 End Sub
 

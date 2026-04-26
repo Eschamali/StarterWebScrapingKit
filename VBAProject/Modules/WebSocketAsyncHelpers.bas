@@ -117,18 +117,30 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     '48 C7 C2 <imm32>   MOV RDX, WM_APP_WINHTTP_CALLBACK
     pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2C748
     pa.sa.pvData = aPtr + 13: pa.arr(0) = WM_APP_WINHTTP_CALLBACK
-    'R8/R9 は WinHttp callback の dwInternetStatus/lpvStatusInformation をそのまま使用
+    'wParam に dwInternetStatus(下位32bit) + dwStatusInformationLength(上位32bit) を詰める
+    '4C 8B 54 24 28     MOV R10, [RSP+28h]      ; length
+    pa.sa.pvData = aPtr + 17: pa.arr(0) = &H24548B4C
+    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28&
+    '49 C1 E2 20        SHL R10, 32
+    pa.sa.pvData = aPtr + 22: pa.arr(0) = &H20E2C149
+    '45 8B D8           MOV R11D, R8D           ; status
+    pa.sa.pvData = aPtr + 26: pa.arr(0) = &HD88B45
+    '4D 0B D3           OR R10, R11
+    pa.sa.pvData = aPtr + 29: pa.arr(0) = &HD30B4D
+    '4D 89 D0           MOV R8, R10             ; wParam
+    pa.sa.pvData = aPtr + 32: pa.arr(0) = &HD0894D
+    'R9 は lpvStatusInformation をそのまま使用（lParam）
     '48 83 EC 28        SUB RSP, 28h
-    pa.sa.pvData = aPtr + 17: pa.arr(0) = &H28EC8348
+    pa.sa.pvData = aPtr + 35: pa.arr(0) = &H28EC8348
     '48 B8 <imm64>      MOV RAX, postMessageProc
-    pa.sa.pvData = aPtr + 21: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 23: pa.arr(0) = postMessageProc
+    pa.sa.pvData = aPtr + 39: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 41: pa.arr(0) = postMessageProc
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 31: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 49: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 33: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 51: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 37: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 55: pa.arr(0) = &HC3&
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:

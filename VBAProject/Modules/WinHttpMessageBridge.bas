@@ -47,7 +47,7 @@ Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, 
     If msg = WM_APP_WINHTTP_CALLBACK Then
         g_msgCount = g_msgCount + 1
         If Not (g_target Is Nothing) Then
-            g_target.HandlePostedWinHttpCallback CLng(wParam), lParam
+            g_target.HandlePostedWinHttpCallback wParam, lParam
         End If
         WinHttpBridgeWndProc = 0
         Exit Function
