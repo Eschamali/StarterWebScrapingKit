@@ -100,33 +100,36 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（診断最小版: 34バイト）---
-    ' this/第1引数/第2引数のみを厳密に詰め替え、残り2引数は 0 で呼ぶ。
-    ' まず CallbackHitCount が増えることを優先して確認する。
+    '--- x64 マシンコード（47バイト）---
+    ' WinHttp callback:
+    '   RCX=hInternet, RDX=dwContext, R8=dwInternetStatus, R9=lpvStatusInformation, [RSP+28]=dwStatusInformationLength
+    ' COM instance method:
+    '   RCX=this, RDX=HINTERNET, R8=dwInternetStatus, R9=lpvStatusInformation, [RSP+20]=dwStatusInformationLength
+
     '4C 8B D1           MOV R10, RCX            ; hInternet 退避
     pa.arr(0) = &HD18B4C
-    '49 89 D3           MOV R11, RDX            ; dwContext 退避（未使用だがレジスタ保存）
-    pa.sa.pvData = aPtr + 3: pa.arr(0) = &HD38949
     '48 B9 <imm64>      MOV RCX, targetObjPtr   ; this
-    pa.sa.pvData = aPtr + 6: pa.arr(0) = &HB948
-    pa.sa.pvData = aPtr + 8: pa.arr(0) = targetObjPtr
+    pa.sa.pvData = aPtr + 3: pa.arr(0) = &HB948
+    pa.sa.pvData = aPtr + 5: pa.arr(0) = targetObjPtr
     '4C 89 D2           MOV RDX, R10            ; arg1 = hInternet
-    pa.sa.pvData = aPtr + 16: pa.arr(0) = &HD2894C
-    '4D 89 C0           MOV R8, R8              ; arg2 = dwInternetStatus（NOP的に明示）
-    pa.sa.pvData = aPtr + 19: pa.arr(0) = &HC0894D
-    '4D 31 C9           XOR R9, R9              ; arg3 = 0
-    pa.sa.pvData = aPtr + 22: pa.arr(0) = &HC9314D
-    '48 83 EC 28        SUB RSP, 28h
-    pa.sa.pvData = aPtr + 25: pa.arr(0) = &H28EC8348
+    pa.sa.pvData = aPtr + 13: pa.arr(0) = &HD2894C
+    '4C 8B 54 24 28     MOV R10, [RSP+28h]      ; 4th arg 退避
+    pa.sa.pvData = aPtr + 16: pa.arr(0) = &H24548B4C
+    pa.sa.pvData = aPtr + 20: pa.arr(0) = &H28&
+    '48 83 EC 28        SUB RSP, 28h            ; shadow space + align
+    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28EC8348
+    '4C 89 54 24 20     MOV [RSP+20h], R10      ; 4th arg を配置
+    pa.sa.pvData = aPtr + 25: pa.arr(0) = &H2454894C
+    pa.sa.pvData = aPtr + 29: pa.arr(0) = &H20&
     '48 B8 <imm64>      MOV RAX, tProcPtr
-    pa.sa.pvData = aPtr + 29: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 31: pa.arr(0) = tProcPtr
+    pa.sa.pvData = aPtr + 30: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 32: pa.arr(0) = tProcPtr
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 39: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 40: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 41: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 42: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 45: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 46: pa.arr(0) = &HC3&
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
