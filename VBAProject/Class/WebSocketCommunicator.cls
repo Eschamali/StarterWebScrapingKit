@@ -278,7 +278,7 @@ End Function
 '***************************************************************************************************
 Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
     If Not (Http Is Nothing) Then
-        Http.DispatchQueuedCallbacks
+        Http.DrainPostedCallbacks
         ViewLog.LogDebug "CallbackHitCount=" & Http.CallbackHitCount, "WebSocketCommunicator.GetAsyncMessage"
         If Http.DroppedCallbackCount > 0 Then
             ViewLog.LogWarn "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", "WebSocketCommunicator.GetAsyncMessage"
@@ -296,7 +296,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     '既に受信予約済みなら、新規予約はせずコールバック待ち
     If m_isDataReady Then
         ViewLog.LogDebug "受信予約済みのため、コールバック到着待ちです。", "WebSocketCommunicator.GetAsyncMessage"
-        If Not (Http Is Nothing) Then Http.DispatchQueuedCallbacks
+        If Not (Http Is Nothing) Then Http.DrainPostedCallbacks
         If Not (m_isReceiving) Then
             GetAsyncMessage = vbNullString
             Exit Function
@@ -343,7 +343,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
             End If
         End If
 
-        If Not (Http Is Nothing) Then Http.DispatchQueuedCallbacks
+        If Not (Http Is Nothing) Then Http.DrainPostedCallbacks
     
         'インスタンス変数と仲介しながら、バッファー管理処理へ移る
         tmp = IntermediaryProcessing_BufferManagement(InsiderRes)

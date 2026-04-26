@@ -52,6 +52,8 @@ Private m_queueRead As Long
 Private m_queueWrite As Long
 Private m_droppedCallbacks As Long
 Private m_callbackHitCount As Long
+Private m_notifyHwnd As LongPtr
+Private m_postPending As Boolean
 
 
 
@@ -183,6 +185,14 @@ Private Const WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS As Long = _
     Or WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE _
     Or WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE _
     Or WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE
+Private Declare PtrSafe Function PostMessageW Lib "user32" ( _
+  ByVal hwnd As LongPtr, _
+  ByVal wMsg As Long, _
+  ByVal wParam As LongPtr, _
+  ByVal lParam As LongPtr _
+  ) As Long
+Private Const WM_APP As Long = &H8000&
+Private Const WM_APP_WINHTTP_CALLBACK As Long = WM_APP + 711
 
 
 Private Const AGENT As String = "Client"
@@ -210,6 +220,9 @@ Private Sub WinHttpCallbackProc(ByVal HINTERNET As LongPtr, _
     On Error Resume Next
     m_callbackHitCount = m_callbackHitCount + 1
     EnqueueCallback HINTERNET, dwInternetStatus, lpvStatusInformation, dwStatusInformationLength
+    If m_notifyHwnd <> 0 And Not m_postPending Then
+        m_postPending = (PostMessageW(m_notifyHwnd, WM_APP_WINHTTP_CALLBACK, 0, 0) <> 0)
+    End If
     On Error GoTo 0
 End Sub
 
@@ -249,6 +262,11 @@ Public Sub DispatchQueuedCallbacks()
         m_queueRead = (m_queueRead + 1) Mod CALLBACK_QUEUE_SIZE
     Loop
     On Error GoTo 0
+End Sub
+
+Public Sub DrainPostedCallbacks()
+    m_postPending = False
+    DispatchQueuedCallbacks
 End Sub
 
 Public Property Get DroppedCallbackCount() As Long
@@ -328,6 +346,11 @@ End Function
 Public Function UpgradeToWebSocket() As Boolean
     Dim result As Long
     Dim callbackResult As LongPtr
+    If m_notifyHwnd = 0 Then
+        m_notifyHwnd = m_form.Controls.Add("Forms.Frame.1").[_GethWnd]
+        Debug.Print "[Upgrade] F0: NotifyHwnd=" & m_notifyHwnd
+    End If
+
     Dim sessionCallbackResult As LongPtr
     Dim cbPtr As LongPtr: cbPtr = GetWinHttpCallbackProc(Me)
     Debug.Print "[Upgrade] F: CallbackPtr=" & cbPtr
@@ -440,5 +463,7 @@ End Sub
 
 
 Private Sub Class_Terminate()
+    m_postPending = False
+    m_notifyHwnd = 0
     CloseHInternetHandles
 End Sub
