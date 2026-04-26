@@ -106,6 +106,50 @@ Private m_res         As WebSocketReceiveManage   ' 旧: G_res
 Private m_isReceiving As Boolean                  ' 旧: isReceiving
 Private m_isDataReady As Boolean                  ' 旧: isDataReady
 
+'--- ログファイル（CDPBrowser.Class_Initialize と同じく ShSetting01_StartBrowser の「ログファイル保存」） ---
+Private m_logFolderPath As String
+Private m_logFileName As String
+
+Private Sub Class_Initialize()
+    Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
+    On Error Resume Next
+    With ShSetting01_StartBrowser
+        Dim logFolder As String
+        logFolder = Trim$(CStr(.Range(.UseRangeName(9, FromProcedureName)).Value))
+        If Len(logFolder) > 0 Then
+            If Dir(logFolder, vbDirectory) = "" Then MkDir logFolder
+            If Dir(logFolder, vbDirectory) <> "" Then
+                m_logFolderPath = logFolder
+                m_logFileName = "WebSocket_" & CStr(Year(Now)) & Format$(Month(Now), "00") & Format$(Day(Now), "00") & ".log"
+            End If
+        End If
+    End With
+    On Error GoTo 0
+End Sub
+
+Private Sub WsLogDebug(ByVal message As String, Optional ByVal From As String = "")
+    If Len(m_logFolderPath) > 0 And Len(m_logFileName) > 0 Then
+        ViewLog.LogDebug message, From, m_logFolderPath, m_logFileName
+    Else
+        ViewLog.LogDebug message, From
+    End If
+End Sub
+
+Private Sub WsLogInfo(ByVal message As String, Optional ByVal From As String = "")
+    If Len(m_logFolderPath) > 0 And Len(m_logFileName) > 0 Then
+        ViewLog.LogInfo message, From, m_logFolderPath, m_logFileName
+    Else
+        ViewLog.LogInfo message, From
+    End If
+End Sub
+
+Private Sub WsLogWarn(ByVal message As String, Optional ByVal From As String = "")
+    If Len(m_logFolderPath) > 0 And Len(m_logFileName) > 0 Then
+        ViewLog.LogWarn message, From, m_logFolderPath, m_logFileName
+    Else
+        ViewLog.LogWarn message, From
+    End If
+End Sub
 
 
 '***************************************************************************************************
@@ -279,9 +323,9 @@ End Function
 Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRef ResultCode As Long) As Variant
     If Not (Http Is Nothing) Then
         Http.DrainPostedCallbacks
-        ViewLog.LogDebug "CallbackHitCount=" & Http.CallbackHitCount, "WebSocketCommunicator.GetAsyncMessage"
+        WsLogDebug "CallbackHitCount=" & Http.CallbackHitCount, "WebSocketCommunicator.GetAsyncMessage"
         If Http.DroppedCallbackCount > 0 Then
-            ViewLog.LogWarn "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", "WebSocketCommunicator.GetAsyncMessage"
+            WsLogWarn "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", "WebSocketCommunicator.GetAsyncMessage"
             Http.ResetDroppedCallbackCount
         End If
     End If
@@ -295,7 +339,7 @@ Public Function GetAsyncMessage(Optional GetBinaryMode As Boolean, Optional ByRe
     
     '既に受信予約済みなら、新規予約はせずコールバック待ち
     If m_isDataReady Then
-        ViewLog.LogDebug "受信予約済みのため、コールバック到着待ちです。", "WebSocketCommunicator.GetAsyncMessage"
+        WsLogDebug "受信予約済みのため、コールバック到着待ちです。", "WebSocketCommunicator.GetAsyncMessage"
         If Not (Http Is Nothing) Then Http.DrainPostedCallbacks
         If Not (m_isReceiving) Then
             GetAsyncMessage = vbNullString
@@ -385,14 +429,14 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
                 'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
                 WebSocketStatus.dwBytesTransferred = 0
                 WebSocketStatus.eBufferType = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-                ViewLog.LogWarn "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, ErrorSource
+                WsLogWarn "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, ErrorSource
             End If
             
-            ViewLog.LogDebug "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
-            ViewLog.LogDebug "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
-            ViewLog.LogDebug "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
-            ViewLog.LogDebug "---------------------------------------------------", ErrorSource
-            ViewLog.LogDebug "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
+            WsLogDebug "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
+            WsLogDebug "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
+            WsLogDebug "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
+            WsLogDebug "---------------------------------------------------", ErrorSource
+            WsLogDebug "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
 
             'バッファー管理に必要なパラメーターを適用
             m_res.Status = WebSocketStatus.eBufferType
@@ -402,17 +446,17 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
                 Case 524288    'READ_COMPLETE
                     m_isReceiving = True
                     m_isDataReady = False
-                    ViewLog.LogInfo "非同期処理により、受信メッセージを格納しました。", ErrorSource
+                    WsLogInfo "非同期処理により、受信メッセージを格納しました。", ErrorSource
                 Case 1048576   'WRITE_COMPLETE
-                    ViewLog.LogInfo "非同期処理により、送信の確認が取れました。", ErrorSource
+                    WsLogInfo "非同期処理により、送信の確認が取れました。", ErrorSource
                 Case 67108864  'SHUTDOWN_COMPLETE
-                    ViewLog.LogInfo "WebSocket の接続が正常にシャットダウンされました。", ErrorSource
+                    WsLogInfo "WebSocket の接続が正常にシャットダウンされました。", ErrorSource
                 Case 33554432  'CLOSE_COMPLETE
-                    ViewLog.LogInfo "WebSocket を閉じました。", ErrorSource
+                    WsLogInfo "WebSocket を閉じました。", ErrorSource
             End Select
 
         Case Else
-            ViewLog.LogWarn "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, ErrorSource
+            WsLogWarn "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, ErrorSource
     End Select
 End Sub
 
@@ -591,12 +635,12 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
 
 
     '========================= 受信ステータス値　把握用 =========================
-    ViewLog.LogDebug "------------ WebSocket 受信ステータス ------------", TraceName
-    ViewLog.LogDebug "バッファー残量 ：" & Param.BufferLength & " byte", TraceName
-    ViewLog.LogDebug "受信データ量　 ：" & Param.ReceiveBytes & " byte", TraceName
-    ViewLog.LogDebug "バッファー位置 ：" & Param.CurrentPointer & " byte", TraceName
-    ViewLog.LogDebug "WebSocketStatus：" & Param.Status, TraceName
-    ViewLog.LogDebug "---------------------------------------------------", TraceName
+    WsLogDebug "------------ WebSocket 受信ステータス ------------", TraceName
+    WsLogDebug "バッファー残量 ：" & Param.BufferLength & " byte", TraceName
+    WsLogDebug "受信データ量　 ：" & Param.ReceiveBytes & " byte", TraceName
+    WsLogDebug "バッファー位置 ：" & Param.CurrentPointer & " byte", TraceName
+    WsLogDebug "WebSocketStatus：" & Param.Status, TraceName
+    WsLogDebug "---------------------------------------------------", TraceName
     '============================================================================
 
 
@@ -606,49 +650,49 @@ Private Function BufferManagement(ByRef Param As WebSocketReceiveManage) As Byte
         '※非同期用に特別に用意したコードです
         Case WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
             m_isDataReady = True
-            ViewLog.LogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
+            WsLogInfo "まだ、受信データがありません。受信予約を行いました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-            ViewLog.LogInfo "全ての" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "バイナリ", "UTF-8") & "データが届きました。", TraceName
+            WsLogInfo "全ての" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE, "バイナリ", "UTF-8") & "データが届きました。", TraceName
             
             '1. 最後のパケットデータを追加
             Param.collect.Add Param.Buffer
-            ViewLog.LogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
+            WsLogInfo "最後のバッファーを一時Collectionキューに追加しました。", TraceName
 
             '2. 全てのチャンクを結合して、返却
             BufferManagement = MakeResponseFullBytes(Param.collect)
-            ViewLog.LogInfo "チャンクを全て結合し、バイト配列として返却しました。", TraceName
+            WsLogInfo "チャンクを全て結合し、バイト配列として返却しました。", TraceName
 
             '3. 全てを受信し終えたステータスなので、初期化処理
             InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
             Set Param.collect = New Collection
-            ViewLog.LogInfo "バッファーを確保しました。", TraceName
+            WsLogInfo "バッファーを確保しました。", TraceName
         
         Case WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
             '1. バッファー残量確認
-            ViewLog.LogWarn "一部の" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, "バイナリ", "UTF-8") & "データを受け取りました。完全なデータの受信には再度、受信リクエストを送る必要があります。", TraceName
+            WsLogWarn "一部の" & IIf(Param.Status = WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE, "バイナリ", "UTF-8") & "データを受け取りました。完全なデータの受信には再度、受信リクエストを送る必要があります。", TraceName
             If Param.BufferLength <= 0 Then
-                ViewLog.LogInfo "バッファーを使い果たしました。", TraceName
+                WsLogInfo "バッファーを使い果たしました。", TraceName
                 
                 '2. 満たしたパケットをコレクションへ追加
                 Param.collect.Add Param.Buffer
-                ViewLog.LogInfo "満たしたバッファーを一時Collectionキューに追加しました。", TraceName
+                WsLogInfo "満たしたバッファーを一時Collectionキューに追加しました。", TraceName
 
                 '3. バッファー初期化して、空きを確保
                 InitializeBuffer Param.Buffer, Param.CurrentPointer, Param.BufferLength
-                ViewLog.LogInfo "バッファーを確保しました。", TraceName
+                WsLogInfo "バッファーを確保しました。", TraceName
             Else
-                ViewLog.LogInfo "バッファーに空きがあるため、次の受信処理に持ち越します。", TraceName
+                WsLogInfo "バッファーに空きがあるため、次の受信処理に持ち越します。", TraceName
             End If
 
         'サーバーが閉じるフレームを送信しました。
         Case WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
-            ViewLog.LogInfo "切断リクエストが来たため、WebSocket 処理を終了します...", TraceName
+            WsLogInfo "切断リクエストが来たため、WebSocket 処理を終了します...", TraceName
             
             '具体的な処理はまだ未実装
         
         '`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコード
         Case Else
-            ViewLog.LogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコードが来てます：" & Param.Status, TraceName
+            WsLogWarn "`WINHTTP_WEB_SOCKET_STATUS.eBufferType`未定義のコードが来てます：" & Param.Status, TraceName
     End Select
 End Function
