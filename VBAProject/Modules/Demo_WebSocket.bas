@@ -69,13 +69,13 @@ Sub WebSocketDemoASync1_2_受信リクエスト()
 
     '受信メッセージを受け取る
     Dim ResultCode As Long
-    Debug.Print "受信内容：" & g_WebsocketObj.GetAsyncMessage(, ResultCode)
+    g_WebsocketObj.WsLogInfo "受信内容：" & g_WebsocketObj.GetAsyncMessage(, ResultCode), "Demo"
 
     Dim ErrorMes As New WinApiError
     If ResultCode Then
-        Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        g_WebsocketObj.WsLogInfo "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"), "Demo"
     Else
-        Debug.Print "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
+        g_WebsocketObj.WsLogInfo "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
     End If
 End Sub
 

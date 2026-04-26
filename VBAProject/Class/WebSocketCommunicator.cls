@@ -118,7 +118,7 @@ Private Sub WsLogDebug(ByVal message As String, Optional ByVal From As String = 
     End If
 End Sub
 
-Private Sub WsLogInfo(ByVal message As String, Optional ByVal From As String = "")
+Public Sub WsLogInfo(ByVal message As String, Optional ByVal From As String = "")
     If Len(m_logFolderPath) > 0 And Len(m_logFileName) > 0 Then
         ViewLog.LogInfo message, From, m_logFolderPath, m_logFileName
     Else
