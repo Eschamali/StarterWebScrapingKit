@@ -421,7 +421,10 @@ Exit Function
 
 quit:
     Debug.Print "[Upgrade] FAIL ゴート: result=" & result & " requestCallbackResult=" & requestCallbackResult & " callbackResult=" & callbackResult & " LastDllError=" & Err.LastDllError
-    If callbackResult = WINHTTP_INVALID_STATUS_CALLBACK Then CloseHWebsocketHandle
+    On Error Resume Next
+    RemoveWinHttpMessageHook
+    
+    On Error GoTo 0
     UpgradeToWebSocket = False
 End Function
 
