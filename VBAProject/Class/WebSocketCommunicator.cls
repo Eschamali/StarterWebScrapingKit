@@ -176,6 +176,8 @@ End Property
 '                          ■■■ 受信データ取得用プロパティ ■■■
 '***************************************************************************************************
 '* 機能    ：`WinHttpReceiveResponse`による最後の受信データをバイト配列として、取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：最後の1件分しか保持しません
 '***************************************************************************************************
 Public Property Get LastReceiveContentByte() As Byte
     LastReceiveContentByte = Content_WinHttpWebSocketReceive
@@ -183,6 +185,8 @@ End Property
 
 '***************************************************************************************************
 '* 機能    ：`WinHttpReceiveResponse`による最後の受信データを文字列として、取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：最後の1件分しか保持しません
 '***************************************************************************************************
 Public Property Get LastReceiveContentString() As String
     LastReceiveContentString = CharConv.BytesToString(Content_WinHttpWebSocketReceive)
@@ -709,20 +713,32 @@ Private Sub BufferManagement()
     '※4種類 + 1 のタイプが出ますが、処理の仕方は2種類のため、統一します。
     Select Case m_res.Status
         Case WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE
-            printMsg Debug_, "全ての" & IIf(m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, "バイナリ", "UTF-8") & "データが届きました。", FromProcedureName
+            '1. 今のCollectionに、既に貯まっている状態か？
+            If m_res.collect.Count Then
+                printMsg Debug_, "全ての" & IIf(m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, "バイナリ", "UTF-8") & "データが届きました。", FromProcedureName
 
-            '1. 最後のパケットデータを追加（未使用領域を含めない）
-            m_res.collect.Add SliceBytes(m_res.Buffer, m_res.CurrentPointer)
-            printMsg Debug_, "最後のバッファーを一時Collectionキューに追加しました。", FromProcedureName
+                '1-1. 最後のパケットデータを追加（未使用領域を含めない）
+                m_res.collect.Add SliceBytes(m_res.Buffer, m_res.CurrentPointer)
+                printMsg Debug_, "最後のバッファーを一時Collectionキューに追加しました。", FromProcedureName
 
-            '2. 全てのチャンクを結合して、完成データ用変数に適用
-            Content_WinHttpWebSocketReceive = MakeResponseFullBytes(m_res.collect)
-            printMsg Debug_, "チャンクを全て結合し、バイト配列として返却しました。", FromProcedureName
+                '1-2. 全てのチャンクを結合して、完成データ用変数に適用
+                Content_WinHttpWebSocketReceive = MakeResponseFullBytes(m_res.collect)
+                printMsg Debug_, "チャンクを全て結合し、バイト配列として返却しました。", FromProcedureName
 
-            '3. 全てを受信し終えたステータスなので、初期化処理
-            InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
-            Set m_res.collect = New Collection
-            printMsg Debug_, "バッファーを確保しました。", FromProcedureName
+                '1-3. 次のためにCollectionを空にする
+                Set m_res.collect = New Collection
+                printMsg Debug_, "新規Collectionを確保しました。", FromProcedureName
+
+            Else
+                printMsg Debug_, "1回のバッファーで収まる" & IIf(m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, "バイナリ", "UTF-8") & "データが届きました。", FromProcedureName
+
+                '1-1. 最後のパケットデータを直接返却（未使用領域を含めない）
+                Content_WinHttpWebSocketReceive = SliceBytes(m_res.Buffer, m_res.CurrentPointer)
+            End If
+
+                '2. 全てを受信し終えたステータスなので、初期化処理
+                InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
+                printMsg Debug_, "バッファーを確保しました。", FromProcedureName
 
         Case WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_FRAGMENT, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_FRAGMENT
             '1. バッファー残量確認
@@ -730,15 +746,15 @@ Private Sub BufferManagement()
             If m_res.BufferLength <= 0 Then
                 printMsg Debug_, "バッファーを使い果たしました。", FromProcedureName
 
-                '2. 満たしたパケットをコレクションへ追加
-                m_res.collect.Add SliceBytes(m_res.Buffer, UBound(m_res.Buffer) + 1)
-                printMsg Debug_, "満たしたバッファーを一時Collectionキューに追加しました。", FromProcedureName
+                '2. 満たしたパケットをコレクションへ直追加
+                m_res.collect.Add m_res.Buffer
+                printMsg Debug_, "満たしたバッファーを、Collectionキューに追加しました。", FromProcedureName
 
                 '3. バッファー初期化して、空きを確保
                 InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
                 printMsg Debug_, "バッファーを確保しました。", FromProcedureName
             Else
-                printMsg Debug_, "バッファーに空きがあるため、次の受信処理に持ち越します。", FromProcedureName
+                printMsg Debug_, "まだバッファーに空きがあるため、次の受信処理に持ち越します。", FromProcedureName
             End If
 
         'サーバーが閉じるフレームを送信しました。
