@@ -329,8 +329,8 @@ Public Sub connectionWebSocket(Host As String, Path As String, Optional port As 
 
 
     '1. 最初はhttp(s)で接続確立
-    Dim FullURI As String: FullURI = Host & Path & ":" & port
-    printMsg Debug_, FullURI & "　に接続します...", FromProcedureName
+    Dim FullURI As String: FullURI = Host & ":" & port & "/" & Path
+    printMsg Debug_, IIf(SecureMode, "https://", "http://") & FullURI & "　に接続します...", FromProcedureName
     Set Http = New WebSocketHTTPCommunicator
     If Http.Connect(Host, Path, port, SecureMode) Then
         printMsg info_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に成功しました。WebSocketへの Upgrade 処理を行います...", FromProcedureName
