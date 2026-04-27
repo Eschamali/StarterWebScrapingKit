@@ -429,8 +429,8 @@ Public Function RequestWebSocketReceive() As Long
     '2. このクラスオブジェクトの変数に格納するように受信リクエストし、実行結果を返却
     With m_res
         RequestWebSocketReceive = WinHttpWebSocketReceive( _
-                                Http.websockethandle, m_res.Buffer(m_res.CurrentPointer), m_res.BufferLength, _
-                                m_res.ReceiveBytes, m_res.Status)
+                                Http.websockethandle, .Buffer(m_res.CurrentPointer), .BufferLength, _
+                                .ReceiveBytes, .Status)
     End With
 End Function
 
@@ -460,6 +460,7 @@ Public Function GetAsyncMessage() As Long
         GetAsyncMessage = WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION             '前回のデータがないのに、取り出そうとして、不整合の基になるため、「そんな状態で取り出しは無理だよ」サインを返す
         Exit Function
 
+    '1-3. 全てのチェックをパス出来たら、次の処理へ
     Else
         printMsg Debug_, "データが受信されたことを確認できました。処理に入ります。", FromProcedureName
     End If
@@ -536,8 +537,11 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
                     printMsg Debug_, "非同期処理により、受信メッセージを格納しました。", FromProcedureName
 
                 Case WRITE_COMPLETE
-                    printMsg Debug_, "非同期処理により、送信の確認が取れました。", FromProcedureName
+                    'ステータス更新
                     currentebWebSocket.isSended = True       '送信の確認が取れたので、そのフラグを`True`にする
+
+                    'ログ化
+                    printMsg Debug_, "非同期処理により、送信の確認が取れました。", FromProcedureName
 
                 Case SHUTDOWN_COMPLETE
                     printMsg info_, "WebSocket の接続が正常にシャットダウンされました。", FromProcedureName
