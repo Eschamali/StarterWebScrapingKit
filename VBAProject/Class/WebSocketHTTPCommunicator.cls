@@ -386,11 +386,6 @@ Public Function UpgradeToWebSocket() As Boolean
     Debug.Print "[Upgrade] F: CallbackPtr=" & cbPtr
     If cbPtr = 0 Then GoTo quit
 
-    'Request ハンドルへ先に WebSocket 通知のみを登録する
-    requestCallbackResult = WinHttpSetStatusCallback(hRequestHandle_, cbPtr, WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS, 0)
-    Debug.Print "[Upgrade] F2: SetStatusCallback(Request)=" & requestCallbackResult
-    If requestCallbackResult = WINHTTP_INVALID_STATUS_CALLBACK Then GoTo quit
-
     result = WinHttpSetOption(hRequestHandle_, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, 0, 0)
     Debug.Print "[Upgrade] A: SetOption=" & result
     If result = 0 Then GoTo quit
@@ -462,6 +457,10 @@ quit:
     IsResponseStatus = False
 End Function
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末系 ■■■
 '***************************************************************************************************
 '* 機能　　：HTTP通信ハンドル系統の後始末を行います
 '---------------------------------------------------------------------------------------------------
@@ -477,6 +476,7 @@ End Sub
 '* 機能　　：WebSocketハンドルの後始末を行います
 '***************************************************************************************************
 Public Sub CloseHWebsocketHandle()
+    WinHttpSetStatusCallback hwebsockethandle_, 0, 0, 0     'コールバックを解除しておく
     WinHttpCloseHandle hwebsockethandle_
 End Sub
 
@@ -487,4 +487,5 @@ Private Sub Class_Terminate()
     RemoveWinHttpMessageHook
     m_notifyHwnd = 0
     CloseHInternetHandles
+    CloseHWebsocketHandle
 End Sub
