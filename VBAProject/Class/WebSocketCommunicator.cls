@@ -486,8 +486,8 @@ Public Function GetAsyncMessage() As Long
             If GetAsyncMessage Then Exit Function
 
             '2-2-3. 次のデータが届くまでLoop　※タイムアウトしたら、中断されます
-            Dim timeStart As Single
-            timeStart = Timer
+            Dim timerStart As Single
+            timerStart = Timer
             Do Until currentebWebSocket.isReceiving
                 printMsg Trace_, "Waiting for the next data...", FromProcedureName
                 If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
