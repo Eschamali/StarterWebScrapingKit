@@ -419,6 +419,9 @@ Public Function UpgradeToWebSocket() As Boolean
 
     Debug.Print "[Upgrade] 成功"
     UpgradeToWebSocket = True
+
+    'WebSocketハンドルの入手はできたので、HTTP通信関連のハンドルは破棄する
+    CloseHInternetHandles
 Exit Function
 
 quit:
@@ -426,21 +429,6 @@ quit:
     If callbackResult = WINHTTP_INVALID_STATUS_CALLBACK Then CloseHWebsocketHandle
     UpgradeToWebSocket = False
 End Function
-
-'***************************************************************************************************
-'* 機能　　：WebSocketハンドルの後始末を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：anyHandle      保存したハンドルを使用するときに指定して下さい。
-'***************************************************************************************************
-Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
-    'クラス内部で保存してるWebSocketハンドル
-    If hwebsockethandle_ Then WinHttpCloseHandle hwebsockethandle_: hwebsockethandle_ = 0
-    If Err.LastDllError Then Debug.Print "クラス内 websockethandle 破棄にて、エラー：" & Err.LastDllError
-
-    '引数としてのWebSocketハンドル
-    If anyHandle <> 0 Then WinHttpCloseHandle anyHandle
-    If Err.LastDllError Then Debug.Print "引数の handle 破棄にて、エラー：" & Err.LastDllError
-End Sub
 
 
 
@@ -480,14 +468,16 @@ End Function
 '* 注意事項：WebSocket も後始末する場合は、次項のプロシージャも呼び出して下さい
 '***************************************************************************************************
 Private Sub CloseHInternetHandles()
-    If hRequestHandle_ Then WinHttpCloseHandle hRequestHandle_: hRequestHandle_ = 0
-    If Err.LastDllError Then Debug.Print "RequestHandle 破棄にて、エラー：" & Err.LastDllError
+    WinHttpCloseHandle hRequestHandle_
+    WinHttpCloseHandle hConnectionHandle_
+    WinHttpCloseHandle hSessionHandle_
+End Sub
 
-    If hConnectionHandle_ Then WinHttpCloseHandle hConnectionHandle_: hConnectionHandle_ = 0
-    If Err.LastDllError Then Debug.Print "ConnectionHandle 破棄にて、エラー：" & Err.LastDllError
-
-    If hSessionHandle_ Then WinHttpCloseHandle hSessionHandle_: hSessionHandle_ = 0
-    If Err.LastDllError Then Debug.Print "SessionHandle 破棄にて、エラー：" & Err.LastDllError
+'***************************************************************************************************
+'* 機能　　：WebSocketハンドルの後始末を行います
+'***************************************************************************************************
+Public Sub CloseHWebsocketHandle()
+    WinHttpCloseHandle hwebsockethandle_
 End Sub
 
 
