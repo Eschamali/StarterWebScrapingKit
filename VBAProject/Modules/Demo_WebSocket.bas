@@ -262,3 +262,104 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
         g_WebsocketObj.printMsg WARN_, "要観察: 回収率が低いです。BurstCount/TimeoutSec を変えて再試験してください。", FromProcedureName
     End If
 End Sub
+
+
+
+'***************************************************************************************************
+'                   ■■■ chrome devtools Protocol 用の簡易コマンド ※送信のみ ■■■
+'***************************************************************************************************
+Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
+    Dim ResultCode As Long
+    Dim Payload As String
+
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    SendCount = SendCount + 1
+    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Runtime.evaluate"",""params"":{""expression"":""document.title"",""returnByValue"":true}}"
+
+    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    If ResultCode Then
+        Debug.Print "CDP送信エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+    Else
+        Debug.Print "CDP送信OK(id=" & SendCount & ", Runtime.evaluate)"
+    End If
+End Sub
+
+'* Network.getAllCookies → クッキー一覧の長い JSON（長文レスポンスの負荷テスト向け）
+Sub WebSocketDemoASync2_5_CDP_Network_GetAllCookies()
+    Dim ResultCode As Long
+    Dim Payload As String
+
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    SendCount = SendCount + 1
+    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Network.getAllCookies"",""params"":{}}"
+    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    If ResultCode Then
+        Debug.Print "CDP送信エラー(Network.getAllCookies)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+    Else
+        Debug.Print "CDP送信OK(id=" & SendCount & ", Network.getAllCookies) → 別途受信Demoプロシージャを実行してください"
+    End If
+End Sub
+
+'* Page.navigate → 実際にタブの URL が変わる
+Sub WebSocketDemoASync2_6_CDP_Page_Navigate(Optional ByVal TargetUrl As String)
+    Dim ResultCode As Long
+    Dim Payload As String
+    Dim esc As String
+    Dim ErrorMes As New WinApiError
+
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    If Len(TargetUrl) = 0 Then TargetUrl = "https://www.wikipedia.org/"
+    esc = CdpJsonEscape(TargetUrl)
+
+    SendCount = SendCount + 1
+    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.navigate"",""params"":{""url"":""" & esc & """}}"
+    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    If ResultCode Then
+        Debug.Print "CDP送信エラー(Page.navigate)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+    Else
+        Debug.Print "CDP送信OK(id=" & SendCount & ", Page.navigate url=" & TargetUrl & ") → ブラウザの表示を確認し、必要なら 別途受信Demoプロシージャを実行してください"
+    End If
+End Sub
+
+'* Page.captureScreenshot → result.data に base64 PNG（長文になりがち）
+Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
+    Dim ResultCode As Long
+    Dim ReceiveCode As Long
+    Dim ResponseText As String
+    Dim Payload As String
+    Dim ErrorMes As New WinApiError
+
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    SendCount = SendCount + 1
+    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.captureScreenshot"",""params"":{""format"":""png"",""fromSurface"":true}}"
+    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    If ResultCode Then
+        Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+    Else
+        Debug.Print "CDP送信OK(id=" & SendCount & ", Page.captureScreenshot) → 別途受信Demoプロシージャを実行してください"
+    End If
+End Sub
+
+
+Private Function CdpJsonEscape(ByVal s As String) As String
+    Dim t As String
+    t = Replace(s, "\", "\\")
+    t = Replace(t, """", "\""")
+    CdpJsonEscape = t
+End Function
