@@ -166,3 +166,99 @@ Sub WebSocketDemoASync_送信()
     Loop Until g_WebsocketObj.LastSendSuccess
     Debug.Print "送信がうまくいきました。"
 End Sub
+
+
+
+'***************************************************************************************************
+'                         ■■■ DrainPostedCallbacks 判定用（汎用） ■■■
+'***************************************************************************************************
+'* 目的　　：コールバック排水（Drain 相当）が死んでいないかを、送受信回収率で簡易判定します
+'* 使い方　：
+'*   1) WebSocketDemoASync_初期化_wss を実行
+'*   2) WebSocketDemoASync_判定_Drain必要性 を実行
+'* 判定目安：
+'*   - send と recv が概ね一致し、待機状態で詰まらなければ OK
+'*   - recv が極端に少ない / isWaitingReceiveResponse が長時間 True 固定なら NG 疑い
+'***************************************************************************************************
+Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long = 30, Optional ByVal TimeoutSec As Double = 20)
+    Const FromProcedureName As String = "Demo_WebSocket.WebSocketDemoASync_判定_Drain必要性"
+    Dim i As Long
+    Dim sendOk As Long
+    Dim recvOk As Long
+    Dim rc As Long
+    Dim startTick As Double
+    Dim msgText As String
+
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    If BurstCount <= 0 Then BurstCount = 1
+    If TimeoutSec <= 0 Then TimeoutSec = 10
+
+    g_WebsocketObj.printMsg info_, "Drain 判定を開始します。BurstCount=" & BurstCount & ", TimeoutSec=" & TimeoutSec, FromProcedureName
+
+    ' 受信予約が未予約なら先に 1 回だけ予約
+    If Not g_WebsocketObj.isWaitingReceiveResponse And Not g_WebsocketObj.LastReceiveExisting Then
+        rc = g_WebsocketObj.RequestWebSocketReceive
+        If rc <> 0 Then
+            g_WebsocketObj.printMsg WARN_, "初回の受信予約に失敗しました。ErrorCode=" & rc, FromProcedureName
+        End If
+    End If
+
+    ' 1) バースト送信
+    For i = 1 To BurstCount
+        rc = g_WebsocketObj.SendAsyncMessage("[DrainProbe]#" & CStr(i) & "|" & String$(40, "X"))
+        If rc = 0 Then
+            sendOk = sendOk + 1
+        Else
+            g_WebsocketObj.printMsg WARN_, "送信失敗 i=" & i & ", ErrorCode=" & rc, FromProcedureName
+        End If
+        DoEvents
+    Next
+    g_WebsocketObj.printMsg info_, "送信完了 sendOk=" & sendOk, FromProcedureName
+
+    ' 2) タイムアウトまで受信回収
+    startTick = Timer
+    Do
+        ' 受信データが来ていれば取り出す
+        If g_WebsocketObj.LastReceiveExisting Then
+            rc = g_WebsocketObj.GetAsyncMessage
+            If rc = 0 Then
+                recvOk = recvOk + 1
+                msgText = g_WebsocketObj.LastReceiveContentString
+                g_WebsocketObj.printMsg Debug_, "受信回収 recvOk=" & recvOk & ", Len=" & Len(msgText), FromProcedureName
+            Else
+                g_WebsocketObj.printMsg WARN_, "GetAsyncMessage 失敗 ErrorCode=" & rc, FromProcedureName
+            End If
+        End If
+
+        ' 予約が外れていたら再予約
+        If Not g_WebsocketObj.isWaitingReceiveResponse And Not g_WebsocketObj.LastReceiveExisting Then
+            rc = g_WebsocketObj.RequestWebSocketReceive
+            If rc <> 0 Then
+                g_WebsocketObj.printMsg WARN_, "再予約失敗 ErrorCode=" & rc, FromProcedureName
+            End If
+        End If
+
+        If recvOk >= sendOk And sendOk > 0 Then Exit Do
+        DoEvents
+        sleep3 10
+    Loop While Timer - startTick < TimeoutSec
+
+    ' 3) 判定出力
+    g_WebsocketObj.printMsg info_, "Drain 判定結果 sendOk=" & sendOk & ", recvOk=" & recvOk & _
+                                   ", waiting=" & g_WebsocketObj.isWaitingReceiveResponse & _
+                                   ", hasData=" & g_WebsocketObj.LastReceiveExisting, FromProcedureName, True
+
+    If sendOk = 0 Then
+        g_WebsocketObj.printMsg WARN_, "送信成功が 0 件のため判定不能です。接続状態を確認してください。", FromProcedureName
+    ElseIf recvOk >= sendOk Then
+        g_WebsocketObj.printMsg info_, "OK: 排水（Drain 相当）は機能している可能性が高いです。", FromProcedureName
+    ElseIf g_WebsocketObj.isWaitingReceiveResponse And Not g_WebsocketObj.LastReceiveExisting Then
+        g_WebsocketObj.printMsg WARN_, "NG疑い: 受信待機が詰まり気味です（Drain が機能していない可能性）。", FromProcedureName
+    Else
+        g_WebsocketObj.printMsg WARN_, "要観察: 回収率が低いです。BurstCount/TimeoutSec を変えて再試験してください。", FromProcedureName
+    End If
+End Sub
