@@ -342,7 +342,48 @@ Public Function SendAsyncMessage(SendData As Variant) As Long
                         VarPtr(UseData(0)), messageByteSize)
 End Function
 
+'***************************************************************************************************
+'* 機能　　：WebSocketに対して、受信リクエストを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：WinHttpWebSocketReceive の実行結果。
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：非同期モードでの、`WinHttpWebSocketReceive`は、予約扱いとして機能します
+'* 注意事項：・あくまでも「予約」まで担います。実際のデータは、`GetAsyncMessage`にて、取り出し処理してください
+'            ・以下の状態の場合は、`WinHttpWebSocketReceive`を呼び出しません
+'            　・既に予約済み
+'            　・前回の`WinHttpWebSocketReceive`で得たデータが残っている
+'***************************************************************************************************
+Public Function RequestWebSocketReceive() As Long
+    Const FromProcedureName As String = ThisClassName & ".RequestWebSocketReceive"
 
+
+    '1. いくつかフラグを確認し、受信予約可能かを確認します
+    '1-1. 既に予約済み(受信待機)か？
+    If currentebWebSocket.isReserved Then
+        printMsg WARN_, "既に、`WinHttpWebSocketReceive`による受信予約がされています", FromProcedureName
+        RequestWebSocketReceive = WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED  '既に予約してるので、取り消しサインとしてのエラー番号を返却
+        Exit Function
+
+    '1-2. 前回の受信データが残っているか？
+    ElseIf currentebWebSocket.isReceiving Then
+        printMsg WARN_, "前回の`WinHttpWebSocketReceive`で取得したデータがまだ残っています。`GetAsyncMessage`を使用してデータを取得し、再度実行してください。", FromProcedureName
+        RequestWebSocketReceive = WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION            '前回のデータがあるのに、また予約しようとして、不整合の基になるため、「そんな状態で予約は無理だよ」サインを返す
+        Exit Function
+
+    '1-3. 全てのチェックをパス出来たら、受信予約としてフラグ付け
+    Else
+        printMsg Debug_, "`WinHttpWebSocketReceive`で、受信予約を行います...", FromProcedureName
+        currentebWebSocket.isReserved = True
+
+    End If
+
+    '2. このクラスオブジェクトの変数に格納するように受信リクエストし、実行結果を返却
+    With m_res
+        RequestWebSocketReceive = WinHttpWebSocketReceive( _
+                                Http.websockethandle, m_res.Buffer(m_res.CurrentPointer), m_res.BufferLength, _
+                                m_res.ReceiveBytes, m_res.Status)
+    End With
+End Function
 
 '***************************************************************************************************
 '* 機能　　：WebSocketからの非同期受信を行います
@@ -356,85 +397,48 @@ End Function
 Public Function GetAsyncMessage() As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
 
-    
-    If Not (Http Is Nothing) Then
-        Http.DrainPostedCallbacks
-        printMsg Debug_, "CallbackHitCount=" & Http.CallbackHitCount, FromProcedureName
-        If Http.DroppedCallbackCount > 0 Then
-            printMsg WARN_, "WinHttp コールバックキュー溢れ: " & Http.DroppedCallbackCount & "件", FromProcedureName
-            Http.ResetDroppedCallbackCount
-        End If
-    End If
 
-    'エラーコードの初期化
-    ResultCode = 0
+    '1. いくつかフラグを確認し、データ受信可能かを確認します
+    '1-1. まだ、予約(受信待機)中か？
+    If currentebWebSocket.isReserved Then
+        printMsg WARN_, "現在、受信データを待機しています", FromProcedureName
+        GetAsyncMessage = WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED   '既に予約してるので、取り消しサインとしてのエラー番号を返却
+        Exit Function
 
-    '既に受信予約済みなら、新規予約はせずコールバック待ち
-    If m_isDataReady Then
-        printMsg Debug_, "受信予約済みのため、コールバック到着待ちです。", FromProcedureName
-        If Not (Http Is Nothing) Then Http.DrainPostedCallbacks
-        If Not (m_isReceiving) Then
-            GetAsyncMessage = vbNullString
-            Exit Function
-        End If
-        m_isDataReady = False
-    End If
+    '1-2. データが届いてないか？
+    ElseIf Not currentebWebSocket.isReceiving Then
+        printMsg WARN_, "受信データは、ありません。受信予約が必要です。", FromProcedureName
+        GetAsyncMessage = WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION             '前回のデータがないのに、取り出そうとして、不整合の基になるため、「そんな状態で取り出しは無理だよ」サインを返す
+        Exit Function
 
-    '非同期処理側で既に、受信済みデータがあるか？
-    If Not (m_isReceiving) Then
-        'ない場合は、初期化
-        InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
-        Set m_res.collect = New Collection
-
-        '非同期モードの場合は、こっちも追加で初期化しておく
-        m_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-        m_res.ReceiveBytes = 0
-    End If
-
-    'データが尽きるまで、レスポンス受信ループ
-    Dim tmp() As Byte, InsiderRes As WebSocketReceiveManage
-    Do
-        '非同期処理側で既に、受信済みデータがある場合は、処理を飛ばします
-        If Not (m_isReceiving) Then
-            m_res.result = WinHttpWebSocketReceive( _
-                            Http.websockethandle, m_res.Buffer(m_res.CurrentPointer), m_res.BufferLength, _
-                            m_res.ReceiveBytes, m_res.Status)
-
-            '既に予約済み(4317)は非同期待機中として扱う
-            If m_res.result = 4317 Then
-                m_isDataReady = True
-                ResultCode = 0
-                GetAsyncMessage = vbNullString
-                Exit Function
-            End If
-
-            'エラーなら即抜け
-            If m_res.result Then ResultCode = m_res.result: Exit Function
-
-            '予約のみ完了（まだ受信データなし）の場合は、次回コールバック待ち
-            If m_res.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE And m_res.ReceiveBytes = 0 Then
-                m_isDataReady = True
-                GetAsyncMessage = vbNullString
-                Exit Function
-            End If
-        End If
-
-        If Not (Http Is Nothing) Then Http.DrainPostedCallbacks
-    
-        'インスタンス変数と仲介しながら、バッファー管理処理へ移る
-        tmp = IntermediaryProcessing_BufferManagement(InsiderRes)
-    Loop Until InsiderRes.Status = WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE Or InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE
-
-    'テキスト変換するか判断して、返却
-    If InsiderRes.Status = WINHTTP_WEB_SOCKET_Incoming_Requests_BUFFER_TYPE Then
-        GetAsyncMessage = vbNullString
-    ElseIf GetBinaryMode Then
-        GetAsyncMessage = tmp
     Else
-        ' 受信チャンクは実データ長で結合するため、ここでの Null 区切り切り捨ては不要。
-        ' Null を含むテキストでも途中切断しないよう、そのまま UTF-8 文字列化する。
-        GetAsyncMessage = CharConv.BytesToString(tmp)
+        printMsg Debug_, "データが受信されたことを確認できました。処理に入ります。", FromProcedureName
     End If
+
+    '2. データが尽きるまで、レスポンス受信ループ
+    Do
+        '2-1. バッファー管理処理へ移り、現時点での`m_res`にあるデータの取得を試みる
+        BufferManagement
+
+        '2-2. 断片データ状態の場合は、再予約を行い、断片データも収集できるようにする
+        If m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_FRAGMENT Or m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_FRAGMENT Then
+            '2-2-1. コールバック(ウィンドウメッセージ)によるイベント発火を試みる
+            printMsg info_, "`FRAGMENT`を検知しました。次のデータが届くまで待機します...", FromProcedureName
+            GetAsyncMessage = RequestWebSocketReceive
+
+            '2-2-2. エラーなら、即抜け
+            If GetAsyncMessage Then Exit Function
+
+            '2-2-3. 次のデータが届くまでLoop
+            Do
+                printMsg Trace_, "Waiting for the next data...", FromProcedureName
+                DoEvents
+            Loop Until currentebWebSocket.isReceiving
+        End If
+
+        DoEvents
+
+    Loop While currentebWebSocket.isReceiving
 End Function
 
 '***************************************************************************************************
