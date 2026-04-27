@@ -747,6 +747,8 @@ Private Sub BufferManagement()
 
                 '1-1. 最後のパケットデータを直接返却（未使用領域を含めない）
                 Content_WinHttpWebSocketReceive = SliceBytes(m_res.Buffer, m_res.CurrentPointer)
+                printMsg Debug_, "そのバイト配列を、直返却しました。", FromProcedureName
+
             End If
 
                 '2. 全てを受信し終えたステータスなので、初期化処理
