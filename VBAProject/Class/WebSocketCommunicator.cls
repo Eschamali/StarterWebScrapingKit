@@ -335,6 +335,7 @@ Public Sub connectionWebSocket(Host As String, Path As String, Optional port As 
     If Http.Connect(Host, Path, port, SecureMode) Then
         printMsg info_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に成功しました。WebSocketへの Upgrade 処理を行います...", FromProcedureName
     Else
+        Set Http = Nothing  '失敗時は、オブジェクト破棄しておく
         printMsg ERROR_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
@@ -344,6 +345,7 @@ Public Sub connectionWebSocket(Host As String, Path As String, Optional port As 
     If Http.UpgradeToWebSocket() Then
         printMsg info_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、成功しました。", FromProcedureName
     Else
+        Set Http = Nothing  '失敗時は、オブジェクト破棄しておく
         printMsg ERROR_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
