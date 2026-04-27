@@ -65,7 +65,7 @@ Private Type WINHTTP_WEB_SOCKET_STATUS
 End Type
 
 'Websocket蓄積受信状況把握に使用
-Private Const BufferToAllocate      As Long = 16384 '大きいと 1 メッセージあたりのフラグメント数が減り CDP 長文に有利（旧 4096）
+Private Const BufferToAllocate      As Long = 2 ^ 14 '初期バッファー上限
 Private Type WebSocketReceiveManage
     Buffer(BufferToAllocate - 1)    As Byte         '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
     BufferLength                    As Long         '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
@@ -113,6 +113,9 @@ End Enum
 'WebSokect関連のステータス
 Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS = 1000
 
+'その他
+Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
+
 
 
 '***************************************************************************************************
@@ -142,6 +145,9 @@ Private currentLog As StateLog
 
 '最後のWebSocketから得た受信データ
 Private Content_WinHttpWebSocketReceive() As Byte
+
+'プロシージャ`GetAsyncMessage`にて、次のデータを受信する際のタイムアウト値
+Private timerOut   As Long
 
 
 
@@ -479,11 +485,14 @@ Public Function GetAsyncMessage() As Long
             '2-2-2. エラーなら、即抜け
             If GetAsyncMessage Then Exit Function
 
-            '2-2-3. 次のデータが届くまでLoop
-            Do
+            '2-2-3. 次のデータが届くまでLoop　※タイムアウトしたら、中断されます
+            Dim timeStart As Single
+            timeStart = Timer
+            Do Until currentebWebSocket.isReceiving
                 printMsg Trace_, "Waiting for the next data...", FromProcedureName
+                If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
                 DoEvents
-            Loop Until currentebWebSocket.isReceiving
+            Loop
         End If
 
         DoEvents
@@ -792,6 +801,9 @@ Private Sub Class_Initialize()
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If
     End With
+
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = TIMEOUT_DEFAULT
 
     'バッファー情報を初期化
     InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
