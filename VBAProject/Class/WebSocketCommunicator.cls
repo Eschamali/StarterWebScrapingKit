@@ -146,6 +146,51 @@ Private Content_WinHttpWebSocketReceive() As Byte
 
 
 '***************************************************************************************************
+'                                ■■■ check用プロパティ ■■■
+'***************************************************************************************************
+'* 機能    ：前回の`WinHttpWebSocketSend`がうまくいったかを確認します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：初回は、`Flase`とします
+'***************************************************************************************************
+Public Property Get LastSendSuccess() As Boolean
+    LastSendSuccess = currentebWebSocket.isSended
+End Property
+
+'***************************************************************************************************
+'* 機能    ：`WinHttpReceiveResponse`による受信待機中かを確認します
+'***************************************************************************************************
+Public Property Get isWaitingReceiveResponse() As Boolean
+    isWaitingReceiveResponse = currentebWebSocket.isReserved
+End Property
+
+'***************************************************************************************************
+'* 機能    ：`WinHttpReceiveResponse`による受信データが届いたかを確認します
+'***************************************************************************************************
+Public Property Get LastReceiveExisting() As Boolean
+    LastReceiveExisting = currentebWebSocket.isReceiving
+End Property
+
+
+
+'***************************************************************************************************
+'                          ■■■ 受信データ取得用プロパティ ■■■
+'***************************************************************************************************
+'* 機能    ：`WinHttpReceiveResponse`による最後の受信データをバイト配列として、取得します
+'***************************************************************************************************
+Public Property Get LastReceiveContentByte() As Byte
+    LastReceiveContentByte = Content_WinHttpWebSocketReceive
+End Property
+
+'***************************************************************************************************
+'* 機能    ：`WinHttpReceiveResponse`による最後の受信データを文字列として、取得します
+'***************************************************************************************************
+Public Property Get LastReceiveContentString() As String
+    LastReceiveContentString = CharConv.BytesToString(Content_WinHttpWebSocketReceive)
+End Property
+
+
+
+'***************************************************************************************************
 '                                  ■■■ ログヘルパー ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
