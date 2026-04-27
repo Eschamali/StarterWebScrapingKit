@@ -95,7 +95,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ 接続後に行うメソッドDemo ■■■
+'                             ■■■ 接続後に行う主要メソッドDemo ■■■
 '***************************************************************************************************
 Sub WebSocketDemoASync_受信予約()
     If g_WebsocketObj Is Nothing Then
@@ -159,9 +159,10 @@ Sub WebSocketDemoASync_送信()
     End If
 
     '4. 送信がうまくいったかを確認(任意)
+    Dim timerStart As Single: timerStart = Timer
     Do
         DoEvents
-        sleep3 100
+        If Timer - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the browser to load the homepage."
     Loop Until g_WebsocketObj.LastSendSuccess
     Debug.Print "送信がうまくいきました。"
 End Sub
