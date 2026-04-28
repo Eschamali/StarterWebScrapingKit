@@ -588,43 +588,19 @@ End Sub
 '               `False` 途中でエラーがある場合は、そこで終わります
 '***************************************************************************************************
 Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
-    Dim result As Long
-    result = WinHttpWebSocketClose(Http.websockethandle, _
-                        WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, 0, 0)
-    If result And Not (ForceClose) Then GoTo quit
+    On Error GoTo quit
+    If Http Is Nothing Then
+        CloseWebSocket = True
+        Exit Function
+    End If
 
-    ' サーバーから返されたクローズステータスを確認する。
-    Dim CloseReasonBuffer(123) As Byte
-    Dim BufferSize As Long: BufferSize = UBound(CloseReasonBuffer) + 1
-    Dim Status As Integer
-    Dim CloseReasonLength As Long
-    
-    result = WinHttpWebSocketQueryCloseStatus(Http.websockethandle, Status, _
-                        CloseReasonBuffer(0), BufferSize, CloseReasonLength)
-    If result And Not (ForceClose) Then GoTo quit
-    If Status <> WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS And Not (ForceClose) Then GoTo quit
-    
-    'ハンドルを破棄
-    Set Http = New WebSocketHTTPCommunicator
+    ' 非同期運用では protocol close 交渉よりも、即時に callback/handle を閉じる運用を優先する。
     Http.CloseHWebsocketHandle
-
     CloseWebSocket = True
-Exit Function
+    Exit Function
 
 quit:
-If result Then Debug.Print result
-Debug.Print "The server closed the connection with status code: " & Status
-Dim strCloseReason As String
-Dim i As Long
-For i = LBound(CloseReasonBuffer) To UBound(CloseReasonBuffer)
-    If CloseReasonBuffer(i) <> 0 Then
-      strCloseReason = strCloseReason & Chr(CloseReasonBuffer(i))
-    End If
-Next
-If Len(strCloseReason) > 0 Then
-    Debug.Print " and reason: " & strCloseReason
-End If
-CloseWebSocket = False
+    CloseWebSocket = False
 End Function
 
 
