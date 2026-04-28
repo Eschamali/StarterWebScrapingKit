@@ -479,11 +479,13 @@ End Sub
 '* 機能　　：VBE でブレーク中～「リセット」直前に、イミディエイト等から呼ぶための緊急解除です。
 '*           WinHttp の status callback と PostMessage 橋渡し用ウィンドウフックを外します。
 '*           WebSocket ハンドルは閉じません（リセットで VBA 状態が消える前提の軽量停止）。
-'* 注意事項：呼び出し後は通信状態が不整合になるため、通常フローでは使わず、デバッグ用に限定してください。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・呼び出し後は通信状態が不整合になるため、通常フローでは使わず、デバッグ用に限定してください。
+'            ・VBEリセット前提につき、インスタンス全て破棄します
 '***************************************************************************************************
 Public Sub EmergencyUnregisterCallbacks()
     On Error Resume Next
-    RemoveWinHttpMessageHook m_notifyHwnd
+    RemoveWinHttpMessageHook
     If hwebsockethandle_ <> 0 Then
         WinHttpSetStatusCallback hwebsockethandle_, 0, 0, 0
     End If
@@ -493,7 +495,7 @@ End Sub
 
 
 Private Sub Class_Terminate()
-    RemoveWinHttpMessageHook m_notifyHwnd
+    RemoveWinHttpMessageHook m_notifyHwnd   '正常な破棄なので、このClassが持ってるインスタンスのみ破棄
     m_notifyHwnd = 0
     CloseHInternetHandles
     CloseHWebsocketHandle
