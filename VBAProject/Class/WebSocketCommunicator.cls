@@ -324,7 +324,7 @@ End Property
 '            ・Cookie や認証ヘッダー等は未対応です（匿名アクセス用）
 '            ・接続を維持するには、グローバル変数 or Static変数 として、このクラスオブジェクトを定義してください。
 '***************************************************************************************************
-Public Sub connectionWebSocket(Host As String, Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True)
+Public Sub connectionWebSocket(Host As String, Optional Path As String, Optional port As Long = 443, Optional SecureMode As Boolean = True)
     Const FromProcedureName As String = ThisClassName & ".connectionWebSocket"
 
 

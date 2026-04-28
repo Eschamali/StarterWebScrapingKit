@@ -42,7 +42,7 @@ Sub WebSocketDemoASync_初期化_wss()
     SendCount = 0
 
     '接続先を設定します（AddressOf 不要）
-    g_WebsocketObj.connectionWebSocket "echo.websocket.org", ""
+    g_WebsocketObj.connectionWebSocket "echo.websocket.org"
     Debug.Print "Websocket connect is success. AsyncMode."
 
     ' 接続直後に受信予約だけ張っておく
