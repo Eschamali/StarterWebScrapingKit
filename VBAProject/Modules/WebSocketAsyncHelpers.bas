@@ -27,10 +27,9 @@ Private Const GWLP_WNDPROC As Long = -4
 Public Const WM_APP As Long = &H8000&
 Public Const WM_APP_WINHTTP_CALLBACK As Long = WM_APP + 711
 
-Private g_hookHwnd As LongPtr
-Private g_prevWndProc As LongPtr
 Private g_msgCount As Long
-Private g_target As WebSocketHTTPCommunicator
+Private g_prevWndProcByHwnd As Dictionary 'Scripting.Dictionary: key=Str(hWnd), value=prevWndProc(LongPtr)
+Private g_targetByHwnd As Dictionary      'Scripting.Dictionary: key=Str(hWnd), value=WebSocketHTTPCommunicator
 
 
 #If VBA7 = 0 Then
@@ -108,57 +107,57 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     'ObjPtr(target) → vtable ポインタを読む
     pa.sa.pvData = ObjPtr(Target)
     pa.sa.rgsabound0.cElements = 1
-    Dim targetObjPtr As LongPtr: targetObjPtr = ObjPtr(Target)
     pa.sa.pvData = pa.arr(0) + PtrSize * 7
     Dim tProcPtr As LongPtr: tProcPtr = pa.arr(0)   'WebSocketHTTPCommunicator.WinHttpCallbackProc
-    Dim NotifyHwnd As LongPtr: NotifyHwnd = Target.NotifyHwnd
     Dim postMessageProc As LongPtr: postMessageProc = GetPostMessageWProc()
 
-    'DummyASM アドレスを戻り値にセット
+    'SafeTimer と同様に EntryPoint を返し、Break mode は VBA 側の EBMode 判定に任せる
+    GetWinHttpCallbackProc = VBA.Int(AddressOf EntryPoint)
     aPtr = VBA.Int(AddressOf DummyASM)
-    GetWinHttpCallbackProc = aPtr
     pa.sa.pvData = aPtr
 
 #If x64 Then
-    '--- x64 マシンコード（64バイト）---
-    ' PostMessageW(hwnd, WM_APP_WINHTTP_CALLBACK, packed(status+len), packed(wsStatus)) を直接呼ぶ
-    If NotifyHwnd = 0 Or postMessageProc = 0 Then Exit Function
-    '48 B9 <imm64>      MOV RCX, notifyHwnd
-    pa.arr(0) = &HB948
-    pa.sa.pvData = aPtr + 2: pa.arr(0) = NotifyHwnd
+    '--- x64 マシンコード（57バイト）---
+    ' PostMessageW(dwContext(=notifyHwnd), WM_APP_WINHTTP_CALLBACK, packed(status+len), packed(wsStatus))
+    If postMessageProc = 0 Then Exit Function
+    '48 89 D1           MOV RCX, RDX            ; hwnd = dwContext
+    pa.arr(0) = &HD18948
     '48 C7 C2 <imm32>   MOV RDX, WM_APP_WINHTTP_CALLBACK
-    pa.sa.pvData = aPtr + 10: pa.arr(0) = &HC2C748
-    pa.sa.pvData = aPtr + 13: pa.arr(0) = WM_APP_WINHTTP_CALLBACK
+    pa.sa.pvData = aPtr + 3: pa.arr(0) = &HC2C748
+    pa.sa.pvData = aPtr + 6: pa.arr(0) = WM_APP_WINHTTP_CALLBACK
     'wParam に dwInternetStatus(下位32bit) + dwStatusInformationLength(上位32bit) を詰める
     '4C 8B 54 24 28     MOV R10, [RSP+28h]      ; length
-    pa.sa.pvData = aPtr + 17: pa.arr(0) = &H24548B4C
-    pa.sa.pvData = aPtr + 21: pa.arr(0) = &H28&
+    pa.sa.pvData = aPtr + 10: pa.arr(0) = &H24548B4C
+    pa.sa.pvData = aPtr + 14: pa.arr(0) = &H28&
     '49 C1 E2 20        SHL R10, 32
-    pa.sa.pvData = aPtr + 22: pa.arr(0) = &H20E2C149
+    pa.sa.pvData = aPtr + 15: pa.arr(0) = &H20E2C149
     '45 8B D8           MOV R11D, R8D           ; status
-    pa.sa.pvData = aPtr + 26: pa.arr(0) = &HD88B45
+    pa.sa.pvData = aPtr + 19: pa.arr(0) = &HD88B45
     '4D 0B D3           OR R10, R11
-    pa.sa.pvData = aPtr + 29: pa.arr(0) = &HD30B4D
+    pa.sa.pvData = aPtr + 22: pa.arr(0) = &HD30B4D
     '4D 89 D0           MOV R8, R10             ; wParam
-    pa.sa.pvData = aPtr + 32: pa.arr(0) = &HD0894D
+    pa.sa.pvData = aPtr + 25: pa.arr(0) = &HD0894D
     'R9 を packed(WS_STATUS) に変換（ポインタ直接渡しを避ける）
     '4D 85 C9           TEST R9, R9
-    pa.sa.pvData = aPtr + 35: pa.arr(0) = &HC9854D
+    pa.sa.pvData = aPtr + 28: pa.arr(0) = &HC9854D
     '74 03              JE +3
-    pa.sa.pvData = aPtr + 38: pa.arr(0) = &H374&
+    pa.sa.pvData = aPtr + 31: pa.arr(0) = &H374&
     '4D 8B 09           MOV R9, [R9]
-    pa.sa.pvData = aPtr + 40: pa.arr(0) = &H98B4D
+    pa.sa.pvData = aPtr + 33: pa.arr(0) = &H98B4D
     '48 83 EC 28        SUB RSP, 28h
-    pa.sa.pvData = aPtr + 43: pa.arr(0) = &H28EC8348
+    pa.sa.pvData = aPtr + 36: pa.arr(0) = &H28EC8348
     '48 B8 <imm64>      MOV RAX, postMessageProc
-    pa.sa.pvData = aPtr + 47: pa.arr(0) = &HB848
-    pa.sa.pvData = aPtr + 49: pa.arr(0) = postMessageProc
+    pa.sa.pvData = aPtr + 40: pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 42: pa.arr(0) = postMessageProc
     'FF D0              CALL RAX
-    pa.sa.pvData = aPtr + 57: pa.arr(0) = &HD0FF&
+    pa.sa.pvData = aPtr + 50: pa.arr(0) = &HD0FF&
     '48 83 C4 28        ADD RSP, 28h
-    pa.sa.pvData = aPtr + 59: pa.arr(0) = &H28C48348
+    pa.sa.pvData = aPtr + 52: pa.arr(0) = &H28C48348
     'C3                 RET
-    pa.sa.pvData = aPtr + 63: pa.arr(0) = &HC3&
+    pa.sa.pvData = aPtr + 56: pa.arr(0) = &HC3&
+    'EntryPoint 内の call target を DummyASM へ差し替える（Break mode は call をスキップ）
+    pa.sa.pvData = GetWinHttpCallbackProc + 55
+    pa.arr(0) = aPtr
 #Else
     '--- x32 マシンコード（計20バイト）---
     ' WinHttp コールバックシグネチャ（stdcall 5引数）:
@@ -178,6 +177,9 @@ Public Function GetWinHttpCallbackProc(ByVal Target As WebSocketHTTPCommunicator
     pa.sa.pvData = aPtr + 13: pa.arr(0) = &HE0FF&
     'C2 14 00          RET 0x14              ; 5引数 × 4byte = 0x14（SetTimer は 0x10）
     pa.sa.pvData = aPtr + 15: pa.arr(0) = &H14C2&
+    'EntryPoint 内の call target を DummyASM へ差し替える（Break mode は call をスキップ）
+    pa.sa.pvData = GetWinHttpCallbackProc + 22
+    pa.arr(0) = aPtr
 #End If
 
     pa.sa.rgsabound0.cElements = 0
@@ -222,23 +224,46 @@ End Sub
 
 Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target As WebSocketHTTPCommunicator)
     If targetHwnd = 0 Then Exit Sub
-    If g_hookHwnd = targetHwnd And g_prevWndProc <> 0 Then Exit Sub
+    If Target Is Nothing Then Exit Sub
 
-    RemoveWinHttpMessageHook
-    g_msgCount = 0
-    Set g_target = Target
-    g_hookHwnd = targetHwnd
-    g_prevWndProc = SetWindowLongPtr(g_hookHwnd, GWLP_WNDPROC, AddressOf WinHttpBridgeWndProc)
+    EnsureHookMaps
+    Dim Key As String
+    Key = HwndKey(targetHwnd)
+
+    If Not g_prevWndProcByHwnd.Exists(Key) Then
+        g_prevWndProcByHwnd.Add Key, SetWindowLongPtr(targetHwnd, GWLP_WNDPROC, AddressOf WinHttpBridgeWndProc)
+    End If
+    Set g_targetByHwnd(Key) = Target
 End Sub
 
-Public Sub RemoveWinHttpMessageHook()
+Public Sub RemoveWinHttpMessageHook(Optional ByVal targetHwnd As LongPtr)
     On Error Resume Next
-    If g_hookHwnd <> 0 And g_prevWndProc <> 0 Then
-        SetWindowLongPtr g_hookHwnd, GWLP_WNDPROC, g_prevWndProc
+    EnsureHookMaps
+    Dim Key As String
+    Dim k As Variant
+
+    If targetHwnd = 0 Then
+        For Each k In g_prevWndProcByHwnd.keys
+            If CLngPtr(k) <> 0 And g_prevWndProcByHwnd(k) <> 0 Then
+                SetWindowLongPtr CLngPtr(k), GWLP_WNDPROC, g_prevWndProcByHwnd(k)
+            End If
+        Next k
+        g_prevWndProcByHwnd.RemoveAll
+        g_targetByHwnd.RemoveAll
+        On Error GoTo 0
+        Exit Sub
     End If
-    Set g_target = Nothing
-    g_hookHwnd = 0
-    g_prevWndProc = 0
+
+    Key = HwndKey(targetHwnd)
+    If g_prevWndProcByHwnd.Exists(Key) Then
+        If targetHwnd <> 0 And g_prevWndProcByHwnd(Key) <> 0 Then
+            SetWindowLongPtr targetHwnd, GWLP_WNDPROC, g_prevWndProcByHwnd(Key)
+        End If
+        g_prevWndProcByHwnd.Remove Key
+    End If
+    If g_targetByHwnd.Exists(Key) Then
+        g_targetByHwnd.Remove Key
+    End If
     On Error GoTo 0
 End Sub
 
@@ -248,14 +273,33 @@ End Function
 
 Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, _
                                       ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
+    EnsureHookMaps
+    Dim Key As String
+    Key = HwndKey(hWnd)
+
     If msg = WM_APP_WINHTTP_CALLBACK Then
         g_msgCount = g_msgCount + 1
-        If Not (g_target Is Nothing) Then
-            g_target.HandlePostedWinHttpCallback wParam, lParam
+        If g_targetByHwnd.Exists(Key) Then
+            If Not (g_targetByHwnd(Key) Is Nothing) Then
+                g_targetByHwnd(Key).HandlePostedWinHttpCallback wParam, lParam
+            End If
         End If
         WinHttpBridgeWndProc = 0
         Exit Function
     End If
 
-    WinHttpBridgeWndProc = CallWindowProc(g_prevWndProc, hWnd, msg, wParam, lParam)
+    If g_prevWndProcByHwnd.Exists(Key) Then
+        WinHttpBridgeWndProc = CallWindowProc(g_prevWndProcByHwnd(Key), hWnd, msg, wParam, lParam)
+    Else
+        WinHttpBridgeWndProc = 0
+    End If
+End Function
+
+Private Sub EnsureHookMaps()
+    If g_prevWndProcByHwnd Is Nothing Then Set g_prevWndProcByHwnd = CreateObject("Scripting.Dictionary")
+    If g_targetByHwnd Is Nothing Then Set g_targetByHwnd = CreateObject("Scripting.Dictionary")
+End Sub
+
+Private Function HwndKey(ByVal hWnd As LongPtr) As String
+    HwndKey = CStr(hWnd)
 End Function

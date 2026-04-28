@@ -396,8 +396,8 @@ Public Function UpgradeToWebSocket() As Boolean
     End If
     Debug.Print "[Upgrade] D: HTTP101 OK"
 
-    hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, ObjPtr(Me))
-    Debug.Print "[Upgrade] E: WebSocketHandle=" & hwebsockethandle_ & "  ObjPtr(Me)=" & ObjPtr(Me)
+    hwebsockethandle_ = WinHttpWebSocketCompleteUpgrade(hRequestHandle_, m_notifyHwnd)
+    Debug.Print "[Upgrade] E: WebSocketHandle=" & hwebsockethandle_ & "  NotifyHwnd=" & m_notifyHwnd
     If hwebsockethandle_ = 0 Then GoTo quit
 
     callbackResult = WinHttpSetStatusCallback(hwebsockethandle_, cbPtr, WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS, 0)
@@ -493,7 +493,7 @@ End Sub
 
 
 Private Sub Class_Terminate()
-    RemoveWinHttpMessageHook
+    RemoveWinHttpMessageHook m_notifyHwnd
     m_notifyHwnd = 0
     CloseHInternetHandles
     CloseHWebsocketHandle
