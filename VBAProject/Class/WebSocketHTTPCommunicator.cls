@@ -53,9 +53,6 @@ Private m_queueWrite As Long
 Private m_droppedCallbacks As Long
 Private m_callbackHitCount As Long
 Private m_notifyHwnd As LongPtr
-Private m_postPending As Boolean
-
-
 
 
 
@@ -289,11 +286,6 @@ Public Sub DispatchQueuedCallbacks()
     On Error GoTo 0
 End Sub
 
-Public Sub DrainPostedCallbacks()
-    m_postPending = False
-    DispatchQueuedCallbacks
-End Sub
-
 Public Property Get DroppedCallbackCount() As Long
     DroppedCallbackCount = m_droppedCallbacks
 End Property
@@ -486,7 +478,6 @@ End Sub
 
 
 Private Sub Class_Terminate()
-    m_postPending = False
     RemoveWinHttpMessageHook
     m_notifyHwnd = 0
     CloseHInternetHandles
