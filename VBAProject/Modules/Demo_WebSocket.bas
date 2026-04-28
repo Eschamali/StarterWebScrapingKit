@@ -28,6 +28,21 @@ Private ErrorMes        As New WinApiError
 Private SendCount       As Long
 
 
+'***************************************************************************************************
+'* デバッグ用：ブレークで停止したあと、VBE の「リセット」する前にイミディエイトで実行してください。
+'*   WinHttp の status callback とウィンドウフックを外し、リセット時の EXCEL クラッシュを避けやすくします。
+'* 例: イミディエイトに Demo_WinHttpUnregisterBeforeReset と入力して Enter
+'* 注意: 実行後は通信状態が不整合のため、続けて使う場合は初期化マクロからやり直してください。
+'***************************************************************************************************
+Public Sub Demo_WinHttpUnregisterBeforeReset()
+    On Error Resume Next
+    If Not g_WebsocketObj Is Nothing Then
+        g_WebsocketObj.EmergencyUnregisterWinHttpCallbacks
+    End If
+    RemoveWinHttpMessageHook
+    On Error GoTo 0
+End Sub
+
 
 '***************************************************************************************************
 '                               ■■■ 新規接続用 ■■■

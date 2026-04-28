@@ -569,6 +569,18 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：VBE ブレーク中～リセット前にイミディエイトから呼ぶ用。内部 Http の WinHTTP コールバック解除。
+'* 注意事項：デバッグ専用。`Demo_WinHttpUnregisterBeforeReset` から呼ばれる想定です。
+'***************************************************************************************************
+Public Sub EmergencyUnregisterWinHttpCallbacks()
+    On Error Resume Next
+    If Not Http Is Nothing Then
+        Http.EmergencyUnregisterCallbacks
+    End If
+    On Error GoTo 0
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：ForceClose

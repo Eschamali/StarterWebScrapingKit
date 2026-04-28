@@ -475,6 +475,21 @@ Public Sub CloseHWebsocketHandle()
     WinHttpCloseHandle hwebsockethandle_
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：VBE でブレーク中～「リセット」直前に、イミディエイト等から呼ぶための緊急解除です。
+'*           WinHttp の status callback と PostMessage 橋渡し用ウィンドウフックを外します。
+'*           WebSocket ハンドルは閉じません（リセットで VBA 状態が消える前提の軽量停止）。
+'* 注意事項：呼び出し後は通信状態が不整合になるため、通常フローでは使わず、デバッグ用に限定してください。
+'***************************************************************************************************
+Public Sub EmergencyUnregisterCallbacks()
+    On Error Resume Next
+    RemoveWinHttpMessageHook m_notifyHwnd
+    If hwebsockethandle_ <> 0 Then
+        WinHttpSetStatusCallback hwebsockethandle_, 0, 0, 0
+    End If
+    On Error GoTo 0
+End Sub
+
 
 
 Private Sub Class_Terminate()
