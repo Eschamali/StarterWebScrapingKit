@@ -99,10 +99,7 @@ Private Type KEYBLOB
     'rgbKeyData() As Byte 'We'll actually append this when we build the Byte array copy.
 End Type
 
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    ByVal Destination As Any, _
-    ByVal Source As Any, _
-    ByVal length As LongPtr)
+
 
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _
@@ -631,8 +628,30 @@ Public Sub InitHMAC(ByRef Key() As Byte)
             End With
             .cbKeySize = UBound(Key) - LBound(Key) + 1
             ReDim bytKbKey(LenB(kbKey) + .cbKeySize - 1)
-            CopyMemory VarPtr(bytKbKey(0)), VarPtr(kbKey), LenB(kbKey)
-            CopyMemory VarPtr(bytKbKey(LenB(kbKey))), VarPtr(Key(LBound(Key))), .cbKeySize
+            
+            ' BLOBHEADER + cbKeySize を bytKbKey に直接書き込み（CopyMemory 不使用）
+            ' BLOBHEADER: bType(1) + bVersion(1) + reserved(2) + aiKeyAlg(4) = 8 bytes
+            bytKbKey(0) = .hdr.bType
+            bytKbKey(1) = .hdr.bVersion
+            ' reserved (Integer = 2 bytes, little-endian)
+            bytKbKey(2) = CByte(.hdr.reserved And &HFF)
+            bytKbKey(3) = CByte((.hdr.reserved \ &H100) And &HFF)
+            ' aiKeyAlg (Long = 4 bytes, little-endian)
+            bytKbKey(4) = CByte(.hdr.aiKeyAlg And &HFF&)
+            bytKbKey(5) = CByte((.hdr.aiKeyAlg \ &H100&) And &HFF&)
+            bytKbKey(6) = CByte((.hdr.aiKeyAlg \ &H10000) And &HFF&)
+            bytKbKey(7) = CByte((.hdr.aiKeyAlg \ &H1000000) And &HFF&)
+            ' cbKeySize (Long = 4 bytes, little-endian)
+            bytKbKey(8) = CByte(.cbKeySize And &HFF&)
+            bytKbKey(9) = CByte((.cbKeySize \ &H100&) And &HFF&)
+            bytKbKey(10) = CByte((.cbKeySize \ &H10000) And &HFF&)
+            bytKbKey(11) = CByte((.cbKeySize \ &H1000000) And &HFF&)
+            
+            ' Key データを末尾に連結
+            Dim iKey As Long
+            For iKey = 0 To .cbKeySize - 1
+                bytKbKey(LenB(kbKey) + iKey) = Key(LBound(Key) + iKey)
+            Next iKey
         End With
         If CryptImportKey(hAdvProvider, _
                           VarPtr(bytKbKey(0)), _
