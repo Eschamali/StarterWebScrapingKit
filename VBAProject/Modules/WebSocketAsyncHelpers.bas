@@ -1,5 +1,7 @@
 Attribute VB_Name = "WebSocketAsyncHelpers"
 '***************************************************************************************************
+'   WebSocketの非同期コールバックを円滑に処理するためのヘルパー関数群。
+'
 '   WinHttpSetStatusCallback に渡すコールバック関数ポインタを、
 '   VBA-SafeTimer（https://github.com/cristianbuse/VBA-SafeTimer）と同じ手法で生成します。
 '
@@ -74,8 +76,9 @@ End Type
 Private Sub EntryPoint(): End Sub   ' EBMode チェックのエントリポイント（VBA が管理）
 Private Sub DummyASM():   End Sub   ' マシンコード書き込み先
 
-
-
+'--- WndProc用の空 Function（シグネチャを4引数に合わせる） ---
+Private Function WndProcEntryPoint(ByVal hWnd As LongPtr, ByVal msg As Long, ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr: End Function
+Private Function WndProcDummyASM(ByVal hWnd As LongPtr, ByVal msg As Long, ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr: End Function
 '***************************************************************************************************
 '* 機能    ：WinHttpSetStatusCallback に渡せる安全なコールバック関数ポインタを生成します
 '---------------------------------------------------------------------------------------------------
@@ -193,6 +196,56 @@ Private Function GetPostMessageWProc() As LongPtr
     GetPostMessageWProc = GetProcAddress(hUser32, "PostMessageW")
 End Function
 
+'***************************************************************************************************
+'* 機能    ：SetWindowLongPtr で安全に使える WndProc サンクを生成します
+'---------------------------------------------------------------------------------------------------
+'* 仕組み  ：VBAがリセットされるとEBMode=2となり、元のVBA関数へジャンプせずに安全に0を返して終了します。
+'            これにより、VBEのリセットボタンを押した際のクラッシュ（0xc0000027）を防ぎます。
+'***************************************************************************************************
+Public Function GetSafeWndProc(ByVal targetProc As LongPtr) As LongPtr
+    Static pa As PointerAccessor
+    Dim aPtr As LongPtr
+
+    If pa.sa.cDims = 0 Then
+        pa.sa.cDims = 1
+        pa.sa.fFeatures = FADF_AUTO Or FADF_FIXEDSIZE
+        pa.sa.cbElements = PtrSize
+        pa.sa.cLocks = 1
+        MemLongPtr(VarPtr(pa)) = VarPtr(pa.sa)
+    End If
+
+    GetSafeWndProc = VBA.Int(AddressOf WndProcEntryPoint)
+    aPtr = VBA.Int(AddressOf WndProcDummyASM)
+    pa.sa.pvData = aPtr
+    pa.sa.rgsabound0.cElements = 1
+
+#If x64 Then
+    '--- x64: 引数 RCX, RDX, R8, R9 をそのままにして targetProc へ JMP ---
+    ' 48 B8 <imm64>      MOV RAX, targetProc
+    pa.arr(0) = &HB848
+    pa.sa.pvData = aPtr + 2: pa.arr(0) = targetProc
+    ' FF E0              JMP RAX
+    pa.sa.pvData = aPtr + 10: pa.arr(0) = &HE0FF&
+
+    ' WndProcEntryPoint 内の EBMode チェック通過後の JMP 先を上書き
+    pa.sa.pvData = GetSafeWndProc + 55
+    pa.arr(0) = aPtr
+#Else
+    '--- x32: スタック引数をそのままにして targetProc へ JMP ---
+    ' B8 <imm32>         MOV EAX, targetProc
+    pa.arr(0) = &HB8&
+    pa.sa.pvData = aPtr + 1: pa.arr(0) = targetProc
+    ' FF E0              JMP EAX
+    pa.sa.pvData = aPtr + 5: pa.arr(0) = &HE0FF&
+
+    ' WndProcEntryPoint 内の EBMode チェック通過後の JMP 先を上書き
+    pa.sa.pvData = GetSafeWndProc + 22
+    pa.arr(0) = aPtr
+#End If
+
+    pa.sa.rgsabound0.cElements = 0
+    pa.sa.pvData = NullPtr
+End Function
 
 
 '***************************************************************************************************
@@ -249,7 +302,9 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
     Key = HwndKey(targetHwnd)
 
     If Not g_prevWndProcByHwnd.Exists(Key) Then
-        g_prevWndProcByHwnd.Add Key, SetWindowLongPtr(targetHwnd, GWLP_WNDPROC, AddressOf WinHttpBridgeWndProc)
+        Dim safeWndProc As LongPtr
+        safeWndProc = GetSafeWndProc(AddressOf WinHttpBridgeWndProc)
+        g_prevWndProcByHwnd.Add Key, SetWindowLongPtr(targetHwnd, GWLP_WNDPROC, safeWndProc)
     End If
     Set g_targetByHwnd(Key) = Target
 End Sub
