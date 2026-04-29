@@ -326,7 +326,8 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
    'pipes2 is filled by copying memory from pipes
     pipes2.number_of_fds = pipes.number_of_fds
 
-   '※MoveMemory 排除: バイトループで crt_flags + os_handle を raw_bytes に詰める
+    '※MoveMemory 排除: バイトループで crt_flags + os_handle を raw_bytes に詰め、STDIO_BUFFER の パッキング問題を解消させる
+    '　→https://web.archive.org/web/20250524152550/https://www.codeproject.com/Tips/5307593/Automate-Chrome-Edge-using-VBA
     Dim iMem As Long
     ' crt_flags: 5 bytes
     For iMem = 0 To 4
