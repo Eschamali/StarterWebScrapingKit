@@ -15,6 +15,10 @@ Attribute VB_Exposed = False
 '***************************************************************************************************
 Option Explicit
 
+
+
+'WebSocketに関するステータスグルーピング
+'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ns-winhttp-winhttp_web_socket_status
 Private Type WINHTTP_WEB_SOCKET_STATUS
     dwBytesTransferred As Long
     eBufferType        As Long
@@ -28,7 +32,6 @@ End Type
 '   !! 絶対にこのブロックより上に新しいメソッド・プロパティを追加しないこと              !!
 '   !! （vtable[7] の位置がずれるとクラッシュします）                                  !!
 '***************************************************************************************************
-
 'コールバックイベント（WithEvents で受け取る側がハンドルする）
 Public Event OnCallback(ByVal dwInternetStatus As Long, _
                         ByVal dwBytesTransferred As Long, _
@@ -57,12 +60,8 @@ Private m_notifyHwnd As LongPtr
 '***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
-Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
-Private Const ERROR_SUCCESS = 0
-Private Const ERROR_INVALID_FUNCTION = 1
-Private Const ERROR_INVALID_HANDLE = 6
-Private Const ERROR_NOT_ENOUGH_MEMORY = 8
-
+'* 機能    ：`WinHttp`関連
+'***************************************************************************************************
 Private Declare PtrSafe Function WinHttpOpen Lib "WinHttp" ( _
    ByVal pszAgentW As LongPtr, _
    ByVal dwAccessType As Long, _
@@ -181,8 +180,15 @@ Private Const WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS As Long = _
     Or WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE _
     Or WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE
 
+Private Const AGENT As String = "Client"
+Private Const GET_METHOD As String = "GET"
+Private Const HTTP_VERSION  As String = "HTTP/1.1"
 
-' --- user32: 自インスタンスの WndProc 復元 / 既定処理委譲に使用 ---
+'***************************************************************************************************
+'* 機能    ：`user32`関連
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：自インスタンスの WndProc 復元 / 既定処理委譲に使用
+'***************************************************************************************************
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
     ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowProcA" ( _
@@ -190,24 +196,16 @@ Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowPr
     ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
 Private Const GWLP_WNDPROC As Long = -4
 
-
-Private Const AGENT As String = "Client"
-Private Const GET_METHOD As String = "GET"
-Private Const HTTP_VERSION  As String = "HTTP/1.1"
-
-
-Private hSessionHandle_ As LongPtr
-Private hConnectionHandle_ As LongPtr
-Private hRequestHandle_ As LongPtr
-Private hwebsockethandle_ As LongPtr
-
-' このインスタンスがフックする前にあった元の WndProc。Class_Terminate で
-' SetWindowLongPtr により自分で復元する。WebSocketAsyncHelpers の Dictionary
-' 側ではなく、各インスタンスが個別に保持する (案 B のキモ)。
-Private m_prevWndProc As LongPtr
+Private hSessionHandle_     As LongPtr
+Private hConnectionHandle_  As LongPtr
+Private hRequestHandle_     As LongPtr
+Private hwebsockethandle_   As LongPtr
+Private m_prevWndProc       As LongPtr    'このインスタンスがフックする前にあった元の WndProc。Class_Terminate でSetWindowLongPtr により自分で復元する。
 
 
 
+'***************************************************************************************************
+'                           ■■■ コールバック関連処理 ■■■
 '***************************************************************************************************
 '!! Do not move. This must be the 1st user-defined method (vtable[7], offset +0x38 on x64) !!
 '   SafeTimer::TimerProc に相当。
@@ -240,7 +238,7 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
         .dwInternetStatus = dwInternetStatus
         .hasStatusInformation = 0
         If lpvStatusInformation <> 0 And dwStatusInformationLength >= LenB(.statusInformation) Then
-            ' CopyMemory 不使用: ReadMemLongPtr（PointerAccessor）で読み取り + ビット演算で分解
+            'ReadMemLongPtr（PointerAccessor）で読み取り + ビット演算で分解
 #If Win64 Then
             Dim rawWsStatus As LongLong
             rawWsStatus = ReadMemLongPtr(lpvStatusInformation)
@@ -263,7 +261,7 @@ Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, B
     dwInternetStatus = CLng(packedStatusAndLength)
 #If Win64 Then
     Dim statusInfo As WINHTTP_WEB_SOCKET_STATUS
-    ' ビット演算で LongLong → Long×2 に分解（CopyMemory 不使用）
+    ' ビット演算で LongLong → Long×2 に分解
     Dim packed64 As LongLong
     packed64 = packedStatusAndLength
     dwInternetStatus = CLng(packed64 And &HFFFFFFFF^)
@@ -324,11 +322,12 @@ End Property
 
 
 '***************************************************************************************************
-'                       ■■■ WndProc フック (案 B: per-instance 状態保持) ■■■
+'                               ■■■ WndProc フック■■■
 '***************************************************************************************************
 '* 機能    ：WebSocketAsyncHelpers から「あなたの hWnd を私がフックしました。元の WndProc は
 '*           これです」と通知を受けるためのエントリ。各インスタンスが自分の前任 WndProc を
 '*           自分の状態として保持します。
+'*---------------------------------------------------------------------------------------------------
 '* 引数    ：hWnd          このインスタンスがフック対象とする hWnd (= m_notifyHwnd)
 '*           prevWndProc   SetWindowLongPtr で置き換えた直前の WndProc アドレス
 '*---------------------------------------------------------------------------------------------------
@@ -341,12 +340,16 @@ Friend Sub RegisterAsHookTarget(ByVal hWnd As LongPtr, ByVal prevWndProc As Long
     m_prevWndProc = prevWndProc
 End Sub
 
+'***************************************************************************************************
 '* 機能    ：このインスタンスが保持している前任 WndProc アドレスを取得します
+'*---------------------------------------------------------------------------------------------------
 '* Get返値 ：SetWindowLongPtr 直前の WndProc。フック未設置 / 既に復元済みなら 0。
+'***************************************************************************************************
 Friend Property Get prevWndProc() As LongPtr
     prevWndProc = m_prevWndProc
 End Property
 
+'***************************************************************************************************
 '* 機能    ：WebSocketAsyncHelpers.WinHttpBridgeWndProc から委譲されるメッセージディスパッチ。
 '*           WM_APP_WINHTTP_CALLBACK は自分で消化し、それ以外は前任 WndProc に転送します。
 '*---------------------------------------------------------------------------------------------------
@@ -376,6 +379,7 @@ Public Function DispatchHookedMessage(ByVal hWnd As LongPtr, _
     On Error GoTo 0
 End Function
 
+'***************************************************************************************************
 '* 機能    ：このインスタンスが SetWindowLongPtr で置き換えた WndProc を、自身で復元します。
 '*           Class_Terminate および EmergencyUnregisterCallbacks 経由で
 '*           WebSocketAsyncHelpers.RemoveWinHttpMessageHook から呼ばれます。
@@ -395,7 +399,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                                   ■■■ プロパティ ■■■
+'                                   ■■■ 主要プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：確立したwebsocketのハンドル値を取得をします
 '---------------------------------------------------------------------------------------------------
