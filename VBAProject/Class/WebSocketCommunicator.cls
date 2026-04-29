@@ -51,7 +51,7 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
 
 
 '`lpvStatusInformation`の中身を受け取るためのAPI
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As LongPtr)
+'※CopyMemory は排除済み。WebSocketAsyncHelpers.ReadMemLongPtr（PointerAccessor方式）を使用
 
 
 
@@ -516,10 +516,18 @@ Private Sub Http_OnCallback(ByVal HINTERNET As LongPtr, _
     Select Case dwInternetStatus
         Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
 
-            'WINHTTP_WEB_SOCKET_STATUS のポインタを基にコピー
+            'WINHTTP_WEB_SOCKET_STATUS のポインタを基に読み取り（CopyMemory 不使用）
             Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
             If lpvStatusInformation <> 0 And dwStatusInformationLength >= LenB(WebSocketStatus) Then
-                CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
+#If Win64 Then
+                Dim rawWsStatus As LongLong
+                rawWsStatus = ReadMemLongPtr(lpvStatusInformation)
+                WebSocketStatus.dwBytesTransferred = CLng(rawWsStatus And &HFFFFFFFF^)
+                WebSocketStatus.eBufferType = CLng((rawWsStatus \ &H100000000^) And &HFFFFFFFF^)
+#Else
+                WebSocketStatus.dwBytesTransferred = CLng(ReadMemLongPtr(lpvStatusInformation))
+                WebSocketStatus.eBufferType = CLng(ReadMemLongPtr(lpvStatusInformation + 4))
+#End If
             Else
                 'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
                 WebSocketStatus.dwBytesTransferred = 0

@@ -215,6 +215,24 @@ Private Property Let MemLongPtr(ByVal addr As LongPtr, ByVal newValue As LongPtr
     End With
 End Property
 
+'***************************************************************************************************
+'* 機能    ：指定アドレスから LongPtr 値を読み取ります（CopyMemory 不使用）
+'***************************************************************************************************
+Public Function ReadMemLongPtr(ByVal addr As LongPtr) As LongPtr
+    Dim pa(0 To 0) As PointerAccessor
+    With pa(0)
+        .sa.cDims = 1
+        .sa.cLocks = 1
+        .sa.fFeatures = FADF_AUTO Or FADF_FIXEDSIZE
+        .sa.pvData = addr
+        .sa.rgsabound0.cElements = 1
+        WritePtrNatively pa, VarPtr(.sa)
+        ReadMemLongPtr = .arr(0)
+        .sa.rgsabound0.cElements = 0
+        .sa.pvData = NullPtr
+    End With
+End Function
+
 '* 機能    ：型安全にポインタを書き込みます（LibTimers.bas::WritePtrNatively と同一）
 'https://github.com/WNKLER/RefTypes/discussions/3#discussion-8595790
 Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)

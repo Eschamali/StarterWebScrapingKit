@@ -15,8 +15,6 @@ Attribute VB_Exposed = False
 '***************************************************************************************************
 Option Explicit
 
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As LongPtr)
-
 Private Type WINHTTP_WEB_SOCKET_STATUS
     dwBytesTransferred As Long
     eBufferType        As Long
@@ -228,7 +226,16 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
         .dwInternetStatus = dwInternetStatus
         .hasStatusInformation = 0
         If lpvStatusInformation <> 0 And dwStatusInformationLength >= LenB(.statusInformation) Then
-            CopyMemory .statusInformation, ByVal lpvStatusInformation, LenB(.statusInformation)
+            ' CopyMemory 不使用: ReadMemLongPtr（PointerAccessor）で読み取り + ビット演算で分解
+#If Win64 Then
+            Dim rawWsStatus As LongLong
+            rawWsStatus = ReadMemLongPtr(lpvStatusInformation)
+            .statusInformation.dwBytesTransferred = CLng(rawWsStatus And &HFFFFFFFF^)
+            .statusInformation.eBufferType = CLng((rawWsStatus \ &H100000000^) And &HFFFFFFFF^)
+#Else
+            .statusInformation.dwBytesTransferred = CLng(ReadMemLongPtr(lpvStatusInformation))
+            .statusInformation.eBufferType = CLng(ReadMemLongPtr(lpvStatusInformation + 4))
+#End If
             .hasStatusInformation = 1
         End If
     End With
