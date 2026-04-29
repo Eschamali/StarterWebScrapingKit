@@ -242,16 +242,14 @@ Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, B
     dwInternetStatus = CLng(packedStatusAndLength)
 #If Win64 Then
     Dim statusInfo As WINHTTP_WEB_SOCKET_STATUS
-    Dim packedParts(0 To 1) As Long
+    ' ビット演算で LongLong → Long×2 に分解（CopyMemory 不使用）
     Dim packed64 As LongLong
     packed64 = packedStatusAndLength
-    CopyMemory packedParts(0), packed64, 8
-    dwInternetStatus = packedParts(0)
-    dwStatusInformationLength = packedParts(1)
+    dwInternetStatus = CLng(packed64 And &HFFFFFFFF^)
+    dwStatusInformationLength = CLng((packed64 \ &H100000000^) And &HFFFFFFFF^)
     packed64 = packedStatusInformation
-    CopyMemory packedParts(0), packed64, 8
-    statusInfo.dwBytesTransferred = packedParts(0)
-    statusInfo.eBufferType = packedParts(1)
+    statusInfo.dwBytesTransferred = CLng(packed64 And &HFFFFFFFF^)
+    statusInfo.eBufferType = CLng((packed64 \ &H100000000^) And &HFFFFFFFF^)
 #Else
     dwStatusInformationLength = 0
 #End If
