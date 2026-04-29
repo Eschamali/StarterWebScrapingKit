@@ -50,10 +50,6 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ) As Long
 
 
-'`lpvStatusInformation`の中身を受け取るためのAPI
-'※CopyMemory は排除済み。WebSocketAsyncHelpers.ReadMemLongPtr（PointerAccessor方式）を使用
-
-
 
 '***************************************************************************************************
 '                     ■■■ コールバック受信用 WindowsAPI・構造体定義 ■■■
