@@ -78,10 +78,6 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByRef lpNumberOfBytesWritten As Long, _
     lpOverlapped As Long) As Long
  
-Private Declare PtrSafe Sub MoveMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    Destination As Any, _
-    Source As Any, _
-    ByVal length As LongPtr)
  
 '===================================
 ' Types & Structures Declarations
@@ -329,9 +325,43 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
     
    'pipes2 is filled by copying memory from pipes
     pipes2.number_of_fds = pipes.number_of_fds
-    
-    MoveMemory pipes2.raw_bytes(0), pipes.crt_flags(0), 5
-    MoveMemory pipes2.raw_bytes(5), pipes.os_handle(0), UBound(pipes2.raw_bytes) - 4
+
+    '※MoveMemory 排除: バイトループで crt_flags + os_handle を raw_bytes に詰め、STDIO_BUFFER の パッキング問題を解消させる
+    '　→https://web.archive.org/web/20250524152550/https://www.codeproject.com/Tips/5307593/Automate-Chrome-Edge-using-VBA
+    Dim iMem As Long
+    ' crt_flags: 5 bytes
+    For iMem = 0 To 4
+        pipes2.raw_bytes(iMem) = pipes.crt_flags(iMem)
+    Next iMem
+    ' os_handle: 5 × LenB(LongPtr) bytes
+    Dim handleBytes() As Byte
+    ReDim handleBytes(0 To LenB(pipes.os_handle(0)) - 1)
+    Dim hIdx As Long, bIdx As Long
+    Dim destOffset As Long: destOffset = 5
+    For hIdx = 0 To 4
+        Dim hVal As LongPtr: hVal = pipes.os_handle(hIdx)
+#If Win64 Then
+        ' 8 bytes per handle (LongLong)
+        Dim rawHandle As LongLong: rawHandle = hVal
+        pipes2.raw_bytes(destOffset) = CByte(rawHandle And &HFF^)
+        pipes2.raw_bytes(destOffset + 1) = CByte((rawHandle \ &H100^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 2) = CByte((rawHandle \ &H10000^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 3) = CByte((rawHandle \ &H1000000^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 4) = CByte((rawHandle \ &H100000000^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 5) = CByte((rawHandle \ &H10000000000^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 6) = CByte((rawHandle \ &H1000000000000^) And &HFF^)
+        pipes2.raw_bytes(destOffset + 7) = CByte((rawHandle \ &H100000000000000^) And &HFF^)
+        destOffset = destOffset + 8
+#Else
+        ' 4 bytes per handle (Long)
+        Dim rawHandleL As Long: rawHandleL = CLng(hVal)
+        pipes2.raw_bytes(destOffset) = CByte(rawHandleL And &HFF&)
+        pipes2.raw_bytes(destOffset + 1) = CByte((rawHandleL \ &H100&) And &HFF&)
+        pipes2.raw_bytes(destOffset + 2) = CByte((rawHandleL \ &H10000) And &HFF&)
+        pipes2.raw_bytes(destOffset + 3) = CByte((rawHandleL \ &H1000000) And &HFF&)
+        destOffset = destOffset + 4
+#End If
+    Next hIdx
     
    'Define new instance parameters and start it
     With start
