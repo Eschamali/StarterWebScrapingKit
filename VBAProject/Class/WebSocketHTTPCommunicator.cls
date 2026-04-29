@@ -30,9 +30,9 @@ End Type
 '***************************************************************************************************
 
 'コールバックイベント（WithEvents で受け取る側がハンドルする）
-Public Event OnCallback(ByVal HINTERNET As LongPtr, _
-                        ByVal dwInternetStatus As Long, _
-                        ByVal lpvStatusInformation As LongPtr, _
+Public Event OnCallback(ByVal dwInternetStatus As Long, _
+                        ByVal dwBytesTransferred As Long, _
+                        ByVal eBufferType As Long, _
                         ByVal dwStatusInformationLength As Long)
 
 'フォームインスタンス（SafeTimer の m_form 相当。ハンドル取得＆ライフタイム管理に使用）
@@ -281,9 +281,9 @@ Public Sub DispatchQueuedCallbacks()
     Do While m_queueRead <> m_queueWrite
         With m_callbackQueue(m_queueRead)
             If .hasStatusInformation <> 0 Then
-                RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, VarPtr(.statusInformation), LenB(.statusInformation))
+                RaiseEvent OnCallback(.dwInternetStatus, .statusInformation.dwBytesTransferred, .statusInformation.eBufferType, LenB(.statusInformation))
             Else
-                RaiseEvent OnCallback(.HINTERNET, .dwInternetStatus, 0, 0)
+                RaiseEvent OnCallback(.dwInternetStatus, 0, -1, 0)
             End If
         End With
         m_queueRead = (m_queueRead + 1) Mod CALLBACK_QUEUE_SIZE
