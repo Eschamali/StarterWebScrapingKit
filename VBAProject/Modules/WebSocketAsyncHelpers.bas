@@ -21,16 +21,18 @@ Private Declare PtrSafe Function GetModuleHandleW Lib "kernel32" (ByVal lpModule
 Private Declare PtrSafe Function GetProcAddress Lib "kernel32" (ByVal hModule As LongPtr, ByVal lpProcName As String) As LongPtr
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
     ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowProcA" ( _
-    ByVal lpPrevWndFunc As LongPtr, ByVal hWnd As LongPtr, ByVal msg As Long, _
-    ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
+' CallWindowProc は WebSocketHTTPCommunicator.cls 側に移管 (案 B: per-instance 化)。
+' module 側は SafeWndProc 設置時の SetWindowLongPtr のみ担当する純粋なルータ。
 
 Private Const GWLP_WNDPROC As Long = -4
 Public Const WM_APP As Long = &H8000&
 Public Const WM_APP_WINHTTP_CALLBACK As Long = WM_APP + 711
 
 Private g_msgCount As Long
-Private g_prevWndProcByHwnd As Dictionary 'Scripting.Dictionary: key=Str(hWnd), value=prevWndProc(LongPtr)
+'-------------------------------------------------------------------------------
+' 案 B: hWnd → WebSocketHTTPCommunicator のルーティング専用 Dictionary。
+'   prevWndProc は各インスタンスが自分で保持するため、ここでは保持しない。
+'-------------------------------------------------------------------------------
 Private g_targetByHwnd As Dictionary      'Scripting.Dictionary: key=Str(hWnd), value=WebSocketHTTPCommunicator
 
 
@@ -293,6 +295,19 @@ Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)
 End Sub
 
 
+'***************************************************************************************************
+'* 機能    ：指定 hWnd の WndProc を SafeWndProc に差し替え、target インスタンスを
+'*           ルーティングテーブル (g_targetByHwnd) に登録します。
+'*---------------------------------------------------------------------------------------------------
+'* 引数    ：targetHwnd   フック対象 hWnd (= WebSocketHTTPCommunicator が持つ hidden Frame の hWnd)
+'*           target       ディスパッチ先の WebSocketHTTPCommunicator インスタンス
+'*---------------------------------------------------------------------------------------------------
+'* 設計意図 (案 B)：
+'*   ・前任 WndProc アドレスは各 target インスタンスが m_prevWndProc として自前で保持する。
+'*   ・本関数はそのアドレスを target.RegisterAsHookTarget 経由で渡すだけ。
+'*   ・hWnd → target の対応表 (g_targetByHwnd) は WindowProc が外部呼び出しであるという仕様上
+'*     どうしても標準モジュール側に必要なため、ここに残す (純粋なルータとしての役割)。
+'***************************************************************************************************
 Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target As WebSocketHTTPCommunicator)
     If targetHwnd = 0 Then Exit Sub
     If Target Is Nothing Then Exit Sub
@@ -301,40 +316,53 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
     Dim Key As String
     Key = HwndKey(targetHwnd)
 
-    If Not g_prevWndProcByHwnd.Exists(Key) Then
+    Dim prev As LongPtr
+
+    If g_targetByHwnd.Exists(Key) Then
+        ' 同一 hWnd を別インスタンスで再フック。前任 WndProc は既存 target の控えを引き継ぐ
+        ' (もう WndProc 自体は SafeWndProc になっているので、再 SetWindowLongPtr すると
+        '  prev に SafeWndProc が返ってしまい、無限ループの素になる)。
+        Dim existing As WebSocketHTTPCommunicator
+        Set existing = g_targetByHwnd(Key)
+        If Not existing Is Nothing Then prev = existing.prevWndProc
+    Else
         Dim safeWndProc As LongPtr
         safeWndProc = GetSafeWndProc(AddressOf WinHttpBridgeWndProc)
-        g_prevWndProcByHwnd.Add Key, SetWindowLongPtr(targetHwnd, GWLP_WNDPROC, safeWndProc)
+        prev = SetWindowLongPtr(targetHwnd, GWLP_WNDPROC, safeWndProc)
     End If
+
+    Target.RegisterAsHookTarget targetHwnd, prev
     Set g_targetByHwnd(Key) = Target
 End Sub
 
+'***************************************************************************************************
+'* 機能    ：フックを解除します。各インスタンスに自身の WndProc を復元させ、ルーティング
+'*           テーブルから取り除きます。
+'*---------------------------------------------------------------------------------------------------
+'* 引数    ：targetHwnd  指定なし or 0 → 全件解除 (リセット直前の緊急停止用)
+'*                      指定あり        → 該当 hWnd のみ解除 (Class_Terminate 等)
+'***************************************************************************************************
 Public Sub RemoveWinHttpMessageHook(Optional ByVal targetHwnd As LongPtr)
     On Error Resume Next
     EnsureHookMaps
-    Dim Key As String
-    Dim k As Variant
 
     If targetHwnd = 0 Then
-        For Each k In g_prevWndProcByHwnd.keys
-            If CLngPtr(k) <> 0 And g_prevWndProcByHwnd(k) <> 0 Then
-                SetWindowLongPtr CLngPtr(k), GWLP_WNDPROC, g_prevWndProcByHwnd(k)
-            End If
+        Dim k As Variant
+        For Each k In g_targetByHwnd.keys
+            Dim t As WebSocketHTTPCommunicator
+            Set t = g_targetByHwnd(k)
+            If Not t Is Nothing Then t.RestoreWndProcIfNeeded
         Next k
-        g_prevWndProcByHwnd.RemoveAll
         g_targetByHwnd.RemoveAll
         On Error GoTo 0
         Exit Sub
     End If
 
-    Key = HwndKey(targetHwnd)
-    If g_prevWndProcByHwnd.Exists(Key) Then
-        If targetHwnd <> 0 And g_prevWndProcByHwnd(Key) <> 0 Then
-            SetWindowLongPtr targetHwnd, GWLP_WNDPROC, g_prevWndProcByHwnd(Key)
-        End If
-        g_prevWndProcByHwnd.Remove Key
-    End If
+    Dim Key As String: Key = HwndKey(targetHwnd)
     If g_targetByHwnd.Exists(Key) Then
+        Dim ti As WebSocketHTTPCommunicator
+        Set ti = g_targetByHwnd(Key)
+        If Not ti Is Nothing Then ti.RestoreWndProcIfNeeded
         g_targetByHwnd.Remove Key
     End If
     On Error GoTo 0
@@ -344,32 +372,36 @@ Public Function GetWinHttpMessageCount() As Long
     GetWinHttpMessageCount = g_msgCount
 End Function
 
+'***************************************************************************************************
+'* 機能    ：SetWindowLongPtr で差し替えた WndProc 本体。受信メッセージを hWnd で
+'*           インスタンスに振り分け、当該インスタンスの DispatchHookedMessage に委譲します。
+'*---------------------------------------------------------------------------------------------------
+'* 設計意図 (案 B)：
+'*   従来はここで WM_APP_WINHTTP_CALLBACK 判定や CallWindowProc 委譲まで実施していたが、
+'*   それらは "そのインスタンス固有の振る舞い" なのでクラス側 (DispatchHookedMessage) に
+'*   集約。ここでは「hWnd → instance を引いて、丸投げ」だけが責務。
+'***************************************************************************************************
 Private Function WinHttpBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, _
                                       ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
     EnsureHookMaps
     Dim Key As String
     Key = HwndKey(hWnd)
 
-    If msg = WM_APP_WINHTTP_CALLBACK Then
-        g_msgCount = g_msgCount + 1
-        If g_targetByHwnd.Exists(Key) Then
-            If Not (g_targetByHwnd(Key) Is Nothing) Then
-                g_targetByHwnd(Key).HandlePostedWinHttpCallback wParam, lParam
-            End If
+    If msg = WM_APP_WINHTTP_CALLBACK Then g_msgCount = g_msgCount + 1
+
+    If g_targetByHwnd.Exists(Key) Then
+        Dim t As WebSocketHTTPCommunicator
+        Set t = g_targetByHwnd(Key)
+        If Not t Is Nothing Then
+            WinHttpBridgeWndProc = t.DispatchHookedMessage(hWnd, msg, wParam, lParam)
+            Exit Function
         End If
-        WinHttpBridgeWndProc = 0
-        Exit Function
     End If
 
-    If g_prevWndProcByHwnd.Exists(Key) Then
-        WinHttpBridgeWndProc = CallWindowProc(g_prevWndProcByHwnd(Key), hWnd, msg, wParam, lParam)
-    Else
-        WinHttpBridgeWndProc = 0
-    End If
+    WinHttpBridgeWndProc = 0
 End Function
 
 Private Sub EnsureHookMaps()
-    If g_prevWndProcByHwnd Is Nothing Then Set g_prevWndProcByHwnd = CreateObject("Scripting.Dictionary")
     If g_targetByHwnd Is Nothing Then Set g_targetByHwnd = CreateObject("Scripting.Dictionary")
 End Sub
 

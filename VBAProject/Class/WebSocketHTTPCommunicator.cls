@@ -182,6 +182,15 @@ Private Const WINHTTP_CALLBACK_FLAG_WEBSOCKET_NOTIFICATIONS As Long = _
     Or WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE
 
 
+' --- user32: 自インスタンスの WndProc 復元 / 既定処理委譲に使用 ---
+Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" ( _
+    ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowProcA" ( _
+    ByVal lpPrevWndFunc As LongPtr, ByVal hWnd As LongPtr, ByVal msg As Long, _
+    ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
+Private Const GWLP_WNDPROC As Long = -4
+
+
 Private Const AGENT As String = "Client"
 Private Const GET_METHOD As String = "GET"
 Private Const HTTP_VERSION  As String = "HTTP/1.1"
@@ -191,6 +200,11 @@ Private hSessionHandle_ As LongPtr
 Private hConnectionHandle_ As LongPtr
 Private hRequestHandle_ As LongPtr
 Private hwebsockethandle_ As LongPtr
+
+' このインスタンスがフックする前にあった元の WndProc。Class_Terminate で
+' SetWindowLongPtr により自分で復元する。WebSocketAsyncHelpers の Dictionary
+' 側ではなく、各インスタンスが個別に保持する (案 B のキモ)。
+Private m_prevWndProc As LongPtr
 
 
 
@@ -306,6 +320,77 @@ End Property
 Public Property Get NotifyHwnd() As LongPtr
     NotifyHwnd = m_notifyHwnd
 End Property
+
+
+
+'***************************************************************************************************
+'                       ■■■ WndProc フック (案 B: per-instance 状態保持) ■■■
+'***************************************************************************************************
+'* 機能    ：WebSocketAsyncHelpers から「あなたの hWnd を私がフックしました。元の WndProc は
+'*           これです」と通知を受けるためのエントリ。各インスタンスが自分の前任 WndProc を
+'*           自分の状態として保持します。
+'* 引数    ：hWnd          このインスタンスがフック対象とする hWnd (= m_notifyHwnd)
+'*           prevWndProc   SetWindowLongPtr で置き換えた直前の WndProc アドレス
+'*---------------------------------------------------------------------------------------------------
+'* 注意    ：呼び元は WebSocketAsyncHelpers.bas のみ想定 (Friend)。
+'*           m_notifyHwnd は UpgradeToWebSocket 内ですでに自前で設定済みなので、そちらを尊重し
+'*           ここでは hWnd 引数は照合用にのみ受け取り、保存は m_prevWndProc だけにする。
+'***************************************************************************************************
+Friend Sub RegisterAsHookTarget(ByVal hWnd As LongPtr, ByVal prevWndProc As LongPtr)
+    If hWnd <> 0 And m_notifyHwnd = 0 Then m_notifyHwnd = hWnd
+    m_prevWndProc = prevWndProc
+End Sub
+
+'* 機能    ：このインスタンスが保持している前任 WndProc アドレスを取得します
+'* Get返値 ：SetWindowLongPtr 直前の WndProc。フック未設置 / 既に復元済みなら 0。
+Friend Property Get prevWndProc() As LongPtr
+    prevWndProc = m_prevWndProc
+End Property
+
+'* 機能    ：WebSocketAsyncHelpers.WinHttpBridgeWndProc から委譲されるメッセージディスパッチ。
+'*           WM_APP_WINHTTP_CALLBACK は自分で消化し、それ以外は前任 WndProc に転送します。
+'*---------------------------------------------------------------------------------------------------
+'* 引数    ：hWnd, msg, wParam, lParam   通常の WndProc シグネチャ
+'* 返り値  ：WndProc の戻り値 (LRESULT)
+'*---------------------------------------------------------------------------------------------------
+'* 設計意図：従来は WebSocketAsyncHelpers 側で hWnd→target を引き、メッセージ判定もそちらで
+'*           行っていた。案 B ではメッセージ判定とCallWindowProc までインスタンス内で完結させ、
+'*           module 側は純粋なルーティングだけに責務を絞る。
+'***************************************************************************************************
+Public Function DispatchHookedMessage(ByVal hWnd As LongPtr, _
+                                       ByVal msg As Long, _
+                                       ByVal wParam As LongPtr, _
+                                       ByVal lParam As LongPtr) As LongPtr
+    On Error Resume Next
+    If msg = WM_APP_WINHTTP_CALLBACK Then
+        HandlePostedWinHttpCallback wParam, lParam
+        DispatchHookedMessage = 0
+        Exit Function
+    End If
+
+    If m_prevWndProc <> 0 Then
+        DispatchHookedMessage = CallWindowProc(m_prevWndProc, hWnd, msg, wParam, lParam)
+    Else
+        DispatchHookedMessage = 0
+    End If
+    On Error GoTo 0
+End Function
+
+'* 機能    ：このインスタンスが SetWindowLongPtr で置き換えた WndProc を、自身で復元します。
+'*           Class_Terminate および EmergencyUnregisterCallbacks 経由で
+'*           WebSocketAsyncHelpers.RemoveWinHttpMessageHook から呼ばれます。
+'*---------------------------------------------------------------------------------------------------
+'* 注意    ：Friend です。同一プロジェクト内 (= WebSocketAsyncHelpers.bas) からしか呼び出せません。
+'*           idempotent (m_prevWndProc を 0 にクリアするので 2 回目以降は noop)。
+'***************************************************************************************************
+Friend Sub RestoreWndProcIfNeeded()
+    On Error Resume Next
+    If m_prevWndProc <> 0 And m_notifyHwnd <> 0 Then
+        SetWindowLongPtr m_notifyHwnd, GWLP_WNDPROC, m_prevWndProc
+    End If
+    m_prevWndProc = 0
+    On Error GoTo 0
+End Sub
 
 
 
