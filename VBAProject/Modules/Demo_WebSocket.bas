@@ -2,16 +2,13 @@ Attribute VB_Name = "Demo_WebSocket"
 '***************************************************************************************************
 '                   WebSocket のデモンストレーションです（非同期モードのみ）
 '
-'   SafeTimer 方式のコールバック統一により、AddressOf / isDataReady は不要になりました。
-'   コールバックは WebSocketCommunicator.Http_OnCallback で自動的に受け取られます。
-'
 '   基本的には以下の流れでやり取りが可能です
 '   1. ws(s)へ接続
 '   2. 受信予約(.RequestWebSocketReceive)を行う
-'   3. 何か送ってみる(.SendAsyncMessage)        ※必要に応じて、`.LastSendSuccess`で送信完了したかの待機も可能です
+'   3. 何か送ってみる(.SendAsyncMessageAsUTF8/BINARY)   ※必要に応じて、`.LastSendSuccess`で送信完了したかの待機も可能です
 '   4. プロパティメソッド`.LastReceiveExisting`で、データが届いたか確認
-'   5. データ取得処理(.GetAsyncMessage)         ※この関数から直接、取得したデータは取れません
-'   6. 「.GetAsyncMessage」による実行結果が、0であれば、プロパティメソッド`.LastReceiveContentString`で、4.で得たデータを取得
+'   5. データ取得処理(.GetAsyncMessage)                 ※この関数から直接、取得したデータは取れません
+'   6. 「.GetAsyncMessage」による実行結果が、0であれば、プロパティメソッド`.LastReceiveContentUTF8/BINARY`で、4.で得たデータを取得
 '   7. 2.からループ
 '***************************************************************************************************
 Option Explicit
@@ -28,6 +25,7 @@ Private ErrorMes        As New WinApiError
 Private SendCount       As Long
 
 
+
 '***************************************************************************************************
 '* デバッグ用：ブレークで停止したあと、VBE の「リセット」する前にイミディエイトで実行してください。
 '*   WinHttp の status callback とウィンドウフックを外し、リセット時の EXCEL クラッシュを避けやすくします。
@@ -42,6 +40,7 @@ Public Sub Demo_WinHttpUnregisterBeforeReset()
     RemoveWinHttpMessageHook
     On Error GoTo 0
 End Sub
+
 
 
 '***************************************************************************************************
@@ -84,7 +83,7 @@ End Sub
 Sub WebSocketDemoASync_初期化_ws()
     Const CDP_HOST As String = "127.0.0.1"
     Const CDP_PORT As Long = 9222
-    Const CDP_TARGET_PATH As String = "devtools/page/065C0DBCE88F6808FEED106660E8D612"
+    Const CDP_TARGET_PATH As String = "/devtools/browser/f7a90a36-75b5-4fb7-90dc-c8b871f6cbe2"
     Dim ResultCode As Long
 
     ' Chrome は下記のように起動しておく必要があります:
@@ -126,9 +125,9 @@ Sub WebSocketDemoASync_受信予約()
     ResultCode = g_WebsocketObj.RequestWebSocketReceive
 
     If ResultCode Then
-        g_WebsocketObj.printMsg info_, "受信予約エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"), "Demo"
+        Debug.Print "受信予約エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
-        g_WebsocketObj.printMsg info_, "受信予約結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
+        Debug.Print "受信予約結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
@@ -147,10 +146,10 @@ Sub WebSocketDemoASync_受信データを取得()
 
     '3. エラーがなければ、受信内容をプロパティメソッドから内容を、取得します
     If ResultCode Then
-        g_WebsocketObj.printMsg info_, "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp"), "Demo"
+        Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
-        g_WebsocketObj.printMsg info_, "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
-        g_WebsocketObj.printMsg info_, "受信内容：" & g_WebsocketObj.LastReceiveContentString, "Demo"
+        Debug.Print "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
+        g_WebsocketObj.printMsg info_, "受信内容：" & g_WebsocketObj.LastReceiveContentUTF8, "Demo"
     End If
 End Sub
 
@@ -163,12 +162,13 @@ Sub WebSocketDemoASync_送信()
     '1. 送信カウント(任意)
     SendCount = SendCount + 1
 
-    '2. 1件分の送信をしてみる
-    Dim ResultCode As Long: ResultCode = g_WebsocketObj.SendAsyncMessage("うみねこ！みゃ～お！" & SendCount & WorksheetFunction.Unichar(129418))
+    '2. 1件分の送信をしてみる(`WorksheetFunction.Unichar`で、絵文字送信も可能)
+    Dim ResultCode As Long: ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8("うみねこ！みゃ～お！" & SendCount & WorksheetFunction.Unichar(129418))
 
     '3. 送信実行結果
     If ResultCode Then
         Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Exit Sub
     Else
         Debug.Print "送信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
     End If
@@ -224,7 +224,7 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
 
     ' 1) バースト送信
     For i = 1 To BurstCount
-        rc = g_WebsocketObj.SendAsyncMessage("[DrainProbe]#" & CStr(i) & "|" & String$(40, "X"))
+        rc = g_WebsocketObj.SendAsyncMessageAsUTF8("[DrainProbe]#" & CStr(i) & "|" & String$(40, "X"))
         If rc = 0 Then
             sendOk = sendOk + 1
         Else
@@ -242,7 +242,7 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
             rc = g_WebsocketObj.GetAsyncMessage
             If rc = 0 Then
                 recvOk = recvOk + 1
-                msgText = g_WebsocketObj.LastReceiveContentString
+                msgText = g_WebsocketObj.LastReceiveContentUTF8
                 g_WebsocketObj.printMsg Debug_, "受信回収 recvOk=" & recvOk & ", Len=" & Len(msgText), FromProcedureName
             Else
                 g_WebsocketObj.printMsg WARN_, "GetAsyncMessage 失敗 ErrorCode=" & rc, FromProcedureName
@@ -295,11 +295,11 @@ Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Runtime.evaluate"",""params"":{""expression"":""document.title"",""returnByValue"":true}}"
 
-    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
         Debug.Print "CDP送信エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "CDP送信OK(id=" & SendCount & ", Runtime.evaluate)"
+        Debug.Print "CDP送信OK(id=" & SendCount & ", Runtime.evaluate) → 別途受信Demoプロシージャを実行してください"
     End If
 End Sub
 
@@ -315,7 +315,7 @@ Sub WebSocketDemoASync2_5_CDP_Network_GetAllCookies()
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Network.getAllCookies"",""params"":{}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
         Debug.Print "CDP送信エラー(Network.getAllCookies)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
@@ -340,7 +340,7 @@ Sub WebSocketDemoASync2_6_CDP_Page_Navigate(Optional ByVal TargetUrl As String)
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.navigate"",""params"":{""url"":""" & esc & """}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
         Debug.Print "CDP送信エラー(Page.navigate)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else
@@ -363,7 +363,7 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.captureScreenshot"",""params"":{""format"":""png"",""fromSurface"":true}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessage(Payload)
+    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
         Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
     Else

@@ -52,9 +52,8 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
 
 
 '***************************************************************************************************
-'                     ■■■ コールバック受信用 WindowsAPI・構造体定義 ■■■
+'                            ■■■ コールバック受信管理用 ■■■
 '***************************************************************************************************
-
 'Websocket蓄積受信状況把握に使用
 Private Const BufferToAllocate      As Long = 2 ^ 14 '初期バッファー上限
 Private Type WebSocketReceiveManage
@@ -121,7 +120,7 @@ Private ViewLog                     As New Logger                   'ログ用
 '--- WebSokect関連の補助ステータス ---
 Private Type StateWebSocket
     isReceiving         As Boolean  '前回の受信データが残っている場合は、`True`となり、プロシージャ`RequestWebSocketReceive`は、実行できなくなります。
-    isReserved          As Boolean  'プロシージャ`GetAsyncMessage`を呼ぶと同時に`True`になり`、WinHttpWebSocketReceive`が実行された後、`READ_COMPLETE`が来れば`False`、来なければ`True`のままになります
+    isReserved          As Boolean  'プロシージャ`RequestWebSocketReceive`を呼ぶと同時に`True`になり`、WinHttpWebSocketReceive`が実行された後、`READ_COMPLETE`が来れば`False`、来なければ`True`のままになります
     isSended            As Boolean  '`WinHttpWebSocketSend`が実行された後、正常に送信が行われると、`True`になります。プロシージャ`SendAsyncMessage`が呼ばれる度に、`False`にリセットされます
 End Type
 Private currentebWebSocket As StateWebSocket
@@ -137,7 +136,7 @@ Private currentLog As StateLog
 '最後のWebSocketから得た受信データ
 Private Content_WinHttpWebSocketReceive() As Byte
 
-'プロシージャ`GetAsyncMessage`にて、次のデータを受信する際のタイムアウト値
+'プロシージャ`GetAsyncMessage`にて、次の断片データを受信する際のタイムアウト値
 Private timerOut   As Long
 
 
@@ -176,17 +175,18 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：最後の1件分しか保持しません
 '***************************************************************************************************
-Public Property Get LastReceiveContentByte() As Byte
-    LastReceiveContentByte = Content_WinHttpWebSocketReceive
+Public Property Get LastReceiveContentBINARY() As Byte()
+    LastReceiveContentBINARY = Content_WinHttpWebSocketReceive
 End Property
 
 '***************************************************************************************************
 '* 機能    ：`WinHttpReceiveResponse`による最後の受信データを文字列として、取得します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：最後の1件分しか保持しません
+'* 注意事項：・最後の1件分しか保持しません
+'            ・命名規則の都合上、`UTF8`とありますが実際は、VBAで扱える`String`型となります
 '***************************************************************************************************
-Public Property Get LastReceiveContentString() As String
-    LastReceiveContentString = CharConv.BytesToString(Content_WinHttpWebSocketReceive)
+Public Property Get LastReceiveContentUTF8() As String
+    LastReceiveContentUTF8 = CharConv.BytesToString(Content_WinHttpWebSocketReceive)
 End Property
 
 
@@ -343,51 +343,45 @@ Public Sub connectionWebSocket(Host As String, Optional Path As String, Optional
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：受け取った引数のデータで、WebSocketへ送信を行います
+'* 機能　　：テキストデータで、WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：SendData           String OR Byte 型を想定
+'* 引数    ：SendData           String 型
 '* 返り値  ：実行結果コード     ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：型判定を行い、テキストもWideCharToMultiByte を介したバイト配列変換を使用します
-'* 注意事項：・テキストも所詮、バイナリデータなのでこのような方式にしています
-'            ・必要に応じて、`LastSendStatus`にて、最後の送信がうまくいったかを確認してください
+'* 機能説明：テキストもWideCharToMultiByte を介したバイト配列変換を使用し、送信を行います
+'* 注意事項：テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'***************************************************************************************************
+Public Function SendAsyncMessageAsUTF8(SendData As String) As Long
+    SendAsyncMessageAsUTF8 = SendAsyncMessageAsBINARY(CharConv.BytesFromString(SendData), True)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：バイト配列データで、WebSocketへ送信を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：SendData           Byte 型
+'            TextType           WINHTTP_WEB_SOCKET_BUFFER_TYPE に沿った枠。このプロシージャを直接使う場合は、バイナリ送信を想定してますので、省略でOK
+'                               `True` :UTF8_MESSAGE
+'                               `False`:BINARY_MESSAGE
+'
+'* 返り値  ：実行結果コード     ※成功時は、0です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・必要に応じて、`LastSendStatus`にて、最後の送信がうまくいったかを確認してください
 '            ・前回の送信がうまくいったかの確認はこのプロシージャでは行いません
 '            ・`WinHttpWebSocketSend`の実行結果コードは基本的に0です。
 '              送信がうまくいったは、`LastSendStatus`にて、確認できます。
 '***************************************************************************************************
-Public Function SendAsyncMessage(SendData As Variant) As Long
+Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
-    '0. ステータスをリセット
+    '1. ステータスをリセット
+    printMsg Debug_, IIf(TextType, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
     currentebWebSocket.isSended = False
 
-    '1. 必要に応じて、バイト配列として変換する
-    Dim UseData() As Byte
-    Dim UseType As Long
-    Select Case VarType(SendData)
-        Case vbString
-            UseType = WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE
-            UseData = CharConv.BytesFromString(CStr(SendData))   'テキストをバイト配列に変換する
-            printMsg Debug_, "テキストデータをUTF-8バイト配列に変換して送信します...", FromProcedureName
-
-        Case vbByte
-            UseType = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE
-            UseData = SendData                                     'そのまんま使用
-            printMsg Debug_, "バイナリデータとして送信します...", FromProcedureName
-
-        Case Else
-            Err.Raise vbObjectError + 1, "WebSocketCommunicator.SendMessage", "この操作は、String型かByte型のみ可能です。" & vbCrLf & "数値のみで渡してる場合は事前に、`CStr`を介す必要があります。"
-
-    End Select
-
-    '2. バイト配列のサイズを取得
-    Dim messageByteSize As Long: messageByteSize = UBound(UseData) + 1
-
-    '3. 求めたサイズで一括送信し、実行結果コードを返却
-    SendAsyncMessage = WinHttpWebSocketSend(WebSocket.websockethandle, _
-                        UseType, _
-                        VarPtr(UseData(0)), messageByteSize)
+    '2. `SendData`のサイズで一括送信し、実行結果コードを返却
+    SendAsyncMessageAsBINARY = WinHttpWebSocketSend(WebSocket.websockethandle, _
+                                IIf(TextType, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
+                                VarPtr(SendData(0)), UBound(SendData) + 1)
 End Function
 
 '***************************************************************************************************
@@ -440,7 +434,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：全てのデータを受け切るまでリクエストを垂れ流していきます。
 '* 注意事項：・途中でエラーが発生した場合は、即抜けとなり、途中のデータは破棄されます
-'            ・完成したデータは、プロパティ`LastReceiveContentString`で別途取得してください
+'            ・完成したデータは、プロパティ`LastReceiveContentUTF8/BINARY`で別途取得してください
 '***************************************************************************************************
 Public Function GetAsyncMessage() As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
@@ -493,8 +487,14 @@ Public Function GetAsyncMessage() As Long
     Loop While currentebWebSocket.isReceiving
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ WebSocket ステータス処理関連 ■■■
 '***************************************************************************************************
 '* 機能    ：WinHttp コールバックイベントハンドラ（SafeTimer の st_TimerCall 相当）
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：予め、WebSokect用に引数を最適化してます
 '***************************************************************************************************
 Private Sub WebSocket_OnCallback(ByVal dwInternetStatus As Long, _
                                  ByVal dwBytesTransferred As Long, _
@@ -596,7 +596,7 @@ End Function
 '* 機能　　：バッファ初期化
 '***************************************************************************************************
 Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
-    Erase responseBuffer
+    'Erase responseBuffer   'カーソル管理があるので、わざわざ空処理する必要はなし。※Windowsのゴミ箱を空にする時のロジックを模倣
     CurrentPointer = 0
     BufferLength = UBound(responseBuffer) + 1
 End Sub
