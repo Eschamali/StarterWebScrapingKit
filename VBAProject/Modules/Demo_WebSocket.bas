@@ -175,10 +175,10 @@ Sub WebSocketDemoASync_送信()
 
     '4. 送信がうまくいったかを確認(任意)
     Dim timerStart As Single: timerStart = Timer
-    Do
+    Do Until g_WebsocketObj.LastSendSuccess
         DoEvents
-        If Timer - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the browser to load the homepage."
-    Loop Until g_WebsocketObj.LastSendSuccess
+        If Timer - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the WebSocket to send result."
+    Loop
     Debug.Print "送信がうまくいきました。"
 End Sub
 
