@@ -27,18 +27,45 @@ Private SendCount       As Long
 
 
 '***************************************************************************************************
-'* デバッグ用：ブレークで停止したあと、VBE の「リセット」する前にイミディエイトで実行してください。
-'*   WinHttp の status callback とウィンドウフックを外し、リセット時の EXCEL クラッシュを避けやすくします。
-'* 例: イミディエイトに Demo_WinHttpUnregisterBeforeReset と入力して Enter
-'* 注意: 実行後は通信状態が不整合のため、続けて使う場合は初期化マクロからやり直してください。
+'* ★ ワンアクションの「安全リセット」マクロ ★
+'*   下記の3ステップを1アクションでまとめ、VBE のリセットボタンの代替として使うためのものです。
+'*     ① WinHttp の status callback を解除して、worker thread を静止
+'*     ② SetWindowLongPtr で差し替えたウィンドウフックを解除し、元の WndProc を全件復元
+'*     ③ VBA の `End` ステートメントで状態をリセット (= リセットボタン押下相当)
+'*
+'*   ①②を踏まえてから③を実行することで、`0xc0000027 (STATUS_BAD_FUNCTION_TABLE)` 系の
+'*   Excel クラッシュを大幅に回避できます。VBE のリセットボタンの代わりにこちらをご利用ください。
+'*
+'* ◆ 使い方
+'*     A. イミディエイトに `Demo_SafeReset` と入力して Enter
+'*     B. Excel のクイックアクセスツールバーに登録 → ボタン1クリックで完了
+'*        (ファイル → オプション → クイックアクセスツールバー → "マクロ" → Demo_SafeReset を追加)
+'*     C. ショートカット割当：別の Workbook_Open 等で
+'*           Application.OnKey "^+r", "Demo_SafeReset"   ' Ctrl+Shift+R で発火
+'*        を実行しておけば、ホットキー1発で発火させることも可能です。
+'*
+'* ◆ 注意事項
+'*     - 実行後は VBA の状態が完全に初期化されるため、続けて使う場合は初期化マクロから再開してください。
+'*     - VBE のブレーク中 (黄色い行で停止) でもイミディエイトから実行可能です。
+'*       ただし `WebSocket_OnCallback` 内で停止中に限り、COM event 経由のスタックを `End` でも
+'*       巻き戻しきれずクラッシュする場合があります。その場合は F8 等で当該 Sub を抜けてから実行してください。
 '***************************************************************************************************
-Public Sub Demo_WinHttpUnregisterBeforeReset()
+Public Sub Demo_SafeReset()
+    '対象オブジェクトを指定
+    Dim TargetClean As WebSocketCommunicator: Set TargetClean = g_WebsocketObj
+
+
+    '①② callback 解除 + WndProc 復元 (= 既存の手動掃除と同じ)
     On Error Resume Next
-    If Not g_WebsocketObj Is Nothing Then
-        g_WebsocketObj.EmergencyUnregisterWinHttpCallbacks
-    End If
+    If Not g_WebsocketObj Is Nothing Then TargetClean.EmergencyUnregisterWinHttpCallbacks    '※ここは、使用している`WebSocketCommunicator`Classオブジェクト名に合わせること
     RemoveWinHttpMessageHook
+
+    '念のため Class_Terminate を走らせて、内部 handle (HINTERNET / hWebsocket) を確実に close
+    Set TargetClean = Nothing
     On Error GoTo 0
+
+    '③ VBA の状態を全てクリア (= リセット相当の制御された unwind)
+    End
 End Sub
 
 
