@@ -567,12 +567,8 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：ForceClose
-'               `True`  必ず、ハンドル破棄まで突っ走ります
-'               `False` 途中でエラーがある場合は、そこで終わります
 '***************************************************************************************************
-Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
+Public Function CloseWebSocket() As Boolean
     On Error GoTo quit
     If WebSocket Is Nothing Then
         CloseWebSocket = True
@@ -785,4 +781,12 @@ Private Sub Class_Initialize()
     'バッファー情報を初期化
     InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
     Set m_res.collect = New Collection
+End Sub
+
+Private Sub Class_Terminate()
+    'WebSocketを閉じます
+    CloseWebSocket
+
+    'オブジェクト破棄
+    Set WebSocket = Nothing
 End Sub
