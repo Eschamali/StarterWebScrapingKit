@@ -182,6 +182,17 @@ Sub WebSocketDemoASync_送信()
     Debug.Print "送信がうまくいきました。"
 End Sub
 
+Sub WebSocketDemo_Close()
+    If g_WebsocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    g_WebsocketObj.CloseWebSocket
+    Set g_WebsocketObj = Nothing
+    Debug.Print "WebSocketを閉じました"
+End Sub
+
 
 
 '***************************************************************************************************
