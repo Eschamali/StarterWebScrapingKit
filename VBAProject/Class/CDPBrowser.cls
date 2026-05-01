@@ -2688,7 +2688,11 @@ RetrySend:
         '返り値チェック
         Dim tmp As Dictionary
         If intRes > 0 Then
-            'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
+            'データは届いたので、タイムアウト値をリセット
+            timerStart = Timer
+            printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
+
+            '受信メッセージを活用するため、担当プロシージャへ遷移
 8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, InternalFilterMessage, lngCurrentId)  'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
