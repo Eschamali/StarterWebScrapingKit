@@ -1,4 +1,3 @@
-Attribute VB_Name = "Demo_SPAWaiter"
 Option Explicit
 
 Sub SPAtest()
@@ -37,21 +36,29 @@ Sub SPAtest()
     ExecuteRegisterAutoClickerByXPath SPApage, "//button[@id='truste-consent-button']"
 
     'ページ遷移前のSetup
-    spaWait.Setup
+    spaWait.EnableEvents = True
 
     'SPAページ遷移させる ※内部で「document.readyState」を確認します
     SPApage.navigate "https://developer.servicenow.com/", isLoading
 
     'DOMやネットワークが落ち着く待機ロジックを仕込む
     ' --- パターン1: SPAの準備完了を待機 (DOMContentLoaded + NetworkIdle(500ms)) ---
+    SPApage.printMsg info_, "NetWork監視を開始します....", "Demo"
     Debug.Print "---------------------------------------"
     Debug.Print "Waiting for SPA to be ready..."
-    If spaWait.WaitForSPAReady(TimeoutSec:=60) Then
+
+    If spaWait.WaitForSPAReady(10, 3) Then        'リダイレクト周りのURLが絡むため、閾値を設ける
         Debug.Print "SPA ページの準備が完了しました (DOMContentLoaded & NetworkIdle)"
     Else
         Debug.Print "タイムアウト: SPA ページの準備完了を待ちきれませんでした"
     End If
 
+    Debug.Assert spaWait.WaitForDOMStable
+
+
+    '次のページ遷移に備えて、内部状態をリセット
+    SPApage.printMsg info_, "NetWork監視ステータスをリセットします", "Demo"
+    spaWait.ResetState
 
     'ボタン押下して、ページ遷移を発動
     Set elem = extShadow.getElementByDeepCss("#utility-sign-in > button")
@@ -59,10 +66,20 @@ Sub SPAtest()
     elem.click
 
     'DOMやネットワークが落ち着く待機ロジックを仕込む
-    'hogehoge
+    SPApage.printMsg info_, "次のNetWork監視を開始します....", "Demo"
+    Debug.Print "---------------------------------------"
+    Debug.Print "Waiting for SPA to be ready..."
+    If spaWait.WaitForSPAReady(60, 0) Then         'こっちはそこまで発生しない模様
+        Debug.Print "SPA ページの準備が完了しました (DOMContentLoaded & NetworkIdle)"
+    Else
+        Debug.Print "タイムアウト: SPA ページの準備完了を待ちきれませんでした"
+    End If
+    SPApage.printMsg info_, "NetWork監視を終了", "Demo"
+    spaWait.EnableEvents = False
 
     '待機が終わったら、入力
     SPApage.getElementByXPath("//input[@id='username']").value = "Insert From VBA!"     '※待機に失敗すると、ここでエラーになります
+    spaWait.EnableEvents = False
     MsgBox "適切な待機ロジックが働いてるようです！", vbInformation
 
 
@@ -91,9 +108,9 @@ Private Sub ExecuteRegisterAutoClickerByXPath(UseObject As CDPBrowser, ByVal xpa
     Set res = UseObject.invokeMethod("Page.addScriptToEvaluateOnNewDocument", params)
     
     If res("identifier") = 1 Then
-        Debug.Print "BiDi: AutoClicker registered for XPath: " & xpath
+        Debug.Print "CDP: AutoClicker registered for XPath: " & xpath
     Else
-        Debug.Print "BiDi Error: AutoClicker registration failed: " & res("Error")
+        Debug.Print "CDP Error: AutoClicker registration failed: " & res("Error")
     End If
 End Sub
 
