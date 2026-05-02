@@ -306,7 +306,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：SPAの準備が完了するまで (DOMContentLoaded + NetworkIdle) 待機するおまかせ機能です
 '***************************************************************************************************
-Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30) As Boolean
+Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30, Optional inflightThreshold As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForSPAReady"
     Dim startTime As Double: startTime = Timer
 
@@ -324,7 +324,7 @@ Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30) As Boolean
     End If
 
     printMsg Trace_, "Waiting for SPA ready (2/2: NetworkIdle)...", FromProcedureName
-    If Not WaitForNetworkIdle(remaining) Then
+    If Not WaitForNetworkIdle(remaining,,inflightThreshold) Then
         WaitForSPAReady = False
         Exit Function
     End If
