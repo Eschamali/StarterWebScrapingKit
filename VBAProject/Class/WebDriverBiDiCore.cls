@@ -575,7 +575,11 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         '受信数check
         Dim tmp As Dictionary
         If QueueResultBiDi.Count Then
-            'データあり。受信メッセージを活用するため、担当プロシージャへ遷移
+            'データは届いたので、タイムアウト値をリセット
+            timerStart = Timer
+            printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
+
+            '受信メッセージを活用するため、担当プロシージャへ遷移
             Set tmp = ReceiveFromCollectionPayload(InternalUseMessages, lngCurrentId)   'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
 
             'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
@@ -584,6 +588,8 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
                 Set SendMessage = tmp
             End If
         Else
+            printMsg Trace_, "Data reception could not be confirmed. The timeout value will be incremented.", FromProcedureName
+
             'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
             '※`WithEvents`と併用すると、ここに格納される可能性があるためです
             Set tmp = ResultBiDiForAsync(lngCurrentId)
