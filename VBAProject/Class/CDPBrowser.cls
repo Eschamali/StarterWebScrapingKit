@@ -492,13 +492,17 @@ Private Sub deserialize(r As ReConnectSessionID)
 
     '4. SessionIDの適用方法に応じた分岐を行う
 5   Select Case r
+        '古いSessionIDを破棄してから、新しいSessionIDを付与
         Case ReConnectSessionID.refresh_
-            Me.id = attachToTab(brTab.targetID)
+            brTab.sessionID = objSerialize.Item("sessionID")    '一旦、古いSessionIDを適用
+            Me.id = attachToTab(brTab.targetID)                 '内部で、その古いSessionIDを破棄させる
 
+        '既存のSessionIDを適用
         Case ReConnectSessionID.existing_
             brTab.sessionID = objSerialize.Item("sessionID")
             printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
 
+        'SessionIDの付与は行わない。呼び出し側にて手動適用
         Case Else
             printMsg info_, "The SessionID remains empty.", FromProcedureName
 
