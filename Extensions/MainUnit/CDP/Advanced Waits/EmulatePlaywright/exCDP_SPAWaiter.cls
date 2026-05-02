@@ -46,7 +46,7 @@ Private m_DOMStableCount            As Long         ' DOM が変化しなかった連続回
 '***************************************************************************************************
 '                               ■■■ 公開プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：非同期イベント処理を行うかのスイッチングです
+'* 機能　　：非同期イベント処理を行うかのスイッチングに加え、SPA待機に必要な設定 (Network.enable, Page.setLifecycleEventsEnabled) を発行します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：スコープ範囲の調整にどうぞ。名称は、「Application.EnableEvents」から取りました
 '***************************************************************************************************
@@ -55,7 +55,38 @@ Public Property Get EnableEvents() As Boolean
 End Property
 
 Public Property Let EnableEvents(ByVal v As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableEvents"
+
+
+    '1. まず、フラグを反映
     EnableBrowserEvents = v
+
+    '2. フラグに応じた処理
+    Dim params As New Dictionary
+    If EnableBrowserEvents Then
+        ' Networkの監視を有効化
+        Call invokeMethod("Network.enable", StopError:=False)
+
+        ' ライフサイクルイベントの監視を有効化
+        params.Add "enabled", True
+        Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)
+
+        ' 状態の初期化
+        ResetState
+
+        'ログ出力
+        printMsg info_, "SPA Waiter is successfully setup and events are enabled.", FromProcedureName
+    Else
+        'SPA待機のリソースを開放します
+        ResetState
+
+        '余計なレスポンスを出さないようにする
+        Call invokeMethod("Network.disable", StopError:=False)      'ネットワークイベント
+
+        params.Add "enabled", False
+        Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)   'ライフサイクルイベントの監視を無効化
+    End If
+
 End Property
 
 
@@ -133,38 +164,6 @@ End Function
 
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分編 ■■■
-'***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：SPA待機に必要な設定 (Network.enable, Page.setLifecycleEventsEnabled) を発行します
-'***************************************************************************************************
-Public Sub Setup()
-    Const FromProcedureName As String = ThisClassName & ".Setup"
-    
-    ' Networkの監視を有効化
-    Call invokeMethod("Network.enable", StopError:=False)
-    
-    ' ライフサイクルイベントの監視を有効化
-    Dim params As Object
-    Set params = CreateObject("Scripting.Dictionary")
-    params.Add "enabled", True
-    Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)
-    
-    ' イベントフックと状態の初期化
-    EnableBrowserEvents = True
-    ResetState
-    
-    printMsg info_, "SPA Waiter is successfully setup and events are enabled.", FromProcedureName
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：SPA待機のリソースを開放します
-'***************************************************************************************************
-Public Sub Teardown()
-    EnableBrowserEvents = False
-    ResetState
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：SPA待機のフラグをリセットします。ページ遷移の直前などに呼び出します
 '***************************************************************************************************
@@ -371,8 +370,6 @@ End Sub
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
-    'ブラウザ非同期処理を有効化
-    EnableBrowserEvents = True
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     On Error Resume Next
