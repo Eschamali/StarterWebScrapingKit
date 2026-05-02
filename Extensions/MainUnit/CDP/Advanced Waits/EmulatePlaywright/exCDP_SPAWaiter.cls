@@ -8,47 +8,48 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           Playwright‚ÌSPA‘Ò‹@ƒƒWƒbƒN‚ğƒGƒ~ƒ…ƒŒ[ƒg‚·‚éŠg’£‹@”\ƒNƒ‰ƒXƒtƒ@ƒCƒ‹‚Å‚·
+'           Playwrightã®SPAå¾…æ©Ÿãƒ­ã‚¸ãƒƒã‚¯ã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã™ã‚‹æ‹¡å¼µæ©Ÿèƒ½ã‚¯ãƒ©ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«ã§ã™
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
+'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
 '***************************************************************************************************
-'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
+'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
 Private WithEvents ex_CDPBrowser    As CDPBrowser
 Attribute ex_CDPBrowser.VB_VarHelpID = -1
 
-'“à•”g—p—p
-Private Const ThisClassName         As String = "exCDP_SPAWaiter"             'ƒƒO‚ÌƒgƒŒ[ƒX—p
+'å†…éƒ¨ä½¿ç”¨ç”¨
+Private Const ThisClassName         As String = "exCDP_SPAWaiter"             'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
 
-'ƒXƒe[ƒgŠÇ—
-Private seeRawSendMsgDbg            As Boolean      'response‚ğƒfƒoƒbƒOƒƒO‚Éo‚·‚©‚Ì’²®
-Private EnableBrowserEvents         As Boolean      '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
+'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
+Private seeRawSendMsgDbg            As Boolean      'responseã‚’ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã«å‡ºã™ã‹ã®èª¿æ•´
+Private EnableBrowserEvents         As Boolean      'ã“ã®æ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ã—ãªã„ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°
 
-'--- Network Idle ”»’è—p ---
-Private m_InflightCount             As Long         ' Œ»İ’ÊM’†‚ÌƒŠƒNƒGƒXƒg”
-Private m_LastIdleTime              As Double       ' ÅŒã‚É InflightCount ‚ª 0 ‚É‚È‚Á‚½ (Timer’l)
-Private m_NetworkIdleDetected       As Boolean      ' networkidle ”»’èƒtƒ‰ƒO
+'--- Network Idle åˆ¤å®šç”¨ ---
+Private m_InflightCount             As Long         ' ç¾åœ¨é€šä¿¡ä¸­ã®ãƒªã‚¯ã‚¨ã‚¹ãƒˆæ•°
+Private m_InflightMap               As Dictionary   ' é€šä¿¡ä¸­ã®URLã‚’ä¿æŒ (requestId -> URL)
+Private m_LastIdleTime              As Double       ' æœ€å¾Œã« InflightCount ãŒ 0 ã«ãªã£ãŸæ™‚åˆ» (Timerå€¤)
+Private m_NetworkIdleDetected       As Boolean      ' networkidle åˆ¤å®šãƒ•ãƒ©ã‚°
 
-'--- Lifecycle ”»’è—p ---
-Private m_LoadFired                 As Boolean      ' Page.lifecycleEvent "load" ŒŸ’mÏ‚İ
-Private m_DOMContentLoaded          As Boolean      ' Page.lifecycleEvent "DOMContentLoaded" ŒŸ’mÏ‚İ
+'--- Lifecycle åˆ¤å®šç”¨ ---
+Private m_LoadFired                 As Boolean      ' Page.lifecycleEvent "load" æ¤œçŸ¥æ¸ˆã¿
+Private m_DOMContentLoaded          As Boolean      ' Page.lifecycleEvent "DOMContentLoaded" æ¤œçŸ¥æ¸ˆã¿
 
-'--- DOM ˆÀ’è”»’è—p ---
-Private m_LastDOMSnapshot           As String       ' ’¼‘O‚Ì DOM ƒXƒiƒbƒvƒVƒ‡ƒbƒg (innerHTML.length)
-Private m_DOMStableCount            As Long         ' DOM ‚ª•Ï‰»‚µ‚È‚©‚Á‚½˜A‘±‰ñ”
+'--- DOM å®‰å®šåˆ¤å®šç”¨ ---
+Private m_LastDOMSnapshot           As String       ' ç›´å‰ã® DOM ã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆ (innerHTML.length)
+Private m_DOMStableCount            As Long         ' DOM ãŒå¤‰åŒ–ã—ãªã‹ã£ãŸé€£ç¶šå›æ•°
 
 
 
 '***************************************************************************************************
-'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒB ¡¡¡
+'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚É‰Á‚¦ASPA‘Ò‹@‚É•K—v‚Èİ’è (Network.enable, Page.setLifecycleEventsEnabled) ‚ğ”­s‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã«åŠ ãˆã€SPAå¾…æ©Ÿã«å¿…è¦ãªè¨­å®š (Network.enable, Page.setLifecycleEventsEnabled) ã‚’ç™ºè¡Œã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* Ú×à–¾FƒXƒR[ƒv”ÍˆÍ‚Ì’²®‚É‚Ç‚¤‚¼B–¼Ì‚ÍAuApplication.EnableEventsv‚©‚çæ‚è‚Ü‚µ‚½
+'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚³ãƒ¼ãƒ—ç¯„å›²ã®èª¿æ•´ã«ã©ã†ãã€‚åç§°ã¯ã€ã€ŒApplication.EnableEventsã€ã‹ã‚‰å–ã‚Šã¾ã—ãŸ
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -58,33 +59,33 @@ Public Property Let EnableEvents(ByVal v As Boolean)
     Const FromProcedureName As String = ThisClassName & ".EnableEvents"
 
 
-    '1. ‚Ü‚¸Aƒtƒ‰ƒO‚ğ”½‰f
+    '1. ã¾ãšã€ãƒ•ãƒ©ã‚°ã‚’åæ˜ 
     EnableBrowserEvents = v
 
-    '2. ƒtƒ‰ƒO‚É‰‚¶‚½ˆ—
+    '2. ãƒ•ãƒ©ã‚°ã«å¿œã˜ãŸå‡¦ç†
     Dim params As New Dictionary
     If EnableBrowserEvents Then
-        ' Network‚ÌŠÄ‹‚ğ—LŒø‰»
+        ' Networkã®ç›£è¦–ã‚’æœ‰åŠ¹åŒ–
         Call invokeMethod("Network.enable", StopError:=False)
 
-        ' ƒ‰ƒCƒtƒTƒCƒNƒ‹ƒCƒxƒ“ƒg‚ÌŠÄ‹‚ğ—LŒø‰»
+        ' ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ã‚¤ãƒ™ãƒ³ãƒˆã®ç›£è¦–ã‚’æœ‰åŠ¹åŒ–
         params.Add "enabled", True
         Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)
 
-        ' ó‘Ô‚Ì‰Šú‰»
+        ' çŠ¶æ…‹ã®åˆæœŸåŒ–
         ResetState
 
-        'ƒƒOo—Í
+        'ãƒ­ã‚°å‡ºåŠ›
         printMsg info_, "SPA Waiter is successfully setup and events are enabled.", FromProcedureName
     Else
-        'SPA‘Ò‹@‚ÌƒŠƒ\[ƒX‚ğŠJ•ú‚µ‚Ü‚·
+        'SPAå¾…æ©Ÿã®ãƒªã‚½ãƒ¼ã‚¹ã‚’é–‹æ”¾ã—ã¾ã™
         ResetState
 
-        '—]Œv‚ÈƒŒƒXƒ|ƒ“ƒX‚ğo‚³‚È‚¢‚æ‚¤‚É‚·‚é
-        Call invokeMethod("Network.disable", StopError:=False)      'ƒlƒbƒgƒ[ƒNƒCƒxƒ“ƒg
+        'ä½™è¨ˆãªãƒ¬ã‚¹ãƒãƒ³ã‚¹ã‚’å‡ºã•ãªã„ã‚ˆã†ã«ã™ã‚‹
+        Call invokeMethod("Network.disable", StopError:=False)      'ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚¤ãƒ™ãƒ³ãƒˆ
 
         params.Add "enabled", False
-        Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)   'ƒ‰ƒCƒtƒTƒCƒNƒ‹ƒCƒxƒ“ƒg‚ÌŠÄ‹‚ğ–³Œø‰»
+        Call invokeMethod("Page.setLifecycleEventsEnabled", params, StopError:=False)   'ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ã‚¤ãƒ™ãƒ³ãƒˆã®ç›£è¦–ã‚’ç„¡åŠ¹åŒ–
     End If
 
 End Property
@@ -92,30 +93,41 @@ End Property
 
 
 '***************************************************************************************************
-'                     ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ”ñ“¯ŠúƒCƒxƒ“ƒg•Ò ¡¡¡
+'                     â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ† éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç·¨ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒg‚ğˆ—‚µ‚½‚¢‚Æ‚«‚É‚²—˜—p‚­‚¾‚³‚¢B‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚ŞêŠ‚Ì1‚Â‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å‡¦ç†ã—ãŸã„ã¨ãã«ã”åˆ©ç”¨ãã ã•ã„ã€‚ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€å ´æ‰€ã®1ã¤ã§ã™
 '***************************************************************************************************
 Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
-    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
+    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
     If Not EnableBrowserEvents Then Exit Sub
 
-    '2. ˆ—‚µ‚½‚¢‘ÎÛ‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg–¼‚ğAŠeCase ‚É‹Lq‚µ‚Ä‚­‚¾‚³‚¢B
+    '2. å‡¦ç†ã—ãŸã„å¯¾è±¡ã®éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆåã‚’ã€å„Case ã«è¨˜è¿°ã—ã¦ãã ã•ã„ã€‚
     Select Case methodName
-        ' === Network Idle ŒŸo ===
+        ' === Network Idle æ¤œå‡º ===
         Case "Network.requestWillBeSent"
             m_InflightCount = m_InflightCount + 1
             m_NetworkIdleDetected = False
+            
+            ' ãƒªã‚¯ã‚¨ã‚¹ãƒˆURLã®è¨˜éŒ²
+            Dim reqId As String: reqId = ExtractJsonValue(EventRawJson, "requestId")
+            Dim url As String: url = ExtractJsonValue(EventRawJson, "url")
+            If reqId <> "" Then m_InflightMap(reqId) = url
+            
             printMsg Trace_, "Network request started. Inflight: " & m_InflightCount, FromProcedureName
 
         Case "Network.loadingFinished", "Network.loadingFailed"
             If m_InflightCount > 0 Then m_InflightCount = m_InflightCount - 1
             If m_InflightCount = 0 Then m_LastIdleTime = Timer
+            
+            ' ãƒªã‚¯ã‚¨ã‚¹ãƒˆè¨˜éŒ²ã®å‰Šé™¤
+            Dim doneId As String: doneId = ExtractJsonValue(EventRawJson, "requestId")
+            If m_InflightMap.Exists(doneId) Then m_InflightMap.Remove doneId
+            
             printMsg Trace_, "Network request finished. Inflight: " & m_InflightCount, FromProcedureName
 
-        ' === Lifecycle ƒCƒxƒ“ƒgŒŸo ===
+        ' === Lifecycle ã‚¤ãƒ™ãƒ³ãƒˆæ¤œå‡º ===
         Case "Page.lifecycleEvent"
             Dim EventName As String
             EventName = ExtractLifecycleEventName(EventRawJson)
@@ -125,17 +137,17 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
             End Select
             printMsg Trace_, "Lifecycle event detected: " & EventName, FromProcedureName
 
-        ' === ƒiƒrƒQ[ƒVƒ‡ƒ“ŒŸo ===
+        ' === ãƒŠãƒ“ã‚²ãƒ¼ã‚·ãƒ§ãƒ³æ¤œå‡º ===
         Case "Page.frameNavigated"
-            ' V‚µ‚¢ƒhƒLƒ…ƒƒ“ƒg‚Ö‚Ì‘JˆÚiƒŠƒ_ƒCƒŒƒNƒg“™ŠÜ‚Şj‚Í‘SƒŠƒZƒbƒg
-            ' ¦–{—ˆ‚ÍƒƒCƒ“ƒtƒŒ[ƒ€‚©‚Ç‚¤‚©‚ğ”»’è‚·‚×‚«‚¾‚ªAŠÈˆÕ“I‚É‘SƒŠƒZƒbƒg
+            ' æ–°ã—ã„ãƒ‰ã‚­ãƒ¥ãƒ¡ãƒ³ãƒˆã¸ã®é·ç§»ï¼ˆãƒªãƒ€ã‚¤ãƒ¬ã‚¯ãƒˆç­‰å«ã‚€ï¼‰æ™‚ã¯å…¨ãƒªã‚»ãƒƒãƒˆ
+            ' â€»æœ¬æ¥ã¯ãƒ¡ã‚¤ãƒ³ãƒ•ãƒ¬ãƒ¼ãƒ ã‹ã©ã†ã‹ã‚’åˆ¤å®šã™ã¹ãã ãŒã€ç°¡æ˜“çš„ã«å…¨ãƒªã‚»ãƒƒãƒˆ
             Call ResetState
             printMsg info_, "New document navigation detected. State reset.", FromProcedureName
 
-        ' === SPA ƒ‹[ƒg•ÏXŒŸo ===
+        ' === SPA ãƒ«ãƒ¼ãƒˆå¤‰æ›´æ¤œå‡º ===
         Case "Page.navigatedWithinDocument"
-            ' SPA ‚Ì pushState/replaceState ‚É‚æ‚é‘JˆÚB
-            ' ƒlƒbƒgƒ[ƒN‚ÆDOM‚ÌˆÀ’è‘Ò‹@‚Ì‚İƒŠƒZƒbƒg‚µAƒ‰ƒCƒtƒTƒCƒNƒ‹ƒtƒ‰ƒO‚ÍˆÛ‚·‚éB
+            ' SPA ã® pushState/replaceState ã«ã‚ˆã‚‹é·ç§»ã€‚
+            ' ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã¨DOMã®å®‰å®šå¾…æ©Ÿã®ã¿ãƒªã‚»ãƒƒãƒˆã—ã€ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ãƒ•ãƒ©ã‚°ã¯ç¶­æŒã™ã‚‹ã€‚
             m_NetworkIdleDetected = False
             m_LastDOMSnapshot = ""
             m_DOMStableCount = 0
@@ -145,10 +157,10 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@FEventRawJson‚©‚çŠÈˆÕ“I‚Éƒ‰ƒCƒtƒTƒCƒNƒ‹‚ÌƒCƒxƒ“ƒg–¼‚ğæ‚èo‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šEventRawJsonã‹ã‚‰ç°¡æ˜“çš„ã«ãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ã®ã‚¤ãƒ™ãƒ³ãƒˆåã‚’å–ã‚Šå‡ºã—ã¾ã™
 '***************************************************************************************************
 Private Function ExtractLifecycleEventName(ByVal rawJson As String) As String
-    ' "name":"load" ‚È‚Ç‚Ì‰ÓŠ‚ğ’Tõ
+    ' "name":"load" ãªã©ã®ç®‡æ‰€ã‚’æ¢ç´¢
     Dim namePos As Long
     namePos = InStr(rawJson, """name"":""")
     If namePos > 0 Then
@@ -163,12 +175,14 @@ End Function
 
 
 '***************************************************************************************************
-'                           ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª•Ò ¡¡¡
+'                           â– â– â–  ãƒ¡ã‚¤ãƒ³ã¨ãªã‚‹æ©Ÿèƒ½æ‹¡å¼µéƒ¨åˆ†ç·¨ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FSPA‘Ò‹@‚Ìƒtƒ‰ƒO‚ğƒŠƒZƒbƒg‚µ‚Ü‚·Bƒy[ƒW‘JˆÚ‚Ì’¼‘O‚È‚Ç‚ÉŒÄ‚Ño‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šSPAå¾…æ©Ÿã®ãƒ•ãƒ©ã‚°ã‚’ãƒªã‚»ãƒƒãƒˆã—ã¾ã™ã€‚ãƒšãƒ¼ã‚¸é·ç§»ã®ç›´å‰ãªã©ã«å‘¼ã³å‡ºã—ã¾ã™
 '***************************************************************************************************
 Public Sub ResetState()
     m_InflightCount = 0
+    If m_InflightMap Is Nothing Then Set m_InflightMap = New Dictionary
+    m_InflightMap.RemoveAll
     m_LastIdleTime = 0
     m_NetworkIdleDetected = False
     m_LoadFired = False
@@ -178,11 +192,11 @@ Public Sub ResetState()
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒlƒbƒgƒ[ƒN‚ªÃ~ó‘Ô (NetworkIdle) ‚É‚È‚é‚Ü‚Å‘Ò‹@‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ãŒé™æ­¢çŠ¶æ…‹ (NetworkIdle) ã«ãªã‚‹ã¾ã§å¾…æ©Ÿã—ã¾ã™
 '---------------------------------------------------------------------------------------------------
-'* ˆø”@@FtimeoutSec       ƒ^ƒCƒ€ƒAƒEƒgi•bj
-'*           idleThresholdMs  Inflight‚È’ÊM‚ª0‚É‚È‚Á‚Ä‚©‚çANetworkIdle‚Æ”»’è‚·‚é‚Ü‚Å‚Ì‘Ò‹@ŠÔiƒ~ƒŠ•bj
-'*           inflightThreshold Inflight‚È’ÊM”‚Ìè‡’lB’Êí‚Í0‚Å‚·‚ªAƒoƒbƒNƒOƒ‰ƒEƒ“ƒh‚Å‘½­’ÊM‚ª”­¶‚·‚é‚æ‚¤‚ÈƒP[ƒX‚Å‚ ‚ê‚ÎA1ˆÈã‚ğw’è‚·‚é‚±‚Æ‚Å‘½­‚Ì’ÊM‚ª‚ ‚Á‚Ä‚àNetworkIdle‚Æ”»’è‚Å‚«‚Ü‚·B
+'* å¼•æ•°ã€€ã€€ï¼štimeoutSec       ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆï¼ˆç§’ï¼‰
+'*           idleThresholdMs  Inflightãªé€šä¿¡ãŒ0ã«ãªã£ã¦ã‹ã‚‰ã€NetworkIdleã¨åˆ¤å®šã™ã‚‹ã¾ã§ã®å¾…æ©Ÿæ™‚é–“ï¼ˆãƒŸãƒªç§’ï¼‰
+'*           inflightThreshold Inflightãªé€šä¿¡æ•°ã®é–¾å€¤ã€‚é€šå¸¸ã¯0ã§ã™ãŒã€ãƒãƒƒã‚¯ã‚°ãƒ©ã‚¦ãƒ³ãƒ‰ã§å¤šå°‘é€šä¿¡ãŒç™ºç”Ÿã™ã‚‹ã‚ˆã†ãªã‚±ãƒ¼ã‚¹ã§ã‚ã‚Œã°ã€1ä»¥ä¸Šã‚’æŒ‡å®šã™ã‚‹ã“ã¨ã§å¤šå°‘ã®é€šä¿¡ãŒã‚ã£ã¦ã‚‚NetworkIdleã¨åˆ¤å®šã§ãã¾ã™ã€‚
 '***************************************************************************************************
 Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional idleThresholdMs As Long = 500, Optional inflightThreshold As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForNetworkIdle"
@@ -190,15 +204,15 @@ Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional 
     Dim startTime As Double: startTime = Timer
     Dim idleThresholdSec As Double: idleThresholdSec = idleThresholdMs / 1000
 
-    ' ó‘Ô‚ğˆê’UƒŠƒZƒbƒg
+    ' çŠ¶æ…‹ã‚’ä¸€æ—¦ãƒªã‚»ãƒƒãƒˆ
     m_NetworkIdleDetected = False
     If m_InflightCount = 0 Then m_LastIdleTime = Timer
 
     Do
-        ' ƒpƒCƒv‚©‚ç”ñ“¯ŠúƒCƒxƒ“ƒg‚ğæ‚èo‚·
+        ' ãƒ‘ã‚¤ãƒ—ã‹ã‚‰éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å–ã‚Šå‡ºã™
         TakeEvents
         
-        ' Œ»İ‚Ì’ÊM”‚ªè‡’lˆÈ‰º‚È‚çƒ^ƒCƒ}[Œp‘±A’´‚¦‚½‚çƒŠƒZƒbƒg
+        ' ç¾åœ¨ã®é€šä¿¡æ•°ãŒé–¾å€¤ä»¥ä¸‹ãªã‚‰ã‚¿ã‚¤ãƒãƒ¼ç¶™ç¶šã€è¶…ãˆãŸã‚‰ãƒªã‚»ãƒƒãƒˆ
         If m_InflightCount <= inflightThreshold Then
             If m_LastIdleTime = 0 Then m_LastIdleTime = Timer
             If (Timer - m_LastIdleTime) >= idleThresholdSec Then
@@ -206,12 +220,24 @@ Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional 
                 Exit Function
             End If
         Else
-            m_LastIdleTime = 0 ' ’ÊM‚ª‘½‚·‚¬‚é‚Ì‚ÅƒŠƒZƒbƒg
+            m_LastIdleTime = 0 ' é€šä¿¡ãŒå¤šã™ãã‚‹ã®ã§ãƒªã‚»ãƒƒãƒˆ
         End If
 
-        ' ƒ^ƒCƒ€ƒAƒEƒgƒ`ƒFƒbƒN
+        ' ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆãƒã‚§ãƒƒã‚¯
         If (Timer - startTime) > TimeoutSec Then
             printMsg WARN_, "Timeout: Failed to reach NetworkIdle state within " & TimeoutSec & " seconds.", FromProcedureName
+            
+            ' --- ãƒ‡ãƒãƒƒã‚°ç”¨ï¼šæœªå®Œäº†ãƒªã‚¯ã‚¨ã‚¹ãƒˆã®URLã‚’ä¸€è¦§è¡¨ç¤º ---
+            If m_InflightMap.Count > 0 Then
+                Debug.Print "--- Culprits (Inflight Requests) ---"
+                Dim key As Variant, i As Long: i = 1
+                For Each key In m_InflightMap.Keys
+                    Debug.Print " [" & i & "] " & m_InflightMap(key)
+                    i = i + 1
+                    If i > 10 Then Debug.Print " ... and more": Exit For
+                Next
+            End If
+            
             WaitForNetworkIdle = False
             Exit Function
         End If
@@ -221,7 +247,7 @@ Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional 
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@Fw’è‚µ‚½ƒ‰ƒCƒtƒTƒCƒNƒ‹ƒCƒxƒ“ƒg (load, domcontentloaded) ‚ª”­‰Î‚·‚é‚Ü‚Å‘Ò‹@‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šæŒ‡å®šã—ãŸãƒ©ã‚¤ãƒ•ã‚µã‚¤ã‚¯ãƒ«ã‚¤ãƒ™ãƒ³ãƒˆ (load, domcontentloaded) ãŒç™ºç«ã™ã‚‹ã¾ã§å¾…æ©Ÿã—ã¾ã™
 '***************************************************************************************************
 Public Function WaitForLoadState(Optional state As String = "load", Optional TimeoutSec As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForLoadState"
@@ -254,7 +280,7 @@ Public Function WaitForLoadState(Optional state As String = "load", Optional Tim
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FDOMƒXƒiƒbƒvƒVƒ‡ƒbƒg‚ÌƒTƒCƒY‚ªw’è‰ñ”˜A‘±‚µ‚Ä•Ï‰»‚µ‚È‚­‚È‚é‚Ü‚Å‘Ò‹@‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šDOMã‚¹ãƒŠãƒƒãƒ—ã‚·ãƒ§ãƒƒãƒˆã®ã‚µã‚¤ã‚ºãŒæŒ‡å®šå›æ•°é€£ç¶šã—ã¦å¤‰åŒ–ã—ãªããªã‚‹ã¾ã§å¾…æ©Ÿã—ã¾ã™
 '***************************************************************************************************
 Public Function WaitForDOMStable(Optional TimeoutSec As Double = 10, Optional intervalMs As Long = 200, Optional requiredStableCount As Long = 3) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForDOMStable"
@@ -262,11 +288,11 @@ Public Function WaitForDOMStable(Optional TimeoutSec As Double = 10, Optional in
     m_DOMStableCount = 0
 
     Do
-        ' Œ»İ‚Ì DOM ƒTƒCƒY (•¶š”) ‚ğæ“¾BJSƒGƒ‰[‚Í "0" ‚Æ‚·‚éB
+        ' ç¾åœ¨ã® DOM ã‚µã‚¤ã‚º (æ–‡å­—æ•°) ã‚’å–å¾—ã€‚JSã‚¨ãƒ©ãƒ¼æ™‚ã¯ "0" ã¨ã™ã‚‹ã€‚
         Dim currentSnapshot As String
         currentSnapshot = CStr(ex_CDPBrowser.jsEval("document.body ? document.body.innerHTML.length : 0", IFEXCEPTION:="0", dbgMsg:=False))
 
-        ' •Ï‰»ƒ`ƒFƒbƒN
+        ' å¤‰åŒ–ãƒã‚§ãƒƒã‚¯
         If currentSnapshot = m_LastDOMSnapshot And currentSnapshot <> "0" Then
             m_DOMStableCount = m_DOMStableCount + 1
         Else
@@ -274,14 +300,14 @@ Public Function WaitForDOMStable(Optional TimeoutSec As Double = 10, Optional in
         End If
         m_LastDOMSnapshot = currentSnapshot
 
-        ' ˆÀ’è”»’è
+        ' å®‰å®šåˆ¤å®š
         If m_DOMStableCount >= requiredStableCount Then
             WaitForDOMStable = True
             printMsg Trace_, "DOM is stable.", FromProcedureName
             Exit Function
         End If
 
-        ' ƒ^ƒCƒ€ƒAƒEƒgƒ`ƒFƒbƒN
+        ' ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆãƒã‚§ãƒƒã‚¯
         If (Timer - startTime) > TimeoutSec Then
             printMsg WARN_, "Timeout: DOM did not stabilize within " & TimeoutSec & " seconds.", FromProcedureName
             WaitForDOMStable = False
@@ -293,7 +319,7 @@ Public Function WaitForDOMStable(Optional TimeoutSec As Double = 10, Optional in
 End Function
 
 '***************************************************************************************************
-'* ‹@”\@@FSPA‚Ì€”õ‚ªŠ®—¹‚·‚é‚Ü‚Å (DOMContentLoaded + NetworkIdle) ‘Ò‹@‚·‚é‚¨‚Ü‚©‚¹‹@”\‚Å‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šSPAã®æº–å‚™ãŒå®Œäº†ã™ã‚‹ã¾ã§ (DOMContentLoaded + NetworkIdle) å¾…æ©Ÿã™ã‚‹ãŠã¾ã‹ã›æ©Ÿèƒ½ã§ã™
 '***************************************************************************************************
 Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30, Optional inflightThreshold As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForSPAReady"
@@ -305,7 +331,7 @@ Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30, Optional inf
         Exit Function
     End If
 
-    ' c‚èŠÔ‚ÌŒvZ
+    ' æ®‹ã‚Šæ™‚é–“ã®è¨ˆç®—
     Dim remaining As Double: remaining = TimeoutSec - (Timer - startTime)
     If remaining <= 0 Then
         WaitForSPAReady = False
@@ -325,29 +351,29 @@ End Function
 
 
 '***************************************************************************************************
-'                           ¡¡¡ `CDPBrowser`’¼’Êƒƒ\ƒbƒh ¡¡¡
+'                           â– â– â–  `CDPBrowser`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@F‚¢‚¿‚¢‚¿A`››.invokeMethod`‚Æ‚¢‚Á‚½‹Lq‚ğ–h‚®‘[’u‚Æ‚È‚è‚Ü‚·B
+'* æ©Ÿèƒ½ã€€ã€€ï¼šã„ã¡ã„ã¡ã€`â—‹â—‹.invokeMethod`ã¨ã„ã£ãŸè¨˜è¿°ã‚’é˜²ãæªç½®ã¨ãªã‚Šã¾ã™ã€‚
 '---------------------------------------------------------------------------------------------------
-'* ’ˆÓ–€FEƒƒCƒ“‚Ì`CDPBrowser`ƒƒ\ƒbƒh‚ğs‚¤‘OŒã‚Ìˆ—“™‚ào—ˆ‚Ü‚·‚ªŠî–{‚ÍA1s‚¾‚¯‚É—¯‚ß‚Ä‚¨‚­‚±‚Æ‚ğ‚¨Š©‚ß‚µ‚Ü‚·
-'            EŠeÚ×‚ÍA`CDPBrowser`‚Ì•û‚ğ‚²——‚­‚¾‚³‚¢
+'* æ³¨æ„äº‹é …ï¼šãƒ»ãƒ¡ã‚¤ãƒ³ã®`CDPBrowser`ãƒ¡ã‚½ãƒƒãƒ‰ã‚’è¡Œã†å‰å¾Œã®å‡¦ç†ç­‰ã‚‚å‡ºæ¥ã¾ã™ãŒåŸºæœ¬ã¯ã€1è¡Œã ã‘ã«ç•™ã‚ã¦ãŠãã“ã¨ã‚’ãŠå‹§ã‚ã—ã¾ã™
+'            ãƒ»å„è©³ç´°ã¯ã€`CDPBrowser`ã®æ–¹ã‚’ã”è¦§ãã ã•ã„
 '***************************************************************************************************
-'•‰‰×‚ğ—}‚¦‚é‚Æ‚«‚É‚Ç‚¤‚¼
+'è² è·ã‚’æŠ‘ãˆã‚‹ã¨ãã«ã©ã†ã
 Private Sub sleep(Optional seconds As Double = 0.5)
     ex_CDPBrowser.sleep seconds
 End Sub
 
-'ƒƒOƒƒbƒZ[ƒW‚ğo‚·‚Æ‚«‚É‚Ç‚¤‚¼
+'ãƒ­ã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºã™ã¨ãã«ã©ã†ã
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-'CDPÀs‚É•K—v‚Å‚·
+'CDPå®Ÿè¡Œã«å¿…è¦ã§ã™
 Private Function invokeMethod(methodName As String, Optional params As Object, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Object
     Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
 End Function
 
-'”ñ“¯ŠúƒCƒxƒ“ƒg”­‰Î(RaiseEvent)‚É•K—v‚Å‚·
+'éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç™ºç«(RaiseEvent)ã«å¿…è¦ã§ã™
 Private Sub TakeEvents(Optional destruction As Boolean)
     ex_CDPBrowser.TakeEvents destruction
 End Sub
@@ -355,26 +381,42 @@ End Sub
 
 
 '***************************************************************************************************
-'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
+'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
 '***************************************************************************************************
-'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šCDPåˆ¶å¾¡ã®ãƒ™ãƒ¼ã‚¹ã¨ãªã‚‹`CDPBrowser.cls`ã‚’ç¶™æ‰¿ã•ã›ã¾ã™
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPBrowser)
-    'Œp³
+    'ç¶™æ‰¿
     Set ex_CDPBrowser = Inheritance
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
+'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
+    'è¨­å®šã‚·ãƒ¼ãƒˆã®å„ã‚»ãƒ«ã‹ã‚‰è¨­å®šå€¤ã‚’å–å¾—ã—ã€ã‚¯ãƒ©ã‚¹å†…å¤‰æ•°ã«é©ç”¨ã—ã¾ã™
     On Error Resume Next
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
+        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ãƒ–ãƒ©ã‚¦ã‚¶ã‹ã‚‰å—ä¿¡ã—ãŸç”Ÿã®JSONãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’ã‚¤ãƒŸãƒ‡ã‚£ã‚¨ã‚¤ãƒˆã«è¡¨ç¤ºã•ã›ã‚‹ã‹ï¼Ÿ
     End With
     On Error GoTo 0
+    
+    ' é€šä¿¡è¿½è·¡ç”¨ãƒãƒƒãƒ—ã®åˆæœŸåŒ–
+    Set m_InflightMap = New Dictionary
 End Sub
+
+'***************************************************************************************************
+'* æ©Ÿèƒ½ã€€ã€€ï¼šEventRawJsonã‹ã‚‰ç°¡æ˜“çš„ã«JSONã®å€¤ã‚’å–ã‚Šå‡ºã—ã¾ã™ï¼ˆè¨ºæ–­ç”¨ï¼‰
+'***************************************************************************************************
+Private Function ExtractJsonValue(ByVal rawJson As String, ByVal key As String) As String
+    Dim keyPattern As String: keyPattern = """" & key & """:"""
+    Dim pos As Long: pos = InStr(rawJson, keyPattern)
+    If pos > 0 Then
+        Dim StartPos As Long: StartPos = pos + Len(keyPattern)
+        Dim EndPos As Long: EndPos = InStr(StartPos, rawJson, """")
+        If EndPos > StartPos Then ExtractJsonValue = Mid(rawJson, StartPos, EndPos - StartPos)
+    End If
+End Function
