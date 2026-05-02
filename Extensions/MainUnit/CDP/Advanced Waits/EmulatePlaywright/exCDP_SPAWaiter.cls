@@ -107,24 +107,32 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
     Select Case methodName
         ' === Network Idle 検出 ===
         Case "Network.requestWillBeSent"
-            m_InflightCount = m_InflightCount + 1
-            m_NetworkIdleDetected = False
-            
-            ' リクエストURLの記録
+            ' リクエストIDとURLを抽出
             Dim reqId As String: reqId = ExtractJsonValue(EventRawJson, "requestId")
             Dim url As String: url = ExtractJsonValue(EventRawJson, "url")
+            
+            ' すでに記録されているID（リダイレクト）の場合はカウントを増やさない
+            If Not m_InflightMap.Exists(reqId) Then
+                m_InflightCount = m_InflightCount + 1
+            End If
+            
+            ' 最新のURLで記録（リダイレクト先のURLに上書きされる）
             If reqId <> "" Then m_InflightMap(reqId) = url
             
+            m_NetworkIdleDetected = False
             printMsg Trace_, "Network request started. Inflight: " & m_InflightCount, FromProcedureName
 
         Case "Network.loadingFinished", "Network.loadingFailed"
-            If m_InflightCount > 0 Then m_InflightCount = m_InflightCount - 1
-            If m_InflightCount = 0 Then m_LastIdleTime = Timer
-            
-            ' リクエスト記録の削除
+            ' リクエストIDを抽出
             Dim doneId As String: doneId = ExtractJsonValue(EventRawJson, "requestId")
-            If m_InflightMap.Exists(doneId) Then m_InflightMap.Remove doneId
             
+            ' 記録にあるIDの場合のみカウントを減らす（二重減算防止）
+            If m_InflightMap.Exists(doneId) Then
+                If m_InflightCount > 0 Then m_InflightCount = m_InflightCount - 1
+                m_InflightMap.Remove doneId
+            End If
+            
+            If m_InflightCount = 0 Then m_LastIdleTime = Timer
             printMsg Trace_, "Network request finished. Inflight: " & m_InflightCount, FromProcedureName
 
         ' === Lifecycle イベント検出 ===
