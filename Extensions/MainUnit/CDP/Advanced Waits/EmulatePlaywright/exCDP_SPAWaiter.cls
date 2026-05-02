@@ -183,8 +183,9 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：timeoutSec       タイムアウト（秒）
 '*           idleThresholdMs  Inflightな通信が0になってから、NetworkIdleと判定するまでの待機時間（ミリ秒）
+'*           inflightThreshold Inflightな通信数の閾値。通常は0ですが、バックグラウンドで多少通信が発生するようなケースであれば、1以上を指定することで多少の通信があってもNetworkIdleと判定できます。
 '***************************************************************************************************
-Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional idleThresholdMs As Long = 500) As Boolean
+Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional idleThresholdMs As Long = 500, Optional inflightThreshold As Long) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForNetworkIdle"
     
     Dim startTime As Double: startTime = Timer
@@ -197,6 +198,17 @@ Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional 
     Do
         ' パイプから非同期イベントを取り出す
         TakeEvents
+        
+        ' 現在の通信数が閾値以下ならタイマー継続、超えたらリセット
+        If m_InflightCount <= inflightThreshold Then
+            If m_LastIdleTime = 0 Then m_LastIdleTime = Timer
+            If (Timer - m_LastIdleTime) >= idleThresholdSec Then
+                WaitForNetworkIdle = True
+                Exit Function
+            End If
+        Else
+            m_LastIdleTime = 0 ' 通信が多すぎるのでリセット
+        End If
 
         ' networkidle 判定
         If m_InflightCount = 0 And m_LastIdleTime > 0 Then
