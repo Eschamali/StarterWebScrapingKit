@@ -77,10 +77,12 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Case "Network.requestWillBeSent"
             m_InflightCount = m_InflightCount + 1
             m_NetworkIdleDetected = False
+            printMsg Trace_, "Network request started. Inflight: " & m_InflightCount, FromProcedureName
 
         Case "Network.loadingFinished", "Network.loadingFailed"
             If m_InflightCount > 0 Then m_InflightCount = m_InflightCount - 1
             If m_InflightCount = 0 Then m_LastIdleTime = Timer
+            printMsg Trace_, "Network request finished. Inflight: " & m_InflightCount, FromProcedureName
 
         ' === Lifecycle イベント検出 ===
         Case "Page.lifecycleEvent"
@@ -90,11 +92,23 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                 Case "load":              m_LoadFired = True
                 Case "domcontentloaded":  m_DOMContentLoaded = True
             End Select
+            printMsg Trace_, "Lifecycle event detected: " & eventName, FromProcedureName
+
+        ' === ナビゲーション検出 ===
+        Case "Page.frameNavigated"
+            ' 新しいドキュメントへの遷移（リダイレクト等含む）時は全リセット
+            ' ※本来はメインフレームかどうかを判定すべきだが、簡易的に全リセット
+            Call ResetState
+            printMsg info_, "New document navigation detected. State reset.", FromProcedureName
 
         ' === SPA ルート変更検出 ===
         Case "Page.navigatedWithinDocument"
-            ' SPA の pushState/replaceState による遷移を検知 → 状態リセット
-            Call ResetState
+            ' SPA の pushState/replaceState による遷移。
+            ' ネットワークとDOMの安定待機のみリセットし、ライフサイクルフラグは維持する。
+            m_NetworkIdleDetected = False
+            m_LastDOMSnapshot = ""
+            m_DOMStableCount = 0
+            printMsg info_, "Internal SPA navigation detected. Network/DOM flags reset.", FromProcedureName
             
     End Select
 End Sub
