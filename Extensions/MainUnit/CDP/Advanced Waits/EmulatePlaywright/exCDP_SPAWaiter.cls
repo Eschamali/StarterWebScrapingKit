@@ -86,13 +86,13 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 
         ' === Lifecycle イベント検出 ===
         Case "Page.lifecycleEvent"
-            Dim eventName As String
-            eventName = ExtractLifecycleEventName(EventRawJson)
-            Select Case LCase(eventName)
+            Dim EventName As String
+            EventName = ExtractLifecycleEventName(EventRawJson)
+            Select Case LCase(EventName)
                 Case "load":              m_LoadFired = True
                 Case "domcontentloaded":  m_DOMContentLoaded = True
             End Select
-            printMsg Trace_, "Lifecycle event detected: " & eventName, FromProcedureName
+            printMsg Trace_, "Lifecycle event detected: " & EventName, FromProcedureName
 
         ' === ナビゲーション検出 ===
         Case "Page.frameNavigated"
@@ -121,10 +121,10 @@ Private Function ExtractLifecycleEventName(ByVal rawJson As String) As String
     Dim namePos As Long
     namePos = InStr(rawJson, """name"":""")
     If namePos > 0 Then
-        Dim startPos As Long: startPos = namePos + 8
-        Dim endPos As Long: endPos = InStr(startPos, rawJson, """")
-        If endPos > startPos Then
-            ExtractLifecycleEventName = Mid(rawJson, startPos, endPos - startPos)
+        Dim StartPos As Long: StartPos = namePos + 8
+        Dim EndPos As Long: EndPos = InStr(StartPos, rawJson, """")
+        If EndPos > StartPos Then
+            ExtractLifecycleEventName = Mid(rawJson, StartPos, EndPos - StartPos)
         End If
     End If
 End Function
@@ -184,7 +184,7 @@ End Sub
 '* 引数　　：timeoutSec       タイムアウト（秒）
 '*           idleThresholdMs  Inflightな通信が0になってから、NetworkIdleと判定するまでの待機時間（ミリ秒）
 '***************************************************************************************************
-Public Function WaitForNetworkIdle(Optional timeoutSec As Double = 30, Optional idleThresholdMs As Long = 500) As Boolean
+Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional idleThresholdMs As Long = 500) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForNetworkIdle"
     
     Dim startTime As Double: startTime = Timer
@@ -209,8 +209,8 @@ Public Function WaitForNetworkIdle(Optional timeoutSec As Double = 30, Optional 
         End If
 
         ' タイムアウトチェック
-        If (Timer - startTime) > timeoutSec Then
-            printMsg WARN_, "Timeout: Failed to reach NetworkIdle state within " & timeoutSec & " seconds.", FromProcedureName
+        If (Timer - startTime) > TimeoutSec Then
+            printMsg WARN_, "Timeout: Failed to reach NetworkIdle state within " & TimeoutSec & " seconds.", FromProcedureName
             WaitForNetworkIdle = False
             Exit Function
         End If
@@ -222,7 +222,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：指定したライフサイクルイベント (load, domcontentloaded) が発火するまで待機します
 '***************************************************************************************************
-Public Function WaitForLoadState(Optional state As String = "load", Optional timeoutSec As Double = 30) As Boolean
+Public Function WaitForLoadState(Optional state As String = "load", Optional TimeoutSec As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForLoadState"
     Dim startTime As Double: startTime = Timer
     Dim isLoaded As Boolean
@@ -242,8 +242,8 @@ Public Function WaitForLoadState(Optional state As String = "load", Optional tim
             Exit Function
         End If
 
-        If (Timer - startTime) > timeoutSec Then
-            printMsg WARN_, "Timeout: Failed to reach lifecycle state '" & state & "' within " & timeoutSec & " seconds.", FromProcedureName
+        If (Timer - startTime) > TimeoutSec Then
+            printMsg WARN_, "Timeout: Failed to reach lifecycle state '" & state & "' within " & TimeoutSec & " seconds.", FromProcedureName
             WaitForLoadState = False
             Exit Function
         End If
@@ -255,7 +255,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：DOMスナップショットのサイズが指定回数連続して変化しなくなるまで待機します
 '***************************************************************************************************
-Public Function WaitForDOMStable(Optional timeoutSec As Double = 10, Optional intervalMs As Long = 200, Optional requiredStableCount As Long = 3) As Boolean
+Public Function WaitForDOMStable(Optional TimeoutSec As Double = 10, Optional intervalMs As Long = 200, Optional requiredStableCount As Long = 3) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForDOMStable"
     Dim startTime As Double: startTime = Timer
     m_DOMStableCount = 0
@@ -281,8 +281,8 @@ Public Function WaitForDOMStable(Optional timeoutSec As Double = 10, Optional in
         End If
 
         ' タイムアウトチェック
-        If (Timer - startTime) > timeoutSec Then
-            printMsg WARN_, "Timeout: DOM did not stabilize within " & timeoutSec & " seconds.", FromProcedureName
+        If (Timer - startTime) > TimeoutSec Then
+            printMsg WARN_, "Timeout: DOM did not stabilize within " & TimeoutSec & " seconds.", FromProcedureName
             WaitForDOMStable = False
             Exit Function
         End If
@@ -294,18 +294,18 @@ End Function
 '***************************************************************************************************
 '* 機能　　：SPAの準備が完了するまで (DOMContentLoaded + NetworkIdle) 待機するおまかせ機能です
 '***************************************************************************************************
-Public Function WaitForSPAReady(Optional timeoutSec As Double = 30) As Boolean
+Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitForSPAReady"
     Dim startTime As Double: startTime = Timer
 
     printMsg Trace_, "Waiting for SPA ready (1/2: DOMContentLoaded)...", FromProcedureName
-    If Not WaitForLoadState("domcontentloaded", timeoutSec) Then
+    If Not WaitForLoadState("domcontentloaded", TimeoutSec) Then
         WaitForSPAReady = False
         Exit Function
     End If
 
     ' 残り時間の計算
-    Dim remaining As Double: remaining = timeoutSec - (Timer - startTime)
+    Dim remaining As Double: remaining = TimeoutSec - (Timer - startTime)
     If remaining <= 0 Then
         WaitForSPAReady = False
         Exit Function
