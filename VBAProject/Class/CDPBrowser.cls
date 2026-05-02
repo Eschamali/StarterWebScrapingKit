@@ -2711,6 +2711,8 @@ RetrySend:
 11              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
 
             Else
+                printMsg Trace_, "Data reception could not be confirmed. The timeout value will be incremented.", FromProcedureName
+
                 'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
                 '※`WithEvents`と併用すると、ここに格納される可能性があるためです
                 Set tmp = ResultCDPForAsync(lngCurrentId)
