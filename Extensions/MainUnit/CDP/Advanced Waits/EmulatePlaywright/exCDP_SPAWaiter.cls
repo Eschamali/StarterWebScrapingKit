@@ -210,16 +210,6 @@ Public Function WaitForNetworkIdle(Optional TimeoutSec As Double = 30, Optional 
             m_LastIdleTime = 0 ' 通信が多すぎるのでリセット
         End If
 
-        ' networkidle 判定
-        If m_InflightCount = 0 And m_LastIdleTime > 0 Then
-            If (Timer - m_LastIdleTime) >= idleThresholdSec Then
-                m_NetworkIdleDetected = True
-                WaitForNetworkIdle = True
-                printMsg Trace_, "NetworkIdle is reached.", FromProcedureName
-                Exit Function
-            End If
-        End If
-
         ' タイムアウトチェック
         If (Timer - startTime) > TimeoutSec Then
             printMsg WARN_, "Timeout: Failed to reach NetworkIdle state within " & TimeoutSec & " seconds.", FromProcedureName
@@ -324,7 +314,7 @@ Public Function WaitForSPAReady(Optional TimeoutSec As Double = 30, Optional inf
     End If
 
     printMsg Trace_, "Waiting for SPA ready (2/2: NetworkIdle)...", FromProcedureName
-    If Not WaitForNetworkIdle(remaining,,inflightThreshold) Then
+    If Not WaitForNetworkIdle(remaining, , inflightThreshold) Then
         WaitForSPAReady = False
         Exit Function
     End If
