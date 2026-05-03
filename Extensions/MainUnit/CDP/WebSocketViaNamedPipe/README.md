@@ -94,6 +94,43 @@ flowchart LR
 
 ---
 
+### 🖥️ 「今起動中の目の前のブラウザ」を自動操作
+
+通常、CDP 操作には `--remote-debugging-port` などの起動オプションが必要ですが、最新のブラウザ機能により、**「既に開いている通常のブラウザウィンドウ」** を後付けで制御できるようになりました。
+
+```mermaid
+flowchart LR
+    classDef browser   fill:#0078D4,color:#fff,stroke:#005a9e
+    classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+    classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+
+    A(["今使っているブラウザ\n(Edge/Chrome)"]):::browser
+    B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    C(["Excel（VBA）"]):::windows
+    A <-->|"WebSocket"| B
+    B <-->|"名前付きパイプ"| C
+```
+
+**設定方法（Edge の場合）：**
+
+1. Edge で `edge://inspect/#remote-debugging` を開きます。
+2. **「Allow remote debugging for this browser instance」** を ON にします。
+3. これにより、このブラウザインスタンスに対して WebSocket 経由のデバッグが許可されます。
+
+**技術的な仕組み：**
+
+この機能は元々「AI エージェント向け」として実装されたものですが、内部的には通常の `--remote-debugging-port=9222` と同じ WebSocket プロトコルを使用しています。
+
+Edge の場合、接続に必要なポート番号やパスの情報は以下のファイルに出力されます：
+- `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`
+
+このファイルから情報を読み取り、`webSocketDebuggerUrl` を特定すれば、既存の `StartWebSocket.ps1` でそのまま接続・制御が可能になります。
+
+> [!TIP]
+> 「自動操作のためにブラウザを一度閉じて、特定のオプションで再起動する」という手間がなくなるため、ユーザーが手動で操作していた画面を引き継いで自動化する、といった柔軟なワークフローが実現できます。
+
+---
+
 ## ファイル構成
 
 | ファイル | 役割 |
@@ -323,4 +360,5 @@ $pipeOptions = [System.IO.Pipes.PipeOptions]::WriteThrough -bor [System.IO.Pipes
 
 - [Chrome DevTools Protocol ドキュメント](https://chromedevtools.github.io/devtools-protocol/)
 - [Chrome リモートデバッグガイド](https://developer.chrome.com/docs/devtools/remote-debugging?hl=ja)
+- [Debug your browser session（Chrome DevTools MCP）](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja)
 - [System.Net.WebSockets（PowerShell側で使用）](https://learn.microsoft.com/ja-jp/dotnet/api/system.net.websockets)
