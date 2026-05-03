@@ -195,7 +195,7 @@ sequenceDiagram
 
 環境や用途に合わせて、以下のいずれかの方法で接続を確立します。
 
-#### パターンA：手動実行（ManualStep）
+#### パターンA：手動実行（ManualSetup）
 PowerShell スクリプトを手動で起動する方法です。
 
 *   **メリット**: ウイルス対策ソフトによる誤検知のリスクがなく、安全です。
@@ -219,7 +219,7 @@ PowerShell スクリプトを手動で起動する方法です。
 ---
 
 2.  **VBA から接続**:  
-    `Demo_WebSocketViaNamedPipe.bas` の `ManualStep` を実行します。内部で `ConnectNamePipe` が呼ばれ、接続が確立されます。
+    `Demo_WebSocketViaNamedPipe.bas` の `ManualSetup` を実行します。内部で `ConnectNamePipe` が呼ばれ、接続が確立されます。
 
 #### パターンB：自動実行（AutoSetup）
 PowerShell のコードを Excel 内に保持し、VBA から自動で呼び出す方法です。
@@ -283,7 +283,7 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 ### パターンA：手動実行の場合
 ```
 ① （PowerShell コンソールで StartWebSocket.ps1 を実行）
-② ManualStep()             ← VBA からパイプへ接続
+② ManualSetup()             ← VBA からパイプへ接続
 ③ WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
 ④ cleanNamedPipe()         ← 後片付け
 ```

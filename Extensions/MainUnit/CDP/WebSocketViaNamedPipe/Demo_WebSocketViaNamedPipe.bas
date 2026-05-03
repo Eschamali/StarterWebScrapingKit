@@ -29,7 +29,7 @@ Private Const DefaultName   As String = "ChromiumWebSocket" 'デフォルト識別名称
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：先に`StartWebSocket.ps1`を実行して待受けさせてください。待受けが無いと エラー番号:2 を返します
 '***************************************************************************************************
-Sub ManualStep()
+Sub ManualSetup()
     '識別名称を設定する
     Dim UseName As String
     With ShSetting01_StartBrowser
