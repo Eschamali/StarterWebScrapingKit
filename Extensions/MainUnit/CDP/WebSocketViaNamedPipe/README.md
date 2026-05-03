@@ -176,72 +176,67 @@ sequenceDiagram
 
 ---
 
+---
+
 ## セットアップ手順
 
-### Step 1：Chrome を WebSocket モードで起動
+### Step 1：ブラウザ（Chromium）を準備する
 
-**既に起動中の Chrome を使う場合**は、以下のいずれかで WebSocket URL を確認します。
+以下のいずれかの方法で、リモートデバッグが可能なブラウザを用意します。
 
-```
-http://127.0.0.1:9222/json/version
-```
+- **方法A：起動オプションを付与して起動**
+  ```powershell
+  Start-Process "msedge" "--remote-debugging-port=9222"
+  ```
+- **方法B：起動中のブラウザで許可する（Chromium系統のみ）**
+  `edge://inspect/#remote-debugging` を開き、「Allow remote debugging for this browser instance」を **ON** にします。
 
-表示される `webSocketDebuggerUrl` をコピーします。
+---
 
-**新規起動する場合**は、`--remote-debugging-port=9222` フラグを付けて Chrome / Edge を起動します。
+### Step 2：PowerShell ブリッジを起動する
+
+先に PowerShell スクリプトを実行し、名前付きパイプのサーバーを起動して待機状態にします。
+
+#### パターン1：GUI で接続先を選ぶ（推奨）
+引数なしで実行すると、現在起動中のブラウザから接続可能なタブやインスタンスを一覧表示します。
+![alt text](img/Step1.png)
+
 
 ```powershell
-Start-Process "msedge" "--remote-debugging-port=9222"
+powershell -ExecutionPolicy Bypass -File ".\StartWebSocket.ps1"
+```
+1. 表示された GUI で、操作したいタブまたはブラウザ本体を選択します。
+2. 「接続開始」をクリックすると、PowerShell が名前付きパイプを作成し、VBA からの接続を待機します。
+
+#### パターン2：WebSocket URL を直接指定して起動
+ターゲットが固定されている場合は、引数に URL を渡して直接起動します。
+
+```powershell
+.\StartWebSocket.ps1 "ws://127.0.0.1:9222/devtools/browser/..."
 ```
 
 ---
 
-### Step 2：`StartWebSocket.ps1` のパラメータを設定
+### Step 3：VBA 側から接続する（`FirstStep`）
 
-スクリプト冒頭の 2つの変数を設定します。
-
-```powershell
-# ① WebSocket URL（↑で確認した URL を貼る）
-$wsUrl    = "ws://127.0.0.1:9222/devtools/browser/XXXX-XXXX-XXXX"
-
-# ② 名前付きパイプ名（VBA 側と一致させる）
-$pipeName = "ChromiumWebSocket"
-```
-
----
-
-### Step 3：VBA 側でパイプを作成（`FirstStep`）
-
-VBA から `Demo_WebSocketViaNamedPipe.bas` の `FirstStep` を実行します。
+PowerShell が待機状態になったら、VBA から `Demo_WebSocketViaNamedPipe.bas` の `FirstStep` を実行して接続を確立します。
 
 ```vba
 Sub FirstStep()
     Dim WebSocketMode As New WebSocketViaNamedPipe
     Dim ResultCode As Long
-    ResultCode = WebSocketMode.OpenAndConnectNamePipe("ChromiumWebSocket")
-    ' ← ここで Excel は PowerShell の接続を待って「フリーズ（待機中）」になります
+    ' PowerShell側と同じ名前付きパイプ名を指定して接続
+    ResultCode = WebSocketMode.ConnectNamePipe("ChromiumWebSocket")
+    
+    If ResultCode = 0 Then
+        MsgBox "接続に成功しました！"
+    End If
 End Sub
 ```
 
-> [!IMPORTANT]
-> `OpenAndConnectNamePipe` を呼ぶと、Excel は PowerShell が接続してくるまで
-> **フリーズ（ブロッキング待機）** 状態になります。これは正常な動作です。
-
 ---
 
-### Step 4：PowerShell スクリプトを実行
-
-別ウィンドウで `StartWebSocket.ps1` を実行します。
-
-```powershell
-powershell -ExecutionPolicy Bypass -File ".\StartWebSocket.ps1"
-```
-
-PowerShell が名前付きパイプへ接続すると、VBA のフリーズが解除されます。
-
----
-
-### Step 5：CDP 接続（`WebSocketにてCDPの始まり`）
+### Step 4：CDP 操作を開始する
 
 ```vba
 Sub WebSocketにてCDPの始まり()
@@ -253,8 +248,8 @@ Sub WebSocketにてCDPの始まり()
         WebSocketCDP.getTab setMain:=True
     End If
 
-    ' ← ここからは通常の CDPBrowser と同じように使える
-    ' WebSocketCDP.navigate "https://example.com"
+    ' 通常の CDPBrowser と同様に操作可能
+    WebSocketCDP.navigate "https://example.com"
     ' ...
 
     WebSocketCDP.quit
@@ -265,40 +260,19 @@ End Sub
 
 ## API リファレンス（`WebSocketViaNamedPipe.cls`）
 
-### `OpenAndConnectNamePipe(UserName As String) As Long`
+### `ConnectNamePipe(UserName As String) As Long`
 
-名前付きパイプを新規作成し、PowerShell の接続を待機します。
+PowerShell が作成した名前付きパイプにクライアントとして接続し、ハンドル情報を管理テーブルに保存します。
 
 | 項目 | 内容 |
 |---|---|
 | 引数 `UserName` | 接続識別名（パイプ名のサフィックス） |
 | 戻り値 | エラーコード（0 = 成功） |
-| 注意 | PowerShell が接続するまで **Excel がフリーズ（待機中）** になります |
+| 注意 | PowerShell スクリプトが先に実行されている必要があります |
 
 ---
 
-### `ReConnectNamedPipe(Optional UserName As String) As Long`
 
-既存のパイプハンドルを一旦切断し、再接続待機します。  
-主に `reattach` 呼び出し時に内部で使用されます。
-
-| 項目 | 内容 |
-|---|---|
-| 引数 `UserName` | 省略時は内部のハンドルをそのまま使用 |
-| 戻り値 | エラーコード（0 = 成功） |
-| 注意 | 事前に `deserialize` または `OpenAndConnectNamePipe` でハンドルが設定されている必要があります |
-
----
-
-### `ClosePipeCDP(Optional UserName As String, Optional OnlyDisconnect As Boolean)`
-
-パイプハンドルをクリーニングします。
-
-| 引数 | 内容 |
-|---|---|
-| `UserName` | 省略時は内部ハンドルを使用 |
-| `OnlyDisconnect = True` | ハンドルを閉じずに切断だけ行う |
-| `OnlyDisconnect = False` | 切断 → ハンドルも `CloseHandle` する（デフォルト） |
 
 > [!WARNING]
 > Excel テーブルに記録されていないパイプハンドルは破棄できません。
@@ -309,8 +283,8 @@ End Sub
 ## デモコードの実行順序
 
 ```
-① FirstStep()              ← パイプ作成・PowerShell の接続待ち
-② （別ウィンドウで StartWebSocket.ps1 を実行）
+① （PowerShell コンソールで StartWebSocket.ps1 を実行）
+② FirstStep()              ← VBA からパイプへ接続
 ③ WebSocketにてCDPの始まり()  ← CDPBrowser でタブ接続・操作
 ④ cleanNamedPipe()         ← 後片付け（パイプクロース）
 ```
@@ -318,8 +292,8 @@ End Sub
 再接続が必要な場合（PowerShell が落ちた場合など）：
 
 ```
-① ReConnect()              ← 既存パイプに再接続待ち
-② （StartWebSocket.ps1 を再実行）
+① （StartWebSocket.ps1 を再実行）
+② FirstStep()              ← 再接続
 ③ WebSocketにてCDPの始まり()  ← 再操作
 ```
 
