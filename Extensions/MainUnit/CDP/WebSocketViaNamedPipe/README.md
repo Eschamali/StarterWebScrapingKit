@@ -7,7 +7,7 @@
 
 この拡張機能は、**WebSocket（`ws://`）経由で外部 Chromium に接続したい場合**のために用意されています。  
 VBA の名前付きパイプと PowerShell の WebSocket クライアントの間に **中継レイヤー** を挟み、  
-既存の `CDPCore.cls` API をそのまま利用できるようにします。
+既存の `CDPCore.cls` を変えずにそのまま利用できるようになります
 
 ```mermaid
 flowchart LR
