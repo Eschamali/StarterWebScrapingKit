@@ -1,96 +1,97 @@
+Attribute VB_Name = "Demo_SPAWaiter"
 Option Explicit
 
 Sub SPAtest()
-    'è¨­å®šã‚·ãƒ¼ãƒˆã«åŸºã¥ããƒ–ãƒ©ã‚¦ã‚¶ç«‹ã¡ä¸Šã’
-    Dim SPApage As CDPBrowser: Set SPApage = è¨­å®šã‚·ãƒ¼ãƒˆã‹ã‚‰ã®CDPèµ·å‹•
+    'İ’èƒV[ƒg‚ÉŠî‚Ã‚­ƒuƒ‰ƒEƒU—§‚¿ã‚°
+    Dim SPApage As CDPBrowser: Set SPApage = İ’èƒV[ƒg‚©‚ç‚ÌCDP‹N“®
     Dim elem As CDPElement
 
-'    'è¨­å®šã‚»ãƒ«ã‹ã‚‰ã€ãƒ¦ãƒ¼ã‚¶åã‚’å–å¾—
+'    'İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
 '    Dim UserName As String
 '    With ShSetting01_StartBrowser
 '        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
 '    End With
 '
-'    '1. ã¾ãšã¯ã€æ—¢å­˜ã®TargetIDã«æ¥ç¶šã§ãã‚‹ã‹ï¼Ÿ
-''    If Not c.reattach(UserName, existing_) Then    'å‰è¿°ã®SessionIDã‚’å¼•ãç¶™ãå ´åˆ
+'    '1. ‚Ü‚¸‚ÍAŠù‘¶‚ÌTargetID‚ÉÚ‘±‚Å‚«‚é‚©H
+''    If Not c.reattach(UserName, existing_) Then    '‘Oq‚ÌSessionID‚ğˆø‚«Œp‚®ê‡
 '    If Not SPApage.reattach(UserName) Then
-'        'æ—¢å­˜ã®TargetIDãŒæ¶ˆãˆã¡ã‚ƒã£ãŸã®ã§ã€åˆ¥ã‚¿ãƒ–ã¸ã®å†æ¥ç¶šãƒ•ã‚§ãƒ¼ã‚ºã¸
-'        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«å¤±æ•—ã€‚æ–°ã—ã„ã‚¿ãƒ–ã‹ã€ä»Šé–‹ã„ã¦ã„ã‚‹ç›´è¿‘ã®ã‚¿ãƒ–ã«å†æ¥ç¶šã—ã¦ã€ãã“ã‹ã‚‰å‡¦ç†ã‚’å†é–‹ã—ã¾ã™ã€‚"
+'        'Šù‘¶‚ÌTargetID‚ªÁ‚¦‚¿‚á‚Á‚½‚Ì‚ÅA•Êƒ^ƒu‚Ö‚ÌÄÚ‘±ƒtƒF[ƒY‚Ö
+'        Debug.Print "Šù‘¶‚Ì`targetID`‚Ö‚ÌÄÚ‘±‚É¸”sBV‚µ‚¢ƒ^ƒu‚©A¡ŠJ‚¢‚Ä‚¢‚é’¼‹ß‚Ìƒ^ƒu‚ÉÄÚ‘±‚µ‚ÄA‚»‚±‚©‚çˆ—‚ğÄŠJ‚µ‚Ü‚·B"
 '
-'        '2. æœªæ¥ç¶šã®ã‚¿ãƒ–ã«æ¥ç¶š
-'        SPApage.newTab setMain:=True     'æ–°ã—ã„ã‚¿ãƒ–ç”Ÿæˆã‹ã‚‰ã§ã‚‚OK
+'        '2. –¢Ú‘±‚Ìƒ^ƒu‚ÉÚ‘±
+'        SPApage.newTab setMain:=True     'V‚µ‚¢ƒ^ƒu¶¬‚©‚ç‚Å‚àOK
 '    Else
-'        Debug.Print "æ—¢å­˜ã®`targetID`ã¸ã®å†æ¥ç¶šã«æˆåŠŸã€‚ã“ã®ã‚¿ãƒ–ã§å‡¦ç†ã‚’å†é–‹ã§ãã¾ã™ã€‚"
+'        Debug.Print "Šù‘¶‚Ì`targetID`‚Ö‚ÌÄÚ‘±‚É¬Œ÷B‚±‚Ìƒ^ƒu‚Åˆ—‚ğÄŠJ‚Å‚«‚Ü‚·B"
 '    End If
 
 
-    'â†“ã“ã“ã‹ã‚‰ã€ã‚ãªãŸã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚³ãƒ¼ãƒ‰ã«è½ã¨ã—è¾¼ã‚€â†“
+    '«‚±‚±‚©‚çA‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚Ş«
 
-    ' æ‹¡å¼µæ©Ÿèƒ½ï¼ˆexCDP_ShadowDOMSearchï¼‰ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹åŒ–ã¨åˆæœŸåŒ–
+    ' Šg’£‹@”\iexCDP_ShadowDOMSearchj‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‰»‚Æ‰Šú‰»
     Dim extShadow As New exCDP_ShadowDOMSearch: extShadow.Init SPApage
     
-    ' æ‹¡å¼µæ©Ÿèƒ½ï¼ˆexCDP_ShadowDOMSearchï¼‰ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹åŒ–ã¨åˆæœŸåŒ–
+    ' Šg’£‹@”\iexCDP_ShadowDOMSearchj‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‰»‚Æ‰Šú‰»
     Dim spaWait As New exCDP_SPAWaiter: spaWait.Init SPApage
 
-    'ä½™è¨ˆãªãƒãƒŠãƒ¼ãŒå‡ºãŸéš›ã®äºˆç´„ã‚¯ãƒªãƒƒã‚¯ã‚’ä»•è¾¼ã‚€
+    '—]Œv‚Èƒoƒi[‚ªo‚½Û‚Ì—\–ñƒNƒŠƒbƒN‚ğd‚Ş
     ExecuteRegisterAutoClickerByXPath SPApage, "//button[@id='truste-consent-button']"
 
-    'ãƒšãƒ¼ã‚¸é·ç§»å‰ã®Setup
+    'ƒy[ƒW‘JˆÚ‘O‚ÌSetup
     spaWait.EnableEvents = True
 
-    'SPAãƒšãƒ¼ã‚¸é·ç§»ã•ã›ã‚‹ â€»å†…éƒ¨ã§ã€Œdocument.readyStateã€ã‚’ç¢ºèªã—ã¾ã™
+    'SPAƒy[ƒW‘JˆÚ‚³‚¹‚é ¦“à•”‚Åudocument.readyStatev‚ğŠm”F‚µ‚Ü‚·
     SPApage.navigate "https://developer.servicenow.com/", isLoading
 
-    'DOMã‚„ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ãŒè½ã¡ç€ãå¾…æ©Ÿãƒ­ã‚¸ãƒƒã‚¯ã‚’ä»•è¾¼ã‚€
-    ' --- ãƒ‘ã‚¿ãƒ¼ãƒ³1: SPAã®æº–å‚™å®Œäº†ã‚’å¾…æ©Ÿ (DOMContentLoaded + NetworkIdle(500ms)) ---
-    SPApage.printMsg info_, "NetWorkç›£è¦–ã‚’é–‹å§‹ã—ã¾ã™....", "Demo"
+    'DOM‚âƒlƒbƒgƒ[ƒN‚ª—‚¿’…‚­‘Ò‹@ƒƒWƒbƒN‚ğd‚Ş
+    ' --- ƒpƒ^[ƒ“1: SPA‚Ì€”õŠ®—¹‚ğ‘Ò‹@ (DOMContentLoaded + NetworkIdle(500ms)) ---
+    SPApage.printMsg info_, "NetWorkŠÄ‹‚ğŠJn‚µ‚Ü‚·....", "Demo"
     Debug.Print "---------------------------------------"
     Debug.Print "Waiting for SPA to be ready..."
 
-    If spaWait.WaitForSPAReady(10, 3) Then        'ãƒªãƒ€ã‚¤ãƒ¬ã‚¯ãƒˆå‘¨ã‚Šã®URLãŒçµ¡ã‚€ãŸã‚ã€é–¾å€¤ã‚’è¨­ã‘ã‚‹
-        Debug.Print "SPA ãƒšãƒ¼ã‚¸ã®æº–å‚™ãŒå®Œäº†ã—ã¾ã—ãŸ (DOMContentLoaded & NetworkIdle)"
+    If spaWait.WaitForSPAReady(10, 3) Then        'ƒŠƒ_ƒCƒŒƒNƒgü‚è‚ÌURL‚ª—‚Ş‚½‚ßAè‡’l‚ğİ‚¯‚é
+        Debug.Print "SPA ƒy[ƒW‚Ì€”õ‚ªŠ®—¹‚µ‚Ü‚µ‚½ (DOMContentLoaded & NetworkIdle)"
     Else
-        Debug.Print "ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ: SPA ãƒšãƒ¼ã‚¸ã®æº–å‚™å®Œäº†ã‚’å¾…ã¡ãã‚Œã¾ã›ã‚“ã§ã—ãŸ"
+        Debug.Print "ƒ^ƒCƒ€ƒAƒEƒg: SPA ƒy[ƒW‚Ì€”õŠ®—¹‚ğ‘Ò‚¿‚«‚ê‚Ü‚¹‚ñ‚Å‚µ‚½"
     End If
 
     Debug.Assert spaWait.WaitForDOMStable
 
 
-    'æ¬¡ã®ãƒšãƒ¼ã‚¸é·ç§»ã«å‚™ãˆã¦ã€å†…éƒ¨çŠ¶æ…‹ã‚’ãƒªã‚»ãƒƒãƒˆ
-    SPApage.printMsg info_, "NetWorkç›£è¦–ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’ãƒªã‚»ãƒƒãƒˆã—ã¾ã™", "Demo"
+    'Ÿ‚Ìƒy[ƒW‘JˆÚ‚É”õ‚¦‚ÄA“à•”ó‘Ô‚ğƒŠƒZƒbƒg
+    SPApage.printMsg info_, "NetWorkŠÄ‹ƒXƒe[ƒ^ƒX‚ğƒŠƒZƒbƒg‚µ‚Ü‚·", "Demo"
     spaWait.ResetState
 
-    'ãƒœã‚¿ãƒ³æŠ¼ä¸‹ã—ã¦ã€ãƒšãƒ¼ã‚¸é·ç§»ã‚’ç™ºå‹•
+    'ƒ{ƒ^ƒ“‰Ÿ‰º‚µ‚ÄAƒy[ƒW‘JˆÚ‚ğ”­“®
     Set elem = extShadow.getElementByDeepCss("#utility-sign-in > button")
-    Debug.Assert elem.isExist   'â€»å¾…æ©Ÿã«å¤±æ•—ã™ã‚‹ã¨ã€ã“ã“ã§æ­¢ã¾ã‚Šã¾ã™ã€‚ã€Œdocument.readyStateã€ã ã‘ã§ã¯ä¸ååˆ†ã§ã™
+    Debug.Assert elem.isExist   '¦‘Ò‹@‚É¸”s‚·‚é‚ÆA‚±‚±‚Å~‚Ü‚è‚Ü‚·Budocument.readyStatev‚¾‚¯‚Å‚Í•s\•ª‚Å‚·
     elem.click
 
-    'DOMã‚„ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ãŒè½ã¡ç€ãå¾…æ©Ÿãƒ­ã‚¸ãƒƒã‚¯ã‚’ä»•è¾¼ã‚€
-    SPApage.printMsg info_, "æ¬¡ã®NetWorkç›£è¦–ã‚’é–‹å§‹ã—ã¾ã™....", "Demo"
+    'DOM‚âƒlƒbƒgƒ[ƒN‚ª—‚¿’…‚­‘Ò‹@ƒƒWƒbƒN‚ğd‚Ş
+    SPApage.printMsg info_, "Ÿ‚ÌNetWorkŠÄ‹‚ğŠJn‚µ‚Ü‚·....", "Demo"
     Debug.Print "---------------------------------------"
     Debug.Print "Waiting for SPA to be ready..."
-    If spaWait.WaitForSPAReady(60, 0) Then         'ã“ã£ã¡ã¯ãã“ã¾ã§ç™ºç”Ÿã—ãªã„æ¨¡æ§˜
-        Debug.Print "SPA ãƒšãƒ¼ã‚¸ã®æº–å‚™ãŒå®Œäº†ã—ã¾ã—ãŸ (DOMContentLoaded & NetworkIdle)"
+    If spaWait.WaitForSPAReady(60, 0) Then         '‚±‚Á‚¿‚Í‚»‚±‚Ü‚Å”­¶‚µ‚È‚¢–Í—l
+        Debug.Print "SPA ƒy[ƒW‚Ì€”õ‚ªŠ®—¹‚µ‚Ü‚µ‚½ (DOMContentLoaded & NetworkIdle)"
     Else
-        Debug.Print "ã‚¿ã‚¤ãƒ ã‚¢ã‚¦ãƒˆ: SPA ãƒšãƒ¼ã‚¸ã®æº–å‚™å®Œäº†ã‚’å¾…ã¡ãã‚Œã¾ã›ã‚“ã§ã—ãŸ"
+        Debug.Print "ƒ^ƒCƒ€ƒAƒEƒg: SPA ƒy[ƒW‚Ì€”õŠ®—¹‚ğ‘Ò‚¿‚«‚ê‚Ü‚¹‚ñ‚Å‚µ‚½"
     End If
-    SPApage.printMsg info_, "NetWorkç›£è¦–ã‚’çµ‚äº†", "Demo"
+    SPApage.printMsg info_, "NetWorkŠÄ‹‚ğI—¹", "Demo"
     spaWait.EnableEvents = False
 
-    'å¾…æ©ŸãŒçµ‚ã‚ã£ãŸã‚‰ã€å…¥åŠ›
-    SPApage.getElementByXPath("//input[@id='username']").value = "Insert From VBA!"     'â€»å¾…æ©Ÿã«å¤±æ•—ã™ã‚‹ã¨ã€ã“ã“ã§ã‚¨ãƒ©ãƒ¼ã«ãªã‚Šã¾ã™
+    '‘Ò‹@‚ªI‚í‚Á‚½‚çA“ü—Í
+    SPApage.getElementByXPath("//input[@id='username']").value = "Insert From VBA!"     '¦‘Ò‹@‚É¸”s‚·‚é‚ÆA‚±‚±‚ÅƒGƒ‰[‚É‚È‚è‚Ü‚·
     spaWait.EnableEvents = False
-    MsgBox "é©åˆ‡ãªå¾…æ©Ÿãƒ­ã‚¸ãƒƒã‚¯ãŒåƒã„ã¦ã‚‹ã‚ˆã†ã§ã™ï¼", vbInformation
+    MsgBox "“KØ‚È‘Ò‹@ƒƒWƒbƒN‚ª“­‚¢‚Ä‚é‚æ‚¤‚Å‚·I", vbInformation
 
 
-    'ãƒ–ãƒ©ã‚¦ã‚¶ã‚’æ­£å¸¸ã«é–‰ã˜ã‚‹
+    'ƒuƒ‰ƒEƒU‚ğ³í‚É•Â‚¶‚é
 '    SPApage.quit
 End Sub
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  ãƒ˜ãƒ«ãƒ‘ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                               ¡¡¡ ƒwƒ‹ƒpƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
 Private Sub ExecuteRegisterAutoClickerByXPath(UseObject As CDPBrowser, ByVal xpath As String, _
                                              Optional ByVal TimeoutMS As Long = 30000)
