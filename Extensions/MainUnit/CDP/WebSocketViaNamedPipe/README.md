@@ -176,8 +176,6 @@ sequenceDiagram
 
 ---
 
----
-
 ## セットアップ手順
 
 ### Step 1：ブラウザ（Chromium）を準備する
@@ -193,50 +191,50 @@ sequenceDiagram
 
 ---
 
-### Step 2：PowerShell ブリッジを起動する
+### Step 2：接続ブリッジの起動と接続（2つのパターン）
 
-先に PowerShell スクリプトを実行し、名前付きパイプのサーバーを起動して待機状態にします。
+環境や用途に合わせて、以下のいずれかの方法で接続を確立します。
 
-#### パターン1：GUI で接続先を選ぶ（推奨）
-引数なしで実行すると、現在起動中のブラウザから接続可能なタブやインスタンスを一覧表示します。
-![alt text](img/Step1.png)
+#### パターンA：手動実行（ManualStep）
+PowerShell スクリプトを手動で起動する方法です。
 
+*   **メリット**: ウイルス対策ソフトによる誤検知のリスクがなく、安全です。
+*   **デメリット**: 手動でコンソールを立ち上げる手間がかかります。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File ".\StartWebSocket.ps1"
-```
-1. 表示された GUI で、操作したいタブまたはブラウザ本体を選択します。
-2. 「接続開始」をクリックすると、PowerShell が名前付きパイプを作成し、VBA からの接続を待機します。
+1.  **PowerShell ブリッジを起動**:
+    コンソールで `StartWebSocket.ps1` を実行し、GUI で接続先を選んで「接続開始」を押します。
+    ```powershell
+    powershell -ExecutionPolicy Bypass -File ".\StartWebSocket.ps1"
+    ```
 
-#### パターン2：WebSocket URL を直接指定して起動
-ターゲットが固定されている場合は、引数に URL を渡して直接起動します。
+    上記のような、引数なしで実行すると、現在起動中のブラウザから接続可能なタブやインスタンスを一覧表示します。
+    ![alt text](img/Step1.png)
 
-```powershell
-.\StartWebSocket.ps1 "ws://127.0.0.1:9222/devtools/browser/..."
-```
+    ターゲットが固定されている場合は、引数に URL を渡して直接起動も可能です。この場合は、GUIセレクト画面を飛ばします
 
----
-
-### Step 3：VBA 側から接続する（`FirstStep`）
-
-PowerShell が待機状態になったら、VBA から `Demo_WebSocketViaNamedPipe.bas` の `FirstStep` を実行して接続を確立します。
-
-```vba
-Sub FirstStep()
-    Dim WebSocketMode As New WebSocketViaNamedPipe
-    Dim ResultCode As Long
-    ' PowerShell側と同じ名前付きパイプ名を指定して接続
-    ResultCode = WebSocketMode.ConnectNamePipe("ChromiumWebSocket")
-    
-    If ResultCode = 0 Then
-        MsgBox "接続に成功しました！"
-    End If
-End Sub
-```
+    ```powershell
+    .\StartWebSocket.ps1 "ws://127.0.0.1:9222/devtools/browser/..."
+    ```
 
 ---
 
-### Step 4：CDP 操作を開始する
+2.  **VBA から接続**:  
+    `Demo_WebSocketViaNamedPipe.bas` の `ManualStep` を実行します。内部で `ConnectNamePipe` が呼ばれ、接続が確立されます。
+
+#### パターンB：自動実行（AutoSetup）
+PowerShell のコードを Excel 内に保持し、VBA から自動で呼び出す方法です。
+
+*   **メリット**: Excel ファイル単体で完結し、ボタン一つでブラウザ選択から接続まで自動化できます。
+*   **デメリット**: スクリプトの動的実行を行うため、環境によってはウイルス対策ソフトにブロックされる場合があります。
+
+1.  **初期設定（初回のみ）**:
+    `StartWebSocket.ps1` の内容をコピーし、指定のセル（デフォルトは `Sheet1` の `A1`）に貼り付けます。
+2.  **実行**:
+    VBA から `AutoSetup` を実行します。内部で PowerShell が隠しウィンドウで起動し、自動的に接続待機状態になります。VBA 側も接続が確認できるまで自動でリトライを繰り返します。
+3.  GUIセレクト画面が出たら、タイムアウトまでに、接続先を選択してください
+---
+
+### Step 3：CDP 操作を開始する
 
 ```vba
 Sub WebSocketにてCDPの始まり()
@@ -282,19 +280,19 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 
 ## デモコードの実行順序
 
+### パターンA：手動実行の場合
 ```
 ① （PowerShell コンソールで StartWebSocket.ps1 を実行）
-② FirstStep()              ← VBA からパイプへ接続
-③ WebSocketにてCDPの始まり()  ← CDPBrowser でタブ接続・操作
-④ cleanNamedPipe()         ← 後片付け（パイプクロース）
+② ManualStep()             ← VBA からパイプへ接続
+③ WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
+④ cleanNamedPipe()         ← 後片付け
 ```
 
-再接続が必要な場合（PowerShell が落ちた場合など）：
-
+### パターンB：自動実行の場合
 ```
-① （StartWebSocket.ps1 を再実行）
-② FirstStep()              ← 再接続
-③ WebSocketにてCDPの始まり()  ← 再操作
+① AutoSetup()              ← PS起動から接続まで自動実行
+② WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
+③ cleanNamedPipe()         ← 後片付け
 ```
 
 ---
