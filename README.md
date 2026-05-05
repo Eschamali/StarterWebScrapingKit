@@ -220,10 +220,24 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 | app                   | `start`メソッドの第2引数にあたります。ブラウザ起動時の最初のURLを指定したい場合は、ここを指定することになります。<br>ここにURLを渡して起動すると<br>・任意のURLへの変更不可<br>・タブ生成不可<br><br>といったユーザー側による自動化を妨げる行為をある程度防ぐことが可能です。ちょっとしたキオスクモードです。                                                                                                                                        | 
 | KioskMode             | `start`メソッドの第6引数にあたります。UserForm にEdgeを埋め込む際にご利用ください。`fullscreen`推奨。詳細は[こちら](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-configure-kiosk-mode)                                                                                                                                                                                                                                                | 
 
-## ブラウザ起動方法について
+## 🚀 No more WebDriver.exe
+
+**「IEの頃のあのお手軽な呼び出し呪文を、今、ふたたび。」**
+
+かつて、私たちはたった3行のコードで世界を操っていました。
+
+```bas
+Set ie = CreateObject("InternetExplorer.Application")
+ie.Visible = True
+ie.Navigate "URL"
+```
+
+IEが消え、Driverのバージョン管理や環境構築の重圧に押し潰されそうになっている全てのVBAerへ。  
+このツールは、 **「Excelファイル1枚」** というロマンを捨てず、CDP直叩きによってあの頃の全能感を現代に蘇らせます。
 
 基本的な起動のテンプレートは下記になります。  
 ワークシート：ブラウザ起動設定　で設定した内容でブラウザが起動してくれるので、特にこだわりがなければこのテンプレートコードを推奨します。  
+その場合、たったの1行で、自動化の旅が始まります。
 
 ### CDP制御の場合
 
@@ -246,7 +260,7 @@ End Function
 
 Sub 冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからの起動
+    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
