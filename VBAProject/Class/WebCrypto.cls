@@ -56,12 +56,20 @@ Private Const HP_HASHVAL                 As Long = 2
 Private Const HP_HASHSIZE                As Long = 4
 Private Const HP_HMAC_INFO               As Long = 5
 
-Private Const CRYPT_STRING_BASE64        As Long = &H1&
-Private Const CRYPT_STRING_HEX           As Long = &H4&
-Private Const CRYPT_STRING_HEXASCII      As Long = &H5&
-Private Const CRYPT_STRING_HEXADDR       As Long = &HA&
-Private Const CRYPT_STRING_HEXASCIIADDR  As Long = &HB&
-Private Const CRYPT_STRING_HEXRAW        As Long = &HC&       'Requires Vista or later, so we emulate.
+'https://learn.microsoft.com/ja-jp/windows/win32/api/wincrypt/nf-wincrypt-cryptbinarytostringa
+Private Const CRYPT_STRING_BASE64HEADER As Long = &H0
+Private Const CRYPT_STRING_BASE64       As Long = &H1
+Private Const CRYPT_STRING_BINARY       As Long = &H2
+Private Const CRYPT_STRING_BASE64REQUESTHEADER  As Long = &H3
+Private Const CRYPT_STRING_HEX          As Long = &H4
+Private Const CRYPT_STRING_HEXASCII     As Long = &H5
+Private Const CRYPT_STRING_BASE64X509CRLHEADER  As Long = &H9
+Private Const CRYPT_STRING_HEXADDR      As Long = &HA
+Private Const CRYPT_STRING_HEXASCIIADDR As Long = &HB
+Private Const CRYPT_STRING_HEXRAW       As Long = &HC         'Requires Vista or later, so we emulate.
+Private Const CRYPT_STRING_BASE64URI    As Long = &HD
+Private Const CRYPT_STRING_STRICT       As Long = &H20000000
+
 Private Const CRYPT_STRING_NOCR          As Long = &H80000000
 Private Const CRYPT_STRING_NOCRLF        As Long = &H40000000 'Requires Vista or later!
 
@@ -91,10 +99,7 @@ Private Type KEYBLOB
     'rgbKeyData() As Byte 'We'll actually append this when we build the Byte array copy.
 End Type
 
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    ByVal Destination As Any, _
-    ByVal Source As Any, _
-    ByVal length As LongPtr)
+
 
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _
@@ -207,13 +212,21 @@ Private IsWin5_1 As Boolean 'XP or Windows 2003 Server.
 ' @param edfHexAsciiAddr    Hex plus ASCII plus an address/count, with line-wrap.
 ' @param edfHexRaw          Hexadecimal encoding with NO line-wrap.
 ''
+
+'https://learn.microsoft.com/ja-jp/windows/win32/api/wincrypt/nf-wincrypt-cryptbinarytostringa
 Public Enum EncDecFormat
+    edfBase64header
     edfBase64
+    edfBinary
+    edfBase64Requestheader
     edfHex
     edfHexAscii
+    edfBase64x509crlheader
     edfHexAddr
     edfHexAsciiAddr
     edfHexRaw
+    edfBase64Uri
+    edfStrict
 End Enum
 
 ''
@@ -227,6 +240,28 @@ Public Enum EncodeFolding
     efLf
     efNoFolding
 End Enum
+
+' ============================================= '
+' Enum ←→ Select Case Mapping
+' ============================================= '
+Private Function EnumMapping_EncDecFormat(x As EncDecFormat) As Long
+    Select Case x
+        Case EncDecFormat.edfBase64header:          EnumMapping_EncDecFormat = CRYPT_STRING_BASE64HEADER
+        Case EncDecFormat.edfBase64:                EnumMapping_EncDecFormat = CRYPT_STRING_BASE64
+        Case EncDecFormat.edfBinary:                EnumMapping_EncDecFormat = CRYPT_STRING_BINARY
+        Case EncDecFormat.edfBase64Requestheader:   EnumMapping_EncDecFormat = CRYPT_STRING_BASE64REQUESTHEADER
+        Case EncDecFormat.edfHex:                   EnumMapping_EncDecFormat = CRYPT_STRING_HEX
+        Case EncDecFormat.edfHexAscii:              EnumMapping_EncDecFormat = CRYPT_STRING_HEXASCII
+        Case EncDecFormat.edfBase64x509crlheader:   EnumMapping_EncDecFormat = CRYPT_STRING_BASE64X509CRLHEADER
+        Case EncDecFormat.edfHexAddr:               EnumMapping_EncDecFormat = CRYPT_STRING_HEXADDR
+        Case EncDecFormat.edfHexAsciiAddr:          EnumMapping_EncDecFormat = CRYPT_STRING_HEXASCIIADDR
+        Case EncDecFormat.edfHexRaw:                EnumMapping_EncDecFormat = CRYPT_STRING_HEXRAW
+        Case EncDecFormat.edfBase64Uri:             EnumMapping_EncDecFormat = CRYPT_STRING_BASE64URI
+        Case EncDecFormat.edfStrict:                EnumMapping_EncDecFormat = CRYPT_STRING_STRICT
+    End Select
+End Function
+
+
 
 ' ============================================= '
 ' Public Methods
@@ -248,20 +283,7 @@ Public Function Decode(ByVal Encoded As String, Optional ByVal Format As EncDecF
     Dim lngOutLen As Long
     Dim dwActualUsed As Long
     
-    Select Case Format
-        Case edfBase64
-            dwFlags = CRYPT_STRING_BASE64
-        Case edfHex
-            dwFlags = CRYPT_STRING_HEX
-        Case edfHexAscii
-            dwFlags = CRYPT_STRING_HEXASCII
-        Case edfHexAddr
-            dwFlags = CRYPT_STRING_HEXADDR
-        Case edfHexAsciiAddr
-            dwFlags = CRYPT_STRING_HEXASCIIADDR
-        Case edfHexRaw
-            dwFlags = CRYPT_STRING_HEXRAW
-    End Select
+    dwFlags = EnumMapping_EncDecFormat(Format)
     
     If IsWin5_1 And (Format = edfHexRaw) Then
         'Emulate missing format.
@@ -320,20 +342,7 @@ Public Function Encode(ByRef Bytes() As Byte, Optional ByVal Format As EncDecFor
     Dim lngOutLen As Long
     Dim strEncoded As String
     
-    Select Case Format
-        Case edfBase64
-            dwFlags = CRYPT_STRING_BASE64
-        Case edfHex
-            dwFlags = CRYPT_STRING_HEX
-        Case edfHexAscii
-            dwFlags = CRYPT_STRING_HEXASCII
-        Case edfHexAddr
-            dwFlags = CRYPT_STRING_HEXADDR
-        Case edfHexAsciiAddr
-            dwFlags = CRYPT_STRING_HEXASCIIADDR
-        Case edfHexRaw
-            dwFlags = CRYPT_STRING_HEXRAW
-    End Select
+    dwFlags = EnumMapping_EncDecFormat(Format)
     
     Select Case Folding
         Case efNoFolding
@@ -619,8 +628,30 @@ Public Sub InitHMAC(ByRef Key() As Byte)
             End With
             .cbKeySize = UBound(Key) - LBound(Key) + 1
             ReDim bytKbKey(LenB(kbKey) + .cbKeySize - 1)
-            CopyMemory VarPtr(bytKbKey(0)), VarPtr(kbKey), LenB(kbKey)
-            CopyMemory VarPtr(bytKbKey(LenB(kbKey))), VarPtr(Key(LBound(Key))), .cbKeySize
+            
+            ' BLOBHEADER + cbKeySize を bytKbKey に直接書き込み（CopyMemory 不使用）
+            ' BLOBHEADER: bType(1) + bVersion(1) + reserved(2) + aiKeyAlg(4) = 8 bytes
+            bytKbKey(0) = .hdr.bType
+            bytKbKey(1) = .hdr.bVersion
+            ' reserved (Integer = 2 bytes, little-endian)
+            bytKbKey(2) = CByte(.hdr.reserved And &HFF)
+            bytKbKey(3) = CByte((.hdr.reserved \ &H100) And &HFF)
+            ' aiKeyAlg (Long = 4 bytes, little-endian)
+            bytKbKey(4) = CByte(.hdr.aiKeyAlg And &HFF&)
+            bytKbKey(5) = CByte((.hdr.aiKeyAlg \ &H100&) And &HFF&)
+            bytKbKey(6) = CByte((.hdr.aiKeyAlg \ &H10000) And &HFF&)
+            bytKbKey(7) = CByte((.hdr.aiKeyAlg \ &H1000000) And &HFF&)
+            ' cbKeySize (Long = 4 bytes, little-endian)
+            bytKbKey(8) = CByte(.cbKeySize And &HFF&)
+            bytKbKey(9) = CByte((.cbKeySize \ &H100&) And &HFF&)
+            bytKbKey(10) = CByte((.cbKeySize \ &H10000) And &HFF&)
+            bytKbKey(11) = CByte((.cbKeySize \ &H1000000) And &HFF&)
+            
+            ' Key データを末尾に連結
+            Dim iKey As Long
+            For iKey = 0 To .cbKeySize - 1
+                bytKbKey(LenB(kbKey) + iKey) = Key(LBound(Key) + iKey)
+            Next iKey
         End With
         If CryptImportKey(hAdvProvider, _
                           VarPtr(bytKbKey(0)), _
