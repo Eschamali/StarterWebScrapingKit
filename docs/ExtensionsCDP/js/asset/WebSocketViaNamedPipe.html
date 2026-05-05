@@ -1,0 +1,248 @@
+<h1>WebSocketViaNamedPipe <span style="color:var(--accent-color)">拡張機能</span></h1>
+
+<section>
+    <h2>概要</h2>
+    <p>
+        <code>CDPCore.cls</code> の標準通信方式は <strong><code>remote-debugging-pipe</code>（匿名パイプ）</strong> です。
+        これは高速・低レイテンシである一方、Chromium プロセスとの<strong>直接パイプ接続</strong>（VBAからブラウザを起動すること）が前提となります。
+    </p>
+    <p>
+        この拡張機能は、<strong>WebSocket（<code>ws://</code>）経由で外部 Chromium に接続したい場合</strong>のために用意されています。
+        VBA の名前付きパイプと PowerShell の WebSocket クライアントの間に <strong>中継レイヤー</strong> を挟むことで、
+        既存の <code>CDPCore.cls</code> を変えずにそのまま利用できるようになります。
+    </p>
+
+    <div class="mermaid">
+    flowchart LR
+        classDef windows  fill:#0078D4,color:#fff,stroke:#005a9e
+        classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+        classDef chrome    fill:#4285F4,color:#fff,stroke:#2a6dd9
+
+        A(["Excel（VBA）"]):::windows <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartWebSocket.ps1"]):::ps
+        B <-->|"WebSocket\nws://127.0.0.1:9222/..."| C(["Chromium"]):::chrome
+    </div>
+</section>
+
+<hr>
+
+<section>
+    <h2>WebSocket だからこそできること</h2>
+    <p>
+        <code>remote-debugging-pipe</code> は高速ですが、同一 PC 上の Chromium プロセスとの直接接続に限られます。
+        WebSocket 経由にすることで、以下のようなニッチなシナリオにも対応できます。
+    </p>
+
+    <h3>📱 Android スマートフォンの Chromium を自動制御</h3>
+    <p>Android 実機の Chrome を PC から CDP 操作できます。</p>
+    <div class="mermaid">
+    flowchart LR
+        classDef android   fill:#3DDC84,color:#1c1c1c,stroke:#1ea862
+        classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+        classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+
+        subgraph Android実機
+            A(["Chrome for Android\n開発者デバッグ有効"]):::android
+        end
+        subgraph PC
+            B(["PowerShell\nStartWebSocket.ps1"]):::ps
+            C(["Excel（VBA）"]):::windows
+        end
+        A <-->|"adb forward\nUSB経由ポート転送"| B
+        B <-->|"名前付きパイプ"| C
+    </div>
+
+    <div class="alert note">
+        <div class="alert-icon">💡</div>
+        <div class="alert-content">
+            <strong>セットアップ例</strong>
+            <pre><code class="language-powershell"># adb でポートをフォワード
+adb forward tcp:9222 localabstract:chrome_devtools_remote
+
+# WebSocket URL を確認
+# → http://127.0.0.1:9222/json/version の webSocketDebuggerUrl を使う</code></pre>
+            <p>Android の Chrome を USB デバッグ対象にするには、Chrome の「デバッグを許可」設定と Android の開発者オプション「USB デバッグ」を有効にする必要があります。</p>
+        </div>
+    </div>
+
+    <h3>🪟 WebView2 をリモートデバッグポート経由で制御</h3>
+    <p>WebView2 アプリを CDP で操作するには、環境変数 <code>WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS</code> に <code>--remote-debugging-port=9222</code> を付与して起動します。</p>
+    
+    <div class="mermaid">
+    flowchart LR
+        classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+        classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+
+        A(["WebView2 アプリ（EXE）\nws://127.0.0.1:9222/..."]):::windows
+        B(["PowerShell\nStartWebSocket.ps1"]):::ps
+        C(["Excel（VBA）"]):::windows
+        A <-->|"WebSocket"| B
+        B <-->|"名前付きパイプ"| C
+    </div>
+
+    <div class="alert important">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-content">
+            <strong>WebView2 制御の鍵</strong>
+            <p><code>CDPCore.cls</code> のデフォルト起動（匿名パイプ）では、他アプリ内の WebView2 は操作できません。この拡張機能を使うことで、外部アプリ内の WebView2 も VBA から制御が可能になります。</p>
+        </div>
+    </div>
+
+    <h3>🖥️ 「今起動中のブラウザ」を後付けで自動操作</h3>
+    <p>最新のブラウザ機能により、<strong>「既に開いている通常のブラウザウィンドウ」</strong> を後付けで制御できるようになりました。</p>
+
+    <div class="mermaid">
+    flowchart LR
+        classDef browser   fill:#0078D4,color:#fff,stroke:#005a9e
+        classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
+        classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
+
+        A(["今使っているブラウザ\n(Edge/Chrome)"]):::browser
+        B(["PowerShell\nStartWebSocket.ps1"]):::ps
+        C(["Excel（VBA）"]):::windows
+        A <-->|"WebSocket"| B
+        B <-->|"名前付きパイプ"| C
+    </div>
+
+    <p><strong>設定方法（Edge の場合）:</strong></p>
+    <ol>
+        <li>Edge で <code>edge://inspect/#remote-debugging</code> を開きます。</li>
+        <li><strong>「Allow remote debugging for this browser instance」</strong> を ON にします。</li>
+        <li>接続に必要な情報は <code>%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort</code> に出力されます。</li>
+    </ol>
+
+    <div class="alert note">
+        <div class="alert-icon">✨</div>
+        <div class="alert-content">
+            <strong>メリット</strong>
+            <p>「自動操作のためにブラウザを一度閉じて再起動する」手間がなくなります。ユーザーが手動で操作していた画面をそのまま引き継いで自動化する、といった柔軟な運用が可能です。</p>
+        </div>
+    </div>
+</section>
+
+<hr>
+
+<section>
+    <h2>ファイル構成</h2>
+    <table class="premium-table">
+        <thead>
+            <tr>
+                <th>ファイル</th>
+                <th>役割</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>WebSocketViaNamedPipe.cls</code></td>
+                <td>VBA 側の名前付きパイプ管理クラス</td>
+            </tr>
+            <tr>
+                <td><code>StartWebSocket.ps1</code></td>
+                <td>PowerShell 側のブリッジスクリプト</td>
+            </tr>
+            <tr>
+                <td><code>Demo_WebSocketViaNamedPipe.bas</code></td>
+                <td>動作確認用デモコード</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<hr>
+
+<section>
+    <h2>通信フロー</h2>
+    
+    <h3>データ送信（VBA → Chrome）</h3>
+    <div class="mermaid">
+    sequenceDiagram
+        participant V as VBA（CDPCore）
+        participant P as PowerShell
+        participant C as Chrome
+        V->>P: JSON + Null バイト(\0) をパイプへ書き込み
+        P->>P: ReadAsync で受信<br/>Null バイトでメッセージ境界を判定
+        P->>C: WebSocket.SendAsync で転送
+        C->>C: CDP コマンドを処理
+    </div>
+
+    <h3>データ受信（Chrome → VBA）</h3>
+    <div class="mermaid">
+    sequenceDiagram
+        participant C as Chrome
+        participant P as PowerShell
+        participant V as VBA（CDPCore）
+        C->>P: WebSocket でレスポンス送信
+        P->>P: ReceiveAsync で受信
+        P->>V: パイプへ書き込み
+        P->>V: EndOfMessage なら Null バイト(0x00) を追加して Flush
+        V->>V: Null バイトでメッセージ終端を検出
+    </div>
+</section>
+
+<hr>
+
+<section>
+    <h2>セットアップ手順</h2>
+
+    <h3>Step 1：ブラウザ（Chromium）を準備する</h3>
+    <p>方法A：起動オプション <code>--remote-debugging-port=9222</code> を付与して起動。</p>
+    <p>方法B：起動中のブラウザで <code>edge://inspect/#remote-debugging</code> を開き許可する。</p>
+
+    <h3>Step 2：接続ブリッジの起動（パターン選択）</h3>
+
+    <div class="tabs">
+        <div class="tab-item">
+            <h4>パターンA：手動実行（ManualSetup）</h4>
+            <p>ウイルス対策ソフトの誤検知リスクが低く、安全な方法です。</p>
+            <ol>
+                <li>PowerShell で <code>StartWebSocket.ps1</code> を実行。</li>
+                <li>GUI セレクト画面で接続先を選択。</li>
+                <li>VBA から <code>ManualSetup</code> を実行。</li>
+            </ol>
+            <img src="img/Step1.png" alt="Bridge Selection" style="max-width: 100%; border-radius: 8px; margin-top: 1rem; border: 1px solid rgba(255,255,255,0.1);">
+        </div>
+    </div>
+
+    <div class="alert note">
+        <div class="alert-icon">⚙️</div>
+        <div class="alert-content">
+            <strong>パターンB：自動実行（AutoSetup）</strong>
+            <p>PowerShell コードを Excel 内に保持し、VBA から自動呼び出しします。ウイルス対策ソフトにブロックされる可能性がありますが、ボタン一つで完結します。</p>
+        </div>
+    </div>
+
+    <h3>Step 3：CDP 操作を開始する</h3>
+    <pre><code class="language-vbnet">Sub WebSocketにてCDPの始まり()
+    Dim WebSocketCDP As New CDPBrowser
+
+    ' まず targetID に再接続を試みる
+    If Not WebSocketCDP.reattach("ChromiumWebSocket") Then
+        ' 失敗した場合は新規接続
+        WebSocketCDP.getTab setMain:=True
+    End If
+
+    ' 通常の CDPBrowser と同様に操作可能
+    WebSocketCDP.navigate "https://example.com"
+    
+    WebSocketCDP.quit
+End Sub</code></pre>
+</section>
+
+<hr>
+
+<section>
+    <h2>内部設計メモ</h2>
+    <h3>WriteThrough フラグ</h3>
+    <p>
+        PowerShell 側で名前付きパイプを作成する際、<code>WriteThrough</code> オプションを指定しています。
+        これにより OS レベルのバッファリングを無効化し、VBA 側が即座にデータを受信できるように設計されています。
+    </p>
+    <pre><code class="language-powershell">$pipeOptions = [System.IO.Pipes.PipeOptions]::WriteThrough -bor [System.IO.Pipes.PipeOptions]::Asynchronous</code></pre>
+</section>
+
+<div class="alert warning">
+    <div class="alert-icon">🛑</div>
+    <div class="alert-content">
+        <strong>リソースの解放について</strong>
+        <p>Excel テーブルに記録されていないパイプハンドルは破棄できません。接続エラーが続く場合は、Excel プロセスの再起動が必要になることがあります。終了時は必ず <code>cleanNamedPipe()</code> を呼び出してください。</p>
+    </div>
+</div>
