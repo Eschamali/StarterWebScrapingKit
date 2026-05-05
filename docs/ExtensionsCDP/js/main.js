@@ -62,7 +62,7 @@ async function loadContent(pageId) {
 
 function handleHashChange() {
 	const hash = window.location.hash.replace('#', '');
-	loadContent(hash && PAGE_ASSETS[hash] ? hash : 'WebSocketViaNamedPipe');
+	loadContent(hash && PAGE_ASSETS[hash] ? hash : 'intro');
 }
 
 window.addEventListener('hashchange', handleHashChange);

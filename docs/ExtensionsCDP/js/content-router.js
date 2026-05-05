@@ -3,11 +3,13 @@ window.docsContent = window.docsContent || {};
 
 /** ページIDとHTMLファイル名の対応表 */
 const PAGE_ASSETS = {
+  'intro':                 '../js/asset/cdp-extension.html',
   'WebSocketViaNamedPipe': 'js/asset/WebSocketViaNamedPipe.html',
 };
 
 /** 各ページ固有のタイトル定義 */
 const PAGE_TITLES = {
+  'intro':                 '機能拡張の仕組み | Starter Web Scraping Kit',
   'WebSocketViaNamedPipe': 'WebSocketViaNamedPipe 拡張機能 | Starter Web Scraping Kit',
 };
 
