@@ -1,4 +1,5 @@
 # Excel VBA Web Automation Starter Kit
+![Logo](doc/Logo.png)
 
 ![イントロ画像](doc/Top.png)
 

@@ -1,5 +1,7 @@
 # Excel VBA Web Automation Starter Kit
 
+![Logo](doc/Logo.png)
+
 > [!IMPORTANT]
 > This text was translated into English by AI based on "README-jp.md".
 
