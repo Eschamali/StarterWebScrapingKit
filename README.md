@@ -258,7 +258,7 @@ Public Function 設定シートからのCDP起動(Optional StartURL As String, O
     End With
 End Function
 
-Sub 冒険の始まり()
+Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
     Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動
 
