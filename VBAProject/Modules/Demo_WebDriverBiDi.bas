@@ -206,8 +206,9 @@ Sub UseExtensions()
     Dim extData As New Dictionary
     extData.Add "type", "path"
     extData.Add "path", ExtensionsFolderPath
+    paramsBiDi.RemoveAll
     paramsBiDi.Add "extensionData", extData
-    
+
     ' 今回はエラー無視で設定 (StopError:=False)
     Set resultBiDi = controlExtensions.invokeMethod("webExtension.install", paramsBiDi, False)
 
