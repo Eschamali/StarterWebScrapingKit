@@ -193,11 +193,12 @@ Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 
 ' 型サイズ
 Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
 ' APIの戻り値
-Private Const RRF_SUCCESS           As Long = 0
+Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
+Private Const LimitID         As Long = 2000000000          'CDPコマンド送信時のID上限値
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
 
@@ -442,22 +443,19 @@ Private Sub serialize()
     Const FromProcedureName As String = ThisClassName & ".serialize"
 
 
-    'データ記録準備
-    Dim excelSerialize As String
-    With WorksheetFunction
-        excelSerialize = "{""" & .TextJoin(""";""", False, _
-                                    .TextJoin(""",""", False, br.User, "lngLastID", brTab.lngLastID), _
-                                    .TextJoin(""",""", False, br.User, "sessionID", brTab.sessionID), _
-                                    .TextJoin(""",""", False, br.User, "targetID", brTab.targetID) _
-        ) & """}"
-    End With
+    '0. データ記録準備
+    Dim BrowserInfo As New Dictionary
 
-    'パイプ通信のハンドル情報も記録しておき、結果を表示しておく
-    printMsg info_, "New serial string: " & core.serialize(br.User) & " - " & excelSerialize, FromProcedureName
- 
-    'テーブルに、ブラウザセッション情報を記録する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(2, FromProcedureName) = Evaluate(excelSerialize)
+    '1. 必要なデータを`Dictionary`に詰める
+    BrowserInfo.Add "lngLastID", brTab.lngLastID
+    BrowserInfo.Add "sessionID", brTab.sessionID
+    BrowserInfo.Add "targetID", brTab.targetID
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
+
+    '3. パイプ通信のハンドル情報も記録しておく
+    core.serialize br.User
 
 End Sub
 
@@ -473,15 +471,15 @@ Private Sub deserialize(r As ReConnectSessionID)
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    On Error GoTo iferr
-
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
     '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-1   Call core.deserialize(br.User)
+    '※載ってない物はエラーとする
+1   If Not core.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
+    On Error GoTo iferr     'パイプハンドルさえ生きてれば、手動復帰が可能なので、エラーキャッチとして設ける
 2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
 
     '3. 指定のクラス内変数に、ブラウザセッション情報を適用
@@ -512,7 +510,7 @@ Private Sub deserialize(r As ReConnectSessionID)
 
 iferr: 'if deserialize fails, simply move on to starting anew
 
-    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & WorksheetFunction.TextJoin(",", True, "lngLastID:" & brTab.lngLastID, "targetID:" & brTab.targetID, "sessionID:" & brTab.sessionID), FromProcedureName
+    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & "lngLastID:" & brTab.lngLastID & ",targetID:" & brTab.targetID & ",sessionID:" & brTab.sessionID, FromProcedureName
 
 End Sub
 
@@ -1932,12 +1930,12 @@ Public Sub printParams()
     printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
     printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.dwProcessId, FromProcedureName
+    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.CollectionPipe_hStdInWr, FromProcedureName
+    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.CollectionPipe_hStdOutRd, FromProcedureName
+    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.CollectionPipe_hStderrOutRd, FromProcedureName
+    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.CollectionPipe_hCDPInWr, FromProcedureName
+    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.CollectionPipe_hCDPOutRd, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.CollectionProcessId, FromProcedureName
     printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
 
 End Sub
@@ -2257,7 +2255,7 @@ Property Let id(newID As String)
     brTab.sessionID = newID
 
     '新SessionIDを記録しておく
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, "sessionID", FromProcedureName) = brTab.sessionID
 
     getSessionInfo        'update all session infos
     printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
@@ -2638,7 +2636,18 @@ Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
 
     lngCurrentId = brTab.lngLastID
-    brTab.lngLastID = brTab.lngLastID + 1       'We increase the global ID counter
+
+    'リクエスト数の上限に達したら、1にリセットしておく
+    If brTab.lngLastID + 1 > LimitID Then
+        brTab.lngLastID = 1
+        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+
+        '不整合を防ぐため、残ってる結果は全消去
+        currentResultCDP.response.RemoveAll
+        printMsg info_, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
+    Else
+        brTab.lngLastID = brTab.lngLastID + 1   'We increase the global ID counter
+    End If
 
 RetrySend:
 
@@ -3030,7 +3039,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                     ' 一番古いキーを取得して削除
                     printMsg Trace_, "Delete asynchronous processing result ID:" & currentResultCDP.response.keys(0), FromProcedureName
                     currentResultCDP.response.Remove currentResultCDP.response.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
+                    printMsg WARN_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
                 End If
             End If
         Else
@@ -3363,7 +3372,7 @@ Private Function getHandle() As LongPtr
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = core.dwProcessId Then
+        If currentPID = core.CollectionProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 
