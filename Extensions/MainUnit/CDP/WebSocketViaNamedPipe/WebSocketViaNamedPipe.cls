@@ -72,8 +72,7 @@ Private hNamePipe As LongPtr
 '***************************************************************************************************
 Public Function ConnectNamePipe(UserName As String) As Long
     '0. Excelに記録中のパイプがあったらCloseする
-    deserialize UserName
-    CloseHandle hNamePipe
+    If deserialize(UserName) Then CloseHandle hNamePipe
 
     '1. 名前付きパイプのフルパス作成
     Dim UsePipeName As String: UsePipeName = PIPE_Landmark & UserName
@@ -101,37 +100,28 @@ End Function
 '***************************************************************************************************
 Private Sub serialize(UserName As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律0
-    Dim tmp As String
-    With WorksheetFunction
-        tmp = "{""" & .TextJoin(""";""", False, _
-                            .TextJoin(""",""", False, UserName, "hStdOutRd", 0), _
-                            .TextJoin(""",""", False, UserName, "hStderrOutRd", 0), _
-                            .TextJoin(""",""", False, UserName, "hStdInWr", 0), _
-                            .TextJoin(""",""", False, UserName, "hCDPOutRd", hNamePipe), _
-                            .TextJoin(""",""", False, UserName, "hCDPInWr", hNamePipe), _
-                            .TextJoin(""",""", False, UserName, "dwProcessId", 0) _
-        ) & """}"
-    End With
+    '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
+    Dim tmp As New Dictionary
+    tmp.Add "hStdOutRd", 0
+    tmp.Add "hStderrOutRd", 0
+    tmp.Add "hStdInWr", 0
+    tmp.Add "hCDPOutRd", hNamePipe
+    tmp.Add "hCDPInWr", hNamePipe
+    tmp.Add "dwProcessId", 0
 
-    'Excelテーブルに、パイプハンドル情報を記録する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(1, "WebSocketViaNamedPipe.serialize") = Evaluate(tmp)
+    'Excelテーブルに、名前付きパイプハンドル情報を記録する
+    Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "WebSocketViaNamedPipe.serialize") = tmp
 
 
     '------------------ 2. タブ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律空欄
-    With WorksheetFunction
-        tmp = "{""" & .TextJoin(""";""", False, _
-                                    .TextJoin(""",""", False, UserName, "lngLastID", 1), _
-                                    .TextJoin(""",""", False, UserName, "sessionID", ""), _
-                                    .TextJoin(""",""", False, UserName, "targetID", "") _
-        ) & """}"
-    End With
+    '※主要となる情報以外は一旦、一律空欄とし、必要なデータを`Dictionary`に詰める
+    tmp.RemoveAll
+    tmp.Add "lngLastID", 1
+    tmp.Add "sessionID", ""
+    tmp.Add "targetID", ""
 
     'Excelテーブルに、タブ情報欄を確保する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(2, "WebSocketViaNamedPipe.serialize") = Evaluate(tmp)
+    Set ShSetting01_StartBrowser.serializeToTable(UserName, 2, "WebSocketViaNamedPipe.serialize") = tmp
 
 End Sub
 
@@ -143,15 +133,18 @@ End Sub
 '* 詳細説明：リアタッチする際にこれを呼び出します
 '* 注意事項：`remote-debugging-pipe`と共存する都合上、一部しか取得しません
 '***************************************************************************************************
-Private Sub deserialize(UserName As String)
+Private Function deserialize(UserName As String) As Boolean
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "WebSocketViaNamedPipe.deserialize")
 
     '取得に失敗した場合は、接続情報が失ってるので、抜ける
-    If PipeInfo Is Nothing Then Exit Sub
+    If PipeInfo Is Nothing Then Exit Function
 
     'クラス内変数に適用
     hNamePipe = PipeInfo("hCDPOutRd")
     'hNamePipe = PipeInfo("hCDPInWr")   '`hCDPOutRd`と同じなので省略
-End Sub
+
+    '成功サインを返す
+    deserialize = True
+End Function
