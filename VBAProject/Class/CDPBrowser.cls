@@ -198,6 +198,7 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 
 'その他
 Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
+Private Const LimitID         As Long = 2000000000          'CDPコマンド送信時のID上限値
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
 
@@ -2635,7 +2636,18 @@ Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext
     Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
 
     lngCurrentId = brTab.lngLastID
-    brTab.lngLastID = brTab.lngLastID + 1       'We increase the global ID counter
+
+    'リクエスト数の上限に達したら、1にリセットしておく
+    If brTab.lngLastID + 1 > LimitID Then
+        brTab.lngLastID = 1
+        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+
+        '不整合を防ぐため、残ってる結果は全消去
+        currentResultCDP.response.RemoveAll
+        printMsg info_, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
+    Else
+        brTab.lngLastID = brTab.lngLastID + 1   'We increase the global ID counter
+    End If
 
 RetrySend:
 
@@ -3027,7 +3039,7 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                     ' 一番古いキーを取得して削除
                     printMsg Trace_, "Delete asynchronous processing result ID:" & currentResultCDP.response.keys(0), FromProcedureName
                     currentResultCDP.response.Remove currentResultCDP.response.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
+                    printMsg WARN_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
                 End If
             End If
         Else
