@@ -193,7 +193,7 @@ Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 
 ' 型サイズ
 Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
 ' APIの戻り値
-Private Const RRF_SUCCESS           As Long = 0
+Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
@@ -1932,12 +1932,12 @@ Public Sub printParams()
     printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
     printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.dwProcessId, FromProcedureName
+    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.CollectionPipe_hStdInWr, FromProcedureName
+    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.CollectionPipe_hStdOutRd, FromProcedureName
+    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.CollectionPipe_hStderrOutRd, FromProcedureName
+    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.CollectionPipe_hCDPInWr, FromProcedureName
+    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.CollectionPipe_hCDPOutRd, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.CollectionProcessId, FromProcedureName
     printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
 
 End Sub
@@ -3363,7 +3363,7 @@ Private Function getHandle() As LongPtr
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = core.dwProcessId Then
+        If currentPID = core.CollectionProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 

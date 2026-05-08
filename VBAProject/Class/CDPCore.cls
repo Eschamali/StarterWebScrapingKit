@@ -156,18 +156,18 @@ Private Const STARTF_USESHOWWINDOW As Long = &H1&
 '===================================
  
 Private hStdOutWr As LongPtr
-Public hStdOutRd As LongPtr
+Private hStdOutRd As LongPtr
 Private hStderrOutWr As LongPtr
-Public hStderrOutRd As LongPtr
-Public hStdInWr As LongPtr
+Private hStderrOutRd As LongPtr
+Private hStdInWr As LongPtr
 Private hStdInRd As LongPtr
 Private hCDPOutWr As LongPtr
-Public hCDPOutRd As LongPtr
-Public hCDPInWr As LongPtr
+Private hCDPOutRd As LongPtr
+Private hCDPInWr As LongPtr
 Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
 Private setShowWindow As Integer
-Public dwProcessId As LongPtr 'プロセスID
+Private dwProcessId As LongPtr
 Private Utf8Converter As CharacterCodeConversion
 
 
@@ -183,12 +183,39 @@ Private Utf8Converter As CharacterCodeConversion
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
 '***************************************************************************************************
-Property Let UseConverterUtf8FromString(Flag As Boolean)
+Private Property Let UseConverterUtf8FromString(Flag As Boolean)
     If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
 End Property
 
-Property Get UseConverterUtf8FromString() As Boolean
+Private Property Get UseConverterUtf8FromString() As Boolean
     UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
+'***************************************************************************************************
+Property Get CollectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
+    CollectionPipe_hStdOutRd = hStdOutRd
+End Property
+
+Property Get CollectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
+    CollectionPipe_hStderrOutRd = hStderrOutRd
+End Property
+
+Property Get CollectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
+    CollectionPipe_hStdInWr = hStdInWr
+End Property
+
+Property Get CollectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
+    CollectionPipe_hCDPOutRd = hCDPOutRd
+End Property
+
+Property Get CollectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
+    CollectionPipe_hCDPInWr = hCDPInWr
+End Property
+
+Property Get CollectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
+    CollectionProcessId = dwProcessId
 End Property
 
 
@@ -247,7 +274,7 @@ Public Sub deserialize(UserName As String)
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：正式にパイプハンドル情報をクリーニングします
+'* 機能　　：パイプハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
 '***************************************************************************************************
