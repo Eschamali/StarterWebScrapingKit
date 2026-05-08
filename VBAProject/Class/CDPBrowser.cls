@@ -442,22 +442,19 @@ Private Sub serialize()
     Const FromProcedureName As String = ThisClassName & ".serialize"
 
 
-    'データ記録準備
-    Dim excelSerialize As String
-    With WorksheetFunction
-        excelSerialize = "{""" & .TextJoin(""";""", False, _
-                                    .TextJoin(""",""", False, br.User, "lngLastID", brTab.lngLastID), _
-                                    .TextJoin(""",""", False, br.User, "sessionID", brTab.sessionID), _
-                                    .TextJoin(""",""", False, br.User, "targetID", brTab.targetID) _
-        ) & """}"
-    End With
+    '0. データ記録準備
+    Dim BrowserInfo As New Dictionary
 
-    'パイプ通信のハンドル情報も記録しておき、結果を表示しておく
-    printMsg info_, "New serial string: " & core.serialize(br.User) & " - " & excelSerialize, FromProcedureName
- 
-    'テーブルに、ブラウザセッション情報を記録する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(2, FromProcedureName) = Evaluate(excelSerialize)
+    '1. 必要なデータを`Dictionary`に詰める
+    BrowserInfo.Add "lngLastID", brTab.lngLastID
+    BrowserInfo.Add "sessionID", brTab.sessionID
+    BrowserInfo.Add "targetID", brTab.targetID
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
+
+    '3. パイプ通信のハンドル情報も記録しておく
+    core.serialize br.User
 
 End Sub
 
@@ -473,15 +470,15 @@ Private Sub deserialize(r As ReConnectSessionID)
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    On Error GoTo iferr
-
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
 
     '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-1   Call core.deserialize(br.User)
+    '※載ってない物はエラーとする
+1   If Not core.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
+    On Error GoTo iferr     'パイプハンドルさえ生きてれば、手動復帰が可能なので、エラーキャッチとして設ける
 2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
 
     '3. 指定のクラス内変数に、ブラウザセッション情報を適用
@@ -512,7 +509,7 @@ Private Sub deserialize(r As ReConnectSessionID)
 
 iferr: 'if deserialize fails, simply move on to starting anew
 
-    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & WorksheetFunction.TextJoin(",", True, "lngLastID:" & brTab.lngLastID, "targetID:" & brTab.targetID, "sessionID:" & brTab.sessionID), FromProcedureName
+    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & "lngLastID:" & brTab.lngLastID & ",targetID:" & brTab.targetID & ",sessionID:" & brTab.sessionID, FromProcedureName
 
 End Sub
 
@@ -2257,7 +2254,7 @@ Property Let id(newID As String)
     brTab.sessionID = newID
 
     '新SessionIDを記録しておく
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, Table02RowID.sessionID, FromProcedureName) = brTab.sessionID
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, "sessionID", FromProcedureName) = brTab.sessionID
 
     getSessionInfo        'update all session infos
     printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName

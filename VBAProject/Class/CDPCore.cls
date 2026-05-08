@@ -224,34 +224,28 @@ End Property
 ' Class Functions
 '===================================
  
-Public Function serialize(UserName As String) As String
+Public Sub serialize(UserName As String)
 '-------------------------------------------------------------------
 ' Create serialized Json string from the current browser instance.
 '-------------------------------------------------------------------
 
-    'データ記録準備
-    Dim tmp As String
-    With WorksheetFunction
-        tmp = "{""" & .TextJoin(""";""", False, _
-                            .TextJoin(""",""", False, UserName, "hStdOutRd", hStdOutRd), _
-                            .TextJoin(""",""", False, UserName, "hStderrOutRd", hStderrOutRd), _
-                            .TextJoin(""",""", False, UserName, "hStdInWr", hStdInWr), _
-                            .TextJoin(""",""", False, UserName, "hCDPOutRd", hCDPOutRd), _
-                            .TextJoin(""",""", False, UserName, "hCDPInWr", hCDPInWr), _
-                            .TextJoin(""",""", False, UserName, "dwProcessId", dwProcessId) _
-        ) & """}"
-    End With
+    '0. データ記録準備
+    Dim tmp As New Dictionary
 
-    'Excelテーブルに、パイプハンドル情報を記録する
-    'Evaluate関数を利用して、上記で作った記述方式で簡易的な2次元配列を作成します
-    ShSetting01_StartBrowser.serializeToTable(1, "CDPCore.serialize") = Evaluate(tmp)
+    '1. 必要なデータを`Dictionary`に詰める
+    tmp.Add "hStdOutRd", hStdOutRd
+    tmp.Add "hStderrOutRd", hStderrOutRd
+    tmp.Add "hStdInWr", hStdInWr
+    tmp.Add "hCDPOutRd", hCDPOutRd
+    tmp.Add "hCDPInWr", hCDPInWr
+    tmp.Add "dwProcessId", dwProcessId
 
-    '作成情報の返却
-    serialize = tmp
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
 
-End Function
+End Sub
 
-Public Sub deserialize(UserName As String)
+Public Function deserialize(UserName As String) As Boolean
 '--------------------------------------------------------------------
 ' Decipher serialized Json string and assign values to CDP variables.
 '--------------------------------------------------------------------
@@ -261,7 +255,7 @@ Public Sub deserialize(UserName As String)
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
     '取得に失敗した場合は、接続情報が失ってるので、抜ける
-    If PipeInfo Is Nothing Then Exit Sub
+    If PipeInfo Is Nothing Then Exit Function
 
     'クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
@@ -271,7 +265,9 @@ Public Sub deserialize(UserName As String)
     hCDPInWr = PipeInfo("hCDPInWr")
     dwProcessId = PipeInfo("dwProcessId")
 
-End Sub
+    '成功サインを返す
+    deserialize = True
+End Function
 
 '***************************************************************************************************
 '* 機能　　：パイプハンドル情報をクリーニングします
