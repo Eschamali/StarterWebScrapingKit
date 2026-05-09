@@ -10,6 +10,7 @@ Attribute VB_Exposed = True
 '***************************************************************************************************
 '                   CDP経由で、ブラウザ操作する際の準備関連のシートです
 '               パイプハンドルのセッション、ブラウザセッション管理を担います
+'                   これにより、リアタッチ機能が使えるようになります
 '***************************************************************************************************
 Option Explicit
 
@@ -170,13 +171,13 @@ Property Let serializeSingleToBrowserInfoTable(UserName As String, ReplaceName A
     Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
 
-    '2. 存在したら、先頭セルを基準にデータ名を探す
+    '2. 存在したら、対象ユーザー先頭セルを基準にデータ名を探す
     If Not (StartPos Is Nothing) Then
-        '2-1. match関数で行位置を特定
+        '2-1. match関数で書き換えデータ名位置を特定
         Dim RawPos As Long
         RawPos = WorksheetFunction.Match(ReplaceName, StartPos.Offset(0, Table02ColumnID.DataName - 1).Resize(BrowserInfoNum, 1), 0)   '※オフセットは、0始まりなので補正しておく
 
-        '2-2. 対象列を置き換え
+        '2-2. 実際のデータ値を書き換え
         StartPos.Offset(RawPos - 1, Table02ColumnID.DataValue - 1) = SetValue       '※オフセットは、0始まりなので補正しておく
     End If
 End Property
