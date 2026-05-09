@@ -15,7 +15,7 @@ flowchart LR
     classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
     classDef chrome    fill:#4285F4,color:#fff,stroke:#2a6dd9
 
-    A(["Excel（VBA）"]):::windows <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    A(["Excel（VBA）"]):::windows <-->|"名前付きパイプ\n Named Pipe "| B(["PowerShell\nStartConnectWebSocketForChromium.ps1"]):::ps
     B <-->|"WebSocket\nws://127.0.0.1:9222/..."| C(["Chromium"]):::chrome
 ```
 
@@ -40,7 +40,7 @@ flowchart LR
         A(["Chrome for Android\n開発者デバッグ有効"]):::android
     end
     subgraph PC
-        B(["PowerShell\nStartWebSocket.ps1"]):::ps
+        B(["PowerShell\nStartConnectWebSocketForChromium.ps1"]):::ps
         C(["Excel（VBA）"]):::windows
     end
     A <-->|"adb forward\nUSB経由ポート転送"| B
@@ -82,7 +82,7 @@ flowchart LR
     classDef ps        fill:#5B9BD5,color:#fff,stroke:#2E75B6
 
     A(["WebView2 アプリ（EXE）\nws://127.0.0.1:9222/..."]):::windows
-    B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    B(["PowerShell\nStartConnectWebSocketForChromium.ps1"]):::ps
     C(["Excel（VBA）"]):::windows
     A <-->|"WebSocket"| B
     B <-->|"名前付きパイプ"| C
@@ -105,7 +105,7 @@ flowchart LR
     classDef windows   fill:#0078D4,color:#fff,stroke:#005a9e
 
     A(["今使っているブラウザ\n(Edge/Chrome)"]):::browser
-    B(["PowerShell\nStartWebSocket.ps1"]):::ps
+    B(["PowerShell\nStartConnectWebSocketForChromium.ps1"]):::ps
     C(["Excel（VBA）"]):::windows
     A <-->|"WebSocket"| B
     B <-->|"名前付きパイプ"| C
@@ -124,7 +124,7 @@ flowchart LR
 Edge の場合、接続に必要なポート番号やパスの情報は以下のファイルに出力されます：
 - `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`
 
-このファイルから情報を読み取り、`webSocketDebuggerUrl` を特定すれば、既存の `StartWebSocket.ps1` でそのまま接続・制御が可能になります。
+このファイルから情報を読み取り、`webSocketDebuggerUrl` を特定すれば、既存の `StartConnectWebSocketForChromium.ps1` でそのまま接続・制御が可能になります。
 
 > [!TIP]
 > 「自動操作のためにブラウザを一度閉じて、特定のオプションで再起動する」という手間がなくなるため、ユーザーが手動で操作していた画面を引き継いで自動化する、といった柔軟なワークフローが実現できます。
@@ -136,7 +136,7 @@ Edge の場合、接続に必要なポート番号やパスの情報は以下の
 | ファイル | 役割 |
 |---|---|
 | `WebSocketViaNamedPipe.cls` | VBA 側の名前付きパイプ管理クラス |
-| `StartWebSocket.ps1` | PowerShell 側のブリッジスクリプト |
+| `StartConnectWebSocketForChromium.ps1` | PowerShell 側のブリッジスクリプト |
 | `Demo_WebSocketViaNamedPipe.bas` | 動作確認用デモコード |
 
 ---
@@ -202,9 +202,9 @@ PowerShell スクリプトを手動で起動する方法です。
 *   **デメリット**: 手動でコンソールを立ち上げる手間がかかります。
 
 1.  **PowerShell ブリッジを起動**:
-    コンソールで `StartWebSocket.ps1` を実行し、GUI で接続先を選んで「接続開始」を押します。
+    コンソールで `StartConnectWebSocketForChromium.ps1` を実行し、GUI で接続先を選んで「接続開始」を押します。
     ```powershell
-    powershell -ExecutionPolicy Bypass -File ".\StartWebSocket.ps1"
+    powershell -ExecutionPolicy Bypass -File ".\StartConnectWebSocketForChromium.ps1"
     ```
 
     上記のような、引数なしで実行すると、現在起動中のブラウザから接続可能なタブやインスタンスを一覧表示します。
@@ -213,7 +213,7 @@ PowerShell スクリプトを手動で起動する方法です。
     ターゲットが固定されている場合は、引数に URL を渡して直接起動も可能です。この場合は、GUIセレクト画面を飛ばします
 
     ```powershell
-    .\StartWebSocket.ps1 "ws://127.0.0.1:9222/devtools/browser/..."
+    .\StartConnectWebSocketForChromium.ps1 "ws://127.0.0.1:9222/devtools/browser/..."
     ```
 
 ---
@@ -228,7 +228,7 @@ PowerShell のコードを Excel 内に保持し、VBA から自動で呼び出�
 *   **デメリット**: スクリプトの動的実行を行うため、環境によってはウイルス対策ソフトにブロックされる場合があります。
 
 1.  **初期設定（初回のみ）**:
-    `StartWebSocket.ps1` の内容をコピーし、指定のセル（デフォルトは `Sheet1` の `A1`）に貼り付けます。
+    `StartConnectWebSocketForChromium.ps1` の内容をコピーし、指定のセル（デフォルトは `Sheet1` の `A1`）に貼り付けます。
 2.  **実行**:
     VBA から `AutoSetup` を実行します。内部で PowerShell が隠しウィンドウで起動し、自動的に接続待機状態になります。VBA 側も接続が確認できるまで自動でリトライを繰り返します。
 3.  GUIセレクト画面が出たら、タイムアウトまでに、接続先を選択してください
@@ -282,7 +282,7 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 
 ### パターンA：手動実行の場合
 ```
-① （PowerShell コンソールで StartWebSocket.ps1 を実行）
+① （PowerShell コンソールで StartConnectWebSocketForChromium.ps1 を実行）
 ② ManualSetup()             ← VBA からパイプへ接続
 ③ WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
 ④ cleanNamedPipe()         ← 後片付け
@@ -309,7 +309,7 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 
 ### PowerShell 側のバッファリングロジック
 
-`StartWebSocket.ps1` は以下のハイブリッドロジックでメッセージを処理します：
+`StartConnectWebSocketForChromium.ps1` は以下のハイブリッドロジックでメッセージを処理します：
 
 | ケース | 処理 |
 |---|---|
