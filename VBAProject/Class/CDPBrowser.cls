@@ -2834,11 +2834,17 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
     Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
     Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
 
-    printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
-    printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
-
-    '3. `ReadFile`で得た内容を確認
+    '3. いくつかログ化
+    '3-1. `ReadFile`で得た内容を確認
     If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
+
+    '3-2. 最初と最後の中身を確認
+    If FirstIndex = LastIndex Then
+        printMsg Debug_, "ResCDP: " & JsonMessages(FirstIndex), FromProcedureName
+    Else
+        printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+    End If
 
     '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
     '※最初と最後の要素数が同じの場合は、欠けてる状態なのでパス
