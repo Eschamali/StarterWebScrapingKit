@@ -197,10 +197,10 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
-Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
-Private Const LimitID         As Long = 2000000000          'CDPコマンド送信時のID上限値
+Private Const TIMEOUTms_DEFAULT As Double = 30000           '初期タイムアウトミリ秒数
+Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
-Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
+Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 
 
 
@@ -333,9 +333,9 @@ Public Sub start(Optional Name As String = "chrome", _
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
-    Dim timeStart As Single
+    Dim timeStart As Double
 
-    timeStart = Timer
+    timeStart = TimerCounter
 
    'Determine default browser parameters -------------------------------------------------------------------------------------
    '07/01/26: avoid using --enable-automation tag as it triggers many web apps to perform bot check
@@ -410,12 +410,12 @@ Public Sub start(Optional Name As String = "chrome", _
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
-    Dim timerStart As Single, strLoc As String
+    Dim timerStart As Double, strLoc As String
     If appUrl <> "" Then
-        timerStart = Timer
+        timerStart = TimerCounter
         Do
             If Me.Name <> "" Then Exit Do
-            If Timer - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
        wait
@@ -424,7 +424,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & Timer - timeStart & "s", FromProcedureName
+    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -1100,13 +1100,13 @@ Public Sub quit()
 
 
     Dim results As Scripting.Dictionary
-    Dim sngT As Single
+    Dim sngT As Double
 
     On Error Resume Next
     Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
 
-    sngT = Timer
-    Do While isLive And Timer - sngT < 5
+    sngT = TimerCounter
+    Do While isLive And TimerCounter - sngT < 5
         sleep 0.1
         DoEvents
     Loop
@@ -1337,12 +1337,12 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim results As Scripting.Dictionary, Obj As Scripting.Dictionary
     Dim tabId As String, candidateTabId As String, errMsg As String
     Dim targets As Collection
-    Dim timerStart As Single
+    Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
     Dim info As String
 
-    If doRetry Then timerStart = Timer
+    If doRetry Then timerStart = TimerCounter
 
     'Typeを決める
     Dim SearchType As String
@@ -1408,8 +1408,8 @@ searchit:
         tabId = candidateTabId
     End If
 
-   'Do retry as long as not timeout (default 60s)
-    If Not tabfound And doRetry And Timer - timerStart < 60 Then GoTo searchit
+   'Do retry as long as not timeout
+    If Not tabfound And doRetry And TimerCounter - timerStart < timerOut Then GoTo searchit
 
    'Returns nothing if not found
    'Nothing is preferred over throwing error
@@ -2181,6 +2181,9 @@ End Sub
 '=============================================================================
 ' PUBLIC PROPERTIES
 '=============================================================================
+Property Get TimerCounter() As Double
+    TimerCounter = LogControl.GetTicksMs
+End Property
 
 Property Get Url() As String
 '------------------------------------------------------------
@@ -2687,7 +2690,7 @@ RetrySend:
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
+    Dim timerStart As Double: timerStart = TimerCounter                                                 'Failsafe timer to ensure loop ends when server fails to respond
 
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
@@ -2702,7 +2705,7 @@ RetrySend:
         Dim tmp As Dictionary
         If intRes > 0 Then
             'データは届いたので、タイムアウト値をリセット
-            timerStart = Timer
+            timerStart = TimerCounter
             printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
 
             '受信メッセージを活用するため、担当プロシージャへ遷移
@@ -2752,7 +2755,7 @@ RetrySend:
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-13      If Timer - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, TimerCounter - timerStart & " seconds have passed...", FromProcedureName
         DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
@@ -3899,7 +3902,7 @@ Private Sub Class_Initialize()
     End With
 
     'タイムアウト設定(デフォルトで、30s)
-    timerOut = TIMEOUT_DEFAULT
+    timerOut = TIMEOUTms_DEFAULT
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultCDP.response = New Dictionary

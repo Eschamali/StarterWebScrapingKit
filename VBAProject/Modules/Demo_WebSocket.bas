@@ -201,10 +201,10 @@ Sub WebSocketDemoASync_送信()
     End If
 
     '4. 送信がうまくいったかを確認(任意)
-    Dim timerStart As Single: timerStart = Timer
+    Dim timerStart As Double: timerStart = g_WebsocketObj.TimerCounter
     Do Until g_WebsocketObj.LastSendSuccess
         DoEvents
-        If Timer - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the WebSocket to send result."
+        If g_WebsocketObj.TimerCounter - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the WebSocket to send result."
     Loop
     Debug.Print "送信がうまくいきました。"
 End Sub
@@ -273,7 +273,7 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
     g_WebsocketObj.printMsg info_, "送信完了 sendOk=" & sendOk, FromProcedureName
 
     ' 2) タイムアウトまで受信回収
-    startTick = Timer
+    startTick = g_WebsocketObj.TimerCounter
     Do
         ' 受信データが来ていれば取り出す
         If g_WebsocketObj.LastReceiveExisting Then
@@ -298,7 +298,7 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
         If recvOk >= sendOk And sendOk > 0 Then Exit Do
         DoEvents
         sleep3 10
-    Loop While Timer - startTick < TimeoutSec
+    Loop While g_WebsocketObj.TimerCounter - startTick < TimeoutSec
 
     ' 3) 判定出力
     g_WebsocketObj.printMsg info_, "Drain 判定結果 sendOk=" & sendOk & ", recvOk=" & recvOk & _
