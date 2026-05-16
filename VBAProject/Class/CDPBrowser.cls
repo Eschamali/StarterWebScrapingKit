@@ -2139,6 +2139,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
+    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
     Do
         'std系の中身を出力
         viewStdoutAndStderr
@@ -2155,10 +2156,16 @@ Public Sub TakeEvents(Optional destruction As Boolean)
                 '※強いていうなら、破棄するメッセージをそのまま出す
                 printMsg Trace_, "Discarding data in pipe...", FromProcedureName
                 If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
+
+                '欠けチェック
+                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
             Else
                 '中身の解析をし、IDやイベントを取り出します
                 printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
                 Call ReceiveFromPipeSplit(strRes)   '単なるイベント収集のため、コマンドIDによる確認はしないように設定
+
+                '欠けチェック
+                vbNullCharTermination = (FragmentedDate.Index = 0)
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -2174,7 +2181,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
                 printMsg Trace_, "The message queue is currently empty.", FromProcedureName
             End If
         End If
-    Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
+    Loop Until vbNullCharTermination And intRes < 1
 
     printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
 End Sub
