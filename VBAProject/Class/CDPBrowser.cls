@@ -2140,6 +2140,9 @@ Public Sub TakeEvents(Optional destruction As Boolean)
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
     Do
+        'std系の中身を出力
+        viewStdoutAndStderr
+
         '受信処理
         intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
@@ -2659,23 +2662,19 @@ RetrySend:
    '--------------------------------------------------
    'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
-1   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
-    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
-
-2   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
-    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
+1   viewStdoutAndStderr
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-3   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-4   If brTab.sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & brTab.sessionID & """"
-5   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
+2   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
+3   If brTab.sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & brTab.sessionID & """"
+4   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
     printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
 
-6   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
+5   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
     printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
 
     '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
@@ -2683,7 +2682,7 @@ RetrySend:
         Set SendMessage = New Dictionary
 
         '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-        SendMessage.Add lngCurrentId, WriteResult
+6       SendMessage.Add lngCurrentId, WriteResult
         Exit Function
     End If
 
@@ -3229,6 +3228,25 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
+
+'***************************************************************************************************
+'* 機能　　：標準出力、標準エラー出力を確認します
+'***************************************************************************************************
+Private Sub viewStdoutAndStderr()
+    Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
+    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
+
+
+    Dim strRes As String, intRes As Long
+
+    'Sometimes edge writes to stdout so we clear stdout too.
+    intRes = core.readProcSTD(strRes, False)
+    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName      '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+
+    'Sometimes edge writes to stderrout so we clear stderrout too.
+    intRes = core.readProcSTD(strRes, True)
+    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName   '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+End Sub
 
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
