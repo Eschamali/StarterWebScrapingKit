@@ -2834,6 +2834,9 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
     Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
     Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
 
+    printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+    printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+
     '3. `ReadFile`で得た内容を確認
     If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
 
