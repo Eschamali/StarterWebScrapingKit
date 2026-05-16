@@ -2755,7 +2755,7 @@ RetrySend:
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, TimerCounter - timerStart & " seconds have passed...", FromProcedureName
+13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, TimerCounter - timerStart & "milli seconds have passed...", FromProcedureName
         DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
