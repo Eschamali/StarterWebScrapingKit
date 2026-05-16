@@ -9,6 +9,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 '***************************************************************************************************
 '                   CDP経由で、ブラウザ操作する際の準備関連のシートです
+'               パイプハンドルのセッション、ブラウザセッション管理を担います
+'                   これにより、リアタッチ機能が使えるようになります
 '***************************************************************************************************
 Option Explicit
 
@@ -38,13 +40,10 @@ End Enum
 
 
 '***************************************************************************************************
-'                             ■■■ テーブルの行操作用 ■■■
+'                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Public Enum Table02RowID
-    lngLastID = 1
-    sessionID
-    targetID
-End Enum
+Private Const ConnectionInfoNum As Long = 6       '1ユーザーにつき、5つ分のパイプハンドル情報 + プロセスID
+Private Const BrowserInfoNum    As Long = 3       '1ユーザーにつき、3つ分のブラウザセッション情報
 
 
 
@@ -95,39 +94,43 @@ End Property
 '***************************************************************************************************
 '* 機能　　：指定テーブルIDへデータ追加/上書きを一括で行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：TableID        テーブルID
+'* 引数　　：UserName       識別名称
+'            TableID        テーブルID
 '            ErrorSource    この関数を呼び出したソース
-'            SetArray       追加するデータ配列
+'            SetDictionary  追加するデータ配列(Dictionary形式)
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`lngLastID`,`sessionID`,`targetID`といった順番で、ブラウザセッションテーブルに一括記録します
-'* 注意事項：・`SetArray`は、2次元配列にする必要があります
-'            ・同名ユーザーの場合は、上書きします
+'* 機能説明：入力されたDictionaryを基に、指定のテーブルへ一括挿入 or 上書きを行います
+'* 注意事項：同名ユーザーの場合は、上書きします
 '***************************************************************************************************
-Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
+Property Set serializeToTable(UserName As String, TableID As Long, ErrorSource As String, SetDictionary As Dictionary)
+    '0. `nothing`時は、エラーにします
+    If SetDictionary Is Nothing Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データがありません"
+
     'テーブル追加時のアニメーション動作を止める
     Application.ScreenUpdating = False
 
 
-    '配列じゃないのはエラーにします
-    If Not (IsArray(SetArray)) Then Err.Raise 3 + vbObjectError, ErrorSource, "データ挿入には、配列形式が必要です"
+    '1. Dictionary の`.Count`から、2次元配列の枠を用意
+    ReDim SetArray(SetDictionary.Count - 1, 3 - 1)  '※0始まりなので補正
 
-    '入力データ数を取得
-    On Error Resume Next
-        Dim ErrorExists As Long
-        Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray, 2)    '列数
-        ErrorExists = Err.Number
-    On Error GoTo 0
+    '2. データ行数と列数を取得
+    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray, 2) + 1    '列数 ※0始まりなので補正
+    Dim InsertDataRows      As Long: InsertDataRows = UBound(SetArray, 1) + 1       '行数 ※0始まりなので補正
 
-    '2次元配列じゃないのはエラーにします
-    If ErrorExists Then Err.Raise ErrorExists, ErrorSource, "データ挿入には、2次元配列形式が必要です"
+    '3. Dictionary から、2次元配列へ変換
+    Dim i As Long, PipeKeys As Variant
+    PipeKeys = SetDictionary.keys
+    For i = LBound(SetArray) To UBound(SetArray)
+        SetArray(i, 0) = UserName                   '識別名称
+        SetArray(i, 1) = PipeKeys(i)                'データ名 or ハンドル名
+        SetArray(i, 2) = SetDictionary(PipeKeys(i)) '実際の値
+    Next
 
-    Dim InsertDataRows          As Long: InsertDataRows = UBound(SetArray, 1)       '行数
-
-    '操作するテーブルオブジェクトの基準セルを取得
+    '4. 操作するテーブルオブジェクトの基準セルを取得
     Dim TableName As String: TableName = UseTableName(TableID, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, CStr(SetArray(1, 1)), "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
+    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource)
 
-    'データ挿入方式判定
+    '5. データ挿入方式判定
     If StartPos Is Nothing Then
         'テーブルオブジェクトそのものを取得
         Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
@@ -139,7 +142,7 @@ Property Let serializeToTable(TableID As Long, ErrorSource As String, SetArray)
         Dim TableRows As Long: TableRows = TargetTableObj.ListColumns(1).Range.Count
 
         '存在しないので、テーブル末尾に追加します。
-        '※右記のテクニックを参考にした追加方式です→http://officetanaka.net/excel/vba/table/08.htm
+        '※右記のテクニックを参考にした追加方式です → http://officetanaka.net/excel/vba/table/08.htm
         TargetTableObj.ListColumns(1).Range(TableRows + 1 + (DataRows = 0)).Resize(InsertDataRows, InsertDataColumns) = SetArray
     Else
         '存在するので、先頭セルを基準にリサイズして上書き
@@ -154,23 +157,29 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ブラウザセッション管理テーブルに、データ上書きを単一で行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName       対象ユーザー名
-'            ReplaceID      置き換えるデータID
-'            ErrorSource    この関数を呼び出したソース
-'            SetValue       上書きするデータ
+'* 引数　　：UserName           対象ユーザー名
+'            ReplaceDataName    置き換えるデータ名
+'            ErrorSource        この関数を呼び出したソース
+'            SetValue           上書きするデータ
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：UserNameに紐づく、`lngLastID`,`sessionID`,`targetID`のいずれかを指定して、ブラウザセッションテーブルを更新します
 '* 注意事項：・新規追加はできません。既存データのみ有効です
 '            ・ハンドル情報管理テーブルは非対応です
 '***************************************************************************************************
-Property Let serializeSingleToBrowserInfoTable(UserName As String, ReplaceID As Table02RowID, ErrorSource As String, SetValue As String)
-    '操作するテーブルオブジェクトの基準セルを取得
+Property Let serializeSingleToBrowserInfoTable(UserName As String, ReplaceName As String, ErrorSource As String, SetValue As String)
+    '1. 操作するテーブルオブジェクトの基準セルを取得
     Dim TableName As String: TableName = UseTableName(2, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable." & ErrorSource)
 
-    '存在したら、、先頭セルを基準にオフセットして上書き
-    '※オフセットは、0始まりなので補正しておく
-    If Not (StartPos Is Nothing) Then StartPos.Offset(ReplaceID - 1, Table02ColumnID.DataValue - 1) = SetValue
+    '2. 存在したら、対象ユーザー先頭セルを基準にデータ名を探す
+    If Not (StartPos Is Nothing) Then
+        '2-1. match関数で書き換えデータ名位置を特定
+        Dim RawPos As Long
+        RawPos = WorksheetFunction.Match(ReplaceName, StartPos.Offset(0, Table02ColumnID.DataName - 1).Resize(BrowserInfoNum, 1), 0)   '※オフセットは、0始まりなので補正しておく
+
+        '2-2. 実際のデータ値を書き換え
+        StartPos.Offset(RawPos - 1, Table02ColumnID.DataValue - 1) = SetValue       '※オフセットは、0始まりなので補正しておく
+    End If
 End Property
 
 '***************************************************************************************************
@@ -229,7 +238,7 @@ Property Let DeleteCDPToTable(TableID As Long, ErrorSource As String, UserName A
         Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName, "ShSetting01_StartBrowser.serializeToTable." & ErrorSource, GetTakeNum)
         
         '基準セルがない場合は、即抜け
-        If StartPos Is Nothing Then Exit Property
+        If StartPos Is Nothing Then Application.ScreenUpdating = True: Exit Property
 
         '対象のテーブルに応じて、消去行数をリサイズ
         Dim DataSet As Range
@@ -303,28 +312,34 @@ End Sub
 '            ErrorSource    この関数を呼び出したソース
 '            ResizeRows     有効なデータ行数範囲(※参照渡しによる実質返り値)
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：基準セルがない場合は、`Nothing`となります
+'* 注意事項：・基準セルがない場合は、`Nothing`となります
+'            ・存在しないテーブル名はエラーです
 '***************************************************************************************************
 Private Function GetReferenceRange(TableName As String, SearchUser As String, ErrorSource As String, Optional ByRef ResizeRows As Long) As Range
     'このワークシート上にあるテーブルオブジェクトを取得
     Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
 
+    'データがそもそもない場合は即抜け
+    If TargetTableObj.DataBodyRange Is Nothing Then Exit Function
+
     'データ操作の基準となるセルを取得する
+    Dim StartRowPos As Variant  'エラー値に備えて`Variant`にしておく
     With TargetTableObj.DataBodyRange
-        On Error Resume Next
             Select Case TableName
                 Case UseTableName(1, ErrorSource)
-                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table01ColumnID.UserName), .Columns(Table01ColumnID.UserName))   '第四引数に`Nothing`を入れればいい感じになると思いきやダメみたいです
-                    ResizeRows = 6  '1ユーザーにつき、5つ分のパイプハンドル情報 + プロセスID
+                    ResizeRows = ConnectionInfoNum
+
+                    '1. 基準となる位置を取得
+                    StartRowPos = Application.Match(SearchUser, .Columns(Table01ColumnID.UserName), 0)  '`IsError`で判定させたいので、`Application`を使用
 
                 Case UseTableName(2, ErrorSource)
-                    Set GetReferenceRange = WorksheetFunction.XLookup(SearchUser, .Columns(Table02ColumnID.UserName), .Columns(Table02ColumnID.UserName))   '第四引数に`Nothing`を入れればいい感じになると思いきやダメみたいです
-                    ResizeRows = 3  '1ユーザーにつき、3つ分のブラウザセッション情報
+                    ResizeRows = BrowserInfoNum
 
-                Case Else
-                    On Error GoTo 0
-                    Err.Raise 4 + vbObjectError, ErrorSource, "渡されたテーブル名：" & TableName & "　は、このプロパティでは使用できません"
+                    '1. 基準となる位置を取得
+                    StartRowPos = Application.Match(SearchUser, .Columns(Table02ColumnID.UserName), 0)  '`IsError`で判定させたいので、`Application`を使用
             End Select
-        On Error GoTo 0
+
+        '2. 見つけた位置を基に、RangeObjectとして返す
+        If Not IsError(StartRowPos) Then Set GetReferenceRange = .Cells(StartRowPos, 1)
     End With
 End Function
