@@ -204,7 +204,7 @@ Sub WebSocketDemoASync_送信()
     Dim timerStart As Double: timerStart = g_WebsocketObj.TimerCounter
     Do Until g_WebsocketObj.LastSendSuccess
         DoEvents
-        If g_WebsocketObj.TimerCounter - timerStart > 30 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the WebSocket to send result."
+        If g_WebsocketObj.TimerCounter - timerStart > 30000 Then Err.Raise vbObjectError + 1, , "Timeout waiting for the WebSocket to send result."
     Loop
     Debug.Print "送信がうまくいきました。"
 End Sub
@@ -233,7 +233,7 @@ End Sub
 '*   - send と recv が概ね一致し、待機状態で詰まらなければ OK
 '*   - recv が極端に少ない / isWaitingReceiveResponse が長時間 True 固定なら NG 疑い
 '***************************************************************************************************
-Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long = 30, Optional ByVal TimeoutSec As Double = 20)
+Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long = 30, Optional ByVal TimeoutMSec As Double = 20000)
     Const FromProcedureName As String = "Demo_WebSocket.WebSocketDemoASync_判定_Drain必要性"
     Dim i As Long
     Dim sendOk As Long
@@ -248,9 +248,9 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
     End If
 
     If BurstCount <= 0 Then BurstCount = 1
-    If TimeoutSec <= 0 Then TimeoutSec = 10
+    If TimeoutMSec <= 0 Then TimeoutMSec = 10000
 
-    g_WebsocketObj.printMsg info_, "Drain 判定を開始します。BurstCount=" & BurstCount & ", TimeoutSec=" & TimeoutSec, FromProcedureName
+    g_WebsocketObj.printMsg info_, "Drain 判定を開始します。BurstCount=" & BurstCount & ", TimeoutSec=" & TimeoutMSec, FromProcedureName
 
     ' 受信予約が未予約なら先に 1 回だけ予約
     If Not g_WebsocketObj.isWaitingReceiveResponse And Not g_WebsocketObj.LastReceiveExisting Then
@@ -298,7 +298,7 @@ Sub WebSocketDemoASync_判定_Drain必要性(Optional ByVal BurstCount As Long =
         If recvOk >= sendOk And sendOk > 0 Then Exit Do
         DoEvents
         sleep3 10
-    Loop While g_WebsocketObj.TimerCounter - startTick < TimeoutSec
+    Loop While g_WebsocketObj.TimerCounter - startTick < TimeoutMSec
 
     ' 3) 判定出力
     g_WebsocketObj.printMsg info_, "Drain 判定結果 sendOk=" & sendOk & ", recvOk=" & recvOk & _

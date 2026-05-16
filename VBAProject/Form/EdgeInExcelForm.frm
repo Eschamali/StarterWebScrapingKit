@@ -245,7 +245,7 @@ Private Sub FocusNotify()
     Me.focusNotice.Visible = True
 
     Dim endTime As Double
-    endTime = targetCDP.TimerCounter + 1
+    endTime = targetCDP.TimerCounter + 1000 '1000ms間表示させる
     Do
         DoEvents ' これを入れないとExcelがフリーズしてイベントが拾えない！
     Loop While targetCDP.TimerCounter < endTime
