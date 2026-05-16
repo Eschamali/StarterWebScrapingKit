@@ -2824,70 +2824,72 @@ End Function
 '***************************************************************************************************
 Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef InternalFilterMessage As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
+    Const DividerMark       As String = vbNullChar  'CDPの受信データは、null文字区切りであることを確認
 
 
-    '受信メッセージを活用するため、null文字区切りとしてスマートに分割
-1   Dim JsonMessages: JsonMessages = Split(ReceiveRawString, vbNullChar)
-    printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
+    '1. 受信メッセージを活用するため、null文字区切りとしてスマートに分割
+    Dim JsonMessages: JsonMessages = Split(ReceiveRawString, DividerMark)
 
-    'メモリを解放
-    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & ReceiveRawString, FromProcedureName
-2   ReceiveRawString = vbNullString     '参照渡しにより、元の変数もクリアできる
+    '2. 各要素数を確認
+    Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
+    Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
 
-    '分割した数分、処理
-    Dim i As Long
-    For i = LBound(JsonMessages) To UBound(JsonMessages)
-3       If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+    '3. `ReadFile`で得た内容を確認
+    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
 
-        '最後の要素か？
-4       If i = UBound(JsonMessages) Then
-            '空欄か？
-            If JsonMessages(i) = "" Then
-                '1回の受信で全て正しいJson形式として得れました
-                printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
+    '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
+    '※最初と最後の要素数が同じの場合は、欠けてる状態なのでパス
+    If FirstIndex < LastIndex Then
+        '4-1. 欠けたデータがあるか？
+        If FragmentedDate.Index > 0 Then
+            '4-2. 空データか？
+            If JsonMessages(FirstIndex) = "" Then
+                '4-2-1. 終端目印を付与
+                FragmentedCDP = DividerMark
+                printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
             Else
-                'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
-5               FragmentedCDP = JsonMessages(i)
-
-                printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+                '4-2-1. 最後の断片データを挿入し、終端目印も付与
+                FragmentedCDP = JsonMessages(FirstIndex)
+                FragmentedCDP = DividerMark
+                printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
             End If
+
+            '4-3. 集まったデータを取り出し、最初の要素に上書きし、以降のFor文で活用できるようにする
+            '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
+            JsonMessages(FirstIndex) = FragmentedCDP
         Else
-            '1. 欠けたデータがあるか？
-            Dim tmp As String
-            If FragmentedDate.Index > 0 Then
-                '1-1. 空データか？
-                If JsonMessages(i) = "" Then
-                    '1-1-2. 終端目印を付与
-6                   FragmentedCDP = vbNullChar
-                    printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
-                Else
-                    '1-1-2. 最後の断片データを挿入し、終端目印も付与
-7                   FragmentedCDP = JsonMessages(i) & vbNullChar
-                    printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
-                End If
+            printMsg Trace_, "There is no missing data being stored.", FromProcedureName
+        End If
+    End If
+    '-----------------------------------------------------------------------------------------
 
-                '1-2. 集まったデータを取り出す
-                '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
-8               tmp = FragmentedCDP
-            Else
-                '1-1. そのまんま使う
-9               tmp = JsonMessages(i)
-                printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
-            End If
+    '------------------------- 5. 最後の要素に対して特別な処理を施す -------------------------
+    '5-1. 空欄か？
+    If JsonMessages(LastIndex) = "" Then
+        '5-2. 今回の受信で全て正しいJson形式として得れました
+        printMsg Trace_, LastIndex & " messages received.", FromProcedureName
+        printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
+    Else
+        '5-2. データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+        printMsg Trace_, LastIndex + 1 & " messages received.", FromProcedureName
+        printMsg Trace_, "The Split(" & LastIndex & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
+        FragmentedCDP = JsonMessages(LastIndex)
 
-            '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
-            If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
-            If tmp <> "" Then
-                '受信データのチェックを行うプロシージャへ遷移します。
-10              If BrowserReceivedDataCheck(tmp, InternalUseMessages, InternalFilterMessage, checkCommandID) Then
-                    '指定したコマンド結果であることを確認できたので、コマンド結果を返す
-11                  Set ReceiveFromPipeSplit = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
-                    printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
-                End If
-            Else
-                printMsg Debug_, "`vbnullchar` seems to be received with multiple characters.", FromProcedureName
-            End If
+        printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+    End If
+    '-----------------------------------------------------------------------------------------
+
+    '6. 最後の要素以外をループで回して、ブラウザからのメッセージを確認する
+    Dim i As Long
+    For i = LBound(JsonMessages) To UBound(JsonMessages) - 1
+        'レスの確認
+        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+
+        '受信データのチェックを行うプロシージャへ遷移します。
+        If BrowserReceivedDataCheck(CStr(JsonMessages(i)), InternalUseMessages, InternalFilterMessage, checkCommandID) Then
+            '指定したコマンド結果であることを確認できたので、コマンド結果を返す
+            Set ReceiveFromPipeSplit = jsConverter.ParseJson(JsonMessages(i))    'JsonPurserして、コマンド結果を返却
+            printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
         End If
 
         DoEvents
