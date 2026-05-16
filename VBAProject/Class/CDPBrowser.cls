@@ -2743,12 +2743,12 @@ RetrySend:
         End If
 
         'いくつかのログ表示
-        If ResultSendCommand = False Then
-            '1. コマンド結果が、まだ来ない
+        If Not ResultSendCommand Then
+            'コマンド結果が、まだ来ない
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " from readProcCDP has not yet been received, so reception continues.", FromProcedureName
 
         ElseIf ResultSendCommand And FragmentedDate.Index > 0 Then
-            '2. コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
+            'コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
         End If
 
