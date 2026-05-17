@@ -104,7 +104,7 @@ End Enum
 Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS = 1000
 
 'その他
-Private Const TIMEOUTms_DEFAULT As Long = 30000                '初期タイムアウトミリ秒数
+Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 
 
 
@@ -779,8 +779,8 @@ Private Sub Class_Initialize()
         End If
     End With
 
-    'タイムアウト設定
-    timerOut = TIMEOUTms_DEFAULT
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     'バッファー情報を初期化
     InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength

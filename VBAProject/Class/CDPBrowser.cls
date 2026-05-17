@@ -197,7 +197,7 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
-Private Const TIMEOUTms_DEFAULT As Double = 30000           '初期タイムアウトミリ秒数
+Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -291,7 +291,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private timerOut    As Long     'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
 
@@ -1106,7 +1106,7 @@ Public Sub quit()
     Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
 
     sngT = TimerCounter
-    Do While isLive And TimerCounter - sngT < 5
+    Do While isLive And TimerCounter - sngT < 5000
         sleep 0.1
         DoEvents
     Loop
@@ -2398,12 +2398,12 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Long
-    TimeOutSecond = timerOut
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
 End Property
 
-Property Let TimeOutSecond(TimeSec As Long)
-    timerOut = TimeSec
+Property Let TimeOutSecond(TimeSec As Double)
+    timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
 
 '***************************************************************************************************
@@ -2761,7 +2761,7 @@ RetrySend:
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, TimerCounter - timerStart & "milli seconds have passed...", FromProcedureName
+13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
         DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
@@ -3938,7 +3938,7 @@ Private Sub Class_Initialize()
     End With
 
     'タイムアウト設定(デフォルトで、30s)
-    timerOut = TIMEOUTms_DEFAULT
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultCDP.response = New Dictionary
