@@ -65,7 +65,8 @@ Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログ�
 Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
 Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
-Private Const LimitID         As Long = 2000000000                      'BiDiコマンド送信時のID上限値
+Private Const LimitID           As Long = 2000000000                    'BiDiコマンド送信時のID上限値
+Private Const TIMEOUT_DEFAULT   As Long = 30                            '初期タイムアウト秒数
 
 'nmp情報
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
@@ -575,7 +576,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double: timerStart = Timer
+    Dim timerStart As Double: timerStart = TimerCounter
 
     'CDP受信処理→Collection内`Runtime.bindingCalled`処理→受信処理→Collection内`Runtime.bindingCalled`処理→…　というロジックでループ処理を行います
     'BiDi-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
@@ -589,7 +590,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         Dim tmp As Dictionary
         If QueueResultBiDi.Count Then
             'データは届いたので、タイムアウト値をリセット
-            timerStart = Timer
+            timerStart = TimerCounter
             printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
 
             '受信メッセージを活用するため、担当プロシージャへ遷移
@@ -623,7 +624,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
         End If
 
         '一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
-        If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
+        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
         DoEvents
 
         'BiDi-Jsonコマンドの結果が得れたら、受信ループを終了します
@@ -1211,6 +1212,12 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
+Property Get TimerCounter() As Double
+    TimerCounter = m_CDPBrowser.TimerCounter
+End Property
+
+
+
 Public Sub sleep(Optional seconds As Double = 0.5)
     m_CDPBrowser.sleep seconds
 End Sub
@@ -1476,7 +1483,7 @@ End Function
 Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     'タイムアウト設定(デフォルトで、30s)
-    timerOut = 30
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultBiDi.response = New Dictionary

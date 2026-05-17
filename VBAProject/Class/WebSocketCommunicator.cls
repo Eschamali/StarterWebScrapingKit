@@ -104,7 +104,7 @@ End Enum
 Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS = 1000
 
 'その他
-Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
+Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 
 
 
@@ -233,6 +233,10 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
 
 End Sub
+
+Property Get TimerCounter() As Double
+    TimerCounter = ViewLog.GetTicksMs
+End Property
 
 
 
@@ -473,11 +477,11 @@ Public Function GetAsyncMessage() As Long
             If GetAsyncMessage Then Exit Function
 
             '2-2-3. 次のデータが届くまでLoop　※タイムアウトしたら、中断されます
-            Dim timerStart As Single
-            timerStart = Timer
+            Dim timerStart As Double
+            timerStart = TimerCounter
             Do Until currentebWebSocket.isReceiving
                 printMsg Trace_, "Waiting for the next data...", FromProcedureName
-                If Timer - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
+                If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
                 DoEvents
             Loop
         End If
@@ -776,7 +780,7 @@ Private Sub Class_Initialize()
     End With
 
     'タイムアウト設定(デフォルトで、30s)
-    timerOut = TIMEOUT_DEFAULT
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     'バッファー情報を初期化
     InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength

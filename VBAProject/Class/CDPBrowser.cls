@@ -197,10 +197,10 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
-Private Const TIMEOUT_DEFAULT As Single = 30                '初期タイムアウト秒数
-Private Const LimitID         As Long = 2000000000          'CDPコマンド送信時のID上限値
+Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
+Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
-Private Const ThisClassName As String = "CDPBrowser"        'ログのトレース用
+Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 
 
 
@@ -291,7 +291,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private timerOut    As Long     'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
 
@@ -333,9 +333,9 @@ Public Sub start(Optional Name As String = "chrome", _
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
-    Dim timeStart As Single
+    Dim timeStart As Double
 
-    timeStart = Timer
+    timeStart = TimerCounter
 
    'Determine default browser parameters -------------------------------------------------------------------------------------
    '07/01/26: avoid using --enable-automation tag as it triggers many web apps to perform bot check
@@ -410,12 +410,12 @@ Public Sub start(Optional Name As String = "chrome", _
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
-    Dim timerStart As Single, strLoc As String
+    Dim timerStart As Double, strLoc As String
     If appUrl <> "" Then
-        timerStart = Timer
+        timerStart = TimerCounter
         Do
             If Me.Name <> "" Then Exit Do
-            If Timer - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
        wait
@@ -424,7 +424,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & Timer - timeStart & "s", FromProcedureName
+    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -1100,13 +1100,13 @@ Public Sub quit()
 
 
     Dim results As Scripting.Dictionary
-    Dim sngT As Single
+    Dim sngT As Double
 
     On Error Resume Next
     Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}")
 
-    sngT = Timer
-    Do While isLive And Timer - sngT < 5
+    sngT = TimerCounter
+    Do While isLive And TimerCounter - sngT < 5000
         sleep 0.1
         DoEvents
     Loop
@@ -1337,12 +1337,12 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim results As Scripting.Dictionary, Obj As Scripting.Dictionary
     Dim tabId As String, candidateTabId As String, errMsg As String
     Dim targets As Collection
-    Dim timerStart As Single
+    Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
     Dim info As String
 
-    If doRetry Then timerStart = Timer
+    If doRetry Then timerStart = TimerCounter
 
     'Typeを決める
     Dim SearchType As String
@@ -1408,8 +1408,8 @@ searchit:
         tabId = candidateTabId
     End If
 
-   'Do retry as long as not timeout (default 60s)
-    If Not tabfound And doRetry And Timer - timerStart < 60 Then GoTo searchit
+   'Do retry as long as not timeout
+    If Not tabfound And doRetry And TimerCounter - timerStart < timerOut Then GoTo searchit
 
    'Returns nothing if not found
    'Nothing is preferred over throwing error
@@ -2139,7 +2139,11 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
+    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
     Do
+        'std系の中身を出力
+        viewStdoutAndStderr
+
         '受信処理
         intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
@@ -2152,10 +2156,16 @@ Public Sub TakeEvents(Optional destruction As Boolean)
                 '※強いていうなら、破棄するメッセージをそのまま出す
                 printMsg Trace_, "Discarding data in pipe...", FromProcedureName
                 If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
+
+                '欠けチェック
+                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
             Else
                 '中身の解析をし、IDやイベントを取り出します
                 printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
                 Call ReceiveFromPipeSplit(strRes)   '単なるイベント収集のため、コマンドIDによる確認はしないように設定
+
+                '欠けチェック
+                vbNullCharTermination = (FragmentedDate.Index = 0)
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -2171,7 +2181,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
                 printMsg Trace_, "The message queue is currently empty.", FromProcedureName
             End If
         End If
-    Loop Until InStrRev(strRes, vbNullChar) = Len(strRes) And intRes < 1
+    Loop Until vbNullCharTermination And intRes < 1
 
     printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
 End Sub
@@ -2181,6 +2191,9 @@ End Sub
 '=============================================================================
 ' PUBLIC PROPERTIES
 '=============================================================================
+Property Get TimerCounter() As Double
+    TimerCounter = LogControl.GetTicksMs
+End Property
 
 Property Get Url() As String
 '------------------------------------------------------------
@@ -2385,12 +2398,12 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Long
-    TimeOutSecond = timerOut
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
 End Property
 
-Property Let TimeOutSecond(TimeSec As Long)
-    timerOut = TimeSec
+Property Let TimeOutSecond(TimeSec As Double)
+    timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
 
 '***************************************************************************************************
@@ -2656,23 +2669,19 @@ RetrySend:
    '--------------------------------------------------
    'ブラウザ自体の標準出力、標準出力エラー の確認
    '--------------------------------------------------
-1   intRes = core.readProcSTD(strRes, False)                                                     'Sometimes edge writes to stdout so we clear stdout too.
-    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
-
-2   intRes = core.readProcSTD(strRes, True)                                                      'Sometimes edge writes to stderrout so we clear stderrout too.
-    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, vbCrLf, Chr(30)), FromProcedureName
+1   viewStdoutAndStderr
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-3   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-4   If brTab.sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & brTab.sessionID & """"
-5   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
+2   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
+3   If brTab.sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & brTab.sessionID & """"
+4   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
     printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
 
-6   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
+5   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
     printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
 
     '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
@@ -2680,14 +2689,14 @@ RetrySend:
         Set SendMessage = New Dictionary
 
         '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-        SendMessage.Add lngCurrentId, WriteResult
+6       SendMessage.Add lngCurrentId, WriteResult
         Exit Function
     End If
 
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double: timerStart = Timer                                                 'Failsafe timer to ensure loop ends when server fails to respond
+    Dim timerStart As Double: timerStart = TimerCounter                                                 'Failsafe timer to ensure loop ends when server fails to respond
 
     '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
@@ -2702,7 +2711,7 @@ RetrySend:
         Dim tmp As Dictionary
         If intRes > 0 Then
             'データは届いたので、タイムアウト値をリセット
-            timerStart = Timer
+            timerStart = TimerCounter
             printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
 
             '受信メッセージを活用するため、担当プロシージャへ遷移
@@ -2741,18 +2750,18 @@ RetrySend:
         End If
 
         'いくつかのログ表示
-        If ResultSendCommand = False Then
-            '1. コマンド結果が、まだ来ない
+        If Not ResultSendCommand Then
+            'コマンド結果が、まだ来ない
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " from readProcCDP has not yet been received, so reception continues.", FromProcedureName
 
         ElseIf ResultSendCommand And FragmentedDate.Index > 0 Then
-            '2. コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
+            'コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
             printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
         End If
 
 
         '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-13      If Timer - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, Timer - timerStart & " seconds have passed...", FromProcedureName
+13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
         DoEvents
 
         'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
@@ -2815,70 +2824,81 @@ End Function
 '***************************************************************************************************
 Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional ByRef InternalUseMessages As Dictionary, Optional ByRef InternalFilterMessage As Dictionary, Optional ByRef checkCommandID As Long = -1) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
+    Const DividerMark       As String = vbNullChar  'CDPの受信データは、null文字区切りであることを確認
 
 
-    '受信メッセージを活用するため、null文字区切りとしてスマートに分割
-1   Dim JsonMessages: JsonMessages = Split(ReceiveRawString, vbNullChar)
-    printMsg Trace_, UBound(JsonMessages) + 1 & " messages received.", FromProcedureName
+    '1. 受信メッセージを活用するため、null文字区切りとしてスマートに分割
+    Dim JsonMessages: JsonMessages = Split(ReceiveRawString, DividerMark)
 
-    'メモリを解放
-    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - strRes = " & ReceiveRawString, FromProcedureName
-2   ReceiveRawString = vbNullString     '参照渡しにより、元の変数もクリアできる
+    '2. 各要素数を確認
+    Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
+    Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
 
-    '分割した数分、処理
-    Dim i As Long
-    For i = LBound(JsonMessages) To UBound(JsonMessages)
-3       If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+    '3. いくつかログ化
+    '3-1. `ReadFile`で得た内容を確認
+    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
 
-        '最後の要素か？
-4       If i = UBound(JsonMessages) Then
-            '空欄か？
-            If JsonMessages(i) = "" Then
-                '1回の受信で全て正しいJson形式として得れました
-                printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
+    '3-2. 最初と最後の中身を確認
+    If FirstIndex = LastIndex Then
+        printMsg Debug_, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
+    Else
+        printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+    End If
+
+    '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
+    '※最初と最後の要素数が同じの場合は、欠けてる状態なのでパス
+    If FirstIndex < LastIndex Then
+        '4-1. 欠けたデータがあるか？
+        If FragmentedDate.Index > 0 Then
+            '4-2. 空データか？
+            If JsonMessages(FirstIndex) = "" Then
+                '4-2-1. 終端目印を付与
+                FragmentedCDP = DividerMark
+                printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
             Else
-                'データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-                printMsg Trace_, "The Split(" & i & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
-5               FragmentedCDP = JsonMessages(i)
-
-                printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+                '4-2-1. 最後の断片データを挿入し、終端目印も付与
+                FragmentedCDP = JsonMessages(FirstIndex)
+                FragmentedCDP = DividerMark
+                printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
             End If
+
+            '4-3. 集まったデータを取り出し、最初の要素に上書きし、以降のFor文で活用できるようにする
+            '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
+            JsonMessages(FirstIndex) = FragmentedCDP
         Else
-            '1. 欠けたデータがあるか？
-            Dim tmp As String
-            If FragmentedDate.Index > 0 Then
-                '1-1. 空データか？
-                If JsonMessages(i) = "" Then
-                    '1-1-2. 終端目印を付与
-6                   FragmentedCDP = vbNullChar
-                    printMsg Trace_, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
-                Else
-                    '1-1-2. 最後の断片データを挿入し、終端目印も付与
-7                   FragmentedCDP = JsonMessages(i) & vbNullChar
-                    printMsg Trace_, "The merge completes the JSON data.", FromProcedureName
-                End If
+            printMsg Trace_, "There is no missing data being stored.", FromProcedureName
+        End If
+    End If
+    '-----------------------------------------------------------------------------------------
 
-                '1-2. 集まったデータを取り出す
-                '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
-8               tmp = FragmentedCDP
-            Else
-                '1-1. そのまんま使う
-9               tmp = JsonMessages(i)
-                printMsg Trace_, "There is currently no data being accumulated, so we will use it as is.", FromProcedureName
-            End If
+    '------------------------- 5. 最後の要素に対して特別な処理を施す -------------------------
+    '5-1. 空欄か？
+    If JsonMessages(LastIndex) = "" Then
+        '5-2. 今回の受信で全て正しいJson形式として得れました
+        printMsg Trace_, LastIndex & " messages received.", FromProcedureName
+        printMsg Debug_, "readProcCDP was able to receive everything!", FromProcedureName
+    Else
+        '5-2. データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+        printMsg Trace_, LastIndex + 1 & " messages received.", FromProcedureName
+        printMsg Trace_, "The Split(" & LastIndex & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
+        FragmentedCDP = JsonMessages(LastIndex)
 
-            '2. `vbnullchar`が連続で来た時に備えて、空文字はそもそも受け付けないようにする
-            If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Check the JSON structure → " & tmp, FromProcedureName
-            If tmp <> "" Then
-                '受信データのチェックを行うプロシージャへ遷移します。
-10              If BrowserReceivedDataCheck(tmp, InternalUseMessages, InternalFilterMessage, checkCommandID) Then
-                    '指定したコマンド結果であることを確認できたので、コマンド結果を返す
-11                  Set ReceiveFromPipeSplit = jsConverter.ParseJson(tmp)    'JsonPurserして、コマンド結果を返却
-                    printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
-                End If
-            Else
-                printMsg Debug_, "`vbnullchar` seems to be received with multiple characters.", FromProcedureName
-            End If
+        printMsg Debug_, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+    End If
+    '-----------------------------------------------------------------------------------------
+
+    '6. 最後の要素以外をループで回して、ブラウザからのメッセージを確認する
+    Dim i As Long
+    For i = LBound(JsonMessages) To UBound(JsonMessages) - 1
+        'レスの確認
+        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+
+        '受信データのチェックを行うプロシージャへ遷移します。
+        If BrowserReceivedDataCheck(CStr(JsonMessages(i)), InternalUseMessages, InternalFilterMessage, checkCommandID) Then
+            '指定したコマンド結果であることを確認できたので、コマンド結果を返す
+            Set ReceiveFromPipeSplit = jsConverter.ParseJson(JsonMessages(i))    'JsonPurserして、コマンド結果を返却
+            printMsg Debug_, "The command result was obtained from readProcCDP! - ID:" & checkCommandID, FromProcedureName
         End If
 
         DoEvents
@@ -3226,6 +3246,25 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
+
+'***************************************************************************************************
+'* 機能　　：標準出力、標準エラー出力を確認します
+'***************************************************************************************************
+Private Sub viewStdoutAndStderr()
+    Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
+    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
+
+
+    Dim strRes As String, intRes As Long
+
+    'Sometimes edge writes to stdout so we clear stdout too.
+    intRes = core.readProcSTD(strRes, False)
+    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName      '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+
+    'Sometimes edge writes to stderrout so we clear stderrout too.
+    intRes = core.readProcSTD(strRes, True)
+    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName   '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+End Sub
 
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
@@ -3899,7 +3938,7 @@ Private Sub Class_Initialize()
     End With
 
     'タイムアウト設定(デフォルトで、30s)
-    timerOut = TIMEOUT_DEFAULT
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultCDP.response = New Dictionary

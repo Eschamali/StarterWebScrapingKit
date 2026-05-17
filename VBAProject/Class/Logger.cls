@@ -78,6 +78,8 @@ Option Explicit
 '***************************************************************************************************
 Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)    'ミリ秒単位を扱うためのAPI(時差は、ローカルPCに準拠)
 Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)   'ミリ秒単位を扱うためのAPI(UTC準拠)
+Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
+Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
 
 '構造体宣言
 Private Type SYSTEMTIME
@@ -103,6 +105,7 @@ End Enum
 
 
 Public LogCallback As Variant
+Private m_Frequency As Currency     '実行マシンでの周波数記録用
 
 ''
 ' Turn logging off (0) or only log messages that are >= threshold
@@ -288,6 +291,20 @@ Public Sub LogError(message As String, Optional From As String, Optional FolderP
     Log 5, message & log_ErrorValue, From, FolderPath, FileName
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：PC起動時からの「経過時間（ミリ秒）」を正確に返します（Timer関数の神互換）
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：PC起動時からの「経過時間（ミリ秒）」
+'***************************************************************************************************
+Property Get GetTicksMs() As Double
+    '1. 今の「振動回数」を取得する
+    Dim currentCount As Currency
+    Call QueryPerformanceCounter(currentCount)
+
+    '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
+    GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
+End Property
+
 
 
 Private Sub Class_Initialize()
@@ -297,5 +314,8 @@ Private Sub Class_Initialize()
         doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'イミディエイトに表示させるか？
         LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ログレベルの設定
     End With
+
+    'PCの「1秒間の振動数（周波数）」を取得して記憶する
+    Call QueryPerformanceFrequency(m_Frequency)
     '------------------------------------------------------------------------------
 End Sub

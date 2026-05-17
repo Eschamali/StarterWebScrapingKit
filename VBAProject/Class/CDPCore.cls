@@ -498,6 +498,9 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
     '使用するパイプ通信判定
     Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
 
+    '有効なパイプハンドルでない場合は、即抜け
+    If UsehStdRd = 0 Then Exit Function
+
     '処理が成功すると、戻り値は 0 以外になります。
     Dim lPeekData As Long
     PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
