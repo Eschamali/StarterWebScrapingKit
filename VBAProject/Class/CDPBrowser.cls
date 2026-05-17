@@ -2840,10 +2840,10 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
 
     '3-2. 最初と最後の中身を確認
     If FirstIndex = LastIndex Then
-        printMsg Debug_, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Trace_, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
     Else
-        printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
-        printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+        printMsg Trace_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Trace_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
     End If
 
     '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
