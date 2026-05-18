@@ -19,7 +19,7 @@ Option Private Module
 
 #Const Windows = (Mac = 0)
 #Const x64 = Win64
-Private Const commaA As Byte = &H22
+Private Const dQuoteB As Byte = &H22
 
 Public Sub RunAllJSONTests()
     RunAllJSONParseTests
@@ -607,16 +607,16 @@ Private Sub TestParseStringValid()
     Debug.Assert Parse("""abc""" & vbNewLine).Value = "abc"
     Debug.Assert Parse(""" """).Value = " "
     Debug.Assert Parse("""a/*b*/c/*d//e""").Value = "a/*b*/c/*d//e" 'Comments are treated as normal text while inside strings
-    Debug.Assert Parse(BytesToString(commaA, &HF4, &H8F, &HBF, &HBF, commaA)).Value = ChrW$(&HDBFF) & ChrW$(&HDFFF) 'Non UTF8 character U+10FFFF
-    Debug.Assert Parse(BytesToString(commaA, &HEF, &HBF, &HBF, commaA)).Value = ChrW$(&HFFFF)                       'Non UTF8 character U+FFFF
-    Debug.Assert Parse(BytesToString(commaA, &H2C, commaA)).Value = ","
-    Debug.Assert Parse(BytesToString(commaA, &HCF, &H80, commaA)).Value = ChrW$(&H3C0) 'Math PI
-    Debug.Assert Parse(BytesToString(commaA, &HF0, &H9B, &HBF, &HBF, commaA)).Value = ChrW$(&HD82F) & ChrW$(&HDFFF) 'Reserved character U+1BFFF
-    Debug.Assert Parse(BytesToString(commaA, &HE2, &H80, &HA8, commaA)).Value = ChrW$(&H2028) 'Line Separator (LS)
-    Debug.Assert Parse(BytesToString(commaA, &HE2, &H80, &HA9, commaA)).Value = ChrW$(&H2029) 'Paragraph Separator (PS)
-    Debug.Assert Parse(BytesToString(commaA, &H7F, commaA)).Value = Chr$(&H7F) 'DEL
-    Debug.Assert Parse(BytesToString(commaA, &H61, &H7F, &H61, commaA)).Value = "a" & Chr$(&H7F) & "a"
-    Debug.Assert Parse(BytesToString(commaA, &HE2, &H8D, &H82, &HE3, &H88, &HB4, &HE2, &H8D, &H82, commaA)).Value = ChrW$(&H2342) & ChrW$(&H3234) & ChrW$(&H2342)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HF4, &H8F, &HBF, &HBF, dQuoteB)).Value = ChrW$(&HDBFF) & ChrW$(&HDFFF) 'Non UTF8 character U+10FFFF
+    Debug.Assert Parse(BytesToString(dQuoteB, &HEF, &HBF, &HBF, dQuoteB)).Value = ChrW$(&HFFFF)                       'Non UTF8 character U+FFFF
+    Debug.Assert Parse(BytesToString(dQuoteB, &H2C, dQuoteB)).Value = ","
+    Debug.Assert Parse(BytesToString(dQuoteB, &HCF, &H80, dQuoteB)).Value = ChrW$(&H3C0) 'Math PI
+    Debug.Assert Parse(BytesToString(dQuoteB, &HF0, &H9B, &HBF, &HBF, dQuoteB)).Value = ChrW$(&HD82F) & ChrW$(&HDFFF) 'Reserved character U+1BFFF
+    Debug.Assert Parse(BytesToString(dQuoteB, &HE2, &H80, &HA8, dQuoteB)).Value = ChrW$(&H2028) 'Line Separator (LS)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HE2, &H80, &HA9, dQuoteB)).Value = ChrW$(&H2029) 'Paragraph Separator (PS)
+    Debug.Assert Parse(BytesToString(dQuoteB, &H7F, dQuoteB)).Value = Chr$(&H7F) 'DEL
+    Debug.Assert Parse(BytesToString(dQuoteB, &H61, &H7F, &H61, dQuoteB)).Value = "a" & Chr$(&H7F) & "a"
+    Debug.Assert Parse(BytesToString(dQuoteB, &HE2, &H8D, &H82, &HE3, &H88, &HB4, &HE2, &H8D, &H82, dQuoteB)).Value = ChrW$(&H2342) & ChrW$(&H3234) & ChrW$(&H2342)
     If IsFastDict() Then
         With New Dictionary
             .AllowDuplicateKeys = True
@@ -680,7 +680,7 @@ Private Sub TestParseStringInvalid()
     Debug.Assert Not Parse("""\x00""").IsValid
     Debug.Assert Not Parse("""\\\""").IsValid
     Debug.Assert Not Parse("""\?""").IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &H5C, &HF0, &H9F, &H8C, &H80, commaA)).IsValid '\Emoji
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &H5C, &HF0, &H9F, &H8C, &H80, dQuoteB)).IsValid '\Emoji
     Debug.Assert Not Parse("""\""").IsValid
     Debug.Assert Not Parse("""\u00a""").IsValid
     Debug.Assert Not Parse("""\uD834\uDd""").IsValid
@@ -695,7 +695,7 @@ Private Sub TestParseStringInvalid()
     Debug.Assert Not Parse("abc").IsValid
     Debug.Assert Not Parse("""\").IsValid
     Debug.Assert Not Parse("""\UA66D""").IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &H5C, &HE5, commaA)).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &H5C, &HE5, dQuoteB)).IsValid
 End Sub
 
 'https://datatracker.ietf.org/doc/html/rfc8259#section-7
@@ -739,37 +739,37 @@ End Sub
 
 Private Sub TestParseStringInvalidUTF8()
     'Allow - replace each bad byte with with 0xfffd default character
-    Debug.Assert Parse(BytesToString(commaA, &HFF, commaA), failIfInvalidByteSequence:=False).Value = ChrW$(&HFFFD) 'Default character replaces invalid byte sequence
-    Debug.Assert Parse(BytesToString(commaA, &HFF, &HFF, &HFF, commaA)).Value = String$(3, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &H81, commaA)).Value = ChrW$(&HFFFD)
-    Debug.Assert Parse(BytesToString(commaA, &HC0, &HAF, commaA)).Value = String$(2, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &HFC, &H83, &HBF, &HBF, &HBF, &HBF, commaA)).Value = String$(6, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &HFC, &H80, &H80, &H80, &H80, &H80, commaA)).Value = String$(6, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &HE0, &HFF, commaA)).Value = String$(2, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &HE6, &H97, &HA5, &HD1, &H88, &HFA, commaA)).Value = ChrW$(&H65E5) & ChrW$(&H448) & ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HFF, dQuoteB), failIfInvalidByteSequence:=False).Value = ChrW$(&HFFFD) 'Default character replaces invalid byte sequence
+    Debug.Assert Parse(BytesToString(dQuoteB, &HFF, &HFF, &HFF, dQuoteB)).Value = String$(3, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &H81, dQuoteB)).Value = ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HC0, &HAF, dQuoteB)).Value = String$(2, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &HFC, &H83, &HBF, &HBF, &HBF, &HBF, dQuoteB)).Value = String$(6, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &HFC, &H80, &H80, &H80, &H80, &H80, dQuoteB)).Value = String$(6, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &HE0, &HFF, dQuoteB)).Value = String$(2, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &HE6, &H97, &HA5, &HD1, &H88, &HFA, dQuoteB)).Value = ChrW$(&H65E5) & ChrW$(&H448) & ChrW$(&HFFFD)
 #If Windows Then
-    Debug.Assert Parse(BytesToString(commaA, &HF4, &HBF, &HBF, &HBF, commaA)).Value = String$(3, ChrW$(&HFFFD))
-    Debug.Assert Parse(BytesToString(commaA, &HED, &HA0, &H80, commaA)).Value = String$(2, ChrW$(&HFFFD)) 'Single surrogate 0xD800
+    Debug.Assert Parse(BytesToString(dQuoteB, &HF4, &HBF, &HBF, &HBF, dQuoteB)).Value = String$(3, ChrW$(&HFFFD))
+    Debug.Assert Parse(BytesToString(dQuoteB, &HED, &HA0, &H80, dQuoteB)).Value = String$(2, ChrW$(&HFFFD)) 'Single surrogate 0xD800
 #Else
-    Debug.Assert Parse(BytesToString(commaA, &HF4, &HBF, &HBF, &HBF, commaA)).Value = ChrW$(&HFFFD)
-    Debug.Assert Parse(BytesToString(commaA, &HED, &HA0, &H80, commaA)).Value = ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HF4, &HBF, &HBF, &HBF, dQuoteB)).Value = ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HED, &HA0, &H80, dQuoteB)).Value = ChrW$(&HFFFD)
 #End If
     '
     'Fail
-    Debug.Assert Not Parse(BytesToString(commaA, &HFF, commaA), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HFF, dQuoteB), failIfInvalidByteSequence:=True).IsValid
     
-    Debug.Assert Not Parse(BytesToString(commaA, &H5B, &H22, &H81, &H22, &H5D, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &H81, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &HC0, &HAF, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &HFC, &H83, &HBF, &HBF, &HBF, &HBF, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &HFC, &H80, &H80, &H80, &H80, &H80, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &HE0, &HFF, commaA), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &H5B, &H22, &H81, &H22, &H5D, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &H81, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HC0, &HAF, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HFC, &H83, &HBF, &HBF, &HBF, &HBF, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HFC, &H80, &H80, &H80, &H80, &H80, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HE0, &HFF, dQuoteB), failIfInvalidByteSequence:=True).IsValid
 #If Windows Then
-    Debug.Assert Not Parse(BytesToString(commaA, &HF4, &HBF, &HBF, &HBF, commaA), failIfInvalidByteSequence:=True).IsValid
-    Debug.Assert Not Parse(BytesToString(commaA, &HED, &HA0, &H80, commaA), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HF4, &HBF, &HBF, &HBF, dQuoteB), failIfInvalidByteSequence:=True).IsValid
+    Debug.Assert Not Parse(BytesToString(dQuoteB, &HED, &HA0, &H80, dQuoteB), failIfInvalidByteSequence:=True).IsValid
 #Else
-    Debug.Assert Parse(BytesToString(commaA, &HF4, &HBF, &HBF, &HBF, commaA), failIfInvalidByteSequence:=True).Value = ChrW$(&HFFFD)
-    Debug.Assert Parse(BytesToString(commaA, &HED, &HA0, &H80, commaA), failIfInvalidByteSequence:=True).Value = ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HF4, &HBF, &HBF, &HBF, dQuoteB), failIfInvalidByteSequence:=True).Value = ChrW$(&HFFFD)
+    Debug.Assert Parse(BytesToString(dQuoteB, &HED, &HA0, &H80, dQuoteB), failIfInvalidByteSequence:=True).Value = ChrW$(&HFFFD)
 #End If
 End Sub
 
