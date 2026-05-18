@@ -1183,7 +1183,7 @@ Private Function AreEqual(ByVal v1 As Variant, ByVal v2 As Variant) As Boolean
         If vt1 <= vbNull Or vt1 > vbLongLong Then Exit Function
         If vt2 <= vbNull Or vt2 > vbLongLong Then Exit Function
         If vt1 = vbString Or vt1 = vbError Then Exit Function
-        If vt1 = vbString Or vt2 = vbError Then Exit Function
+        If vt2 = vbString Or vt2 = vbError Then Exit Function
     End If
     If IsNull(v1) Then
         AreEqual = True
