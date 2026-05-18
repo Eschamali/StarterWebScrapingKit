@@ -1067,7 +1067,11 @@ Private Function ParseChars(ByRef inChars() As Integer _
                     On Error Resume Next
                     v = CDec(v)
                     On Error GoTo ErrorHandler
-                    If VarType(v) = vbString Then v = CDbl(v)
+                    If VarType(v) = vbString Then
+                        v = CDbl(v)
+                    ElseIf v = 0 Then 'Underflow?
+                        v = CDbl(Left$(sBuff, j + 1))
+                    End If
                 Else
                     v = CDbl(v)
                 End If
