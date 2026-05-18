@@ -2057,14 +2057,14 @@ Private Sub QuickSortKeys(ByRef arrKeys() As Variant _
     '
     Do While newLB <= newUB
         Do While newLB < ub
-            Select Case StrComp(arrKeys(newLB), pv)
+            Select Case StrComp(arrKeys(newLB), pv, vbBinaryCompare)
                 Case 1: Exit Do
                 Case 0: If newLB >= p Then Exit Do
             End Select
             newLB = newLB + 1
         Loop
         Do While newUB > lb
-            Select Case StrComp(pv, arrKeys(newUB))
+            Select Case StrComp(pv, arrKeys(newUB), vbBinaryCompare)
                 Case 1: Exit Do
                 Case 0: If p >= newUB Then Exit Do
             End Select
