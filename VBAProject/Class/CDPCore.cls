@@ -183,11 +183,11 @@ Private Utf8Converter As CharacterCodeConversion
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
 '***************************************************************************************************
-Private Property Let UseConverterUtf8FromString(Flag As Boolean)
+Property Let UseConverterUtf8FromString(Flag As Boolean)
     If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
 End Property
 
-Private Property Get UseConverterUtf8FromString() As Boolean
+Property Get UseConverterUtf8FromString() As Boolean
     UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
 End Property
 
@@ -282,7 +282,7 @@ Public Sub ClosePipeCDP()
     CloseHandle hStderrOutRd
 End Sub
 
-Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
+Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
 '-------------------------------------------------------------------
 ' Initialize new browser instance via pipe creation.
 '-------------------------------------------------------------------
@@ -385,7 +385,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         destOffset = destOffset + 4
 #End If
     Next hIdx
-    
+
    'Define new instance parameters and start it
     With start
         .cb = LenB(start)
@@ -393,7 +393,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
+        .wShowWindow = ShowWindowMode
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -558,19 +558,3 @@ Public Function writeProc(ByVal strData As String) As Long
     '失敗時は、実際のエラーコードで返します
     If ResultCode = 0 Then writeProc = Err.LastDllError
 End Function
-
-
-
-'***************************************************************************************************
-'* 機能　　：設定シートから、設定値を読み込みます
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：クラスモジュール構築時、設定値を適用させます
-'***************************************************************************************************
-Private Sub Class_Initialize()
-    '------------------------- クラス内変数の一部を初期化 -------------------------
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
-        setShowWindow = .Range(.UseRangeName(12, "CDPCore.Class_Initialize")).value
-    End With
-End Sub
