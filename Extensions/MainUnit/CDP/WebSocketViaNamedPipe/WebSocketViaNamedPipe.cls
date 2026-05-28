@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'               名前付きパイプの仕組みを利用したWebSocket連携機能を提供します。
+'             名前付きパイプの仕組みを利用したCDP-WebSocket連携機能を提供します。
 '       Excel ←NamedPipe→ PowerShell ←WebSocket→ Chromium といった連携確保まで担います。
 ' 本来、このツールは`remote-debugging-pipe`特化で構築してる都合上、`remote-debugging-port`の直接統合は堅牢性を落としてしまう問題がありました。
 ' しかし、`PowerShell × NamedPipe`という仕組みにより、拡張機能として提供することで、コア部分をいじらず、実質対応可能となりました。
