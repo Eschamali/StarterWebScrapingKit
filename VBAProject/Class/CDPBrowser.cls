@@ -239,6 +239,7 @@ Private Type StateBrowser
     Ver         As String   'The current browser version
     reattach    As Boolean  'Remember reAttach preference from .reattach method - updated by Long 22/01/2026
     CallString  As String   'The initial call string used by .start
+    setShowWindow As WinState   '`remote-debugging-pipe`で起動する際のブラウザ初期表示モードの設定値
 End Type
 Private br As StateBrowser
 
@@ -292,6 +293,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 
 
 
@@ -302,7 +304,7 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, Optional ManualStart As Boolean)
 '--------------------------------------------------------------------------------------------------------------
 ' This function initiates a new browser instance.
 ' By default, this function initializes chrome as the default choice.
@@ -330,6 +332,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
 
     Set core = New CDPCore
+    core.UseConverterUtf8FromString = UseConverterUtf8FromString '`New`による直後に、文字コード設定を反映
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
@@ -379,6 +382,7 @@ Public Sub start(Optional Name As String = "chrome", _
         Case edgeKioskType.fullscreen: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
         Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
     End Select
+    br.setShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, br.setShowWindow)   'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
    '-----------------------------------------------------------------------------------------------------------------------------------------
 
    'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------
@@ -396,9 +400,12 @@ Public Sub start(Optional Name As String = "chrome", _
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     br.CallString = strCall
     printMsg Debug_, "Starting pipe communication... → " & br.CallString, FromProcedureName
-    intRes = core.Init(br.CallString, KioskMode) 'Serializable is set to True by default for ease of accessibility
+    intRes = core.Init(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
     brTab.lngLastID = 1 'reset the pipe message ID
+
+    '自力でセッション確立する方向けに、起動が出来たら、パイプ情報を記録後、抜ける
+    If ManualStart Then serialize: printMsg info_, "The browser started in manual mode. You will need to establish the session yourself.", FromProcedureName: Exit Sub
    '-----------------------------------------------------------------------------------------------------------------------------------
 
    'Complete initialization ------------------------------------------------------
@@ -473,6 +480,7 @@ Private Sub deserialize(r As ReConnectSessionID)
 
     Dim objSerialize As Scripting.Dictionary
     Set core = New CDPCore
+    core.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
 
     '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
     '※載ってない物はエラーとする
@@ -2840,10 +2848,10 @@ Private Function ReceiveFromPipeSplit(ByRef ReceiveRawString As String, Optional
 
     '3-2. 最初と最後の中身を確認
     If FirstIndex = LastIndex Then
-        printMsg Debug_, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Trace_, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
     Else
-        printMsg Debug_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
-        printMsg Debug_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+        printMsg Trace_, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Trace_, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
     End If
 
     '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
@@ -3063,8 +3071,8 @@ Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMe
                 End If
             End If
         Else
-            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
-            printMsg WARN_, "Both the `id` and `method` fields are missing. This may be a syntax error.", FromProcedureName
+            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、不整合を防ぐため、エラーで止める
+            printMsg ERROR_, "A syntax error was detected when executing with invokeMethod/invokeMethodAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
         End If
     End If
 
@@ -3935,6 +3943,12 @@ Private Sub Class_Initialize()
         'この確認を使用することで、原因調査の時短につながる可能性があります。
         '※主要なブラウザのみチェックします
         IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, FromProcedureName)).value, brChrome, brEdge)
+
+        '4. Edgeウィンドウの表示モードの設定
+        br.setShowWindow = .Range(.UseRangeName(12, FromProcedureName)).value
+
+        '5. 文字コード設定
+        UseConverterUtf8FromString = .Range(.UseRangeName(10, FromProcedureName)).value
     End With
 
     'タイムアウト設定(デフォルトで、30s)
