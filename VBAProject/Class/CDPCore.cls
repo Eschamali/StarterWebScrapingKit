@@ -142,7 +142,17 @@ End Type
     End Type
     
 #End If
- 
+
+'===================================
+' 各種イベント定義
+'===================================
+Public Event detectionCDPBrowserEvent(methodName As String, EventRawJson As String)
+Public Event detectionCDPBrowserID(id As Long, EventRawJson As String)
+Public Event detectionCDPTabEvent(methodName As String, EventRawJson As String, sessionID As String)
+Public Event detectionCDPTabID(id As Long, EventRawJson As String, sessionID As String)
+
+
+
 '===================================
 ' Constants
 '===================================
@@ -220,15 +230,14 @@ End Property
 
 
 
-'===================================
-' Class Functions
-'===================================
- 
+'***************************************************************************************************
+'                              ■■■ Pipeの確保と記録 ■■■
+'***************************************************************************************************
+'* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   記録する識別名称
+'***************************************************************************************************
 Public Sub serialize(UserName As String)
-'-------------------------------------------------------------------
-' Create serialized Json string from the current browser instance.
-'-------------------------------------------------------------------
-
     '0. データ記録準備
     Dim tmp As New Dictionary
 
@@ -245,11 +254,12 @@ Public Sub serialize(UserName As String)
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   読み取る識別名称
+'***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
-'--------------------------------------------------------------------
-' Decipher serialized Json string and assign values to CDP variables.
-'--------------------------------------------------------------------
-
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
@@ -282,11 +292,14 @@ Public Sub ClosePipeCDP()
     CloseHandle hStderrOutRd
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：Chromiumを`remote-debugging-pipe`として起動し、パイプ接続を開始します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果　※0で成功です
+'* 引数　　：strExec            コマンドライン
+'            ShowWindowMode     初期ウィンドウ表示タイプ
+'***************************************************************************************************
 Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
-'-------------------------------------------------------------------
-' Initialize new browser instance via pipe creation.
-'-------------------------------------------------------------------
- 
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -424,6 +437,10 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
 
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ Pipeの読み書き ■■■
 '***************************************************************************************************
 '* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
 '---------------------------------------------------------------------------------------------------
@@ -535,11 +552,13 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
  
 End Function
 
+'***************************************************************************************************
+'* 機能　　：ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果   ※0で成功です
+'* 引数　　：strData    CDP-Jsonコマンド
+'***************************************************************************************************
 Public Function writeProc(ByVal strData As String) As Long
-' --------------------------------------------------------------------------------
-' This functions sends a CDP message to the Chromium browser.
-'---------------------------------------------------------------------------------
- 
     Dim lngWritten As Long
     Dim ResultCode As Long
 
@@ -558,3 +577,9 @@ Public Function writeProc(ByVal strData As String) As Long
     '失敗時は、実際のエラーコードで返します
     If ResultCode = 0 Then writeProc = Err.LastDllError
 End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ レスポンス捌き ■■■
+'***************************************************************************************************
