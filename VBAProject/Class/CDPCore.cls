@@ -653,7 +653,7 @@ Public Function RunCDP(ByVal strData As String) As Long
     End If
 
     '失敗時は、実際のエラーコードで返します
-    If ResultCode = 0 Then writeProc = Err.LastDllError
+    If ResultCode = 0 Then RunCDP = Err.LastDllError
 End Function
 
 
