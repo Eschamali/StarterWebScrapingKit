@@ -183,7 +183,6 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
-Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 
 
@@ -209,7 +208,7 @@ Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
     Path        As String   'Browser default installation path
-    id          As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
+    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Name        As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
     Ver         As String   'The current browser version
@@ -226,14 +225,6 @@ Private Type StateTab
     targetID    As String   'The targetID of the current tab for InvokeMethod
 End Type
 Private brTab As StateTab
-
-'ログ設定状況
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
-Private currentLog As StateLog
 
 'CDPコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)
 Private Type cacheResultCDP
@@ -291,16 +282,16 @@ Private Sub core_CDPBrowserID(id As Long, RawJson As String)
 
 
     '1. 結果を蓄積
-    printMsg Trace_, "Command result ID: " & id & " was detected.", FromProcedureName
+    printMsg Trace_, br.LogID, "Command result ID: " & id & " was detected.", FromProcedureName
     currentResultCDP.response.Add id, RawJson
 
     '2. 格納件数チェックし、上限を超えたら、最古データを削除します
     If currentResultCDP.response.Count > currentResultCDP.limit Then
         '3. 一番古いキーを取得して削除
         Dim DeleteID As Long: DeleteID = currentResultCDP.response.keys(0)
-        printMsg Trace_, "Delete asynchronous processing result ID:" & DeleteID, FromProcedureName
+        printMsg Trace_, br.LogID, "Delete asynchronous processing result ID:" & DeleteID, FromProcedureName
         currentResultCDP.response.Remove DeleteID
-        printMsg WARN_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
+        printMsg WARN_, br.LogID, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
     End If
 End Sub
 
@@ -403,7 +394,7 @@ Public Sub start(Optional Name As String = "chrome", _
     Select Case Name
         Case "edge": br.Type = brEdge
         Case "chrome": br.Type = brChrome
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
+        Case Else: printMsg ERROR_, br.LogID, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
     br.Path = getBrowserPath(br.Type)
     strCall = """" & br.Path & """ --" & ArgRemoteDebuggingName
@@ -411,7 +402,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
     If appUrl <> "" Then
-        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromProcedureName, doRaiseError:=True
+        If appUrl = "about:blank" Then printMsg ERROR_, br.LogID, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromProcedureName, doRaiseError:=True
         strCall = strCall & " --app=""" & checkURI(appUrl) & """"
     Else
         strCall = strCall & " --homepage ""about:blank"""
@@ -457,13 +448,13 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     br.CallString = strCall
-    printMsg Debug_, "Starting pipe communication... → " & br.CallString, FromProcedureName
+    printMsg Debug_, br.LogID, "Starting pipe communication... → " & br.CallString, FromProcedureName
     intRes = core.Init(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
+    If intRes <> 0 Then printMsg ERROR_, br.LogID, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & core.ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, br.LogID, "CDPCore initialized successfully", FromProcedureName
     brTab.lngLastID = 1 'reset the pipe message ID
 
     '自力でセッション確立する方向けに、起動が出来たら、パイプ情報を記録後、抜ける
-    If ManualStart Then serialize: printMsg info_, "The browser started in manual mode. You will need to establish the session yourself.", FromProcedureName: Exit Sub
+    If ManualStart Then serialize: printMsg info_, br.LogID, "The browser started in manual mode. You will need to establish the session yourself.", FromProcedureName: Exit Sub
    '-----------------------------------------------------------------------------------------------------------------------------------
 
    'Complete initialization ------------------------------------------------------
@@ -489,7 +480,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
+    printMsg info_, br.LogID, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -542,7 +533,7 @@ Private Sub deserialize(r As ReConnectSessionID)
 
     '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
     '※載ってない物はエラーとする
-1   If Not core.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+1   If Not core.deserialize(br.User) Then printMsg ERROR_, br.LogID, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
     On Error GoTo iferr     'パイプハンドルさえ生きてれば、手動復帰が可能なので、エラーキャッチとして設ける
@@ -564,11 +555,11 @@ Private Sub deserialize(r As ReConnectSessionID)
         '既存のSessionIDを適用
         Case ReConnectSessionID.existing_
             brTab.sessionID = objSerialize.Item("sessionID")
-            printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
+            printMsg info_, br.LogID, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
 
         'SessionIDの付与は行わない。呼び出し側にて手動適用
         Case Else
-            printMsg info_, "The SessionID remains empty.", FromProcedureName
+            printMsg info_, br.LogID, "The SessionID remains empty.", FromProcedureName
 
     End Select
 
@@ -576,7 +567,7 @@ Private Sub deserialize(r As ReConnectSessionID)
 
 iferr: 'if deserialize fails, simply move on to starting anew
 
-    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & "lngLastID:" & brTab.lngLastID & ",targetID:" & brTab.targetID & ",sessionID:" & brTab.sessionID, FromProcedureName
+    printMsg ERROR_, br.LogID, "deserialization failed at line " & Erl & " for serial string " & "lngLastID:" & brTab.lngLastID & ",targetID:" & brTab.targetID & ",sessionID:" & brTab.sessionID, FromProcedureName
 
 End Sub
 
@@ -723,17 +714,17 @@ step1:
     If RunAsyncCDP Then
         '`WriteFile`のエラーをチェック
         If CDPresults.Items(0) Then
-            printMsg ERROR_, "Failed to AsyncCDP-WriteFile JavaScript: " & strString & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0)), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, br.LogID, "Failed to AsyncCDP-WriteFile JavaScript: " & strString & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & CDPresults.Items(0) & " - " & core.ErrorDetail.GetMessage(CDPresults.Items(0)), FromProcedureName, doRaiseError:=True
         Else
             'ID返却して抜ける
             jsEval = CLng(CDPresults.keys(0))
         End If
 
-        printMsg Debug_, "Async CDP JavaScript with WriteFile Result: " & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0), "kernel32") & " ID: " & CDPresults.keys(0), FromProcedureName
+        printMsg Debug_, br.LogID, "Async CDP JavaScript with WriteFile Result: " & CDPresults.Items(0) & " - " & core.ErrorDetail.GetMessage(CDPresults.Items(0), "kernel32") & " ID: " & CDPresults.keys(0), FromProcedureName
         Exit Function
     Else
-        If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & jsConverter.ConvertToJson(CDPresults), FromProcedureName
-        If CDPresults Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
+        If core.ShowLogCDPresponse Then printMsg Trace_, br.LogID, "jsEval - ResultCDP - JsonString = " & jsConverter.ConvertToJson(CDPresults), FromProcedureName
+        If CDPresults Is Nothing Then printMsg ERROR_, br.LogID, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
         If Not CDPresults.Exists("error") Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
     End If
     '-----------------------------------------------------------------------------------------------------------------
@@ -741,19 +732,19 @@ step1:
    'Handle errors ---------------------------------------------------------------------------------------------------
     Dim errMsg As String, retried As Boolean
     errMsg = CDPresults("error")("message")
-    printMsg WARN_, "jsEval Error: " & errMsg, FromProcedureName
-    If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
+    printMsg WARN_, br.LogID, "jsEval Error: " & errMsg, FromProcedureName
+    If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, br.LogID, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
-        printMsg info_, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
+        printMsg info_, br.LogID, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
         Me.id = attachToTab(brTab.targetID)
-        printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
+        printMsg info_, br.LogID, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
 
     '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
     Dim strLogValue As String
     strLogValue = LogFormat(strString, 100)
-    printMsg ERROR_, "The Browser was unable to evaluate the JS expression: " & strLogValue & vbCrLf & vbCrLf & "<ErrorDetail>" & vbCrLf & errMsg, FromProcedureName, doRaiseError:=True
+    printMsg ERROR_, br.LogID, "The Browser was unable to evaluate the JS expression: " & strLogValue & vbCrLf & vbCrLf & "<ErrorDetail>" & vbCrLf & errMsg, FromProcedureName, doRaiseError:=True
    '-----------------------------------------------------------------------------------------------------------------
 
 step2:
@@ -761,7 +752,7 @@ step2:
     'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
     Dim RemoteObject As Dictionary
     Set RemoteObject = CDPresults.Item("result").Item("result")
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & jsConverter.ConvertToJson(RemoteObject), FromProcedureName
+    If core.ShowLogCDPresponse Then printMsg Debug_, br.LogID, "jsEval - RemoteObject - JsonString = " & jsConverter.ConvertToJson(RemoteObject), FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If CDPresults.Item("result").Exists("exceptionDetails") Then
@@ -775,21 +766,21 @@ step2:
         If StopException Then
             '`StopException`が有効の場合は、ログ表示用に、詳細の方を文字列化
             Dim exceptionDetails As String: exceptionDetails = jsConverter.ConvertToJson(lastExceptionDetailsJS)
-            printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, br.LogID, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+            printMsg WARN_, br.LogID, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
                 '省略時は、エラー型として返します。https://learn.microsoft.com/ja-jp/office/vba/excel/Concepts/Cells-and-Ranges/cell-error-values
                 '※例外の種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中に例外が起きた」という目印として判断してください
                 jsEval = CVErr(xlErrValue)
-                printMsg WARN_, "An exception occurred while executing JavaScript: " & strLogValue & "　It was returned as an error type.", FromProcedureName
+                printMsg WARN_, br.LogID, "An exception occurred while executing JavaScript: " & strLogValue & "　It was returned as an error type.", FromProcedureName
             Else
                 '引数:IFEXCEPTION が指定されてる場合はそっちを優先して返します
                 If IsObject(IFEXCEPTION) Then Set jsEval = IFEXCEPTION Else jsEval = IFEXCEPTION
-                printMsg WARN_, "An exception occurred while executing JavaScript: " & strLogValue & "　The argument `IFEXCEPTION` was specified, so it was returned.", FromProcedureName
+                printMsg WARN_, br.LogID, "An exception occurred while executing JavaScript: " & strLogValue & "　The argument `IFEXCEPTION` was specified, so it was returned.", FromProcedureName
             End If
         End If
 
@@ -827,7 +818,7 @@ step3:
     strLogValue = LogFormat(strLogValue, 200)
 
     ' 最終的なデバッグ出力
-    printMsg Debug_, "Script executed: " & strString & " | Returned: " & strLogValue, FromProcedureName
+    printMsg Debug_, br.LogID, "Script executed: " & strString & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
 End Function
@@ -852,56 +843,56 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     '------------------------ 1. 特定項目有無チェック ------------------------
     '`serializationOptions`が指定されてたら、`deepSerializedValue`を最優先に返します
     If Not PriorityReturn_deepSerializedValue Is Nothing Then
-        printMsg info_, "The parameter `serializationOptions` is specified. Check if `deepSerializedValue` exists.", FromProcedureName
+        printMsg info_, br.LogID, "The parameter `serializationOptions` is specified. Check if `deepSerializedValue` exists.", FromProcedureName
 
         '`deepSerializedValue`があるか？
         If RemoteObject.Exists("deepSerializedValue") Then
             '見つかったので、`deepSerializedValue`を返して、ここで抜ける
             Set ReturnValue = RemoteObject("deepSerializedValue")
-            printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: object-deepSerializedValue", FromProcedureName
 
             'Objectで返したのでその目印もつけておく
             JSresultAnalysis = True
             Exit Function
         Else
-            printMsg WARN_, "`The parameter `serializationOptions` was specified, but `deepSerializedValue` was missing.", FromProcedureName
+            printMsg WARN_, br.LogID, "`The parameter `serializationOptions` was specified, but `deepSerializedValue` was missing.", FromProcedureName
         End If
     End If
 
     '`objectId`を返す優先になってたら、こっちを返します
     If PriorityReturn_objectId Then
-        printMsg Trace_, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
+        printMsg Trace_, br.LogID, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
 
         '`objectId`があるか？
         If RemoteObject.Exists("objectId") Then
             '見つかったので、`objectId`を返す
             ReturnValue = CStr(RemoteObject("objectId"))
-            printMsg info_, "JS-Return type: objectId", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: objectId", FromProcedureName
 
             '返ったObjectID情報を列挙する
             Dim objectSubtype As String: objectSubtype = RemoteObject("subtype")
-            printMsg Debug_, String(100, "="), FromProcedureName
-            printMsg Debug_, "objectId information", FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
-            printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-            printMsg Debug_, "objectType        : " & RemoteObject("type"), FromProcedureName
-            printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-            printMsg Debug_, "objectClassName   : " & RemoteObject("className"), FromProcedureName
-            printMsg Debug_, "objectDescription : " & RemoteObject("description"), FromProcedureName
-            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
+            printMsg Debug_, br.LogID, String(100, "="), FromProcedureName
+            printMsg Debug_, br.LogID, "objectId information", FromProcedureName
+            printMsg Debug_, br.LogID, String(100, "="), FromProcedureName
+            printMsg Debug_, br.LogID, "objectId          : " & ReturnValue, FromProcedureName
+            printMsg Debug_, br.LogID, "objectType        : " & RemoteObject("type"), FromProcedureName
+            printMsg Debug_, br.LogID, "objectSubtype     : " & objectSubtype, FromProcedureName
+            printMsg Debug_, br.LogID, "objectClassName   : " & RemoteObject("className"), FromProcedureName
+            printMsg Debug_, br.LogID, "objectDescription : " & RemoteObject("description"), FromProcedureName
+            If ObjectPreview Then printMsg Debug_, br.LogID, "objectPreview     : " & jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
+            printMsg Debug_, br.LogID, String(100, "="), FromProcedureName
 
             'エラー情報があればそのログを出しておく
             '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
+            If objectSubtype = ErrorLandmark Then printMsg WARN_, br.LogID, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
 
             Exit Function
         Else
             'primitive values OR `object-null` OR `undefined` の可能性あり
-            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `object-null` or `undefined`, so we will try to retrieve it.", FromProcedureName
+            printMsg Debug_, br.LogID, "`objectId` was not found. It may be a primitive value or `object-null` or `undefined`, so we will try to retrieve it.", FromProcedureName
         End If
     Else
-        printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
+        printMsg Trace_, br.LogID, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
     End If
 
 
@@ -914,7 +905,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     Dim ValueType       As String: ValueType = RemoteObject.Item("type")
     Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
     Dim ValueSubtype    As String: ValueSubtype = RemoteObject.Item("subtype")
-    printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+    printMsg Debug_, br.LogID, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
     '型に応じた分岐処理
     Select Case ValueType
@@ -923,87 +914,87 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             Select Case ValueSubtype
                 Case "null"
                     ReturnValue = Null
-                    printMsg info_, "JS-Return type: object-null", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-null", FromProcedureName
 
                 Case "array"
                     ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
                     ' 配列の場合は Scripting.Dictionary (連番) が入ります
                     '※誇らしげに説明してますが、`returnByValue:=True`で、`array`だと、subtype そのものがなくなります...が一応書いておきます。
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-array", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-array", FromProcedureName
 
                 Case "node"
                     '多分、来ない...が一応書いておきます。
                     '`returnByValue:=True`で、`node`も、subtype そのものがなくなります...
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-node", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-node", FromProcedureName
 
                 Case "regexp"
                     '以下同文
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-regexp", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-regexp", FromProcedureName
 
                 Case "map"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-map", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-map", FromProcedureName
 
                 Case "date"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-date", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-date", FromProcedureName
 
                 Case "set"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-set", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-set", FromProcedureName
 
                 Case "weakmap"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-weakmap", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-weakmap", FromProcedureName
 
                 Case "weakset"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-weakset", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-weakset", FromProcedureName
 
                 Case "iterator"     '※ObjectIDモードでも空欄です?!
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-iterator", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-iterator", FromProcedureName
                 
                 Case "generator"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-generator", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-generator", FromProcedureName
 
                 Case "promise"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-promise", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-promise", FromProcedureName
 
                 Case "proxy"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-proxy", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-proxy", FromProcedureName
 
                 Case "typedarray"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-typedarray", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-typedarray", FromProcedureName
 
                 Case "arraybuffer"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-arraybuffer", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-arraybuffer", FromProcedureName
 
                 Case "dataview"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-dataview", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-dataview", FromProcedureName
 
                 Case "webassemblymemory"
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-webassemblymemory", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-webassemblymemory", FromProcedureName
 
                 Case "trustedtype"  '※ObjectIDモードでも空欄です?!
                     Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-trustedtype", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-trustedtype", FromProcedureName
 
                 Case ErrorLandmark
                     '`returnByValue:=True`では意味をなさないようです...が念のため
-                    printMsg WARN_, "This value contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
+                    printMsg WARN_, br.LogID, "This value contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
                     ReturnValue = CVErr(xlErrValue)
-                    printMsg info_, "JS-Return type: object-error", FromProcedureName
+                    printMsg info_, br.LogID, "JS-Return type: object-error", FromProcedureName
 
                 Case Else
                     '"subtype"自体がない場合は、`array`として扱います
@@ -1012,13 +1003,13 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                         ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
                         ' 配列の場合は Scripting.Dictionary (連番) が入ります
                         ' returnByValue=True なら value に Dictionary が入っているはず
-                        printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
+                        printMsg WARN_, br.LogID, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
                         Set ReturnValue = RemoteObject.Item("value")
-                        printMsg info_, "JS-Return type: object-array", FromProcedureName
+                        printMsg info_, br.LogID, "JS-Return type: object-array", FromProcedureName
 
                     Else
                         'ドキュメント化されてない型にも備えておく
-                        printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
+                        printMsg WARN_, br.LogID, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
     
                         '返せる物があれば、返しておく
                         If RemoteObject.Exists("value") Then
@@ -1039,23 +1030,23 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
         Case "function"
             ' 関数が返ってきた場合は、「{"type":"function","value":{}}」なので、`SET`
             Set ReturnValue = RemoteObject.Item("value")
-            printMsg info_, "JS-Return type: function", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: function", FromProcedureName
 
         Case "undefined"
             ' JSの undefined は VBAでは Empty が一番近い
             ReturnValue = Empty
-            printMsg info_, "JS-Return type: undefined", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: undefined", FromProcedureName
 
         Case "string"
             ' 文字列として認識するように返す
             ReturnValue = CStr(RemoteObject.Item("value"))
-            printMsg info_, "JS-Return type: string", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: string", FromProcedureName
 
         Case "number"
             'VBAで扱える型か？
             If RemoteObject.Exists("unserializableValue") Then
                 'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
+                printMsg WARN_, br.LogID, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
                 ReturnValue = CVErr(xlErrNum)
             Else
                 ' Double型として認識するように返す
@@ -1063,27 +1054,27 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                 ReturnValue = CDbl(RemoteObject.Item("value"))
             End If
 
-            printMsg info_, "JS-Return type: number", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: number", FromProcedureName
 
         Case "boolean"
             ' boolean型として認識するように返す
             ReturnValue = CBool(RemoteObject.Item("value"))
-            printMsg info_, "JS-Return type: boolean", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: boolean", FromProcedureName
 
         Case "symbol"
             '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というCDPエラーで返るので通らないと思うが念のため。
             ReturnValue = RemoteObject.Item("value")
-            printMsg info_, "JS-Return type: symbol", FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: symbol", FromProcedureName
 
         Case "bigint"
             ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま返却します
             ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
-            printMsg info_, "JS-Return type: bigint", FromProcedureName
+            printMsg WARN_, br.LogID, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
+            printMsg info_, br.LogID, "JS-Return type: bigint", FromProcedureName
 
         Case Else
             'ドキュメント化されてない型にも備えておく
-            printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName
+            printMsg WARN_, br.LogID, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName
 
             '返せる物があれば、返しておく
             If RemoteObject.Exists("value") Then
@@ -1141,7 +1132,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     Dim curURL As String
     curURL = jsEval("window.location.href", dbgMsg:=False)
     If curURL = checkURI(strURL) Then
-        printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
+        printMsg WARN_, br.LogID, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
     End If
 
@@ -1152,7 +1143,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     'should also add a maxTimeLimit to Wait
     wait till:=till
     getSessionInfo 'update new session info for printParams
-    printMsg info_, "Navigated to: " & strURL, FromProcedureName
+    printMsg info_, br.LogID, "Navigated to: " & strURL, FromProcedureName
 
 End Sub
 
@@ -1177,7 +1168,7 @@ Public Sub quit()
         DoEvents
     Loop
     If isLive Then
-        printMsg WARN_, "Browser didn't close gracefully within 5s; invoking cleanUpSessions.", FromProcedureName
+        printMsg WARN_, br.LogID, "Browser didn't close gracefully within 5s; invoking cleanUpSessions.", FromProcedureName
         cleanUpSessions
     End If
 
@@ -1186,7 +1177,7 @@ Public Sub quit()
     deleteCDPID         'テーブルからも削除する
 
     sleep 1 'it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
-    printMsg info_, "The browser has been terminated.", FromProcedureName
+    printMsg info_, br.LogID, "The browser has been terminated.", FromProcedureName
 
 End Sub
 
@@ -1235,12 +1226,12 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
+        printMsg Debug_, br.LogID, "Current ReadyState: " & strState, FromProcedureName  'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 
-    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
+    printMsg Debug_, br.LogID, "Wait '" & targetState & "' satisfied", FromProcedureName
 
 End Sub
 
@@ -1356,7 +1347,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
    'Switch attachment to the new tab
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
-    printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
+    printMsg info_, br.LogID, "newTab will now open a new CDP instance", FromProcedureName
 
     '`setMain`に応じた分岐
     If setMain Then
@@ -1364,7 +1355,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         Me.id = sessionID_
         getSessionInfo
         serialize
-        printMsg info_, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+        printMsg info_, br.LogID, "Tab [" & br.Name & " | " & brTab.targetID & "] is now the main session tab for " & br.LogID, FromProcedureName
     Else
         '新しく生成したクラスとして返却
         Set newTab = New CDPBrowser
@@ -1481,10 +1472,10 @@ searchit:
    'Nothing is preferred over throwing error
     If Not tabfound Then
         info = IIf(tabName <> "", tabName, IIf(Url <> "", Url, "(no new tab found)"))
-        printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
+        printMsg WARN_, br.LogID, "Unable to find the tab: " & info, FromProcedureName
         Exit Function
     Else
-        printMsg info_, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
+        printMsg info_, br.LogID, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
     End If
 
 searchfound:
@@ -1499,7 +1490,7 @@ searchfound:
         Me.id = sessionID_
         getSessionInfo
         serialize
-        printMsg info_, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.id, FromProcedureName
+        printMsg info_, br.LogID, "Tab [" & brTab.targetID & "] is now the main session tab for " & br.LogID, FromProcedureName
     Else
         'Return the new CDP object
         '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
@@ -1527,14 +1518,14 @@ Public Sub closeTab()
 
     '操作中のタブ自体を閉じないように仕向ける
     If brTab.targetID = mainID Then
-        printMsg WARN_, "Unable to close this tab " & brTab.targetID & " as it is the main session tab", FromProcedureName
+        printMsg WARN_, br.LogID, "Unable to close this tab " & brTab.targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
     End If
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
     invokeMethod "Target.closeTarget", params, True
-    printMsg info_, br.id & " was closed", FromProcedureName
+    printMsg info_, br.LogID, br.LogID & " was closed", FromProcedureName
 
 End Sub
 
@@ -1734,7 +1725,7 @@ Public Sub jsAddLib(strURL As String)
 
    'Check if already loaded, if so then no need to add again
     If getElementByQuery("script[src='" & strURL & "']").varResult <> vbNull Then
-        printMsg WARN_, "The HTML already contains the JS Library: """ & strURL & """", FromProcedureName
+        printMsg WARN_, br.LogID, "The HTML already contains the JS Library: """ & strURL & """", FromProcedureName
         Exit Sub
     End If
 
@@ -1751,7 +1742,7 @@ Public Sub jsAddLib(strURL As String)
 
    'Load the script URL
     jsEval "loadScript('" & strURL & "')"
-    printMsg info_, "Successfully added the JS Library: """ & strURL & """", FromProcedureName
+    printMsg info_, br.LogID, "Successfully added the JS Library: """ & strURL & """", FromProcedureName
 
 End Sub
 
@@ -1774,7 +1765,7 @@ Public Sub jsAddScript(strLocalScriptPath As String)
 
     Dim fso As New FileSystemObject
     jsEval fso.OpenTextFile(strLocalScriptPath).ReadAll 'Load the script contents
-    printMsg info_, "Successfully added the local script: """ & strLocalScriptPath & """", FromProcedureName
+    printMsg info_, br.LogID, "Successfully added the local script: """ & strLocalScriptPath & """", FromProcedureName
 
     Set fso = Nothing
 
@@ -1818,7 +1809,7 @@ Public Function reattach(userProfile As String, Optional meansSessionID As ReCon
         printParams
     Else
         reattach = False
-        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
+        printMsg WARN_, br.LogID, "Failed to reattach to previous CPID.", FromProcedureName
     End If
 
 End Function
@@ -1885,7 +1876,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
    'Verify if the page can be captured with screenshot
     Set r = invokeMethod("Page.getLayoutMetrics")
     If invokeError(r) Then
-        printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
+        printMsg WARN_, br.LogID, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
     End If
 
@@ -1897,50 +1888,12 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     If Not invokeError(r) Then
         b64 = r("data")
         SaveBase64ToFile b64, FolderPath, FileName
-        printMsg info_, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
+        printMsg info_, br.LogID, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
     End If
 
 End Sub
 
-Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
 
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & br.id & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
-        If Dir(currentLog.logPath, vbDirectory) = "" Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With LogControl
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
-
-
-    '主に、CDPコマンドのエラー時に止まります
-    If doRaiseError Then Err.Raise CustomErrorCodes.Protocol, From, Description:=strMsg
-
-End Sub
 
 Public Sub printTabs()
 '------------------------------------------------------------------
@@ -1956,14 +1909,14 @@ Public Sub printTabs()
     Set targets = results("targetInfos")
 
    'Read info
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "Tabs Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, "Tabs Information", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
 
     i = 1
     For Each target_ In targets
         If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
+            printMsg Debug_, br.LogID, "#" & i & vbTab & _
                         "type: " & target_("type") & " | " & _
                         "attached: " & target_("attached") & " | " & _
                         "title: " & target_("title") & " | " & _
@@ -1982,27 +1935,27 @@ Public Sub printParams()
     Const FromProcedureName As String = ThisClassName & ".printParams"
 
 
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, br.id & " Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, br.LogID & " Information", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Last ID           | lngLastID    | " & brTab.lngLastID, FromProcedureName
-    printMsg Debug_, "Window Handle     | brHWnd       | " & br.hWnd, FromProcedureName
-    printMsg Debug_, "Window ID         | brWId        | " & br.WID, FromProcedureName
-    printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
-    printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Browser Path      | brPath       | " & br.Path, FromProcedureName
-    printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
-    printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.CollectionPipe_hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.CollectionPipe_hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.CollectionPipe_hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.CollectionPipe_hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.CollectionPipe_hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.CollectionProcessId, FromProcedureName
-    printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
+    printMsg Debug_, br.LogID, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
+    printMsg Debug_, br.LogID, "Last ID           | lngLastID    | " & brTab.lngLastID, FromProcedureName
+    printMsg Debug_, br.LogID, "Window Handle     | brHWnd       | " & br.hWnd, FromProcedureName
+    printMsg Debug_, br.LogID, "Window ID         | brWId        | " & br.WID, FromProcedureName
+    printMsg Debug_, br.LogID, "Browser Type      | brType       | " & br.Type, FromProcedureName
+    printMsg Debug_, br.LogID, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
+    printMsg Debug_, br.LogID, "Browser Path      | brPath       | " & br.Path, FromProcedureName
+    printMsg Debug_, br.LogID, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
+    printMsg Debug_, br.LogID, "Tab Title         | brName       | " & br.Name, FromProcedureName
+    printMsg Debug_, br.LogID, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
+    printMsg Debug_, br.LogID, "Core StdInWr      | hStdInWr     | " & core.CollectionPipe_hStdInWr, FromProcedureName
+    printMsg Debug_, br.LogID, "Core StdOutRd     | hStdOutRd    | " & core.CollectionPipe_hStdOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core hStderrOutRd | hStderrOutRd | " & core.CollectionPipe_hStderrOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core CDPInWr      | hCDPInWr     | " & core.CollectionPipe_hCDPInWr, FromProcedureName
+    printMsg Debug_, br.LogID, "Core CDPOutRd     | hCDPOutRd    | " & core.CollectionPipe_hCDPOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core dwProcessId  | dwProcessId  | " & core.CollectionProcessId, FromProcedureName
+    printMsg Debug_, br.LogID, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
 
 End Sub
 
@@ -2021,14 +1974,14 @@ Public Function tabCount() As Long
     Set targets = results("targetInfos")
 
    'Read info
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "Tabs Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, "Tabs Information", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
 
     i = 0
     For Each target_ In targets
         If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
+            printMsg Debug_, br.LogID, "#" & i & vbTab & _
                         "type: " & target_("type") & " | " & _
                         "attached: " & target_("attached") & " | " & _
                         "title: " & target_("title") & " | " & _
@@ -2139,10 +2092,10 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
         'エラーによる`Err.Raise`で止めるか？
         If StopError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, br.LogID, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, br.LogID, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
@@ -2150,7 +2103,7 @@ Public Function invokeMethod(methodName As String, Optional params As Scripting.
     End If
 
     'デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If core.ShowLogCDPresponse Then printMsg Debug_, br.LogID, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
@@ -2168,7 +2121,7 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True, dbgMsg:=StopError)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", Async:=True, dbgMsg:=StopError)
 
     '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
     '※1件しかAddしてないので、直Index指定する
@@ -2176,16 +2129,16 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
         'エラーによる`Err.Raise`で止めるか？
         If StopError Then
             'エラーになったmethod名と、`WriteFile`の実行エラーコードを表示して停止
-            printMsg ERROR_, "Failed to invokeAsync-WriteFile method """ & methodName & """" & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0)), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, br.LogID, "Failed to invokeAsync-WriteFile method """ & methodName & """" & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & results.Items(0) & " - " & core.ErrorDetail.GetMessage(results.Items(0)), FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invokeAsync-WriteFile method """ & methodName & """　ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
+            printMsg WARN_, br.LogID, "Failed to invokeAsync-WriteFile method """ & methodName & """　ErrorCode:" & results.Items(0) & " - " & core.ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
         End If
     End If
 
     '実行したIDを返却
     invokeMethodAsync = results.keys(0)
-    printMsg Debug_, "Async invoked """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
+    printMsg Debug_, br.LogID, "Async invoked """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & core.ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
 
 End Function
 
@@ -2258,7 +2211,7 @@ End Sub
 ' PUBLIC PROPERTIES
 '=============================================================================
 Property Get TimerCounter() As Double
-    TimerCounter = LogControl.GetTicksMs
+    TimerCounter = core.LogControl.GetTicksMs
 End Property
 
 Property Get Url() As String
@@ -2303,7 +2256,7 @@ Property Let Name(newName As String)
 
 
     jsEval "document.title = '" & newName & "'", dbgMsg:=False
-    printMsg info_, "Tab name changed to " & newName, FromProcedureName
+    printMsg info_, br.LogID, "Tab name changed to " & newName, FromProcedureName
     br.Name = newName
 
 End Property
@@ -2327,7 +2280,7 @@ Property Let id(newID As String)
 
 
     '再設定されるので、元のSessionIDを破棄させる
-    printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+    printMsg info_, br.LogID, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
     DiscardSessionID brTab.sessionID
 
     '渡されたIDで、再設定
@@ -2337,7 +2290,7 @@ Property Let id(newID As String)
     ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, "sessionID", FromProcedureName) = brTab.sessionID
 
     getSessionInfo        'update all session infos
-    printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, br.LogID, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -2374,23 +2327,23 @@ Property Set BrowserEvents(ObjDic As Dictionary)
     If ObjDic Is Nothing Then
         'Nothing 処理。以降は、イベントキャプチャはされません。
         Set publicBrowserEvents.Queue = Nothing
-        printMsg info_, "Event capture save data has been discarded. Event capture will not be performed.", FromProcedureName
+        printMsg info_, br.LogID, "Event capture save data has been discarded. Event capture will not be performed.", FromProcedureName
 
     '2. まっさらの場合
     ElseIf ObjDic.Count = 0 Then
         '初期化処理。これにより、イベントキャプチャを開始します。
         Set publicBrowserEvents.Queue = FormatDictionary_BrowserEvents
-        printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
+        printMsg info_, br.LogID, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
     '3. 指定のKeyがあるか？
     ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set publicBrowserEvents.Queue = ObjDic
-        printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
+        printMsg info_, br.LogID, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
 
     '4. 不正なDictionary 形式なのでエラーで止める
     Else
-        printMsg ERROR_, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
+        printMsg ERROR_, br.LogID, "Event capture save data structure is invalid.", FromProcedureName, doRaiseError:=True
     End If
 End Property
 
@@ -2413,9 +2366,9 @@ Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
         If DelMode Then
             'LETのイベントメソッド名が空欄の場合は、全削除します
             publicBrowserEvents.Filter.RemoveAll
-            printMsg info_, "All event method filters have been removed.", FromProcedureName
+            printMsg info_, br.LogID, "All event method filters have been removed.", FromProcedureName
         Else
-            printMsg WARN_, "Event method names that are left blank cannot be added to the filter.", FromProcedureName
+            printMsg WARN_, br.LogID, "Event method names that are left blank cannot be added to the filter.", FromProcedureName
         End If
 
     Else
@@ -2425,26 +2378,26 @@ Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
             If DelMode Then
                 'LETで指定したイベントメソッド名を削除します
                 publicBrowserEvents.Filter.Remove (EventName)
-                printMsg info_, "The specified event method name `" & EventName & "` has been removed from the filter.", FromProcedureName
+                printMsg info_, br.LogID, "The specified event method name `" & EventName & "` has been removed from the filter.", FromProcedureName
             Else
-                printMsg WARN_, "The specified event method name `" & EventName & "` has already been added to the filter.", FromProcedureName
+                printMsg WARN_, br.LogID, "The specified event method name `" & EventName & "` has already been added to the filter.", FromProcedureName
             End If
         Else
             '2-2. 削除モードか？
             If DelMode Then
-                printMsg WARN_, "The specified event method name `" & EventName & "` is not registered in the filter.", FromProcedureName
+                printMsg WARN_, br.LogID, "The specified event method name `" & EventName & "` is not registered in the filter.", FromProcedureName
             Else
                 'LETで指定したイベントメソッドを追加します
                 publicBrowserEvents.Filter.Add EventName, True
-                printMsg info_, "The specified event method name `" & EventName & "` has been added to the filter.", FromProcedureName
+                printMsg info_, br.LogID, "The specified event method name `" & EventName & "` has been added to the filter.", FromProcedureName
             End If
         End If
     End If
 
     '3. ログ用に表示
     Dim FilterCount As Long: FilterCount = publicBrowserEvents.Filter.Count
-    printMsg Debug_, "Current number of filters: " & FilterCount, FromProcedureName
-    If FilterCount = 0 Then printMsg info_, "Because no filter is applied, all event methods are captured.", FromProcedureName
+    printMsg Debug_, br.LogID, "Current number of filters: " & FilterCount, FromProcedureName
+    If FilterCount = 0 Then printMsg info_, br.LogID, "Because no filter is applied, all event methods are captured.", FromProcedureName
 End Property
 
 '***************************************************************************************************
@@ -2454,6 +2407,15 @@ End Property
 '***************************************************************************************************
 Property Get CurrentTargetID() As String
     CurrentTargetID = brTab.targetID
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このクラスで定義中のLodIDを取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：「どのタブか」を特定するための専用ID
+'***************************************************************************************************
+Property Get CurrentLodID() As String
+    CurrentLodID = br.LogID
 End Property
 
 '***************************************************************************************************
@@ -2534,7 +2496,7 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
 
     '1. 存在するか？
     If currentResultCDP.response.Exists(CommandID) Then
-        printMsg Trace_, "CDP-CommandID: " & CommandID & " , Raw-Json:" & currentResultCDP.response(CommandID), FromProcedureName
+        printMsg Trace_, br.LogID, "CDP-CommandID: " & CommandID & " , Raw-Json:" & currentResultCDP.response(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(currentResultCDP.response(CommandID))
@@ -2544,11 +2506,11 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
         If tmp.Exists("result") Then
             '3-1. 正常に終了していると伝える
             ErrorExist = False
-            printMsg Debug_, "This CDP-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
+            printMsg Debug_, br.LogID, "This CDP-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
         Else
             '3-1. エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & currentResultCDP.response(CommandID)("error"), FromProcedureName
+            printMsg WARN_, br.LogID, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & currentResultCDP.response(CommandID)("error"), FromProcedureName
         
         End If
 
@@ -2557,11 +2519,11 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
 
         '5. 取り出したので消しておく
         currentResultCDP.response.Remove CommandID
-        printMsg Trace_, "CDP-command ID: " & CommandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
+        printMsg Trace_, br.LogID, "CDP-command ID: " & CommandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         ErrorExist = False
-        printMsg Trace_, "This CDP-command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+        printMsg Trace_, br.LogID, "This CDP-command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
@@ -2641,11 +2603,11 @@ Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext
     'リクエスト数の上限に達したら、1にリセットしておく
     If brTab.lngLastID + 1 > LimitID Then
         brTab.lngLastID = 1
-        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+        printMsg info_, br.LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
         '不整合を防ぐため、残ってる結果は全消去
         currentResultCDP.response.RemoveAll
-        printMsg info_, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
+        printMsg info_, br.LogID, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
     Else
         brTab.lngLastID = brTab.lngLastID + 1   'We increase the global ID counter
     End If
@@ -2658,11 +2620,11 @@ RetrySend:
     strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
     strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
 
-    printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
-    printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
+    printMsg Debug_, br.LogID, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
+    printMsg Debug_, br.LogID, "runCDP -Async       = " & Async, FromProcedureName
 
     Dim WriteResult As Long: WriteResult = core.RunCDP(strMessage)                                                                  'Send message to the browser instance
-    printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
+    printMsg Debug_, br.LogID, "Result-WriteFile:" & WriteResult, FromProcedureName
 
     '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
     If Async Then
@@ -2681,7 +2643,7 @@ RetrySend:
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim tmp As Dictionary
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
-    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
+    printMsg Trace_, br.LogID, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '1. 受信処理によるパイプを拝見する
         core.TakeEvents
@@ -2695,24 +2657,24 @@ RetrySend:
             '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
             ResultSendCommand = True
             Set SendMessage = tmp
-            printMsg info_, "We have confirmed receipt of command result ID: " & lngCurrentId, FromProcedureName
+            printMsg info_, br.LogID, "We have confirmed receipt of command result ID: " & lngCurrentId, FromProcedureName
         Else
-            printMsg Trace_, "We have not yet been able to confirm command ID: " & lngCurrentId, FromProcedureName
+            printMsg Trace_, br.LogID, "We have not yet been able to confirm command ID: " & lngCurrentId, FromProcedureName
         End If
 
         '4. 一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-        If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
+        If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, br.LogID, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
         DoEvents
 
         '5. CDP-Jsonコマンドの結果が得れたら、受信ループを終了します
     Loop Until ResultSendCommand
 
-    printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
+    printMsg Trace_, br.LogID, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
     Exit Function
 
 afterErr:
 
-    printMsg WARN_, "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)", FromProcedureName
+    printMsg WARN_, br.LogID, "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)", FromProcedureName
     On Error Resume Next
     attachToSession
     GoTo RetrySend
@@ -2725,8 +2687,8 @@ ifError:
     Dim errorLine As Long, errorDesc As String
     errorLine = Erl
     errorDesc = Err.Description
-    printMsg ERROR_, "sendMessage error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg ERROR_, "strMessage used by sendMessage: " & strMessage, FromProcedureName
+    printMsg ERROR_, br.LogID, "sendMessage error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
+    printMsg ERROR_, br.LogID, "strMessage used by sendMessage: " & strMessage, FromProcedureName
 
     Dim blnDidSoftRetry As Boolean, blnDoSoftRetry As Boolean
     blnDoSoftRetry = False
@@ -2742,7 +2704,7 @@ ifError:
     End If
 
     If InStr(errorDesc, "PeekNamedPipe") > 0 Then
-        printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName
+        printMsg ERROR_, br.LogID, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName
         core.ClosePipeCDP   'パイプハンドルを閉じる
         deleteCDPID         'テーブルからも削除する
     End If
@@ -2770,7 +2732,7 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
 
     ' 合計イベントキャプチャ数をカウントする
     Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
-    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
+    printMsg Trace_, br.LogID, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
 
     ' インデックスも付与(1始まり)
     ' これにより、全体の時系列データも保持できます
@@ -2786,13 +2748,13 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     If EventsDictionary.Exists(EventMethodName) Then
         ' あれば、そのコレクションデータをセット
         Set eventList = EventsDictionary(EventMethodName)
-        printMsg Debug_, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
+        printMsg Debug_, br.LogID, "Stored event data from the browser. - " & EventMethodName, FromProcedureName
     Else
         ' なければ、新しい`Collection`をセット
         Set eventList = New Collection
         EventsDictionary.Add EventMethodName, eventList
 
-        printMsg Debug_, "A new type of event. - " & EventMethodName, FromProcedureName
+        printMsg Debug_, br.LogID, "A new type of event. - " & EventMethodName, FromProcedureName
     End If
 
     ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
@@ -2853,7 +2815,7 @@ Private Function checkFilterEvent(FilterDictionary As Dictionary, EventMethodNam
 
 
     '0. オブジェクト自体が設定されてない場合は一律、キャプチャしない判定とします
-    If FilterDictionary Is Nothing Then checkFilterEvent = False: printMsg Trace_, "Since no filter object is set, capturing all event methods is disabled.", FromProcedureName: Exit Function
+    If FilterDictionary Is Nothing Then checkFilterEvent = False: printMsg Trace_, br.LogID, "Since no filter object is set, capturing all event methods is disabled.", FromProcedureName: Exit Function
 
     '1. フィルター情報があるか？
     If FilterDictionary.Count Then
@@ -2861,16 +2823,16 @@ Private Function checkFilterEvent(FilterDictionary As Dictionary, EventMethodNam
         If FilterDictionary.Exists(EventMethodName) Then
             'あれば、capture対象
             checkFilterEvent = True
-            printMsg Trace_, "Filter registration detection: " & EventMethodName, FromProcedureName
+            printMsg Trace_, br.LogID, "Filter registration detection: " & EventMethodName, FromProcedureName
         Else
             'なければ、captureしない
             checkFilterEvent = False
-            printMsg Trace_, "Filter not registered: " & EventMethodName, FromProcedureName
+            printMsg Trace_, br.LogID, "Filter not registered: " & EventMethodName, FromProcedureName
         End If
     Else
         'フィルター情報がない場合は、全てキャプチャさせます
         checkFilterEvent = True
-        printMsg Trace_, "Since no filter is set, all event methods will be captured.", FromProcedureName
+        printMsg Trace_, br.LogID, "Since no filter is set, all event methods will be captured.", FromProcedureName
     End If
 End Function
 
@@ -2961,13 +2923,10 @@ ifError:
     Dim errorLine As Long, errorDesc As String
     errorLine = Erl
     errorDesc = Err.Description
-    printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(EventMessageForAttachToSession.Queue), FromProcedureName
-    printMsg Debug_, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
-    printMsg Debug_, "results_ = " & jsConverter.ConvertToJson(results_), FromProcedureName
-    printMsg Debug_, "results__ = " & jsConverter.ConvertToJson(results__), FromProcedureName
-    printMsg Debug_, "results___ = " & jsConverter.ConvertToJson(results___), FromProcedureName
-    printMsg Debug_, ".start call string: " & br.CallString, FromProcedureName
+    printMsg ERROR_, br.LogID, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
+    printMsg Debug_, br.LogID, "TargetInfo = " & jsConverter.ConvertToJson(TargetInfo), FromProcedureName
+    printMsg Debug_, br.LogID, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
+    printMsg Debug_, br.LogID, ".start call string: " & br.CallString, FromProcedureName
 
     printParams
     Err.Raise CustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
@@ -2988,17 +2947,17 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
         ErrorCode = -1 'arbitrary nonzero value, may change in future
         ErrorMessage = "Timeout or No results"
         ErrorData = vbEmpty
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+        printMsg WARN_, br.LogID, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         invokeError = True
         Set lastErrorDetailsCDP = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
     ElseIf result.Exists("error") Then
         Set lastErrorDetailsCDP = result("error")
         ErrorCode = lastErrorDetailsCDP("code")
         ErrorMessage = lastErrorDetailsCDP("message")
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+        printMsg WARN_, br.LogID, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
         If lastErrorDetailsCDP.Exists("data") Then
             ErrorData = lastErrorDetailsCDP("data")
-            printMsg WARN_, "       " & ErrorData, FromProcedureName
+            printMsg WARN_, br.LogID, "       " & ErrorData, FromProcedureName
         Else
             ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
         End If
@@ -3102,7 +3061,7 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     brTab.lngLastID = 0   'To make a clean slate for new session
     brTab.sessionID = ""  'Likewise
 
-    printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
+    printMsg info_, br.LogID, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
 
 End Sub
 
@@ -3155,7 +3114,7 @@ Private Sub setCrashStateNormal()
         Close #intF
     End If
 
-    printMsg info_, "setCrashStateNormal completed", FromProcedureName
+    printMsg info_, br.LogID, "setCrashStateNormal completed", FromProcedureName
 
 End Sub
 
@@ -3189,8 +3148,6 @@ Private Function getTargetID() As String
 
 End Function
 
-
-
 Private Function getBrowserPath(strBrowserType As String) As String
 '----------------------------------------------------------------------------------
 ' Obtain the installation path of the browser program. This is useful when
@@ -3204,7 +3161,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Select Case True
         Case InStr(LCase(strBrowserType), "chrome"): br.Type = brChrome
         Case InStr(LCase(strBrowserType), "edg"): br.Type = brEdge         'On edge it is just "Edg"
-        Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
+        Case Else: printMsg ERROR_, br.LogID, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
     End Select
 
     'カスタムパスの指定があったらそっちを優先
@@ -3258,7 +3215,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
 
         '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
-        If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
+        If LenB(getBrowserPath) = 0 Then printMsg ERROR_, br.LogID, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 
 End Function
@@ -3281,7 +3238,7 @@ Private Sub getSessionInfo()
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
     Dim tmp As Dictionary: Set tmp = invokeMethod("Browser.getWindowForTarget", StopError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
+    If tmp Is Nothing Then printMsg info_, br.LogID, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
     br.Type = invokeMethod("Browser.getVersion").Item("product")
     br.Ver = Split(br.Type, "/")(1)
@@ -3333,9 +3290,9 @@ Private Function checkURI(URI As String) As String
 
 
     '0. 空文字の場合は、チェックしません
-    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
+    printMsg Debug_, br.LogID, "Checking the protocol of the URI...", FromProcedureName
     If URI = "" Then
-        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
+        printMsg Debug_, br.LogID, "Checking is skipped because the URI is empty.", FromProcedureName
 
         checkURI = URI
         Exit Function
@@ -3365,7 +3322,7 @@ Private Function checkURI(URI As String) As String
     For i = 1 To UBound(WhiteList)
         '先頭始まりなら、引数の内容そのまんまを返して抜ける
         If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
+            printMsg Debug_, br.LogID, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
 
             checkURI = URI
             Exit Function
@@ -3382,7 +3339,7 @@ Private Function checkURI(URI As String) As String
     End If
 
     '4. エラーで中断
-    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
+    printMsg ERROR_, br.LogID, ErrorMes, FromProcedureName, doRaiseError:=True
 
 End Function
 
@@ -3401,7 +3358,7 @@ Private Function DiscardSessionID(sessionID As String) As Boolean
 
 
     '空は即抜け
-    If sessionID = "" Then printMsg Debug_, "SessionID is empty." & sessionID, FromProcedureName: Exit Function
+    If sessionID = "" Then printMsg Debug_, br.LogID, "SessionID is empty." & sessionID, FromProcedureName: Exit Function
 
     'パラメーターを組んで破棄コマンド実行
     Dim CDPparameters As New Dictionary
@@ -3410,9 +3367,9 @@ Private Function DiscardSessionID(sessionID As String) As Boolean
 
     'ログとして出しておく
     If DiscardSessionID Then
-        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
+        printMsg info_, br.LogID, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
     Else
-        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
+        printMsg Debug_, br.LogID, "Failed to destroy SessionID: " & sessionID, FromProcedureName
     End If
 End Function
 
@@ -3439,7 +3396,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
     Select Case BrowserExeName
         Case brEdge: RegPathBrowser = "\Microsoft\Edge"
         Case brChrome: RegPathBrowser = "\Google\Chrome"     'https://issues.chromium.org/issues/42323066
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
+        Case Else: printMsg ERROR_, br.LogID, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
     End Select
 
     'ポリシー情報のあるパスを設定します
@@ -3470,11 +3427,11 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         '1-1. 32bit値としてチェックする
         ValueSize = SIZE_REG_DWORD
         ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents_long), ValueSize)
-        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
+        printMsg Debug_, br.LogID, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '1-2. そのデータ名があるか？
         If ValueExists = RRF_SUCCESS Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_long, FromProcedureName
+            printMsg Debug_, br.LogID, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_long, FromProcedureName
 
             '1-3. リモートできない設定値になってるか？
             If ValueContents_long = DisableRemote Then
@@ -3482,7 +3439,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
                                   "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
 
-                printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
+                printMsg ERROR_, br.LogID, ErrorMes, FromProcedureName, doRaiseError:=True
                 Exit For
             End If
         End If
@@ -3497,11 +3454,11 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
         '※文字列の場合、仕組み上まず、文字数チェックを行います
         ValueSize = 0   'リセット
         ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, 0, ValueSize)
-        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
+        printMsg Debug_, br.LogID, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
 
         '2-2. そのデータ名があるか？
         If ValueExists = RRF_SUCCESS Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_String, FromProcedureName
+            printMsg Debug_, br.LogID, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_String, FromProcedureName
 
             'フラグ立て
             currentPolicy.UserDataDir.Exists = True
@@ -3518,7 +3475,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
                               "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。")
 
-            printMsg WARN_, ErrorMes, FromProcedureName
+            printMsg WARN_, br.LogID, ErrorMes, FromProcedureName
             Exit For
         End If
     Next
@@ -3529,8 +3486,8 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    core.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    core.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
 
@@ -3547,21 +3504,12 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.id = "BRID" & Format(Rnd * 1000, "000")
+    br.LogID = "BRID" & Format(Rnd * 1000, "000")
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        '1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    
-        '2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
-        If LogFolderPath <> "" Then
-            currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
-        End If
 
         '3. いくつかのポリシーチェックを行います。
         'この確認を使用することで、原因調査の時短につながる可能性があります。
@@ -3612,9 +3560,9 @@ Private Sub Class_Terminate()
 
     'SessionIDを保持するオプションになってるか確認
     If KeepSession Then
-        printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+        printMsg Debug_, br.LogID, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
     Else
-        printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
+        printMsg Debug_, br.LogID, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
 
         'SessionIDを破棄しておく
         DiscardSessionID brTab.sessionID
