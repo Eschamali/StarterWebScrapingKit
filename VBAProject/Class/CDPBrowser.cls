@@ -150,13 +150,6 @@ Public Enum ReConnectSessionID
 End Enum
 
 
-'このツール独自のエラーコード
-Private Enum CustomErrorCodes
-    TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
-    PIPE = 901      'Pipe通信周り(`PeekNamedPipe`など)でエラー
-    Protocol = 902  'CDPコマンド自体のエラー
-End Enum
-
 
 '各種ブラウザ固有の情報
 Private Const brChrome          As String = "chrome.exe"
@@ -456,7 +449,7 @@ Public Sub start(Optional Name As String = "chrome", _
         timerStart = TimerCounter
         Do
             If Me.Name <> "" Then Exit Do
-            If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
        wait
@@ -2582,7 +2575,7 @@ RetrySend:
         End If
 
         '4. 一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-        If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, br.LogID, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
+        If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, br.LogID, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
         DoEvents
 
         '5. CDP-Jsonコマンドの結果が得れたら、受信ループを終了します
@@ -2628,7 +2621,7 @@ ifError:
         deleteCDPID         'テーブルからも削除する
     End If
 
-    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, CustomErrorCodes.PIPE, CustomErrorCodes.Protocol), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
+    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, CDPCustomErrorCodes.PIPE, CDPCustomErrorCodes.Protocol), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
 
 End Function
 
@@ -2793,7 +2786,7 @@ ifError:
     printMsg Debug_, br.LogID, ".start call string: " & br.CallString, FromProcedureName
 
     printParams
-    Err.Raise CustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
+    Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
 
 End Function
 

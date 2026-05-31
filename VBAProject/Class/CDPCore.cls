@@ -170,6 +170,14 @@ Public Enum WinState
     doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
 End Enum
 
+'このツール独自のエラーコード
+Public Enum CDPCustomErrorCodes
+    TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
+    PIPE = 901      'Pipe通信周り(`PeekNamedPipe`など)でエラー
+    Protocol = 902  'CDPコマンド自体のエラー
+End Enum
+
+
 Private Const ThisClassName As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 
@@ -1106,7 +1114,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
 
 
     '主に、CDPコマンドのエラー時に止まります
-    If doRaiseError Then Err.Raise CustomErrorCodes.Protocol, From, Description:=strMsg
+    If doRaiseError Then Err.Raise CDPCustomErrorCodes.Protocol, From, Description:=strMsg
 
 End Sub
 
