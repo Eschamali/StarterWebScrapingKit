@@ -285,7 +285,7 @@ Property Get CollectionProcessId() As LongPtr           '`--remote-debugging-pip
 End Property
 
 '***************************************************************************************************
-'* 機能　　：最後のパイプ関連のエラーコード取得用プロパティ
+'* 機能　　：最後の読み取り系パイプのエラーコード取得用プロパティ
 '***************************************************************************************************
 Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
     LastErrorPeekNamedPipe = LastReceiveError.PeekNamedPipe
@@ -750,10 +750,14 @@ End Function
 '***************************************************************************************************
 '* 機能　　：パイプから、データ欠損がなくなるまで、ループして取り出していきます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
-'                          `False`:IDの解析やイベントの中身の解析を行います
+'* 引数　　：destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
+'                           `False`:IDの解析やイベントの中身の解析を行います
+'
+'            StopPipeError  `True` ：`PeekNamedPipe`OR`ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe`OR`ReadFile`いずれかに、エラーがあっても停止しません。
+'                                    別途、`LastError○○`で後で確認可能です
 '***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
+Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean = True)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
 
@@ -794,12 +798,12 @@ Public Sub TakeEvents(Optional destruction As Boolean)
             'データなしの場合は、エラーコードチェックを行う
             If LastReceiveError.PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastReceiveError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastReceiveError.PeekNamedPipe, "kernel32"), FromProcedureName
+                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastReceiveError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastReceiveError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             ElseIf LastReceiveError.ReadFile Then
                 'ReadFile にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastReceiveError.ReadFile & " - " & ErrorDetail.GetMessage(LastReceiveError.ReadFile, "kernel32"), FromProcedureName
+                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastReceiveError.ReadFile & " - " & ErrorDetail.GetMessage(LastReceiveError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             Else
