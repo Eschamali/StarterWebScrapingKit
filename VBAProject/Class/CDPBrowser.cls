@@ -2399,51 +2399,35 @@ Property Get LastJavaScriptException() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：非同期で実行されたIDを取り出します
+'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
-'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
-'
-'* 返値    ：そのIDの実行結果のJson-Dictionary
+'* 返値    ：そのIDの実行結果のJson文字列
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
 '            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
-'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
+'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
+'            ・エラー判定、JsonDictionay化は別途、用意してください
 '***************************************************************************************************
-Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As Boolean) As Dictionary
+Property Get ResultCDPFromWithEvents(CommandID As Long) As String
     Const FromProcedureName As String = ThisClassName & ".ResultCDPByAsync"
 
 
     '1. 存在するか？
     If ResultCDP_Browser.response.Exists(CommandID) Then
-        printMsg Trace_, br.LogID, "CDP-CommandID: " & CommandID & " , Raw-Json:" & ResultCDP_Browser.response(CommandID), FromProcedureName
+        '2. Log化
+        Dim tmp As String: tmp = ResultCDP_Browser.response(CommandID)
+        printMsg info_, br.LogID, "We were able to confirm the existence of CDP command ID:" & CommandID & "　→　" & tmp, FromProcedureName
 
-        '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(ResultCDP_Browser.response(CommandID))
+        '3. 返却
+        ResultCDPFromWithEvents = tmp
 
-        '3. `result`オブジェクトがあるか？
-        'ない場合は、そのまま返却
-        If tmp.Exists("result") Then
-            '3-1. 正常に終了していると伝える
-            ErrorExist = False
-            printMsg Debug_, br.LogID, "This CDP-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
-        Else
-            '3-1. エラーありとして伝える
-            ErrorExist = True
-            printMsg WARN_, br.LogID, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & ResultCDP_Browser.response(CommandID)("error"), FromProcedureName
-        
-        End If
-
-        '4. 返却自体は、そのままで
-        Set ResultCDPForAsync = tmp
-
-        '5. 取り出したので消しておく
+        '4. 取り出したので消しておく
         ResultCDP_Browser.response.Remove CommandID
-        printMsg Trace_, br.LogID, "CDP-command ID: " & CommandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
+        printMsg Trace_, br.LogID, "CDP-command ID: " & CommandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
-        ErrorExist = False
         printMsg Trace_, br.LogID, "This CDP-command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
@@ -2560,7 +2544,7 @@ RetrySend:
     Dim timerStart As Double: timerStart = TimerCounter                                                 'Failsafe timer to ensure loop ends when server fails to respond
 
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
-    Dim tmp As Dictionary
+    Dim tmp As String
     Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
     printMsg Trace_, br.LogID, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
@@ -2571,11 +2555,11 @@ RetrySend:
         If core.LastErrorPeekNamedPipe > 0 Or core.LastErrorReadFile > 0 Then GoTo ifError
 
         '3. 内部の`RaiseEvent CDPBrowserEvent`による発火で、Dictionaryへ蓄積されたか？
-        Set tmp = ResultCDPForAsync(lngCurrentId)
-        If Not tmp Is Nothing Then
-            '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
+        tmp = ResultCDPFromWithEvents(lngCurrentId)
+        If StrPtr(tmp) Then
+            '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、Jsonパース処理して結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
             ResultSendCommand = True
-            Set SendMessage = tmp
+            Set SendMessage = jsConverter.ParseJson(tmp)
             printMsg info_, br.LogID, "We have confirmed receipt of command result ID: " & lngCurrentId, FromProcedureName
         Else
             printMsg Trace_, br.LogID, "We have not yet been able to confirm command ID: " & lngCurrentId, FromProcedureName
@@ -2742,7 +2726,7 @@ Private Function attachToSession() As Integer
 
     Dim TargetInfo As Scripting.Dictionary
 
-    On Error GoTo ifError
+'    On Error GoTo ifError
 
     '非同期イベント：`Target.targetCreated`　が取れるようにCollectionを有効化
     Set TargetInfos = New Collection
