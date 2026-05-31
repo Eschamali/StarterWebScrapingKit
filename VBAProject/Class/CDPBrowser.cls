@@ -2142,70 +2142,6 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
 
 End Function
 
-'***************************************************************************************************
-'* 機能　　：パイプから、メッセージを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
-'                          `False`:IDの解析やイベントの中身の解析を行います
-'***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
-
-
-    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
-    Dim intRes As Long
-    Dim strRes As String
-    printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
-
-    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
-    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
-    Do
-        'std系の中身を出力
-        viewStdoutAndStderr
-
-        '受信処理
-        intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
-        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
-
-        '返り値チェック
-        If intRes > 0 Then
-            '破棄モードかの判定
-            If destruction Then
-                '解析などせず、そのまんま出して破棄します
-                '※強いていうなら、破棄するメッセージをそのまま出す
-                printMsg Trace_, "Discarding data in pipe...", FromProcedureName
-                If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
-
-                '欠けチェック
-                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
-            Else
-                '中身の解析をし、IDやイベントを取り出します
-                printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
-                Call ReceiveFromPipeSplit(strRes)   '単なるイベント収集のため、コマンドIDによる確認はしないように設定
-
-                '欠けチェック
-                vbNullCharTermination = (FragmentedDate.Index = 0)
-            End If
-        Else
-            'データなしの場合は、エラーコードチェックを行う
-            If ErrorCode_PeekNamedPipe Then
-                'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
-
-            ElseIf ErrorCode_ReadFile Then
-                'ReadFile にてエラーがあった場合
-                printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
-            Else
-                'パイプ内は空
-                printMsg Trace_, "The message queue is currently empty.", FromProcedureName
-            End If
-        End If
-    Loop Until vbNullCharTermination And intRes < 1
-
-    printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
-End Sub
-
-
 
 '=============================================================================
 ' PUBLIC PROPERTIES
@@ -2574,8 +2510,6 @@ End Property
 '                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
 '
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
-'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
@@ -2588,7 +2522,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -2760,48 +2694,6 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     ' 3. セットされたコレクションに、今回のイベントの詳細データを、追加する
     eventList.Add eventData
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックします
-'---------------------------------------------------------------------------------------------------
-'* 返値    ：TRUE :受信ループを止める合図。
-'               ・`CDPJsonString`に、ExcelからのCDP-Jsonコマンド結果がある
-'               ・コマンド構文エラーによる、ID項目なし
-'
-'            FALSE:受信ループを継続する合図。
-'               ・`CDPJsonString`は、ブラウザからのイベント情報である
-'
-'* 引数　　：returnCDPJson          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
-'            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
-'            InternalFilterMessage  クラス内プロシージャで、イベント内容をフィルタリングする際の参照変数
-'            checkCommandID         確認するコマンドID
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、ブラウザイベントの場合はついでに、イベント情報を格納します。
-'* 注意事項；CDP-Jsonコマンド結果IDの不一致(シングルスレッド配下なら多分ないはず...)の場合は、不整合により不安定につながるため、エラーで停止します
-'***************************************************************************************************
-Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMessages As Dictionary, InternalFilterMessage As Dictionary, checkCommandID As Long) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
-
-
-
-
-    '======================================= イベント情報を格納するフェーズへ =======================================
-    'パブリック(呼び出し側使用)用
-    If publicBrowserEvents.Queue Is Nothing Or Not (ExistEventInFilter_Public) Then
-        printMsg Trace_, "No event information is required on the module side.", FromProcedureName
-    Else
-        printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived publicBrowserEvents.Queue, JsonDictionaryObj, AsynchronousEventName
-    End If
-
-    'プライベート(クラス内変数)用
-    If InternalUseMessages Is Nothing Or Not (ExistEventInFilter_Private) Then
-        printMsg Trace_, "No event information needed inside the class.", FromProcedureName
-    Else
-        printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
-    End If
-End Function
 
 '***************************************************************************************************
 '* 機能　　：ブラウザイベント情報を格納する前に、フィルター情報を取得して、イベント蓄積させるか判定させます
@@ -3525,20 +3417,6 @@ Private Sub Class_Initialize()
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
-
-    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
-    Set currentResultCDP.response = New Dictionary
-    currentResultCDP.limit = InitialAllocationStrBuffer
-
-    'Json分断時の一時キュー関連の初期設定
-    With FragmentedDate
-        .expansionCount = 1
-        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-        .Index = 0
-    End With
-
-    'public用イベントメソッドフィルターを有効化
-    Set publicBrowserEvents.Filter = New Dictionary
     '------------------------------------------------------------------------------
 
 
