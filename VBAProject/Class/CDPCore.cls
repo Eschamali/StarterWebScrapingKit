@@ -1124,6 +1124,9 @@ End Sub
 '                               ■■■ 初期化処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '1. Json分断時の一時キュー関連の初期設定
     With FragmentedDate
