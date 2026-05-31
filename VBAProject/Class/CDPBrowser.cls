@@ -236,6 +236,7 @@ Private Type CheckPolicy
     UserDataDir As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
 End Type
 Private currentPolicy As CheckPolicy
+Private UseChrome     As Boolean
 '--------------------------------------------------
 
 'ブラウザからの非同期イベント状況
@@ -358,8 +359,12 @@ Public Sub start(Optional Name As String = "chrome", _
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
+    'パイプ関連の初期化処理
     Set core = New CDPCore
     core.UseConverterUtf8FromString = UseConverterUtf8FromString '`New`による直後に、文字コード設定を反映
+
+    'いくつかのポリシーチェックを行います。
+    IsRemoteDebuggingBlockedByPolicy IIf(UseChrome, brChrome, brEdge)
 
     Dim strCall As String, addProfile As String
     Dim intRes As Long
@@ -3371,17 +3376,14 @@ Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-
-        '3. いくつかのポリシーチェックを行います。
-        'この確認を使用することで、原因調査の時短につながる可能性があります。
-        '※主要なブラウザのみチェックします
-        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, FromProcedureName)).value, brChrome, brEdge)
-
-        '4. Edgeウィンドウの表示モードの設定
+        '1. Edgeウィンドウの表示モードの設定
         br.setShowWindow = .Range(.UseRangeName(12, FromProcedureName)).value
 
-        '5. 文字コード設定
+        '2. 文字コード設定
         UseConverterUtf8FromString = .Range(.UseRangeName(10, FromProcedureName)).value
+
+        '3. ブラウザの使用タイプ
+        UseChrome = .Range(.UseRangeName(4, FromProcedureName)).value
     End With
 
     'タイムアウト設定(デフォルトで、30s)
