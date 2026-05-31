@@ -3347,6 +3347,10 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
     core.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
+Public Sub TakeEvents(Optional destruction As Boolean)
+    core.TakeEvents destruction
+End Sub
+
 
 
 Private Sub Class_Initialize()
