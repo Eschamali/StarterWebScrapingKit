@@ -192,7 +192,7 @@ Property Let value(strTextVal As String)
    'Reactフィールド検出（thisコンテキスト内でObject.entriesを実行）
     e1 = main.jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }", objectId:=getObjectId(), dbgMsg:=False)
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
-    If isReact Then main.printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
+    If isReact Then main.printMsg WARN_, main.CurrentLodID, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
    'objectArgumentsで安全に値を渡す（エスケープ不要）
     Dim args As New Collection
@@ -487,7 +487,7 @@ Public Function sendString(textToSend As String) As Boolean
     main.invokeMethod "Input.insertText", params
 
     sendString = True
-    main.printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & getObjectId(), FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "Executed sendString(""" & textToSend & """) successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
@@ -525,7 +525,7 @@ Public Function sendClick() As Boolean
     main.invokeMethod "Input.dispatchMouseEvent", params
 
     sendClick = True
-    main.printMsg info_, "Executed sendClick successfully on objectId: " & getObjectId(), FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "Executed sendClick successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
@@ -563,7 +563,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     main.invokeMethod "Input.dispatchKeyEvent", params
 
     sendKey = True
-    main.printMsg info_, "Executed sendKey successfully on objectId: " & getObjectId(), FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "Executed sendKey successfully on objectId: " & getObjectId(), FromProcedureName
 
 End Function
 
@@ -623,7 +623,7 @@ Public Function ifExist() As CDPElement
 
     checkExist = True
     Set ifExist = Me
-    main.printMsg info_, "ifExist returned " & isExist & " on [" & varJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "ifExist returned " & isExist & " on [" & varJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
 
 End Function
 
@@ -640,8 +640,8 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 
     timeStart = main.TimerCounter
     Do While elemVarType = vbNull
-        If main.TimerCounter - timeStart > timeOutInSeconds Then
-            main.printMsg ERROR_, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
+        If main.TimerCounter - timeStart > timeOutInSeconds * 1000 Then
+            main.printMsg ERROR_, main.CurrentLodID, "onExists timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
         elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
@@ -649,7 +649,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Loop
 
     Set onExist = Me
-    main.printMsg info_, "onExists satisfied: [" & varJS & "] is now available for interaction", FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "onExists satisfied: [" & varJS & "] is now available for interaction", FromProcedureName
 
 End Function
 
@@ -668,8 +668,8 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
 
     timeStart = main.TimerCounter
     Do While elemVarType <> vbNull
-        If main.TimerCounter - timeStart > timeOutInSeconds Then
-            main.printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
+        If main.TimerCounter - timeStart > timeOutInSeconds * 1000 Then
+            main.printMsg ERROR_, main.CurrentLodID, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
         elemVarType = VarType(main.jsEval(varJS, dbgMsg:=False))
@@ -677,7 +677,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
     Loop
 
     onExistNot = True
-    main.printMsg info_, "onExistsNot satisfied: [" & varJS & "] is no longer available for interaction", FromProcedureName
+    main.printMsg info_, main.CurrentLodID, "onExistsNot satisfied: [" & varJS & "] is no longer available for interaction", FromProcedureName
 
 End Function
 
@@ -968,7 +968,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
    'Check if strXPath has invalid // syntax
     If Left(strXPath, 2) = "//" Then
-        main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
+        main.printMsg WARN_, main.CurrentLodID, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
@@ -1011,7 +1011,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
    'Check if strXPath has invalid // syntax
     If Left(strXPath, 2) = "//" Then
-        main.printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
+        main.printMsg WARN_, main.CurrentLodID, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
         strXPath = Right(strXPath, Len(strXPath) - 2)
     End If
 
@@ -1073,7 +1073,7 @@ Public Function getIFrame() As CDPElement
 
    'Check if the iFrame is hosted on a different domain
     Dim src As String: src = getAttribute("src")
-    If InStr(src, "http") Then main.printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
+    If InStr(src, "http") Then main.printMsg WARN_, main.CurrentLodID, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
 
    'Get contentDocument objectId via callFunctionOn
     Dim result As Variant
@@ -1082,6 +1082,114 @@ Public Function getIFrame() As CDPElement
     Set getIFrame = New CDPElement
     getIFrame.Init main, , VarType(result), oid
 
+End Function
+
+'***************************************************************************************************
+'* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`CDPElement`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：Index  複数の`Shadow-root`があった際のIndex値。
+'* 返り値　：`CDPElement`オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`CDPElement`を取得します
+'            2. このプロシージャを実行して、Shadow-root(open/close)の中に、入り込みます
+'            3. 再度、`getElementByXPath`等で、Shadow-root(open/close)内の要素を検索して、目的の操作を行います
+'
+'* 注意事項：・あくまでも、今の`CDPElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
+'            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
+'            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
+'***************************************************************************************************
+Public Function GetShadowRoot(Optional Index As Long = 1) As CDPElement
+    Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
+    Dim paramsCDP As Dictionary, ResultCDP As Dictionary
+
+
+    '1. `objectId`に対して、直下のNode情報を取得
+    Set paramsCDP = New Dictionary
+    paramsCDP.Add "objectId", elementObjectId
+    paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
+    paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
+    Set ResultCDP = main.invokeMethod("DOM.describeNode", paramsCDP)
+
+    '2. `shadowRoots`の存在確認
+    If Not ResultCDP.Exists("node") Then main.printMsg WARN_, main.CurrentLodID, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP("node").Exists("shadowRoots") Then main.printMsg WARN_, main.CurrentLodID, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+
+    '3. 先頭の`shadowRoots`の`backendNodeId`を取得
+    Dim shadowRootNodeId As Long
+    shadowRootNodeId = ResultCDP("node")("shadowRoots")(Index)("backendNodeId")
+    main.printMsg Debug_, main.CurrentLodID, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
+
+    '4. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
+    paramsCDP.RemoveAll
+    paramsCDP.Add "backendNodeId", shadowRootNodeId
+    Set ResultCDP = main.invokeMethod("DOM.resolveNode", paramsCDP)
+
+    '5. `Runtime.RemoteObject`の存在確認
+    If Not ResultCDP.Exists("object") Then main.printMsg WARN_, main.CurrentLodID, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
+    If Not ResultCDP("object").Exists("objectId") Then main.printMsg WARN_, main.CurrentLodID, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+
+    '6. `objectId`を取得
+    Dim shadowRootObjectID As String
+    shadowRootObjectID = ResultCDP("object")("objectId")
+    main.printMsg Debug_, main.CurrentLodID, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
+
+    '7. `CDPElement`に必要な情報を継承して返却
+    Set GetShadowRoot = New CDPElement
+    GetShadowRoot.Init main, "", VarType(shadowRootObjectID), shadowRootObjectID
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`GetShadowRoot`プロシージャの複数取得版です。2つ以上になっちゃうときにご利用ください
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：Collectionオブジェクト。中身は、`CDPElement`オブジェクトが詰まってます
+'***************************************************************************************************
+Public Function GetShadowRoots() As Collection
+    Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
+    Dim paramsCDP As Dictionary, ResultCDP As Dictionary
+
+
+    '1. `objectId`に対して、直下のNode情報を取得
+    Set paramsCDP = New Dictionary
+    paramsCDP.Add "objectId", elementObjectId
+    paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
+    paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
+    Set ResultCDP = main.invokeMethod("DOM.describeNode", paramsCDP)
+
+    '2. `shadowRoots`の存在確認
+    If Not ResultCDP.Exists("node") Then main.printMsg WARN_, main.CurrentLodID, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP("node").Exists("shadowRoots") Then main.printMsg WARN_, main.CurrentLodID, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+
+    '3. 各`shadowRoots`の`backendNodeId`を取得していく
+    Set GetShadowRoots = New Collection
+    main.printMsg Debug_, main.CurrentLodID, ResultCDP("node")("shadowRoots").Count & " `Shadow-Root` instances were found.", FromProcedureName
+    Dim shadowRootsNodes
+    For Each shadowRootsNodes In ResultCDP("node")("shadowRoots")
+        '4. 各`shadowRoots`の`backendNodeId`を取得
+        Dim shadowRootNodeId As Long
+        shadowRootNodeId = shadowRootsNodes("backendNodeId")
+        main.printMsg Debug_, main.CurrentLodID, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
+
+        '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
+        paramsCDP.RemoveAll
+        paramsCDP.Add "backendNodeId", shadowRootNodeId
+        Set ResultCDP = main.invokeMethod("DOM.resolveNode", paramsCDP)
+
+        '6. `Runtime.RemoteObject`の存在確認
+        If Not ResultCDP.Exists("object") Then main.printMsg WARN_, main.CurrentLodID, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
+        If Not ResultCDP("object").Exists("objectId") Then main.printMsg WARN_, main.CurrentLodID, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+
+        '7. `objectId`を取得
+        Dim shadowRootObjectID As String
+        shadowRootObjectID = ResultCDP("object")("objectId")
+        main.printMsg Debug_, main.CurrentLodID, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
+
+        '8. `CDPElement`に必要な情報を継承して返却
+        Dim GetShadowRoot As CDPElement: Set GetShadowRoot = New CDPElement
+        GetShadowRoot.Init main, "", VarType(shadowRootObjectID), shadowRootObjectID
+
+        '9. `Collection`に追加
+        GetShadowRoots.Add GetShadowRoot
+    Next
 End Function
 
 

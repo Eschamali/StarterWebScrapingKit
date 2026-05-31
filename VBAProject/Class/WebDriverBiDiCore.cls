@@ -66,7 +66,7 @@ Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-C
 Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const LimitID           As Long = 2000000000                    'BiDiコマンド送信時のID上限値
-Private Const TIMEOUTms_DEFAULT As Long = 30000                         '初期タイムアウトミリ秒数
+Private Const TIMEOUT_DEFAULT   As Long = 30                            '初期タイムアウト秒数
 
 'nmp情報
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
@@ -1482,8 +1482,8 @@ End Function
 
 Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
-    'タイムアウト設定
-    timerOut = TIMEOUTms_DEFAULT
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultBiDi.response = New Dictionary

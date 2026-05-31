@@ -142,19 +142,72 @@ End Type
     End Type
     
 #End If
- 
+
+'===================================
+' 各種イベント定義
+'===================================
+Public Event CDPBrowserEvent(methodName As String, RawJson As String)
+Public Event CDPBrowserID(id As Long, RawJson As String)
+Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
+Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)
+
 '===================================
 ' Constants
 '===================================
- 
+'ウィンドウ表示設定値一式
+Public Enum WinState
+    asHidden = 0            'Hides the window and activates another window.
+    asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
+    asMinimized = 2         'Activates the window and displays it as a minimized window.
+    asMaximized = 3         'Activates the window and displays it as a maximized window.
+    doShowNoActivate = 4    'Displays a window in its most recent size and position. This value is similar to asNormal, except that the window is not activated.
+    doShow = 5              'Activates the window and displays it in its current size and position.
+    doMinimize = 6          'Minimizes the specified window and activates the next top-level window in the Z order.
+    doShowMinNoActivate = 7 'Displays the window as a minimized window. This value is similar to asMinimized, except the window is not activated.
+    doShowNA = 8            'Displays the window in its current size and position. This value is similar to doShow, except that the window is not activated.
+    doRestore = 9           'Activates and displays the window. If the window is minimized or maximized, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window.
+    doShowDefault = 10      'Sets the show state based on the WS_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application.
+    doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
+End Enum
+
+'このツール独自のエラーコード
+Public Enum CDPCustomErrorCodes
+    TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
+    PIPE = 901      'Pipe通信周り(`PeekNamedPipe`など)でエラー
+    Protocol = 902  'CDPコマンド自体のエラー
+End Enum
+
+
+Private Const ThisClassName As String = "CDPCore"
+Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
+
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
 Private Const STARTF_USESHOWWINDOW As Long = &H1&
 
+
+
 '===================================
 ' Shared Variables
 '===================================
- 
+ 'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
+Private Type StateFragmented
+    strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
+    Index           As Long     '埋まってる位置
+    expansionCount  As Long     '拡張確保回数
+End Type
+Private FragmentedDate As StateFragmented
+
+'ログ設定状況
+Private Type StateLog
+    seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
+    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
+    logPath             As String   'ログファイルの保存フォルダパス
+End Type
+Private currentLog  As StateLog
+Private LogID       As String
+
+'パイプ情報
 Private hStdOutWr As LongPtr
 Private hStdOutRd As LongPtr
 Private hStderrOutWr As LongPtr
@@ -168,7 +221,20 @@ Private hCDPInRd As LongPtr
 Private hProcess As LongPtr
 Private setShowWindow As Integer
 Private dwProcessId As LongPtr
-Private Utf8Converter As CharacterCodeConversion
+
+'パイプ関連のエラー番号
+Private Type ErrorCode
+    PeekNamedPipe   As Long
+    ReadFile        As Long
+End Type
+Private LastReceiveError   As ErrorCode
+
+'クラスオブジェクト
+Private Utf8Converter   As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+
+'定義側からも呼び出せるチェーンクラスオブジェクト
+Public LogControl      As New Logger               'ログレベルの制御
+Public ErrorDetail     As New WinApiError          'エラーコードから、詳細を取得するやつ
 
 
 
@@ -183,11 +249,11 @@ Private Utf8Converter As CharacterCodeConversion
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
 '***************************************************************************************************
-Private Property Let UseConverterUtf8FromString(Flag As Boolean)
+Property Let UseConverterUtf8FromString(Flag As Boolean)
     If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
 End Property
 
-Private Property Get UseConverterUtf8FromString() As Boolean
+Property Get UseConverterUtf8FromString() As Boolean
     UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
 End Property
 
@@ -218,17 +284,34 @@ Property Get CollectionProcessId() As LongPtr           '`--remote-debugging-pip
     CollectionProcessId = dwProcessId
 End Property
 
+'***************************************************************************************************
+'* 機能　　：最後の読み取り系パイプのエラーコード取得用プロパティ
+'***************************************************************************************************
+Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
+    LastErrorPeekNamedPipe = LastReceiveError.PeekNamedPipe
+End Property
+
+Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
+    LastErrorReadFile = LastReceiveError.ReadFile
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Property Get ShowLogCDPresponse() As Boolean
+    ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+End Property
 
 
-'===================================
-' Class Functions
-'===================================
- 
+
+'***************************************************************************************************
+'                              ■■■ Pipeの確保と記録 ■■■
+'***************************************************************************************************
+'* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   記録する識別名称
+'***************************************************************************************************
 Public Sub serialize(UserName As String)
-'-------------------------------------------------------------------
-' Create serialized Json string from the current browser instance.
-'-------------------------------------------------------------------
-
     '0. データ記録準備
     Dim tmp As New Dictionary
 
@@ -245,11 +328,12 @@ Public Sub serialize(UserName As String)
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   読み取る識別名称
+'***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
-'--------------------------------------------------------------------
-' Decipher serialized Json string and assign values to CDP variables.
-'--------------------------------------------------------------------
-
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
@@ -282,11 +366,14 @@ Public Sub ClosePipeCDP()
     CloseHandle hStderrOutRd
 End Sub
 
-Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
-'-------------------------------------------------------------------
-' Initialize new browser instance via pipe creation.
-'-------------------------------------------------------------------
- 
+'***************************************************************************************************
+'* 機能　　：Chromiumを`remote-debugging-pipe`として起動し、パイプ接続を開始します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果　※0で成功です
+'* 引数　　：strExec            コマンドライン
+'            ShowWindowMode     初期ウィンドウ表示タイプ
+'***************************************************************************************************
+Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -385,7 +472,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         destOffset = destOffset + 4
 #End If
     Next hIdx
-    
+
    'Define new instance parameters and start it
     With start
         .cb = LenB(start)
@@ -393,7 +480,7 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, setShowWindow)    'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
+        .wShowWindow = ShowWindowMode
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -424,61 +511,10 @@ Public Function Init(strExec As String, KioskMode As edgeKioskType) As Long
 
 End Function
 
+
+
 '***************************************************************************************************
-'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：読み取ったバイト数を返します。
-'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
-'            Err_PeekNamedPipe  PeekNamedPipe にてエラーが起こった際のエラーコードを格納します。実質返り値です
-'            Err_ReadFile       ReadFile にてエラーが起こった際のエラーコードを格納します。実質返り値です
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、第2引数以降で確認して下さい。
-'* 注意事項：`strData`を初期化せずに、使いまわす場合、次のような仕様になります
-'            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：最後に受け取った`ReadFile`の内容を保持します
-'            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：その受信した`ReadFile`の内容に置き換わります
-'***************************************************************************************************
-Public Function readProcCDP(ByRef strData As String, ByRef Err_PeekNamedPipe As Long, ByRef Err_ReadFile As Long) As Long
-    'エラーコードの初期化
-    Err_PeekNamedPipe = 0
-    Err_ReadFile = 0
-
-    Dim lPeekData As Long
-    Dim lngRes As Long
-    
-    '処理が成功すると、戻り値は 0 以外になります。
-    lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
-
-    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
-    If lngRes = 0 Then Err_PeekNamedPipe = Err.LastDllError: Exit Function
-
-
-    'データがあったら実際に、データを入手する処理へ
-    If lPeekData > 0 Then
-        Dim Buffer() As Byte
-        Dim bSuccess As Long
-        ReDim Buffer(lPeekData - 1)
-        bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
-
-        '0以外なら成功です
-        If bSuccess Then
-            'バイト配列をUTF-8に変換するか？
-            If Utf8Converter Is Nothing Then
-                'そのまんま返却
-                strData = StrConv(Buffer, vbUnicode)
-            Else
-                '変換した上で、返却
-                strData = Utf8Converter.BytesToString(Buffer)
-            End If
-
-            '取得サイズを返却
-            readProcCDP = lPeekData
-        Else
-            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
-            Err_ReadFile = Err.LastDllError
-        End If
-    End If
-End Function
-
+'                              ■■■ Pipeの読み書き ■■■
 '***************************************************************************************************
 '* 機能　　：標準出力エラーと標準出力を読み取ります
 '---------------------------------------------------------------------------------------------------
@@ -494,7 +530,7 @@ End Function
 '* 注意事項：ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます。
 '            実際のエラーコードも特に確認しません。
 '***************************************************************************************************
-Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
+Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
     '使用するパイプ通信判定
     Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
 
@@ -535,11 +571,80 @@ Public Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Lo
  
 End Function
 
-Public Function writeProc(ByVal strData As String) As Long
-' --------------------------------------------------------------------------------
-' This functions sends a CDP message to the Chromium browser.
-'---------------------------------------------------------------------------------
- 
+'***************************************************************************************************
+'* 機能　　：標準出力、標準エラー出力を確認します
+'***************************************************************************************************
+Private Sub viewStdoutAndStderr()
+    Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
+    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
+
+
+    Dim strRes As String, intRes As Long
+
+    'Sometimes edge writes to stdout so we clear stdout too.
+    intRes = readProcSTD(strRes, False)
+    If intRes > 0 Then printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+
+    'Sometimes edge writes to stderrout so we clear stderrout too.
+    intRes = readProcSTD(strRes, True)
+    If intRes > 0 Then printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：読み取ったバイト数を返します。
+'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、`Get property`で確認してください。
+'* 注意事項：`strData`を初期化せずに、使いまわす場合、次のような仕様になります
+'            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：最後に受け取った`ReadFile`の内容を保持します
+'            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：その受信した`ReadFile`の内容に置き換わります
+'***************************************************************************************************
+Private Function readProcCDP(ByRef strData As String) As Long
+    Dim lPeekData As Long
+    Dim lngRes As Long
+    
+    '処理が成功すると、戻り値は 0 以外になります。
+    lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
+
+    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
+    If lngRes = 0 Then LastReceiveError.PeekNamedPipe = Err.LastDllError: Exit Function
+
+    'データがあったら実際に、データを入手する処理へ
+    If lPeekData > 0 Then
+        Dim Buffer() As Byte
+        Dim bSuccess As Long
+        ReDim Buffer(lPeekData - 1)
+        bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
+
+        '0以外なら成功です
+        If bSuccess Then
+            'バイト配列をUTF-8に変換するか？
+            If Utf8Converter Is Nothing Then
+                'そのまんま返却
+                strData = StrConv(Buffer, vbUnicode)
+            Else
+                '変換した上で、返却
+                strData = Utf8Converter.BytesToString(Buffer)
+            End If
+
+            '取得サイズを返却
+            readProcCDP = lPeekData
+        Else
+            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
+            LastReceiveError.ReadFile = Err.LastDllError
+        End If
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果   ※0で成功です
+'* 引数　　：strData    CDP-Jsonコマンド
+'***************************************************************************************************
+Public Function RunCDP(ByVal strData As String) As Long
     Dim lngWritten As Long
     Dim ResultCode As Long
 
@@ -556,21 +661,498 @@ Public Function writeProc(ByVal strData As String) As Long
     End If
 
     '失敗時は、実際のエラーコードで返します
-    If ResultCode = 0 Then writeProc = Err.LastDllError
+    If ResultCode = 0 Then RunCDP = Err.LastDllError
 End Function
 
 
 
 '***************************************************************************************************
-'* 機能　　：設定シートから、設定値を読み込みます
+'                               ■■■ 断片データの結合処理 ■■■
+'***************************************************************************************************
+'* 機能　　：`ReadFile`から得たデータが欠けた際のバッファー管理を担うヘルパープライベートプロパティです
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：クラスモジュール構築時、設定値を適用させます
+'* LET引数 ：pieceData  欠けたデータ
+'* GET返値 ：集めた`pieceData`を結合した物
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：断片データ（pieceData）を高速結合するための専用バッファプロパティ。
+'  　　　　　【Let】データを配列の空き部屋（Index）に順次格納。（溢れた時のみバッファ拡張）
+'  　　　　　【Get】格納された全データを Join し、vbNullChar を目印に1件分の完全なJSONを抽出。
+'  　　　　　　　　 抽出後は Index を 0 に戻すことで、実質的なメモリクリアを負荷ゼロで行います。
+'
+'* 注意事項：・`pieceData`に入れるのは必ず欠けたデータであること
+'            ・GET時、`vbnullchar`がどこかに存在するとし、先頭から1件分取り出せる目印として機能していること
+'***************************************************************************************************
+Private Property Let FragmentedCDP(pieceData As String)
+    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP - Let"
+
+
+    With FragmentedDate
+        '1. 上限を越したら、拡張する(高負荷ポイント)
+        If .Index >= InitialAllocationStrBuffer * .expansionCount Then
+            .expansionCount = .expansionCount + 1
+            ReDim Preserve .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+            printMsg Debug_, LogID, "The buffer has been expanded to " & InitialAllocationStrBuffer * .expansionCount, FromProcedureName
+        End If
+
+        '2. 配列に入れる
+        .strBuffer(.Index) = pieceData
+        printMsg Trace_, LogID, "Data has been placed in array " & .Index, FromProcedureName
+
+        '3. カウント
+        .Index = .Index + 1
+    End With
+End Property
+
+Private Property Get FragmentedCDP() As String
+    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP - Get"
+
+
+    '1. 確保中の配列を全部結合する
+    printMsg Trace_, LogID, "Now we'll begin the buffer merging process...", FromProcedureName
+    Dim tmp As String: tmp = Join(FragmentedDate.strBuffer, "")
+    printMsg Trace_, LogID, "concatenated Raw-string: " & tmp, FromProcedureName
+
+    '2. `vbnullchar`がある位置を先頭から探す
+    Dim EndPos As Long: EndPos = searchNull(tmp)
+
+    '3. その目印を元に、1件分返却
+    FragmentedCDP = Mid(tmp, 1, EndPos - 1)
+    printMsg Debug_, LogID, "Trim complete. Result: " & FragmentedCDP, FromProcedureName
+
+    '4. インデックスリセット
+    FragmentedDate.Index = 0
+    printMsg Trace_, LogID, "Buffer Index reset.", FromProcedureName
+
+End Property
+
+Private Function searchNull(checkString As String) As Long
+'------------------------------------------------------------
+' CDP messages received from chrome are null-terminated
+' Updated: 25/10/25: Daniel Polak - new faster version
+'------------------------------------------------------------
+
+    Dim lngPos As Long
+
+    If Len(checkString) = 0 Then Exit Function
+    lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
+    If lngPos > 0 Then
+        searchNull = lngPos
+    Else
+        searchNull = 0
+    End If
+
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ レスポンス捌き ■■■
+'***************************************************************************************************
+'* 機能　　：パイプから、データ欠損がなくなるまで、ループして取り出していきます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
+'                           `False`:IDの解析やイベントの中身の解析を行います
+'
+'            StopPipeError  `True` ：`PeekNamedPipe`OR`ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe`OR`ReadFile`いずれかに、エラーがあっても停止しません。
+'                                    別途、`LastError○○`で後で確認可能です
+'***************************************************************************************************
+Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean = True)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
+
+    Dim intRes As Long
+    Dim strRes As String
+    printMsg Trace_, LogID, "Starts retrieving data from the pipe...", FromProcedureName
+
+    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
+    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
+    Do
+        'std系の中身を出力
+        viewStdoutAndStderr
+
+        '受信処理
+        intRes = readProcCDP(strRes)
+        printMsg Trace_, LogID, "ResSize = " & intRes, FromProcedureName
+
+        '返り値チェック
+        If intRes > 0 Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                '※強いていうなら、破棄するメッセージをそのまま出す
+                printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
+                If currentLog.seeRawSendMsgDbg Then printMsg Trace_, LogID, "Discarded - strRes = " & strRes, FromProcedureName
+
+                '欠けチェック
+                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
+            Else
+                '中身の解析をし、IDや非同期イベントを取り出します
+                printMsg Trace_, LogID, "Analyzing the data in the pipe...", FromProcedureName
+                Call ReceiveFromPipeSplit(strRes)
+
+                '欠けチェック
+                vbNullCharTermination = (FragmentedDate.Index = 0)
+            End If
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If LastReceiveError.PeekNamedPipe Then
+                'PeekNamedPipe にてエラーがあった場合
+                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastReceiveError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastReceiveError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                Exit Sub
+
+            ElseIf LastReceiveError.ReadFile Then
+                'ReadFile にてエラーがあった場合
+                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastReceiveError.ReadFile & " - " & ErrorDetail.GetMessage(LastReceiveError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                Exit Sub
+
+            Else
+                'パイプ内は空
+                printMsg Trace_, LogID, "The message queue is currently empty.", FromProcedureName
+
+            End If
+        End If
+    Loop Until vbNullCharTermination And intRes < 1
+
+    printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：1度の`ReadFile`で取り出した長文を、1件1件に分割し、必要に応じて、断片データを1件分に復元するようにします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ReceiveRawString       パイプから得たそのまんまの文字列
+'***************************************************************************************************
+Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
+    Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
+    Const DividerMark       As String = vbNullChar  'CDPの受信データは、null文字区切りであることを確認
+
+
+    '1. 受信メッセージを活用するため、null文字区切りとしてスマートに分割
+    Dim JsonMessages: JsonMessages = Split(ReceiveRawString, DividerMark)
+
+    '2. 各要素数を確認
+    Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
+    Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
+
+    '3. いくつかログ化
+    '3-1. `ReadFile`で得た内容を確認
+    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, LogID, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
+
+    '3-2. 最初と最後の中身を確認
+    If FirstIndex = LastIndex Then
+        printMsg Trace_, LogID, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
+    Else
+        printMsg Trace_, LogID, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
+        printMsg Trace_, LogID, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
+    End If
+
+    '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
+    '※最初と最後の要素数が同じの場合は、欠けてる状態なのでパス
+    If FirstIndex < LastIndex Then
+        '4-1. 欠けたデータがあるか？
+        If FragmentedDate.Index > 0 Then
+            '4-2. 空データか？
+            If JsonMessages(FirstIndex) = "" Then
+                '4-2-1. 終端目印を付与
+                FragmentedCDP = DividerMark
+                printMsg Trace_, LogID, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
+            Else
+                '4-2-1. 最後の断片データを挿入し、終端目印も付与
+                FragmentedCDP = JsonMessages(FirstIndex)
+                FragmentedCDP = DividerMark
+                printMsg Trace_, LogID, "The merge completes the JSON data.", FromProcedureName
+            End If
+
+            '4-3. 集まったデータを取り出し、最初の要素に上書きし、以降のFor文で活用できるようにする
+            '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
+            JsonMessages(FirstIndex) = FragmentedCDP
+        Else
+            printMsg Trace_, LogID, "There is no missing data being stored.", FromProcedureName
+        End If
+    End If
+    '-----------------------------------------------------------------------------------------
+
+    '------------------------- 5. 最後の要素に対して特別な処理を施す -------------------------
+    '5-1. 空欄か？
+    If JsonMessages(LastIndex) = "" Then
+        '5-2. 今回の受信で全て正しいJson形式として得れました
+        printMsg Trace_, LogID, LastIndex & " messages received.", FromProcedureName
+        printMsg Debug_, LogID, "readProcCDP was able to receive everything!", FromProcedureName
+    Else
+        '5-2. データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
+        printMsg Trace_, LogID, LastIndex + 1 & " messages received.", FromProcedureName
+        printMsg Trace_, LogID, "The Split(" & LastIndex & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
+        FragmentedCDP = JsonMessages(LastIndex)
+
+        printMsg Debug_, LogID, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
+    End If
+    '-----------------------------------------------------------------------------------------
+
+    '6. 最後の要素以外をループで回して、ブラウザからのメッセージを確認する
+    Dim i As Long
+    For i = LBound(JsonMessages) To UBound(JsonMessages) - 1
+        'レスの確認
+        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName 'Only enable if needs to see every raw JS message for debugging/development
+
+        '受信データのチェックを行うプロシージャへ遷移します。
+        Call BrowserReceivedDataCheck(CStr(JsonMessages(i)))
+        DoEvents
+    Next
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックし、各クラスへイベント発信をします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CDPJsonString          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で発信します
+'* 注意事項；構文エラーの場合、不整合により不安定につながるため、エラーで停止します
+'***************************************************************************************************
+Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
+    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
+
+
+    Dim ResultCommandID As Long, AsynchronousEventName As String, sessionID As String
+
+    '--------- 1. ブラウザからのイベントか？ ---------
+    If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
+
+        '--------- 2. ブラウザに対する非同期イベントか？ ---------
+        If GetContentsSessionId(CDPJsonString, sessionID) Then
+            'タブに対する非同期イベントとして発信
+            RaiseEvent CDPTabEvent(AsynchronousEventName, CDPJsonString, sessionID)
+        Else
+            'ブラウザに対する非同期イベントとして発信
+            RaiseEvent CDPBrowserEvent(AsynchronousEventName, CDPJsonString)
+        End If
+    Else
+        '--------- 2. `id`項目があるか？ ---------
+        If GetContentsID(CDPJsonString, ResultCommandID) Then
+            '--------- 3. ブラウザに対するCDP-Jsonコマンド結果か？ ---------
+            If GetContentsSessionId(CDPJsonString, sessionID) Then
+                'タブに対するコマンド結果として発信
+                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
+            Else
+                'ブラウザに対するコマンド結果として発信
+                RaiseEvent CDPBrowserID(ResultCommandID, CDPJsonString)
+            End If
+        Else
+            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、不整合を防ぐため、エラーで止める
+            printMsg ERROR_, LogID, "A syntax error was detected when executing with invokeMethod/invokeMethodAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
+        End If
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`id`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
+'            idValueContents    コマンド結果のID値を格納する変数(参照渡しによって返します)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`{"id":27,"result":{"result":...`という感じで返るので、`InStr`による探索で抜き出します
+'***************************************************************************************************
+Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
+
+
+    '検索設定
+    Const SearchKeyName     As String = "id"    '検索文字列
+    Const StartSearchPos    As Long = 3         'あるべき位置
+
+
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    '下記の例に基づき、3文字目にない場合は、コマンド結果ではないとして、扱います。
+    '・{"id":27,"result":{"result":...
+    '・{"id":57,"error":{"code":...
+    If StartPos = StartSearchPos Then
+        GetContentsID = True
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":") '「id":」分、ずらすイメージ
+
+        '4. ID値の終点を求める
+        Dim EndPos As Long
+        EndPos = InStr(StartPos, jsonString, ",")
+
+        '5. ID値を取り出す
+        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+        printMsg Trace_, LogID, "This response is the command result. ID:" & idValueContents, FromProcedureName
+    Else
+        GetContentsID = False
+        printMsg Trace_, LogID, "This response does not have an `id`.", FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString             CDPのレスポンス(Json文字列そのまんま)
+'            methodValueContents    非同期イベントのメソッド名(参照渡しによって返します)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`{"method":"Network.dataReceived","params":{"...`という感じで返るので、`InStr`による探索で抜き出します
+'***************************************************************************************************
+Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
+
+
+    '検索設定
+    Const SearchKeyName     As String = "method"    '検索文字列
+    Const StartSearchPos    As Long = 3             'あるべき位置
+
+
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    '下記の例に基づき、3文字目にない場合は、非同期イベントではないとして、扱います。
+    '・{"method":"Network.dataReceived","params":{"...
+    If StartPos = StartSearchPos Then
+        GetContentsMethod = True
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":""") '「method":"」分、ずらすイメージ
+
+        '4. method名の終点を求める
+        Dim EndPos As Long
+        EndPos = InStr(StartPos, jsonString, """,")
+
+        '5. method名を取り出す
+        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+        printMsg Trace_, LogID, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
+    Else
+        GetContentsMethod = False
+        printMsg Trace_, LogID, "This response does not have an `method`.", FromProcedureName
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`sessionId`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
+'            idValueContents    sessionId値を格納する変数(参照渡しによって返します)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`...},"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}`という感じで返るので、後方から抜き出します
+'***************************************************************************************************
+Private Function GetContentsSessionId(jsonString As String, ByRef sessionIdValueContents As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".GetContentsSessionId"
+
+
+    '検索設定
+    Const SearchKeyName     As String = "sessionId" '検索文字列
+    Const LenSessionID      As Long = 32            '現時点での、`sessionId`文字数
+
+    '検索開始位置を特定
+    Dim StartSearchPos As Long
+    StartSearchPos = Len(jsonString) - Len(SearchKeyName) - Len(""":""") - LenSessionID - Len("""}")   '「"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
+
+    '負になってたら即抜け
+    If StartSearchPos < 0 Then
+        GetContentsSessionId = False
+        printMsg Trace_, LogID, "This response is the short command result for the browser.", FromProcedureName
+        Exit Function
+    End If
+
+    '1. 文字列検索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, jsonString, Chr(34) & SearchKeyName & """:""")   '「"sessionId":"」で検索をかけるようにする
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    If StartPos = StartSearchPos Then
+        GetContentsSessionId = True
+
+        '3. sessionId値を取り出す
+        sessionIdValueContents = Mid(jsonString, Len(jsonString) - LenSessionID - Len("""}") + 1, LenSessionID)  '「0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
+        printMsg Trace_, LogID, "This response is the command result for the tab. sessionId:" & sessionIdValueContents, FromProcedureName
+    Else
+        GetContentsSessionId = False
+        printMsg Trace_, LogID, "This response is the command result for the browser.", FromProcedureName
+    End If
+End Function
+
+
+
+'***************************************************************************************************
+'                                ■■■ ログ系 ■■■
+'***************************************************************************************************
+Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+'----------------------------------------------------------------------------------
+' A custom printMsg that besides printing to the Immediate Window, it will
+' also print to a dated log file. This is useful at user level where
+' the Immediate Window is not easily accessible. doRaiseError will also raise an
+' error aside from printing the error message to the log file.
+' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
+'                            spamming info. This can be turned on by setting globally
+'                            noDbgMsg = False or noLogging = False
+'----------------------------------------------------------------------------------
+
+    Dim logName As String, strFormattedMsg As String
+
+    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
+    Else strFormattedMsg = " | " & LogID & " | " & strMsg
+
+   'Perform msg logging if needed
+    If currentLog.doLog Then
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
+        If Dir(currentLog.logPath, vbDirectory) = "" Then MkDir currentLog.logPath
+    End If
+
+   'Perform msg output to Immediate Window if needed
+    With LogControl
+        Select Case LogLevel_
+            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
+            Case Else: 'ログ出力無効化
+        End Select
+    End With
+
+
+    '主に、CDPコマンドのエラー時に止まります
+    If doRaiseError Then Err.Raise CDPCustomErrorCodes.Protocol, From, Description:=strMsg
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                               ■■■ 初期化処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     '------------------------- クラス内変数の一部を初期化 -------------------------
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        UseConverterUtf8FromString = .Range(.UseRangeName(10, "CDPCore.Class_Initialize")).value
-        setShowWindow = .Range(.UseRangeName(12, "CDPCore.Class_Initialize")).value
+    '1. Json分断時の一時キュー関連の初期設定
+    With FragmentedDate
+        .expansionCount = 1
+        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
+        .Index = 0
     End With
+
+    '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    With ShSetting01_StartBrowser
+        '2-1. イミディエイトに関する設定を行う
+        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+
+        '2-2. パスが設定されてたら、ログファイル保存を有効化
+        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
+        If LogFolderPath <> "" Then
+            currentLog.doLog = True                'ログファイルとして保存するか？
+            currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+        End If
+
+        '2-3. LogID設定
+        LogID = "COID" & Format(Rnd * 1000, "000")
+    End With
+    '------------------------------------------------------------------------------
 End Sub
