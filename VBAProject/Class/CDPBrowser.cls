@@ -177,6 +177,7 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
+Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザからのコマンド結果蓄積数
 
 
 
@@ -188,6 +189,7 @@ Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
 'クラスオブジェクト
 Private WithEvents core As CDPCore                  'Must be initialized for CDP engine
+Attribute core.VB_VarHelpID = -1
 Private DataConv    As New WebCrypto                'Base64のネイティブ制御用
 Private jsConverter As New WebJsonConverter         'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
 Private CharConv    As New CharacterCodeConversion  'ファイル保存系統
@@ -224,7 +226,7 @@ Private Type cacheResultCDP
     response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
     limit       As Long         'その`Dictionary`に詰め込む上限数
 End Type
-Private currentResultCDP As cacheResultCDP
+Private ResultCDP_Browser As cacheResultCDP
 
 '---------------- ポリシー状況一覧 ----------------
 Private Type StatePolicy
@@ -277,15 +279,15 @@ Private Sub core_CDPBrowserID(id As Long, RawJson As String)
 
     '1. 結果を蓄積
     printMsg Trace_, br.LogID, "Command result ID: " & id & " was detected.", FromProcedureName
-    currentResultCDP.response.Add id, RawJson
+    ResultCDP_Browser.response.Add id, RawJson
 
     '2. 格納件数チェックし、上限を超えたら、最古データを削除します
-    If currentResultCDP.response.Count > currentResultCDP.limit Then
+    If ResultCDP_Browser.response.Count > ResultCDP_Browser.limit Then
         '3. 一番古いキーを取得して削除
-        Dim DeleteID As Long: DeleteID = currentResultCDP.response.keys(0)
+        Dim DeleteID As Long: DeleteID = ResultCDP_Browser.response.keys(0)
         printMsg Trace_, br.LogID, "Delete asynchronous processing result ID:" & DeleteID, FromProcedureName
-        currentResultCDP.response.Remove DeleteID
-        printMsg WARN_, br.LogID, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
+        ResultCDP_Browser.response.Remove DeleteID
+        printMsg WARN_, br.LogID, "The accumulation limit has exceeded " & ResultCDP_Browser.limit & ", so the oldest has been deleted.", FromProcedureName
     End If
 End Sub
 
@@ -2362,11 +2364,11 @@ End Property
 '* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、256件です。
 '***************************************************************************************************
 Property Get ResultAccumulatedLimitCDPForAsync() As Long
-    ResultAccumulatedLimitCDPForAsync = currentResultCDP.limit
+    ResultAccumulatedLimitCDPForAsync = ResultCDP_Browser.limit
 End Property
 
 Property Let ResultAccumulatedLimitCDPForAsync(Number As Long)
-    currentResultCDP.limit = Number
+    ResultCDP_Browser.limit = Number
 End Property
 
 '***************************************************************************************************
@@ -2414,11 +2416,11 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
 
 
     '1. 存在するか？
-    If currentResultCDP.response.Exists(CommandID) Then
-        printMsg Trace_, br.LogID, "CDP-CommandID: " & CommandID & " , Raw-Json:" & currentResultCDP.response(CommandID), FromProcedureName
+    If ResultCDP_Browser.response.Exists(CommandID) Then
+        printMsg Trace_, br.LogID, "CDP-CommandID: " & CommandID & " , Raw-Json:" & ResultCDP_Browser.response(CommandID), FromProcedureName
 
         '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(currentResultCDP.response(CommandID))
+        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(ResultCDP_Browser.response(CommandID))
 
         '3. `result`オブジェクトがあるか？
         'ない場合は、そのまま返却
@@ -2429,7 +2431,7 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
         Else
             '3-1. エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, br.LogID, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & currentResultCDP.response(CommandID)("error"), FromProcedureName
+            printMsg WARN_, br.LogID, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & ResultCDP_Browser.response(CommandID)("error"), FromProcedureName
         
         End If
 
@@ -2437,7 +2439,7 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
         Set ResultCDPForAsync = tmp
 
         '5. 取り出したので消しておく
-        currentResultCDP.response.Remove CommandID
+        ResultCDP_Browser.response.Remove CommandID
         printMsg Trace_, br.LogID, "CDP-command ID: " & CommandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
@@ -2523,7 +2525,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
         printMsg info_, br.LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
         '不整合を防ぐため、残ってる結果は全消去
-        currentResultCDP.response.RemoveAll
+        ResultCDP_Browser.response.RemoveAll
         printMsg info_, br.LogID, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
     Else
         brTab.lngLastID = brTab.lngLastID + 1   'We increase the global ID counter
@@ -3388,6 +3390,10 @@ Private Sub Class_Initialize()
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
+
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    Set ResultCDP_Browser.response = New Dictionary
+    ResultCDP_Browser.limit = MaxStoreResultCDP
     '------------------------------------------------------------------------------
 
 
