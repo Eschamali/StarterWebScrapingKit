@@ -259,7 +259,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 'その他
 Public KeepSession  As Boolean                  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private TargetInfo  As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
+Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 
@@ -301,9 +301,7 @@ End Sub
 '* 引数　　：methodName 非同期イベントメソッド名
 '            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：・このClassを`WithEvents`してる物に対して更にイベント発火させます
-'            ・必要に応じて、蓄積モードをONにして別途WithEventsClassファイルを作成せず、非同期イベント処理も可能です
-'
+'* 機能説明：このClassを`WithEvents`してる物に対して更にイベント発火させます
 '* 注意事項：Jsonは、文字列のままで渡されます
 '***************************************************************************************************
 Private Sub core_CDPBrowserEvent(methodName As String, RawJson As String)
@@ -315,18 +313,15 @@ Private Sub core_CDPBrowserEvent(methodName As String, RawJson As String)
     RaiseEvent detectionCDPEvent(methodName, RawJson)
 
     '2. このClass独自の非同期イベント処理を行う
-    Dim tmp As Dictionary
     Select Case methodName
         '3. `attachToSession`が行えるように準備する
         Case "Target.targetCreated"
-            '4. `TargetInfo`を収集するモードなら、続行
-            If Not TargetInfo Is Nothing Then
-                '5. パース処理
-                Set tmp = jsConverter.ParseJson(RawJson)("params")("targetInfo")
+            '4. `TargetInfo`を収集しない場合は、即抜け
+            If TargetInfos Is Nothing Then Exit Sub
 
-                '6. 蓄積
-                TargetInfo.Add tmp
-            End If
+            '5. パース処理して、蓄積
+            printMsg Debug_, br.LogID, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+            TargetInfos.Add jsConverter.ParseJson(RawJson)("params")("targetInfo")
 
         Case Else
             'None
@@ -2755,30 +2750,16 @@ Private Function attachToSession() As Integer
     Const FromProcedureName As String = ThisClassName & ".attachToSession"
 
 
-    Dim results As Scripting.Dictionary
-    Dim results_ As Scripting.Dictionary
-    Dim results__ As Scripting.Dictionary
-    Dim results___ As Scripting.Dictionary
-
-    Dim strKey As Variant
+    Dim TargetInfo As Scripting.Dictionary
 
     On Error GoTo ifError
 
-    '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
-    Dim EventMessageForAttachToSession As StateBrowserEvents
-    With EventMessageForAttachToSession
-        'フォーマットを作成
-        Set .Queue = FormatDictionary_BrowserEvents
-
-        '必要なイベントメソッド名を記述
-        Const needEventMethod As String = "Target.targetCreated"
-        Set .Filter = New Dictionary
-        .Filter.Add needEventMethod, True
-    End With
+    '非同期イベント：`Target.targetCreated`　が取れるようにCollectionを有効化
+    Set TargetInfos = New Collection
 
     '実行
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, False, EventMessageForAttachToSession.Queue, EventMessageForAttachToSession.Filter)
-    printMsg info_, "Now looking for the browser window", FromProcedureName
+1   SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}"
+    printMsg info_, br.LogID, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
@@ -2786,27 +2767,28 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession.Queue(EventsDictionaryKeyName02)(needEventMethod)
-        Set results_ = results.Item("params")
-        If results_.Exists("targetInfo") Then
-            Set results__ = results_.Item("targetInfo")
-            If results__.Item("attached") = False And results__.Item("type") = "page" Then
-                boolFound = True
-                Exit For
-            End If
+    For Each TargetInfo In TargetInfos
+        If TargetInfo.Item("attached") = False And TargetInfo.Item("type") = "page" Then
+            boolFound = True
+            Exit For
         End If
     Next
-2   If Not boolFound Then printMsg ERROR_, "Unable to find the browser session", FromProcedureName, doRaiseError:=True _
-    Else printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
+2   If Not boolFound Then printMsg ERROR_, br.LogID, "Unable to find the browser session", FromProcedureName, doRaiseError:=True _
+    Else printMsg info_, br.LogID, "Now attaching CDP pipes to the browser session", FromProcedureName
 
    'Establish connection with the CDP pipes
-3   brTab.targetID = results__.Item("targetId")
-4   Set results___ = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & results__.Item("targetId") & """,""flatten"":true}}")
-5   brTab.sessionID = results___.Item("result").Item("sessionId")
-6   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-7   Set results___ = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
+3   brTab.targetID = TargetInfo.Item("targetId")
 
-    printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+    Dim results As Dictionary
+4   Set results = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & TargetInfo.Item("targetId") & """,""flatten"":true}}")
+5   brTab.sessionID = results.Item("result").Item("sessionId")
+6   Set results = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
+7   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
+
+    printMsg info_, br.LogID, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
+
+    '非同期イベント：`Target.targetCreated`　の収集を無効化
+    Set TargetInfos = Nothing
     Exit Function
 
 ifError:
