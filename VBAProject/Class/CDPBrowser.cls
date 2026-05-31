@@ -2545,7 +2545,6 @@ RetrySend:
 
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim tmp As String
-    Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
     printMsg Trace_, br.LogID, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '1. 受信処理によるパイプを拝見する
@@ -2557,20 +2556,20 @@ RetrySend:
         '3. 内部の`RaiseEvent CDPBrowserEvent`による発火で、Dictionaryへ蓄積されたか？
         tmp = ResultCDPFromWithEvents(lngCurrentId)
         If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、Jsonパース処理して結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
-            ResultSendCommand = True
+            '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
             Set SendMessage = jsConverter.ParseJson(tmp)
             printMsg info_, br.LogID, "We have confirmed receipt of command result ID: " & lngCurrentId, FromProcedureName
+
+            'ループから抜ける
+            Exit Do
         Else
             printMsg Trace_, br.LogID, "We have not yet been able to confirm command ID: " & lngCurrentId, FromProcedureName
         End If
 
-        '4. 一定時間経ってもコマンド結果が来ないなら、ループから抜けます
+        '4. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
         If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, br.LogID, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
         DoEvents
-
-        '5. CDP-Jsonコマンドの結果が得れたら、受信ループを終了します
-    Loop Until ResultSendCommand
+    Loop
 
     printMsg Trace_, br.LogID, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
     Exit Function
