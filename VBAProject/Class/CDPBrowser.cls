@@ -327,16 +327,6 @@ Private Sub core_CDPBrowserEvent(methodName As String, RawJson As String)
             'None
 
     End Select
-
-
-    '======================================= イベント情報をこのClass内へ格納するフェーズへ =======================================
-    'パブリック(呼び出し側使用)用
-    If publicBrowserEvents.Queue Is Nothing Or Not (ExistEventInFilter_Public) Then
-        printMsg Trace_, "No event information is required on the module side.", FromProcedureName
-    Else
-        printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived publicBrowserEvents.Queue, JsonDictionaryObj, AsynchronousEventName
-    End If
 End Sub
 
 
