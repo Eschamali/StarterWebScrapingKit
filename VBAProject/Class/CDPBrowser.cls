@@ -3045,8 +3045,8 @@ Private Function getBrowserPath(strBrowserType As String) As String
                 getBrowserPath = String(ValueSize / 2, vbNullChar)
                 RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
 
-                '5. `vbnullchar`以前を取り出す(Trim)
-                getBrowserPath = Mid(getBrowserPath, 1, searchNull(getBrowserPath) - 1)
+                '5. `vbnullchar`以前を取り出す
+                getBrowserPath = Split(getBrowserPath, vbNullChar)(0)
             End If
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
@@ -3333,7 +3333,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
 
             '中身が空の場合は、`User Data`配下として返します
             '※厳密には、`vbnullchar`が、先頭にある時
-            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Mid(ValueContents_String, 1, searchNull(ValueContents_String) - 1))
+            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Split(ValueContents_String, vbNullChar)(0))
 
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
