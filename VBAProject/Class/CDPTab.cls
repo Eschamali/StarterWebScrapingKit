@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPBrowser"
+Attribute VB_Name = "CDPTab"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -59,19 +59,12 @@ Attribute VB_Exposed = False
 '       Javascript Tutorials: https://www.w3schools.com/js/
 '       Chrome CDP Documentation: https://chromedevtools.github.io/devtools-protocol/
 '================================================================================================
-
 Option Explicit
 
-Private Const CDPVer                    As String = "3.1.0"
-Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
 
 '===================================
 ' Win APIs Declarations
 '===================================
-
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" ( _
-    ByVal dwMilliseconds As Long)
-
 Private Declare PtrSafe Function FindWindowEx Lib "user32" Alias "FindWindowExW" ( _
     ByVal hwndParent As LongPtr, _
     ByVal hWndChildAfter As LongPtr, _
@@ -93,69 +86,19 @@ Private Declare PtrSafe Function BringWindowToTop Lib "user32" ( _
 Private Declare PtrSafe Function SetForegroundWindow Lib "user32" ( _
     ByVal hWnd As LongPtr) As Long
 
-'DJP 20241105 to solve problems with terminating sessions on terminal server
-Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
-    ) As Long
-
-Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
-    ByVal dwProcessId As Long, _
-    ByRef pSessionId As Long) As Long
-
 Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     lpdwProcessId As Long) As Long
-
-'ポリシー情報確認用API(ReadOnly)
-Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
-    ByVal hKey As LongPtr, _
-    ByVal lpSubKey As LongPtr, _
-    ByVal lpValue As LongPtr, _
-    ByVal dwFlags As Long, _
-    ByRef pdwType As Long, _
-    ByVal pvData As LongPtr, _
-    ByRef pcbData As Long _
-) As Long
-
 
 
 '===================================
 ' Constants
 '===================================
-'ウィンドウモード一式
-Public Enum WinState
-    asHidden = 0            'Hides the window and activates another window.
-    asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
-    asMinimized = 2         'Activates the window and displays it as a minimized window.
-    asMaximized = 3         'Activates the window and displays it as a maximized window.
-    doShowNoActivate = 4    'Displays a window in its most recent size and position. This value is similar to asNormal, except that the window is not activated.
-    doShow = 5              'Activates the window and displays it in its current size and position.
-    doMinimize = 6          'Minimizes the specified window and activates the next top-level window in the Z order.
-    doShowMinNoActivate = 7 'Displays the window as a minimized window. This value is similar to asMinimized, except the window is not activated.
-    doShowNA = 8            'Displays the window in its current size and position. This value is similar to doShow, except that the window is not activated.
-    doRestore = 9           'Activates and displays the window. If the window is minimized or maximized, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window.
-    doShowDefault = 10      'Sets the show state based on the WS_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application.
-    doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
-End Enum
-
 'JSの`document.readyState`の状態一式
 Public Enum ReadyState      'Used for .wait method
     isLoading = 0           'equivalence of the browser's "loading" state
     isInteractive = 1       'equivalence of the browser's "interactive" state
     isComplete = 2          'equivalence of the browser's "complete" state
-End Enum
-
-'タブの種類。一旦は2種類のみとする。
-'全容→https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
-Public Enum TargetgetTargetsType
-    Page
-    iFrame
-End Enum
-
-'EdgeをWebView2っぽく見せる専用引数
-Public Enum edgeKioskType
-    none            'キオスクモードなしの通常起動
-    fullscreen      'キオスクモード デジタル/対話型サイネージ
-    publicBrowsing  'キオスクモード パブリック ブラウジング
 End Enum
 
 'SessionIDの紐づけ手段
@@ -165,42 +108,14 @@ Public Enum ReConnectSessionID
     existing_   'SessionIDを更新せずに、現在のExcelテーブルに記録されてる`SessionID`を流用します。主にJavaScriptで実行した内容を別プロシージャで使いまわすときに使います。事前に、`KeepSession`を`True`にしておく必要があります
 End Enum
 
-
-'このツール独自のエラーコード
-Private Enum CustomErrorCodes
-    TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
-    PIPE = 901      'Pipe通信周り(`PeekNamedPipe`など)でエラー
-    Protocol = 902  'CDPコマンド自体のエラー
-End Enum
-
-
-'各種ブラウザ固有の情報
-Private Const brChrome          As String = "chrome.exe"
-Private Const brEdge            As String = "msedge.exe"
-Private Const chromeWindowClass As String = "Chrome_WidgetWin_1"    'same window class for Edge
-
 'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
-'レジストリ関連の定数==============================
-' ルートキー
-Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
-Private Const HKEY_CURRENT_USER     As Long = &H80000001    '"今、ログインしているユーザー"だけ
-' 戻り値の型（RegGetValueW の dwFlags に指定する制限）
-Private Const RRF_RT_REG_SZ         As Long = &H2           ' 文字列 (REG_SZ) に限定
-Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 (REG_DWORD) に限定
-' 型サイズ
-Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
-' APIの戻り値
-Private Const RRF_SUCCESS           As Long = 0             '成功サイン
-'==================================================
-
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
-Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
-Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
+Private Const ThisClassName     As String = "CDPTab"    'ログのトレース用
 
 
 
@@ -210,36 +125,28 @@ Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレー�
 '非同期イベント発火
 Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
 
+'イベントクラスオブジェクト
+Private WithEvents PipeCore As CDPCore
+Attribute PipeCore.VB_VarHelpID = -1
+
 'クラスオブジェクト
-Private core        As CDPCore              'Must be initialized for CDP engine
+Private BrowserCore As CDPBrowser           'Must be initialized for CDP engine
 Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
 Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
 Private CharConv    As New CharacterCodeConversion  'ファイル保存系統
 Private LogControl  As New Logger           'ログレベルの制御
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
-'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
-Private Type StateFragmented
-    strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
-    Index           As Long     '埋まってる位置
-    expansionCount  As Long     '拡張確保回数
-End Type
-Private FragmentedDate As StateFragmented
-
 '操作中のブラウザ情報一式
 Private Type StateBrowser
     hWnd        As LongPtr  'Browser object window handle
     WID         As String   'Useful for windows repositioning
-    Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
-    Path        As String   'Browser default installation path
+    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     id          As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Name        As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
-    Ver         As String   'The current browser version
     reattach    As Boolean  'Remember reAttach preference from .reattach method - updated by Long 22/01/2026
-    CallString  As String   'The initial call string used by .start
-    setShowWindow As WinState   '`remote-debugging-pipe`で起動する際のブラウザ初期表示モードの設定値
 End Type
 Private br As StateBrowser
 
@@ -251,32 +158,12 @@ Private Type StateTab
 End Type
 Private brTab As StateTab
 
-'ログ設定状況
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
-Private currentLog As StateLog
-
 'CDPコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
 Private Type cacheResultCDP
     response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
-    limit       As Long         'その`Dictionary`に詰め込む上限数
+    Limit       As Long         'その`Dictionary`に詰め込む上限数
 End Type
-Private currentResultCDP As cacheResultCDP
-
-'---------------- ポリシー状況一覧 ----------------
-Private Type StatePolicy
-    Exists      As Boolean  '存在有無
-    Contents    As Variant  '中身の値
-End Type
-
-Private Type CheckPolicy
-    UserDataDir As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
-End Type
-Private currentPolicy As CheckPolicy
-'--------------------------------------------------
+Private ResultCDP_Tab As cacheResultCDP
 
 'ブラウザからの非同期イベント状況
 Private Type StateBrowserEvents
@@ -294,125 +181,103 @@ Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプ
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
+Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
 
 
 
-'=============================================================================
-' PUBLIC FUNCTIONS
-'=============================================================================
+'***************************************************************************************************
+'                              ■■■ レスポンス蓄積/処理 ■■■
+'***************************************************************************************************
+'* 機能　　：このタブに対するCDPレスポンス結果を一旦、Dictionaryへ蓄積させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：id             コマンドID
+'            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
+'* 注意事項：・Jsonは、文字列のままで渡されます
+'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、古いものから削除されていきます
+'***************************************************************************************************
+Private Sub PipeCore_CDPTabID(id As Long, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
-Public Sub start(Optional Name As String = "chrome", _
+
+    '1. このタブクラスで設定中の`SesionId`以外は即抜け
+    If sessionID <> brTab.sessionID Then Exit Sub
+
+    '2. 結果を蓄積
+    printMsg Trace_, br.LogID, "Command result ID: " & id & " was detected.", FromProcedureName
+    ResultCDP_Tab.response.Add id, RawJson
+
+    '3. 格納件数チェックし、上限を超えたら、最古データを削除します
+    If ResultCDP_Tab.response.Count > ResultCDP_Tab.Limit Then
+        '4. 一番古いキーを取得して削除
+        Dim DeleteID As Long: DeleteID = ResultCDP_Tab.response.keys(0)
+        printMsg Trace_, br.LogID, "Delete asynchronous processing result ID:" & DeleteID, FromProcedureName
+        ResultCDP_Tab.response.Remove DeleteID
+        printMsg WARN_, br.LogID, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so the oldest has been deleted.", FromProcedureName
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザに対する非同期イベントを受け取ります
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClass独自の非同期イベント処理を行います
+'***************************************************************************************************
+Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
+
+
+    Select Case methodName
+        '1. `attachToSession`が行えるように準備する
+        Case "Target.targetCreated"
+            '2. `TargetInfo`を収集しない場合は、即抜け
+            If TargetInfos Is Nothing Then Exit Sub
+
+            '3. そのまま、蓄積
+            printMsg Debug_, br.LogID, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+            TargetInfos.Add RawJson
+
+        Case Else
+            'None
+
+    End Select
+End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ ブラウザ起動関連処理 ■■■
+'***************************************************************************************************
+'* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
+'            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
+'            appUrl         起動引数：`--app`　につけるURLを指定します
+'            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
+'            addArgs        追加の起動引数
+'            KioskMode      Edgeのキオスクモードを使う際にセットします
+'---------------------------------------------------------------------------------------------------
+Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, Optional ManualStart As Boolean)
-'--------------------------------------------------------------------------------------------------------------
-' This function initiates a new browser instance.
-' By default, this function initializes chrome as the default choice.
-' To init edge, parse 'edge' to the first parameter (eg. browser.start "edge").
-' To open in App Mode, input the starting URL for appURL parameter as app mode cannot be open on a blank tab.
-' If cleanActive is False, the method will skip cleaning currently open instances. This will save
-' initialization time but if an instance is already running and not closed, pipe error will be triggered.
-' If reAttach is True, the method will always try to reattach to the previous automation session if it is
-' still active. If not, it will then move on to start a brand new session. If False, it will always open a new
-' session regardless whether there is an on going one or not.
-' To add additional arguments to the call string, use the addArguments parameter for instance:
-' .start addArgs:="--disable-info-bar" (https://peter.sh/experiments/chromium-command-line-switches/)
-' Note: not all arguments work the same for Chrome and Edge. Some may work for one but not the others.
-' Updated: 22/03/23 Long Vh:      - Enhanced to dynamically retrieve installation path of the browser
-'          26/03/23 Long Vh:      - Made some quality-of-life changes
-'          25/05/25 Long Vh:      - set default profile to "CDP" so that it can work with the latest chrome update
-'          23/10/25 Daniel Polak: - Added missing space before --homepage
-'          22/01/26 Long Vh:      - Removed automatic reattachment from the start method as this restricts
-'                                   the possibility of running multiple CDP browser instances under different
-'                                   profiles - which is a very useful feature.
-'                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
-'                                   recent Chromium updates and the Edge policy discovery.
-'--------------------------------------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".start"
+    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
+    Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
+    '1. ブラウザ起動
+    Set BrowserCore = New CDPBrowser
+    BrowserCore.start userProfile, Name, appUrl, cleanActive, addArgs, KioskMode
 
-    Set core = New CDPCore
-    core.UseConverterUtf8FromString = UseConverterUtf8FromString '`New`による直後に、文字コード設定を反映
+    '2. WithEventsClassオブジェクトを受け取る
+    Set PipeCore = BrowserCore.ReceiptCDPCore
 
-    Dim strCall As String, addProfile As String
-    Dim intRes As Long
-    Dim timeStart As Double
-
-    timeStart = TimerCounter
-
-   'Determine default browser parameters -------------------------------------------------------------------------------------
-   '07/01/26: avoid using --enable-automation tag as it triggers many web apps to perform bot check
-    Select Case Name
-        Case "edge": br.Type = brEdge
-        Case "chrome": br.Type = brChrome
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
-    End Select
-    br.Path = getBrowserPath(br.Type)
-    strCall = """" & br.Path & """ --" & ArgRemoteDebuggingName
-   '--------------------------------------------------------------------------------------------------------------------------
-
-   'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
-    If appUrl <> "" Then
-        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromProcedureName, doRaiseError:=True
-        strCall = strCall & " --app=""" & checkURI(appUrl) & """"
-    Else
-        strCall = strCall & " --homepage ""about:blank"""
-    End If
-   '-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-   'Start with the choice profile -------------------------------------------------------------------------------------------------------------
-   '22/01/26: I have recently noted that if an organization sets the group policy of Edge of UserDataDir to a specific structure, the argument --user-data-dir
-   'will be effectively disabled and blocked to the specified data dir by the policy. In this scenario, CDP session can only load the browser state from the default
-   'data dir which already cannot be allowed to run --remote-debugging-pipe from Google's latest Chromium. If Edge's Chromium updates to the latest, this policy will
-   'cause the CDP initialization to fail. If Edge's Chromium is still behind the latest Chromium version, CDP init can still be possible with the --profile-directory
-   'switch but the requirement is that all running Edge instances that had been started up manually will need to be closed first otherwise the PeekNamedPipe error
-   'will result. For Chrome, v136 and later does not honor remote-debugging request if user profile is loaded from the Chrome\User Data\ folder.
-   'As a result, here we set it to Chrome\CDP\ folder instead (auto-created if not exists).
-    Select Case br.Type
-        Case brEdge: addProfile = IIf(currentPolicy.UserDataDir.Exists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")      'ポリシー状況に応じて、引数を変える
-        Case brChrome: addProfile = IIf(currentPolicy.UserDataDir.Exists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """")     'ポリシー状況に応じて、引数を変える
-    End Select
-    strCall = strCall & addProfile
-    br.User = userProfile 'store the user profile name for cpid serialization
-   '-----------------------------------------------------------------------------------------------------------------------------------------
-
-    'Edge特有のキオスクモードを設定します -------------------------------------------------------------------------------------------------------------
-    '※Chromeは、Edgeほど調整できないため、同じ引数にします
-    Select Case KioskMode
-        Case edgeKioskType.fullscreen: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
-        Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
-    End Select
-    br.setShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, br.setShowWindow)   'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
-   '-----------------------------------------------------------------------------------------------------------------------------------------
-
-   'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------
-   'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
-   'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
-   'PeekNamedPipe error will be thrown.
-    If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
-    setCrashStateNormal 'Prevent "Restore Session" popup
-   '------------------------------------------------------------------------------------------------------------------------------------
-
-   'Prepare for initialization ------------------------------------------------------------------------
-    strCall = strCall & " " & addArgs  'Add additional arguments if instructed
-   '---------------------------------------------------------------------------------------------------
-
-   'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
-    br.CallString = strCall
-    printMsg Debug_, "Starting pipe communication... → " & br.CallString, FromProcedureName
-    intRes = core.Init(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & ErrorDetail.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
-    brTab.lngLastID = 1 'reset the pipe message ID
-
-    '自力でセッション確立する方向けに、起動が出来たら、パイプ情報を記録後、抜ける
-    If ManualStart Then serialize: printMsg info_, "The browser started in manual mode. You will need to establish the session yourself.", FromProcedureName: Exit Sub
-   '-----------------------------------------------------------------------------------------------------------------------------------
-
-   'Complete initialization ------------------------------------------------------
+    '3. Complete initialization ------------------------------------------------------
     attachToSession     'Find and attach the newly open Session ID
     getSessionInfo      'Store initial session info for printParams debugging
     serialize           'Create a serial string for future attachment
-   '------------------------------------------------------------------------------
+    '------------------------------------------------------------------------------
 
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
@@ -422,7 +287,7 @@ Public Sub start(Optional Name As String = "chrome", _
         timerStart = TimerCounter
         Do
             If Me.Name <> "" Then Exit Do
-            If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
        wait
@@ -431,7 +296,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
+    printMsg info_, "Browser initialization completed after " & TimerCounter - timerStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
@@ -450,20 +315,14 @@ Private Sub serialize()
     Const FromProcedureName As String = ThisClassName & ".serialize"
 
 
-    '0. データ記録準備
-    Dim BrowserInfo As New Dictionary
-
     '1. 必要なデータを`Dictionary`に詰める
+    Dim BrowserInfo As New Dictionary
     BrowserInfo.Add "lngLastID", brTab.lngLastID
     BrowserInfo.Add "sessionID", brTab.sessionID
     BrowserInfo.Add "targetID", brTab.targetID
 
     '2. Excelのテーブルへ記録する
     Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
-
-    '3. パイプ通信のハンドル情報も記録しておく
-    core.serialize br.User
-
 End Sub
 
 Private Sub deserialize(r As ReConnectSessionID)
@@ -1844,46 +1703,6 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 End Sub
 
-Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & br.id & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
-        If Dir(currentLog.logPath, vbDirectory) = "" Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With LogControl
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
-
-
-    '主に、CDPコマンドのエラー時に止まります
-    If doRaiseError Then Err.Raise CustomErrorCodes.Protocol, From, Description:=strMsg
-
-End Sub
-
 Public Sub printTabs()
 '------------------------------------------------------------------
 ' Print all current tabs info. Useful for debugging.
@@ -2131,69 +1950,6 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
 
 End Function
 
-'***************************************************************************************************
-'* 機能　　：パイプから、メッセージを取り出し、引数に応じて、非同期で実行したIDの結果やイベントを別途格納します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction   `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンス向上します
-'                          `False`:IDの解析やイベントの中身の解析を行います
-'***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
-
-
-    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
-    Dim intRes As Long
-    Dim strRes As String
-    printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
-
-    '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
-    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
-    Do
-        'std系の中身を出力
-        viewStdoutAndStderr
-
-        '受信処理
-        intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
-        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
-
-        '返り値チェック
-        If intRes > 0 Then
-            '破棄モードかの判定
-            If destruction Then
-                '解析などせず、そのまんま出して破棄します
-                '※強いていうなら、破棄するメッセージをそのまま出す
-                printMsg Trace_, "Discarding data in pipe...", FromProcedureName
-                If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "Discarded - strRes = " & strRes, FromProcedureName
-
-                '欠けチェック
-                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
-            Else
-                '中身の解析をし、IDやイベントを取り出します
-                printMsg Trace_, "Analyzing the data in the pipe...", FromProcedureName
-                Call ReceiveFromPipeSplit(strRes)   '単なるイベント収集のため、コマンドIDによる確認はしないように設定
-
-                '欠けチェック
-                vbNullCharTermination = (FragmentedDate.Index = 0)
-            End If
-        Else
-            'データなしの場合は、エラーコードチェックを行う
-            If ErrorCode_PeekNamedPipe Then
-                'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
-
-            ElseIf ErrorCode_ReadFile Then
-                'ReadFile にてエラーがあった場合
-                printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
-            Else
-                'パイプ内は空
-                printMsg Trace_, "The message queue is currently empty.", FromProcedureName
-            End If
-        End If
-    Loop Until vbNullCharTermination And intRes < 1
-
-    printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
-End Sub
-
 
 
 '=============================================================================
@@ -2423,11 +2179,11 @@ End Property
 '* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、256件です。
 '***************************************************************************************************
 Property Get ResultAccumulatedLimitCDPForAsync() As Long
-    ResultAccumulatedLimitCDPForAsync = currentResultCDP.limit
+    ResultAccumulatedLimitCDPForAsync = currentResultCDP.Limit
 End Property
 
 Property Let ResultAccumulatedLimitCDPForAsync(Number As Long)
-    currentResultCDP.limit = Number
+    currentResultCDP.Limit = Number
 End Property
 
 '***************************************************************************************************
@@ -2470,27 +2226,27 @@ End Property
 '            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
 '            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
 '***************************************************************************************************
-Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As Boolean) As Dictionary
+Property Get ResultCDPForAsync(commandID As Long, Optional ByRef ErrorExist As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ResultCDPByAsync"
 
 
     '1. 存在するか？
-    If currentResultCDP.response.Exists(CommandID) Then
-        printMsg Trace_, "CDP-CommandID: " & CommandID & " , Raw-Json:" & currentResultCDP.response(CommandID), FromProcedureName
+    If currentResultCDP.response.Exists(commandID) Then
+        printMsg Trace_, "CDP-CommandID: " & commandID & " , Raw-Json:" & currentResultCDP.response(commandID), FromProcedureName
 
         '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(currentResultCDP.response(CommandID))
+        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(currentResultCDP.response(commandID))
 
         '3. `result`オブジェクトがあるか？
         'ない場合は、そのまま返却
         If tmp.Exists("result") Then
             '3-1. 正常に終了していると伝える
             ErrorExist = False
-            printMsg Debug_, "This CDP-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
+            printMsg Debug_, "This CDP-command ID(" & commandID & ") has been completed successfully.", FromProcedureName
         Else
             '3-1. エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This CDP-command ID(" & CommandID & ") is in error. ErrorDetails:" & currentResultCDP.response(CommandID)("error"), FromProcedureName
+            printMsg WARN_, "This CDP-command ID(" & commandID & ") is in error. ErrorDetails:" & currentResultCDP.response(commandID)("error"), FromProcedureName
         
         End If
 
@@ -2498,12 +2254,12 @@ Property Get ResultCDPForAsync(CommandID As Long, Optional ByRef ErrorExist As B
         Set ResultCDPForAsync = tmp
 
         '5. 取り出したので消しておく
-        currentResultCDP.response.Remove CommandID
-        printMsg Trace_, "CDP-command ID: " & CommandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
+        currentResultCDP.response.Remove commandID
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         ErrorExist = False
-        printMsg Trace_, "This CDP-command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+        printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
@@ -2620,204 +2376,6 @@ End Function
 
 
 
-'***************************************************************************************************
-'                              ■■■ プライベートプロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
-'                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
-'
-'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
-'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
-'
-'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
-'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
-'
-'            InternalUseMessages    非同期イベントをクラス内部で後程、使用したいときに、`New Dictionry`として、渡して有効化します。
-'            InternalFilterMessage  非同期イベントをクラス内部で後程、フィルタリングする際に渡して有効化します
-'
-'            dbgMsg                 Allow the option to bypass error if intended
-'---------------------------------------------------------------------------------------------------
-'* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
-'            ・03/22/23 - Added error handling for better debugging
-'            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
-'***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional alwaysBrowserContext As Boolean, Optional Async As Boolean, Optional InternalUseMessages As Scripting.Dictionary, Optional InternalFilterMessage As Scripting.Dictionary, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
-    Const FromProcedureName As String = ThisClassName & ".SendMessage"
-
-
-    Dim intRes As Long
-    Dim strRes As String
-    Dim lngCurrentId As Long
-    Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-    Dim ErrorCode_PeekNamedPipe As Long, ErrorCode_ReadFile As Long
-
-    lngCurrentId = brTab.lngLastID
-
-    'リクエスト数の上限に達したら、1にリセットしておく
-    If brTab.lngLastID + 1 > LimitID Then
-        brTab.lngLastID = 1
-        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
-
-        '不整合を防ぐため、残ってる結果は全消去
-        currentResultCDP.response.RemoveAll
-        printMsg info_, "To prevent double storage, the history of asynchronous CDP execution results has been completely deleted.", FromProcedureName
-    Else
-        brTab.lngLastID = brTab.lngLastID + 1   'We increase the global ID counter
-    End If
-
-RetrySend:
-
-    On Error GoTo ifError
-
-   '--------------------------------------------------
-   'ブラウザ自体の標準出力、標準出力エラー の確認
-   '--------------------------------------------------
-1   viewStdoutAndStderr
-
-   '--------------------------------------------------
-   'Send message to the browser
-   '--------------------------------------------------
-2   strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-3   If brTab.sessionID <> "" And Not (alwaysBrowserContext) Then strMessage = strMessage & ", ""sessionId"":""" & brTab.sessionID & """"
-4   strMessage = strMessage & ", ""id"":" & lngCurrentId & "}" & vbNullChar
-
-    printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
-    printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
-
-5   Dim WriteResult As Long: WriteResult = core.writeProc(strMessage)                                                                  'Send message to the browser instance
-    printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
-
-    '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
-    If Async Then
-        Set SendMessage = New Dictionary
-
-        '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-6       SendMessage.Add lngCurrentId, WriteResult
-        Exit Function
-    End If
-
-   '------------------------------------------------
-   'Read message returned by browser
-   '------------------------------------------------
-    Dim timerStart As Double: timerStart = TimerCounter                                                 'Failsafe timer to ensure loop ends when server fails to respond
-
-    '受信処理→Json処理→受信処理→Json処理→…　というロジックでループ処理を行います
-    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
-    Dim ResultSendCommand As Boolean                                                             'We read from edge and process messages until we receive a message with our ID
-    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
-    Do
-        '受信処理
-7       intRes = core.readProcCDP(strRes, ErrorCode_PeekNamedPipe, ErrorCode_ReadFile)
-        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
-
-        '返り値チェック
-        Dim tmp As Dictionary
-        If intRes > 0 Then
-            'データは届いたので、タイムアウト値をリセット
-            timerStart = TimerCounter
-            printMsg Trace_, "Data received, so reset the timeout value.", FromProcedureName
-
-            '受信メッセージを活用するため、担当プロシージャへ遷移
-8           Set tmp = ReceiveFromPipeSplit(strRes, InternalUseMessages, InternalFilterMessage, lngCurrentId)  'コマンド結果を受け取れたのに、再度実行されちゃうと結果が消えちゃうため、一時変数にまず格納しておく。`lngCurrentId`は、常に一定なので、オブジェクトありの状態は常に1度のみ
-
-            'オブジェクトありなら、直近に送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す
-9           If Not (tmp Is Nothing) Then
-                ResultSendCommand = True
-                Set SendMessage = tmp
-            End If
-        Else
-            'データなしの場合は念のため、エラーコードチェックを行う
-            If ErrorCode_PeekNamedPipe Then
-                'PeekNamedPipe にてエラーがあった場合
-10              printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & ErrorCode_PeekNamedPipe & " - " & ErrorDetail.GetMessage(ErrorCode_PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=True
-
-            ElseIf ErrorCode_ReadFile Then
-                'ReadFile にてエラーがあった場合
-11              printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & ErrorCode_ReadFile & " - " & ErrorDetail.GetMessage(ErrorCode_ReadFile, "kernel32"), FromProcedureName, doRaiseError:=True
-
-            Else
-                printMsg Trace_, "Data reception could not be confirmed. The timeout value will be incremented.", FromProcedureName
-
-                'データがまだ、届いてないので非同期処理結果用の受信Boxを念の為、確認する
-                '※`WithEvents`と併用すると、ここに格納される可能性があるためです
-                Set tmp = ResultCDPForAsync(lngCurrentId)
-                If Not tmp Is Nothing Then
-                    '送ったコマンド結果であることを確認できたので、受信ループ終了フラグを立て、改めて結果を返す。1度結果を受け取ると同じIDでも、もう受け取れないので、True状態は常に1度のみ
-                    ResultSendCommand = True
-                    Set SendMessage = tmp
-                    printMsg info_, "Command ID:" & lngCurrentId & " was observed on the 'Asynchronous Result Dictionary side' rather than on the pipe. This is a phenomenon that is likely to occur when used in conjunction with `WithEvents`.", FromProcedureName
-                Else
-                    printMsg Trace_, "I used `readProcCDP` but it returned 0 Bytes.", FromProcedureName
-                End If
-            End If
-        End If
-
-        'いくつかのログ表示
-        If Not ResultSendCommand Then
-            'コマンド結果が、まだ来ない
-            printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " from readProcCDP has not yet been received, so reception continues.", FromProcedureName
-
-        ElseIf ResultSendCommand And FragmentedDate.Index > 0 Then
-            'コマンド結果は得れても、欠損Jsonがまだある場合は、不整合を防ぐため、ループ受信継続の旨を通知しておく
-            printMsg Trace_, "The CDP-Json command result ID:" & lngCurrentId & " has been confirmed, but the receiving loop will continue until there is missing Json data or until it is completed.", FromProcedureName
-        End If
-
-
-        '一定時間経ってもコマンド結果が来ないなら、ループから抜けます
-13      If TimerCounter - timerStart > timerOut Then Err.Raise CustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
-        DoEvents
-
-        'CDP-Jsonコマンドの結果が得れておりなおかつ、欠けてるデータがなければ、受信ループを終了します
-    Loop Until ResultSendCommand And FragmentedDate.Index = 0
-
-    printMsg Trace_, "Command result ID:" & lngCurrentId & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
-    Exit Function
-
-afterErr:
-
-    printMsg WARN_, "Attempt to soft re-attach when pipe error because sometimes a simple retry is all it is needed to make it work :)", FromProcedureName
-    On Error Resume Next
-    attachToSession
-    GoTo RetrySend
-
-ifError:
-
-    If Not dbgMsg Then Exit Function    'Allow the option to bypass error if intended
-
-   'Record errmsg and print helpful infos
-    Dim errorLine As Long, errorDesc As String
-    errorLine = Erl
-    errorDesc = Err.Description
-    printMsg ERROR_, "sendMessage error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg ERROR_, "strMessage used by sendMessage: " & strMessage, FromProcedureName
-
-    Dim blnDidSoftRetry As Boolean, blnDoSoftRetry As Boolean
-    blnDoSoftRetry = False
-    If Not blnDidSoftRetry Then
-        If InStr(errorDesc, "PeekNamedPipe") > 0 And br.reattach Then
-            blnDoSoftRetry = True
-            blnDidSoftRetry = True
-            Err.Clear
-        End If
-    End If
-    If blnDoSoftRetry Then
-        Resume afterErr
-    End If
-
-    If InStr(errorDesc, "PeekNamedPipe") > 0 Then
-        printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName
-        core.ClosePipeCDP   'パイプハンドルを閉じる
-        deleteCDPID         'テーブルからも削除する
-    End If
-
-    Err.Raise IIf(InStr(errorDesc, "PeekNamedPipe") > 0, CustomErrorCodes.PIPE, CustomErrorCodes.Protocol), FromProcedureName, "sendMessage error at line " & errorLine & ": """ & errorDesc & """"
-
-End Function
 
 '***************************************************************************************************
 '* 機能　　：1度の`ReadFile`で取り出した長文を、1件1件に分割し、状況に応じて内部で、イベントキャプチャしたり、コマンド結果の確認を行います
@@ -2961,252 +2519,8 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     eventList.Add eventData
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックします
-'---------------------------------------------------------------------------------------------------
-'* 返値    ：TRUE :受信ループを止める合図。
-'               ・`CDPJsonString`に、ExcelからのCDP-Jsonコマンド結果がある
-'               ・コマンド構文エラーによる、ID項目なし
-'
-'            FALSE:受信ループを継続する合図。
-'               ・`CDPJsonString`は、ブラウザからのイベント情報である
-'
-'* 引数　　：returnCDPJson          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
-'            InternalUseMessages    クラス内プロシージャで、イベント内容を扱う用として蓄積させる参照変数
-'            InternalFilterMessage  クラス内プロシージャで、イベント内容をフィルタリングする際の参照変数
-'            checkCommandID         確認するコマンドID
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、ブラウザイベントの場合はついでに、イベント情報を格納します。
-'* 注意事項；CDP-Jsonコマンド結果IDの不一致(シングルスレッド配下なら多分ないはず...)の場合は、不整合により不安定につながるため、エラーで停止します
-'***************************************************************************************************
-Private Function BrowserReceivedDataCheck(CDPJsonString As String, InternalUseMessages As Dictionary, InternalFilterMessage As Dictionary, checkCommandID As Long) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
-    '======================================= チェック開始 =======================================
-    Dim ResultCommandID As Long, AsynchronousEventName As String
-    Dim JsonDictionaryObj As Dictionary
-    Dim FlagValue As Long
-
-    Const resultCommand As Long = 2 ^ 0 'IDのコマンド結果を検知出来た
-    Const mismatchID    As Long = 2 ^ 1 'クラス内変数に記録してるIDとは違うコマンド結果が検知された。恐らく以前、非同期で実行したときの結果と思われる
-    Const browserEvent  As Long = 2 ^ 2 '非同期イベントである
-    Const EventCapture  As Long = 2 ^ 3 '非同期イベントキャプチャモードである
-    Dim mask As Long: mask = resultCommand + mismatchID + browserEvent + EventCapture
-
-
-    '--------- 1. ブラウザからのイベントか？ ---------
-    If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
-        FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
-
-        'VBAでのイベント発火を行う
-        '※拡張機能の柔軟性を高めるため、ブラウザから得た非同期イベントは全て、イベント発火させます
-        RaiseEvent detectionCDPEvent(AsynchronousEventName, CDPJsonString)
-
-
-        '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
-        If (publicBrowserEvents.Queue Is Nothing) And (InternalUseMessages Is Nothing) Then
-            '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
-            printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
-        Else
-            '--------- 3. その非同期イベント名称は、フィルターに含まれてるか？ ---------
-            printMsg Trace_, "Checking public event filter settings...", FromProcedureName
-            Dim ExistEventInFilter_Public   As Boolean: ExistEventInFilter_Public = checkFilterEvent(publicBrowserEvents.Filter, AsynchronousEventName)
-
-            printMsg Trace_, "Checking private event filter settings...", FromProcedureName
-            Dim ExistEventInFilter_Private  As Boolean: ExistEventInFilter_Private = checkFilterEvent(InternalFilterMessage, AsynchronousEventName)
-
-            If ExistEventInFilter_Public Or ExistEventInFilter_Private Then
-                'イベントキャプチャモードなので、JsonPurserを使用する
-                printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-                Set JsonDictionaryObj = jsConverter.ParseJson(CDPJsonString)
-    
-                '--------- 4. `SessionID`項目があるか？ ---------
-                If JsonDictionaryObj.Exists("sessionId") Then
-                    printMsg Trace_, "This event is a PageContext.", FromProcedureName
-    
-                    '--------- 5. その`SessionID`は、クラス内変数に記録してる値と一致してるか？ ---------
-                    If JsonDictionaryObj("sessionId") = brTab.sessionID Then
-                        'ページとしてのイベント情報です
-                        FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
-                        printMsg Trace_, "An event for the current session ID was detected. - SessionId:" & brTab.sessionID, FromProcedureName
-                    Else
-                        '旧セッションが、うまく破棄できなかった時に備えて、二重格納を抑制するため、`EventCapture`フラグは付与しません。
-                        printMsg WARN_, "The event information does not match the session ID recorded in Excel. An old session remains, so please discard it with `Target.detachFromTarget`. - oldSessionId:" & JsonDictionaryObj("sessionId"), FromProcedureName
-                    End If
-                Else
-                    'ブラウザ自身としてのイベント情報です
-                    FlagValue = FlagValue Or EventCapture       'イベントキャプチャモードとして、フラグ付け
-                    printMsg Trace_, "This event is a BrowserContext.", FromProcedureName
-                End If
-            Else
-                printMsg Trace_, "Due to performance improvements, event names `" & AsynchronousEventName & "` that are not included in the filter will not be parsed in the JSON.", FromProcedureName
-            End If
-        End If
-
-    Else
-        FlagValue = FlagValue Or resultCommand  'IDのコマンド結果を検知出来たとして、フラグ付け
-
-        '--------- 2. `id`項目があるか？ ---------
-        If GetContentsID(CDPJsonString, ResultCommandID) Then
-            '--------- 3. そのIDは、クラス内変数に記録してるIDと一致してるか？ ---------
-            If ResultCommandID = checkCommandID Then
-                '正しいコマンド結果が返ったので次項に、受信ループ終了フラグを返すようにする
-                printMsg Trace_, "It was confirmed that the execution command ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
-            Else
-                '`WithEvents`によるズレなので、結果をキャッシュしておく
-                FlagValue = FlagValue Or mismatchID '現在のコマンド結果IDと返ったコマンド結果IDが異なる場合のフラグ付け
-                printMsg info_, "The command result (ID:" & ResultCommandID & ") was returned, but it does not match the command ID (" & checkCommandID & ") recorded in Excel. This is probably an asynchronous result. The results will be accumulated.", FromProcedureName
-
-                'コマンド結果ID用受信Boxへ格納しておく
-                '※パーサー処理負荷を抑えるため、Json文字列まんまとします
-                currentResultCDP.response.Add ResultCommandID, CDPJsonString
-
-                '格納件数チェックし、上限を超えたら、最古データを削除します
-                If currentResultCDP.response.Count > currentResultCDP.limit Then
-                    ' 一番古いキーを取得して削除
-                    printMsg Trace_, "Delete asynchronous processing result ID:" & currentResultCDP.response.keys(0), FromProcedureName
-                    currentResultCDP.response.Remove currentResultCDP.response.keys(0)
-                    printMsg WARN_, "The accumulation limit has exceeded " & currentResultCDP.limit & ", so the oldest has been deleted.", FromProcedureName
-                End If
-            End If
-        Else
-            '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、不整合を防ぐため、エラーで止める
-            printMsg ERROR_, "A syntax error was detected when executing with invokeMethod/invokeMethodAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
-        End If
-    End If
-
-
-    '======================================= このプロシージャから抜けるか判定 =======================================
-    Select Case (FlagValue And mask)
-        '送ったコマンドの結果は来たので、受信ループを止めて、抜ける
-        Case resultCommand
-            BrowserReceivedDataCheck = True
-            Exit Function
-
-        'コマンド結果だがID不一致。以前、非同期で実行したときの結果と思われるので、まだ受信ループは止めずに、抜ける
-        Case resultCommand + mismatchID
-            BrowserReceivedDataCheck = False
-            Exit Function
-
-        '受信ループは止めないが、イベントキャプチャしないモード(格納用のDictionaryがどちらもNothing or 古いSessionID)なので、次項の格納処理はせず、抜ける
-        Case browserEvent
-            BrowserReceivedDataCheck = False
-            Exit Function
-
-        'イベントキャプチャモードにより、Dictionaryオブジェクト格納フェーズへ行けるようにしておく。なお、受信ループは止めません
-        Case browserEvent + EventCapture
-            BrowserReceivedDataCheck = False
-
-        '未知の組み合わせ
-        Case Else
-            printMsg ERROR_, "An unknown flag was passed. (" & (FlagValue And mask) & ")", FromProcedureName, doRaiseError:=True
-
-    End Select
-
-
-    '======================================= イベント情報を格納するフェーズへ =======================================
-    'パブリック(呼び出し側使用)用
-    If publicBrowserEvents.Queue Is Nothing Or Not (ExistEventInFilter_Public) Then
-        printMsg Trace_, "No event information is required on the module side.", FromProcedureName
-    Else
-        printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived publicBrowserEvents.Queue, JsonDictionaryObj, AsynchronousEventName
-    End If
-
-    'プライベート(クラス内変数)用
-    If InternalUseMessages Is Nothing Or Not (ExistEventInFilter_Private) Then
-        printMsg Trace_, "No event information needed inside the class.", FromProcedureName
-    Else
-        printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`id`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
-'            idValueContents    コマンド結果のID値を格納する変数(参照渡しによって返します)
-'***************************************************************************************************
-Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "id"    '検索文字列
-    Const StartSearchPos    As Long = 3         'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、3文字目にない場合は、コマンド結果ではないとして、扱います。
-    '・{"id":27,"result":{"result":...
-    '・{"id":57,"error":{"code":...
-    If StartPos = StartSearchPos Then
-        GetContentsID = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":") '「id":」分、ずらすイメージ
-
-        '4. ID値の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, jsonString, ",")
-
-        '5. ID値を取り出す
-        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, "This response is the command result. ID:" & idValueContents, FromProcedureName
-    Else
-        GetContentsID = False
-        printMsg Trace_, "This response does not have an `id`.", FromProcedureName
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：JsonString             CDPのレスポンス(Json文字列そのまんま)
-'            methodValueContents    非同期イベントのメソッド名(参照渡しによって返します)
-'***************************************************************************************************
-Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "method"    '検索文字列
-    Const StartSearchPos    As Long = 3             'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、3文字目にない場合は、非同期イベントではないとして、扱います。
-    '・{"method":"Network.dataReceived","params":{"...
-    If StartPos = StartSearchPos Then
-        GetContentsMethod = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":""") '「method":"」分、ずらすイメージ
-
-        '4. method名の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, jsonString, """,")
-
-        '5. method名を取り出す
-        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
-    Else
-        GetContentsMethod = False
-        printMsg Trace_, "This response does not have an `method`.", FromProcedureName
-    End If
-End Function
 
 '***************************************************************************************************
 '* 機能　　：ブラウザイベント情報を格納する前に、フィルター情報を取得して、イベント蓄積させるか判定させます
@@ -3255,24 +2569,6 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
-'***************************************************************************************************
-'* 機能　　：標準出力、標準エラー出力を確認します
-'***************************************************************************************************
-Private Sub viewStdoutAndStderr()
-    Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
-    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
-
-
-    Dim strRes As String, intRes As Long
-
-    'Sometimes edge writes to stdout so we clear stdout too.
-    intRes = core.readProcSTD(strRes, False)
-    If intRes > 0 Then printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName      '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
-
-    'Sometimes edge writes to stderrout so we clear stderrout too.
-    intRes = core.readProcSTD(strRes, True)
-    If intRes > 0 Then printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName   '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
-End Sub
 
 Private Function attachToSession() As Integer
 '-----------------------------------------------------------------------
@@ -3286,7 +2582,7 @@ Private Function attachToSession() As Integer
     Const FromProcedureName As String = ThisClassName & ".attachToSession"
 
 
-    Dim results As Scripting.Dictionary
+    Dim result As String
     Dim results_ As Scripting.Dictionary
     Dim results__ As Scripting.Dictionary
     Dim results___ As Scripting.Dictionary
@@ -3295,20 +2591,11 @@ Private Function attachToSession() As Integer
 
     On Error GoTo ifError
 
-    '`attachToSession`関数専用、イベントキャプチャDictionaryを作成します
-    Dim EventMessageForAttachToSession As StateBrowserEvents
-    With EventMessageForAttachToSession
-        'フォーマットを作成
-        Set .Queue = FormatDictionary_BrowserEvents
-
-        '必要なイベントメソッド名を記述
-        Const needEventMethod As String = "Target.targetCreated"
-        Set .Filter = New Dictionary
-        .Filter.Add needEventMethod, True
-    End With
-
+    '"Target.targetCreated"を取れるようにする
+    Set TargetInfos = New Collection
+    
     '実行
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}", True, False, EventMessageForAttachToSession.Queue, EventMessageForAttachToSession.Filter)
+1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}")
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -3317,8 +2604,8 @@ Private Function attachToSession() As Integer
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each results In EventMessageForAttachToSession.Queue(EventsDictionaryKeyName02)(needEventMethod)
-        Set results_ = results.Item("params")
+    For Each result In TargetInfos
+        Set results_ = BrowserCore.jsConverter.ParseJson(result).Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
             If results__.Item("attached") = False And results__.Item("type") = "page" Then
@@ -3440,128 +2727,6 @@ Private Function getHandle() As LongPtr
 
 End Function
 
-Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
-'-----------------------------------------------------------------------------------------------------------------------------------------
-' Provides cleaning before firing up a new session to prevent
-' pipe error
-' Update: 05/11/24: Daniel Polak - modified to solve problems with closing sessions (that do not belong to this user) on terminal server
-'         23/10/25: Daniel Polak - p.name and p.terminate were not correct, replaced by proc.name and proc.terminate (discovered this bug because we are using Option Explicit now). On Error Resume Next was hiding the bug too.
-'                                - only terminate automation-processes (where command line contains --remote-debugging-pipe)
-'-----------------------------------------------------------------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
-
-
-    '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
-    Dim lProcessId As Long, lSessionId As Long
-    lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
-    ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
-
-    'Clean up all running sessions
-    Dim proc As Object
-    On Error Resume Next
-
-    '2. 前述の2つの情報を基に、起動中のアプリたちを取得する
-    For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
-        '3. 起動中のブラウザ名であるか確認
-        If LCase$(proc.Name) = LCase$(br.Type) Then
-            '4. Killタイプ判定
-            If Not onlyCdpSessions Then
-                '5. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
-                proc.Terminate
-
-            ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 0 And InStr(1, proc.CommandLine, br.User) > 0 Then
-                '5. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
-                 proc.Terminate
-            End If
-        End If
-        DoEvents
-    Next
-    On Error GoTo 0
-    Err.Number = 0
-
-    'Also clean up all prev CDP
-    core.ClosePipeCDP   'パイプハンドルを閉じる
-    deleteCDPID         'テーブルからも削除する
-
-   'Clean core params for new session
-    brTab.lngLastID = 0   'To make a clean slate for new session
-    brTab.sessionID = ""  'Likewise
-
-    printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
-
-End Sub
-
-Private Sub setCrashStateNormal()
-'------------------------------------------------------------------
-' Set Crashed state to Normal to prevent the "Restore Sessions?"
-' popup from appearing every time the browser is started after
-' being closed by browser.quit method.
-' Requires user data dir profile stored in private var br.User and
-' the browser type stored in private variable br.Type.
-' Update: 22/01/26 - Tweaked to work well with the new multi-instance
-'                    structure.
-'------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".setCrashStateNormal"
-
-
-    Dim filePath_Preferences As String
-    Dim strContents As String, strNewContents As String
-    Dim intF As Integer
-
-    '状況に応じたクラッシュパス情報を指定する
-    '`UserDataDir`のポリシーがあったらそっちを優先
-    If currentPolicy.UserDataDir.Exists Then
-        'Use this switch instead if your organization disables UserDataDir with policy
-        filePath_Preferences = currentPolicy.UserDataDir.Contents & "\" & br.User & "\Preferences"
-    Else
-        'user-data-dir
-        Select Case br.Type
-            Case brChrome: filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & br.User & "\Default\Preferences"
-            Case brEdge: filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & br.User & "\Default\Preferences"
-        End Select
-    End If
-
-
-    'クラッシュ情報がない場合は、ここで抜ける
-    If LenB(Dir(filePath_Preferences)) = 0 Then Exit Sub
-
-    intF = FreeFile
-    Open filePath_Preferences For Binary As #intF
-        strContents = Input$(LOF(intF), #intF)
-    Close #intF
-
-   'Precise replacement: only replace exit_type value
-    strNewContents = Replace(strContents, """exit_type"":""Crashed""", """exit_type"":""Normal""", 1, -1, vbBinaryCompare)
-
-    If strNewContents <> strContents Then
-        intF = FreeFile
-        Open filePath_Preferences For Binary As #intF
-            Put #intF, 1, strNewContents
-        Close #intF
-    End If
-
-    printMsg info_, "setCrashStateNormal completed", FromProcedureName
-
-End Sub
-
-Private Function attachToTab(tabId As String) As String
-'----------------------------------------------------------------------------------
-' Attach to a specific tab with its tabId (a.k.a targetId)
-' flatten: Enables "flat" access to the session via specifying sessionId attribute
-' in the commands. Set to True by default to make attachToTab work.
-' Returns: a session ID string that is needed for CDP automation.
-'----------------------------------------------------------------------------------
-
-    Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(tabId)
-    params("flatten") = True
-
-    Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.attachToTarget", params, True)
-    attachToTab = results("sessionId")
-
-End Function
-
 Private Function getTargetID() As String
 '----------------------------------------------------------------------------------
 ' Retrieve the targetId of the current tab (a.k.k "target" in CDP Documentation).
@@ -3571,80 +2736,6 @@ Private Function getTargetID() As String
     Dim results As Scripting.Dictionary
     Set results = invokeMethod("Target.getTargetInfo")
     getTargetID = results("targetInfo").Item("targetId")
-
-End Function
-
-
-
-Private Function getBrowserPath(strBrowserType As String) As String
-'----------------------------------------------------------------------------------
-' Obtain the installation path of the browser program. This is useful when
-' the installation path is changed by the user or their corporation for security.
-' Updated: 22/03/2023
-' 20251023 Daniel Polak - added fallback path when registry lookup fails (in a locked-down environment)
-'----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
-
-
-    Select Case True
-        Case InStr(LCase(strBrowserType), "chrome"): br.Type = brChrome
-        Case InStr(LCase(strBrowserType), "edg"): br.Type = brEdge         'On edge it is just "Edg"
-        Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
-    End Select
-
-    'カスタムパスの指定があったらそっちを優先
-    With ShSetting01_StartBrowser
-        If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
-            '1. 必要な変数を用意
-            Dim strKeyPath      As String   'ベースパス
-            Dim ValueSize       As Long     '値の大きさ
-
-            '2. ブラウザのインストールパスのあるレジストリ場所を指定
-            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
-
-            '3. レジストリから、ブラウザインストールパスを特定
-            '※文字列の場合、仕組み上まず、文字数チェックを行います
-            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
-                '4. 得た文字数を基に改めて、値の中身を取り出す
-                getBrowserPath = String(ValueSize / 2, vbNullChar)
-                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
-
-                '5. `vbnullchar`以前を取り出す(Trim)
-                getBrowserPath = Mid(getBrowserPath, 1, searchNull(getBrowserPath) - 1)
-            End If
-        Else
-            '1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
-        End If
-    End With
-
-    'パスが空の場合は、次の捜索へ
-    If LenB(getBrowserPath) = 0 Then
-
-        '2. デフォルトインストールパスチェック
-        Select Case br.Type
-            Case brChrome
-                If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & br.Type
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & br.Type
-                End If
-            Case brEdge
-                If LenB(Dir(Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & br.Type
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type
-                End If
-        End Select
-
-        If LenB(getBrowserPath) > 0 Then
-            If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
-        End If
-
-
-        '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
-        If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
-    End If
 
 End Function
 
@@ -3675,21 +2766,6 @@ Private Sub getSessionInfo()
 
 End Sub
 
-Private Sub deleteCDPID()
-'----------------------------------------------------------------------------------
-' By      : Eschamali
-' 機能    ：デバッグブラウザのパイプハンドル/セッション情報を消去します
-'----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
-
-
-    With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = br.User  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, FromProcedureName) = br.User  'ブラウザセッション情報
-    End With
-
-End Sub
-
 Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As String)
 '----------------------------------------------------------------------------------
 ' Decode a base64 string and save to file without external dependencies (WindowsAPI:CryptStringToBinary).
@@ -3704,72 +2780,6 @@ Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As
 
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：URIのプロトコルチェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：引数の内容そのまんま
-'* 引数　　：URI   ブラウザのURLに渡す予定の文字列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
-'            ・既に開いてるURIに関して(`getTab`メソッド)はチェック対象外とします
-'***************************************************************************************************
-Private Function checkURI(URI As String) As String
-    Const FromProcedureName As String = ThisClassName & ".checkURI"
-
-
-    '0. 空文字の場合は、チェックしません
-    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
-    If URI = "" Then
-        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
-
-        checkURI = URI
-        Exit Function
-    End If
-
-    '1. ホワイトリストのプロトコルを取得
-    With ShSetting01_StartBrowser
-        Dim tmp, WhiteList
-        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.接頭辞)
-
-        '配列か？
-        If IsArray(tmp) Then
-            'そのまんま
-            WhiteList = tmp
-        Else
-            '配列じゃない場合は配列にしておく
-            ReDim WhiteList(1 To 1, 1 To 1)
-            WhiteList(1, 1) = tmp
-        End If
-
-        '解放
-        tmp = vbNullString
-    End With
-
-    '2. 先頭始まりかチェック
-    Dim i As Long
-    For i = 1 To UBound(WhiteList)
-        '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
-
-            checkURI = URI
-            Exit Function
-        End If
-    Next
-
-    '3. プロトコル名をチェック
-    Dim ProtocolName, ErrorMes As String
-    ProtocolName = Split(URI, ":")
-    If UBound(ProtocolName) = 0 Then
-        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため省略せず、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
-    Else
-        ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
-    End If
-
-    '4. エラーで中断
-    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-
-End Function
 
 '***************************************************************************************************
 '* 機能　　：SessionID の破棄を行います
@@ -3801,116 +2811,33 @@ Private Function DiscardSessionID(sessionID As String) As Boolean
     End If
 End Function
 
+
+
 '***************************************************************************************************
-'* 機能　　：リモート デバッグに関するポリシーチェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserExeName        "msedge.exe" とかを指定します。本家ライブラリに沿った形です
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：・企業によっては、ポリシー設定でリモートデバッグできないようにしています。
-'　　　　　　・設定されていると、起動はできたのに、なんか操作できないといった混乱が発生するため、このチェックを設けています
-'            ・現在は下記の確認に対応してます
-'               ・RemoteDebuggingAllowed
-'               ・UserDataDir
+'                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
-    Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
+Private Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    PipeCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+End Sub
 
-
-    'レジストリ確認に必要な定数　※ポリシーチェックに使います。
-    Const DisableRemote As Long = 0                    '`0`が、リモート デバッグを使用することはできません。
-
-    'ブラウザ名に応じて、ベースとなるキーパスを設定
-    Dim RegPathBrowser As String
-    Select Case BrowserExeName
-        Case brEdge: RegPathBrowser = "\Microsoft\Edge"
-        Case brChrome: RegPathBrowser = "\Google\Chrome"     'https://issues.chromium.org/issues/42323066
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
-    End Select
-
-    'ポリシー情報のあるパスを設定します
-    Dim BaseKeyPath As String: BaseKeyPath = "SOFTWARE\Policies" & RegPathBrowser
-
-
-    '必要な変数を用意
-    Dim checkValueName          As String   '値の名前
-    Dim ValueExists             As Long     '存在有無結果
-    Dim ValueContents_long      As Long     '値の中身(数字のみ)
-    Dim ValueContents_String    As String   '値の中身(文字列のみ)
-    Dim ValueSize               As Long     '値の大きさ
-
-    '"HKLM"と"HKCU"を確認する
-    Dim i As Long, SetRegistryTree As Long
-    Dim ErrorMes As String
-    For i = 0 To 1
-        'レジストリツリーを設定
-        '最初は、PC単位、次は、現在のログインユーザー単位で確認します
-        SetRegistryTree = IIf(i, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE)
-
-
-        ' ------------ 1. RemoteDebuggingAllowed ------------
-        'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
-        '※これに引っかかると残念ですが、CDP制御はできません
-        checkValueName = "RemoteDebuggingAllowed"
-
-        '1-1. 32bit値としてチェックする
-        ValueSize = SIZE_REG_DWORD
-        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_DWORD, 0, VarPtr(ValueContents_long), ValueSize)
-        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
-
-        '1-2. そのデータ名があるか？
-        If ValueExists = RRF_SUCCESS Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_long, FromProcedureName
-
-            '1-3. リモートできない設定値になってるか？
-            If ValueContents_long = DisableRemote Then
-                '通達
-                ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                                  "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
-
-                printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-                Exit For
-            End If
-        End If
-
-
-        '------------ 2. UserDataDir ------------
-        'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
-        '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも毎回、落とさないといけない制限となります
-        checkValueName = "UserDataDir"
-
-        '2-1. 文字列として、チェックする
-        '※文字列の場合、仕組み上まず、文字数チェックを行います
-        ValueSize = 0   'リセット
-        ValueExists = RegGetValueW(SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, 0, ValueSize)
-        printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " existence status - " & ValueExists, FromProcedureName
-
-        '2-2. そのデータ名があるか？
-        If ValueExists = RRF_SUCCESS Then
-            printMsg Debug_, IIf(i, "HKCU-", "HKLM-") & "Policy：" & checkValueName & " contents - " & ValueContents_String, FromProcedureName
-
-            'フラグ立て
-            currentPolicy.UserDataDir.Exists = True
-
-            '得た文字数を基に改めて、値の中身を取り出す
-            ValueContents_String = String(ValueSize / 2, vbNullChar)
-            RegGetValueW SetRegistryTree, StrPtr(BaseKeyPath), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(ValueContents_String), ValueSize
-
-            '中身が空の場合は、`User Data`配下として返します
-            '※厳密には、`vbnullchar`が、先頭にある時
-            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Mid(ValueContents_String, 1, searchNull(ValueContents_String) - 1))
-
-            '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。")
-
-            printMsg WARN_, ErrorMes, FromProcedureName
-            Exit For
-        End If
-    Next
+Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
+    PipeCore.TakeEvents destruction, StopPipeError
 End Sub
 
 
 
+'***************************************************************************************************
+'                               ■■■ CDPBrowser.cls 直通メソッド ■■■
+'***************************************************************************************************
+Private Function SendMessage(strMessage As String, commandID As Long, Optional sessionID As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Dictionary
+    Set SendMessage = BrowserCore.SendMessage(strMessage, commandID, Async, dbgMsg)
+End Function
+
+
+
+'***************************************************************************************************
+'                       ■■■ このClassオブジェクト生成/破棄時のアクション ■■■
+'***************************************************************************************************
 Private Sub Class_Initialize()
 '----------------------------------------------------------------------------------
 ' A quick way to quickly check if an automated session is already active and open.
@@ -3923,60 +2850,10 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.id = "BRID" & Format(Rnd * 1000, "000")
-
-
-    '------------------------- クラス内変数の一部を初期化 -------------------------
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        '1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    
-        '2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
-        If LogFolderPath <> "" Then
-            currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
-        End If
-
-        '3. いくつかのポリシーチェックを行います。
-        'この確認を使用することで、原因調査の時短につながる可能性があります。
-        '※主要なブラウザのみチェックします
-        IsRemoteDebuggingBlockedByPolicy IIf(.Range(.UseRangeName(4, FromProcedureName)).value, brChrome, brEdge)
-
-        '4. Edgeウィンドウの表示モードの設定
-        br.setShowWindow = .Range(.UseRangeName(12, FromProcedureName)).value
-
-        '5. 文字コード設定
-        UseConverterUtf8FromString = .Range(.UseRangeName(10, FromProcedureName)).value
-    End With
-
-    'タイムアウト設定(デフォルトで、30s)
-    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
-
-    '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
-    Set currentResultCDP.response = New Dictionary
-    currentResultCDP.limit = InitialAllocationStrBuffer
-
-    'Json分断時の一時キュー関連の初期設定
-    With FragmentedDate
-        .expansionCount = 1
-        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-        .Index = 0
-    End With
+    br.id = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
-    '------------------------------------------------------------------------------
-
-
-    'Determine project host type for compatibility
-    '※このフォークツールは、Excel特化に改良してるため、Excel以外は動作しません
-    Select Case True
-        Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
-        'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
-        'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
-    End Select
 
 End Sub
 
@@ -3997,7 +2874,6 @@ Private Sub Class_Terminate()
     End If
 
 End Sub
-
 '===============================================================================================
 ' Experimental Functions
 '===============================================================================================
