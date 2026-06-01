@@ -29,7 +29,6 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
 Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" ( _
     ByVal dwMilliseconds As Long)
 
-
 'ポリシー情報確認用API(ReadOnly)
 Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
     ByVal hKey As LongPtr, _
@@ -98,7 +97,7 @@ Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザから�
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Public WithEvents PipeCore  As CDPCore              'Must be initialized for CDP engine
+Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP engine
 Attribute PipeCore.VB_VarHelpID = -1
 Public jsConverter          As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
 
@@ -140,14 +139,13 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 
 'その他
 Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
-Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 
 
 
 '***************************************************************************************************
-'                              ■■■ レスポンス蓄積/処理 ■■■
+'                               ■■■ レスポンス蓄積 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザに対するCDPレスポンス結果を一旦、Dictionaryへ蓄積させます
 '---------------------------------------------------------------------------------------------------
@@ -159,7 +157,7 @@ Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際�
 '            ・Dictionaryへの蓄積には、上限があります。上限を超えると、古いものから削除されていきます
 '***************************************************************************************************
 Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".core_CDPBrowserID"
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserID"
 
 
     '1. 結果を蓄積
@@ -531,13 +529,33 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ 各種接続情報記録/削除設定 ■■■
+'                              ■■■ 再接続処理 ■■■
 '***************************************************************************************************
-'* 機能　　：Excelのテーブルに、ブラウザへの接続パイプ情報を記録します
+'* 機能　　：Excelテーブルにある既存のパイプハンドル情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：パイプ生存論理値
+'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
 '***************************************************************************************************
-Private Sub serializeForPipe()
-    PipeCore.serialize br.User
-End Sub
+Public Function reattach(userProfile As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
+
+    '1. 識別名称を設定
+    br.User = userProfile
+
+    '2. 1を基に、Excelテーブルからハンドル情報を取得
+    deserializeForPipe
+
+    '3. 適当なCDPコマンドを打って生存確認
+    If isLiveBrowser Then
+        reattach = True
+        printParams
+    Else
+        reattach = False
+        printMsg ERROR_, br.LogID, "Failed to reattach to previous Pipe handle." & vbCrLf & "> user-data-dir=" & userProfile, FromProcedureName, doRaiseError:=True
+    End If
+
+End Function
 
 '***************************************************************************************************
 '* 機能　　：Excelのテーブルから、ブラウザへの接続パイプ情報を取得します
@@ -554,17 +572,15 @@ Private Sub deserializeForPipe()
     If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, br.LogID, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
-'***************************************************************************************************
-Private Sub deleteCDPID()
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
 
 
-    With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = br.User  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, FromProcedureName) = br.User  'ブラウザセッション情報
-    End With
+'***************************************************************************************************
+'                           ■■■ 各種接続情報記録/削除設定 ■■■
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに、ブラウザへの接続パイプ情報を記録します
+'***************************************************************************************************
+Private Sub serializeForPipe()
+    PipeCore.serialize br.User
 End Sub
 
 '***************************************************************************************************
@@ -596,6 +612,19 @@ Public Sub serializeForMainTab(LastCommandID_mainTab As Long, sessionID_mainTab 
 
     '2. Excelのテーブルへ記録する
     Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
+'***************************************************************************************************
+Private Sub deleteCDPID()
+    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
+
+
+    With ShSetting01_StartBrowser
+        .DeleteCDPToTable(1, FromProcedureName) = br.User  'パイプ通信Handle情報
+        .DeleteCDPToTable(2, FromProcedureName) = br.User  'ブラウザセッション情報
+    End With
 End Sub
 
 
@@ -966,6 +995,8 @@ End Function
 '                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
 '
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'            CommandID              CDPコマンドID
+'            sessionID              タブへのコマンドを送る場合は指定してください
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
@@ -979,7 +1010,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, commandID As Long, Optional sessionID As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Public Function SendMessage(strMessage As String, commandID As Long, Optional sessionID As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1012,19 +1043,18 @@ Private Function SendMessage(strMessage As String, commandID As Long, Optional s
    '------------------------------------------------
    'Read message returned by browser
    '------------------------------------------------
-    Dim timerStart As Double: timerStart = TimerCounter                                                 'Failsafe timer to ensure loop ends when server fails to respond
-
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    Dim timerStart As Double: timerStart = TimerCounter
     Dim tmp As String
     printMsg Trace_, br.LogID, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '1. 受信処理によるパイプを拝見する
-        PipeCore.TakeEvents StopPipeError:=dbgMsg
+        TakeEvents StopPipeError:=dbgMsg
 
         '2. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, br.LogID, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
-        '3. 内部の`RaiseEvent CDPBrowserEvent`による発火で、Dictionaryへ蓄積されたか？
+        '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
         tmp = ResultCDPFromWithEvents(commandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
@@ -1194,6 +1224,13 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
+'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
+'***************************************************************************************************
+Property Get ReceiptCDPCore() As CDPCore
+    ReceiptCDPCore = PipeCore
+End Property
+
+'***************************************************************************************************
 '* 機能　　：現在のタイマー値を取得します
 '***************************************************************************************************
 Property Get TimerCounter() As Double
@@ -1357,7 +1394,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：20億を超えると、1にリセットされ、過去のCDP結果もリセットされます
 '***************************************************************************************************
-Function CountUPcommandID() As Long
+Private Function CountUPcommandID() As Long
     Const FromProcedureName As String = ThisClassName & ".CountUPcommandID"
 
 
@@ -1382,13 +1419,42 @@ End Function
 
 
 '***************************************************************************************************
+'                                   ■■■ ステータス表示系 ■■■
+'***************************************************************************************************
+Private Sub printParams()
+'------------------------------------------------------------------
+' Print all parameters of the current session for debuggings.
+'------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".printParams"
+
+
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, br.LogID, br.LogID & " Browser-Information", FromProcedureName
+    printMsg Debug_, br.LogID, "---------------------------------------------------", FromProcedureName
+
+    printMsg Debug_, br.LogID, "Browser Type      | brType       | " & br.Type, FromProcedureName
+    printMsg Debug_, br.LogID, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
+    printMsg Debug_, br.LogID, "Browser Path      | brPath       | " & br.Path, FromProcedureName
+    printMsg Debug_, br.LogID, "Core StdInWr      | hStdInWr     | " & PipeCore.CollectionPipe_hStdInWr, FromProcedureName
+    printMsg Debug_, br.LogID, "Core StdOutRd     | hStdOutRd    | " & PipeCore.CollectionPipe_hStdOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.CollectionPipe_hStderrOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core CDPInWr      | hCDPInWr     | " & PipeCore.CollectionPipe_hCDPInWr, FromProcedureName
+    printMsg Debug_, br.LogID, "Core CDPOutRd     | hCDPOutRd    | " & PipeCore.CollectionPipe_hCDPOutRd, FromProcedureName
+    printMsg Debug_, br.LogID, "Core dwProcessId  | dwProcessId  | " & PipeCore.CollectionProcessId, FromProcedureName
+    printMsg Debug_, br.LogID, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
+
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+Private Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
+Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
     PipeCore.TakeEvents destruction, StopPipeError
 End Sub
 
@@ -1443,51 +1509,3 @@ Private Sub Class_Initialize()
     End Select
 
 End Sub
-
-
-
-
-'***************************************************************************************************
-'* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：成功可否論理値
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            meansSessionID     SessionIDの紐づけ手段を指定します。詳細は、定義部分にて
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
-'            CDP instances at once under different Chrome/Edge user profiles. The benefit of
-'            this is that if one instance fails/crashes, it does not affect the other ones.
-'            and thus enables the possibility of running multiple CDP automation operations
-'            on entirely different tasks simultaneously.
-'
-'* 注意事項：・`meansSessionID`の`empty_`は、下記の内部処理にて使用する想定です。
-'            　親子関係SessionIDを維持するために破棄しないようにしてます。それ以外は基本的に`refresh_`で、SessionIDの更新で`reattach`するようにしてください。
-'            　・newTab
-'            　・getTab
-'
-'            ・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
-'              この`targetID`自体が既に閉じてしまってる場合、結果は`False`で返りますが、パイプハンドルが生きてれば下記のメソッドで手動で再接続可能です。
-'              その際は、`setMain:=True`で、セッションを確立させてください。
-'            　・newTab
-'            　・getTab
-'
-'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=existing_`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
-'***************************************************************************************************
-'Public Function reattach(userProfile As String, Optional meansSessionID As ReConnectSessionID) As Boolean
-'    Const FromProcedureName As String = ThisClassName & ".reattach"
-'
-'
-'    br.User = userProfile
-'    deserialize meansSessionID
-'
-'    If isLive Then
-'        reattach = True
-'        printParams
-'    Else
-'        reattach = False
-'        printMsg WARN_, br.LogID, "Failed to reattach to previous CPID.", FromProcedureName
-'    End If
-'
-'End Function
-
-
