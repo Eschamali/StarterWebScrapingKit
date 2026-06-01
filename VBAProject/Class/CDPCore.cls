@@ -917,7 +917,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
     '--------- 1. ブラウザからのイベントか？ ---------
     If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
 
-        '--------- 2. ブラウザに対する非同期イベントか？ ---------
+        '--------- 2. タブに対する非同期イベントか？ ---------
         If GetContentsSessionId(CDPJsonString, sessionID) Then
             'タブに対する非同期イベントとして発信
             RaiseEvent CDPTabEvent(AsynchronousEventName, CDPJsonString, sessionID)
@@ -928,7 +928,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
     Else
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(CDPJsonString, ResultCommandID) Then
-            '--------- 3. ブラウザに対するCDP-Jsonコマンド結果か？ ---------
+            '--------- 3. タブに対するCDP-Jsonコマンド結果か？ ---------
             If GetContentsSessionId(CDPJsonString, sessionID) Then
                 'タブに対するコマンド結果として発信
                 RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
