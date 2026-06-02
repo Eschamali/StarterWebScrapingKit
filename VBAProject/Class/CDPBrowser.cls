@@ -26,9 +26,6 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, _
     ByRef pSessionId As Long) As Long
 
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" ( _
-    ByVal dwMilliseconds As Long)
-
 'ポリシー情報確認用API(ReadOnly)
 Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
     ByVal hKey As LongPtr, _
@@ -1358,19 +1355,6 @@ Private Function checkURI(URI As String) As String
 
 End Function
 
-Public Sub sleep(Optional seconds As Double = 0.5)
-'------------------------------------------------------------------
-' Custom sleep function. Sleep by 0.5s by default.
-' Useful for a quick necessary pause when needed.
-'------------------------------------------------------------------
-
-    Const baseUnit As Long = 1000    'ie. millisecs
-
-    sleep2 seconds * baseUnit
-    DoEvents
-
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：パイプハンドルの生存確認を行います
 '---------------------------------------------------------------------------------------------------
@@ -1450,11 +1434,15 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-Private Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
+Public Sub sleep(Optional seconds As Double = 0.5)
+    PipeCore.sleep seconds
+End Sub
+
+Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
     PipeCore.TakeEvents destruction, StopPipeError
 End Sub
 

@@ -77,7 +77,9 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByVal nNumberOfBytesToWrite As Long, _
     ByRef lpNumberOfBytesWritten As Long, _
     lpOverlapped As Long) As Long
- 
+
+Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" ( _
+    ByVal dwMilliseconds As Long)
  
 '===================================
 ' Types & Structures Declarations
@@ -938,7 +940,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
             End If
         Else
             '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、不整合を防ぐため、エラーで止める
-            printMsg ERROR_, LogID, "A syntax error was detected when executing with invokeMethod/invokeMethodAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteCDP/ExecuteCDPAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
         End If
     End If
 End Sub
@@ -1119,6 +1121,24 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
 
     '主に、CDPコマンドのエラー時に止まります
     If doRaiseError Then Err.Raise CDPCustomErrorCodes.Protocol, From, Description:=strMsg
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                                   ■■■ その他 ■■■
+'***************************************************************************************************
+Public Sub sleep(Optional seconds As Double = 0.5)
+'------------------------------------------------------------------
+' Custom sleep function. Sleep by 0.5s by default.
+' Useful for a quick necessary pause when needed.
+'------------------------------------------------------------------
+
+    Const baseUnit As Long = 1000    'ie. millisecs
+
+    sleep2 seconds * baseUnit
+    DoEvents
 
 End Sub
 
