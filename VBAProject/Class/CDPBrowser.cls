@@ -1353,7 +1353,7 @@ End Property
 '* 注意事項：・セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
 '            ・既に開いてるURIに関して(`getTab`メソッド)はチェック対象外とします
 '***************************************************************************************************
-Private Function checkURI(URI As String) As String
+Public Function checkURI(URI As String) As String
     Const FromProcedureName As String = ThisClassName & ".checkURI"
 
 
