@@ -1008,8 +1008,6 @@ End Function
 '                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
 '
 '* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
-'            CommandID              CDPコマンドID
-'            sessionID              タブへのコマンドを送る場合は指定してください
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
@@ -1023,20 +1021,20 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
 '***************************************************************************************************
-Public Function SendMessage(strMessage As String, commandID As Long, Optional sessionID As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
     Dim intRes As Long
     Dim strRes As String
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
+    Dim currentCommandID As Long: currentCommandID = CountUPcommandID
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
     strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-    If StrPtr(sessionID) Then strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
-    strMessage = strMessage & ", ""id"":" & commandID & "}" & vbNullChar
+    strMessage = strMessage & ", ""id"":" & currentCommandID & "}" & vbNullChar
 
     printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
     printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
@@ -1049,7 +1047,7 @@ Public Function SendMessage(strMessage As String, commandID As Long, Optional se
         Set SendMessage = New Dictionary
 
         '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-        SendMessage.Add commandID, WriteResult
+        SendMessage.Add currentCommandID, WriteResult
         Exit Function
     End If
 
@@ -1144,7 +1142,7 @@ Public Sub quit()
 
     '1. 終了コマンドを送る
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
-    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}", CountUPcommandID, dbgMsg:=False)
+    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}", dbgMsg:=False)
 
     '2. パイプ生存確認
     Dim PipeExists As Boolean: PipeExists = Not (results Is Nothing)
