@@ -1267,14 +1267,13 @@ End Property
 '***************************************************************************************************
 '* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
+'* 引数　　：CommandID  整理券番号
 '* 返値    ：そのIDの実行結果のJson文字列
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
+'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
 '            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
-'            ・エラー判定、JsonDictionay化は別途、用意してください
+'            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
 Property Get ResultCDPFromWithEvents(commandID As Long) As String
     Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
@@ -1288,10 +1287,6 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
 
         '3. 返却
         ResultCDPFromWithEvents = tmp
-
-        '4. 取り出したので消しておく
-        ResultCDP_Browser.response.Remove commandID
-        printMsg Trace_, br.LogID, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
