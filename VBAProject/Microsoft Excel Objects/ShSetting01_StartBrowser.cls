@@ -43,7 +43,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ConnectionInfoNum As Long = 6       '1ユーザーにつき、5つ分のパイプハンドル情報 + プロセスID
-Private Const BrowserInfoNum    As Long = 3       '1ユーザーにつき、3つ分のブラウザセッション情報
+Private Const BrowserInfoNum    As Long = 2       '1ユーザーにつき、2つ分のブラウザセッション情報
 
 
 
