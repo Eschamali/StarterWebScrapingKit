@@ -914,12 +914,12 @@ End Function
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
 '
-'            StopError              `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
+'            StopCDPError           `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：This function enables advanced method invocation under CDP.
 '            For a list of all methods available, see:
 '               https://chromedevtools.github.io/devtools-protocol/tot/Browser/
-'            Error message will be prompted automatically by invokeError in the Immediate Window.
+'            Error message will be prompted automatically by ExecuteError in the Immediate Window.
 '            The return object is Json String that has been converted to a dictionary object.
 '            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '
@@ -932,9 +932,9 @@ End Function
 '
 '            ・`StopError`の規定値は、`True`なので、特別な理由がない限りは、省略推奨です
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
-'              その場合は、後述の結果を待たないタイプのメソッド`invokeMethodAsync`をご利用ください。
+'              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -942,17 +942,17 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", CountUPcommandID, dbgMsg:=StopError)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", dbgMsg:=StopCDPError)
 
    'Print error if there is
-    If invokeError(results) Then
+    If ExecuteError(results) Then
         'エラーによる`Err.Raise`で止めるか？
-        If StopError Then
+        If StopCDPError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, br.LogID, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, br.LogID, "Failed to invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
@@ -968,7 +968,7 @@ End Function
 '* 機能　　：`ExecuteCDP`の非同期実行(コマンド結果を待たない)バージョンです
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
-'* 引数　　：※`invokeMethod`と一緒のため、省略
+'* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
@@ -1086,13 +1086,13 @@ Public Function SendMessage(strMessage As String, commandID As Long, Optional se
     printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
-Private Function invokeError(result As Scripting.Dictionary) As Boolean
+Private Function ExecuteError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
-' Check if InvokeMethod fails and what the error message returned is.
+' Check if ExecuteCDP fails and what the error message returned is.
 ' Error message will be shown via printMsg
 ' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '-----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
+    Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
     Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
@@ -1101,7 +1101,7 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
         ErrorMessage = "Timeout or No results"
         ErrorData = vbEmpty
         printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        invokeError = True
+        ExecuteError = True
         Set lastErrorDetailsCDP = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
     ElseIf result.Exists("error") Then
         Set lastErrorDetailsCDP = result("error")
@@ -1114,7 +1114,7 @@ Private Function invokeError(result As Scripting.Dictionary) As Boolean
         Else
             ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
         End If
-        invokeError = True
+        ExecuteError = True
     Else
         ErrorCode = 0
         ErrorMessage = vbNullString
