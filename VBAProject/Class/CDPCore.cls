@@ -260,28 +260,28 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
 '***************************************************************************************************
-Property Get CollectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
-    CollectionPipe_hStdOutRd = hStdOutRd
+Property Get ConnectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStdOutRd = hStdOutRd
 End Property
 
-Property Get CollectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
-    CollectionPipe_hStderrOutRd = hStderrOutRd
+Property Get ConnectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStderrOutRd = hStderrOutRd
 End Property
 
-Property Get CollectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
-    CollectionPipe_hStdInWr = hStdInWr
+Property Get ConnectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStdInWr = hStdInWr
 End Property
 
-Property Get CollectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
-    CollectionPipe_hCDPOutRd = hCDPOutRd
+Property Get ConnectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
+    ConnectionPipe_hCDPOutRd = hCDPOutRd
 End Property
 
-Property Get CollectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
-    CollectionPipe_hCDPInWr = hCDPInWr
+Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
+    ConnectionPipe_hCDPInWr = hCDPInWr
 End Property
 
-Property Get CollectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
-    CollectionProcessId = dwProcessId
+Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
+    ConnectionProcessId = dwProcessId
 End Property
 
 '***************************************************************************************************
