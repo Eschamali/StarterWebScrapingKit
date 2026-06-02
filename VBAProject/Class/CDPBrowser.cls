@@ -291,6 +291,12 @@ Public Sub start(userProfile As String, Optional Name As String = "chrome", _
 
     'ブラウザセッションパイプ情報を記録
     serializeForPipe
+
+    '起動中のブラウザ情報を変数に記録
+    getBrowserInfo
+
+    'ブラウザステータス表示
+    printParams
 End Sub
 
 Private Function getBrowserPath(strBrowserType As String) As String
@@ -1437,6 +1443,52 @@ Private Sub printParams()
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
+
+
+
+'***************************************************************************************************
+'                             ■■■ SessionID発行と破棄 ■■■
+'***************************************************************************************************
+'* 機能　　：SessionID の発行を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`TargetID`に対する`sessionId`
+'* 引数　　：tabId  TargetID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Attach to a specific tab with its tabId (a.k.a targetId)
+'            flatten: Enables "flat" access to the session via specifying sessionId attribute
+'            in the commands. Set to True by default to make attachToTab work.
+'            Returns: a session ID string that is needed for CDP automation.
+'***************************************************************************************************
+Public Function attachToTab(tabId As String) As String
+    attachToTab = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & tabId & """,""flatten"":true}}")("result")("sessionId")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：SessionID の破棄を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：破棄成功論理値
+'* 引数　　：SessionID      破棄したいSessionID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：不必要なSessionIDを破棄することで、ブラウザの安定性が向上し、奇妙な不具合も消えるかもしれません
+'* 注意事項：・ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
+'            ・念のため成功論理値を返してますが基本、確認するほどでもないと思います
+'***************************************************************************************************
+Public Function DiscardSessionID(sessionID As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
+
+
+    'パラメーターを組んで破棄コマンド実行
+    Dim CDPparameters As New Dictionary
+    CDPparameters.Add "sessionId", sessionID
+    DiscardSessionID = Not (ExecuteCDP("Target.detachFromTarget", CDPparameters, False) Is Nothing)
+
+    'ログとして出しておく
+    If DiscardSessionID Then
+        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
+    Else
+        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
+    End If
+End Function
 
 
 
