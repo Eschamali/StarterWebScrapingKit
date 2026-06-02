@@ -535,6 +535,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：パイプ生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：パイプが生きてない場合は、このハンドルの再利用はできません
 '***************************************************************************************************
 Public Function reattach(userProfile As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
@@ -543,10 +545,14 @@ Public Function reattach(userProfile As String) As Boolean
     '1. 識別名称を設定
     br.User = userProfile
 
-    '2. 1を基に、Excelテーブルからハンドル情報を取得
+    '2. パイプハンドル制御するための初期化
+    Set PipeCore = New CDPCore
+    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
+
+    '3. 1を基に、Excelテーブルからハンドル情報を取得
     deserializeForPipe
 
-    '3. 適当なCDPコマンドを打って生存確認
+    '4. バージョン確認CDPコマンドを打ってパイプ生存確認
     If isLiveBrowser Then
         reattach = True
         printParams
@@ -563,9 +569,6 @@ End Function
 Private Sub deserializeForPipe()
     Const FromProcedureName As String = ThisClassName & ".deserializeForPipe"
 
-
-    Set PipeCore = New CDPCore
-    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
 
     '`UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
     '※載ってない物はエラーとする
@@ -600,13 +603,12 @@ End Sub
 '                     the cpid file name to allow targetting of
 '                     specific profile for reattachment.
 '***************************************************************************************************
-Public Sub serializeForMainTab(LastCommandID_mainTab As Long, sessionID_mainTab As String, targetID_mainTab As String)
+Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As String)
     Const FromProcedureName As String = ThisClassName & ".serialize"
 
 
     '1. 必要なデータを`Dictionary`に詰める
     Dim BrowserInfo As New Dictionary
-    BrowserInfo.Add "lngLastID", LastCommandID_mainTab
     BrowserInfo.Add "sessionID", sessionID_mainTab
     BrowserInfo.Add "targetID", targetID_mainTab
 
