@@ -201,6 +201,9 @@ Private Type StateFragmented
 End Type
 Private FragmentedDate As StateFragmented
 
+'コマンドIDとSessionIDの紐づけ管理
+Private RunSessionID As Dictionary
+
 'ログ設定状況
 Private Type StateLog
     seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
@@ -692,6 +695,7 @@ Public Function ReadyRunCDP(commandID As Long, strMessage As String, Optional se
     strMessage = Left(strMessage, Len(strMessage) - 1)
     If StrPtr(sessionID) Then
         strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+        RunSessionID.Add commandID, sessionID
         printMsg Trace_, LogID, "commandID:" & commandID & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
         printMsg Trace_, LogID, "commandID:" & commandID & " does not have a SessionID.", FromProcedureName
@@ -995,9 +999,12 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(CDPJsonString, ResultCommandID) Then
             '--------- 3. タブに対するCDP-Jsonコマンド結果か？ ---------
-            If GetContentsSessionId(CDPJsonString, sessionID) Then
+            If RunSessionID.Exists(ResultCommandID) Then
                 'タブに対するコマンド結果として発信
-                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
+                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, RunSessionID(ResultCommandID))
+
+                '仕分けが済んだので削除しておく
+                RunSessionID.Remove (ResultCommandID)
             Else
                 'ブラウザに対するコマンド結果として発信
                 RaiseEvent CDPBrowserID(ResultCommandID, CDPJsonString)
@@ -1238,5 +1245,8 @@ Private Sub Class_Initialize()
         '2-3. LogID設定
         LogID = "COID" & Format(Rnd * 1000, "000")
     End With
+
+    '3. コマンドIDに紐づくSessionIDの管理を初期化
+    Set RunSessionID = New Dictionary
     '------------------------------------------------------------------------------
 End Sub
