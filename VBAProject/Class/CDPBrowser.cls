@@ -1486,6 +1486,18 @@ Private Sub printParams()
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
+'***************************************************************************************************
+Private Sub getBrowserInfo()
+    Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
+
+
+    br.Type = ExecuteCDP("Browser.getVersion")("product")
+    br.Ver = Split(br.Type, "/")(1)
+    br.Path = getBrowserPath(br.Type)
+End Sub
+
 
 
 '***************************************************************************************************
