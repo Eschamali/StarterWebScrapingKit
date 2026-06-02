@@ -665,12 +665,28 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
     printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
 
-    '専用のクラスとして返却
-    Set newTab = New CDPTab
-'    newTab.reattach br.User, empty_ 'SessionIDは次で、手動で割り当てるので、空で続行
-'    newTab.id = sessionID_          '新しくタブ生成した際の`SessionID`として、改めて割り当て
-'    If Url <> "" Then newTab.wait
 
+    '------ 専用のクラスとして返却する準備 ------
+    Set newTab = New CDPTab
+    With newTab
+        '1. パイプハンドル情報を渡す
+        Set .InheritanceCDPCore = PipeCore
+
+        '2. このブラウザ情報を渡す
+        Set .InheritanceCDPBrowser = Me
+
+        '3. 先ほど生成した`sessionId`を渡す
+        .id = sessionID_
+
+        '4. Urlが設定されてる場合は、読み込み完了まで待機する
+        If Url <> "" Then .wait
+
+        '5. ステータスの更新
+        .getSessionInfo
+
+        '6. メイン化する場合は、Excelに記録しておく
+        If setMain Then serializeForMainTab .id, .CurrentTargetID
+    End With
 End Function
 
 '***************************************************************************************************
@@ -693,7 +709,7 @@ End Function
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。SearchType はデフォルトは、"page"にしてます。
 '* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '***************************************************************************************************
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPTab
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPTab
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -786,35 +802,30 @@ searchit:
 
 searchfound:
 
-    Dim sessionID_ As String
    'Return the session object for reference
+    Dim sessionID_ As String
     sessionID_ = attachToTab(tabId)
 
-    'Return the new CDP object
+
+    '------ 専用のクラスとして返却する準備 ------
     '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
     Set getTab = New CDPTab
-'    getTab.reattach br.User, empty_   'SessionIDは次で、手動で割り当てるので、空で続行
-'    getTab.id = sessionID_  'will also update the targetID
-'    sleep 'give some time so that the debugging session can switch to the new tab
+    With getTab
+        '1. パイプハンドル情報を渡す
+        Set .InheritanceCDPCore = PipeCore
 
-End Function
+        '2. このブラウザ情報を渡す
+        Set .InheritanceCDPBrowser = Me
 
-Private Function attachToTab(tabId As String) As String
-'----------------------------------------------------------------------------------
-' Attach to a specific tab with its tabId (a.k.a targetId)
-' flatten: Enables "flat" access to the session via specifying sessionId attribute
-' in the commands. Set to True by default to make attachToTab work.
-' Returns: a session ID string that is needed for CDP automation.
-'----------------------------------------------------------------------------------
+        '3. 先ほど生成した`sessionId`を渡す
+        .id = sessionID_
 
-    Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(tabId)
-    params("flatten") = True
+        '4. ステータスの更新
+        .getSessionInfo
 
-    Dim results As Scripting.Dictionary
-    Set results = ExecuteCDP("Target.attachToTarget", params)
-    attachToTab = results("sessionId")
-
+        '5. メイン化する場合は、Excelに記録しておく
+        If setMain Then serializeForMainTab .id, .CurrentTargetID
+    End With
 End Function
 
 Public Sub printTabs()
