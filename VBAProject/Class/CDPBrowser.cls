@@ -85,7 +85,6 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
-Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザからのコマンド結果蓄積数
 
@@ -1028,19 +1027,15 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Dim intRes As Long
     Dim strRes As String
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-    Dim currentCommandID As Long: currentCommandID = CountUPcommandID
+    Dim currentCommandID As Long: currentCommandID = PipeCore.IssuanceCommandID
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-    strMessage = Left(strMessage, Len(strMessage) - 1)                                           'We add the currentID and sessionID to the message
-    strMessage = strMessage & ", ""id"":" & currentCommandID & "}" & vbNullChar
+    printMsg Debug_, "runCDP - Async       = " & Async, FromProcedureName
 
-    printMsg Debug_, "sendCDP-JsonCommand = " & strMessage, FromProcedureName
-    printMsg Debug_, "runCDP -Async       = " & Async, FromProcedureName
-
-    Dim WriteResult As Long: WriteResult = PipeCore.RunCDP(strMessage)                                                                  'Send message to the browser instance
-    printMsg Debug_, "Result-WriteFile:" & WriteResult, FromProcedureName
+    Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(currentCommandID, strMessage)                                                                 'Send message to the browser instance
+    printMsg Debug_, "Result - WriteFile: " & WriteResult, FromProcedureName
 
     '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
     If Async Then
@@ -1425,35 +1420,6 @@ Private Function isLiveBrowser() As Boolean
 
     '2. パイプのエラーコードをcheckし、両方とも生きてる場合、`True`とします
     If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 Then isLiveBrowser = True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザとしてのcommandIDのカウントアップを担います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：発行されたcommandID
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：20億を超えると、1にリセットされ、過去のCDP結果もリセットされます
-'***************************************************************************************************
-Private Function CountUPcommandID() As Long
-    Const FromProcedureName As String = ThisClassName & ".CountUPcommandID"
-
-
-    '1. リクエスト数の上限に達したら、1にリセットしておく
-    Static LastCommandID_Browser As Long
-    If LastCommandID_Browser + 1 > LimitID Then
-        LastCommandID_Browser = 1
-        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
-
-        '2. 不整合を防ぐため、残ってるコマンド結果は全消去
-        ResultCDP_Browser.response.RemoveAll
-        printMsg info_, "To prevent double storage, the history of CDP execution results has been completely deleted.", FromProcedureName
-    Else
-        '2. カウントアップ
-        LastCommandID_Browser = LastCommandID_Browser + 1   'We increase the global ID counter
-    End If
-
-    '3. 返却
-    CountUPcommandID = LastCommandID_Browser
 End Function
 
 

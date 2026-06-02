@@ -180,8 +180,9 @@ Public Enum CDPCustomErrorCodes
 End Enum
 
 
-Private Const ThisClassName As String = "CDPCore"
+Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
+Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
 
 Private Const STARTF_USESTDHANDLES = &H100&
 Private Const NORMAL_PRIORITY_CLASS = &H20&
@@ -232,7 +233,7 @@ End Type
 Private LastReceiveError   As ErrorCode
 
 'クラスオブジェクト
-Private Utf8Converter   As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 
 '定義側からも呼び出せるチェーンクラスオブジェクト
 Public LogControl      As New Logger               'ログレベルの制御
@@ -304,6 +305,9 @@ Property Get ShowLogCDPresponse() As Boolean
     ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
 End Property
 
+Property Get LimitCommandID() As Long
+    LimitCommandID = LimitID
+End Property
 
 
 '***************************************************************************************************
@@ -641,12 +645,12 @@ Private Function readProcCDP(ByRef strData As String) As Long
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ブラウザへ命令を行います
+'* 機能　　：実際にブラウザへ命令を行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行結果   ※0で成功です
 '* 引数　　：strData    CDP-Jsonコマンド
 '***************************************************************************************************
-Public Function RunCDP(ByVal strData As String) As Long
+Private Function writeProcCDP(strData As String) As Long
     Dim lngWritten As Long
     Dim ResultCode As Long
 
@@ -663,7 +667,67 @@ Public Function RunCDP(ByVal strData As String) As Long
     End If
 
     '失敗時は、実際のエラーコードで返します
-    If ResultCode = 0 Then RunCDP = Err.LastDllError
+    If ResultCode = 0 Then writeProcCDP = Err.LastDllError
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ CDPコマンド実行前の下準備 ■■■
+'***************************************************************************************************
+'* 機能　　：ブラウザへ命令する前の組み立てを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`WriteFile`の実行結果  ※0で成功です
+'* 引数　　：commandID  通常は、`IssuanceCommandID`で発行された番号を指定します
+'            strMessage CDP-Jsonコマンド
+'            SessionID  タブへの命令の場合は指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：
+'***************************************************************************************************
+Public Function ReadyRunCDP(commandID As Long, strMessage As String, Optional sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
+
+
+    '1. `SessionID`があったら末尾にくっつける
+    strMessage = Left(strMessage, Len(strMessage) - 1)
+    If StrPtr(sessionID) Then
+        strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+        printMsg Trace_, LogID, "commandID:" & commandID & " corresponds to SessionID:" & sessionID, FromProcedureName
+    Else
+        printMsg Trace_, LogID, "commandID:" & commandID & " does not have a SessionID.", FromProcedureName
+    End If
+
+    '2. 末尾に`id`,ヌル文字を付与
+    strMessage = strMessage & ", ""id"":" & commandID & "}" & vbNullChar
+
+    '3. 実際に実行
+    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
+    ReadyRunCDP = writeProcCDP(strMessage)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：CDP実行の際のコマンドIDを発行します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：発行されたcommandID
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：20億を超えると、1にリセットされます
+'***************************************************************************************************
+Public Function IssuanceCommandID() As Long
+    Const FromProcedureName As String = ThisClassName & ".IssuanceCommandID"
+
+
+    Static LastCommandID_Pipe As Long
+    If LastCommandID_Pipe + 1 > LimitID Then
+        '1. リクエスト数の上限に達したら、1にリセットしておく
+        LastCommandID_Pipe = 1
+        printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+    Else
+        '1. カウントアップ
+        LastCommandID_Pipe = LastCommandID_Pipe + 1   'We increase the global ID counter
+    End If
+
+    '2. 返却
+    IssuanceCommandID = LastCommandID_Pipe
 End Function
 
 
