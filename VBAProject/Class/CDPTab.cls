@@ -1399,21 +1399,19 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
-    If BrowserCore.reattach(userProfile) Then
-        '2-1. 生きてるので、オブジェクトを継承
-        Set PipeCore = BrowserCore.InheritanceCDPCore
-    Else
-        '2-1. パイプハンドルで詰んでる場合は、VBAエラーで止める
-        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & userProfile, FromProcedureName, doRaiseError:=True
-    End If
+    reattach = BrowserCore.reattach(userProfile)
+    Set PipeCore = BrowserCore.InheritanceCDPCore
 
-    '3. タブ情報を再セット
+    '3. パイプが生きてない場合は、VBAエラーで停止させる
+    If Not reattach Then printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & userProfile, FromProcedureName, doRaiseError:=True
+
+    '4. タブ情報を再セット
     deserializeForTab reuseSession
 
-    '4. `sessionId`が空欄の場合は、即抜け
+    '5. `sessionId`が空欄の場合は、即抜け
     If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
-    '5. sessionId生存check
+    '6. sessionId生存check
     If isLiveTab Then
         reattach = True
 
