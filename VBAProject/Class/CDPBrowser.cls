@@ -916,7 +916,6 @@ End Function
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
-'
 '            StopCDPError           `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：This function enables advanced method invocation under CDP.
@@ -1011,7 +1010,6 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
-    Dim intRes As Long
     Dim strRes As String
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
 
@@ -1075,7 +1073,7 @@ End Function
 '            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
-'* 注意事項：・Jsonは、文字列のままで渡されます。必要に応じて、パース処理して下さい
+'* 注意事項：・Jsonは、文字列のままで渡されます。
 '            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
 '            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************

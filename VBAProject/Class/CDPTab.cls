@@ -1057,15 +1057,12 @@ End Property
 '* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
-'            alwaysBrowserContext   `True` ：`sessionID`の有無問わず、常にブラウザ自身を対象したコマンド実行モードとなります
-'                                   `False`：`sessionID`があれば、その`SessionID`に対するコマンド実行。なければ、ブラウザ自身を対象したコマンド実行となります。
-'
 '            StopError              `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：This function enables advanced method invocation under CDP.
 '            For a list of all methods available, see:
 '               https://chromedevtools.github.io/devtools-protocol/tot/Browser/
-'            Error message will be prompted automatically by ErrorCheckCDP in the Immediate Window.
+'            Error message will be prompted automatically by ExecuteError in the Immediate Window.
 '            The return object is Json String that has been converted to a dictionary object.
 '            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '
@@ -1148,13 +1145,12 @@ End Function
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
+'* 注意事項：Async:=True の場合は常に`nothing`で、返ります
 '***************************************************************************************************
 Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
-    Dim intRes As Long
     Dim strRes As String
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
 
@@ -1165,7 +1161,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
 
     Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(strMessage, brTab.sessionID)    'Send message to the browser instance
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID                     '`ReadyRunCDP`直後のcommandIDを取得
-    
+
     'WriteFile にてエラーがあった場合
     If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & PipeCore.ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
 
@@ -1220,7 +1216,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
 '* 注意事項：・Jsonは、文字列のままで渡されます
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、古いものから削除されていきます
+'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
+'            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub PipeCore_CDPTabID(id As Long, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
@@ -1231,11 +1228,17 @@ Private Sub PipeCore_CDPTabID(id As Long, RawJson As String, sessionID As String
 
     '2. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
     If ResultCDP_Tab.response.Count + 1 > ResultCDP_Tab.Limit Then
+        '2-1. 設定値の上限
         ResultCDP_Tab.response.RemoveAll
         printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
+
+    ElseIf id + 1 > PipeCore.LimitCommandID Then
+        '2-1. 20億チェック
+        ResultCDP_Tab.response.RemoveAll
+        printMsg WARN_, "Due to overflow protection for the long type, the entire history of previous results has been deleted.", FromProcedureName
     End If
 
-    '3. 結果を格納
+    '3. その後、結果を蓄積
     ResultCDP_Tab.response.Add id, RawJson
     printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the tab(sessionId: " & sessionID & ") have been received. → " & RawJson, FromProcedureName
 End Sub
