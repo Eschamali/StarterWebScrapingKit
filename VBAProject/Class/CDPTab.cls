@@ -1490,7 +1490,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
    'Verify if the page can be captured with screenshot
     Set r = ExecuteCDP("Page.getLayoutMetrics")
-    If invokeError(r) Then
+    If ExecuteError(r) Then
         printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
     End If
@@ -1500,7 +1500,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     Set r = ExecuteCDP("Page.captureScreenshot", params)
 
    'Save to the same folder if not indicated
-    If Not invokeError(r) Then
+    If Not ExecuteError(r) Then
         b64 = r("data")
         SaveBase64ToFile b64, FolderPath, FileName
         printMsg info_, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
