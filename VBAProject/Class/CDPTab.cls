@@ -2079,51 +2079,34 @@ Property Get LastJavaScriptException() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：非同期で実行されたIDを取り出します
+'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
-'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
-'
-'* 返値    ：そのIDの実行結果のJson-Dictionary
+'* 引数　　：CommandID  整理券番号
+'* 返値    ：そのIDの実行結果のJson文字列
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
+'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・ここで取り出した結果は、`LastCDPJsonError`には、反映しません
-'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
+'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
+'            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Property Get ResultCDPForAsync(commandID As Long, Optional ByRef ErrorExist As Boolean) As Dictionary
-    Const FromProcedureName As String = ThisClassName & ".ResultCDPByAsync"
+Property Get ResultCDPFromWithEvents(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
 
 
     '1. 存在するか？
-    If currentResultCDP.response.Exists(commandID) Then
-        printMsg Trace_, "CDP-CommandID: " & commandID & " , Raw-Json:" & currentResultCDP.response(commandID), FromProcedureName
+    If ResultCDP_Browser.response.Exists(commandID) Then
+        '2. Log化
+        Dim tmp As String: tmp = ResultCDP_Browser.response(commandID)
+        printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
-        '2. Jsonパーサーを施す
-        Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(currentResultCDP.response(commandID))
+        '3. 返却
+        ResultCDPFromWithEvents = tmp
 
-        '3. `result`オブジェクトがあるか？
-        'ない場合は、そのまま返却
-        If tmp.Exists("result") Then
-            '3-1. 正常に終了していると伝える
-            ErrorExist = False
-            printMsg Debug_, "This CDP-command ID(" & commandID & ") has been completed successfully.", FromProcedureName
-        Else
-            '3-1. エラーありとして伝える
-            ErrorExist = True
-            printMsg WARN_, "This CDP-command ID(" & commandID & ") is in error. ErrorDetails:" & currentResultCDP.response(commandID)("error"), FromProcedureName
-        
-        End If
-
-        '4. 返却自体は、そのままで
-        Set ResultCDPForAsync = tmp
-
-        '5. 取り出したので消しておく
-        currentResultCDP.response.Remove commandID
-        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `cacheResultCDP.response`.", FromProcedureName
+        '4. 取り出したので消しておく
+        ResultCDP_Browser.response.Remove commandID
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
-        ErrorExist = False
         printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
