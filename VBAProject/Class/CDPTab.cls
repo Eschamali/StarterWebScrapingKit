@@ -2083,16 +2083,16 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
 
 
     '1. 存在するか？
-    If ResultCDP_Browser.response.Exists(commandID) Then
+    If ResultCDP_Tab.response.Exists(commandID) Then
         '2. Log化
-        Dim tmp As String: tmp = ResultCDP_Browser.response(commandID)
+        Dim tmp As String: tmp = ResultCDP_Tab.response(commandID)
         printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
         ResultCDPFromWithEvents = tmp
 
         '4. 取り出したので消しておく
-        ResultCDP_Browser.response.Remove commandID
+        ResultCDP_Tab.response.Remove commandID
         printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
