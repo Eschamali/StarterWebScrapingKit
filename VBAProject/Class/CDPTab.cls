@@ -2407,19 +2407,31 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-Private Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
+End Sub
+
+Private Sub sleep(Optional seconds As Double = 0.5)
+    PipeCore.sleep seconds
 End Sub
 
 Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
     PipeCore.TakeEvents destruction, StopPipeError
 End Sub
 
+Private Function TimerCounter() As Double
+    TimerCounter = PipeCore.LogControl.GetTicksMs
+End Function
+
 
 
 '***************************************************************************************************
 '                               ■■■ CDPBrowser.cls 直通メソッド ■■■
 '***************************************************************************************************
+Private Function checkURI(URI As String) As String
+    checkURI = BrowserCore.checkURI(URI)
+End Function
+
 
 
 '***************************************************************************************************
