@@ -1128,10 +1128,10 @@ Public Sub closeTab()
 
    'Get the original serialized tab ID
     Dim mainID As String, serial As Dictionary
-    Set serial = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
+    Set serial = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
     mainID = serial.Item("targetID")
 
-    '操作中のタブ自体を閉じないように仕向ける
+    'メインタブは閉じないように仕向ける
     If brTab.targetID = mainID Then
         printMsg WARN_, "Unable to close this tab " & brTab.targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
@@ -1139,8 +1139,8 @@ Public Sub closeTab()
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    ExecuteCDP "Target.closeTarget", params, True
-    printMsg info_, br.id & " was closed", FromProcedureName
+    ExecuteCDP "Target.closeTarget", params
+    printMsg info_, brTab.targetID & " was closed", FromProcedureName
 
 End Sub
 
