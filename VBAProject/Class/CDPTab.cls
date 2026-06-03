@@ -2329,14 +2329,14 @@ Private Function getHandle() As LongPtr
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(chromeWindowClass), 0&)        'To return Chrome / Edge window handles
+    hWnd = FindWindowEx(0&, 0&, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)        'To return Chrome / Edge window handles
     Do
         '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
         Dim currentPID As Long
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = core.CollectionProcessId Then
+        If currentPID = PipeCore.ConnectionProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 
@@ -2351,7 +2351,7 @@ Private Function getHandle() As LongPtr
         End If
 
         'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(chromeWindowClass), 0&)
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)
 
     Loop Until hWnd = 0 ' no more matching windows
 
