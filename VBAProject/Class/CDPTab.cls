@@ -2369,7 +2369,7 @@ Private Function getTargetID() As String
 
 End Function
 
-Private Sub getSessionInfo()
+Public Sub getSessionInfo()
 '----------------------------------------------------------------------------------
 ' Obtain session info on the fly for printParams.
 ' Updated: 22/03/2023
@@ -2377,21 +2377,16 @@ Private Sub getSessionInfo()
     Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
 
 
-   'Activate to getHandle correctly
-    activate False
-
    'Get infos
     br.Url = Url
     br.Name = Name
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As Dictionary: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopError:=False)
+    Dim tmp As Dictionary: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
-    br.Type = ExecuteCDP("Browser.getVersion").Item("product")
-    br.Ver = Split(br.Type, "/")(1)
-    br.Path = getBrowserPath(br.Type)
+    'タブIDを記録
     brTab.targetID = getTargetID
 
 End Sub
