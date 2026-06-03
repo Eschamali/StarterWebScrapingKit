@@ -545,12 +545,12 @@ step1:
     objMessage.Add "method", UseJsMethod
     objMessage.Add "params", CDPparams
 
-    strMessage = jsConverter.ConvertToJson(objMessage)
+    strMessage = BrowserCore.jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
 
     'Send and check CDPresult -------------------------------------------------------------------------------------------
     '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
-    Set CDPresults = SendMessage(strMessage, Async:=RunAsyncCDP, dbgMsg:=dbgMsg)
+    Set CDPresults = SendMessage(strMessage, RunAsyncCDP, dbgMsg)
     If RunAsyncCDP Then
         '`WriteFile`のエラーをチェック
         If CDPresults.Items(0) Then
@@ -563,7 +563,7 @@ step1:
         printMsg Debug_, "Async CDP JavaScript with WriteFile Result: " & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0), "kernel32") & " ID: " & CDPresults.keys(0), FromProcedureName
         Exit Function
     Else
-        If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & jsConverter.ConvertToJson(CDPresults), FromProcedureName
+        If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & BrowserCore.jsConverter.ConvertToJson(CDPresults), FromProcedureName
         If CDPresults Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
         If Not CDPresults.Exists("error") Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
     End If
@@ -576,7 +576,7 @@ step1:
     If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
         printMsg info_, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
-        Me.id = attachToTab(brTab.targetID)
+        Me.id = BrowserCore.attachToTab(brTab.targetID)
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
@@ -592,7 +592,7 @@ step2:
     'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
     Dim RemoteObject As Dictionary
     Set RemoteObject = CDPresults.Item("result").Item("result")
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & jsConverter.ConvertToJson(RemoteObject), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & BrowserCore.jsConverter.ConvertToJson(RemoteObject), FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If CDPresults.Item("result").Exists("exceptionDetails") Then
@@ -605,7 +605,7 @@ step2:
         '例外による`Err.Raise`で止めるか？
         If StopException Then
             '`StopException`が有効の場合は、ログ表示用に、詳細の方を文字列化
-            Dim exceptionDetails As String: exceptionDetails = jsConverter.ConvertToJson(lastExceptionDetailsJS)
+            Dim exceptionDetails As String: exceptionDetails = BrowserCore.jsConverter.ConvertToJson(lastExceptionDetailsJS)
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
@@ -719,7 +719,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
             printMsg Debug_, "objectClassName   : " & RemoteObject("className"), FromProcedureName
             printMsg Debug_, "objectDescription : " & RemoteObject("description"), FromProcedureName
-            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
+            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & BrowserCore.jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
             printMsg Debug_, String(100, "="), FromProcedureName
 
             'エラー情報があればそのログを出しておく
