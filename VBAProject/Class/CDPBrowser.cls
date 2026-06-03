@@ -1081,36 +1081,67 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
-Private Function ExecuteError(result As Scripting.Dictionary) As Boolean
-'-----------------------------------------------------------------------------------
-' Check if ExecuteCDP fails and what the error message returned is.
-' Error message will be shown via printMsg
-' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
-'-----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：CDP-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無論理値
+'* 引数　　：result         パース処理済みのCDP-Jsonコマンド実行結果
+'            ErrorCode      エラーコード　      ※参照渡しにより返されます
+'            ErrorMessage   エラーメッセージ    ※参照渡しにより返されます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・Check if ExecuteCDP fails and what the error message returned is.
+'            　Error message will be shown via printMsg
+'
+'            ・または、第2引数以降の変数からでもエラー情報をクイックに受け取れます
+'---------------------------------------------------------------------------------------------------
+'* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
+'***************************************************************************************************
+Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
-    Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
+    Dim ErrorData As Variant
+
+    'データの状態をチェック
     If result Is Nothing Then
+        'タイムアウトもしくは、パイプは生きてるが、応答なしによる結果無し
+        ExecuteError = True
+
+        'カスタムなエラー情報として記載
         ErrorCode = -1 'arbitrary nonzero value, may change in future
         ErrorMessage = "Timeout or No results"
         ErrorData = vbEmpty
         printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        ExecuteError = True
-        Set lastErrorDetailsCDP = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
+
+        '最後のエラー情報を記録
+        Set lastErrorDetailsCDP = New Dictionary
+        lastErrorDetailsCDP.Add "code", ErrorCode
+        lastErrorDetailsCDP.Add "message", ErrorMessage
+
     ElseIf result.Exists("error") Then
+        'CDPコマンドエラー
+        ExecuteError = True
+
+        '`error`オブジェクトの中身で記録
         Set lastErrorDetailsCDP = result("error")
+
+        '主要なエラー情報を抜き出す
         ErrorCode = lastErrorDetailsCDP("code")
         ErrorMessage = lastErrorDetailsCDP("message")
         printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+
+        '追加情報がある場合は、それもログ化
         If lastErrorDetailsCDP.Exists("data") Then
             ErrorData = lastErrorDetailsCDP("data")
             printMsg WARN_, "       " & ErrorData, FromProcedureName
         Else
             ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
         End If
-        ExecuteError = True
     Else
+        'CDPコマンド正常終了
+        ExecuteError = False
+
+        'クリアしておく
         ErrorCode = 0
         ErrorMessage = vbNullString
         ErrorData = vbEmpty
