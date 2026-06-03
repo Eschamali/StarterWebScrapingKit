@@ -141,35 +141,6 @@ Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際�
 
 
 '***************************************************************************************************
-'                               ■■■ レスポンス蓄積 ■■■
-'***************************************************************************************************
-'* 機能　　：ブラウザに対するCDPレスポンス結果を一旦、Dictionaryへ蓄積させます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：id             コマンドID
-'            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
-'* 注意事項：・Jsonは、文字列のままで渡されます。必要に応じて、パース処理して下さい
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
-'***************************************************************************************************
-Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserID"
-
-
-    '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
-    If ResultCDP_Browser.response.Count + 1 > ResultCDP_Browser.Limit Then
-        ResultCDP_Browser.response.RemoveAll
-        printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Browser.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
-    End If
-
-    '2. その後、結果を蓄積
-    ResultCDP_Browser.response.Add id, RawJson
-    printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
-End Sub
-
-
-
-'***************************************************************************************************
 '                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
@@ -298,6 +269,18 @@ Public Sub start(userProfile As String, Optional Name As String = "chrome", _
     printParams
     printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
 End Sub
+
+'***************************************************************************************************
+'* 機能　　："Target.targetCreated"による非同期イベントを有効/無効化します
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：論理値に応じたOn/OFF
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：タブやiframeが開いた際の非同期イベントを流すかの切り替えです
+'* 注意事項：このClass側では、"Target.targetCreated"を収集しません。`CDPTab.cls`等で収集処理を構築して下さい
+'***************************************************************************************************
+Property Let Collect_TargetCreated(Switching As Boolean)
+    SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Switching) & "}}"
+End Property
 
 Private Function getBrowserPath(strBrowserType As String) As String
 '----------------------------------------------------------------------------------
@@ -1100,6 +1083,68 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ CDPcommand結果関連 ■■■
+'***************************************************************************************************
+'* 機能　　：ブラウザに対するCDPレスポンス結果を一旦、Dictionaryへ蓄積させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：id             コマンドID
+'            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
+'* 注意事項：・Jsonは、文字列のままで渡されます。必要に応じて、パース処理して下さい
+'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
+'***************************************************************************************************
+Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserID"
+
+
+    '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
+    If ResultCDP_Browser.response.Count + 1 > ResultCDP_Browser.Limit Then
+        ResultCDP_Browser.response.RemoveAll
+        printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Browser.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
+    End If
+
+    '2. その後、結果を蓄積
+    ResultCDP_Browser.response.Add id, RawJson
+    printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CommandID  整理券番号
+'* 返値    ：そのIDの実行結果のJson文字列
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
+'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
+'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
+'            ・エラー判定、JsonDictionay化は別途行って下さい
+'***************************************************************************************************
+Property Get ResultCDPFromWithEvents(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
+
+
+    '1. 存在するか？
+    If ResultCDP_Browser.response.Exists(commandID) Then
+        '2. Log化
+        Dim tmp As String: tmp = ResultCDP_Browser.response(commandID)
+        printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
+
+        '3. 返却
+        ResultCDPFromWithEvents = tmp
+
+        '4. 取り出したので消しておく
+        ResultCDP_Browser.response.Remove commandID
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
+    Else
+        '2. 存在しない旨を伝える
+        printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+    End If
+End Property
+
 '***************************************************************************************************
 '* 機能　　：CDP-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
 '---------------------------------------------------------------------------------------------------
@@ -1167,6 +1212,20 @@ Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode
     End If
 
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`ExecuteError`メソッドを通した際の、最後のエラー情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：最後のエラー情報
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます
+'            ・適切な`ExecuteCDP`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください
+'            ・`ExecuteError`メソッドを通さないと機能しません
+'            ・`Dictionary`オブジェクトとして得れるので必要に応じて`.RemoveAll`でエラークリアすることも可能です
+'***************************************************************************************************
+Property Get LastCDPJsonError() As Dictionary
+    Set LastCDPJsonError = lastErrorDetailsCDP
+End Property
 
 
 
@@ -1278,183 +1337,6 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ PUBLIC PROPERTIES ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get InheritanceCDPCore() As CDPCore
-    Set InheritanceCDPCore = PipeCore
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザパス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserPath() As String
-    CurrentBrowserPath = br.Path
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserUser() As String
-    CurrentBrowserUser = br.User
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザのWindowクラス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserWindowClass() As String
-    CurrentBrowserWindowClass = chromeWindowClass
-End Property
-
-'***************************************************************************************************
-'* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
-'* LET引数 ：置き換えるタイムアウト秒数
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
-'***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
-
-Property Let TimeOutSecond(TimeSec As Double)
-    timerOut = TimeSec * 1000       'ミリ秒に補正する
-End Property
-
-'***************************************************************************************************
-'* 機能　　：`ExecuteError`メソッドを通した際の、最後のエラー情報を取得します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：最後のエラー情報
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます
-'            ・適切な`ExecuteCDP`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください
-'            ・`ExecuteError`メソッドを通さないと機能しません
-'            ・`Dictionary`オブジェクトとして得れるので必要に応じて`.RemoveAll`でエラークリアすることも可能です
-'***************************************************************************************************
-Property Get LastCDPJsonError() As Dictionary
-    Set LastCDPJsonError = lastErrorDetailsCDP
-End Property
-
-'***************************************************************************************************
-'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  整理券番号
-'* 返値    ：そのIDの実行結果のJson文字列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
-'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
-'            ・エラー判定、JsonDictionay化は別途行って下さい
-'***************************************************************************************************
-Property Get ResultCDPFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
-
-
-    '1. 存在するか？
-    If ResultCDP_Browser.response.Exists(commandID) Then
-        '2. Log化
-        Dim tmp As String: tmp = ResultCDP_Browser.response(commandID)
-        printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
-
-        '3. 返却
-        ResultCDPFromWithEvents = tmp
-
-        '4. 取り出したので消しておく
-        ResultCDP_Browser.response.Remove commandID
-        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
-    Else
-        '2. 存在しない旨を伝える
-        printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
-    End If
-End Property
-
-'***************************************************************************************************
-'* 機能　　："Target.targetCreated"による非同期イベントを有効/無効化します
-'---------------------------------------------------------------------------------------------------
-'* LET引数 ：論理値に応じたOn/OFF
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：このClass側では、"Target.targetCreated"を収集しません。`CDPTab.cls`等で収集処理を構築して下さい
-'***************************************************************************************************
-Property Let Collect_TargetCreated(Switching As Boolean)
-    SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Switching) & "}}"
-End Property
-
-
-
-'***************************************************************************************************
-'                               ■■■ ヘルパーメソッド ■■■
-'***************************************************************************************************
-'* 機能　　：URIのプロトコルチェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：引数の内容そのまんま
-'* 引数　　：URI   ブラウザのURLに渡す予定の文字列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
-'            ・既に開いてるURIに関して(`getTab`メソッド)はチェック対象外とします
-'***************************************************************************************************
-Public Function checkURI(URI As String) As String
-    Const FromProcedureName As String = ThisClassName & ".checkURI"
-
-
-    '0. 空文字の場合は、チェックしません
-    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
-    If URI = "" Then
-        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
-
-        checkURI = URI
-        Exit Function
-    End If
-
-    '1. ホワイトリストのプロトコルを取得
-    With ShSetting01_StartBrowser
-        Dim tmp, WhiteList
-        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.接頭辞)
-
-        '配列か？
-        If IsArray(tmp) Then
-            'そのまんま
-            WhiteList = tmp
-        Else
-            '配列じゃない場合は配列にしておく
-            ReDim WhiteList(1 To 1, 1 To 1)
-            WhiteList(1, 1) = tmp
-        End If
-
-        '解放
-        tmp = vbNullString
-    End With
-
-    '2. 先頭始まりかチェック
-    Dim i As Long
-    For i = 1 To UBound(WhiteList)
-        '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
-
-            checkURI = URI
-            Exit Function
-        End If
-    Next
-
-    '3. プロトコル名をチェック
-    Dim ProtocolName, ErrorMes As String
-    ProtocolName = Split(URI, ":")
-    If UBound(ProtocolName) = 0 Then
-        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため省略せず、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
-    Else
-        ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
-    End If
-
-    '4. エラーで中断
-    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-
-End Function
-
-
-
-'***************************************************************************************************
 '                                   ■■■ ステータス系 ■■■
 '***************************************************************************************************
 Private Sub printParams()
@@ -1544,6 +1426,125 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
         printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
     End If
 End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ その他ヘルパーメソッド ■■■
+'***************************************************************************************************
+'* 機能　　：URIのプロトコルチェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：引数の内容そのまんま
+'* 引数　　：URI   ブラウザのURLに渡す予定の文字列
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
+'            ・既に開いてるURIに関して(`getTab`メソッド)はチェック対象外とします
+'***************************************************************************************************
+Public Function checkURI(URI As String) As String
+    Const FromProcedureName As String = ThisClassName & ".checkURI"
+
+
+    '0. 空文字の場合は、チェックしません
+    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
+    If URI = "" Then
+        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
+
+        checkURI = URI
+        Exit Function
+    End If
+
+    '1. ホワイトリストのプロトコルを取得
+    With ShSetting01_StartBrowser
+        Dim tmp, WhiteList
+        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.接頭辞)
+
+        '配列か？
+        If IsArray(tmp) Then
+            'そのまんま
+            WhiteList = tmp
+        Else
+            '配列じゃない場合は配列にしておく
+            ReDim WhiteList(1 To 1, 1 To 1)
+            WhiteList(1, 1) = tmp
+        End If
+
+        '解放
+        tmp = vbNullString
+    End With
+
+    '2. 先頭始まりかチェック
+    Dim i As Long
+    For i = 1 To UBound(WhiteList)
+        '先頭始まりなら、引数の内容そのまんまを返して抜ける
+        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
+            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
+
+            checkURI = URI
+            Exit Function
+        End If
+    Next
+
+    '3. プロトコル名をチェック
+    Dim ProtocolName, ErrorMes As String
+    ProtocolName = Split(URI, ":")
+    If UBound(ProtocolName) = 0 Then
+        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため省略せず、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
+    Else
+        ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
+    End If
+
+    '4. エラーで中断
+    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
+
+End Function
+
+
+
+'***************************************************************************************************
+'                              ■■■ PUBLIC PROPERTIES ■■■
+'***************************************************************************************************
+'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
+'***************************************************************************************************
+Property Get InheritanceCDPCore() As CDPCore
+    Set InheritanceCDPCore = PipeCore
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClass内で起動してるブラウザパス値を受け取ります
+'***************************************************************************************************
+Property Get CurrentBrowserPath() As String
+    CurrentBrowserPath = br.Path
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
+'***************************************************************************************************
+Property Get CurrentBrowserUser() As String
+    CurrentBrowserUser = br.User
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClass内で起動してるブラウザのWindowクラス値を受け取ります
+'***************************************************************************************************
+Property Get CurrentBrowserWindowClass() As String
+    CurrentBrowserWindowClass = chromeWindowClass
+End Property
+
+'***************************************************************************************************
+'* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中のタイムアウト秒数
+'* LET引数 ：置き換えるタイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
+'***************************************************************************************************
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
+End Property
+
+Property Let TimeOutSecond(TimeSec As Double)
+    timerOut = TimeSec * 1000       'ミリ秒に補正する
+End Property
 
 
 
