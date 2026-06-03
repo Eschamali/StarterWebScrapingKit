@@ -1879,18 +1879,20 @@ Property Let id(newID As String)
     Const FromProcedureName As String = ThisClassName & ".id"
 
 
-    '再設定されるので、元のSessionIDを破棄させる
-    printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
-    DiscardSessionID brTab.sessionID
+    '再設定されるので、元のSessionIDがあれば、破棄させる
+    If StrPtr(brTab.sessionID) Then
+        printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+        BrowserCore.DiscardSessionID brTab.sessionID
+    End If
 
     '渡されたIDで、再設定
     brTab.sessionID = newID
 
     '新SessionIDを記録しておく
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(br.User, "sessionID", FromProcedureName) = brTab.sessionID
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
 
     getSessionInfo        'update all session infos
-    printMsg info_, br.id & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
