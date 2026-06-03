@@ -1274,14 +1274,13 @@ Property Let TimeOutSecond(TimeSec As Double)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：同期モードでの CDP-Json コマンド結果のうち、最後のエラー情報を取得します
+'* 機能　　：`ExecuteError`メソッドを通した際の、最後のエラー情報を取得します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            ・適切な`ExecuteCDP`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
-'            ・`ExecuteCDP`の`StopError`が`True`だと実質機能しません。
-'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます
+'            ・適切な`ExecuteCDP`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください
+'            ・`ExecuteError`メソッドを通さないと機能しません
 '            ・`Dictionary`オブジェクトとして得れるので必要に応じて`.RemoveAll`でエラークリアすることも可能です
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
@@ -1468,7 +1467,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：SessionID の発行を行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：`TargetID`に対する`sessionId`
+'* 返り値　：`TargetID`に対する`sessionId`  ※失敗時は、`vbnullstring`となります
 '* 引数　　：tabId  TargetID
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Attach to a specific tab with its tabId (a.k.a targetId)
@@ -1477,7 +1476,12 @@ End Sub
 '            Returns: a session ID string that is needed for CDP automation.
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
-    attachToTab = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & tabId & """,""flatten"":true}}")("result")("sessionId")
+    '1. 実行
+    Dim tmp As Dictionary
+    Set tmp = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & tabId & """,""flatten"":true}}")
+
+    '2. 結果があれば、返却
+    If Not ExecuteError(tmp) Then attachToTab = tmp("result")("sessionId")
 End Function
 
 '***************************************************************************************************
