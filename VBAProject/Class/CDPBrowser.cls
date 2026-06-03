@@ -1025,7 +1025,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & PipeCore.ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
