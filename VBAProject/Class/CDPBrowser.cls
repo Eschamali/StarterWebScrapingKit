@@ -1032,10 +1032,10 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
-    printMsg Debug_, "runCDP - Async       = " & Async, FromProcedureName
+    printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
     Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(currentCommandID, strMessage)                                                                 'Send message to the browser instance
-    printMsg Debug_, "Result - WriteFile: " & WriteResult, FromProcedureName
+    printMsg Debug_, "Result  - WriteFile: " & WriteResult, FromProcedureName
 
     '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
     If Async Then
@@ -1344,7 +1344,7 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
 
         '4. 取り出したので消しておく
         ResultCDP_Browser.response.Remove commandID
-        printMsg Trace_, br.LogID, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
