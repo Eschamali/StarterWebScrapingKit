@@ -2028,19 +2028,15 @@ Property Let TimeOutSecond(TimeSec As Double)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：非同期で実行した、CDP-Json コマンド結果を蓄積させる上限を決めます
+'* 機能　　：CDP-Json コマンド結果を蓄積させる上限を決めます
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：設定中の上限数
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`ExecuteCDPAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
 '***************************************************************************************************
-Property Get ResultAccumulatedLimitCDPForAsync() As Long
-    ResultAccumulatedLimitCDPForAsync = currentResultCDP.Limit
-End Property
-
-Property Let ResultAccumulatedLimitCDPForAsync(Number As Long)
-    currentResultCDP.Limit = Number
+Property Let SetLimitCDPResult(Number As Long)
+    ResultCDP_Tab.Limit = Number
 End Property
 
 '***************************************************************************************************
