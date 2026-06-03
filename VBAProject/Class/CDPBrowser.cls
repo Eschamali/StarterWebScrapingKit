@@ -145,10 +145,10 @@ Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際�
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
+'* 引数　　：Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
+'            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
@@ -175,9 +175,10 @@ Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際�
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Sub start(userProfile As String, Optional Name As String = "chrome", _
+Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
+    Optional userProfile As String, _
     Optional addArgs As String, Optional KioskMode As edgeKioskType)
     Const FromProcedureName As String = ThisClassName & ".start"
 

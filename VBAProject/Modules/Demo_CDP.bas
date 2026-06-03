@@ -51,14 +51,14 @@ Public Function 設定シートからのCDP起動ForTab(Optional StartURL As Str
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動")).value, "chrome", "edge")
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動ForTab")).value, "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動")).value, SwitchUser)
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動ForTab")).value, SwitchUser)
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForTab = New CDPTab
-        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
+        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 
@@ -78,14 +78,14 @@ Public Function 設定シートからのCDP起動ForBrowser(Optional StartURL As
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動")).value, "chrome", "edge")
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動ForTab")).value, "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動")).value, SwitchUser)
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動ForTab")).value, SwitchUser)
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForBrowser = New CDPBrowser
-        設定シートからのCDP起動ForBrowser.start UseDataDir, ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
+        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 

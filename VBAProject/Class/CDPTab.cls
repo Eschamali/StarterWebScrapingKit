@@ -191,7 +191,7 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
 
     '1. ブラウザ起動
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start userProfile, Name, appUrl, cleanActive, addArgs, KioskMode
+    BrowserCore.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
 
     '2. WithEventsClassオブジェクトを受け取る
     Set PipeCore = BrowserCore.InheritanceCDPCore
