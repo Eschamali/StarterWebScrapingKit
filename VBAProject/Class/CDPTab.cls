@@ -355,60 +355,44 @@ Private Sub serialize()
     Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
 End Sub
 
-Private Sub deserialize(r As ReConnectSessionID)
-'------------------------------------------------------------------
-' This method deciphers a serialized string to obtain the currently
-' active session ID of the already open instance. The serial
-' must be obtained first from the serialize method. The isLive
-' public function checks if reattachment is successful.
-' Updated: 03/05/23 - replace sessionID with targetID which is
-'                     constant and stable on every CDP session
-'------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".deserialize"
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルから、ブラウザのタブ情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
+'                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
+'***************************************************************************************************
+Private Sub deserializeForTab(reuseSession As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".deserializeForTab"
 
 
+    '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim objSerialize As Scripting.Dictionary
-    Set core = New CDPCore
-    core.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
+    Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
 
-    '1. `UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-    '※載ってない物はエラーとする
-1   If Not core.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+    '2. そもそもない場合は即抜け
+    If objSerialize Is Nothing Then Exit Sub
 
-    '2. Excelテーブルから、`UserName`に紐づくブラウザセッション情報を読み込む
-    On Error GoTo iferr     'パイプハンドルさえ生きてれば、手動復帰が可能なので、エラーキャッチとして設ける
-2   Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(br.User, 2, FromProcedureName)
-
-    '3. 指定のクラス内変数に、ブラウザセッション情報を適用
-    With brTab
-3       .lngLastID = objSerialize.Item("lngLastID")
-4       .targetID = objSerialize.Item("targetID")
-    End With
+    '3. タブのTargetID情報を適用
+    brTab.targetID = objSerialize.Item("targetID")
 
     '4. SessionIDの適用方法に応じた分岐を行う
-5   Select Case r
-        '古いSessionIDを破棄してから、新しいSessionIDを付与
-        Case ReConnectSessionID.refresh_
-            brTab.sessionID = objSerialize.Item("sessionID")    '一旦、古いSessionIDを適用
-            Me.id = attachToTab(brTab.targetID)                 '内部で、その古いSessionIDを破棄させる
-
+    If reuseSession And objSerialize.Item("sessionID") <> "" Then
         '既存のSessionIDを適用
-        Case ReConnectSessionID.existing_
-            brTab.sessionID = objSerialize.Item("sessionID")
-            printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
+        '4-1. 古いSessionIDを適用
+        brTab.sessionID = objSerialize.Item("sessionID")
+        printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
+    Else
+        '古いSessionIDを破棄してから、新しいSessionIDを付与
+        '4-1. 新しい`sessionId`を発行し、失敗時はエラーログを出して抜ける
+        Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
+        If newSessionID = "" Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
 
-        'SessionIDの付与は行わない。呼び出し側にて手動適用
-        Case Else
-            printMsg info_, "The SessionID remains empty.", FromProcedureName
+        '4-2. 一旦、古いSessionIDを適用
+        brTab.sessionID = objSerialize.Item("sessionID")
 
-    End Select
-
-    Exit Sub
-
-iferr: 'if deserialize fails, simply move on to starting anew
-
-    printMsg ERROR_, "deserialization failed at line " & Erl & " for serial string " & "lngLastID:" & brTab.lngLastID & ",targetID:" & brTab.targetID & ",sessionID:" & brTab.sessionID, FromProcedureName
-
+        '4-3. 内部で、その古いSessionIDを破棄させ、新しいSessionIDを付与
+        Me.id = newSessionID
+    End If
 End Sub
 
 '***************************************************************************************************
@@ -988,7 +972,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 End Sub
 
 
-Public Function isLive() As Boolean
+Private Function isLiveTab() As Boolean
 '-----------------------------------------------------------------------------------
 ' Check if there is ongoing connection with an attached instance
 ' Original Name: connectionAlive
@@ -997,11 +981,11 @@ Public Function isLive() As Boolean
     On Error GoTo iferr
     Dim strLoc As String
     strLoc = jsEval("window.location.href", dbgMsg:=False)
-    isLive = True
+    isLiveTab = True
     Exit Function
 
 iferr:
-    isLive = False
+    isLiveTab = False
 
 End Function
 
@@ -1390,8 +1374,8 @@ End Sub
 '* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：成功可否論理値
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            meansSessionID     SessionIDの紐づけ手段を指定します。詳細は、定義部分にて
+'* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
+'                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -1399,28 +1383,42 @@ End Sub
 '            and thus enables the possibility of running multiple CDP automation operations
 '            on entirely different tasks simultaneously.
 '
-'* 注意事項：・`meansSessionID`の`empty_`は、下記の内部処理にて使用する想定です。
-'            　親子関係SessionIDを維持するために破棄しないようにしてます。それ以外は基本的に`refresh_`で、SessionIDの更新で`reattach`するようにしてください。
+'* 注意事項：・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
+'            　この`targetID`自体が既に閉じてしまってる場合、結果は`False`で返りますが、VBAエラーがない場合、パイプハンドルは生きてるので、下記のメソッドで手動で復旧可能です。
+'            　その際は、`setMain:=True`で、セッションを確立させてください。
 '            　・newTab
 '            　・getTab
 '
-'            ・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
-'              この`targetID`自体が既に閉じてしまってる場合、結果は`False`で返りますが、パイプハンドルが生きてれば下記のメソッドで手動で再接続可能です。
-'              その際は、`setMain:=True`で、セッションを確立させてください。
-'            　・newTab
-'            　・getTab
-'
-'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`refreshSessionID:=existing_`推奨ですが、後続の処理の仕方によっては、重複してイベント情報が届くため、状況に応じて判断してください。
+'            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional meansSessionID As ReConnectSessionID) As Boolean
+Public Function reattach(userProfile As String, Optional reuseSession As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    br.User = userProfile
-    deserialize meansSessionID
+    '1. 新オブジェクトを用意
+    Set BrowserCore = New CDPBrowser
 
-    If isLive Then
+    '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
+    If BrowserCore.reattach(userProfile) Then
+        '2-1. 生きてるので、オブジェクトを継承
+        Set PipeCore = BrowserCore.InheritanceCDPCore
+    Else
+        '2-1. パイプハンドルで詰んでる場合は、VBAエラーで止める
+        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & userProfile, FromProcedureName, doRaiseError:=True
+    End If
+
+    '3. タブ情報を再セット
+    deserializeForTab reuseSession
+
+    '4. `sessionId`が空欄の場合は、即抜け
+    If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
+
+    '5. sessionId生存check
+    If isLiveTab Then
         reattach = True
+
+        'ステータス更新
+        getSessionInfo
         printParams
     Else
         reattach = False
