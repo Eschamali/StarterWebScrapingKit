@@ -175,6 +175,7 @@ Private TargetInfos As Collection               '非同期イベント`Target.ta
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：id             コマンドID
 '            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
+'            sessionID      届いたSessionID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
 '* 注意事項：・Jsonは、文字列のままで渡されます
@@ -187,18 +188,15 @@ Private Sub PipeCore_CDPTabID(id As Long, RawJson As String, sessionID As String
     '1. このタブクラスで設定中の`SesionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
-    '2. 結果を蓄積
-    printMsg Trace_, br.LogID, "Command result ID: " & id & " was detected.", FromProcedureName
-    ResultCDP_Tab.response.Add id, RawJson
-
-    '3. 格納件数チェックし、上限を超えたら、最古データを削除します
-    If ResultCDP_Tab.response.Count > ResultCDP_Tab.Limit Then
-        '4. 一番古いキーを取得して削除
-        Dim DeleteID As Long: DeleteID = ResultCDP_Tab.response.keys(0)
-        printMsg Trace_, br.LogID, "Delete asynchronous processing result ID:" & DeleteID, FromProcedureName
-        ResultCDP_Tab.response.Remove DeleteID
-        printMsg WARN_, br.LogID, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so the oldest has been deleted.", FromProcedureName
+    '2. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
+    If ResultCDP_Tab.response.Count + 1 > ResultCDP_Tab.Limit Then
+        ResultCDP_Tab.response.RemoveAll
+        printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
     End If
+
+    '3. 結果を格納
+    ResultCDP_Tab.response.Add id, RawJson
+    printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the tab(sessionId: " & sessionID & ") have been received. → " & RawJson, FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -213,20 +211,70 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
+    '1. Select Case でスマートに、method名ごとの独自処理を行う
     Select Case methodName
-        '1. `attachToSession`が行えるように準備する
+        '1-1. `attachToSession`が行えるように準備する
         Case "Target.targetCreated"
-            '2. `TargetInfo`を収集しない場合は、即抜け
-            If TargetInfos Is Nothing Then Exit Sub
-
-            '3. そのまま、蓄積
-            printMsg Debug_, br.LogID, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
-            TargetInfos.Add RawJson
+            '1-2. `TargetInfo`を収集しない場合は、飛ばす
+            If Not TargetInfos Is Nothing Then
+                '1-3. そのまま、蓄積
+                printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+                TargetInfos.Add RawJson
+            End If
 
         Case Else
             'None
 
     End Select
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
+    If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
+
+    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    printMsg Trace_, "Checking public event filter settings...", FromProcedureName
+    If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
+
+    '2-3. パース処理
+    printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+    Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
+
+    '2-4. 専用のプロシージャにて、蓄積処理
+    printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
+    OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このタブに対する非同期イベントを受け取ります
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'            sessionID  届いたSessionID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClass独自の非同期イベント処理を行います
+'***************************************************************************************************
+Private Sub PipeCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
+
+
+    '1. このタブクラスで設定中の`SessionId`以外は即抜け
+    If sessionID <> brTab.sessionID Then Exit Sub
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
+    If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
+
+    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    printMsg Trace_, "Checking public event filter settings...", FromProcedureName
+    If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
+
+    '2-3. パース処理
+    printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+    Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
+
+    '2-4. 専用のプロシージャにて、蓄積処理
+    printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
+    OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
 
 
@@ -1020,7 +1068,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If br.WID = "" Then br.WID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+        If br.WID = "" Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
         params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
@@ -1037,7 +1085,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         If w <> 0 Then bounds("width") = w
         If h <> 0 Then bounds("height") = h
         Set params("bounds") = bounds
-        invokeMethod "Browser.setWindowBounds", params
+        ExecuteCDP "Browser.setWindowBounds", params
 
     End If
 
@@ -1091,7 +1139,7 @@ Public Sub closeTab()
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    invokeMethod "Target.closeTarget", params, True
+    ExecuteCDP "Target.closeTarget", params, True
     printMsg info_, br.id & " was closed", FromProcedureName
 
 End Sub
@@ -1441,7 +1489,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     Dim b64 As String, tmpPng As String
 
    'Verify if the page can be captured with screenshot
-    Set r = invokeMethod("Page.getLayoutMetrics")
+    Set r = ExecuteCDP("Page.getLayoutMetrics")
     If invokeError(r) Then
         printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
@@ -1449,7 +1497,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
    'Perform the snip
     If getFullPage Then params.Add "captureBeyondViewport", True
-    Set r = invokeMethod("Page.captureScreenshot", params)
+    Set r = ExecuteCDP("Page.captureScreenshot", params)
 
    'Save to the same folder if not indicated
     If Not invokeError(r) Then
@@ -1499,7 +1547,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    If focus Then invokeMethod "Target.activateTarget", params, True
+    If focus Then ExecuteCDP "Target.activateTarget", params, True
 
 End Sub
 
@@ -1518,7 +1566,7 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
     params("accept") = CBool(Accept)
     If StrPtr(promptText) Then params("promptText") = promptText
-    invokeMethod "Page.handleJavaScriptDialog", params
+    ExecuteCDP "Page.handleJavaScriptDialog", params
 
 End Sub
 
@@ -1527,7 +1575,7 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    invokeMethod IIf(enable, "Page.enable", "Page.disable")
+    ExecuteCDP IIf(enable, "Page.enable", "Page.disable")
 
 End Sub
 
@@ -1545,7 +1593,7 @@ End Sub
 '* 詳細説明：This function enables advanced method invocation under CDP.
 '            For a list of all methods available, see:
 '               https://chromedevtools.github.io/devtools-protocol/tot/Browser/
-'            Error message will be prompted automatically by invokeError in the Immediate Window.
+'            Error message will be prompted automatically by ErrorCheckCDP in the Immediate Window.
 '            The return object is Json String that has been converted to a dictionary object.
 '            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '
@@ -1558,53 +1606,53 @@ End Sub
 '
 '            ・`StopError`の規定値は、`True`なので、特別な理由がない限りは、省略推奨です
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
-'              その場合は、後述の結果を待たないタイプのメソッド`invokeMethodAsync`をご利用ください。
+'              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Const FromProcedureName As String = ThisClassName & ".invokeMethod"
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As Scripting.Dictionary
+    Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
     Dim paramStr As String
     Dim results As Scripting.Dictionary
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, dbgMsg:=StopError)
+    If params Is Nothing Then paramStr = "{}" Else paramStr = BrowserCore.jsConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", dbgMsg:=StopCDPError)
 
    'Print error if there is
-    If invokeError(results) Then
+    If ExecuteError(results) Then
         'エラーによる`Err.Raise`で止めるか？
-        If StopError Then
+        If StopCDPError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
-        If results.Exists("result") Then Set invokeMethod = results.Item("result")
+        If results.Exists("result") Then Set ExecuteCDP = results.Item("result")
     End If
 
     'デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Invoked """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "Executed """ & methodName & """ with result: " & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`invokeMethod`の非同期実行(コマンド結果を待たない)バージョンです
+'* 機能　　：`ExecuteCDP`の非同期実行(コマンド結果を待たない)バージョンです
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
-'* 引数　　：※`invokeMethod`と一緒のため、省略
+'* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function invokeMethodAsync(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Long
-    Const FromProcedureName As String = ThisClassName & ".invokeMethodAsync"
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
+    Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
     Dim paramStr As String
     Dim results As Scripting.Dictionary
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", alwaysBrowserContext, Async:=True, dbgMsg:=StopError)
+    If params Is Nothing Then paramStr = "{}" Else paramStr = BrowserCore.jsConverter.ConvertToJson(params)
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError)
 
     '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
     '※1件しかAddしてないので、直Index指定する
@@ -1620,8 +1668,158 @@ Public Function invokeMethodAsync(methodName As String, Optional params As Scrip
     End If
 
     '実行したIDを返却
-    invokeMethodAsync = results.keys(0)
-    printMsg Debug_, "Async invoked """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
+    ExecuteCDPAsync = results.keys(0)
+    printMsg Debug_, "Async executed """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
+
+End Function
+
+'***************************************************************************************************
+'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
+'                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
+'
+'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'
+'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
+'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
+'
+'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
+'                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
+'            ・03/22/23 - Added error handling for better debugging
+'            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
+'***************************************************************************************************
+Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+
+
+    Dim intRes As Long
+    Dim strRes As String
+    Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
+
+   '--------------------------------------------------
+   'Send message to the browser
+   '--------------------------------------------------
+    printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
+
+    Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(strMessage, brTab.sessionID)    'Send message to the browser instance
+    Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID                     '`ReadyRunCDP`直後のcommandIDを取得
+    
+    printMsg Debug_, "Result  - WriteFile: " & WriteResult, FromProcedureName
+
+    '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
+    If Async Then
+        Set SendMessage = New Dictionary
+
+        '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
+        SendMessage.Add currentCommandID, WriteResult
+        Exit Function
+    End If
+
+   '------------------------------------------------
+   'Read message returned by browser
+   '------------------------------------------------
+    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    Dim timerStart As Double: timerStart = TimerCounter
+    Dim tmp As String
+    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
+    Do
+        '1. 受信処理によるパイプを拝見する
+        TakeEvents StopPipeError:=dbgMsg
+
+        '2. 受信処理にてエラーがあったら、即抜け
+        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
+
+        '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
+        tmp = ResultCDPFromWithEvents(currentCommandID)
+        If StrPtr(tmp) Then
+            '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
+            Set SendMessage = BrowserCore.jsConverter.ParseJson(tmp)
+            printMsg info_, "Tab have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
+
+            'ループから抜ける
+            Exit Do
+        Else
+            printMsg Trace_, "Tab have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
+        End If
+
+        '4. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
+        If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
+        DoEvents
+    Loop
+
+    printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* 機能　　：CDP-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無論理値
+'* 引数　　：result         パース処理済みのCDP-Jsonコマンド実行結果
+'            ErrorCode      エラーコード　      ※参照渡しにより返されます
+'            ErrorMessage   エラーメッセージ    ※参照渡しにより返されます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・Check if ExecuteCDP fails and what the error message returned is.
+'            　Error message will be shown via printMsg
+'
+'            ・または、第2引数以降の変数からでもエラー情報をクイックに受け取れます
+'---------------------------------------------------------------------------------------------------
+'* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
+'***************************************************************************************************
+Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".ExecuteError"
+
+
+    Dim ErrorData As Variant
+
+    'データの状態をチェック
+    If result Is Nothing Then
+        'タイムアウトもしくは、パイプは生きてるが、応答なしによる結果無し
+        ExecuteError = True
+
+        'カスタムなエラー情報として記載
+        ErrorCode = -1 'arbitrary nonzero value, may change in future
+        ErrorMessage = "Timeout or No results"
+        ErrorData = vbEmpty
+        printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+
+        '最後のエラー情報を記録
+        Set lastErrorDetailsCDP = New Dictionary
+        lastErrorDetailsCDP.Add "code", ErrorCode
+        lastErrorDetailsCDP.Add "message", ErrorMessage
+
+    ElseIf result.Exists("error") Then
+        'CDPコマンドエラー
+        ExecuteError = True
+
+        '`error`オブジェクトの中身で記録
+        Set lastErrorDetailsCDP = result("error")
+
+        '主要なエラー情報を抜き出す
+        ErrorCode = lastErrorDetailsCDP("code")
+        ErrorMessage = lastErrorDetailsCDP("message")
+        printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+
+        '追加情報がある場合は、それもログ化
+        If lastErrorDetailsCDP.Exists("data") Then
+            ErrorData = lastErrorDetailsCDP("data")
+            printMsg WARN_, "       " & ErrorData, FromProcedureName
+        Else
+            ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
+        End If
+    Else
+        'CDPコマンド正常終了
+        ExecuteError = False
+
+        'クリアしておく
+        ErrorCode = 0
+        ErrorMessage = vbNullString
+        ErrorData = vbEmpty
+    End If
 
 End Function
 
@@ -1847,7 +2045,7 @@ End Property
 '* GET返値 ：設定中の上限数
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、256件です。
+'* 機能説明：`ExecuteCDPAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、256件です。
 '***************************************************************************************************
 Property Get ResultAccumulatedLimitCDPForAsync() As Long
     ResultAccumulatedLimitCDPForAsync = currentResultCDP.Limit
@@ -1863,8 +2061,8 @@ End Property
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
-'            ・`invokeMethod`の`StopError`が`False`だと実質機能しません。
+'            ・適切な`ExecuteCDP`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
+'            ・`ExecuteCDP`の`StopError`が`False`だと実質機能しません。
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
 '***************************************************************************************************
 Property Get LastCDPJsonError() As Dictionary
@@ -1963,10 +2161,10 @@ End Property
 '***************************************************************************************************
 Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     If alwaysRequest Then
-        BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+        BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     Else
         '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If br.WID Then BrowserWindowID = br.WID Else BrowserWindowID = invokeMethod("Browser.getWindowForTarget").Item("windowId")
+        If br.WID Then BrowserWindowID = br.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     End If
 End Property
 
@@ -2144,43 +2342,6 @@ ifError:
 
 End Sub
 
-Private Function invokeError(result As Scripting.Dictionary) As Boolean
-'-----------------------------------------------------------------------------------
-' Check if InvokeMethod fails and what the error message returned is.
-' Error message will be shown via printMsg
-' Credit: https://github.com/PerditionC/VBAChromeDevProtocol
-'-----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
-
-
-    Dim ErrorCode As Long, ErrorMessage As String, ErrorData As Variant
-    If result Is Nothing Then
-        ErrorCode = -1 'arbitrary nonzero value, may change in future
-        ErrorMessage = "Timeout or No results"
-        ErrorData = vbEmpty
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        invokeError = True
-        Set lastErrorDetailsCDP = jsConverter.ParseJson("{""code"":" & ErrorCode & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
-    ElseIf result.Exists("error") Then
-        Set lastErrorDetailsCDP = result("error")
-        ErrorCode = lastErrorDetailsCDP("code")
-        ErrorMessage = lastErrorDetailsCDP("message")
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-        If lastErrorDetailsCDP.Exists("data") Then
-            ErrorData = lastErrorDetailsCDP("data")
-            printMsg WARN_, "       " & ErrorData, FromProcedureName
-        Else
-            ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
-        End If
-        invokeError = True
-    Else
-        ErrorCode = 0
-        ErrorMessage = vbNullString
-        ErrorData = vbEmpty
-    End If
-
-End Function
-
 Private Function getHandle() As LongPtr
 '-----------------------------------------------------------------------------------
 ' Added by Long: obtain the window handle of the current browser session
@@ -2232,7 +2393,7 @@ Private Function getTargetID() As String
 '----------------------------------------------------------------------------------
 
     Dim results As Scripting.Dictionary
-    Set results = invokeMethod("Target.getTargetInfo")
+    Set results = ExecuteCDP("Target.getTargetInfo")
     getTargetID = results("targetInfo").Item("targetId")
 
 End Function
@@ -2254,10 +2415,10 @@ Private Sub getSessionInfo()
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As Dictionary: Set tmp = invokeMethod("Browser.getWindowForTarget", StopError:=False)
+    Dim tmp As Dictionary: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopError:=False)
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
-    br.Type = invokeMethod("Browser.getVersion").Item("product")
+    br.Type = ExecuteCDP("Browser.getVersion").Item("product")
     br.Ver = Split(br.Type, "/")(1)
     br.Path = getBrowserPath(br.Type)
     brTab.targetID = getTargetID
@@ -2296,10 +2457,6 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ CDPBrowser.cls 直通メソッド ■■■
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, commandID As Long, Optional sessionID As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Dictionary
-    Set SendMessage = BrowserCore.SendMessage(strMessage, commandID, Async, dbgMsg)
-End Function
-
 
 
 '***************************************************************************************************
