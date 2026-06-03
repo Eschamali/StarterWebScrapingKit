@@ -188,6 +188,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
+Private LastCommandID_Pipe      As Long                     '現在のコマンドID
 
 
 
@@ -292,7 +293,7 @@ Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pip
 End Property
 
 '***************************************************************************************************
-'* 機能　　：最後の読み取り系パイプのエラーコード取得用プロパティ
+'* 機能　　：最後の○○系取得用プロパティ
 '***************************************************************************************************
 Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
     LastErrorPeekNamedPipe = LastReceiveError.PeekNamedPipe
@@ -300,6 +301,10 @@ End Property
 
 Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
     LastErrorReadFile = LastReceiveError.ReadFile
+End Property
+
+Property Get LastCommandID() As Long                     '最後に実行したcommandID値
+    LastCommandID = LastCommandID_Pipe
 End Property
 
 '***************************************************************************************************
@@ -683,35 +688,37 @@ End Function
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`WriteFile`の実行結果  ※0で成功です
-'* 引数　　：commandID  通常は、`IssuanceCommandID`で発行された番号を指定します
-'            strMessage CDP-Jsonコマンド
+'* 引数　　：strMessage CDP-Jsonコマンド
 '            SessionID  タブへの命令の場合は指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(commandID As Long, strMessage As String, Optional sessionID As String) As Long
+Public Function ReadyRunCDP(strMessage As String, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
-    '1. 末尾付与しやすいように、末尾1文字削減
+    '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
+    Dim currentCommandID As Long: currentCommandID = IssuanceCommandID
+
+    '2. 末尾付与しやすいように、末尾1文字削減
     strMessage = Left(strMessage, Len(strMessage) - 1)
 
-    '2. `sessionId`check
+    '3. `sessionId`check
     If StrPtr(sessionID) Then
-        '2-1. 末尾に`sessionId`付与を行う
+        '3-1. 末尾に`sessionId`付与を行う
         strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 
-        '2-2. commandIDと`sessionId`の紐づけを行う
-        RunSessionID.Add commandID, sessionID
-        printMsg Trace_, LogID, "commandID:" & commandID & " corresponds to SessionID:" & sessionID, FromProcedureName
+        '3-2. commandIDと`sessionId`の紐づけを行う
+        RunSessionID.Add currentCommandID, sessionID
+        printMsg Trace_, LogID, "commandID:" & currentCommandID & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
-        printMsg Trace_, LogID, "commandID:" & commandID & " does not have a SessionID.", FromProcedureName
+        printMsg Trace_, LogID, "commandID:" & currentCommandID & " does not have a SessionID.", FromProcedureName
     End If
 
-    '3. 末尾に`id`,ヌル文字を付与
-    strMessage = strMessage & ", ""id"":" & commandID & "}" & vbNullChar
+    '4. 末尾に`id`,ヌル文字を付与
+    strMessage = strMessage & ", ""id"":" & currentCommandID & "}" & vbNullChar
 
-    '4. 実際に実行
+    '5. 実際に実行
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
     ReadyRunCDP = writeProcCDP(strMessage)
 End Function
@@ -723,11 +730,10 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：20億を超えると、1にリセットされます
 '***************************************************************************************************
-Public Function IssuanceCommandID() As Long
+Private Function IssuanceCommandID() As Long
     Const FromProcedureName As String = ThisClassName & ".IssuanceCommandID"
 
 
-    Static LastCommandID_Pipe As Long
     If LastCommandID_Pipe + 1 > LimitID Then
         '1. リクエスト数の上限に達したら、1にリセットしておく
         LastCommandID_Pipe = 1

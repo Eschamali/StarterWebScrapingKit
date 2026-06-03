@@ -981,25 +981,11 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
     Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError)
-
-    '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
-    '※1件しかAddしてないので、直Index指定する
-    If results.Items(0) Then
-        'エラーによる`Err.Raise`で止めるか？
-        If StopError Then
-            'エラーになったmethod名と、`WriteFile`の実行エラーコードを表示して停止
-            printMsg ERROR_, "Failed to invokeAsync-WriteFile method """ & methodName & """" & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & results.Items(0) & " - " & PipeCore.ErrorDetail.GetMessage(results.Items(0)), FromProcedureName, doRaiseError:=True
-        Else
-            'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invokeAsync-WriteFile method """ & methodName & """　ErrorCode:" & results.Items(0) & " - " & PipeCore.ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
-        End If
-    End If
+    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError
 
     '実行したIDを返却
-    ExecuteCDPAsync = results.keys(0)
-    printMsg Debug_, "Async executed """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & PipeCore.ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
-
+    ExecuteCDPAsync = PipeCore.LastCommandID
+    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -1020,7 +1006,7 @@ End Function
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：引数-Async の値によって、Dictionaryの構造が変わる特殊なメソッドです。別途公開メソッドで、役割分担しております
+'* 注意事項：Async:=True の場合は常に`nothing`で、返ります
 '***************************************************************************************************
 Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
@@ -1029,24 +1015,20 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Dim intRes As Long
     Dim strRes As String
     Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-    Dim currentCommandID As Long: currentCommandID = PipeCore.IssuanceCommandID
 
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
     printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
-    Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(currentCommandID, strMessage)                                                                 'Send message to the browser instance
-    printMsg Debug_, "Result  - WriteFile: " & WriteResult, FromProcedureName
+    Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(strMessage) 'Send message to the browser instance
+    Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
-    '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
-    If Async Then
-        Set SendMessage = New Dictionary
+    'WriteFile にてエラーがあった場合
+    If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
 
-        '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-        SendMessage.Add currentCommandID, WriteResult
-        Exit Function
-    End If
+    '非同期(結果はいらない)モードなら、ここで抜けます
+    If Async Then Exit Function
 
    '------------------------------------------------
    'Read message returned by browser
@@ -1096,6 +1078,7 @@ End Function
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
 '* 注意事項：・Jsonは、文字列のままで渡されます。必要に応じて、パース処理して下さい
 '            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
+'            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserID"
@@ -1103,8 +1086,14 @@ Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
 
     '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
     If ResultCDP_Browser.response.Count + 1 > ResultCDP_Browser.Limit Then
+        '1-1. 設定値の上限
         ResultCDP_Browser.response.RemoveAll
         printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Browser.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
+
+    ElseIf id + 1 > PipeCore.LimitCommandID Then
+        '1-1. 20億チェック
+        ResultCDP_Browser.response.RemoveAll
+        printMsg WARN_, "Due to overflow protection for the long type, the entire history of previous results has been deleted.", FromProcedureName
     End If
 
     '2. その後、結果を蓄積
