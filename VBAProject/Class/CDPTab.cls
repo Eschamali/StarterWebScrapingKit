@@ -276,6 +276,8 @@ Private Sub attachToSession()
 5   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
 6   BrowserCore.Collect_TargetCreated = False
 
+    '目的を果たしたので、`Nothing`にしておく
+    Set TargetInfos = Nothing
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
 
