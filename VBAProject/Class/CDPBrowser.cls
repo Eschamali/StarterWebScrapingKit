@@ -1318,6 +1318,10 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
 
         '3. 返却
         ResultCDPFromWithEvents = tmp
+
+        '4. 取り出したので消しておく
+        ResultCDP_Browser.response.Remove commandID
+        printMsg Trace_, br.LogID, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         printMsg Trace_, "This CDP-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
