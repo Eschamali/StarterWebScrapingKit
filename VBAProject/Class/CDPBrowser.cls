@@ -555,6 +555,9 @@ Public Function reattach(userProfile As String) As Boolean
     '4. バージョン確認CDPコマンドを打ってパイプ生存確認
     If isLiveBrowser Then
         reattach = True
+
+        'ステータス更新
+        getBrowserInfo
         printParams
     Else
         reattach = False
@@ -1488,7 +1491,7 @@ Private Sub getBrowserInfo()
 
     br.Type = ExecuteCDP("Browser.getVersion")("product")
     br.Ver = Split(br.Type, "/")(1)
-    br.Path = getBrowserPath(br.Type)
+    If PipeCore.ConnectionProcessId > 0 Then br.Path = getBrowserPath(br.Type)  'プロセスID情報がない場合は、取らない
 End Sub
 
 
