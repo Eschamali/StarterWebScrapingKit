@@ -558,15 +558,8 @@ step1:
     '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
     Set CDPresults = SendMessage(strMessage, RunAsyncCDP, dbgMsg)
     If RunAsyncCDP Then
-        '`WriteFile`のエラーをチェック
-        If CDPresults.Items(0) Then
-            printMsg ERROR_, "Failed to AsyncCDP-WriteFile JavaScript: " & strString & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0)), FromProcedureName, doRaiseError:=True
-        Else
-            'ID返却して抜ける
-            jsEval = CLng(CDPresults.keys(0))
-        End If
-
-        printMsg Debug_, "Async CDP JavaScript with WriteFile Result: " & CDPresults.Items(0) & " - " & ErrorDetail.GetMessage(CDPresults.Items(0), "kernel32") & " ID: " & CDPresults.keys(0), FromProcedureName
+        'ID返却して抜ける
+        jsEval = PipeCore.LastCommandID
         Exit Function
     Else
         If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & BrowserCore.jsConverter.ConvertToJson(CDPresults), FromProcedureName
