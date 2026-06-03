@@ -22,12 +22,17 @@ Option Explicit
 '===================================
 ' Global Variables
 '===================================
+'ブラウザ制御クラスオブジェクト
+Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブジェクト
+Attribute m_CDPCore.VB_VarHelpID = -1
+Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
+Attribute m_CDPBrowser.VB_VarHelpID = -1
+Private WebDriverBiDi_mapperTab As CDPTab       'BiDi-CDP Mapper 操作用タブ
+
 '非同期イベント発火
 Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
 
 'クラスオブジェクト
-Private WithEvents m_CDPBrowser As CDPBrowser
-Attribute m_CDPBrowser.VB_VarHelpID = -1
 Private m_CharConv              As New CharacterCodeConversion
 Private m_JsonConverter         As New WebJsonConverter
 
@@ -37,7 +42,7 @@ Private QueueResultBiDi As Collection
 'BiDiコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
 Private Type cacheResultBiDi
     response    As Dictionary   '「ID - それに対するBiDiコマンドの結果」というDictionary
-    limit       As Long         'その`Dictionary`に詰め込む上限数
+    Limit       As Long         'その`Dictionary`に詰め込む上限数
 End Type
 Private currentResultBiDi As cacheResultBiDi
 
@@ -48,6 +53,13 @@ Private Type StateDebug
     seeRawSendMsgDbg    As Boolean      'BiDiのresponseをデバッグログに出すかの調整
 End Type
 Private currentDebug As StateDebug
+
+'操作中のタブ情報一式
+Private Type StateTab
+    sessionID   As String   'The ID to the current session tab.
+    targetID    As String   'The targetID of the current tab for ExecuteCDP
+End Type
+Private BiDiTab As StateTab
 
 'ステート管理
 Private m_MessageID                 As Long         'BiDiコマンド結果を確認するためのID管理
@@ -79,29 +91,32 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 
 '***************************************************************************************************
-'                  ■■■ CDPからBiDi用の結果を受け取るためだけのイベント処理 ■■■
+'               ■■■ CDP非同期イベントからBiDi用の結果を受け取る処理 ■■■
 '***************************************************************************************************
-Private Sub m_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".m_CDPBrowser_detectionCDPEvent"
-
+Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".m_CDPCore_CDPTabEvent"
 
     'BiDiでのやりとりの核となるイベント名
     Const BiDiForCDPEventName As String = "Runtime.bindingCalled"
 
-    '0. 対象のイベント以外は即抜け
+
+    '1. このタブクラスで設定中の`SessionId`以外は即抜け
+    If sessionID <> BiDiTab.sessionID Then Exit Sub
+
+    '2. 対象のイベント以外も即抜け
     If methodName <> BiDiForCDPEventName Then Exit Sub
-    If currentDebug.seeRawSendMsgDbg Then printMsg Trace_, "`Runtime.bindingCalled` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+    If currentDebug.seeRawSendMsgDbg Then printMsg Trace_, "`Runtime.bindingCalled` was detected. Raw-Json : " & RawJson, FromProcedureName
 
-    '1. PayloadのName部分を取得
-    Dim NamePayload As String: NamePayload = ExtractName(EventRawJson)
+    '3. PayloadのName部分を取得
+    Dim NamePayload As String: NamePayload = ExtractName(RawJson)
 
-    '2. `Name`値に応じた処理
+    '4. `Name`値に応じた処理
     Dim tmp As String
     Select Case NamePayload
         'メインとなるWebDriverBiDiの結果
         Case BiDiResMain
             'エスケープ解除済みのpayload 部分を抽出
-            tmp = ExtractPayload(EventRawJson)
+            tmp = ExtractPayload(RawJson)
             If currentDebug.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & tmp, FromProcedureName
 
             '専用のCollectionに蓄積
@@ -110,7 +125,7 @@ Private Sub m_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As
         'BiDi-Mapper 内部のデバッグログ用
         Case BiDiResDebug
             'エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
-            tmp = ExtractPayload(EventRawJson)
+            tmp = ExtractPayload(RawJson)
             printMsg Debug_, "Debug - WebDriverBiDi: " & tmp, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
@@ -211,15 +226,18 @@ Public Sub start(Optional Name As String = "chrome", _
     Set m_CDPBrowser = New CDPBrowser
     m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
 
-    '2. BiDi-CDP Mapper を始動させます
+    '2. WithEventsClassオブジェクトを受け取る
+    Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
+
+    '3. BiDi-CDP Mapper を始動させます
     StartBiDiCDPMapper
 
-    '3. BiDi との新しいセッションを確立する
+    '4. BiDi との新しいセッションを確立する
     '※ここは、BiDi用のコマンドとして使用
     Dim resultBiDi As Dictionary
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '4. 接続先ブラウザ情報をログで表示
+    '5. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
 
@@ -326,23 +344,29 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
         '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
-        If Not (ReConnect) Then .newTab MapperURL, setMain:=True, isHidden:=Not (currentDebug.ViewDebugTab), isBackground:=True
+        If Not (ReConnect) Then Set WebDriverBiDi_mapperTab = .newTab(MapperURL, setMain:=True, isHidden:=Not (currentDebug.ViewDebugTab), isBackground:=True)
         printMsg Debug_, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(currentDebug.ViewDebugTab) & ")", FromProcedureName
 
-        '2. BiDi用バインディングの追加
+        '2. 「BiDi-CDP Mapper」のタブ情報を取り出す
+        BiDiTab.targetID = WebDriverBiDi_mapperTab.CurrentTargetID
+        BiDiTab.sessionID = WebDriverBiDi_mapperTab.id
+
+        '3. BiDi用バインディングの追加
         paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", .CurrentTargetID
+        paramsCDP.Add "targetId", BiDiTab.targetID
         paramsCDP.Add "inheritPermissions", True
-        .invokeMethod "Target.exposeDevToolsProtocol", paramsCDP, True, Not ReConnect   '再接続モードの場合は、エラー無視
+        .ExecuteCDP "Target.exposeDevToolsProtocol", paramsCDP, Not ReConnect   '再接続モードの場合は、エラー無視
+    End With
 
-        '3. JSからVBAへ返す経路を設定
-        Call BiDiResponseBiding
+    '4. JSからVBAへ返す経路を設定
+    Call BiDiResponseBiding
 
-        '4. パースしたJavaScriptをブラウザ上で実行
+    With WebDriverBiDi_mapperTab
+        '5. パースしたJavaScriptをブラウザ上で実行
         .jsEval Take_mapperTabJSstring
 
-        '5. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
+        '6. ブートストラップ（初期化）JSの実行
+        .jsEval "window.runMapperInstance('" & BiDiTab.targetID & "')"
     End With
 
     printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
@@ -360,16 +384,16 @@ Private Sub BiDiResponseBiding()
 
 
     Dim paramsCDP As New Dictionary
-    With m_CDPBrowser
+    With WebDriverBiDi_mapperTab
         '1. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
         paramsCDP.Add "name", BiDiResMain
-        .invokeMethod "Runtime.addBinding", paramsCDP
+        .ExecuteCDP "Runtime.addBinding", paramsCDP
 
         '2. JSからVBAへ、Mapper側で発生したログ（状況説明、警告、エラー寄り情報）を返す経路を設定
         If currentDebug.DiagnosticLog Then
             paramsCDP.RemoveAll
             paramsCDP.Add "name", BiDiResDebug
-            .invokeMethod "Runtime.addBinding", paramsCDP
+            .ExecuteCDP "Runtime.addBinding", paramsCDP
         End If
     End With
 
@@ -561,7 +585,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
     '※また内部にて、`RaiseEvent`よるBiDi結果蓄積も行われます
     '※`.jsEval`は、内部のお節介によりオーバーヘッドが積み重なることから、直通メソッドで使用します
-    m_CDPBrowser.invokeMethod "Runtime.evaluate", paramsCDP
+    WebDriverBiDi_mapperTab.ExecuteCDP "Runtime.evaluate", paramsCDP
 
     'BiDi自体が、非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
     If Async Then
@@ -584,7 +608,7 @@ Private Function SendMessage(strMessage As String, Optional InternalUseMessages 
     printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
         '先述の`.invokeMethod("Runtime.evaluate", paramsCDP)`にて既に、結果が蓄積されてる場合は、受信処理をSKIP
-        If QueueResultBiDi.Count = 0 Then m_CDPBrowser.TakeEvents
+        If QueueResultBiDi.Count = 0 Then m_CDPCore.TakeEvents
 
         '受信数check
         Dim tmp As Dictionary
@@ -650,7 +674,7 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     Do
         'CDPイベント受信処理
         '※内部で、`RaiseEvent`が発火され、Collection変数に格納されます
-        m_CDPBrowser.TakeEvents
+        m_CDPCore.TakeEvents
 
         BiDiNum = QueueResultBiDi.Count
         printMsg Trace_, "BiDiNum = " & BiDiNum, FromProcedureName
@@ -1210,24 +1234,27 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser`直通メソッド ■■■
+'                           ■■■ `CDPCore.cls`直通メソッド ■■■
 '***************************************************************************************************
-Property Get TimerCounter() As Double
-    TimerCounter = m_CDPBrowser.TimerCounter
-End Property
-
-
+Public Function TimerCounter() As Double
+    TimerCounter = m_CDPCore.LogControl.GetTicksMs
+End Function
 
 Public Sub sleep(Optional seconds As Double = 0.5)
-    m_CDPBrowser.sleep seconds
+    m_CDPCore.sleep seconds
 End Sub
 
+
+
+'***************************************************************************************************
+'                           ■■■ `CDPTab.cls`直通メソッド ■■■
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    m_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    WebDriverBiDi_mapperTab.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
 Public Sub quit()
-    m_CDPBrowser.quit
+    WebDriverBiDi_mapperTab.InheritanceCDPBrowser.quit
 End Sub
 
 
