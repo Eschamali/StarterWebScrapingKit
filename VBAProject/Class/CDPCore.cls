@@ -148,10 +148,10 @@ End Type
 '===================================
 ' 各種イベント定義
 '===================================
-Public Event CDPBrowserEvent(methodName As String, RawJson As String)
-Public Event CDPBrowserID(id As Long, RawJson As String)
-Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
-Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)
+Public Event CDPBrowserEvent(methodName As String, RawJson As String)                   'ブラウザに対する非同期イベント
+Public Event CDPBrowserID(id As Long, RawJson As String)                                'ブラウザに対するCDPコマンド結果
+Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
+Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
 
 '===================================
 ' Constants
@@ -179,14 +179,15 @@ Public Enum CDPCustomErrorCodes
     Protocol = 902  'CDPコマンド自体のエラー
 End Enum
 
+'プロセス起動関連設定
+Private Const STARTF_USESTDHANDLES  As Long = &H100&
+Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
+Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
+'その他
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
-
-Private Const STARTF_USESTDHANDLES = &H100&
-Private Const NORMAL_PRIORITY_CLASS = &H20&
-Private Const STARTF_USESHOWWINDOW As Long = &H1&
 
 
 
@@ -536,8 +537,8 @@ End Function
 '                               `False` 標準出力で読み取り
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。
-'* 注意事項：ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます。
-'            実際のエラーコードも特に確認しません。
+'* 注意事項：・ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
+'            ・実際のエラーコードも特に確認しません。
 '***************************************************************************************************
 Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
     '使用するパイプ通信判定
@@ -685,26 +686,31 @@ End Function
 '            strMessage CDP-Jsonコマンド
 '            SessionID  タブへの命令の場合は指定します
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：
+'* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(commandID As Long, strMessage As String, Optional sessionID As String)
+Public Function ReadyRunCDP(commandID As Long, strMessage As String, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
-    '1. `SessionID`があったら末尾にくっつける
+    '1. 末尾付与しやすいように、末尾1文字削減
     strMessage = Left(strMessage, Len(strMessage) - 1)
+
+    '2. `sessionId`check
     If StrPtr(sessionID) Then
+        '2-1. 末尾に`sessionId`付与を行う
         strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+
+        '2-2. commandIDと`sessionId`の紐づけを行う
         RunSessionID.Add commandID, sessionID
         printMsg Trace_, LogID, "commandID:" & commandID & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
         printMsg Trace_, LogID, "commandID:" & commandID & " does not have a SessionID.", FromProcedureName
     End If
 
-    '2. 末尾に`id`,ヌル文字を付与
+    '3. 末尾に`id`,ヌル文字を付与
     strMessage = strMessage & ", ""id"":" & commandID & "}" & vbNullChar
 
-    '3. 実際に実行
+    '4. 実際に実行
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
     ReadyRunCDP = writeProcCDP(strMessage)
 End Function
