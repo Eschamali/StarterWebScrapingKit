@@ -1512,26 +1512,16 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, br.id & " Information", FromProcedureName
+    printMsg Debug_, br.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Last ID           | lngLastID    | " & brTab.lngLastID, FromProcedureName
     printMsg Debug_, "Window Handle     | brHWnd       | " & br.hWnd, FromProcedureName
     printMsg Debug_, "Window ID         | brWId        | " & br.WID, FromProcedureName
-    printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
-    printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Browser Path      | brPath       | " & br.Path, FromProcedureName
     printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
     printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & core.CollectionPipe_hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & core.CollectionPipe_hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & core.CollectionPipe_hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & core.CollectionPipe_hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & core.CollectionPipe_hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & core.CollectionProcessId, FromProcedureName
-    printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
 
