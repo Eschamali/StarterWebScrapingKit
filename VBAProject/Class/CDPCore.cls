@@ -1005,9 +1005,10 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(CDPJsonString, ResultCommandID) Then
             '--------- 3. タブに対するCDP-Jsonコマンド結果か？ ---------
-            If RunSessionID.Exists(ResultCommandID) Then
+            If RunSessionID.Exists(ResultCommandID) Then    '`id`項目での`sessionId`checkは、送信時に登録した`Dictionary`checkに委ねる
                 'タブに対するコマンド結果として発信
-                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, RunSessionID(ResultCommandID))
+                sessionID = RunSessionID(ResultCommandID)
+                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
 
                 '仕分けが済んだので削除しておく
                 RunSessionID.Remove (ResultCommandID)
