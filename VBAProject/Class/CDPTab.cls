@@ -2449,10 +2449,17 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.id = "TBID" & Format(Rnd * 1000, "000")
+    br.LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
+
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    Set ResultCDP_Tab.response = New Dictionary
+    ResultCDP_Tab.Limit = MaxStoreResultCDP
+
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
 End Sub
 
@@ -2462,6 +2469,7 @@ End Sub
 Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
+
     'SessionIDを保持するオプションになってるか確認
     If KeepSession Then
         printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
@@ -2469,7 +2477,7 @@ Private Sub Class_Terminate()
         printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
 
         'SessionIDを破棄しておく
-        DiscardSessionID brTab.sessionID
+        BrowserCore.DiscardSessionID brTab.sessionID
     End If
 
 End Sub
