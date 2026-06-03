@@ -952,11 +952,11 @@ Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
     '5-1. 空欄か？
     If JsonMessages(LastIndex) = "" Then
         '5-2. 今回の受信で全て正しいJson形式として得れました
-        printMsg Trace_, LogID, LastIndex & " messages received.", FromProcedureName
+        printMsg Debug_, LogID, LastIndex & " messages received.", FromProcedureName
         printMsg Debug_, LogID, "readProcCDP was able to receive everything!", FromProcedureName
     Else
         '5-2. データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-        printMsg Trace_, LogID, LastIndex + 1 & " messages received.", FromProcedureName
+        printMsg Debug_, LogID, LastIndex + 1 & " messages received.", FromProcedureName
         printMsg Trace_, LogID, "The Split(" & LastIndex & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
         FragmentedCDP = JsonMessages(LastIndex)
 
