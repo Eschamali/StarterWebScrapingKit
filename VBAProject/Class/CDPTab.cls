@@ -1811,6 +1811,30 @@ End Function
 
 
 
+'***************************************************************************************************
+'                              ■■■ 複製用プロパティ ■■■
+'***************************************************************************************************
+'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ったり継承させます
+'***************************************************************************************************
+Property Get InheritanceCDPCore() As CDPCore
+    Set InheritanceCDPCore = PipeCore
+End Property
+Property Set InheritanceCDPCore(Target As CDPCore)
+    Set PipeCore = Target
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ったり継承させます
+'***************************************************************************************************
+Property Get InheritanceCDPBrowser() As CDPBrowser
+    Set InheritanceCDPBrowser = BrowserCore
+End Property
+Property Set InheritanceCDPBrowser(Target As CDPBrowser)
+    Set BrowserCore = Target
+End Property
+
+
+
 '=============================================================================
 ' PUBLIC PROPERTIES
 '=============================================================================
