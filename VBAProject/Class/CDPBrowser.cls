@@ -296,6 +296,7 @@ Public Sub start(userProfile As String, Optional Name As String = "chrome", _
 
     'ブラウザステータス表示
     printParams
+    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
 End Sub
 
 Private Function getBrowserPath(strBrowserType As String) As String
@@ -588,8 +589,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：LastCommandID_mainTab  メインタブでの現時点でコマンドID
-'            sessionID_mainTab      メインタブでのSessionId
+'* 引数　　：sessionID_mainTab      メインタブでのSessionId
 '            targetID_mainTab       メインタブでのtargetId
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：
@@ -1258,13 +1258,6 @@ Property Get CurrentBrowserWindowClass() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：現在のタイマー値を取得します
-'***************************************************************************************************
-Property Get TimerCounter() As Double
-    TimerCounter = PipeCore.LogControl.GetTicksMs
-End Property
-
-'***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：設定中のタイムアウト秒数
@@ -1530,6 +1523,10 @@ End Sub
 Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
     PipeCore.TakeEvents destruction, StopPipeError
 End Sub
+
+Public Function TimerCounter() As Double
+    TimerCounter = PipeCore.LogControl.GetTicksMs
+End Function
 
 
 
