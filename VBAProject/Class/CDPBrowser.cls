@@ -978,7 +978,6 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
 
 
     Dim paramStr As String
-    Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
     SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError

@@ -181,6 +181,8 @@ Private TargetInfos As Collection               '非同期イベント`Target.ta
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
+'* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
+'***************************************************************************************************
 Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
@@ -1119,28 +1121,13 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
 
 
     Dim paramStr As String
-    Dim results As Scripting.Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = BrowserCore.jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError)
-
-    '非同期の場合は、`WriteFile`のエラーをチェックするだけとなります
-    '※1件しかAddしてないので、直Index指定する
-    If results.Items(0) Then
-        'エラーによる`Err.Raise`で止めるか？
-        If StopError Then
-            'エラーになったmethod名と、`WriteFile`の実行エラーコードを表示して停止
-            printMsg ERROR_, "Failed to invokeAsync-WriteFile method """ & methodName & """" & vbCrLf & vbCrLf & "=== WriteFileErrorDetail ===" & vbCrLf & "ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0)), FromProcedureName, doRaiseError:=True
-        Else
-            'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invokeAsync-WriteFile method """ & methodName & """　ErrorCode:" & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32"), FromProcedureName
-        End If
-    End If
+    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError
 
     '実行したIDを返却
-    ExecuteCDPAsync = results.keys(0)
-    printMsg Debug_, "Async executed """ & methodName & """ with WriteFile Result: " & results.Items(0) & " - " & ErrorDetail.GetMessage(results.Items(0), "kernel32") & " ID: " & results.keys(0), FromProcedureName
-
+    ExecuteCDPAsync = PipeCore.LastCommandID
+    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -1179,16 +1166,11 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(strMessage, brTab.sessionID)    'Send message to the browser instance
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID                     '`ReadyRunCDP`直後のcommandIDを取得
     
-    printMsg Debug_, "Result  - WriteFile: " & WriteResult, FromProcedureName
+    'WriteFile にてエラーがあった場合
+    If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & PipeCore.ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
 
-    '非同期(結果はいらない)モードなら、整理券(ID)を渡してここで抜けます
-    If Async Then
-        Set SendMessage = New Dictionary
-
-        '実行したコマンドIDと、WriteFileの結果コードを渡して、抜けます
-        SendMessage.Add currentCommandID, WriteResult
-        Exit Function
-    End If
+    '非同期(結果はいらない)モードなら、ここで抜けます
+    If Async Then Exit Function
 
    '------------------------------------------------
    'Read message returned by browser
