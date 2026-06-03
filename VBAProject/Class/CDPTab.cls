@@ -2070,7 +2070,7 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
 End Function
 
 
-Private Function attachToSession() As Integer
+Private Sub attachToSession()
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
 ' This function attaches to a session of the browser.
@@ -2082,7 +2082,7 @@ Private Function attachToSession() As Integer
     Const FromProcedureName As String = ThisClassName & ".attachToSession"
 
 
-    Dim result As String
+    Dim result
     Dim results_ As Scripting.Dictionary
     Dim results__ As Scripting.Dictionary
     Dim results___ As Scripting.Dictionary
@@ -2091,11 +2091,11 @@ Private Function attachToSession() As Integer
 
     On Error GoTo ifError
 
-    '"Target.targetCreated"を取れるようにする
+    '"Target.targetCreated"を収集できるように初期化
     Set TargetInfos = New Collection
-    
+
     '実行
-1   Set results = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":true}}")
+1   BrowserCore.Collect_TargetCreated = True
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -2119,13 +2119,12 @@ Private Function attachToSession() As Integer
 
    'Establish connection with the CDP pipes
 3   brTab.targetID = results__.Item("targetId")
-4   Set results___ = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & results__.Item("targetId") & """,""flatten"":true}}")
-5   brTab.sessionID = results___.Item("result").Item("sessionId")
-6   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-7   Set results___ = SendMessage("{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":false}}")
+4   brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
+5   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
+6   BrowserCore.Collect_TargetCreated = False
 
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
-    Exit Function
+    Exit Sub
 
 ifError:
 
@@ -2134,17 +2133,16 @@ ifError:
     errorLine = Erl
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
-    printMsg Debug_, "EventMessageForAttachToSession = " & jsConverter.ConvertToJson(EventMessageForAttachToSession.Queue), FromProcedureName
-    printMsg Debug_, "results = " & jsConverter.ConvertToJson(results), FromProcedureName
-    printMsg Debug_, "results_ = " & jsConverter.ConvertToJson(results_), FromProcedureName
-    printMsg Debug_, "results__ = " & jsConverter.ConvertToJson(results__), FromProcedureName
-    printMsg Debug_, "results___ = " & jsConverter.ConvertToJson(results___), FromProcedureName
-    printMsg Debug_, ".start call string: " & br.CallString, FromProcedureName
+    printMsg Debug_, "result = " & result, FromProcedureName
+    printMsg Debug_, "results_ = " & BrowserCore.jsConverter.ConvertToJson(results_), FromProcedureName
+    printMsg Debug_, "results__ = " & BrowserCore.jsConverter.ConvertToJson(results__), FromProcedureName
+    printMsg Debug_, "results___ = " & BrowserCore.jsConverter.ConvertToJson(results___), FromProcedureName
+    printMsg Debug_, ".start call string: " & BrowserCore.CurrentBrowserPath, FromProcedureName
 
     printParams
-    Err.Raise CustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
+    Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
 
-End Function
+End Sub
 
 Private Function invokeError(result As Scripting.Dictionary) As Boolean
 '-----------------------------------------------------------------------------------
