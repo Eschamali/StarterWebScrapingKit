@@ -812,11 +812,11 @@ Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseM
                 currentResultBiDi.response.Add ResultCommandID, BiDiJsonString
 
                 '格納件数チェックし、上限を超えたら、最古データを削除します
-                If currentResultBiDi.response.Count > currentResultBiDi.limit Then
+                If currentResultBiDi.response.Count > currentResultBiDi.Limit Then
                     ' 一番古いキーを取得して削除
                     printMsg Trace_, "Delete asynchronous processing result ID:" & currentResultBiDi.response.keys(0), FromProcedureName
                     currentResultBiDi.response.Remove currentResultBiDi.response.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & currentResultBiDi.limit & ", so the oldest has been deleted.", FromProcedureName
+                    printMsg info_, "The accumulation limit has exceeded " & currentResultBiDi.Limit & ", so the oldest has been deleted.", FromProcedureName
                 End If
             End If
         Else
@@ -1054,39 +1054,39 @@ End Property
 '            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
 '            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
 '***************************************************************************************************
-Public Property Get ResultBiDiForAsync(CommandID As Long, Optional ErrorExist As Boolean) As Dictionary
+Public Property Get ResultBiDiForAsync(commandID As Long, Optional ErrorExist As Boolean) As Dictionary
     Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
 
 
     '1. 存在するか？
-    If currentResultBiDi.response.Exists(CommandID) Then
-        printMsg Trace_, "BiDi-CommandID: " & CommandID & " , Raw-Json:" & currentResultBiDi.response(CommandID), FromProcedureName
+    If currentResultBiDi.response.Exists(commandID) Then
+        printMsg Trace_, "BiDi-CommandID: " & commandID & " , Raw-Json:" & currentResultBiDi.response(commandID), FromProcedureName
 
         '2. Jsonパーサーを施す
         Dim tmp As Dictionary
-        Set tmp = m_JsonConverter.ParseJson(currentResultBiDi.response(CommandID))
+        Set tmp = m_JsonConverter.ParseJson(currentResultBiDi.response(commandID))
 
         '3. 成功か？
         If tmp("type") = "success" Then
             '正常に終了していると伝える
             ErrorExist = False
-            printMsg Debug_, "This BiDi-command ID(" & CommandID & ") has been completed successfully.", FromProcedureName
+            printMsg Debug_, "This BiDi-command ID(" & commandID & ") has been completed successfully.", FromProcedureName
         Else
             'エラーありとして伝える
             ErrorExist = True
-            printMsg WARN_, "This BiDi-command ID(" & CommandID & ") is in error. ErrorDetails:" & currentResultBiDi.response(CommandID)("error"), FromProcedureName
+            printMsg WARN_, "This BiDi-command ID(" & commandID & ") is in error. ErrorDetails:" & currentResultBiDi.response(commandID)("error"), FromProcedureName
         End If
 
         '4. 返却自体は、そのままで
         Set ResultBiDiForAsync = tmp
 
         '5. 取り出したので消しておく
-        currentResultBiDi.response.Remove CommandID
-        printMsg Trace_, "BiDi-command ID: " & CommandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
+        currentResultBiDi.response.Remove commandID
+        printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         ErrorExist = False
-        printMsg Trace_, "The BiDi command ID(" & CommandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+        printMsg Trace_, "The BiDi command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
@@ -1099,11 +1099,11 @@ End Property
 '* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
 '***************************************************************************************************
 Property Get ResultAccumulatedLimitBiDiForAsync() As Long
-    ResultAccumulatedLimitBiDiForAsync = currentResultBiDi.limit
+    ResultAccumulatedLimitBiDiForAsync = currentResultBiDi.Limit
 End Property
 
 Property Let ResultAccumulatedLimitBiDiForAsync(Number As Long)
-    currentResultBiDi.limit = Number
+    currentResultBiDi.Limit = Number
 End Property
 
 '***************************************************************************************************
@@ -1514,7 +1514,7 @@ Private Sub Class_Initialize()
 
     '非同期でのコマンド結果を蓄積させる件数(デフォルトで、256件)
     Set currentResultBiDi.response = New Dictionary
-    currentResultBiDi.limit = 2 ^ 8
+    currentResultBiDi.Limit = 2 ^ 8
 
     '初期化
     Set QueueResultBiDi = New Collection
