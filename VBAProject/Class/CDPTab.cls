@@ -101,60 +101,44 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
-'SessionIDの紐づけ手段
-Public Enum ReConnectSessionID
-    refresh_    '現在のExcelテーブルに記録されてる`targetID`を基に、SessionIDを更新して、続行します
-    empty_      'SessionIDなしで続行します。基本的に、内部用を想定してます。後で手動でSessionIDを設定する際に使います
-    existing_   'SessionIDを更新せずに、現在のExcelテーブルに記録されてる`SessionID`を流用します。主にJavaScriptで実行した内容を別プロシージャで使いまわすときに使います。事前に、`KeepSession`を`True`にしておく必要があります
-End Enum
-
 'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 'その他
-Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
-Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
+Private Const TIMEOUT_DEFAULT   As Double = 30          '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPTab"    'ログのトレース用
+Private Const MaxStoreResultCDP As Long = 2 ^ 8         'ブラウザからのコマンド結果蓄積数
 
 
 
 '===================================
 ' Global Variables
 '===================================
-'非同期イベント発火
-Public Event detectionCDPEvent(methodName As String, EventRawJson As String)
+'ブラウザ制御クラスオブジェクト
+Private WithEvents PipeCore As CDPCore      'イベント受け取りオブジェクト
+Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
-'イベントクラスオブジェクト
-Private WithEvents PipeCore As CDPCore
-Attribute PipeCore.VB_VarHelpID = -1
-
-'クラスオブジェクト
-Private BrowserCore As CDPBrowser           'Must be initialized for CDP engine
+'各種クラスオブジェクト
+Private CharConv    As New CharacterCodeConversion
 Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
-Private jsConverter As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
-Private CharConv    As New CharacterCodeConversion  'ファイル保存系統
-Private LogControl  As New Logger           'ログレベルの制御
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
-'操作中のブラウザ情報一式
-Private Type StateBrowser
+'操作中のタブ情報一式
+Private Type StatebBrowserTab
     hWnd        As LongPtr  'Browser object window handle
     WID         As String   'Useful for windows repositioning
-    User        As String   'Browser user profile
     LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
-    id          As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Name        As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
     reattach    As Boolean  'Remember reAttach preference from .reattach method - updated by Long 22/01/2026
 End Type
-Private br As StateBrowser
+Private br As StatebBrowserTab
 
 '操作中のタブ情報一式
 Private Type StateTab
-    lngLastID   As Long     'Every message sent to edge has an ID
     sessionID   As String   'The ID to the current session tab.
-    targetID    As String   'The targetID of the current tab for InvokeMethod
+    targetID    As String   'The targetID of the current tab for ExecuteCDP
 End Type
 Private brTab As StateTab
 
@@ -180,7 +164,6 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
 
 
