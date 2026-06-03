@@ -254,12 +254,12 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     BrowserCore.start userProfile, Name, appUrl, cleanActive, addArgs, KioskMode
 
     '2. WithEventsClassオブジェクトを受け取る
-    Set PipeCore = BrowserCore.ReceiptCDPCore
+    Set PipeCore = BrowserCore.InheritanceCDPCore
 
     '3. Complete initialization ------------------------------------------------------
     attachToSession     'Find and attach the newly open Session ID
     getSessionInfo      'Store initial session info for printParams debugging
-    serialize           'Create a serial string for future attachment
+    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID
     '------------------------------------------------------------------------------
 
    'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
@@ -279,7 +279,6 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
 
    'Finally print the session details for debugging ------------------------------
     printParams
-    printMsg info_, "Browser initialization completed after " & TimerCounter - timerStart & "s", FromProcedureName
    '------------------------------------------------------------------------------
 
 End Sub
