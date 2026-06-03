@@ -117,6 +117,7 @@ Private Const MaxStoreResultCDP As Long = 2 ^ 8         'ブラウザからの�
 '===================================
 'ブラウザ制御クラスオブジェクト
 Private WithEvents PipeCore As CDPCore      'イベント受け取りオブジェクト
+Attribute PipeCore.VB_VarHelpID = -1
 Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
 '各種クラスオブジェクト
@@ -1017,7 +1018,7 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
+        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName 'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
@@ -1533,7 +1534,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
     Dim params As New Scripting.Dictionary
     params("targetId") = CStr(getTargetID)
-    If focus Then ExecuteCDP "Target.activateTarget", params, True
+    If focus Then ExecuteCDP "Target.activateTarget", params
 
 End Sub
 
@@ -1835,9 +1836,9 @@ End Property
 
 
 
-'=============================================================================
-' PUBLIC PROPERTIES
-'=============================================================================
+'***************************************************************************************************
+'                              ■■■ PUBLIC PROPERTIES ■■■
+'***************************************************************************************************
 Property Get Url() As String
 '------------------------------------------------------------
 ' Get the URL of the current document/tab
@@ -2160,7 +2161,6 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     End If
 End Property
 
-
 '***************************************************************************************************
 '* 機能　　：イベントの「種類（メソッド名）」ごとの仕切りを入れ、そこにCollectionを入れていきます
 '---------------------------------------------------------------------------------------------------
@@ -2209,9 +2209,6 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
     eventList.Add eventData
 End Sub
 
-
-
-
 '***************************************************************************************************
 '* 機能　　：ブラウザイベント情報を格納する前に、フィルター情報を取得して、イベント蓄積させるか判定させます
 '---------------------------------------------------------------------------------------------------
@@ -2258,7 +2255,6 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
     FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
-
 
 Private Sub attachToSession()
 '-----------------------------------------------------------------------
