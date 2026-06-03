@@ -204,7 +204,7 @@ End Type
 Private FragmentedDate As StateFragmented
 
 'コマンドIDとSessionIDの紐づけ管理
-Private RunSessionID As Dictionary
+Private DictionarySessionID As Dictionary
 
 'ログ設定状況
 Private Type StateLog
@@ -709,7 +709,7 @@ Public Function ReadyRunCDP(strMessage As String, Optional sessionID As String) 
         strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
 
         '3-2. commandIDと`sessionId`の紐づけを行う
-        RunSessionID.Add currentCommandID, sessionID
+        DictionarySessionID.Add currentCommandID, sessionID
         printMsg Trace_, LogID, "commandID:" & currentCommandID & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
         printMsg Trace_, LogID, "commandID:" & currentCommandID & " does not have a SessionID.", FromProcedureName
@@ -1012,13 +1012,13 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(CDPJsonString, ResultCommandID) Then
             '--------- 3. タブに対するCDP-Jsonコマンド結果か？ ---------
-            If RunSessionID.Exists(ResultCommandID) Then    '`id`項目での`sessionId`checkは、送信時に登録した`Dictionary`checkに委ねる
+            If DictionarySessionID.Exists(ResultCommandID) Then    '`id`項目での`sessionId`checkは、送信時に登録した`Dictionary`checkに委ねる
                 'タブに対するコマンド結果として発信
-                sessionID = RunSessionID(ResultCommandID)
+                sessionID = DictionarySessionID(ResultCommandID)
                 RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
 
                 '仕分けが済んだので削除しておく
-                RunSessionID.Remove (ResultCommandID)
+                DictionarySessionID.Remove (ResultCommandID)
             Else
                 'ブラウザに対するコマンド結果として発信
                 RaiseEvent CDPBrowserID(ResultCommandID, CDPJsonString)
@@ -1261,6 +1261,6 @@ Private Sub Class_Initialize()
     End With
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化
-    Set RunSessionID = New Dictionary
+    Set DictionarySessionID = New Dictionary
     '------------------------------------------------------------------------------
 End Sub
