@@ -28,7 +28,6 @@ Attribute VB_Exposed = False
 ' Sources     :
 '       Creating Pipe: https://stackoverflow.com/questions/62172551/error-with-createpipe-in-vba-office-64bit
 '==============================================================================================================
-
 Option Explicit
 
 
@@ -88,16 +87,15 @@ Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFre
 
 
 
-'===================================
-' Types & Structures Declarations
-'===================================
- 
+'***************************************************************************************************
+'                                   ■■■ 各種構造体 ■■■
+'***************************************************************************************************
 Private Type SECURITY_ATTRIBUTES
     nLength As Long
     lpSecurityDescriptor As LongPtr
     bInheritHandle As Long
 End Type
- 
+
 Private Type STARTUPINFO
     cb As Long
     lpReserved As LongPtr
@@ -118,51 +116,45 @@ Private Type STARTUPINFO
     hStdOutput As LongPtr
     hStdError As LongPtr
 End Type
- 
+
 Private Type PROCESS_INFORMATION
     hProcess As LongPtr
     hThread As LongPtr
     dwProcessId As Long
     dwThreadId As Long
 End Type
- 
+
 ' This is the structure to pass more than 3 fds to a child process (https://github.com/libuv/libuv/blob/v1.x/src/win/process-stdio.c)
 ' The fields crt_flags and os_handle must lie contigously in memory i.e. should not be aligned to byte boundaries
 ' You cannot define a packed struct in VBA, that's why we need to have multiple structs
- 
+
 Private Type STDIO_BUFFER
     number_of_fds As Long
     crt_flags(0 To 4) As Byte
     os_handle(0 To 4) As LongPtr
 End Type
- 
+
 #If Win64 Then
- 
+
     Private Type STDIO_BUFFER2
         number_of_fds As Long
         raw_bytes(0 To 44) As Byte
     End Type
-    
+
 #Else
- 
+
     Private Type STDIO_BUFFER2
         number_of_fds As Long
         raw_bytes(0 To 24) As Byte
     End Type
-    
+
 #End If
 
-'===================================
-' 各種イベント定義
-'===================================
-Public Event CDPBrowserEvent(methodName As String, RawJson As String)                   'ブラウザに対する非同期イベント
-Public Event CDPBrowserID(id As Long, RawJson As String)                                'ブラウザに対するCDPコマンド結果
-Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
-Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
 
-'===================================
-' Constants
-'===================================
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 'ウィンドウ表示設定値一式
 Public Enum WinState
     asHidden = 0            'Hides the window and activates another window.
@@ -195,13 +187,30 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
-Private LastCommandID_Pipe      As Long                     '現在のコマンドID
 
 
 
-'===================================
-' Shared Variables
-'===================================
+'***************************************************************************************************
+'                                   ■■■ イベント定義 ■■■
+'***************************************************************************************************
+'CDPレスポンスの種類に応じた発信機
+Public Event CDPBrowserEvent(methodName As String, RawJson As String)                   'ブラウザに対する非同期イベント
+Public Event CDPBrowserID(id As Long, RawJson As String)                                'ブラウザに対するCDPコマンド結果
+Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
+Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'クラスオブジェクト
+Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private LogControl     As New Logger               'ログレベルの制御
+
+'定義側からも呼び出せるチェーンクラスオブジェクト
+Public ErrorDetail     As New WinApiError          'エラーコードから、詳細を取得するやつ
+
  'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
 Private Type StateFragmented
     strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
@@ -209,9 +218,6 @@ Private Type StateFragmented
     expansionCount  As Long     '拡張確保回数
 End Type
 Private FragmentedDate As StateFragmented
-
-'コマンドIDとSessionIDの紐づけ管理
-Private DictionarySessionID As Dictionary
 
 'ログ設定状況
 Private Type StateLog
@@ -222,178 +228,42 @@ End Type
 Private currentLog  As StateLog
 Private LogID       As String
 
-'パイプ情報
-Private hStdOutWr As LongPtr
-Private hStdOutRd As LongPtr
-Private hStderrOutWr As LongPtr
-Private hStderrOutRd As LongPtr
-Private hStdInWr As LongPtr
-Private hStdInRd As LongPtr
-Private hCDPOutWr As LongPtr
-Private hCDPOutRd As LongPtr
-Private hCDPInWr As LongPtr
-Private hCDPInRd As LongPtr
-Private hProcess As LongPtr
-Private setShowWindow As Integer
-Private dwProcessId As LongPtr
-
 'パイプ関連のエラー番号
 Private Type ErrorCode
     PeekNamedPipe   As Long
     ReadFile        As Long
     WriteFile       As Long
 End Type
-Private LastReceiveError   As ErrorCode
+Private LastPipeError   As ErrorCode
 
-'クラスオブジェクト
-Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+'パイプ情報
+Private hStdOutWr       As LongPtr
+Private hStdOutRd       As LongPtr
+Private hStderrOutWr    As LongPtr
+Private hStderrOutRd    As LongPtr
+Private hStdInWr        As LongPtr
+Private hStdInRd        As LongPtr
+Private hCDPOutWr       As LongPtr
+Private hCDPOutRd       As LongPtr
+Private hCDPInWr        As LongPtr
+Private hCDPInRd        As LongPtr
+Private hProcess        As LongPtr
 
-'定義側からも呼び出せるチェーンクラスオブジェクト
-Public LogControl      As New Logger               'ログレベルの制御
-Public ErrorDetail     As New WinApiError          'エラーコードから、詳細を取得するやつ
+'起動ウィンドウ情報
+Private setShowWindow   As Integer
+Private dwProcessId     As LongPtr
 
+'コマンドIDとSessionIDの紐づけ管理
+Private DictionarySessionID As Dictionary
 
-
-'***************************************************************************************************
-'                               ■■■ プロパティ機能 ■■■
-'***************************************************************************************************
-'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：UTF-8 の変換が作動してるかの論理値
-'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
-'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
-'***************************************************************************************************
-Property Let UseConverterUtf8FromString(Flag As Boolean)
-    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
-End Property
-
-Property Get UseConverterUtf8FromString() As Boolean
-    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
-'***************************************************************************************************
-Property Get ConnectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStdOutRd = hStdOutRd
-End Property
-
-Property Get ConnectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStderrOutRd = hStderrOutRd
-End Property
-
-Property Get ConnectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStdInWr = hStdInWr
-End Property
-
-Property Get ConnectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
-    ConnectionPipe_hCDPOutRd = hCDPOutRd
-End Property
-
-Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
-    ConnectionPipe_hCDPInWr = hCDPInWr
-End Property
-
-Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
-    ConnectionProcessId = dwProcessId
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後の○○系取得用プロパティ
-'***************************************************************************************************
-Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
-    LastErrorPeekNamedPipe = LastReceiveError.PeekNamedPipe
-End Property
-
-Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
-    LastErrorReadFile = LastReceiveError.ReadFile
-End Property
-
-Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
-    LastErrorWriteFile = LastPipeError.WriteFile
-End Property
-
-Property Get LastCommandID() As Long                     '最後に実行したcommandID値
-    LastCommandID = LastCommandID_Pipe
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Property Get ShowLogCDPresponse() As Boolean
-    ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
-End Property
-
-Property Get LimitCommandID() As Long
-    LimitCommandID = LimitID
-End Property
+'その他
+Private LastCommandID_Pipe  As Long     '現在のコマンドID
+Private m_Frequency         As Currency '実行マシンでの周波数記録用
 
 
 
 '***************************************************************************************************
-'                              ■■■ Pipeの確保と記録 ■■■
-'***************************************************************************************************
-'* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   記録する識別名称
-'***************************************************************************************************
-Public Sub serialize(UserName As String)
-    '0. データ記録準備
-    Dim tmp As New Dictionary
-
-    '1. 必要なデータを`Dictionary`に詰める
-    tmp.Add "hStdOutRd", hStdOutRd
-    tmp.Add "hStderrOutRd", hStderrOutRd
-    tmp.Add "hStdInWr", hStdInWr
-    tmp.Add "hCDPOutRd", hCDPOutRd
-    tmp.Add "hCDPInWr", hCDPInWr
-    tmp.Add "dwProcessId", dwProcessId
-
-    '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   読み取る識別名称
-'***************************************************************************************************
-Public Function deserialize(UserName As String) As Boolean
-    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
-    Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
-
-    '取得に失敗した場合は、接続情報が失ってるので、抜ける
-    If PipeInfo Is Nothing Then Exit Function
-
-    'クラス内変数に適用
-    hStdOutRd = PipeInfo("hStdOutRd")
-    hStderrOutRd = PipeInfo("hStderrOutRd")
-    hStdInWr = PipeInfo("hStdInWr")
-    hCDPOutRd = PipeInfo("hCDPOutRd")
-    hCDPInWr = PipeInfo("hCDPInWr")
-    dwProcessId = PipeInfo("dwProcessId")
-
-    '成功サインを返す
-    deserialize = True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：パイプハンドル情報をクリーニングします
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
-'***************************************************************************************************
-Public Sub ClosePipeCDP()
-    CloseHandle hStdOutRd
-    CloseHandle hStdInWr
-    CloseHandle hCDPOutRd
-    CloseHandle hCDPInWr
-    CloseHandle hStderrOutRd
-End Sub
-
+'                             ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：Chromiumを`remote-debugging-pipe`として起動し、パイプ接続を開始します
 '---------------------------------------------------------------------------------------------------
@@ -408,7 +278,7 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     Dim result As Long
     Dim pipes As STDIO_BUFFER
     Dim pipes2 As STDIO_BUFFER2
- 
+
    'First we create all 5 pipes
    'We start with stdout of the edge process
     sa.nLength = LenB(sa)
@@ -433,21 +303,21 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
-    
+
    'Then the out pipe for the CDP Protocol
     result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
     If result = 0 Then
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
-    
+
    'And finally the in pipe
     result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
         Init = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
-    
+
    'Then we fill the special structure for passing arbitrary pipes (i.e. fds) to a process
     pipes.number_of_fds = 5
     pipes.os_handle(0) = hStdInRd
@@ -460,7 +330,7 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     pipes.crt_flags(2) = 9
     pipes.crt_flags(3) = 9
     pipes.crt_flags(4) = 9
-    
+
    'pipes2 is filled by copying memory from pipes
     pipes2.number_of_fds = pipes.number_of_fds
 
@@ -542,6 +412,70 @@ End Function
 
 
 '***************************************************************************************************
+'                              ■■■ Pipe関連操作 ■■■
+'***************************************************************************************************
+'* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   記録する識別名称
+'***************************************************************************************************
+Public Sub serialize(UserName As String)
+    '0. データ記録準備
+    Dim tmp As New Dictionary
+
+    '1. 必要なデータを`Dictionary`に詰める
+    tmp.Add "hStdOutRd", hStdOutRd
+    tmp.Add "hStderrOutRd", hStderrOutRd
+    tmp.Add "hStdInWr", hStdInWr
+    tmp.Add "hCDPOutRd", hCDPOutRd
+    tmp.Add "hCDPInWr", hCDPInWr
+    tmp.Add "dwProcessId", dwProcessId
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
+
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   読み取る識別名称
+'***************************************************************************************************
+Public Function deserialize(UserName As String) As Boolean
+    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    Dim PipeInfo As Dictionary
+    Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
+
+    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    If PipeInfo Is Nothing Then Exit Function
+
+    'クラス内変数に適用
+    hStdOutRd = PipeInfo("hStdOutRd")
+    hStderrOutRd = PipeInfo("hStderrOutRd")
+    hStdInWr = PipeInfo("hStdInWr")
+    hCDPOutRd = PipeInfo("hCDPOutRd")
+    hCDPInWr = PipeInfo("hCDPInWr")
+    dwProcessId = PipeInfo("dwProcessId")
+
+    '成功サインを返す
+    deserialize = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：パイプハンドル情報をクリーニングします
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
+'***************************************************************************************************
+Public Sub ClosePipeCDP()
+    CloseHandle hStdOutRd
+    CloseHandle hStdInWr
+    CloseHandle hCDPOutRd
+    CloseHandle hCDPInWr
+    CloseHandle hStderrOutRd
+End Sub
+
+
+
+'***************************************************************************************************
 '                              ■■■ Pipeの読み書き ■■■
 '***************************************************************************************************
 '* 機能　　：標準出力エラーと標準出力を読み取ります
@@ -596,7 +530,7 @@ Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As L
     Else
         readProcSTD = -1
     End If
- 
+
 End Function
 
 '***************************************************************************************************
@@ -632,12 +566,12 @@ End Sub
 Private Function readProcCDP(ByRef strData As String) As Long
     Dim lPeekData As Long
     Dim lngRes As Long
-    
+
     '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
 
     'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
-    If lngRes = 0 Then LastReceiveError.PeekNamedPipe = Err.LastDllError: Exit Function
+    If lngRes = 0 Then LastPipeError.PeekNamedPipe = Err.LastDllError: Exit Function
 
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
@@ -661,7 +595,7 @@ Private Function readProcCDP(ByRef strData As String) As Long
             readProcCDP = lPeekData
         Else
             'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
-            LastReceiveError.ReadFile = Err.LastDllError
+            LastPipeError.ReadFile = Err.LastDllError
         End If
     End If
 End Function
@@ -890,14 +824,14 @@ Public Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
-            If LastReceiveError.PeekNamedPipe Then
+            If LastPipeError.PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastReceiveError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastReceiveError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
-            ElseIf LastReceiveError.ReadFile Then
+            ElseIf LastPipeError.ReadFile Then
                 'ReadFile にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastReceiveError.ReadFile & " - " & ErrorDetail.GetMessage(LastReceiveError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & ErrorDetail.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             Else
@@ -1028,7 +962,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
                 sessionID = DictionarySessionID(ResultCommandID)
                 RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
 
-                '仕分けが済んだので削除しておく
+                '発信したので削除しておく
                 DictionarySessionID.Remove (ResultCommandID)
             Else
                 'ブラウザに対するコマンド結果として発信
@@ -1174,6 +1108,87 @@ Private Function GetContentsSessionId(jsonString As String, ByRef sessionIdValue
         printMsg Trace_, LogID, "This response is the command result for the browser.", FromProcedureName
     End If
 End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ プロパティ機能 ■■■
+'***************************************************************************************************
+'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：UTF-8 の変換が作動してるかの論理値
+'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
+'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
+'***************************************************************************************************
+Property Let UseConverterUtf8FromString(Flag As Boolean)
+    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
+End Property
+
+Property Get UseConverterUtf8FromString() As Boolean
+    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
+'***************************************************************************************************
+Property Get ConnectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStdOutRd = hStdOutRd
+End Property
+
+Property Get ConnectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStderrOutRd = hStderrOutRd
+End Property
+
+Property Get ConnectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
+    ConnectionPipe_hStdInWr = hStdInWr
+End Property
+
+Property Get ConnectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
+    ConnectionPipe_hCDPOutRd = hCDPOutRd
+End Property
+
+Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
+    ConnectionPipe_hCDPInWr = hCDPInWr
+End Property
+
+Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
+    ConnectionProcessId = dwProcessId
+End Property
+
+'***************************************************************************************************
+'* 機能　　：最後の○○系取得用プロパティ
+'***************************************************************************************************
+Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
+    LastErrorPeekNamedPipe = LastPipeError.PeekNamedPipe
+End Property
+
+Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
+    LastErrorReadFile = LastPipeError.ReadFile
+End Property
+
+Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
+    LastErrorWriteFile = LastPipeError.WriteFile
+End Property
+
+Property Get LastCommandID() As Long                     '最後に実行したcommandID値
+    LastCommandID = LastCommandID_Pipe
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Property Get ShowLogCDPresponse() As Boolean
+    ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+End Property
+
+'***************************************************************************************************
+'* 機能　　：コマンド上限値取得
+'***************************************************************************************************
+Property Get LimitCommandID() As Long
+    LimitCommandID = LimitID
+End Property
 
 
 
