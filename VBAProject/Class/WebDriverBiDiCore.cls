@@ -341,24 +341,23 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 
 
     '1. 文字列を探索
-    Dim StartPos_OK As Long, StartPos_NG As Long
-    StartPos_OK = InStr(StartSearchPos, jsonString, SearchKeyNameOK)
-    StartPos_NG = InStr(StartSearchPos, jsonString, SearchKeyNameNG)
+    Dim existenceSuccess As Boolean, existenceError As Boolean
+    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK) = StartSearchPos)
+    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG) = StartSearchPos)
 
-    '2. 2つの結果を見て1つにまとめる
-    Dim StartPos As Long
-    Dim SearchKeyName As String
-    StartPos = IIf(StartPos_OK, StartPos_OK, StartPos_NG)
-    SearchKeyName = IIf(StartPos_OK, SearchKeyNameOK, SearchKeyNameNG)
-
-    '3. 所定の位置にない場合は、存在しないとし、抜ける
+    '2. どっちも所定の位置にない場合は、存在しないとし、抜ける
     '下記の例に基づき、10文字目にない場合は、コマンド結果ではないとして、扱います。
     '・{"type":"success", "id":... （コマンドの成功）
     '・{"type":"error", "id":... （コマンドの失敗）
-    If StartPos = StartSearchPos Then
+    If existenceSuccess Or existenceError Then
         GetContentsID = True
 
+        '3. 検索ワードを適用
+        Dim SearchKeyName As String
+        SearchKeyName = IIf(existenceSuccess, SearchKeyNameOK, SearchKeyNameNG)
+
         '4. 開始位置をうまい具合にずらす
+        Dim StartPos As Long
         StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""id"":") '「","id":」分、ずらすイメージ
 
         '5. ID値の終点を求める
@@ -367,10 +366,10 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 
         '6. ID値を取り出す
         idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
+        printMsg Trace_, LogID, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
     Else
         GetContentsID = False
-        printMsg Trace_, "This BiDi response does not have an `id`.", FromProcedureName
+        printMsg Trace_, LogID, "This BiDi response does not have an `id`.", FromProcedureName
     End If
 End Function
 
