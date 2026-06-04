@@ -61,13 +61,6 @@ Private Type StateDebug
 End Type
 Private BiDiDebug As StateDebug
 
-'「BiDi-CDP Mapper」タブ情報一式
-Private Type StateTab
-    sessionID   As String   'The ID to the current session tab.
-    targetID    As String   'The targetID of the current tab for ExecuteCDP
-End Type
-Private BiDiTab As StateTab
-
 'ステート管理
 Private m_MessageID As Long     '現在のBiDiコマンドID
 Private LogID       As String   'このClassオブジェクトとしてのログID
@@ -133,26 +126,22 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         If Not (ReConnect) Then Set WebDriverBiDi_mapperTab = .newTab(MapperURL, setMain:=True, isHidden:=Not (BiDiDebug.ViewDebugTab), isBackground:=True)
         printMsg Debug_, LogID, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(BiDiDebug.ViewDebugTab) & ")", FromProcedureName
 
-        '2. 「BiDi-CDP Mapper」のタブ情報を取り出す
-        BiDiTab.targetID = WebDriverBiDi_mapperTab.CurrentTargetID
-        BiDiTab.sessionID = WebDriverBiDi_mapperTab.id
-
-        '3. BiDi用バインディングの追加
+        '2. BiDi用バインディングの追加
         paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", BiDiTab.targetID
+        paramsCDP.Add "targetId", WebDriverBiDi_mapperTab.CurrentTargetID
         paramsCDP.Add "inheritPermissions", True
         .ExecuteCDP "Target.exposeDevToolsProtocol", paramsCDP, Not ReConnect   '再接続モードの場合は、エラー無視
     End With
 
-    '4. JSからVBAへ返す経路を設定
+    '3. JSからVBAへ返す経路を設定
     Call BiDiResponseBiding
 
     With WebDriverBiDi_mapperTab
-        '5. パースしたJavaScriptをブラウザ上で実行
+        '4. パースしたJavaScriptをブラウザ上で実行
         .jsEval Take_mapperTabJSstring
 
-        '6. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & BiDiTab.targetID & "')"
+        '5. ブートストラップ（初期化）JSの実行
+        .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
     End With
 
     printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
@@ -161,7 +150,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：BiDiからの結果やデバッグログを受け取るためのマッピング処理を行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・`CDPBrowser`を`New`してからご利用ください
+'* 注意事項：・`CDPTab`を`New`してからご利用ください
 '            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・SessionIDが変わるたびにこれを行わないと、`BiDi-CDP Mapper`は生きてるのに、コマンドのやり取りが出来ない問題が起こります
 '***************************************************************************************************
@@ -297,7 +286,7 @@ Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessi
 
 
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
-    If sessionID <> BiDiTab.sessionID Then Exit Sub
+    If sessionID <> WebDriverBiDi_mapperTab.id Then Exit Sub
 
     '2. 対象のイベント以外も即抜け
     If methodName <> BiDiForCDPEventName Then Exit Sub
