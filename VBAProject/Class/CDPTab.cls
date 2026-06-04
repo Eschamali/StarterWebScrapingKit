@@ -165,7 +165,6 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`attachToSession`専用
 
 
 
@@ -235,6 +234,7 @@ Private Sub attachToSession()
     Const FromProcedureName As String = ThisClassName & ".attachToSession"
 
 
+    Dim FirstTabs As Collection
     Dim result
     Dim results_ As Scripting.Dictionary
     Dim results__ As Scripting.Dictionary
@@ -244,11 +244,10 @@ Private Sub attachToSession()
 
     On Error GoTo ifError
 
-    '"Target.targetCreated"を収集できるように初期化
-    Set TargetInfos = New Collection
 
-    '実行
-1   BrowserCore.Collect_TargetCreated = True
+    '`Target.targetCreated`を収集できるように初期化
+    Set FirstTabs = New Collection
+1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -257,7 +256,7 @@ Private Sub attachToSession()
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
     Dim boolFound As Boolean
-    For Each result In TargetInfos
+    For Each result In FirstTabs
         Set results_ = BrowserCore.jsConverter.ParseJson(result).Item("params")
         If results_.Exists("targetInfo") Then
             Set results__ = results_.Item("targetInfo")
@@ -274,10 +273,8 @@ Private Sub attachToSession()
 3   brTab.targetID = results__.Item("targetId")
 4   brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 5   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-6   BrowserCore.Collect_TargetCreated = False
+6   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
-    '目的を果たしたので、`Nothing`にしておく
-    Set TargetInfos = Nothing
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
 
@@ -1413,35 +1410,19 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
-    '1. Select Case でスマートに、method名ごとの独自処理を行う
-    Select Case methodName
-        '1-1. `attachToSession`が行えるように準備する
-        Case "Target.targetCreated"
-            '1-2. `TargetInfo`を収集しない場合は、飛ばす
-            If Not TargetInfos Is Nothing Then
-                '1-3. そのまま、蓄積
-                printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
-                TargetInfos.Add RawJson
-            End If
-
-        Case Else
-            'None
-
-    End Select
-
-    '------------------ 2. 非同期イベントを収集します ------------------
-    '2-1. イベントキャプチャしない場合は、即抜け
+    '------------------ 非同期イベントを収集します ------------------
+    '1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '2-3. パース処理
+    '3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
 
-    '2-4. 専用のプロシージャにて、蓄積処理
+    '4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub

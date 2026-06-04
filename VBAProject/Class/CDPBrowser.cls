@@ -137,6 +137,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
+Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPTab.cls - attachToSession`専用
 
 
 
@@ -272,14 +273,21 @@ Public Sub start(Optional Name As String = "chrome", _
 End Sub
 
 '***************************************************************************************************
-'* 機能　　："Target.targetCreated"による非同期イベントを有効/無効化します
+'* 機能　　："Target.targetCreated"による非同期イベント収集を有効/無効化します
 '---------------------------------------------------------------------------------------------------
-'* LET引数 ：論理値に応じたOn/OFF
+'* SET引数 ：格納させたいCollection変数。`Nothing`で渡せば、収集を無効化します
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：タブやiframeが開いた際の非同期イベントを流すかの切り替えです
-'* 注意事項：このClass側では、"Target.targetCreated"を収集しません。`CDPTab.cls`等で収集処理を構築して下さい
+'* 機能説明：・タブやiframeが開いた際の非同期イベントを流すかの切り替えです。
+'            ・参照渡し方式により、わざわざ`Get`プロパティを介さず、取得可能です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：用が済んだら必ず、`Nothing`を渡して、参照カウンタを0にします
 '***************************************************************************************************
-Property Let Collect_TargetCreated(Switching As Boolean)
+Property Set RunCollect_TargetCreated(ArgCollect As Collection)
+    '1. 引数のポインタCollectionを指定させる
+    Set TargetInfos = ArgCollect
+
+    '2. オブジェクトの有無に応じた収集開始/終了を投げる
+    Dim Switching As Boolean: Switching = Not (ArgCollect Is Nothing)
     SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Switching) & "}}"
 End Property
 
@@ -1097,6 +1105,35 @@ Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
     '2. その後、結果を蓄積
     ResultCDP_Browser.response.Add id, RawJson
     printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザに対する非同期イベントを処理します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`Target.targetCreated`に対する情報の蓄積を行います
+'***************************************************************************************************
+Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
+
+
+    '1. Select Case でスマートに、method名ごとの独自処理を行う
+    Select Case methodName
+        '1-1. `attachToSession`が行えるように準備する
+        Case "Target.targetCreated"
+            '1-2. `TargetInfo`を収集しない場合は、即抜け
+            If TargetInfos Is Nothing Then Exit Sub
+
+            '1-3. そのまま、蓄積
+            printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+            TargetInfos.Add RawJson
+
+        Case Else
+            'None
+
+    End Select
 End Sub
 
 '***************************************************************************************************
