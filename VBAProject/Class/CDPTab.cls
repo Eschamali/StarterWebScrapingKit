@@ -120,7 +120,7 @@ Private WithEvents PipeCore As CDPCore      'イベント受け取りオブジ�
 Attribute PipeCore.VB_VarHelpID = -1
 Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
-'各種クラスオブジェクト
+'各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
 Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
@@ -1437,7 +1437,7 @@ End Sub
 '* 機能説明：このClass独自の非同期イベント処理を行います
 '***************************************************************************************************
 Private Sub PipeCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPTabEvent"
 
 
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
