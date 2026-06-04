@@ -73,7 +73,15 @@ Private LogID       As String   'このClassオブジェクトとしてのログ
 
 
 '***************************************************************************************************
-'               ■■■ CDP非同期イベントからBiDi用の結果を受け取る処理 ■■■
+'               ■■■ CDP非同期イベントからBiDi用の結果を取り出す処理 ■■■
+'***************************************************************************************************
+'* 機能　　：このタブに対する非同期イベントを受け取ります
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'            sessionID  届いたSessionID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`Runtime.bindingCalled`に含まれる`payload`を上手い具合に抜き出す処理です
 '***************************************************************************************************
 Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".m_CDPCore_CDPTabEvent"
@@ -87,7 +95,6 @@ Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessi
 
     '2. 対象のイベント以外も即抜け
     If methodName <> BiDiForCDPEventName Then Exit Sub
-    If currentDebug.seeRawSendMsgDbg Then printMsg Trace_, "`Runtime.bindingCalled` was detected. Raw-Json : " & RawJson, FromProcedureName
 
     '3. PayloadのName部分を取得
     Dim NamePayload As String: NamePayload = ExtractName(RawJson)
@@ -97,25 +104,24 @@ Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessi
     Select Case NamePayload
         'メインとなるWebDriverBiDiの結果
         Case BiDiResMain
-            'エスケープ解除済みのpayload 部分を抽出
+            '4-1. エスケープ解除済みのpayload 部分を抽出
             tmp = ExtractPayload(RawJson)
-            If currentDebug.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & tmp, FromProcedureName
+            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & tmp, FromProcedureName
 
-            '専用のCollectionに蓄積
-            QueueResultBiDi.Add tmp
+            '4-2. イベント発信用プロシージャへ遷移
+            BiDiReceivedDataCheck tmp
 
         'BiDi-Mapper 内部のデバッグログ用
         Case BiDiResDebug
-            'エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
+            '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
             tmp = ExtractPayload(RawJson)
             printMsg Debug_, "Debug - WebDriverBiDi: " & tmp, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
-        '※この場合は、負荷の高いJsonパース処理はしない
+        '※この場合は、追加処理しない
         Case Else
             printMsg Debug_, "We detected `Runtime.bindingCalled` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
     End Select
-
 End Sub
 
 '***************************************************************************************************
@@ -148,19 +154,19 @@ Private Function ExtractPayload(resCDP As String) As String
     Const SearchKey As String = """payload"":"""
     Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
     If StartPos = 0 Then Exit Function
-    
+
     StartPos = StartPos + Len(SearchKey)
-    
+
     ' payloadの終了位置を探す。通常はexecutionContextIdの前
     Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
     If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
-    
+
     If EndPos > StartPos Then
         ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
         ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
         ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
         ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
-        
+
         ' 文字列内のエスケープ（\" -> "）を復元
         ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
         ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
