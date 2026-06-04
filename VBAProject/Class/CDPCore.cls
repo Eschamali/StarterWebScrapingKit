@@ -31,23 +31,12 @@ Attribute VB_Exposed = False
 
 Option Explicit
 
-'===================================
-' Win APIs Declarations
-'===================================
 
-Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
-    phReadPipe As LongPtr, _
-    phWritePipe As LongPtr, _
-    lpPipeAttributes As SECURITY_ATTRIBUTES, _
-    ByVal nSize As Long) As Long
- 
-Private Declare PtrSafe Function ReadFile Lib "kernel32" ( _
-    ByVal hFile As LongPtr, _
-    ByRef lpBuffer As Any, _
-    ByVal nNumberOfBytesToRead As Long, _
-    lpNumberOfBytesRead As Long, _
-    ByVal lpOverlapped As Any) As Long
- 
+
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+'----- 全ての始まり -----
 Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProcessW" ( _
     ByVal lpApplicationName As LongPtr, _
     ByVal lpCommandLine As LongPtr, _
@@ -60,9 +49,23 @@ Private Declare PtrSafe Function CreateProcess Lib "kernel32" Alias "CreateProce
     lpStartupInfo As Any, _
     lpProcessInformation As Any) As Long
 
+'----- パイプ通信関連 -----
+Private Declare PtrSafe Function CreatePipe Lib "kernel32" ( _
+    phReadPipe As LongPtr, _
+    phWritePipe As LongPtr, _
+    lpPipeAttributes As SECURITY_ATTRIBUTES, _
+    ByVal nSize As Long) As Long
+
+Private Declare PtrSafe Function ReadFile Lib "kernel32" ( _
+    ByVal hFile As LongPtr, _
+    ByRef lpBuffer As Any, _
+    ByVal nNumberOfBytesToRead As Long, _
+    lpNumberOfBytesRead As Long, _
+    ByVal lpOverlapped As Any) As Long
+
 Private Declare PtrSafe Function CloseHandle Lib "kernel32" ( _
     ByVal hObject As LongPtr) As Long
- 
+
 Private Declare PtrSafe Function PeekNamedPipe Lib "kernel32" ( _
     ByVal hNamedPipe As LongPtr, _
     lpBuffer As Any, _
@@ -70,7 +73,7 @@ Private Declare PtrSafe Function PeekNamedPipe Lib "kernel32" ( _
     lpBytesRead As Long, _
     lpTotalBytesAvail As Long, _
     lpBytesLeftThisMessage As Long) As Long
- 
+
 Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByVal hFile As LongPtr, _
     ByRef lpBuffer As Any, _
@@ -78,9 +81,13 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByRef lpNumberOfBytesWritten As Long, _
     lpOverlapped As Long) As Long
 
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" ( _
-    ByVal dwMilliseconds As Long)
- 
+'----- 待機関連 -----
+Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
+Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
+Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
+
+
+
 '===================================
 ' Types & Structures Declarations
 '===================================
@@ -1167,7 +1174,7 @@ End Function
 
 
 '***************************************************************************************************
-'                                ■■■ ログ系 ■■■
+'                               ■■■ その他ヘルパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
 '----------------------------------------------------------------------------------
@@ -1209,11 +1216,6 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
 
 End Sub
 
-
-
-'***************************************************************************************************
-'                                   ■■■ その他 ■■■
-'***************************************************************************************************
 Public Sub sleep(Optional seconds As Double = 0.5)
 '------------------------------------------------------------------
 ' Custom sleep function. Sleep by 0.5s by default.
@@ -1226,6 +1228,20 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     DoEvents
 
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：PC起動時からの「経過時間（ミリ秒）」を正確に返します（Timer関数の神互換）
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：PC起動時からの「経過時間（ミリ秒）」
+'***************************************************************************************************
+Public Function GetTicksMs() As Double
+    '1. 今の「振動回数」を取得する
+    Dim currentCount As Currency
+    Call QueryPerformanceCounter(currentCount)
+
+    '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
+    GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
+End Function
 
 
 
@@ -1247,7 +1263,7 @@ Private Sub Class_Initialize()
     '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '2-1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
         '2-2. パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
@@ -1262,5 +1278,8 @@ Private Sub Class_Initialize()
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
+
+    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
+    Call QueryPerformanceFrequency(m_Frequency)
     '------------------------------------------------------------------------------
 End Sub

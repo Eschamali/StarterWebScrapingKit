@@ -2445,7 +2445,7 @@ Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError A
 End Sub
 
 Private Function TimerCounter() As Double
-    TimerCounter = PipeCore.LogControl.GetTicksMs
+    TimerCounter = PipeCore.GetTicksMs
 End Function
 
 
