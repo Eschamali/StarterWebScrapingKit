@@ -974,7 +974,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     End If
 
     'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "Executed """ & methodName & """ with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
@@ -1536,7 +1536,7 @@ End Function
 
 
 '***************************************************************************************************
-'                              ■■■ PUBLIC PROPERTIES ■■■
+'                              ■■■ 複製用プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
 '***************************************************************************************************
@@ -1544,6 +1544,10 @@ Property Get InheritanceCDPCore() As CDPCore
     Set InheritanceCDPCore = PipeCore
 End Property
 
+
+
+'***************************************************************************************************
+'                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
 '* 機能　　：このClass内で起動してるブラウザパス値を受け取ります
 '***************************************************************************************************

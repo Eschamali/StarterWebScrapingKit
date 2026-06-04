@@ -1291,7 +1291,7 @@ Private Sub Class_Initialize()
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If
 
-        '2-3. LogID設定
+        '2-3. Assign an objID for easy debug identification
         LogID = "COID" & Format(Rnd * 1000, "000")
     End With
 

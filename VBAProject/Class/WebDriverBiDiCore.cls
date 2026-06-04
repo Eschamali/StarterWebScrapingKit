@@ -61,7 +61,7 @@ Private Type StateDebug
 End Type
 Private BiDiDebug As StateDebug
 
-'操作中のタブ情報一式
+'「BiDi-CDP Mapper」タブ情報一式
 Private Type StateTab
     sessionID   As String   'The ID to the current session tab.
     targetID    As String   'The targetID of the current tab for ExecuteCDP
@@ -231,7 +231,7 @@ Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessi
         Case BiDiResDebug
             '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
             tmp = ExtractPayload(RawJson)
-            printMsg Debug_, LogID, "Debug - WebDriverBiDi: " & tmp, FromProcedureName
+            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & tmp, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
         '※この場合は、追加処理しない
@@ -543,7 +543,7 @@ Private Function Take_mapperTabJSstring() As String
 
     'JS置き場のワークシート制御へ
     With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "BiDiCore.InsertMapperTab"))
+        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.Take_mapperTabJSstring"))
             'データがそもそもない場合は、エラーで止める
             If .ListRows.Count = 0 Then
                 Err.Raise vbObjectError, , "mapperTab.js がセットされていません"
@@ -800,6 +800,10 @@ Public Function LimitCommandID() As Long
     LimitCommandID = m_CDPCore.LimitCommandID
 End Function
 
+Public Function ShowLogBiDiresponse() As Boolean
+    ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
+End Function
+
 
 
 '***************************************************************************************************
@@ -809,13 +813,13 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
+    'Assign an objID for easy debug identification
+    LogID = "BCID" & Format(Rnd * 1000, "000")
+
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser
         BiDiDebug.ViewDebugTab = .Range(.UseRangeName(11, FromProcedureName)).value    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
         BiDiDebug.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
         BiDiDebug.DiagnosticLog = .Range(.UseRangeName(13, FromProcedureName)).value   'Mapper内部のデバッグログを記録するか？
     End With
-
-    'ログID
-    LogID = "BCID" & Format(Rnd * 1000, "000")
 End Sub

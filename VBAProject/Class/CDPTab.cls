@@ -1095,7 +1095,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     End If
 
     'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "Executed """ & methodName & """ with result: " & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName
 
 End Function
 
@@ -1143,9 +1143,6 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
-    Dim strRes As String
-    Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
@@ -1166,7 +1163,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
     Dim timerStart As Double: timerStart = TimerCounter
     Dim tmp As String
-    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
+    printMsg Trace_, "Starting Processes incoming messages from the tab...", FromProcedureName
     Do
         '1. 受信処理によるパイプを拝見する
         TakeEvents StopPipeError:=dbgMsg
