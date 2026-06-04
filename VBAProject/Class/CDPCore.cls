@@ -241,6 +241,7 @@ Private dwProcessId As LongPtr
 Private Type ErrorCode
     PeekNamedPipe   As Long
     ReadFile        As Long
+    WriteFile       As Long
 End Type
 Private LastReceiveError   As ErrorCode
 
@@ -308,6 +309,10 @@ End Property
 
 Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
     LastErrorReadFile = LastReceiveError.ReadFile
+End Property
+
+Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
+    LastErrorWriteFile = LastPipeError.WriteFile
 End Property
 
 Property Get LastCommandID() As Long                     '最後に実行したcommandID値
@@ -664,10 +669,9 @@ End Function
 '***************************************************************************************************
 '* 機能　　：実際にブラウザへ命令を行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：実行結果   ※0で成功です
 '* 引数　　：strData    CDP-Jsonコマンド
 '***************************************************************************************************
-Private Function writeProcCDP(strData As String) As Long
+Private Sub writeProcCDP(strData As String)
     Dim lngWritten As Long
     Dim ResultCode As Long
 
@@ -684,8 +688,8 @@ Private Function writeProcCDP(strData As String) As Long
     End If
 
     '失敗時は、実際のエラーコードで返します
-    If ResultCode = 0 Then writeProcCDP = Err.LastDllError
-End Function
+    If ResultCode = 0 Then LastPipeError.WriteFile = Err.LastDllError
+End Sub
 
 
 
@@ -700,7 +704,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(strMessage As String, Optional sessionID As String) As Long
+Public Sub ReadyRunCDP(strMessage As String, Optional sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
@@ -727,8 +731,8 @@ Public Function ReadyRunCDP(strMessage As String, Optional sessionID As String) 
 
     '5. 実際に実行
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
-    ReadyRunCDP = writeProcCDP(strMessage)
-End Function
+    writeProcCDP strMessage
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：CDP実行の際のコマンドIDを発行します

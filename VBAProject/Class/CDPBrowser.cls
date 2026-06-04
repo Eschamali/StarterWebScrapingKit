@@ -1022,19 +1022,16 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
-    Dim strRes As String
-    Dim results As Scripting.Dictionary       'to store a collection of IDs obtained from CDP
-
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
     printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
-    Dim WriteResult As Long: WriteResult = PipeCore.ReadyRunCDP(strMessage) 'Send message to the browser instance
+    PipeCore.ReadyRunCDP strMessage                                         'Send message to the browser instance
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If WriteResult Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & WriteResult & " - " & PipeCore.ErrorDetail.GetMessage(WriteResult, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & PipeCore.ErrorDetail.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
