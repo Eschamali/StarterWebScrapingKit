@@ -432,48 +432,6 @@ Private Function GetContentsMethod(jsonString As String, ByRef methodValueConten
     End If
 End Function
 
-'***************************************************************************************************
-'* 機能　　：コマンドの結果にエラーが含まれているかチェックします
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：エラー有無
-'* 引数　　：ResultsObj    `invokeMethod`の生結果のDictionary
-'***************************************************************************************************
-Private Function invokeError(ResultsObj As Dictionary) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
-
-
-    Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
-    '結果が空っぽになってる場合は、タイムアウトエラーか、コードのミスの可能性
-    If ResultsObj Is Nothing Then
-        'ログを出しておく
-        ErrorType = "error" 'arbitrary nonzero value, may change in future
-        ErrorMessage = "Timeout or No results"
-        printMsg WARN_, "InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
-
-        'エラーフラグを立てる
-        invokeError = True
-        Set m_ErrorDetails = m_JsonConverter.ParseJson("{""type"":" & ErrorType & ",""message"":""" & ErrorMessage & """}")     'カスタムエラーメッセージJsonで返却
-
-    'BiDiコマンドエラーは "type":"error" で返る
-    ElseIf ResultsObj("type") = "error" Then
-        'エラーを残す
-        Set m_ErrorDetails = ResultsObj
-
-        'ログを出しておく
-        ErrorType = ResultsObj("error")
-        ErrorMessage = ResultsObj("message")
-        printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
-
-        '`StackTrace`があったら別枠で表示
-        If ResultsObj.Exists("stacktrace") Then
-            ErrorStackTrace = ResultsObj("stacktrace")
-            printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
-        End If
-
-        'エラーフラグを立てる
-        invokeError = True
-    End If
-End Function
 
 
 
