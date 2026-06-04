@@ -19,40 +19,45 @@ Option Explicit
 
 
 
-'===================================
-' Global Variables
-'===================================
-'ブラウザ制御クラスオブジェクト
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
+'「BiDi-CDP Mapper」に関する情報
+Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
+Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
+Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
+Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
+
+'nmp情報
+Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
+Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
+
+
+
+'***************************************************************************************************
+'                                   ■■■ イベント定義 ■■■
+'***************************************************************************************************
+'BiDiレスポンスの種類に応じた発信機
+Public Event detectionBiDiEvent(methodName As String, RawJson As String)    '非同期イベント
+Public Event detectionBiDiID(id As Long, RawJson As String)                 'BiDiコマンド結果
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'ブラウザ制御コアクラスオブジェクト
 Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブジェクト
-Attribute m_CDPCore.VB_VarHelpID = -1
 Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
-Attribute m_CDPBrowser.VB_VarHelpID = -1
 Private WebDriverBiDi_mapperTab As CDPTab       'BiDi-CDP Mapper 操作用タブ
 
-'非同期イベント発火
-Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
-
-'クラスオブジェクト
-Private m_CharConv              As New CharacterCodeConversion
-Private m_JsonConverter         As New WebJsonConverter
-
-'CDPからWebDriverBiDi用のPayload結果を受け取るためのキュー
-Private QueueResultBiDi As Collection
-
-'BiDiコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
-Private Type cacheResultBiDi
-    response    As Dictionary   '「ID - それに対するBiDiコマンドの結果」というDictionary
-    Limit       As Long         'その`Dictionary`に詰め込む上限数
-End Type
-Private currentResultBiDi As cacheResultBiDi
-
-'デバッグ設定状況
+'「BiDi-CDP Mapper」のデバッグ設定状況
 Private Type StateDebug
     ViewDebugTab        As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
     DiagnosticLog       As Boolean      '「BiDi-CDP Mapper」内の診断ログ情報を出力するか
     seeRawSendMsgDbg    As Boolean      'BiDiのresponseをデバッグログに出すかの調整
 End Type
-Private currentDebug As StateDebug
+Private BiDiDebug As StateDebug
 
 '操作中のタブ情報一式
 Private Type StateTab
@@ -62,31 +67,8 @@ End Type
 Private BiDiTab As StateTab
 
 'ステート管理
-Private m_MessageID                 As Long         'BiDiコマンド結果を確認するためのID管理
-Private m_Events                    As Dictionary   'BiDi向けの非同期イベント蓄積
-Private m_ErrorDetails              As Dictionary   '同期BiDiコマンドした際の最後のエラー情報
-Private timerOut                    As Long         '同期BiDiコマンドした際のタイムアウト設定
-
-
-
-'===================================
-' Constants
-'===================================
-'内部使用用
-Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
-Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
-Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
-Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
-Private Const LimitID           As Long = 2000000000                    'BiDiコマンド送信時のID上限値
-Private Const TIMEOUT_DEFAULT   As Long = 30                            '初期タイムアウト秒数
-
-'nmp情報
-Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
-Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
-
-'BiDiからのイベント情報を格納する際のDictionaryKey名設定
-Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+Private m_MessageID As Long     '現在のBiDiコマンドID
+Private LogID       As String   'このClassオブジェクトとしてのログID
 
 
 
@@ -308,129 +290,34 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ レスポンス分類 ■■■
+'***************************************************************************************************
 '* 機能　　：BiDiコマンドの受信データを高速にチェックし、仕分けます
 '---------------------------------------------------------------------------------------------------
-'* 返値    ：TRUE :受信ループを止める合図。
-'               ・`BiDiJsonString`に、ExcelからのBiDi-Jsonコマンド結果がある
-'               ・コマンド構文エラーによる、ID項目なし
-'
-'* 引数　　：BiDiJsonString         BiDiの生JSON文字列
-'            InternalUseMessages    クラス内部プロシージャで、イベント内容を扱う用として蓄積させる参照変数
-'*           checkCommandID         待ち受け中のコマンド結果ID
+'* 引数　　：BiDiJsonString         1件分のBiDiの生JSON文字列
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で発信します
+'* 注意事項；構文エラーの場合、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
-Private Function BrowserReceivedDataCheck(BiDiJsonString As String, InternalUseMessages As Dictionary, checkCommandID As Long) As Boolean
+Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
     Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
 
 
-
-    '======================================= チェック開始 =======================================
     Dim ResultCommandID As Long, AsynchronousEventName As String
-    Dim JsonDictionaryObj As Dictionary
-    Dim FlagValue As Long
-
-    Const resultCommand As Long = 2 ^ 0 'IDのコマンド結果を検知出来た
-    Const mismatchID    As Long = 2 ^ 1 'クラス内変数に記録してるIDとは違うコマンド結果が検知された。恐らく以前、非同期で実行したときの結果と思われる
-    Const browserEvent  As Long = 2 ^ 2 '非同期イベントである
-    Const EventCapture  As Long = 2 ^ 3 '非同期イベントキャプチャモードである
-    Dim mask As Long: mask = resultCommand + mismatchID + browserEvent + EventCapture
-
 
     '--------- 1. BiDiからのイベントか？ ---------
     If GetContentsMethod(BiDiJsonString, AsynchronousEventName) Then
-        FlagValue = FlagValue Or browserEvent   '非同期イベントとして、フラグ付け
-
-        'VBAでのイベント発火を行う
-        '※拡張機能の柔軟性を高めるため、ブラウザから得た非同期イベントは全て、イベント発火させます
+        '非同期イベントとして発信
         RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
-
-
-        '--------- 2. いずれかのDictionary変数が、非同期イベントキャプチャモードか？ ---------
-        If (m_Events Is Nothing) And (InternalUseMessages Is Nothing) Then
-            '両方とも`Nothing`なら、わざわざ中身を解析する意味がないので、パーサーは使わない
-            printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName
-        Else
-            'イベントキャプチャモードなので、JsonPurserを使用する
-            FlagValue = FlagValue Or EventCapture   'イベントキャプチャモードとして、フラグ付け
-            printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-            Set JsonDictionaryObj = m_JsonConverter.ParseJson(BiDiJsonString)
-        End If
-
     Else
-        FlagValue = FlagValue Or resultCommand  'IDのコマンド結果を検知出来たとして、フラグ付け
-
         '--------- 2. `id`項目があるか？ ---------
         If GetContentsID(BiDiJsonString, ResultCommandID) Then
-            '--------- 3. そのIDは、クラス内変数に記録してるIDと一致してるか？ ---------
-            If ResultCommandID = checkCommandID Then
-                '正しいコマンド結果が返ったので次項に、受信ループ終了フラグを返すようにする
-                printMsg Trace_, "It was confirmed that the execution BiDicommand ID matches the one recorded in Excel. ID:" & checkCommandID, FromProcedureName
-            Else
-                '`WithEvents`によるズレなので、結果をキャッシュしておく
-                FlagValue = FlagValue Or mismatchID '現在のコマンド結果IDと返ったコマンド結果IDが異なる場合のフラグ付け
-                printMsg info_, "The BiDicommand result (ID:" & ResultCommandID & ") was returned, but it does not match the BiDicommand ID (" & checkCommandID & ") recorded in Excel. This is probably an asynchronous result. The results will be accumulated.", FromProcedureName
-
-                'コマンド結果ID用受信Boxへ格納しておく
-                '※パーサー処理負荷を抑えるため、Json文字列まんまとします
-                currentResultBiDi.response.Add ResultCommandID, BiDiJsonString
-
-                '格納件数チェックし、上限を超えたら、最古データを削除します
-                If currentResultBiDi.response.Count > currentResultBiDi.Limit Then
-                    ' 一番古いキーを取得して削除
-                    printMsg Trace_, "Delete asynchronous processing result ID:" & currentResultBiDi.response.keys(0), FromProcedureName
-                    currentResultBiDi.response.Remove currentResultBiDi.response.keys(0)
-                    printMsg info_, "The accumulation limit has exceeded " & currentResultBiDi.Limit & ", so the oldest has been deleted.", FromProcedureName
-                End If
-            End If
+            'コマンド結果として発信
+            RaiseEvent detectionBiDiID(ResultCommandID, BiDiJsonString)
         Else
             '`method`も`id`項目もない場合、BiDi-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
-            printMsg WARN_, "Both the `id` and `method` fields are missing. This may be a syntax error.", FromProcedureName
+            printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteBiDi/ExecuteBiDiAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & BiDiJsonString, FromProcedureName, doRaiseError:=True
         End If
-    End If
-
-
-    '======================================= このプロシージャから抜けるか判定 =======================================
-    Select Case (FlagValue And mask)
-        '送ったコマンドの結果は来たので、受信ループを止めて、抜ける
-        Case resultCommand
-            BrowserReceivedDataCheck = True
-            Exit Function
-
-        'コマンド結果だがID不一致。以前、非同期で実行したときの結果と思われるので、まだ受信ループは止めずに、抜ける
-        Case resultCommand + mismatchID
-            BrowserReceivedDataCheck = False
-            Exit Function
-
-        '受信ループは止めないが、イベントキャプチャしないモード(格納用のDictionaryがどちらもNothing or 古いSessionID)なので、次項の格納処理はせず、抜ける
-        Case browserEvent
-            BrowserReceivedDataCheck = False
-            Exit Function
-
-        'イベントキャプチャモードにより、Dictionaryオブジェクト格納フェーズへ行けるようにしておく。なお、受信ループは止めません
-        Case browserEvent + EventCapture
-            BrowserReceivedDataCheck = False
-
-        '未知の組み合わせ
-        Case Else
-            printMsg ERROR_, "An unknown flag was passed. (" & (FlagValue And mask) & ")", FromProcedureName, doRaiseError:=True
-
-    End Select
-
-
-    '======================================= イベント情報を格納するフェーズへ =======================================
-    'パブリック(呼び出し側使用)用
-    If m_Events Is Nothing Then
-        printMsg Trace_, "No event information is required on the module side.", FromProcedureName
-    Else
-        printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived m_Events, JsonDictionaryObj, AsynchronousEventName
-    End If
-
-    'プライベート(クラス内変数)用
-    If InternalUseMessages Is Nothing Then
-        printMsg Trace_, "No event information needed inside the class.", FromProcedureName
-    Else
-        printMsg Trace_, "The class is requesting the accumulation of event information. Saving...", FromProcedureName
-        OnNewEventReceived InternalUseMessages, JsonDictionaryObj, AsynchronousEventName
     End If
 End Function
 
