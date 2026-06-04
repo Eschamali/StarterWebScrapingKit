@@ -189,6 +189,96 @@ End Sub
 
 
 '***************************************************************************************************
+'* 機能　　：既存の`BiDi-CDP Mapper`に再接続します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：成功可否論理値
+'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
+'* 注意事項：ブラウザ自体が落ちてると、パイプが閉じてたり、無効といったエラーで止まります
+'***************************************************************************************************
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
+
+    '1. CDPタブセッションに再接続
+    Set m_CDPBrowser = New CDPBrowser
+    Dim ResultConnectionCDP As Boolean
+    ResultConnectionCDP = m_CDPBrowser.reattach(userProfile)
+
+    'CDPタブセッション有無に応じた分岐
+    If ResultConnectionCDP Then
+        printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+
+        '2. そのタブURLは、このクラスで用意した専用URLか？
+        If LCase(MapperURL) = LCase(m_CDPBrowser.Url) Then
+            '3. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
+            '→ typeof window.onBidiMessage === 'function' かどうかを調べる
+            Dim jsCheck As String
+            jsCheck = "typeof window.onBidiMessage === 'function';"
+
+            Dim isMapperRunning As Boolean
+            isMapperRunning = m_CDPBrowser.jsEval(jsCheck)
+
+            '`BiDi-CDP Mapper`の起動状況に応じた分岐
+            If isMapperRunning Then
+                '4. `BiDi-CDP Mapper`は生きてるので、再バイディングを行う
+                printMsg Debug_, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
+                Call BiDiResponseBiding
+
+            Else
+                '4. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
+                printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
+                StartBiDiCDPMapper True
+
+                '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+                printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+                ViewNewSession sessionNew(sessionCapabilitiesRequest)
+            End If
+
+        Else
+            '3. 別URL状態なので、空ページに遷移させる
+            '※`Target.exposeDevToolsProtocol`が有効の状態でのネットサーフィンは、危険なのでこの措置をとる
+            '　超端的に言うと、ネット上のvbsコードがIEで実行されちゃって大変なことになるあれ
+            printMsg WARN_, "The URL is not suitable for `Target.exposeDevToolsProtocol`. You will be redirected to an empty page.", FromProcedureName
+            m_CDPBrowser.Url = MapperURL
+
+            '4. `BiDi-CDP Mapper`を始動させる
+            StartBiDiCDPMapper True
+
+            '5. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+            printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+            ViewNewSession sessionNew(sessionCapabilitiesRequest)
+        End If
+    Else
+        '2. 既知タブ自体が失ってるので、新規タブで始動しなおす
+        printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
+        StartBiDiCDPMapper
+
+        '3. BiDi との新しいセッションを確立し、ブラウザ情報をログで表示
+        printMsg info_, "`BiDi-CDP Mapper` has been launched on the reattached tab", FromProcedureName
+        ViewNewSession sessionNew(sessionCapabilitiesRequest)
+    End If
+
+    '6. セッション一覧を取得して、既存のものがあるか確認する
+    ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
+    Dim resultBiDi As Dictionary
+    Set resultBiDi = sessionStatus
+
+    '7. mapperTab.js の仕様に沿った確認に従う
+    If resultBiDi.Exists("ready") Then
+        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
+        reattach = True
+    Else
+        printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+        reattach = False
+    End If
+End Function
+
+
+
+'***************************************************************************************************
 '               ■■■ CDP非同期イベントからBiDi用の結果を取り出す処理 ■■■
 '***************************************************************************************************
 '* 機能　　：このタブに対する非同期イベントを受け取ります
