@@ -362,6 +362,18 @@ Debug.Print doc.Item("name")
 Debug.Print doc("name")
 ```
 
+Default-member access can be chained through nested objects and arrays. This is an important usage style for JSON because it lets code read known payload shapes without repeatedly calling `Node`, `ValueAt`, `StringAt`, or other accessor functions.
+
+```vb
+Dim myJson As JSON
+Set myJson = JSON.Parse("{""names"":[""Ana"",""Bia"",""Caio""]}")
+
+Debug.Print myJson("names")(0)
+Debug.Print myJson("names")(1)
+```
+
+This style is not always highlighted in VBA JSON documentation, but it is intentional in this class. Use it when the JSON shape is known and concise traversal is more useful than explicit typed accessors.
+
 For primitive values, it returns a `Variant`.
 
 For objects and arrays, it returns a `JSON` node wrapper.

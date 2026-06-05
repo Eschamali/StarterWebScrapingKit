@@ -38,3 +38,11 @@ Public Sub Example_ReadArray()
         Debug.Print items.StringAt(i)
     Next i
 End Sub
+
+Public Sub Example_DefaultMemberChaining()
+    Dim myJson As JSON
+    Set myJson = JSON.Parse("{""names"":[""Ana"",""Bia"",""Caio""]}")
+
+    Debug.Print myJson("names")(0)
+    Debug.Print myJson("names")(1)
+End Sub

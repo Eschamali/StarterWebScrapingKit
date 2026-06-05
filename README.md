@@ -116,6 +116,22 @@ For i = 0 To items.Count - 1
 Next i
 ```
 
+## Default Member Chaining
+
+This is an important usage style for this class. Because `Item` is the default member, object keys and array indexes can be chained naturally without calling `Node`, `ValueAt`, `StringAt`, or typed accessor functions at every level.
+
+```vb
+Dim myJson As JSON
+Set myJson = JSON.Parse("{""names"":[""Ana"",""Bia"",""Caio""]}")
+
+Debug.Print myJson("names")(0)
+Debug.Print myJson("names")(1)
+```
+
+This works because `myJson("names")` returns the `names` array node, and the next `(0)` reads the first item through the same default member.
+
+This pattern is especially useful for concise reads from known JSON shapes. It is less commonly documented in VBA JSON examples, but it is part of the intended API design here.
+
 ## Large Arrays
 
 For large arrays of objects, use token iteration to avoid creating a node wrapper for each row.
