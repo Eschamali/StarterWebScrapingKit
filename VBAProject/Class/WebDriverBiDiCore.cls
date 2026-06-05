@@ -11,7 +11,7 @@ Attribute VB_Exposed = False
 '               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
 '--------------------------------------------------------------------------------------------------------------
 ' WebDriver BiDiの低レベル通信を担うクラス。
-' CDPTab経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
+' CDPContext経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
 ' `RaiseEvent`を利用した`CDPCore.cls`→`WebDriverBiDiCore.cls`→`WebDriverBiDiMode.cls`といった連鎖で成り立ってます
 ' `CDPCore.cls`をベースに処理ロジックを実装しており、軽量化してます
 '==============================================================================================================
@@ -120,7 +120,7 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
-    Dim paramsCDP As New Dictionary
+    'ブラウザ単位実行
     With m_CDPBrowser
         '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
         '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
@@ -128,6 +128,7 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
         printMsg Debug_, LogID, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(BiDiDebug.ViewDebugTab) & ")", FromProcedureName
 
         '2. BiDi用バインディングの追加
+        Dim paramsCDP As New Dictionary
         paramsCDP.Add "bindingName", "cdp"
         paramsCDP.Add "targetId", WebDriverBiDi_mapperTab.CurrentTargetID
         paramsCDP.Add "inheritPermissions", True
@@ -137,6 +138,7 @@ Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
     '3. JSからVBAへ返す経路を設定
     Call BiDiResponseBiding
 
+    'タブ単位実行
     With WebDriverBiDi_mapperTab
         '4. パースしたJavaScriptをブラウザ上で実行
         .jsEval Take_mapperTabJSstring
@@ -151,7 +153,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：BiDiからの結果やデバッグログを受け取るためのマッピング処理を行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・`CDPTab`を`New`してからご利用ください
+'* 注意事項：・`CDPContext`を`New`してからご利用ください
 '            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・SessionIDが変わるたびにこれを行わないと、`BiDi-CDP Mapper`は生きてるのに、コマンドのやり取りが出来ない問題が起こります
 '***************************************************************************************************
@@ -159,6 +161,7 @@ Private Sub BiDiResponseBiding()
     Const FromProcedureName As String = ThisClassName & ".BiDiResponseBiding"
 
 
+    'タブ単位実行
     Dim paramsCDP As New Dictionary
     With WebDriverBiDi_mapperTab
         '1. JSからVBAへ、BiDiコマンドの結果/イベント payload を返す経路を設定
@@ -261,7 +264,7 @@ End Function
 
 
 '***************************************************************************************************
-'               ■■■ CDP非同期イベントからBiDi用の結果を取り出す処理 ■■■
+'                           ■■■ WebDriverBiDi との読み書き ■■■
 '***************************************************************************************************
 '* 機能　　：このタブに対する非同期イベントを受け取ります
 '---------------------------------------------------------------------------------------------------
@@ -271,8 +274,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`Runtime.bindingCalled`に含まれる`payload`を上手い具合に抜き出す処理です
 '***************************************************************************************************
-Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".m_CDPCore_CDPTabEvent"
+Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".m_CDPCore_CDPContextEvent"
 
     'BiDiでのやりとりの核となるイベント名
     Const BiDiForCDPEventName As String = "Runtime.bindingCalled"
@@ -308,7 +311,7 @@ Private Sub m_CDPCore_CDPTabEvent(methodName As String, RawJson As String, sessi
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
         '※この場合は、追加処理しない
         Case Else
-            printMsg Debug_, LogID, "We detected `Runtime.bindingCalled` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
+            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
     End Select
 End Sub
 
@@ -456,7 +459,7 @@ End Function
 '* 注意事項；構文エラーの場合、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
 Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
-    Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
+    Const FromProcedureName As String = ThisClassName & ".BiDiReceivedDataCheck"
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String
