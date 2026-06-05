@@ -622,6 +622,7 @@ Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As 
 
     '1. 必要なデータを`Dictionary`に詰める
     Dim BrowserInfo As New Dictionary
+    BrowserInfo.Add "BiDi-context", vbNullString  '`WebDriverBiDi`用に枠だけ確保
     BrowserInfo.Add "sessionID", sessionID_mainTab
     BrowserInfo.Add "targetID", targetID_mainTab
 
