@@ -55,8 +55,80 @@ Private Const JSON_MAX_INITIAL_TOKEN_CAPACITY As Long = 3000000
 '/** @description Token capacity threshold after which growth changes from 2x to 1.5x. */
 Private Const JSON_LARGE_TOKEN_CAPACITY As Long = 1048576
 
+'/** @description Token preallocation heuristic based on source JSON length. */
+Private Const JSON_TOKEN_CAPACITY_DIVISOR As Long = 24
+
 '/** @description Number of spaces used by default when pretty-printing JSON. */
 Private Const JSON_DEFAULT_INDENT_SIZE As Long = 2
+
+'/** @description Public JsonType return values. */
+Private Const JSON_TYPE_OBJECT As String = "object"
+Private Const JSON_TYPE_ARRAY As String = "array"
+Private Const JSON_TYPE_STRING As String = "string"
+Private Const JSON_TYPE_NUMBER As String = "number"
+Private Const JSON_TYPE_BOOLEAN As String = "boolean"
+Private Const JSON_TYPE_NULL As String = "null"
+
+'/** @description JSON writer literals and separators. */
+Private Const JSON_LITERAL_NULL As String = "null"
+Private Const JSON_LITERAL_TRUE As String = "true"
+Private Const JSON_LITERAL_FALSE As String = "false"
+Private Const JSON_EMPTY_OBJECT As String = "{}"
+Private Const JSON_EMPTY_ARRAY As String = "[]"
+Private Const JSON_OBJECT_OPEN As String = "{"
+Private Const JSON_OBJECT_CLOSE As String = "}"
+Private Const JSON_ARRAY_OPEN As String = "["
+Private Const JSON_ARRAY_CLOSE As String = "]"
+Private Const JSON_COMMA As String = ","
+Private Const JSON_COLON As String = ":"
+Private Const JSON_COLON_PRETTY As String = ": "
+Private Const JSON_DATE_FORMAT As String = "yyyy-mm-dd\THH:nn:ss"
+Private Const JSON_DECIMAL_SEPARATOR As String = "."
+Private Const VBA_DECIMAL_SEPARATOR As String = ","
+
+'/** @description TypeName values used for supported object serialization. */
+Private Const VBA_TYPE_JSON As String = "JSON"
+Private Const VBA_TYPE_COLLECTION As String = "Collection"
+Private Const VBA_TYPE_DICTIONARY As String = "Dictionary"
+Private Const VBA_TYPE_SCRIPTING_DICTIONARY As String = "Scripting.Dictionary"
+
+'/** @description UTF-16 character codes used by the zero-copy parser. */
+Private Const CH_TAB As Integer = 9
+Private Const CH_LF As Integer = 10
+Private Const CH_CR As Integer = 13
+Private Const CH_SPACE As Integer = 32
+Private Const CH_QUOTE As Integer = 34
+Private Const CH_PLUS As Integer = 43
+Private Const CH_COMMA As Integer = 44
+Private Const CH_MINUS As Integer = 45
+Private Const CH_DOT As Integer = 46
+Private Const CH_COLON As Integer = 58
+Private Const CH_0 As Integer = 48
+Private Const CH_9 As Integer = 57
+Private Const CH_E_UPPER As Integer = 69
+Private Const CH_BACKSLASH As Integer = 92
+Private Const CH_ARRAY_OPEN As Integer = 91
+Private Const CH_ARRAY_CLOSE As Integer = 93
+Private Const CH_E_LOWER As Integer = 101
+Private Const CH_FALSE As Integer = 102
+Private Const CH_NULL As Integer = 110
+Private Const CH_TRUE As Integer = 116
+Private Const CH_OBJECT_OPEN As Integer = 123
+Private Const CH_OBJECT_CLOSE As Integer = 125
+
+Private Const JSON_LITERAL_TRUE_LENGTH As Long = 4
+Private Const JSON_LITERAL_FALSE_LENGTH As Long = 5
+Private Const JSON_LITERAL_NULL_LENGTH As Long = 4
+
+'/** @description SAFEARRAY descriptor values for aliasing UTF-16 string characters. */
+Private Const SAFEARRAY_DIMS_1D As Integer = 1
+Private Const SAFEARRAY_FEATURES_NONE As Integer = 0
+Private Const SAFEARRAY_LOCKS_NONE As Long = 0
+Private Const UTF16_CODE_UNIT_BYTES As Long = 2
+
+'/** @description CompareStringOrdinal return value for equal strings. */
+Private Const COMPARE_STRING_CASE_SENSITIVE As Long = 0
+Private Const COMPARE_STRING_EQUAL As Long = 2
 
 '/**
 ' * @struct SAFEARRAY1D
@@ -206,7 +278,7 @@ Friend Sub LoadText(ByRef Text As String)
     
     If m_Length = 0 Then Exit Sub
     
-    m_TokenCap = m_Length \ 24
+    m_TokenCap = m_Length \ JSON_TOKEN_CAPACITY_DIVISOR
     
     If m_TokenCap < JSON_MIN_TOKEN_CAPACITY Then
         m_TokenCap = JSON_MIN_TOKEN_CAPACITY
@@ -222,10 +294,10 @@ Friend Sub LoadText(ByRef Text As String)
     Dim SA As SAFEARRAY1D
     
     With SA
-        .cDims = 1
-        .fFeatures = 0
-        .cbElements = 2
-        .cLocks = 0
+        .cDims = SAFEARRAY_DIMS_1D
+        .fFeatures = SAFEARRAY_FEATURES_NONE
+        .cbElements = UTF16_CODE_UNIT_BYTES
+        .cLocks = SAFEARRAY_LOCKS_NONE
         .pvData = StrPtr(m_Text)
         .cElements = m_Length
         .lLbound = 0
@@ -335,17 +407,17 @@ Public Property Get JsonType() As String
     
     Select Case doc.TokenTypeOf(baseId)
         Case jsObject
-            JsonType = "object"
+            JsonType = JSON_TYPE_OBJECT
         Case jsArray
-            JsonType = "array"
+            JsonType = JSON_TYPE_ARRAY
         Case jsString
-            JsonType = "string"
+            JsonType = JSON_TYPE_STRING
         Case jsNumber
-            JsonType = "number"
+            JsonType = JSON_TYPE_NUMBER
         Case jsBool
-            JsonType = "boolean"
+            JsonType = JSON_TYPE_BOOLEAN
         Case jsNull
-            JsonType = "null"
+            JsonType = JSON_TYPE_NULL
     End Select
 End Property
 
@@ -1194,7 +1266,7 @@ Friend Function ValueAsBool(ByVal TokenId As Long) As Boolean
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
     
     If m_Tokens(TokenId).Type = jsBool Then
-        ValueAsBool = (m_Chars(m_Tokens(TokenId).ValStart - 1) = 116)
+        ValueAsBool = (m_Chars(m_Tokens(TokenId).ValStart - 1) = CH_TRUE)
     End If
 End Function
 
@@ -1254,37 +1326,37 @@ Private Function ParseValue(ByVal ParentId As Long, ByVal KeyStart As Long, ByVa
     End If
     
     Select Case m_Chars(m_Index)
-        Case 123
+        Case CH_OBJECT_OPEN
             m_Tokens(id).Type = jsObject
             ParseObject id
         
-        Case 91
+        Case CH_ARRAY_OPEN
             m_Tokens(id).Type = jsArray
             ParseArray id
         
-        Case 34
+        Case CH_QUOTE
             m_Tokens(id).Type = jsString
             ParseString id
         
-        Case 116
+        Case CH_TRUE
             m_Tokens(id).Type = jsBool
             m_Tokens(id).ValStart = m_Index + 1
-            m_Tokens(id).ValLen = 4
-            m_Index = m_Index + 4
+            m_Tokens(id).ValLen = JSON_LITERAL_TRUE_LENGTH
+            m_Index = m_Index + JSON_LITERAL_TRUE_LENGTH
         
-        Case 102
+        Case CH_FALSE
             m_Tokens(id).Type = jsBool
             m_Tokens(id).ValStart = m_Index + 1
-            m_Tokens(id).ValLen = 5
-            m_Index = m_Index + 5
+            m_Tokens(id).ValLen = JSON_LITERAL_FALSE_LENGTH
+            m_Index = m_Index + JSON_LITERAL_FALSE_LENGTH
         
-        Case 110
+        Case CH_NULL
             m_Tokens(id).Type = jsNull
             m_Tokens(id).ValStart = m_Index + 1
-            m_Tokens(id).ValLen = 4
-            m_Index = m_Index + 4
+            m_Tokens(id).ValLen = JSON_LITERAL_NULL_LENGTH
+            m_Index = m_Index + JSON_LITERAL_NULL_LENGTH
         
-        Case 45, 48 To 57
+        Case CH_MINUS, CH_0 To CH_9
             m_Tokens(id).Type = jsNumber
             ParseNumber id
     End Select
@@ -1297,7 +1369,7 @@ End Function
 Private Sub SkipWhitespace()
     Do While m_Index < m_Length
         Select Case m_Chars(m_Index)
-            Case 32, 9, 10, 13
+            Case CH_SPACE, CH_TAB, CH_LF, CH_CR
                 m_Index = m_Index + 1
             Case Else
                 Exit Do
@@ -1318,7 +1390,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 125 Then
+        If m_Chars(m_Index) = CH_OBJECT_CLOSE Then
             m_Index = m_Index + 1
             Exit Sub
         End If
@@ -1326,7 +1398,7 @@ Private Sub ParseObject(ByVal id As Long)
         Dim kStart As Long
         Dim kLen As Long
         
-        If m_Chars(m_Index) = 34 Then
+        If m_Chars(m_Index) = CH_QUOTE Then
             ScanJSONString kStart, kLen
         End If
         
@@ -1334,7 +1406,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 58 Then
+        If m_Chars(m_Index) = CH_COLON Then
             m_Index = m_Index + 1
         End If
         
@@ -1344,7 +1416,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 44 Then
+        If m_Chars(m_Index) = CH_COMMA Then
             m_Index = m_Index + 1
         End If
     Loop
@@ -1363,7 +1435,7 @@ Private Sub ParseArray(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 93 Then
+        If m_Chars(m_Index) = CH_ARRAY_CLOSE Then
             m_Index = m_Index + 1
             Exit Sub
         End If
@@ -1374,7 +1446,7 @@ Private Sub ParseArray(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 44 Then
+        If m_Chars(m_Index) = CH_COMMA Then
             m_Index = m_Index + 1
         End If
     Loop
@@ -1420,7 +1492,7 @@ Private Sub ScanJSONString(ByRef StartPos As Long, ByRef LengthOut As Long)
         p = quotePos - 2
         
         Do While p >= firstChar
-            If m_Chars(p) <> 92 Then Exit Do
+            If m_Chars(p) <> CH_BACKSLASH Then Exit Do
             slashCount = slashCount + 1
             p = p - 1
         Loop
@@ -1445,7 +1517,7 @@ Private Sub ParseNumber(ByVal id As Long)
     
     Do While m_Index < m_Length
         Select Case m_Chars(m_Index)
-            Case 45, 46, 48 To 57, 69, 101, 43
+            Case CH_MINUS, CH_DOT, CH_0 To CH_9, CH_E_UPPER, CH_E_LOWER, CH_PLUS
                 m_Index = m_Index + 1
             Case Else
                 Exit Do
@@ -1496,10 +1568,10 @@ Private Function KeyEquals(ByVal TokenId As Long, ByRef KeyName As String) As Bo
         Dim pKey As Long
     #End If
     
-    pJson = StrPtr(m_Text) + ((m_Tokens(TokenId).KeyStart - 1) * 2)
+    pJson = StrPtr(m_Text) + ((m_Tokens(TokenId).KeyStart - 1) * UTF16_CODE_UNIT_BYTES)
     pKey = StrPtr(KeyName)
     
-    KeyEquals = (CompareStringOrdinal(pJson, m_Tokens(TokenId).KeyLen, pKey, Len(KeyName), 0) = 2)
+    KeyEquals = (CompareStringOrdinal(pJson, m_Tokens(TokenId).KeyLen, pKey, Len(KeyName), COMPARE_STRING_CASE_SENSITIVE) = COMPARE_STRING_EQUAL)
 End Function
 
 '/**
@@ -1608,7 +1680,7 @@ Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As St
     ResolveBase doc, baseId
     
     If baseId = 0 Then
-        StringifyCurrent = "null"
+        StringifyCurrent = JSON_LITERAL_NULL
         Exit Function
     End If
     
@@ -1626,7 +1698,7 @@ End Function
 ' */
 Friend Function StringifyToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     If TokenId < 1 Or TokenId > m_TokenCount Then
-        StringifyToken = "null"
+        StringifyToken = JSON_LITERAL_NULL
         Exit Function
     End If
     
@@ -1647,10 +1719,10 @@ Friend Function StringifyToken(ByVal TokenId As Long, ByVal Pretty As Boolean, B
             StringifyToken = GetRawSlice(TokenId)
         
         Case jsNull
-            StringifyToken = "null"
+            StringifyToken = JSON_LITERAL_NULL
         
         Case Else
-            StringifyToken = "null"
+            StringifyToken = JSON_LITERAL_NULL
     End Select
 End Function
 
@@ -1669,11 +1741,11 @@ Private Function StringifyObjectToken(ByVal TokenId As Long, ByVal Pretty As Boo
     Dim first As Boolean
     
     If m_Tokens(TokenId).ChildCount = 0 Then
-        StringifyObjectToken = "{}"
+        StringifyObjectToken = JSON_EMPTY_OBJECT
         Exit Function
     End If
     
-    result = "{"
+    result = JSON_OBJECT_OPEN
     first = True
     child = m_Tokens(TokenId).FirstChild
     
@@ -1681,7 +1753,7 @@ Private Function StringifyObjectToken(ByVal TokenId As Long, ByVal Pretty As Boo
         If first Then
             first = False
         Else
-            result = result & ","
+            result = result & JSON_COMMA
         End If
         
         If Pretty Then
@@ -1691,9 +1763,9 @@ Private Function StringifyObjectToken(ByVal TokenId As Long, ByVal Pretty As Boo
         result = result & QuoteJSONString(GetRawKey(child))
         
         If Pretty Then
-            result = result & ": "
+            result = result & JSON_COLON_PRETTY
         Else
-            result = result & ":"
+            result = result & JSON_COLON
         End If
         
         result = result & StringifyToken(child, Pretty, IndentText, Depth + 1)
@@ -1704,7 +1776,7 @@ Private Function StringifyObjectToken(ByVal TokenId As Long, ByVal Pretty As Boo
         result = result & vbCrLf & RepeatText(IndentText, Depth)
     End If
     
-    StringifyObjectToken = result & "}"
+    StringifyObjectToken = result & JSON_OBJECT_CLOSE
 End Function
 
 '/**
@@ -1722,11 +1794,11 @@ Private Function StringifyArrayToken(ByVal TokenId As Long, ByVal Pretty As Bool
     Dim first As Boolean
     
     If m_Tokens(TokenId).ChildCount = 0 Then
-        StringifyArrayToken = "[]"
+        StringifyArrayToken = JSON_EMPTY_ARRAY
         Exit Function
     End If
     
-    result = "["
+    result = JSON_ARRAY_OPEN
     first = True
     child = m_Tokens(TokenId).FirstChild
     
@@ -1734,7 +1806,7 @@ Private Function StringifyArrayToken(ByVal TokenId As Long, ByVal Pretty As Bool
         If first Then
             first = False
         Else
-            result = result & ","
+            result = result & JSON_COMMA
         End If
         
         If Pretty Then
@@ -1749,7 +1821,7 @@ Private Function StringifyArrayToken(ByVal TokenId As Long, ByVal Pretty As Bool
         result = result & vbCrLf & RepeatText(IndentText, Depth)
     End If
     
-    StringifyArrayToken = result & "]"
+    StringifyArrayToken = result & JSON_ARRAY_CLOSE
 End Function
 
 '/**
@@ -1762,6 +1834,8 @@ End Function
 ' * @return JSON text.
 ' */
 Friend Function StringifyAny(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+    Dim valueType As Integer
+
     If VBA.IsObject(Value) Then
         Dim objectValue As Object
         Set objectValue = Value
@@ -1770,36 +1844,38 @@ Friend Function StringifyAny(ByVal Value As Variant, ByVal Pretty As Boolean, By
     End If
     
     If VBA.IsNull(Value) Then
-        StringifyAny = "null"
+        StringifyAny = JSON_LITERAL_NULL
         Exit Function
     End If
     
     If VBA.IsEmpty(Value) Then
-        StringifyAny = "null"
+        StringifyAny = JSON_LITERAL_NULL
         Exit Function
     End If
     
-    If (VarType(Value) And vbArray) = vbArray Then
+    valueType = VarType(Value)
+
+    If (valueType And vbArray) = vbArray Then
         StringifyAny = StringifyArrayValue(Value, Pretty, IndentText, Depth)
         Exit Function
     End If
     
-    Select Case VarType(Value)
+    Select Case valueType
         Case vbString
             StringifyAny = QuoteJSONString(CStr(Value))
         
         Case vbBoolean
             If CBool(Value) Then
-                StringifyAny = "true"
+                StringifyAny = JSON_LITERAL_TRUE
             Else
-                StringifyAny = "false"
+                StringifyAny = JSON_LITERAL_FALSE
             End If
         
         Case vbByte, vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal
             StringifyAny = NormalizeNumber(CStr(Value))
         
         Case vbDate
-            StringifyAny = QuoteJSONString(Format$(CDate(Value), "yyyy-mm-dd\THH:nn:ss"))
+            StringifyAny = QuoteJSONString(Format$(CDate(Value), JSON_DATE_FORMAT))
         
         Case Else
             StringifyAny = QuoteJSONString(CStr(Value))
@@ -1817,24 +1893,24 @@ End Function
 ' */
 Private Function StringifyObjectValue(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     If Value Is Nothing Then
-        StringifyObjectValue = "null"
+        StringifyObjectValue = JSON_LITERAL_NULL
         Exit Function
     End If
     
     Select Case TypeName(Value)
-        Case "JSON"
+        Case VBA_TYPE_JSON
             Dim node As JSON
             Set node = Value
             StringifyObjectValue = node.StringifyCurrent(Pretty, IndentText)
         
-        Case "Collection"
+        Case VBA_TYPE_COLLECTION
             StringifyObjectValue = StringifyCollection(Value, Pretty, IndentText, Depth)
         
-        Case "Dictionary", "Scripting.Dictionary"
+        Case VBA_TYPE_DICTIONARY, VBA_TYPE_SCRIPTING_DICTIONARY
             StringifyObjectValue = StringifyDictionary(Value, Pretty, IndentText, Depth)
         
         Case Else
-            StringifyObjectValue = "null"
+            StringifyObjectValue = JSON_LITERAL_NULL
     End Select
 End Function
 
@@ -1852,14 +1928,14 @@ Private Function StringifyArrayValue(ByVal Value As Variant, ByVal Pretty As Boo
     Dim i As Long
     Dim first As Boolean
     
-    result = "["
+    result = JSON_ARRAY_OPEN
     first = True
     
     For i = LBound(Value) To UBound(Value)
         If first Then
             first = False
         Else
-            result = result & ","
+            result = result & JSON_COMMA
         End If
         
         If Pretty Then
@@ -1873,7 +1949,7 @@ Private Function StringifyArrayValue(ByVal Value As Variant, ByVal Pretty As Boo
         result = result & vbCrLf & RepeatText(IndentText, Depth)
     End If
     
-    StringifyArrayValue = result & "]"
+    StringifyArrayValue = result & JSON_ARRAY_CLOSE
 End Function
 
 '/**
@@ -1890,14 +1966,14 @@ Private Function StringifyCollection(ByVal Value As Object, ByVal Pretty As Bool
     Dim i As Long
     
     If Value.Count = 0 Then
-        StringifyCollection = "[]"
+        StringifyCollection = JSON_EMPTY_ARRAY
         Exit Function
     End If
     
-    result = "["
+    result = JSON_ARRAY_OPEN
     
     For i = 1 To Value.Count
-        If i > 1 Then result = result & ","
+        If i > 1 Then result = result & JSON_COMMA
         
         If Pretty Then
             result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
@@ -1910,7 +1986,7 @@ Private Function StringifyCollection(ByVal Value As Object, ByVal Pretty As Bool
         result = result & vbCrLf & RepeatText(IndentText, Depth)
     End If
     
-    StringifyCollection = result & "]"
+    StringifyCollection = result & JSON_ARRAY_CLOSE
 End Function
 
 '/**
@@ -1929,15 +2005,15 @@ Private Function StringifyDictionary(ByVal Value As Object, ByVal Pretty As Bool
     Dim i As Long
     
     If Value.Count = 0 Then
-        StringifyDictionary = "{}"
+        StringifyDictionary = JSON_EMPTY_OBJECT
         Exit Function
     End If
     
     keys = Value.keys
-    result = "{"
+    result = JSON_OBJECT_OPEN
     
     For i = LBound(keys) To UBound(keys)
-        If i > LBound(keys) Then result = result & ","
+        If i > LBound(keys) Then result = result & JSON_COMMA
         
         If Pretty Then
             result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
@@ -1947,9 +2023,9 @@ Private Function StringifyDictionary(ByVal Value As Object, ByVal Pretty As Bool
         result = result & QuoteJSONString(CStr(key))
         
         If Pretty Then
-            result = result & ": "
+            result = result & JSON_COLON_PRETTY
         Else
-            result = result & ":"
+            result = result & JSON_COLON
         End If
         
         result = result & StringifyAny(Value.Item(key), Pretty, IndentText, Depth + 1)
@@ -1959,7 +2035,7 @@ Private Function StringifyDictionary(ByVal Value As Object, ByVal Pretty As Bool
         result = result & vbCrLf & RepeatText(IndentText, Depth)
     End If
     
-    StringifyDictionary = result & "}"
+    StringifyDictionary = result & JSON_OBJECT_CLOSE
 End Function
 
 '/**
@@ -1974,6 +2050,10 @@ Private Function RepeatText(ByVal Text As String, ByVal Count As Long) As String
     Dim result As String
 
     If Count <= 0 Then Exit Function
+    If Len(Text) = 1 Then
+        RepeatText = String$(Count, Text)
+        Exit Function
+    End If
 
     For i = 1 To Count
         result = result & Text
@@ -2013,5 +2093,5 @@ End Function
 ' * @return JSON-compatible number text.
 ' */
 Private Function NormalizeNumber(ByVal Text As String) As String
-    NormalizeNumber = Replace(Text, ",", ".")
+    NormalizeNumber = Replace(Text, VBA_DECIMAL_SEPARATOR, JSON_DECIMAL_SEPARATOR)
 End Function
