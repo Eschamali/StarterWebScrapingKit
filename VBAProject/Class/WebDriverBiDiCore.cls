@@ -52,7 +52,7 @@ Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブ�
 Attribute m_CDPCore.VB_VarHelpID = -1
 Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
 Attribute m_CDPBrowser.VB_VarHelpID = -1
-Private WebDriverBiDi_mapperTab As CDPTab       'BiDi-CDP Mapper 操作用タブ
+Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
 
 '「BiDi-CDP Mapper」のデバッグ設定状況
 Private Type StateDebug
@@ -184,17 +184,19 @@ End Sub
 '* 機能　　：Excelに記録してるタブ情報を基に、既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 返値    ：再始動したか論理値 `True` ：`BiDi-CDP Mapper`を再始動しました。`WebDriverBiDiMode.cls`側で、`session.new`する必要があります
+'                               `False`：既存の`BiDi-CDP Mapper`を流用できたので、`session.new`は不要です
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
 '***************************************************************************************************
-Sub reattach(userProfile As String)
-    Const FromProcedureName As String = ThisClassName & ".reattach"
+Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
     '1. CDPタブセッションに再接続
-    Set WebDriverBiDi_mapperTab = New CDPTab
+    Set WebDriverBiDi_mapperTab = New CDPContext
 
     '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
     Dim mapperTabConnection As Boolean
@@ -222,10 +224,15 @@ Sub reattach(userProfile As String)
                 printMsg Debug_, LogID, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
                 Call BiDiResponseBiding
 
+                '7. 既存接続したサインで返す
+                ReBootBiDiCDPMapper = False
             Else
                 '6. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
                 printMsg Debug_, LogID, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
                 StartBiDiCDPMapper True
+
+                '7. 再始動したサインを返す
+                ReBootBiDiCDPMapper = True
             End If
 
         Else
@@ -237,13 +244,19 @@ Sub reattach(userProfile As String)
 
             '6. `BiDi-CDP Mapper`を始動させる
             StartBiDiCDPMapper True
+
+            '7. 再始動したサインを返す
+            ReBootBiDiCDPMapper = True
         End If
     Else
         '2. 既知タブ自体が失ってるので、新規タブで始動しなおす
         printMsg WARN_, LogID, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
         StartBiDiCDPMapper
+
+        '3. 再始動したサインを返す
+        ReBootBiDiCDPMapper = True
     End If
-End Sub
+End Function
 
 
 
