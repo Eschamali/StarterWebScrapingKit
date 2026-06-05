@@ -186,7 +186,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 'その他
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
-Private Const LimitID           As Long = 2000000000        'CDPコマンド送信時のID上限値
+Private Const LimitCommandID    As Long = 2000000000        'CDPコマンド送信時のID上限値
 
 
 
@@ -198,6 +198,9 @@ Public Event CDPBrowserEvent(methodName As String, RawJson As String)           
 Public Event CDPBrowserID(id As Long, RawJson As String)                                'ブラウザに対するCDPコマンド結果
 Public Event CDPContextEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
 Public Event CDPContextID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
+
+'コマンドIDリセットサイン
+Public Event ResetCommandID()
 
 
 
@@ -680,10 +683,13 @@ Private Function IssuanceCommandID() As Long
     Const FromProcedureName As String = ThisClassName & ".IssuanceCommandID"
 
 
-    If LastCommandID_Pipe + 1 > LimitID Then
+    If LastCommandID_Pipe + 1 > LimitCommandID Then
         '1. リクエスト数の上限に達したら、1にリセットしておく
         LastCommandID_Pipe = 1
         printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+
+        '2. リセットした旨を伝える
+        RaiseEvent ResetCommandID
     Else
         '1. カウントアップ
         LastCommandID_Pipe = LastCommandID_Pipe + 1   'We increase the global ID counter
@@ -1178,13 +1184,6 @@ End Property
 '***************************************************************************************************
 Property Get ShowLogCDPresponse() As Boolean
     ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
-End Property
-
-'***************************************************************************************************
-'* 機能　　：コマンド上限値取得
-'***************************************************************************************************
-Property Get LimitCommandID() As Long
-    LimitCommandID = LimitID
 End Property
 
 

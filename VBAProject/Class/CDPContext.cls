@@ -1218,7 +1218,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
 '* 注意事項：・Jsonは、文字列のままで渡されます
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
+'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteCDPAsync`の結果)が全て削除されます
 '            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub PipeCore_CDPContextID(id As Long, RawJson As String, sessionID As String)
@@ -1230,19 +1230,22 @@ Private Sub PipeCore_CDPContextID(id As Long, RawJson As String, sessionID As St
 
     '2. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
     If ResultCDP_Tab.response.Count + 1 > ResultCDP_Tab.Limit Then
-        '2-1. 設定値の上限
         ResultCDP_Tab.response.RemoveAll
         printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
-
-    ElseIf id + 1 > PipeCore.LimitCommandID Then
-        '2-1. 20億チェック
-        ResultCDP_Tab.response.RemoveAll
-        printMsg WARN_, "Due to overflow protection for the long type, the entire history of previous results has been deleted.", FromProcedureName
     End If
 
     '3. その後、結果を蓄積
     ResultCDP_Tab.response.Add id, RawJson
     printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the tab(sessionId: " & sessionID & ") have been received. → " & RawJson, FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：オーバーフロー対策によるcommandIDがリセットされると呼び出されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：IDが20億に達する場合も、結果履歴が全て削除されます
+'***************************************************************************************************
+Private Sub PipeCore_ResetCommandID()
+    ResultCDP_Tab.response.RemoveAll
 End Sub
 
 '***************************************************************************************************
