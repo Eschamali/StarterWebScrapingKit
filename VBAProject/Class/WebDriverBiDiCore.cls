@@ -478,7 +478,7 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックし、`id`を高速抽出します
+'* 機能　　：BiDiからの受信データの構造をチェックする際の1つ、`id`チェックを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：存在有無論理値
 '* 引数　　：jsonString         BiDiのレスポンス(JSON文字列そのまま)
@@ -491,20 +491,22 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 
 
     '検索設定
-    Const SearchKeyNameOK   As String = "success"   '検索文字列(コマンド成功時)
-    Const SearchKeyNameNG   As String = "error"     '検索文字列(コマンド失敗時)
-    Const StartSearchPos    As Long = 10            'あるべき位置
+    Const SearchKeyNameOK   As String = "success"       '検索文字列(コマンド成功時)
+    Const SearchKeyNameNG   As String = "error"         '検索文字列(コマンド失敗時)
+    Const SearchKeyid       As String = """,""id"":"    '検索文字列の末尾のID部分
+    Const StartSearchPos    As Long = 10                'あるべき位置
 
 
     '1. 文字列を探索
     Dim existenceSuccess As Boolean, existenceError As Boolean
-    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK) = StartSearchPos)
-    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG) = StartSearchPos)
+    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK & SearchKeyid) = StartSearchPos)
+    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG & SearchKeyid) = StartSearchPos)
 
     '2. どっちも所定の位置にない場合は、存在しないとし、抜ける
     '下記の例に基づき、10文字目にない場合は、コマンド結果ではないとして、扱います。
     '・{"type":"success", "id":... （コマンドの成功）
     '・{"type":"error", "id":... （コマンドの失敗）
+    '・{"type":"error","error":...(構文エラー)　※これは通さない
     If existenceSuccess Or existenceError Then
         GetContentsID = True
 
@@ -514,7 +516,7 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 
         '4. 開始位置をうまい具合にずらす
         Dim StartPos As Long
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""id"":") '「","id":」分、ずらすイメージ
+        StartPos = StartSearchPos + Len(SearchKeyName) + Len(SearchKeyid) '「","id":」分、ずらすイメージ
 
         '5. ID値の終点を求める
         Dim EndPos As Long
@@ -530,7 +532,7 @@ Private Function GetContentsID(jsonString As String, ByRef idValueContents As Lo
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックし、`method`を高速抽出します
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：存在有無論理値
 '* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
