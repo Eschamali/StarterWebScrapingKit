@@ -577,12 +577,44 @@ End Function
 
 
 '***************************************************************************************************
+'                              ■■■ 複製用プロパティ ■■■
+'***************************************************************************************************
+'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取り、WebDriverBiDiモードでありつつ、直接CDP制御できる仕組みを提供します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：利用する際は、「BiDi-CDP Mapper」タブ自体を操作しないように気を付ける必要がある上級者向けです
+'***************************************************************************************************
+Property Get DirectControlCDP() As CDPBrowser
+    Set DirectControlCDP = m_CDPBrowser
+End Property
+
+
+
+'***************************************************************************************************
 '                               ■■■ プロパティ機能 ■■■
 '***************************************************************************************************
 '* 機能　　：最後の○○系取得用プロパティ
 '***************************************************************************************************
+Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
+    LastErrorPeekNamedPipe = m_CDPCore.LastErrorPeekNamedPipe
+End Property
+
+Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
+    LastErrorReadFile = m_CDPCore.LastErrorReadFile
+End Property
+
+Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
+    LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
+End Property
+
 Property Get LastCommandID() As Long    '最後に実行したcommandID値
     LastCommandID = m_MessageID
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Property Get ShowLogBiDiresponse() As Boolean
+    ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
 End Property
 
 
