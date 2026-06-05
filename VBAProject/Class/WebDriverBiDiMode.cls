@@ -471,6 +471,36 @@ End Property
 
 
 '***************************************************************************************************
+'                                ■■■ 非同期イベント関連 ■■■
+'***************************************************************************************************
+'* 機能　　：WebDriverBiDiに対する非同期イベントを処理します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：非同期イベントキャプチャを行います
+'* 注意事項：WebDriverBiDi の場合は、フィルター機能が内蔵済みです
+'***************************************************************************************************
+Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiEvent"
+
+
+    '------------------ 非同期イベントを収集します ------------------
+    '1. イベントキャプチャしない場合は、即抜け
+    If m_Events Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
+
+    '2. パース処理
+    printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
+    Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(RawJson)
+
+    '3. 専用のプロシージャにて、蓄積処理
+    printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
+    OnNewEventReceived m_Events, tmp, methodName
+End Sub
+
+
+
+'***************************************************************************************************
 '                           ■■■ 非同期イベントに関する処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザからのイベント内容に関するプロパティを行います
