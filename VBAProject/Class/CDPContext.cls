@@ -1148,6 +1148,9 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
    '--------------------------------------------------
    'Send message to the browser
    '--------------------------------------------------
+    'Pipe受信中のエラー停止設定
+    PipeCore.StopPipeError = dbgMsg
+
     printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
     PipeCore.ReadyRunCDP strMessage, brTab.sessionID                        'Send message to the browser instance
@@ -1168,7 +1171,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     printMsg Trace_, "Starting Processes incoming messages from the tab...", FromProcedureName
     Do
         '1. 受信処理によるパイプを拝見する
-        TakeEvents StopPipeError:=dbgMsg
+        TakeEvents
 
         '2. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
@@ -1210,7 +1213,7 @@ End Function
 '            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴が全て削除されます
 '            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
-Private Sub PipeCore_CDPTabID(id As Long, RawJson As String, sessionID As String)
+Private Sub PipeCore_CDPContextID(id As Long, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
@@ -2420,8 +2423,8 @@ Private Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
-Private Sub TakeEvents(Optional destruction As Boolean, Optional StopPipeError As Boolean)
-    PipeCore.TakeEvents destruction, StopPipeError
+Private Sub TakeEvents(Optional destruction As Boolean)
+    PipeCore.TakeEvents destruction
 End Sub
 
 Private Function TimerCounter() As Double
