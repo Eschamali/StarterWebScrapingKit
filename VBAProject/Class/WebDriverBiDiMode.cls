@@ -346,85 +346,111 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     printMsg Trace_, "BiDiCommand result ID:" & currentCommandID & " was returned from BiDi-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
+'***************************************************************************************************
+'* 機能　　：BiDi-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：エラー有無論理値
+'* 引数　　：ResultsObj         パース処理済みのCDP-Jsonコマンド実行結果
+'***************************************************************************************************
+Private Function ExecuteError(ResultsObj As Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".invokeError"
+
+
+    Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
+
+    'データの状態をチェック
+    If ResultsObj Is Nothing Then
+        '結果が空っぽになってる場合は、タイムアウトエラーか、コードのミスの可能性
+        ExecuteError = True
+
+        'カスタムなエラー情報として記載し、ログに出す
+        ErrorType = "error" 'arbitrary nonzero value, may change in future
+        ErrorMessage = "Timeout or No results"
+        printMsg WARN_, "InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
+
+        '最後のエラー情報を記録
+        Set m_ErrorDetails = New Dictionary
+        m_ErrorDetails.Add "type", ErrorType
+        m_ErrorDetails.Add "message", ErrorMessage
+
+    ElseIf ResultsObj("type") = "error" Then
+        'BiDiコマンドエラーは "type":"error" で返る
+        ExecuteError = True
+
+        'エラーを残す
+        Set m_ErrorDetails = ResultsObj
+
+        'ログを出しておく
+        ErrorType = ResultsObj("error")
+        ErrorMessage = ResultsObj("message")
+        printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
+
+        '`StackTrace`があったら別枠で表示
+        If ResultsObj.Exists("stacktrace") Then
+            ErrorStackTrace = ResultsObj("stacktrace")
+            printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
+        End If
+    End If
+End Function
 
 '***************************************************************************************************
-'* 機能　　：同期モードでの BiDi-Json コマンド結果のうち、最後のエラー情報を取得します
+'* 機能　　：`ExecuteError`メソッドを通した際の、最後のエラー情報を取得します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：最後のエラー情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
-'            ・適切な`invokeMethod`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください。
-'            ・`invokeMethod`の`StopError`が`False`だと実質機能しません。
-'            ・非同期によるあとで取り出したパターンとは、連動しません。
+'* 注意事項：・あくまでも、「最後」のエラー情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます
+'            ・適切な`ExecuteBiDi`を実行したつもりなのに返り値が、`Nothing`となるのが、エラーの目印となるので、それでこのエラー情報を見に行ってください
+'            ・`ExecuteError`メソッドを通さないと機能しません
+'            ・`Dictionary`オブジェクトとして得れるので必要に応じて`.RemoveAll`でエラークリアすることも可能です
 '***************************************************************************************************
 Public Property Get LastBiDiJsonError() As Dictionary
     Set LastBiDiJsonError = m_ErrorDetails
 End Property
 
 '***************************************************************************************************
-'* 機能　　：非同期で実行されたIDを取り出します
+'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  非同期で実行した際の返り値(整理券番号)
-'            ErrorExist エラー有無(参照渡しにより、実質返り値となります)
-'
-'* 返値    ：そのIDの実行結果のJson-Dictionary
+'* 引数　　：CommandID  整理券番号
+'* 返値    ：そのIDの実行結果のJson文字列
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`SendMessage` or `TakeEvents` が実行されてる必要があります
+'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
 '            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・ここで取り出した結果は、`LastBiDiJsonError`には、反映しません
-'            ・結果がない場合は、`Nothing`として返り、`ErrorExist`は、False扱いとします
+'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
+'            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Public Property Get ResultBiDiForAsync(commandID As Long, Optional ErrorExist As Boolean) As Dictionary
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiForAsync"
+Property Get ResultBiDiFromWithEvents(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".ResultBiDiFromWithEvents"
 
 
     '1. 存在するか？
-    If currentResultBiDi.response.Exists(commandID) Then
-        printMsg Trace_, "BiDi-CommandID: " & commandID & " , Raw-Json:" & currentResultBiDi.response(commandID), FromProcedureName
+    If resultBiDi.response.Exists(commandID) Then
+        '2. Log化
+        Dim tmp As String: tmp = resultBiDi.response(commandID)
+        printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
-        '2. Jsonパーサーを施す
-        Dim tmp As Dictionary
-        Set tmp = m_JsonConverter.ParseJson(currentResultBiDi.response(commandID))
+        '3. 返却
+        ResultBiDiFromWithEvents = tmp
 
-        '3. 成功か？
-        If tmp("type") = "success" Then
-            '正常に終了していると伝える
-            ErrorExist = False
-            printMsg Debug_, "This BiDi-command ID(" & commandID & ") has been completed successfully.", FromProcedureName
-        Else
-            'エラーありとして伝える
-            ErrorExist = True
-            printMsg WARN_, "This BiDi-command ID(" & commandID & ") is in error. ErrorDetails:" & currentResultBiDi.response(commandID)("error"), FromProcedureName
-        End If
-
-        '4. 返却自体は、そのままで
-        Set ResultBiDiForAsync = tmp
-
-        '5. 取り出したので消しておく
-        currentResultBiDi.response.Remove commandID
-        printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `AccumulatedAsyncResults`.", FromProcedureName
+        '4. 取り出したので消しておく
+        resultBiDi.response.Remove commandID
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
-        ErrorExist = False
-        printMsg Trace_, "The BiDi command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+        printMsg Trace_, "This BiDi-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
     End If
 End Property
 
 '***************************************************************************************************
-'* 機能　　：非同期で実行した、BiDi-Json コマンド結果を蓄積させる上限を決めます
+'* 機能　　：BiDi-Json コマンド結果を蓄積させる上限を決めます
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中の上限数
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`invokeMethodAsync`による結果をあとで、取り出す際の格納上限件数を来ます。デフォルトは、10件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
 '***************************************************************************************************
-Property Get ResultAccumulatedLimitBiDiForAsync() As Long
-    ResultAccumulatedLimitBiDiForAsync = currentResultBiDi.Limit
+Property Let SetLimitBiDi(Number As Long)
+    resultBiDi.Limit = Number
 End Property
 
-Property Let ResultAccumulatedLimitBiDiForAsync(Number As Long)
-    currentResultBiDi.Limit = Number
-End Property
 
 '***************************************************************************************************
 '* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
