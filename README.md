@@ -11,6 +11,7 @@
 
 <p align="center">
   <img src="https://github.com/vbacollective/json/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  <img src="https://github.com/vbacollective/json/actions/workflows/release-assets.yml/badge.svg" alt="Release Assets" />
   <img src="https://img.shields.io/badge/version-v1.0.1-blue.svg" alt="Version" />
   <img src="https://img.shields.io/badge/language-VBA-867DB1.svg" alt="Language" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6.svg" alt="Platform" />
