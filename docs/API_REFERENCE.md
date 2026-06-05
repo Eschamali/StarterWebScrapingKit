@@ -305,7 +305,6 @@ Serializes an external VBA value to JSON text.
 Supported values include:
 
 | VBA Value | JSON Output |
-|:---|:---|
 | `String` | JSON string |
 | `Boolean` | `true` / `false` |
 | Numeric types | JSON number |
@@ -426,7 +425,6 @@ Returns the JSON type name of the current node.
 Possible values:
 
 | Value | Meaning |
-|:---|:---|
 | `object` | JSON object |
 | `array` | JSON array |
 | `string` | JSON string |
@@ -1305,7 +1303,6 @@ For exact decimal/financial handling, keep raw numeric text if needed.
 Most accessors return the default VBA value when a field is missing or has an unexpected type.
 
 | Accessor | Missing Result |
-|:---|:---|
 | `StringValue` | `""` |
 | `NumberValue` | `0` |
 | `BoolValue` | `False` |
@@ -1433,13 +1430,11 @@ Debug.Print doc.Stringify(True)
 ### Parsing
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `Parse` | `Parse(ByRef Text As String) As JSON` | Parses JSON text into a tokenized document. |
 
 ### Serialization
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `Stringify` | `Stringify(Optional Pretty As Boolean = False, Optional IndentSize As Long = 2) As String` | Serializes the current document or node. |
 | `StringifyWithIndent` | `StringifyWithIndent(Optional Pretty As Boolean = False, Optional IndentText As String = "  ") As String` | Serializes the current document or node with custom indentation. |
 | `StringifyValue` | `StringifyValue(Value As Variant, Optional Pretty As Boolean = False, Optional IndentSize As Long = 2) As String` | Serializes an external VBA value. |
@@ -1448,7 +1443,6 @@ Debug.Print doc.Stringify(True)
 ### Core Properties
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `Item` | `Item(key As Variant) As Variant` | Default member. Gets a child value by key or index. |
 | `Value` | `Value() As Variant` | Gets the current node value. |
 | `Count` | `Count() As Long` | Gets the direct child count. |
@@ -1460,14 +1454,12 @@ Debug.Print doc.Stringify(True)
 ### Child Lookup
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `Exists` | `Exists(key As Variant) As Boolean` | Checks whether a field or array index exists. |
 | `Node` | `Node(key As Variant) As JSON` | Gets a child object or array as a node. |
 
 ### Indexed Access
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `NodeAt` | `NodeAt(Index As Long) As JSON` | Gets an object/array child by zero-based child index. |
 | `ValueAt` | `ValueAt(Index As Long) As Variant` | Gets any child value by zero-based child index. |
 | `KeyAt` | `KeyAt(Index As Long) As String` | Gets an object child key by zero-based child index. |
@@ -1475,7 +1467,6 @@ Debug.Print doc.Stringify(True)
 ### Typed Field Access
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `StringValue` | `StringValue(key As Variant) As String` | Gets a child value as string. |
 | `NumberValue` | `NumberValue(key As Variant) As Double` | Gets a child value as double. |
 | `BoolValue` | `BoolValue(key As Variant) As Boolean` | Gets a child value as boolean. |
@@ -1484,7 +1475,6 @@ Debug.Print doc.Stringify(True)
 ### Typed Indexed Access
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `StringAt` | `StringAt(Index As Long) As String` | Gets an indexed child value as string. |
 | `NumberAt` | `NumberAt(Index As Long) As Double` | Gets an indexed child value as double. |
 | `BoolAt` | `BoolAt(Index As Long) As Boolean` | Gets an indexed child value as boolean. |
@@ -1493,7 +1483,6 @@ Debug.Print doc.Stringify(True)
 ### Token Traversal
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `FirstChildToken` | `FirstChildToken() As Long` | Gets the first direct child token. |
 | `LastChildToken` | `LastChildToken() As Long` | Gets the last direct child token. |
 | `NextToken` | `NextToken(TokenId As Long) As Long` | Gets the next sibling token. |
@@ -1502,7 +1491,6 @@ Debug.Print doc.Stringify(True)
 ### Token Value Access
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `TokenKey` | `TokenKey(TokenId As Long) As String` | Gets the key associated with a token. |
 | `TokenValue` | `TokenValue(TokenId As Long) As Variant` | Gets a token value as Variant. |
 | `TokenStringValue` | `TokenStringValue(TokenId As Long) As String` | Gets a token value as string. |
@@ -1513,7 +1501,6 @@ Debug.Print doc.Stringify(True)
 ### Token Field Access
 
 | API | Signature | Description |
-|:---|:---|:---|
 | `TokenString` | `TokenString(TokenId As Long, key As Variant) As String` | Gets a field from an object token as string. |
 | `TokenRawString` | `TokenRawString(TokenId As Long, key As Variant) As String` | Gets a field from an object token as raw string. |
 | `TokenRawField` | `TokenRawField(TokenId As Long, key As String) As String` | Gets a raw field slice from an object token. |

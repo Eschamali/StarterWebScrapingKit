@@ -96,7 +96,6 @@ This keeps parsing allocation low and makes large JSON traversal practical in Of
 ## Design Goals
 
 | Goal | Architectural Choice |
-|:---|:---|
 | Single-file deployment | Everything lives inside `JSON.cls`. |
 | No references required | Uses late-bound compatible behavior and direct declarations only. |
 | Fast parsing | Parses into compact tokens instead of nested objects. |
@@ -310,7 +309,6 @@ End Enum
 The public `JsonType` property converts these values to user-facing strings:
 
 | Internal Type | Public Type |
-|:---|:---|
 | `jsObject` | `object` |
 | `jsArray` | `array` |
 | `jsString` | `string` |
@@ -340,7 +338,6 @@ End Type
 Each token stores hierarchy links and source slices.
 
 | Field | Purpose |
-|:---|:---|
 | `Type` | Internal JSON type. |
 | `Parent` | Parent token id. |
 | `NextSibling` | Next token under the same parent. |
@@ -399,7 +396,6 @@ Private m_CharAliasActive As Boolean
 ```
 
 | Field | Purpose |
-|:---|:---|
 | `m_Text` | Original JSON source text. |
 | `m_Chars()` | SAFEARRAY alias over `m_Text`. |
 | `m_Length` | Length of the source text. |
@@ -542,7 +538,6 @@ End Function
 Growth strategy:
 
 | Current Capacity | Growth |
-|:---|:---|
 | Below large threshold | 2x |
 | Above large threshold | 1.5x |
 
@@ -555,7 +550,6 @@ This keeps small/medium documents fast while reducing huge memory jumps for very
 It skips whitespace, creates a token, links it to the parent, and dispatches based on the current character:
 
 | Character | JSON Type | Parser |
-|:---|:---|:---|
 | `{` | Object | `ParseObject` |
 | `[` | Array | `ParseArray` |
 | `"` | String | `ParseString` |
@@ -678,7 +672,6 @@ This means parse time stays low because numeric values are not converted eagerly
 Booleans and null are parsed inline.
 
 | Literal | Type | Stored Slice |
-|:---|:---|:---|
 | `true` | `jsBool` | `true` |
 | `false` | `jsBool` | `false` |
 | `null` | `jsNull` | `null` |
@@ -954,7 +947,6 @@ Loop
 The relevant methods are:
 
 | Method | Purpose |
-|:---|:---|
 | `FirstChildToken` | Gets first direct child token. |
 | `LastChildToken` | Gets last direct child token. |
 | `NextToken` | Gets next sibling token. |
@@ -1038,7 +1030,6 @@ End Function
 `StringifyToken` dispatches by internal token type.
 
 | Token Type | Serialization |
-|:---|:---|
 | Object | `StringifyObjectToken` |
 | Array | `StringifyArrayToken` |
 | String | `QuoteJSONString(GetRawValue(TokenId))` |
@@ -1111,7 +1102,6 @@ Empty objects serialize as:
 Supported values include:
 
 | VBA Value | JSON Output |
-|:---|:---|
 | `String` | JSON string |
 | `Boolean` | `true` / `false` |
 | Numeric types | JSON number |
@@ -1205,7 +1195,6 @@ Strings are quoted through `QuoteJSONString`.
 Escaped characters include:
 
 | Character | JSON Escape |
-|:---|:---|
 | `\` | `\\` |
 | `"` | `\"` |
 | CRLF | `\n` |
@@ -1277,7 +1266,6 @@ No Dictionaries, Collections, or per-node objects are allocated during parsing.
 The main performance choices are:
 
 | Area | Strategy |
-|:---|:---|
 | Character access | SAFEARRAY alias over the source string. |
 | Parse output | Compact token tree. |
 | Object lookup | Native ordinal comparison against source key slices. |

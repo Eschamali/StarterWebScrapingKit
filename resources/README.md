@@ -1,3 +1,7 @@
 # Resources
 
-This directory contains visual assets and metadata used for repository documentation and branding.
+This directory contains visual assets used by repository documentation.
+
+## Contents
+
+* [logo.png](logo.png): Project logo shown in the root README.

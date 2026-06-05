@@ -1,23 +1,18 @@
 # Documentation
 
-Welcome to the JSON technical documentation. This directory contains detailed guides on how to integrate, use, understand, and maintain the JSON parser and writer.
+This directory contains the technical documentation for JSON.
 
-## Resource Index
+## Guides
 
-| File | Audience | Description |
-|:---|:---|:---|
-| [**API Reference**](API_REFERENCE.md) | Developers | Exhaustive guide to every public method, property, accessor, token helper, and serialization function. |
-| [**Architecture**](ARCHITECTURE.md) | Advanced | Internal implementation details: zero-copy parsing, SAFEARRAY string aliasing, token tree storage, lazy node wrappers, and Stringify pipeline. |
+* [API Reference](API_REFERENCE.md): Public methods, properties, typed accessors, token helpers, serialization methods, recipes, and troubleshooting.
+* [Architecture](ARCHITECTURE.md): Internal parser and writer design, including token storage, SAFEARRAY string aliasing, lazy nodes, raw slices, and compatibility notes.
 
 ## Quick Integration Pattern
 
-JSON is designed for simple, synchronous usage in standard VBA modules.
-
 ```vb
-' Basic JSON Parsing Procedure
 Public Sub RunJsonTest()
     Dim text As String
-    text = "{""name"":""Ryan"",""age"":18,""active"":true}"
+    text = "{""name"":""Ueslei"",""age"":18,""active"":true}"
 
     Dim doc As JSON
     Set doc = JSON.Parse(text)
@@ -33,7 +28,6 @@ End Sub
 Use `StringifyValue` to serialize normal VBA values such as Dictionaries, Collections, arrays, strings, numbers, and booleans.
 
 ```vb
-' Basic JSON Writing Procedure
 Public Sub RunStringifyTest()
     Dim data As Object
     Set data = CreateObject("Scripting.Dictionary")
@@ -51,7 +45,6 @@ End Sub
 For large arrays of objects, prefer token iteration instead of creating a node wrapper for every item.
 
 ```vb
-' Fast Array Traversal Procedure
 Public Sub ReadRows(ByVal responseText As String)
     Dim doc As JSON
     Set doc = JSON.Parse(responseText)
@@ -73,32 +66,6 @@ Public Sub ReadRows(ByVal responseText As String)
 End Sub
 ```
 
-## Lifecycle Management
+## Lifecycle
 
-JSON does not require explicit startup or shutdown. Parsed documents are normal VBA objects and are cleaned up automatically when released.
-
-```vb
-Public Sub ParseAndRelease()
-    Dim doc As JSON
-    Set doc = JSON.Parse("{""ok"":true}")
-
-    Debug.Print doc.BoolValue("ok")
-
-    Set doc = Nothing
-End Sub
-```
-
-> [!IMPORTANT]
-> Child nodes returned by `Node`, `NodeAt`, `TokenNode`, or `NodeFromToken` depend on the root parsed document. Keep the root `JSON` document alive while using any child node wrappers.
-
-```vb
-Public Sub KeepRootAlive()
-    Dim doc As JSON
-    Set doc = JSON.Parse("{""user"":{""name"":""Ueslei""}}")
-
-    Dim user As JSON
-    Set user = doc.Node("user")
-
-    Debug.Print user.StringValue("name")
-End Sub
-```
+Parsed documents are normal VBA objects and are cleaned up automatically when released. Keep the root parsed document alive while using child nodes returned by `Node`, `NodeAt`, `TokenNode`, or `NodeFromToken`.

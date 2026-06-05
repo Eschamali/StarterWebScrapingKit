@@ -1,28 +1,22 @@
 # Package
 
-This directory contains the production-ready JSON class. This is the only file you need to integrate JSON parsing and writing into your own VBA project.
+This directory contains the production VBA class for the project.
 
-## Module Index
+## Contents
 
-| File | Purpose |
-|:---|:---|
-| [**JSON.cls**](JSON.cls) | The complete, standalone JSON parser and writer. Includes zero-copy parsing, typed accessors, token iteration, raw field access, and Stringify support. |
+* [JSON.cls](JSON.cls): The complete standalone JSON parser and writer. It includes zero-copy parsing, typed accessors, token iteration, raw field access, and Stringify support.
 
-## Installation
+## Importing
 
-Integrating JSON into a new or existing Office project takes only a few seconds:
+1. Open your Excel, PowerPoint, Word, or Access file.
+2. Press `Alt + F11` to open the VBA editor.
+3. Choose **File > Import File...**.
+4. Select `JSON.cls`.
+5. Save your document as a macro-enabled file such as `.xlsm`, `.pptm`, `.docm`, or `.accdb`.
 
-1. **Download:** Get the latest `JSON.cls` from the [releases](https://github.com/vbacollective/json/releases) page.
-2. **Import:**
-   - Open your Excel, PowerPoint, Word, or Access file.
-   - Press `Alt + F11` to open the VBA Editor.
-   - Go to **File > Import File...** (or press `Ctrl + M`).
-   - Select `JSON.cls`.
-3. **Save:** Save your document as a macro-enabled file (e.g., `.xlsm`, `.pptm`, `.docm`, `.accdb`).
+## Runtime Notes
 
-## Configuration & Dependencies
-
-- **No References:** JSON does not require any entries in **Tools > References** for parsing, traversal, or basic serialization.
-- **No DLLs:** The class is fully self-contained and does not require external native binaries, ActiveX controls, installers, or registered components.
-- **Single Class:** The entire parser and writer live inside `JSON.cls`.
-- **Architecture:** JSON is designed to work in both 32-bit and 64-bit Office through conditional compilation where needed.
+* `JSON.cls` is a predeclared class, so factory-style calls such as `Set doc = JSON.Parse(text)` work after import.
+* No external references are required for parsing, traversal, raw access, or writing.
+* The class supports 32-bit and 64-bit Office through conditional declarations in `package/JSON.cls`.
+* Child nodes returned by `Node`, `NodeAt`, `TokenNode`, and `NodeFromToken` depend on the root parsed document, so keep the root `JSON` variable alive while using them.
