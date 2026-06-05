@@ -421,6 +421,41 @@ End Property
 
 
 '***************************************************************************************************
+'                                       ■■■ 後始末系 ■■■
+'***************************************************************************************************
+Public Sub quit()
+    Const FromProcedureName As String = ThisClassName & ".quit"
+
+
+    '1. 終了コマンドを送る
+    '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
+    SendMessage "{""method"":""browser.close"",""params"":{}}", dbgMsg:=False
+
+    '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
+    m_BiDiCore.ClosePipeCDP 'パイプハンドルを閉じる
+    deleteCDPID             'テーブルからも削除する
+
+    '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
+    sleep 1
+    printMsg info_, "The WebDriverBiDi has been terminated.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
+'***************************************************************************************************
+Private Sub deleteCDPID()
+    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
+
+
+    With ShSetting01_StartBrowser
+        .DeleteCDPToTable(1, FromProcedureName) = BiDiUserName  'パイプ通信Handle情報
+        .DeleteCDPToTable(2, FromProcedureName) = BiDiUserName  'ブラウザセッション情報
+    End With
+End Sub
+
+
+
+'***************************************************************************************************
 '                                ■■■ 非同期イベント関連 ■■■
 '***************************************************************************************************
 '* 機能　　：WebDriverBiDiに対する非同期イベントを処理します
@@ -661,10 +696,6 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Public Function TimerCounter() As Double
-    TimerCounter = m_BiDiCore.TimerCounter
-End Function
-
 Public Sub sleep(Optional seconds As Double = 0.5)
     m_BiDiCore.sleep seconds
 End Sub
@@ -673,15 +704,23 @@ Public Sub TakeEvents(Optional destruction As Boolean)
     m_BiDiCore.TakeEvents destruction
 End Sub
 
+Public Function TimerCounter() As Double
+    TimerCounter = m_BiDiCore.TimerCounter
+End Function
+
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPTab.cls`直通メソッド ■■■
+'                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    WebDriverBiDi_mapperTab.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
-End Sub
+Private Sub Class_Initialize()
+    'Assign an objID for easy debug identification
+    LogID = "BDID" & Format(Rnd * 1000, "000")
 
-Public Sub quit()
-    WebDriverBiDi_mapperTab.InheritanceCDPBrowser.quit
+    'タイムアウト設定(デフォルトで、30s)
+    timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
+
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    Set resultBiDi.response = New Dictionary
+    resultBiDi.Limit = MaxStoreResultBiDi
 End Sub
