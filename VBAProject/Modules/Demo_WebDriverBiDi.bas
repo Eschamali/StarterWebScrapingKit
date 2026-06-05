@@ -3,6 +3,7 @@ Attribute VB_Name = "Demo_WebDriverBiDi"
 '               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
 '==============================================================================================================
 Option Explicit
+Option Private Module
 
 
 
@@ -21,9 +22,10 @@ Option Explicit
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
+'            ・現時点では、タブへの接続まで自動で行いません
 '***************************************************************************************************
-Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
+Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
@@ -34,14 +36,14 @@ Public Function 設定シートからのBiDi起動(Optional StartURL As String, 
         Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
 
         'ブラウザ起動
-        Set 設定シートからのBiDi起動 = New WebDriverBiDiCore
-        設定シートからのBiDi起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+        Set 設定シートからのBiDi起動 = New WebDriverBiDiMode
+        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
     End With
 End Function
 
 Sub BiDiによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiMode: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -66,20 +68,20 @@ Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
     Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion
-    
-    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_NetworkEvent As WebDriverBiDiCore
+
+    'WebDriverBiDiの初期化とブラウザ立ち上げ
+    Dim Demo_NetworkEvent As WebDriverBiDiMode
     Set Demo_NetworkEvent = 設定シートからのBiDi起動
-    
+
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    
+
     '現在のコンテキストIDを取得する (ここではざっくり1番目のコンテキストを利用)
-    Set resultBiDi = Demo_NetworkEvent.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = Demo_NetworkEvent.ExecuteBiDi("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
         targetContext = resultBiDi("contexts")(1)("context")
     End If
-    
+
     '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
     '`New Dictionary`を渡すことで、内部で非同期イベントの蓄積を開始する
     Set Demo_NetworkEvent.BiDiEvents = New Dictionary
@@ -91,15 +93,15 @@ Sub ネットワークイベントの確認()
     eventsArray.Add "network.responseCompleted"
     eventsArray.Add "log.entryAdded"
     paramsBiDi.Add "events", eventsArray
-    
-    Demo_NetworkEvent.invokeMethod "session.subscribe", paramsBiDi
-    
+
+    Demo_NetworkEvent.ExecuteBiDi "session.subscribe", paramsBiDi
+
     'URL遷移して、読み込み終わるまで待機
     Set paramsBiDi = New Dictionary
     paramsBiDi.Add "context", targetContext
     paramsBiDi.Add "url", "http://officetanaka.net/excel/vba/file/file11.htm"
     paramsBiDi.Add "wait", "complete"
-    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+    Demo_NetworkEvent.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う (念のため待機後にも余波を回収)
     Demo_NetworkEvent.TakeEvents
@@ -118,7 +120,7 @@ Sub ネットワークイベントの確認()
     paramsBiDi.Add "context", targetContext
     paramsBiDi.Add "url", "http://officetanaka.net/youtube/20200714b.htm"
     paramsBiDi.Add "wait", "complete"
-    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+    Demo_NetworkEvent.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
     Demo_NetworkEvent.TakeEvents
@@ -129,13 +131,13 @@ Sub ネットワークイベントの確認()
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
     Set Demo_NetworkEvent.BiDiEvents = SaveDataEvents        '既存のセーブデータを読み込む
-    
+
     'URL遷移
     Set paramsBiDi = New Dictionary
     paramsBiDi.Add "context", targetContext
     paramsBiDi.Add "url", "http://officetanaka.net/index.stm"
     paramsBiDi.Add "wait", "complete"
-    Demo_NetworkEvent.invokeMethod "browsingContext.navigate", paramsBiDi
+    Demo_NetworkEvent.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
     Demo_NetworkEvent.TakeEvents
@@ -157,7 +159,7 @@ End Sub
 Sub UseExtensions()
     '必要な変換オブジェクトを用意
     Dim JsonDicObj As New WebJsonConverter
-    
+
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(msoFileDialogFolderPicker)
@@ -167,13 +169,13 @@ Sub UseExtensions()
         If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
     End With
 
-    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim controlExtensions As WebDriverBiDiCore
-    
+    'WebDriverBiDiの初期化とブラウザ立ち上げ
+    Dim controlExtensions As WebDriverBiDiMode
+
     '---- 拡張機能制御を有効化するオプションを作成 ---
     Dim caps As New Dictionary
     Dim alwaysMatch As New Dictionary
-    
+
     ' BiDiでは、セッション確立時の引数として渡すか、WebDriver側のCapabilityで有効にする必要がありますが、
     ' CDPBrowserの仕組み（引数渡し）を利用するためそのまま起動します。
     caps.Add "capabilities", New Dictionary
@@ -185,7 +187,7 @@ Sub UseExtensions()
 
     '現在のコンテキストIDを取得する
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = controlExtensions.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = controlExtensions.ExecuteBiDi("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
         targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
@@ -196,7 +198,7 @@ Sub UseExtensions()
     paramsBiDi.Add "context", targetContext
     paramsBiDi.Add "url", "edge://extensions/"
     paramsBiDi.Add "wait", "complete"
-    controlExtensions.invokeMethod "browsingContext.navigate", paramsBiDi
+    controlExtensions.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 
     '-----------------------------------------------------------------------
     '拡張機能を読み込む (BiDi `webExtension.install`)
@@ -208,7 +210,7 @@ Sub UseExtensions()
     paramsBiDi.Add "extensionData", extData
 
     ' 今回はエラー無視で設定 (StopError:=False)
-    Set resultBiDi = controlExtensions.invokeMethod("webExtension.install", paramsBiDi, False)
+    Set resultBiDi = controlExtensions.ExecuteBiDi("webExtension.install", paramsBiDi, False)
 
     '読み込まれたか確認する
     If resultBiDi Is Nothing Then
@@ -222,7 +224,7 @@ Sub UseExtensions()
     ElseIf resultBiDi.Exists("extension") Then
         ' BiDiの webExtension.install は `extension` キーで IDを返します。
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & resultBiDi("extension")
-    
+
     Else
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(resultBiDi), vbExclamation, "Not found id"
 
@@ -236,7 +238,7 @@ Sub UseExtensions()
     '-----------------------------------------------------------------------
     Set paramsBiDi = New Dictionary
     paramsBiDi.Add "extension", resultBiDi("extension")
-    Set resultBiDi = controlExtensions.invokeMethod("webExtension.uninstall", paramsBiDi, False)
+    Set resultBiDi = controlExtensions.ExecuteBiDi("webExtension.uninstall", paramsBiDi, False)
 
     '消えたか確認する
     If resultBiDi Is Nothing Then
@@ -258,15 +260,15 @@ Sub TestAlert()
     '必要な変換オブジェクトを用意
     Dim JsonDicObj As New WebJsonConverter
 
-    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim Demo_alerts As New WebDriverBiDiCore
-    
+    'WebDriverBiDiの初期化とブラウザ立ち上げ
+    Dim Demo_alerts As WebDriverBiDiMode
+
     '---- JavaScriptによる自動アラート処理を無効化するオプションを作成 ---
     Dim caps As New Dictionary
-    
+
     Dim alwaysMatch As New Dictionary
     alwaysMatch.Add "unhandledPromptBehavior", "ignore"
-    
+
     caps.Add "capabilities", New Dictionary
     caps("capabilities").Add "alwaysMatch", alwaysMatch
     '---------------------------------------------------------------------
@@ -278,7 +280,7 @@ Sub TestAlert()
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
 
     '現在のコンテキストIDを取得する
-    Set resultBiDi = Demo_alerts.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = Demo_alerts.ExecuteBiDi("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
         targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭ブラウザタブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
@@ -286,15 +288,15 @@ Sub TestAlert()
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
-    
+
     With Demo_alerts
         ' --- 1. 必要なドメイン(イベント)をサブスクライブ ---
         Set paramsBiDi = New Dictionary
         Dim eventsArray As New Collection
         eventsArray.Add "browsingContext.userPromptOpened"
         paramsBiDi.Add "events", eventsArray
-        .invokeMethod "session.subscribe", paramsBiDi
-        
+        .ExecuteBiDi "session.subscribe", paramsBiDi
+
         Dim i As Long
         For i = 1 To 3
             Dim targetID As String
@@ -307,7 +309,7 @@ Sub TestAlert()
             ' --- 2. イベントキャプチャを新しく有効化 ---
             ' 過去のイベントをリセット
             Set .BiDiEvents = New Dictionary
-            
+
             ' --- 3. 非同期でコマンド準備/実行(Jsのクリック処理) ---
             ' 対象の要素をクリックするJSを評価する
             Set paramsBiDi = New Dictionary
@@ -317,17 +319,17 @@ Sub TestAlert()
             targetDict.Add "context", targetContext
             paramsBiDi.Add "target", targetDict
             paramsBiDi.Add "awaitPromise", False
-            
+
             Dim AsyncID As Long
             'この瞬間、JavaScriptの`alert`関数が非同期で発動されます
-            AsyncID = .invokeMethodAsync("script.evaluate", paramsBiDi)
-    
+            AsyncID = .ExecuteBiDiAsync("script.evaluate", paramsBiDi)
+
             ' --- 4. 特定のイベント名が出るまでループ ---
             Const SearchEventName As String = "browsingContext.userPromptOpened"
             Do
                 '非同期イベントを取り出す
                 .TakeEvents
-    
+
                 'イベント名の確認
                 If .BiDiEvents("EventMethods").Exists(SearchEventName) Then
                     '出ているダイアログの情報の確認
@@ -336,19 +338,19 @@ Sub TestAlert()
                         Debug.Print "message:"; tmp("params")("message")
                         Debug.Print "type   :"; tmp("type") & vbCrLf
                     Next
-    
+
                     '見つかったので抜ける
                     Exit Do
                 End If
             Loop While True
-    
+
             ' --- 5. ダイアログに反応しておく ---
             Set paramsBiDi = New Dictionary
             paramsBiDi.Add "context", targetContext
             paramsBiDi.Add "accept", True
             paramsBiDi.Add "userText", 入力文字内容
-            Set resultBiDi = .invokeMethod("browsingContext.handleUserPrompt", paramsBiDi)
-    
+            Set resultBiDi = .ExecuteBiDi("browsingContext.handleUserPrompt", paramsBiDi)
+
             ' --- 6. 以前、非同期で実行した結果も拝見する ---
 '            Dim resBiDiAsync As Dictionary
 '            .sleep 0.5 ' 結果取得のためのディレイ
@@ -357,7 +359,7 @@ Sub TestAlert()
 '            Dim エラー確認 As Boolean
 '            Set resBiDiAsync = .ResultBiDiForAsync(AsyncID, エラー確認)
 '            If Not (resBiDiAsync Is Nothing) Then Debug.Print "resBiDiAsync - " & JsonDicObj.ConvertToJson(resBiDiAsync)
-            
+
         Next
 
         ' --- 7. ブラウザを閉じる ---
@@ -368,15 +370,15 @@ Sub TestAlert()
         targetDict.Add "context", targetContext
         paramsBiDi.Add "target", targetDict
         paramsBiDi.Add "awaitPromise", True
-        Set resultBiDi = .invokeMethod("script.evaluate", paramsBiDi)
-        
+        Set resultBiDi = .ExecuteBiDi("script.evaluate", paramsBiDi)
+
         Dim Htmlの表示内容 As String
         If Not (resultBiDi Is Nothing) Then
             If resultBiDi.Exists("result") Then
                 If resultBiDi("result").Exists("value") Then Htmlの表示内容 = resultBiDi("result")("value")
             End If
         End If
-        
+
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
         .quit
@@ -391,8 +393,8 @@ End Sub
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
     Dim JsonDicObj As New WebJsonConverter
-    Dim bidiPlus As WebDriverBiDiCore
-    
+    Dim bidiPlus As WebDriverBiDiMode
+
     ' ブラウザ起動
     Set bidiPlus = 設定シートからのBiDi起動
 
@@ -403,18 +405,18 @@ Sub TestBiDiPlus_CDPTunnel()
     '-----------------------------------------------------------------------
     ' まず現在のBiDiコンテキストを取得
     Dim targetContext As String
-    Set resultBiDi = bidiPlus.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = bidiPlus.ExecuteBiDi("browsingContext.getTree")
     If Not resultBiDi Is Nothing Then
         targetContext = resultBiDi("contexts")(1)("context")
-        
+
         Set paramsBiDi = New Dictionary
         paramsBiDi.Add "context", targetContext
-        Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.getSession", paramsBiDi)
-        
+        Set resultBiDi = bidiPlus.ExecuteBiDi("goog:cdp.getSession", paramsBiDi)
+
         If Not resultBiDi Is Nothing Then
              MsgBox "現在のタブ(Context)に紐づく、裏側の『CDPセッションID』を取得しました！" & vbCrLf & vbCrLf & _
                     "【SessionID】" & resultBiDi("session"), vbInformation, "BiDi+ GetSession"
-                    
+
              Dim cdpSessionId As String
              cdpSessionId = resultBiDi("session")
         End If
@@ -427,9 +429,9 @@ Sub TestBiDiPlus_CDPTunnel()
     paramsBiDi.Add "method", "Browser.getVersion"
     paramsBiDi.Add "params", New Dictionary
     If cdpSessionId <> "" Then paramsBiDi.Add "session", cdpSessionId
-    
-    Set resultBiDi = bidiPlus.invokeMethod("goog:cdp.sendCommand", paramsBiDi)
-    
+
+    Set resultBiDi = bidiPlus.ExecuteBiDi("goog:cdp.sendCommand", paramsBiDi)
+
     If Not resultBiDi Is Nothing Then
         MsgBox "CDPコマンド(Browser.getVersion)をBiDi経由で実行できました！" & vbCrLf & vbCrLf & _
                "【Browser】" & resultBiDi("result")("userAgent") & vbCrLf & _
@@ -452,12 +454,12 @@ End Sub
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
-    Dim First As WebDriverBiDiCore
+    Dim First As WebDriverBiDiMode
     Set First = 設定シートからのBiDi起動
 
     '現在のコンテキストIDを取得する
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = First.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = First.ExecuteBiDi("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
         targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
@@ -468,7 +470,7 @@ Sub demoReattachmentPart1()
     paramsBiDi.Add "context", targetContext
     paramsBiDi.Add "url", "https://www.google.com/"
     paramsBiDi.Add "wait", "complete"
-    First.invokeMethod "browsingContext.navigate", paramsBiDi
+    First.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 End Sub
 
 Sub demoReattachmentPart2()
@@ -479,7 +481,7 @@ Sub demoReattachmentPart2()
     End With
 
     ' リアタッチとして起動
-    Dim Reattachment As New WebDriverBiDiCore
+    Dim Reattachment As New WebDriverBiDiMode
     Dim ResultReattach As Boolean
     ResultReattach = Reattachment.reattach(UserName)
 
@@ -487,19 +489,19 @@ Sub demoReattachmentPart2()
 
     '現在のコンテキストIDを取得する
     Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = Reattachment.invokeMethod("browsingContext.getTree")
+    Set resultBiDi = Reattachment.ExecuteBiDi("browsingContext.getTree")
     Dim targetContext As String
     If Not (resultBiDi Is Nothing) Then
         '※ここでエラーが起こる場合、ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。
         targetContext = resultBiDi("contexts")(1)("context")     '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
     End If
 
-    'wikipediaページへ遷移
+    '別ページに遷移
     Set paramsBiDi = New Dictionary
     paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://wikipedia.com"
+    paramsBiDi.Add "url", "https://kemono-friends-20170110.jp/"
     paramsBiDi.Add "wait", "complete"
-    Reattachment.invokeMethod "browsingContext.navigate", paramsBiDi
+    Reattachment.ExecuteBiDi "browsingContext.navigate", paramsBiDi
 End Sub
 
 
