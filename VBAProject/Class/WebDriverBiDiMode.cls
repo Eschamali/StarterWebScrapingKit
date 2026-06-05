@@ -161,9 +161,9 @@ End Function
 
 
 '***************************************************************************************************
-'                              ■■■ BiDiセッション確保関連 ■■■
+'                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
-'* 機能　　：初期化処理
+'* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
@@ -177,35 +177,26 @@ End Function
 '                                           2      ：キオスクモード パブリック ブラウジング
 '
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
-'            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub start(Optional Name As String = "chrome", _
+Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
-    Const FromProcedureName As String = ThisClassName & ".start"
 
+    '1. 初期化処理
+    BiDiUserName = userProfile
+    Set m_BiDiCore = New WebDriverBiDiCore
 
-    '1. 引数から設定を適用し、まずはCDPとして起動
-    Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
+    '2. WebDriverBiDi としてブラウザを起動させる
+    m_BiDiCore.start Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
-
-    '3. BiDi-CDP Mapper を始動させます
-    StartBiDiCDPMapper
-
-    '4. BiDi との新しいセッションを確立する
-    '※ここは、BiDi用のコマンドとして使用
+    '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As Dictionary
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '5. 接続先ブラウザ情報をログで表示
+    '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
 
