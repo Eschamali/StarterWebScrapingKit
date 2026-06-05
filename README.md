@@ -473,19 +473,14 @@ End Sub
 
 ### Planned
 
-* [ ] More examples for API clients.
 * [ ] Benchmark suite against common VBA JSON libraries.
 * [ ] Optional stricter validation mode.
 * [ ] Additional writer helpers for object/array construction.
-* [ ] Documentation for every public method.
 * [ ] More real-world Excel, PowerPoint, Access, and Word integration examples.
 
 ## Documentation
 
 * [**API Reference**](docs/API_REFERENCE.md) – Detailed guide to every public method, property, and traversal pattern.
-* [**Examples**](examples/README.md) – Practical examples for parsing, reading, iterating, and writing JSON.
-* [**Benchmarks**](docs/BENCHMARKS.md) – Performance notes and comparisons.
-* [**Troubleshooting**](docs/TROUBLESHOOTING.md) – Common issues, parsing notes, and Office-specific behavior.
 
 ## License
 
