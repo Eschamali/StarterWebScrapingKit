@@ -216,29 +216,6 @@ End Function
 '***************************************************************************************************
 '                              ■■■ BiDicommand操作関連 ■■■
 '***************************************************************************************************
-'* 機能　　：BiDiコマンドの送信 (非同期)
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：methodName    メソッド名 (例: "session.new")
-'*           params        引数を持ったDictionary (省略可能)
-'* 返値    ：送信したメッセージの ID
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
-'***************************************************************************************************
-Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
-    Const FromProcedureName As String = ThisClassName & ".ExecuteBiDiAsync"
-
-
-    Dim paramStr As String
-
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True
-
-    '実行したIDを返却
-    ExecuteBiDiAsync = m_BiDiCore.LastCommandID
-    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
-End Function
-
-'***************************************************************************************************
 '* 機能　　：BiDiコマンドの送信 (同期)
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "session.new")
@@ -273,6 +250,29 @@ Public Function ExecuteBiDi(ByVal methodName As String, Optional params As Dicti
     'デバッグ用に、As Is 出力
     If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & jsConverter.ConvertToJson(results), FromProcedureName
 
+End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンドの送信 (非同期)
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName    メソッド名 (例: "session.new")
+'*           params        引数を持ったDictionary (省略可能)
+'* 返値    ：送信したメッセージの ID
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
+'***************************************************************************************************
+Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
+    Const FromProcedureName As String = ThisClassName & ".ExecuteBiDiAsync"
+
+
+    Dim paramStr As String
+
+    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
+    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True
+
+    '実行したIDを返却
+    ExecuteBiDiAsync = m_BiDiCore.LastCommandID
+    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
 End Function
 
 '***************************************************************************************************
