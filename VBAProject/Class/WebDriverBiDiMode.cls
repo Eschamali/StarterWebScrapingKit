@@ -452,6 +452,9 @@ Property Let SetLimitBiDi(Number As Long)
 End Property
 
 
+
+'***************************************************************************************************
+'                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
 '* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
@@ -463,7 +466,6 @@ End Property
 Property Get TimeOutSecond() As Long
     TimeOutSecond = timerOut
 End Property
-
 Property Let TimeOutSecond(TimeSec As Long)
     timerOut = TimeSec
 End Property
