@@ -976,7 +976,7 @@ This avoids `NodeAt(i)` wrapper allocation in tight loops.
 
 ## Stringify Architecture
 
-The writer has two main paths:
+The writer has two main paths. Both use a two-pass buffer strategy: first compute the exact serialized character count, then allocate one output string and fill it with `Mid$`.
 
 ```txt
 Parsed JSON node/document -> StringifyToken
@@ -999,26 +999,30 @@ JSON.StringifyValueWithIndent(value, True, vbTab)
 graph TD
     A["Stringify"] --> B["StringifyCurrent"]
     B --> C["StringifyToken"]
-    C --> D["Object Token"]
-    C --> E["Array Token"]
-    C --> F["Primitive Token"]
+    C --> D["SizeToken"]
+    C --> E["WriteToken"]
+    E --> F["Object Token"]
+    E --> G["Array Token"]
+    E --> H["Primitive Token"]
 
-    G["StringifyValue"] --> H["StringifyAny"]
-    H --> I["Primitive VBA Value"]
-    H --> J["VBA Array"]
-    H --> K["Collection"]
-    H --> L["Dictionary"]
-    H --> M["JSON Node"]
+    I["StringifyValue"] --> J["StringifyAny"]
+    J --> K["SizeAny"]
+    J --> L["WriteAny"]
+    L --> M["Primitive VBA Value"]
+    L --> N["VBA Array"]
+    L --> O["Collection"]
+    L --> P["Dictionary"]
+    L --> Q["JSON Node"]
 
     style A fill:#ccf,stroke:#333
-    style G fill:#ccf,stroke:#333
+    style I fill:#ccf,stroke:#333
     style C fill:#cfc,stroke:#333
-    style H fill:#cfc,stroke:#333
+    style J fill:#cfc,stroke:#333
 ```
 
 ## Parsed Token Serialization
 
-`StringifyCurrent` resolves whether the current object is the root document or a node wrapper, then delegates to `StringifyToken`.
+`StringifyCurrent` resolves whether the current object is the root document or a node wrapper, then delegates to `StringifyToken`. `StringifyToken` sizes the output with `SizeToken`, allocates a `JSWriter`, and writes with `WriteToken`.
 
 ```vb
 Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As String) As String
@@ -1027,12 +1031,12 @@ Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As St
 End Function
 ```
 
-`StringifyToken` dispatches by internal token type.
+`StringifyToken` remains a string-returning compatibility wrapper around the size/write path.
 
 | Token Type | Serialization |
-| Object | `StringifyObjectToken` |
-| Array | `StringifyArrayToken` |
-| String | `QuoteJSONString(GetRawValue(TokenId))` |
+| Object | `WriteObjectToken` |
+| Array | `WriteArrayToken` |
+| String | `WriteQuotedJSONString(GetRawValue(TokenId))` |
 | Number | Raw number slice |
 | Boolean | Raw boolean slice |
 | Null | `null` |
@@ -1043,10 +1047,10 @@ Strings are unescaped and then re-escaped to produce normalized JSON output.
 
 ## Object Serialization
 
-`StringifyObjectToken` walks the child chain:
+`WriteObjectToken` walks the child chain and writes directly into the preallocated output buffer:
 
 ```txt
-result = "{"
+write "{"
 child = FirstChild
 
 Do While child exists:
@@ -1056,7 +1060,7 @@ Do While child exists:
     child = child.NextSibling
 Loop
 
-result = result & "}"
+write "}"
 ```
 
 Pretty mode inserts:
@@ -1069,10 +1073,10 @@ Compact mode emits no unnecessary whitespace.
 
 ## Array Serialization
 
-`StringifyArrayToken` is similar to object serialization, but without keys.
+`WriteArrayToken` is similar to object serialization, but without keys.
 
 ```txt
-result = "["
+write "["
 child = FirstChild
 
 Do While child exists:
@@ -1080,7 +1084,7 @@ Do While child exists:
     child = child.NextSibling
 Loop
 
-result = result & "]"
+write "]"
 ```
 
 Empty arrays serialize as:
@@ -1117,22 +1121,22 @@ Supported values include:
 | `JSON` object | Serialized JSON node/document |
 | Unsupported object | `null` |
 
-Object values are routed to `StringifyObjectValue`.
+Object values are routed through `SizeObjectValue` and `WriteObjectValue`.
 
 ## Object Serialization
 
-`StringifyObjectValue` dispatches based on `TypeName`.
+`WriteObjectValue` dispatches based on `TypeName`.
 
 ```vb
 Select Case TypeName(Value)
     Case "JSON"
-        StringifyObjectValue = node.StringifyCurrent(...)
+        WriteText writer, node.StringifyCurrent(...)
     Case "Collection"
-        StringifyObjectValue = StringifyCollection(...)
+        WriteCollection writer, ...
     Case "Dictionary", "Scripting.Dictionary"
-        StringifyObjectValue = StringifyDictionary(...)
+        WriteDictionary writer, ...
     Case Else
-        StringifyObjectValue = "null"
+        WriteText writer, "null"
 End Select
 ```
 
@@ -1140,11 +1144,11 @@ This lets parsed JSON nodes and common VBA containers participate in the same wr
 
 ## Array Serialization
 
-`StringifyArrayValue` serializes one-dimensional VBA arrays.
+`WriteArrayValue` serializes one-dimensional VBA arrays.
 
 ```vb
 For i = LBound(Value) To UBound(Value)
-    result = result & StringifyAny(Value(i), Pretty, IndentText, Depth + 1)
+    WriteAny writer, Value(i), Pretty, IndentText, Depth + 1
 Next i
 ```
 
@@ -1156,7 +1160,7 @@ Dim values(0 To 2) As Variant
 
 ## Collection Serialization
 
-`StringifyCollection` serializes a VBA `Collection` as a JSON array.
+`SizeCollection` and `WriteCollection` serialize a VBA `Collection` as a JSON array.
 
 ```vb
 Dim list As Collection
@@ -1172,7 +1176,7 @@ Collections are one-based in VBA, so the writer iterates from `1 To Value.Count`
 
 ## Dictionary Serialization
 
-`StringifyDictionary` serializes a `Scripting.Dictionary` as a JSON object.
+`SizeDictionary` and `WriteDictionary` serialize a `Scripting.Dictionary` as a JSON object.
 
 ```vb
 Dim dict As Object
@@ -1184,13 +1188,13 @@ dict("language") = "VBA"
 Debug.Print JSON.StringifyValue(dict, True)
 ```
 
-Keys are converted to strings and escaped with `QuoteJSONString`.
+Keys are converted to strings and escaped with `WriteQuotedJSONString`.
 
-Values are recursively serialized with `StringifyAny`.
+Values are recursively serialized through the `SizeAny` and `WriteAny` path.
 
 ## String Escaping
 
-Strings are quoted through `QuoteJSONString`.
+Strings are quoted through `SizeQuotedJSONString` and `WriteQuotedJSONString`.
 
 Escaped characters include:
 
@@ -1223,10 +1227,10 @@ Space$(IndentSize)
 
 `StringifyWithIndent(True, vbTab)` uses the exact indent string.
 
-Indentation is generated by `RepeatText`.
+Indentation is sized with `IndentSize` and written through `WriteIndent`.
 
 ```vb
-Private Function RepeatText(ByVal Text As String, ByVal Count As Long) As String
+Private Sub WriteIndent(ByRef Writer As JSWriter, ByVal IndentText As String, ByVal Depth As Long)
 ```
 
 The writer uses recursive depth to decide how many indentation units to write.

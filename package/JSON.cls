@@ -23,25 +23,25 @@ Option Explicit
 #If VBA7 Then
     '/** @description Fast memory block copy used to attach and clear SAFEARRAY descriptors. */
     Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As LongPtr)
-    
+
     '/** @description Returns the internal address of a dynamic array descriptor. */
     Private Declare PtrSafe Function VarPtrArray Lib "vbe7" Alias "VarPtr" (ByRef Var() As Any) As LongPtr
-    
+
     '/** @description Performs ordinal UTF-16 string comparison without allocating key substrings. */
     Private Declare PtrSafe Function CompareStringOrdinal Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal cchCount1 As Long, ByVal lpString2 As LongPtr, ByVal cchCount2 As Long, ByVal bIgnoreCase As Long) As Long
-    
+
     '/** @description Native pointer size used when copying SAFEARRAY descriptor pointers. */
     Private Const PTR_SIZE As LongPtr = 8
 #Else
     '/** @description Fast memory block copy used to attach and clear SAFEARRAY descriptors. */
     Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
-    
+
     '/** @description Returns the internal address of a dynamic array descriptor. */
     Private Declare Function VarPtrArray Lib "msvbvm60" Alias "VarPtr" (ByRef Var() As Any) As Long
-    
+
     '/** @description Performs ordinal UTF-16 string comparison without allocating key substrings. */
     Private Declare Function CompareStringOrdinal Lib "kernel32" (ByVal lpString1 As Long, ByVal cchCount1 As Long, ByVal lpString2 As Long, ByVal cchCount2 As Long, ByVal bIgnoreCase As Long) As Long
-    
+
     '/** @description Native pointer size used when copying SAFEARRAY descriptor pointers. */
     Private Const PTR_SIZE As Long = 4
 #End If
@@ -95,6 +95,8 @@ Private Const VBA_TYPE_SCRIPTING_DICTIONARY As String = "Scripting.Dictionary"
 '/** @description UTF-16 character codes used by the zero-copy parser. */
 Private Const CH_TAB As Integer = 9
 Private Const CH_LF As Integer = 10
+Private Const CH_BACKSPACE As Integer = 8
+Private Const CH_FORM_FEED As Integer = 12
 Private Const CH_CR As Integer = 13
 Private Const CH_SPACE As Integer = 32
 Private Const CH_QUOTE As Integer = 34
@@ -177,6 +179,11 @@ Private Type JSToken
     KeyLen As Long
     ValStart As Long
     ValLen As Long
+End Type
+
+Private Type JSWriter
+    Text As String
+    Pos As Long
 End Type
 
 Private m_Chars() As Integer
@@ -265,34 +272,34 @@ End Function
 ' */
 Friend Sub LoadText(ByRef Text As String)
     ClearCharAlias
-    
+
     m_Text = Text
     m_Length = Len(m_Text)
     m_Index = 0
     m_RootId = 0
     m_NodeId = 0
     Set m_Document = Nothing
-    
+
     Erase m_Chars
     Erase m_Tokens
-    
+
     If m_Length = 0 Then Exit Sub
-    
+
     m_TokenCap = m_Length \ JSON_TOKEN_CAPACITY_DIVISOR
-    
+
     If m_TokenCap < JSON_MIN_TOKEN_CAPACITY Then
         m_TokenCap = JSON_MIN_TOKEN_CAPACITY
     End If
-    
+
     If m_TokenCap > JSON_MAX_INITIAL_TOKEN_CAPACITY Then
         m_TokenCap = JSON_MAX_INITIAL_TOKEN_CAPACITY
     End If
-    
+
     m_TokenCount = 0
     ReDim m_Tokens(1 To m_TokenCap)
-    
+
     Dim SA As SAFEARRAY1D
-    
+
     With SA
         .cDims = SAFEARRAY_DIMS_1D
         .fFeatures = SAFEARRAY_FEATURES_NONE
@@ -302,17 +309,17 @@ Friend Sub LoadText(ByRef Text As String)
         .cElements = m_Length
         .lLbound = 0
     End With
-    
+
     #If VBA7 Then
         Dim pSA As LongPtr
     #Else
         Dim pSA As Long
     #End If
-    
+
     pSA = VarPtr(SA)
     CopyMemory ByVal VarPtrArray(m_Chars), pSA, PTR_SIZE
     m_CharAliasActive = True
-    
+
     m_RootId = ParseValue(0, 0, 0)
 End Sub
 
@@ -338,14 +345,14 @@ Attribute Item.VB_UserMemId = 0
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Property
-    
+
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim node As JSON
         Set node = New JSON
@@ -364,11 +371,11 @@ End Property
 Public Property Get Value() As Variant
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     If doc.TokenTypeOf(baseId) = jsObject Or doc.TokenTypeOf(baseId) = jsArray Then
         Set Value = Me
     Else
@@ -384,11 +391,11 @@ End Property
 Public Property Get Count() As Long
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     Count = doc.TokenChildCountOf(baseId)
 End Property
 
@@ -400,11 +407,11 @@ End Property
 Public Property Get JsonType() As String
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     Select Case doc.TokenTypeOf(baseId)
         Case jsObject
             JsonType = JSON_TYPE_OBJECT
@@ -429,11 +436,11 @@ End Property
 Public Property Get IsObject() As Boolean
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     IsObject = (doc.TokenTypeOf(baseId) = jsObject)
 End Property
 
@@ -445,11 +452,11 @@ End Property
 Public Property Get IsArray() As Boolean
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     IsArray = (doc.TokenTypeOf(baseId) = jsArray)
 End Property
 
@@ -461,11 +468,11 @@ End Property
 Public Property Get IsNull() As Boolean
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Property
-    
+
     IsNull = (doc.TokenTypeOf(baseId) = jsNull)
 End Property
 
@@ -478,11 +485,11 @@ End Property
 Public Function Exists(ByVal key As Variant) As Boolean
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     Exists = (doc.ResolveToken(baseId, key) <> 0)
 End Function
 
@@ -496,14 +503,14 @@ Public Function node(ByVal key As Variant) As JSON
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Function
-    
+
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim nodeObj As JSON
         Set nodeObj = New JSON
@@ -522,14 +529,14 @@ Public Function NodeAt(ByVal Index As Long) As JSON
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim nodeObj As JSON
         Set nodeObj = New JSON
@@ -548,14 +555,14 @@ Public Function ValueAt(ByVal Index As Long) As Variant
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim node As JSON
         Set node = New JSON
@@ -576,14 +583,14 @@ Public Function KeyAt(ByVal Index As Long) As String
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     KeyAt = doc.GetRawKey(id)
 End Function
 
@@ -597,14 +604,14 @@ Public Function StringValue(ByVal key As Variant) As String
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Function
-    
+
     StringValue = doc.ValueAsString(id)
 End Function
 
@@ -618,14 +625,14 @@ Public Function NumberValue(ByVal key As Variant) As Double
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Function
-    
+
     NumberValue = doc.ValueAsDouble(id)
 End Function
 
@@ -639,14 +646,14 @@ Public Function BoolValue(ByVal key As Variant) As Boolean
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Function
-    
+
     BoolValue = doc.ValueAsBool(id)
 End Function
 
@@ -660,14 +667,14 @@ Public Function RawStringValue(ByVal key As Variant) As String
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.ResolveToken(baseId, key)
     If id = 0 Then Exit Function
-    
+
     RawStringValue = doc.GetRawSlice(id)
 End Function
 
@@ -681,14 +688,14 @@ Public Function StringAt(ByVal Index As Long) As String
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     StringAt = doc.ValueAsString(id)
 End Function
 
@@ -702,14 +709,14 @@ Public Function NumberAt(ByVal Index As Long) As Double
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     NumberAt = doc.ValueAsDouble(id)
 End Function
 
@@ -723,14 +730,14 @@ Public Function BoolAt(ByVal Index As Long) As Boolean
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     BoolAt = doc.ValueAsBool(id)
 End Function
 
@@ -744,14 +751,14 @@ Public Function RawStringAt(ByVal Index As Long) As String
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     id = doc.FindIndexChild(baseId, Index)
     If id = 0 Then Exit Function
-    
+
     RawStringAt = doc.GetRawSlice(id)
 End Function
 
@@ -763,11 +770,11 @@ End Function
 Public Function FirstChildToken() As Long
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     FirstChildToken = doc.TokenFirstChildOf(baseId)
 End Function
 
@@ -779,11 +786,11 @@ End Function
 Public Function LastChildToken() As Long
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
-    
+
     LastChildToken = doc.TokenLastChildOf(baseId)
 End Function
 
@@ -796,12 +803,12 @@ End Function
 Public Function NextToken(ByVal TokenId As Long) As Long
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     NextToken = doc.TokenNextSiblingOf(TokenId)
 End Function
 
@@ -814,12 +821,12 @@ End Function
 Public Function NodeFromToken(ByVal TokenId As Long) As JSON
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
         Dim node As JSON
         Set node = New JSON
@@ -837,12 +844,12 @@ End Function
 Public Function TokenKey(ByVal TokenId As Long) As String
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     TokenKey = doc.GetRawKey(TokenId)
 End Function
 
@@ -855,12 +862,12 @@ End Function
 Public Function TokenValue(ByVal TokenId As Long) As Variant
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
         Dim node As JSON
         Set node = New JSON
@@ -880,12 +887,12 @@ End Function
 Public Function TokenStringValue(ByVal TokenId As Long) As String
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     TokenStringValue = doc.ValueAsString(TokenId)
 End Function
 
@@ -898,12 +905,12 @@ End Function
 Public Function TokenRawStringValue(ByVal TokenId As Long) As String
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     TokenRawStringValue = doc.GetRawSlice(TokenId)
 End Function
 
@@ -916,12 +923,12 @@ End Function
 Public Function TokenNumberValue(ByVal TokenId As Long) As Double
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     TokenNumberValue = doc.ValueAsDouble(TokenId)
 End Function
 
@@ -934,12 +941,12 @@ End Function
 Public Function TokenBoolValue(ByVal TokenId As Long) As Boolean
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     TokenBoolValue = doc.ValueAsBool(TokenId)
 End Function
 
@@ -954,15 +961,15 @@ Public Function TokenString(ByVal TokenId As Long, ByVal key As Variant) As Stri
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.ResolveToken(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     TokenString = doc.ValueAsString(id)
 End Function
 
@@ -977,15 +984,15 @@ Public Function TokenRawString(ByVal TokenId As Long, ByVal key As Variant) As S
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.ResolveToken(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     TokenRawString = doc.GetRawSlice(id)
 End Function
 
@@ -1000,15 +1007,15 @@ Public Function TokenRawField(ByVal TokenId As Long, ByVal key As String) As Str
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.FindChildFast(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     TokenRawField = doc.GetRawSlice(id)
 End Function
 
@@ -1023,15 +1030,15 @@ Public Function TokenNumber(ByVal TokenId As Long, ByVal key As Variant) As Doub
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.ResolveToken(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     TokenNumber = doc.ValueAsDouble(id)
 End Function
 
@@ -1046,15 +1053,15 @@ Public Function TokenBool(ByVal TokenId As Long, ByVal key As Variant) As Boolea
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.ResolveToken(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     TokenBool = doc.ValueAsBool(id)
 End Function
 
@@ -1069,15 +1076,15 @@ Public Function TokenNode(ByVal TokenId As Long, ByVal key As Variant) As JSON
     Dim doc As JSON
     Dim baseId As Long
     Dim id As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
-    
+
     id = doc.ResolveToken(TokenId, key)
     If id = 0 Then Exit Function
-    
+
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim node As JSON
         Set node = New JSON
@@ -1157,13 +1164,13 @@ End Function
 ' */
 Private Sub ClearCharAlias()
     If Not m_CharAliasActive Then Exit Sub
-    
+
     #If VBA7 Then
         Dim nullPtr As LongPtr
     #Else
         Dim nullPtr As Long
     #End If
-    
+
     nullPtr = 0
     CopyMemory ByVal VarPtrArray(m_Chars), nullPtr, PTR_SIZE
     m_CharAliasActive = False
@@ -1194,7 +1201,7 @@ End Sub
 ' */
 Friend Function ResolveToken(ByVal ParentId As Long, ByVal key As Variant) As Long
     If ParentId < 1 Or ParentId > m_TokenCount Then Exit Function
-    
+
     If VarType(key) = vbString Then
         ResolveToken = FindChildFast(ParentId, CStr(key))
     Else
@@ -1210,7 +1217,7 @@ End Function
 ' */
 Friend Function PrimitiveValue(ByVal TokenId As Long) As Variant
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
-    
+
     Select Case m_Tokens(TokenId).Type
         Case jsString
             PrimitiveValue = GetRawValue(TokenId)
@@ -1231,7 +1238,7 @@ End Function
 ' */
 Friend Function ValueAsString(ByVal TokenId As Long) As String
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
-    
+
     Select Case m_Tokens(TokenId).Type
         Case jsString
             ValueAsString = GetRawValue(TokenId)
@@ -1250,7 +1257,7 @@ End Function
 ' */
 Friend Function ValueAsDouble(ByVal TokenId As Long) As Double
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
-    
+
     If m_Tokens(TokenId).Type = jsNumber Then
         ValueAsDouble = val(GetRawSlice(TokenId))
     End If
@@ -1264,7 +1271,7 @@ End Function
 ' */
 Friend Function ValueAsBool(ByVal TokenId As Long) As Boolean
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
-    
+
     If m_Tokens(TokenId).Type = jsBool Then
         ValueAsBool = (m_Chars(m_Tokens(TokenId).ValStart - 1) = CH_TRUE)
     End If
@@ -1277,17 +1284,17 @@ End Function
 ' */
 Private Function AddToken() As Long
     m_TokenCount = m_TokenCount + 1
-    
+
     If m_TokenCount > m_TokenCap Then
         If m_TokenCap < JSON_LARGE_TOKEN_CAPACITY Then
             m_TokenCap = m_TokenCap * 2
         Else
             m_TokenCap = m_TokenCap + (m_TokenCap \ 2)
         End If
-        
+
         ReDim Preserve m_Tokens(1 To m_TokenCap)
     End If
-    
+
     AddToken = m_TokenCount
 End Function
 
@@ -1301,61 +1308,61 @@ End Function
 ' */
 Private Function ParseValue(ByVal ParentId As Long, ByVal KeyStart As Long, ByVal KeyLen As Long) As Long
     SkipWhitespace
-    
+
     If m_Index >= m_Length Then Exit Function
-    
+
     Dim id As Long
     id = AddToken()
     ParseValue = id
-    
+
     With m_Tokens(id)
         .Parent = ParentId
         .KeyStart = KeyStart
         .KeyLen = KeyLen
     End With
-    
+
     If ParentId > 0 Then
         If m_Tokens(ParentId).FirstChild = 0 Then
             m_Tokens(ParentId).FirstChild = id
         Else
             m_Tokens(m_Tokens(ParentId).LastChild).NextSibling = id
         End If
-        
+
         m_Tokens(ParentId).LastChild = id
         m_Tokens(ParentId).ChildCount = m_Tokens(ParentId).ChildCount + 1
     End If
-    
+
     Select Case m_Chars(m_Index)
         Case CH_OBJECT_OPEN
             m_Tokens(id).Type = jsObject
             ParseObject id
-        
+
         Case CH_ARRAY_OPEN
             m_Tokens(id).Type = jsArray
             ParseArray id
-        
+
         Case CH_QUOTE
             m_Tokens(id).Type = jsString
             ParseString id
-        
+
         Case CH_TRUE
             m_Tokens(id).Type = jsBool
             m_Tokens(id).ValStart = m_Index + 1
             m_Tokens(id).ValLen = JSON_LITERAL_TRUE_LENGTH
             m_Index = m_Index + JSON_LITERAL_TRUE_LENGTH
-        
+
         Case CH_FALSE
             m_Tokens(id).Type = jsBool
             m_Tokens(id).ValStart = m_Index + 1
             m_Tokens(id).ValLen = JSON_LITERAL_FALSE_LENGTH
             m_Index = m_Index + JSON_LITERAL_FALSE_LENGTH
-        
+
         Case CH_NULL
             m_Tokens(id).Type = jsNull
             m_Tokens(id).ValStart = m_Index + 1
             m_Tokens(id).ValLen = JSON_LITERAL_NULL_LENGTH
             m_Index = m_Index + JSON_LITERAL_NULL_LENGTH
-        
+
         Case CH_MINUS, CH_0 To CH_9
             m_Tokens(id).Type = jsNumber
             ParseNumber id
@@ -1384,38 +1391,38 @@ End Sub
 ' */
 Private Sub ParseObject(ByVal id As Long)
     m_Index = m_Index + 1
-    
+
     Do While m_Index < m_Length
         SkipWhitespace
-        
+
         If m_Index >= m_Length Then Exit Do
-        
+
         If m_Chars(m_Index) = CH_OBJECT_CLOSE Then
             m_Index = m_Index + 1
             Exit Sub
         End If
-        
+
         Dim kStart As Long
         Dim kLen As Long
-        
+
         If m_Chars(m_Index) = CH_QUOTE Then
             ScanJSONString kStart, kLen
         End If
-        
+
         SkipWhitespace
-        
+
         If m_Index >= m_Length Then Exit Do
-        
+
         If m_Chars(m_Index) = CH_COLON Then
             m_Index = m_Index + 1
         End If
-        
+
         ParseValue id, kStart, kLen
-        
+
         SkipWhitespace
-        
+
         If m_Index >= m_Length Then Exit Do
-        
+
         If m_Chars(m_Index) = CH_COMMA Then
             m_Index = m_Index + 1
         End If
@@ -1429,23 +1436,23 @@ End Sub
 ' */
 Private Sub ParseArray(ByVal id As Long)
     m_Index = m_Index + 1
-    
+
     Do While m_Index < m_Length
         SkipWhitespace
-        
+
         If m_Index >= m_Length Then Exit Do
-        
+
         If m_Chars(m_Index) = CH_ARRAY_CLOSE Then
             m_Index = m_Index + 1
             Exit Sub
         End If
-        
+
         ParseValue id, 0, 0
-        
+
         SkipWhitespace
-        
+
         If m_Index >= m_Length Then Exit Do
-        
+
         If m_Chars(m_Index) = CH_COMMA Then
             m_Index = m_Index + 1
         End If
@@ -1473,36 +1480,36 @@ Private Sub ScanJSONString(ByRef StartPos As Long, ByRef LengthOut As Long)
     Dim slashCount As Long
     Dim p As Long
     Dim firstChar As Long
-    
+
     m_Index = m_Index + 1
     StartPos = m_Index + 1
     searchFrom = StartPos
     firstChar = StartPos - 1
-    
+
     Do
         quotePos = InStr(searchFrom, m_Text, """")
-        
+
         If quotePos = 0 Then
             LengthOut = m_Length - StartPos + 1
             m_Index = m_Length
             Exit Sub
         End If
-        
+
         slashCount = 0
         p = quotePos - 2
-        
+
         Do While p >= firstChar
             If m_Chars(p) <> CH_BACKSLASH Then Exit Do
             slashCount = slashCount + 1
             p = p - 1
         Loop
-        
+
         If (slashCount And 1) = 0 Then
             LengthOut = quotePos - StartPos
             m_Index = quotePos
             Exit Sub
         End If
-        
+
         searchFrom = quotePos + 1
     Loop
 End Sub
@@ -1514,7 +1521,7 @@ End Sub
 ' */
 Private Sub ParseNumber(ByVal id As Long)
     m_Tokens(id).ValStart = m_Index + 1
-    
+
     Do While m_Index < m_Length
         Select Case m_Chars(m_Index)
             Case CH_MINUS, CH_DOT, CH_0 To CH_9, CH_E_UPPER, CH_E_LOWER, CH_PLUS
@@ -1523,7 +1530,7 @@ Private Sub ParseNumber(ByVal id As Long)
                 Exit Do
         End Select
     Loop
-    
+
     m_Tokens(id).ValLen = m_Index - m_Tokens(id).ValStart + 1
 End Sub
 
@@ -1536,15 +1543,15 @@ End Sub
 ' */
 Friend Function FindChildFast(ByVal ParentId As Long, ByRef KeyName As String) As Long
     Dim child As Long
-    
+
     child = m_Tokens(ParentId).FirstChild
-    
+
     Do While child > 0
         If KeyEquals(child, KeyName) Then
             FindChildFast = child
             Exit Function
         End If
-        
+
         child = m_Tokens(child).NextSibling
     Loop
 End Function
@@ -1559,7 +1566,7 @@ End Function
 Private Function KeyEquals(ByVal TokenId As Long, ByRef KeyName As String) As Boolean
     If m_Tokens(TokenId).KeyLen <> Len(KeyName) Then Exit Function
     If m_Tokens(TokenId).KeyLen = 0 Then Exit Function
-    
+
     #If VBA7 Then
         Dim pJson As LongPtr
         Dim pKey As LongPtr
@@ -1567,10 +1574,10 @@ Private Function KeyEquals(ByVal TokenId As Long, ByRef KeyName As String) As Bo
         Dim pJson As Long
         Dim pKey As Long
     #End If
-    
+
     pJson = StrPtr(m_Text) + ((m_Tokens(TokenId).KeyStart - 1) * UTF16_CODE_UNIT_BYTES)
     pKey = StrPtr(KeyName)
-    
+
     KeyEquals = (CompareStringOrdinal(pJson, m_Tokens(TokenId).KeyLen, pKey, Len(KeyName), COMPARE_STRING_CASE_SENSITIVE) = COMPARE_STRING_EQUAL)
 End Function
 
@@ -1583,18 +1590,18 @@ End Function
 ' */
 Friend Function FindIndexChild(ByVal ParentId As Long, ByVal Index As Long) As Long
     If Index < 0 Then Exit Function
-    
+
     Dim child As Long
     Dim i As Long
-    
+
     child = m_Tokens(ParentId).FirstChild
-    
+
     Do While child > 0
         If i = Index Then
             FindIndexChild = child
             Exit Function
         End If
-        
+
         i = i + 1
         child = m_Tokens(child).NextSibling
     Loop
@@ -1609,9 +1616,9 @@ End Function
 Friend Function GetRawKey(ByVal TokenId As Long) As String
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
     If m_Tokens(TokenId).KeyLen <= 0 Then Exit Function
-    
+
     GetRawKey = Mid$(m_Text, m_Tokens(TokenId).KeyStart, m_Tokens(TokenId).KeyLen)
-    
+
     If InStr(1, GetRawKey, "\") > 0 Then
         GetRawKey = UnescapeJSONString(GetRawKey)
     End If
@@ -1626,9 +1633,9 @@ End Function
 Friend Function GetRawValue(ByVal TokenId As Long) As String
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
     If m_Tokens(TokenId).ValLen <= 0 Then Exit Function
-    
+
     GetRawValue = Mid$(m_Text, m_Tokens(TokenId).ValStart, m_Tokens(TokenId).ValLen)
-    
+
     If InStr(1, GetRawValue, "\") > 0 Then
         GetRawValue = UnescapeJSONString(GetRawValue)
     End If
@@ -1643,7 +1650,7 @@ End Function
 Friend Function GetRawSlice(ByVal TokenId As Long) As String
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
     If m_Tokens(TokenId).ValLen <= 0 Then Exit Function
-    
+
     GetRawSlice = Mid$(m_Text, m_Tokens(TokenId).ValStart, m_Tokens(TokenId).ValLen)
 End Function
 
@@ -1662,7 +1669,7 @@ Private Function UnescapeJSONString(ByVal Text As String) As String
     Text = Replace(Text, "\n", vbLf)
     Text = Replace(Text, "\r", vbCr)
     Text = Replace(Text, "\t", vbTab)
-    
+
     UnescapeJSONString = Text
 End Function
 
@@ -1676,14 +1683,14 @@ End Function
 Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As String) As String
     Dim doc As JSON
     Dim baseId As Long
-    
+
     ResolveBase doc, baseId
-    
+
     If baseId = 0 Then
         StringifyCurrent = JSON_LITERAL_NULL
         Exit Function
     End If
-    
+
     StringifyCurrent = doc.StringifyToken(baseId, Pretty, IndentText, 0)
 End Function
 
@@ -1697,34 +1704,243 @@ End Function
 ' * @return JSON text.
 ' */
 Friend Function StringifyToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+    Dim writer As JSWriter
+
     If TokenId < 1 Or TokenId > m_TokenCount Then
         StringifyToken = JSON_LITERAL_NULL
         Exit Function
     End If
-    
+
+    InitWriter writer, SizeToken(TokenId, Pretty, IndentText, Depth)
+    WriteToken writer, TokenId, Pretty, IndentText, Depth
+    StringifyToken = FinishWriter(writer)
+End Function
+
+Private Sub InitWriter(ByRef Writer As JSWriter, ByVal Size As Long)
+    If Size <= 0 Then
+        Writer.Text = vbNullString
+    Else
+        Writer.Text = String$(Size, vbNullChar)
+    End If
+
+    Writer.Pos = 1
+End Sub
+
+Private Function FinishWriter(ByRef Writer As JSWriter) As String
+    If Writer.Pos <= Len(Writer.Text) Then
+        FinishWriter = Left$(Writer.Text, Writer.Pos - 1)
+    Else
+        FinishWriter = Writer.Text
+    End If
+End Function
+
+Private Sub WriteText(ByRef Writer As JSWriter, ByVal Text As String)
+    Dim n As Long
+
+    n = Len(Text)
+    If n = 0 Then Exit Sub
+
+    Mid$(Writer.Text, Writer.Pos, n) = Text
+    Writer.Pos = Writer.Pos + n
+End Sub
+
+Private Function SizeToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    If TokenId < 1 Or TokenId > m_TokenCount Then
+        SizeToken = Len(JSON_LITERAL_NULL)
+        Exit Function
+    End If
+
     Select Case m_Tokens(TokenId).Type
         Case jsObject
-            StringifyToken = StringifyObjectToken(TokenId, Pretty, IndentText, Depth)
-        
+            SizeToken = SizeObjectToken(TokenId, Pretty, IndentText, Depth)
         Case jsArray
-            StringifyToken = StringifyArrayToken(TokenId, Pretty, IndentText, Depth)
-        
+            SizeToken = SizeArrayToken(TokenId, Pretty, IndentText, Depth)
         Case jsString
-            StringifyToken = QuoteJSONString(GetRawValue(TokenId))
-        
-        Case jsNumber
-            StringifyToken = GetRawSlice(TokenId)
-        
-        Case jsBool
-            StringifyToken = GetRawSlice(TokenId)
-        
+            SizeToken = SizeQuotedJSONString(GetRawValue(TokenId))
+        Case jsNumber, jsBool
+            SizeToken = m_Tokens(TokenId).ValLen
         Case jsNull
-            StringifyToken = JSON_LITERAL_NULL
-        
+            SizeToken = Len(JSON_LITERAL_NULL)
         Case Else
-            StringifyToken = JSON_LITERAL_NULL
+            SizeToken = Len(JSON_LITERAL_NULL)
     End Select
 End Function
+
+Private Sub WriteToken(ByRef Writer As JSWriter, ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim text As String
+
+    If TokenId < 1 Or TokenId > m_TokenCount Then
+        WriteText Writer, JSON_LITERAL_NULL
+        Exit Sub
+    End If
+
+    Select Case m_Tokens(TokenId).Type
+        Case jsObject
+            WriteObjectToken Writer, TokenId, Pretty, IndentText, Depth
+        Case jsArray
+            WriteArrayToken Writer, TokenId, Pretty, IndentText, Depth
+        Case jsString
+            text = GetRawValue(TokenId)
+            WriteQuotedJSONString Writer, text
+        Case jsNumber, jsBool
+            text = GetRawSlice(TokenId)
+            WriteText Writer, text
+        Case jsNull
+            WriteText Writer, JSON_LITERAL_NULL
+        Case Else
+            WriteText Writer, JSON_LITERAL_NULL
+    End Select
+End Sub
+
+Private Function SizeObjectToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    Dim child As Long
+    Dim first As Boolean
+
+    If m_Tokens(TokenId).ChildCount = 0 Then
+        SizeObjectToken = Len(JSON_EMPTY_OBJECT)
+        Exit Function
+    End If
+
+    SizeObjectToken = Len(JSON_OBJECT_OPEN)
+    first = True
+    child = m_Tokens(TokenId).FirstChild
+
+    Do While child > 0
+        If first Then
+            first = False
+        Else
+            SizeObjectToken = SizeObjectToken + Len(JSON_COMMA)
+        End If
+
+        If Pretty Then SizeObjectToken = SizeObjectToken + Len(vbCrLf) + IndentSize(IndentText, Depth + 1)
+        SizeObjectToken = SizeObjectToken + SizeQuotedJSONString(GetRawKey(child))
+
+        If Pretty Then
+            SizeObjectToken = SizeObjectToken + Len(JSON_COLON_PRETTY)
+        Else
+            SizeObjectToken = SizeObjectToken + Len(JSON_COLON)
+        End If
+
+        SizeObjectToken = SizeObjectToken + SizeToken(child, Pretty, IndentText, Depth + 1)
+        child = m_Tokens(child).NextSibling
+    Loop
+
+    If Pretty Then SizeObjectToken = SizeObjectToken + Len(vbCrLf) + IndentSize(IndentText, Depth)
+    SizeObjectToken = SizeObjectToken + Len(JSON_OBJECT_CLOSE)
+End Function
+
+Private Sub WriteObjectToken(ByRef Writer As JSWriter, ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim child As Long
+    Dim first As Boolean
+    Dim keyText As String
+
+    If m_Tokens(TokenId).ChildCount = 0 Then
+        WriteText Writer, JSON_EMPTY_OBJECT
+        Exit Sub
+    End If
+
+    WriteText Writer, JSON_OBJECT_OPEN
+    first = True
+    child = m_Tokens(TokenId).FirstChild
+
+    Do While child > 0
+        If first Then
+            first = False
+        Else
+            WriteText Writer, JSON_COMMA
+        End If
+
+        If Pretty Then
+            WriteText Writer, vbCrLf
+            WriteIndent Writer, IndentText, Depth + 1
+        End If
+
+        keyText = GetRawKey(child)
+        WriteQuotedJSONString Writer, keyText
+
+        If Pretty Then
+            WriteText Writer, JSON_COLON_PRETTY
+        Else
+            WriteText Writer, JSON_COLON
+        End If
+
+        WriteToken Writer, child, Pretty, IndentText, Depth + 1
+        child = m_Tokens(child).NextSibling
+    Loop
+
+    If Pretty Then
+        WriteText Writer, vbCrLf
+        WriteIndent Writer, IndentText, Depth
+    End If
+
+    WriteText Writer, JSON_OBJECT_CLOSE
+End Sub
+
+Private Function SizeArrayToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    Dim child As Long
+    Dim first As Boolean
+
+    If m_Tokens(TokenId).ChildCount = 0 Then
+        SizeArrayToken = Len(JSON_EMPTY_ARRAY)
+        Exit Function
+    End If
+
+    SizeArrayToken = Len(JSON_ARRAY_OPEN)
+    first = True
+    child = m_Tokens(TokenId).FirstChild
+
+    Do While child > 0
+        If first Then
+            first = False
+        Else
+            SizeArrayToken = SizeArrayToken + Len(JSON_COMMA)
+        End If
+
+        If Pretty Then SizeArrayToken = SizeArrayToken + Len(vbCrLf) + IndentSize(IndentText, Depth + 1)
+        SizeArrayToken = SizeArrayToken + SizeToken(child, Pretty, IndentText, Depth + 1)
+        child = m_Tokens(child).NextSibling
+    Loop
+
+    If Pretty Then SizeArrayToken = SizeArrayToken + Len(vbCrLf) + IndentSize(IndentText, Depth)
+    SizeArrayToken = SizeArrayToken + Len(JSON_ARRAY_CLOSE)
+End Function
+
+Private Sub WriteArrayToken(ByRef Writer As JSWriter, ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim child As Long
+    Dim first As Boolean
+
+    If m_Tokens(TokenId).ChildCount = 0 Then
+        WriteText Writer, JSON_EMPTY_ARRAY
+        Exit Sub
+    End If
+
+    WriteText Writer, JSON_ARRAY_OPEN
+    first = True
+    child = m_Tokens(TokenId).FirstChild
+
+    Do While child > 0
+        If first Then
+            first = False
+        Else
+            WriteText Writer, JSON_COMMA
+        End If
+
+        If Pretty Then
+            WriteText Writer, vbCrLf
+            WriteIndent Writer, IndentText, Depth + 1
+        End If
+
+        WriteToken Writer, child, Pretty, IndentText, Depth + 1
+        child = m_Tokens(child).NextSibling
+    Loop
+
+    If Pretty Then
+        WriteText Writer, vbCrLf
+        WriteIndent Writer, IndentText, Depth
+    End If
+
+    WriteText Writer, JSON_ARRAY_CLOSE
+End Sub
 
 '/**
 ' * @method StringifyObjectToken
@@ -1736,47 +1952,11 @@ End Function
 ' * @return JSON object text.
 ' */
 Private Function StringifyObjectToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    Dim result As String
-    Dim child As Long
-    Dim first As Boolean
-    
-    If m_Tokens(TokenId).ChildCount = 0 Then
-        StringifyObjectToken = JSON_EMPTY_OBJECT
-        Exit Function
-    End If
-    
-    result = JSON_OBJECT_OPEN
-    first = True
-    child = m_Tokens(TokenId).FirstChild
-    
-    Do While child > 0
-        If first Then
-            first = False
-        Else
-            result = result & JSON_COMMA
-        End If
-        
-        If Pretty Then
-            result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
-        End If
-        
-        result = result & QuoteJSONString(GetRawKey(child))
-        
-        If Pretty Then
-            result = result & JSON_COLON_PRETTY
-        Else
-            result = result & JSON_COLON
-        End If
-        
-        result = result & StringifyToken(child, Pretty, IndentText, Depth + 1)
-        child = m_Tokens(child).NextSibling
-    Loop
-    
-    If Pretty Then
-        result = result & vbCrLf & RepeatText(IndentText, Depth)
-    End If
-    
-    StringifyObjectToken = result & JSON_OBJECT_CLOSE
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeObjectToken(TokenId, Pretty, IndentText, Depth)
+    WriteObjectToken writer, TokenId, Pretty, IndentText, Depth
+    StringifyObjectToken = FinishWriter(writer)
 End Function
 
 '/**
@@ -1789,39 +1969,11 @@ End Function
 ' * @return JSON array text.
 ' */
 Private Function StringifyArrayToken(ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    Dim result As String
-    Dim child As Long
-    Dim first As Boolean
-    
-    If m_Tokens(TokenId).ChildCount = 0 Then
-        StringifyArrayToken = JSON_EMPTY_ARRAY
-        Exit Function
-    End If
-    
-    result = JSON_ARRAY_OPEN
-    first = True
-    child = m_Tokens(TokenId).FirstChild
-    
-    Do While child > 0
-        If first Then
-            first = False
-        Else
-            result = result & JSON_COMMA
-        End If
-        
-        If Pretty Then
-            result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
-        End If
-        
-        result = result & StringifyToken(child, Pretty, IndentText, Depth + 1)
-        child = m_Tokens(child).NextSibling
-    Loop
-    
-    If Pretty Then
-        result = result & vbCrLf & RepeatText(IndentText, Depth)
-    End If
-    
-    StringifyArrayToken = result & JSON_ARRAY_CLOSE
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeArrayToken(TokenId, Pretty, IndentText, Depth)
+    WriteArrayToken writer, TokenId, Pretty, IndentText, Depth
+    StringifyArrayToken = FinishWriter(writer)
 End Function
 
 '/**
@@ -1834,53 +1986,432 @@ End Function
 ' * @return JSON text.
 ' */
 Friend Function StringifyAny(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeAny(Value, Pretty, IndentText, Depth)
+    WriteAny writer, Value, Pretty, IndentText, Depth
+    StringifyAny = FinishWriter(writer)
+End Function
+
+Private Function SizeAny(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
     Dim valueType As Integer
+    Dim text As String
 
     If VBA.IsObject(Value) Then
         Dim objectValue As Object
         Set objectValue = Value
-        StringifyAny = StringifyObjectValue(objectValue, Pretty, IndentText, Depth)
+        SizeAny = SizeObjectValue(objectValue, Pretty, IndentText, Depth)
         Exit Function
     End If
-    
-    If VBA.IsNull(Value) Then
-        StringifyAny = JSON_LITERAL_NULL
-        Exit Function
-    End If
-    
-    If VBA.IsEmpty(Value) Then
-        StringifyAny = JSON_LITERAL_NULL
-        Exit Function
-    End If
-    
+
     valueType = VarType(Value)
 
     If (valueType And vbArray) = vbArray Then
-        StringifyAny = StringifyArrayValue(Value, Pretty, IndentText, Depth)
+        SizeAny = SizeArrayValue(Value, Pretty, IndentText, Depth)
         Exit Function
     End If
-    
+
+    If valueType = vbNull Or valueType = vbEmpty Then
+        SizeAny = Len(JSON_LITERAL_NULL)
+        Exit Function
+    End If
+
     Select Case valueType
         Case vbString
-            StringifyAny = QuoteJSONString(CStr(Value))
-        
+            SizeAny = SizeQuotedJSONString(CStr(Value))
         Case vbBoolean
             If CBool(Value) Then
-                StringifyAny = JSON_LITERAL_TRUE
+                SizeAny = Len(JSON_LITERAL_TRUE)
             Else
-                StringifyAny = JSON_LITERAL_FALSE
+                SizeAny = Len(JSON_LITERAL_FALSE)
             End If
-        
         Case vbByte, vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal
-            StringifyAny = NormalizeNumber(CStr(Value))
-        
+            text = NormalizeNumber(CStr(Value))
+            SizeAny = Len(text)
         Case vbDate
-            StringifyAny = QuoteJSONString(Format$(CDate(Value), JSON_DATE_FORMAT))
-        
+            text = Format$(CDate(Value), JSON_DATE_FORMAT)
+            SizeAny = SizeQuotedJSONString(text)
         Case Else
-            StringifyAny = QuoteJSONString(CStr(Value))
+            SizeAny = SizeQuotedJSONString(CStr(Value))
     End Select
 End Function
+
+Private Sub WriteAny(ByRef Writer As JSWriter, ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim valueType As Integer
+    Dim text As String
+
+    If VBA.IsObject(Value) Then
+        Dim objectValue As Object
+        Set objectValue = Value
+        WriteObjectValue Writer, objectValue, Pretty, IndentText, Depth
+        Exit Sub
+    End If
+
+    valueType = VarType(Value)
+
+    If (valueType And vbArray) = vbArray Then
+        WriteArrayValue Writer, Value, Pretty, IndentText, Depth
+        Exit Sub
+    End If
+
+    If valueType = vbNull Or valueType = vbEmpty Then
+        WriteText Writer, JSON_LITERAL_NULL
+        Exit Sub
+    End If
+
+    Select Case valueType
+        Case vbString
+            text = CStr(Value)
+            WriteQuotedJSONString Writer, text
+        Case vbBoolean
+            If CBool(Value) Then
+                WriteText Writer, JSON_LITERAL_TRUE
+            Else
+                WriteText Writer, JSON_LITERAL_FALSE
+            End If
+        Case vbByte, vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal
+            text = NormalizeNumber(CStr(Value))
+            WriteText Writer, text
+        Case vbDate
+            text = Format$(CDate(Value), JSON_DATE_FORMAT)
+            WriteQuotedJSONString Writer, text
+        Case Else
+            text = CStr(Value)
+            WriteQuotedJSONString Writer, text
+    End Select
+End Sub
+
+Private Function SizeObjectValue(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    If Value Is Nothing Then
+        SizeObjectValue = Len(JSON_LITERAL_NULL)
+        Exit Function
+    End If
+
+    Select Case TypeName(Value)
+        Case VBA_TYPE_JSON
+            Dim node As JSON
+            Set node = Value
+            SizeObjectValue = Len(node.StringifyCurrent(Pretty, IndentText))
+        Case VBA_TYPE_COLLECTION
+            SizeObjectValue = SizeCollection(Value, Pretty, IndentText, Depth)
+        Case VBA_TYPE_DICTIONARY, VBA_TYPE_SCRIPTING_DICTIONARY
+            SizeObjectValue = SizeDictionary(Value, Pretty, IndentText, Depth)
+        Case Else
+            SizeObjectValue = Len(JSON_LITERAL_NULL)
+    End Select
+End Function
+
+Private Sub WriteObjectValue(ByRef Writer As JSWriter, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    If Value Is Nothing Then
+        WriteText Writer, JSON_LITERAL_NULL
+        Exit Sub
+    End If
+
+    Select Case TypeName(Value)
+        Case VBA_TYPE_JSON
+            Dim node As JSON
+            Dim text As String
+            Set node = Value
+            text = node.StringifyCurrent(Pretty, IndentText)
+            WriteText Writer, text
+        Case VBA_TYPE_COLLECTION
+            WriteCollection Writer, Value, Pretty, IndentText, Depth
+        Case VBA_TYPE_DICTIONARY, VBA_TYPE_SCRIPTING_DICTIONARY
+            WriteDictionary Writer, Value, Pretty, IndentText, Depth
+        Case Else
+            WriteText Writer, JSON_LITERAL_NULL
+    End Select
+End Sub
+
+Private Function SizeArrayValue(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    Dim i As Long
+    Dim first As Boolean
+
+    SizeArrayValue = Len(JSON_ARRAY_OPEN)
+    first = True
+
+    For i = LBound(Value) To UBound(Value)
+        If first Then
+            first = False
+        Else
+            SizeArrayValue = SizeArrayValue + Len(JSON_COMMA)
+        End If
+
+        If Pretty Then SizeArrayValue = SizeArrayValue + Len(vbCrLf) + IndentSize(IndentText, Depth + 1)
+        SizeArrayValue = SizeArrayValue + SizeAny(Value(i), Pretty, IndentText, Depth + 1)
+    Next i
+
+    If Pretty And Not first Then SizeArrayValue = SizeArrayValue + Len(vbCrLf) + IndentSize(IndentText, Depth)
+    SizeArrayValue = SizeArrayValue + Len(JSON_ARRAY_CLOSE)
+End Function
+
+Private Sub WriteArrayValue(ByRef Writer As JSWriter, ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim i As Long
+    Dim first As Boolean
+
+    WriteText Writer, JSON_ARRAY_OPEN
+    first = True
+
+    For i = LBound(Value) To UBound(Value)
+        If first Then
+            first = False
+        Else
+            WriteText Writer, JSON_COMMA
+        End If
+
+        If Pretty Then
+            WriteText Writer, vbCrLf
+            WriteIndent Writer, IndentText, Depth + 1
+        End If
+
+        WriteAny Writer, Value(i), Pretty, IndentText, Depth + 1
+    Next i
+
+    If Pretty And Not first Then
+        WriteText Writer, vbCrLf
+        WriteIndent Writer, IndentText, Depth
+    End If
+
+    WriteText Writer, JSON_ARRAY_CLOSE
+End Sub
+
+Private Function SizeCollection(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    Dim i As Long
+
+    If Value.Count = 0 Then
+        SizeCollection = Len(JSON_EMPTY_ARRAY)
+        Exit Function
+    End If
+
+    SizeCollection = Len(JSON_ARRAY_OPEN)
+
+    For i = 1 To Value.Count
+        If i > 1 Then SizeCollection = SizeCollection + Len(JSON_COMMA)
+        If Pretty Then SizeCollection = SizeCollection + Len(vbCrLf) + IndentSize(IndentText, Depth + 1)
+        SizeCollection = SizeCollection + SizeAny(Value.Item(i), Pretty, IndentText, Depth + 1)
+    Next i
+
+    If Pretty Then SizeCollection = SizeCollection + Len(vbCrLf) + IndentSize(IndentText, Depth)
+    SizeCollection = SizeCollection + Len(JSON_ARRAY_CLOSE)
+End Function
+
+Private Sub WriteCollection(ByRef Writer As JSWriter, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim i As Long
+
+    If Value.Count = 0 Then
+        WriteText Writer, JSON_EMPTY_ARRAY
+        Exit Sub
+    End If
+
+    WriteText Writer, JSON_ARRAY_OPEN
+
+    For i = 1 To Value.Count
+        If i > 1 Then WriteText Writer, JSON_COMMA
+
+        If Pretty Then
+            WriteText Writer, vbCrLf
+            WriteIndent Writer, IndentText, Depth + 1
+        End If
+
+        WriteAny Writer, Value.Item(i), Pretty, IndentText, Depth + 1
+    Next i
+
+    If Pretty Then
+        WriteText Writer, vbCrLf
+        WriteIndent Writer, IndentText, Depth
+    End If
+
+    WriteText Writer, JSON_ARRAY_CLOSE
+End Sub
+
+Private Function SizeDictionary(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As Long
+    Dim keys As Variant
+    Dim key As Variant
+    Dim i As Long
+
+    If Value.Count = 0 Then
+        SizeDictionary = Len(JSON_EMPTY_OBJECT)
+        Exit Function
+    End If
+
+    keys = Value.keys
+    SizeDictionary = Len(JSON_OBJECT_OPEN)
+
+    For i = LBound(keys) To UBound(keys)
+        If i > LBound(keys) Then SizeDictionary = SizeDictionary + Len(JSON_COMMA)
+        If Pretty Then SizeDictionary = SizeDictionary + Len(vbCrLf) + IndentSize(IndentText, Depth + 1)
+
+        key = keys(i)
+        SizeDictionary = SizeDictionary + SizeQuotedJSONString(CStr(key))
+
+        If Pretty Then
+            SizeDictionary = SizeDictionary + Len(JSON_COLON_PRETTY)
+        Else
+            SizeDictionary = SizeDictionary + Len(JSON_COLON)
+        End If
+
+        SizeDictionary = SizeDictionary + SizeAny(Value.Item(key), Pretty, IndentText, Depth + 1)
+    Next i
+
+    If Pretty Then SizeDictionary = SizeDictionary + Len(vbCrLf) + IndentSize(IndentText, Depth)
+    SizeDictionary = SizeDictionary + Len(JSON_OBJECT_CLOSE)
+End Function
+
+Private Sub WriteDictionary(ByRef Writer As JSWriter, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    Dim keys As Variant
+    Dim key As Variant
+    Dim i As Long
+    Dim keyText As String
+
+    If Value.Count = 0 Then
+        WriteText Writer, JSON_EMPTY_OBJECT
+        Exit Sub
+    End If
+
+    keys = Value.keys
+    WriteText Writer, JSON_OBJECT_OPEN
+
+    For i = LBound(keys) To UBound(keys)
+        If i > LBound(keys) Then WriteText Writer, JSON_COMMA
+
+        If Pretty Then
+            WriteText Writer, vbCrLf
+            WriteIndent Writer, IndentText, Depth + 1
+        End If
+
+        key = keys(i)
+        keyText = CStr(key)
+        WriteQuotedJSONString Writer, keyText
+
+        If Pretty Then
+            WriteText Writer, JSON_COLON_PRETTY
+        Else
+            WriteText Writer, JSON_COLON
+        End If
+
+        WriteAny Writer, Value.Item(key), Pretty, IndentText, Depth + 1
+    Next i
+
+    If Pretty Then
+        WriteText Writer, vbCrLf
+        WriteIndent Writer, IndentText, Depth
+    End If
+
+    WriteText Writer, JSON_OBJECT_CLOSE
+End Sub
+
+Private Function IndentSize(ByVal IndentText As String, ByVal Depth As Long) As Long
+    If Depth <= 0 Then Exit Function
+    IndentSize = Len(IndentText) * Depth
+End Function
+
+Private Sub WriteIndent(ByRef Writer As JSWriter, ByVal IndentText As String, ByVal Depth As Long)
+    Dim text As String
+
+    text = RepeatText(IndentText, Depth)
+    WriteText Writer, text
+End Sub
+
+Private Function SizeQuotedJSONString(ByVal Text As String) As Long
+    Dim i As Long
+    Dim n As Long
+    Dim ch As Integer
+
+    n = Len(Text)
+    SizeQuotedJSONString = 2
+    i = 1
+
+    Do While i <= n
+        ch = AscW(Mid$(Text, i, 1))
+
+        Select Case ch
+            Case CH_QUOTE, CH_BACKSLASH, CH_TAB, CH_BACKSPACE, CH_FORM_FEED, CH_LF
+                SizeQuotedJSONString = SizeQuotedJSONString + 2
+                i = i + 1
+            Case CH_CR
+                SizeQuotedJSONString = SizeQuotedJSONString + 2
+                If i < n And Mid$(Text, i + 1, 1) = vbLf Then
+                    i = i + 2
+                Else
+                    i = i + 1
+                End If
+            Case Else
+                SizeQuotedJSONString = SizeQuotedJSONString + 1
+                i = i + 1
+        End Select
+    Loop
+End Function
+
+Private Sub WriteQuotedJSONString(ByRef Writer As JSWriter, ByVal Text As String)
+    Dim i As Long
+    Dim n As Long
+    Dim startPos As Long
+    Dim ch As Integer
+    Dim chunk As String
+
+    WriteText Writer, """"
+    n = Len(Text)
+
+    If n = 0 Then
+        WriteText Writer, """"
+        Exit Sub
+    End If
+
+    i = 1
+    startPos = 1
+
+    Do While i <= n
+        ch = AscW(Mid$(Text, i, 1))
+
+        Select Case ch
+            Case CH_QUOTE, CH_BACKSLASH, CH_TAB, CH_BACKSPACE, CH_FORM_FEED, CH_LF, CH_CR
+                If i > startPos Then
+                    chunk = Mid$(Text, startPos, i - startPos)
+                    WriteText Writer, chunk
+                End If
+
+                Select Case ch
+                    Case CH_QUOTE
+                        WriteText Writer, "\"""
+                        i = i + 1
+                    Case CH_BACKSLASH
+                        WriteText Writer, "\\"
+                        i = i + 1
+                    Case CH_TAB
+                        WriteText Writer, "\t"
+                        i = i + 1
+                    Case CH_BACKSPACE
+                        WriteText Writer, "\b"
+                        i = i + 1
+                    Case CH_FORM_FEED
+                        WriteText Writer, "\f"
+                        i = i + 1
+                    Case CH_LF
+                        WriteText Writer, "\n"
+                        i = i + 1
+                    Case CH_CR
+                        If i < n And Mid$(Text, i + 1, 1) = vbLf Then
+                            WriteText Writer, "\n"
+                            i = i + 2
+                        Else
+                            WriteText Writer, "\r"
+                            i = i + 1
+                        End If
+                End Select
+
+                startPos = i
+            Case Else
+                i = i + 1
+        End Select
+    Loop
+
+    If startPos <= n Then
+        chunk = Mid$(Text, startPos, n - startPos + 1)
+        WriteText Writer, chunk
+    End If
+
+    WriteText Writer, """"
+End Sub
 
 '/**
 ' * @method StringifyObjectValue
@@ -1892,26 +2423,11 @@ End Function
 ' * @return JSON text.
 ' */
 Private Function StringifyObjectValue(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    If Value Is Nothing Then
-        StringifyObjectValue = JSON_LITERAL_NULL
-        Exit Function
-    End If
-    
-    Select Case TypeName(Value)
-        Case VBA_TYPE_JSON
-            Dim node As JSON
-            Set node = Value
-            StringifyObjectValue = node.StringifyCurrent(Pretty, IndentText)
-        
-        Case VBA_TYPE_COLLECTION
-            StringifyObjectValue = StringifyCollection(Value, Pretty, IndentText, Depth)
-        
-        Case VBA_TYPE_DICTIONARY, VBA_TYPE_SCRIPTING_DICTIONARY
-            StringifyObjectValue = StringifyDictionary(Value, Pretty, IndentText, Depth)
-        
-        Case Else
-            StringifyObjectValue = JSON_LITERAL_NULL
-    End Select
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeObjectValue(Value, Pretty, IndentText, Depth)
+    WriteObjectValue writer, Value, Pretty, IndentText, Depth
+    StringifyObjectValue = FinishWriter(writer)
 End Function
 
 '/**
@@ -1924,32 +2440,11 @@ End Function
 ' * @return JSON array text.
 ' */
 Private Function StringifyArrayValue(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    Dim result As String
-    Dim i As Long
-    Dim first As Boolean
-    
-    result = JSON_ARRAY_OPEN
-    first = True
-    
-    For i = LBound(Value) To UBound(Value)
-        If first Then
-            first = False
-        Else
-            result = result & JSON_COMMA
-        End If
-        
-        If Pretty Then
-            result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
-        End If
-        
-        result = result & StringifyAny(Value(i), Pretty, IndentText, Depth + 1)
-    Next i
-    
-    If Pretty And Not first Then
-        result = result & vbCrLf & RepeatText(IndentText, Depth)
-    End If
-    
-    StringifyArrayValue = result & JSON_ARRAY_CLOSE
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeArrayValue(Value, Pretty, IndentText, Depth)
+    WriteArrayValue writer, Value, Pretty, IndentText, Depth
+    StringifyArrayValue = FinishWriter(writer)
 End Function
 
 '/**
@@ -1962,31 +2457,11 @@ End Function
 ' * @return JSON array text.
 ' */
 Private Function StringifyCollection(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    Dim result As String
-    Dim i As Long
-    
-    If Value.Count = 0 Then
-        StringifyCollection = JSON_EMPTY_ARRAY
-        Exit Function
-    End If
-    
-    result = JSON_ARRAY_OPEN
-    
-    For i = 1 To Value.Count
-        If i > 1 Then result = result & JSON_COMMA
-        
-        If Pretty Then
-            result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
-        End If
-        
-        result = result & StringifyAny(Value.Item(i), Pretty, IndentText, Depth + 1)
-    Next i
-    
-    If Pretty Then
-        result = result & vbCrLf & RepeatText(IndentText, Depth)
-    End If
-    
-    StringifyCollection = result & JSON_ARRAY_CLOSE
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeCollection(Value, Pretty, IndentText, Depth)
+    WriteCollection writer, Value, Pretty, IndentText, Depth
+    StringifyCollection = FinishWriter(writer)
 End Function
 
 '/**
@@ -1999,43 +2474,11 @@ End Function
 ' * @return JSON object text.
 ' */
 Private Function StringifyDictionary(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
-    Dim result As String
-    Dim keys As Variant
-    Dim key As Variant
-    Dim i As Long
-    
-    If Value.Count = 0 Then
-        StringifyDictionary = JSON_EMPTY_OBJECT
-        Exit Function
-    End If
-    
-    keys = Value.keys
-    result = JSON_OBJECT_OPEN
-    
-    For i = LBound(keys) To UBound(keys)
-        If i > LBound(keys) Then result = result & JSON_COMMA
-        
-        If Pretty Then
-            result = result & vbCrLf & RepeatText(IndentText, Depth + 1)
-        End If
-        
-        key = keys(i)
-        result = result & QuoteJSONString(CStr(key))
-        
-        If Pretty Then
-            result = result & JSON_COLON_PRETTY
-        Else
-            result = result & JSON_COLON
-        End If
-        
-        result = result & StringifyAny(Value.Item(key), Pretty, IndentText, Depth + 1)
-    Next i
-    
-    If Pretty Then
-        result = result & vbCrLf & RepeatText(IndentText, Depth)
-    End If
-    
-    StringifyDictionary = result & JSON_OBJECT_CLOSE
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeDictionary(Value, Pretty, IndentText, Depth)
+    WriteDictionary writer, Value, Pretty, IndentText, Depth
+    StringifyDictionary = FinishWriter(writer)
 End Function
 
 '/**
@@ -2047,7 +2490,8 @@ End Function
 ' */
 Private Function RepeatText(ByVal Text As String, ByVal Count As Long) As String
     Dim i As Long
-    Dim result As String
+    Dim n As Long
+    Dim pos As Long
 
     If Count <= 0 Then Exit Function
     If Len(Text) = 1 Then
@@ -2055,11 +2499,14 @@ Private Function RepeatText(ByVal Text As String, ByVal Count As Long) As String
         Exit Function
     End If
 
-    For i = 1 To Count
-        result = result & Text
-    Next i
+    n = Len(Text)
+    RepeatText = String$(n * Count, vbNullChar)
+    pos = 1
 
-    RepeatText = result
+    For i = 1 To Count
+        Mid$(RepeatText, pos, n) = Text
+        pos = pos + n
+    Next i
 End Function
 
 '/**
@@ -2069,21 +2516,11 @@ End Function
 ' * @return Quoted JSON string.
 ' */
 Private Function QuoteJSONString(ByVal Text As String) As String
-    If Len(Text) = 0 Then
-        QuoteJSONString = """"""
-        Exit Function
-    End If
-    
-    Text = Replace(Text, "\", "\\")
-    Text = Replace(Text, """", "\""")
-    Text = Replace(Text, vbCrLf, "\n")
-    Text = Replace(Text, vbCr, "\r")
-    Text = Replace(Text, vbLf, "\n")
-    Text = Replace(Text, vbTab, "\t")
-    Text = Replace(Text, Chr$(8), "\b")
-    Text = Replace(Text, Chr$(12), "\f")
-    
-    QuoteJSONString = """" & Text & """"
+    Dim writer As JSWriter
+
+    InitWriter writer, SizeQuotedJSONString(Text)
+    WriteQuotedJSONString writer, Text
+    QuoteJSONString = FinishWriter(writer)
 End Function
 
 '/**
