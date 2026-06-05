@@ -8,85 +8,53 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '==============================================================================================================
-'               Automating Chromium-Based Browsers with WebDriverBiDi API and VBA
-'--------------------------------------------------------------------------------------------------------------
-' WebDriver BiDiの低レベル通信を担うクラス。
-' CDPBrowser経由でBiDiマッパーを実行し、BiDiコマンドの送受信・イベント取得を行います。
-' `RaiseEvent`を利用した`CDPCore.cls`←→`BiDiCore`の行き来で、実現していきます
-' 処理ロジックはほとんど、`CDPBrowser`を踏襲してます
+'                    WebDriverBiDi制御モードとしてのメソッドやパラメータ運用を行います
+'                       このClassオブジェクトは、低レベル操作として運用します
 '==============================================================================================================
 Option Explicit
 
 
 
-'===================================
-' Global Variables
-'===================================
-'ブラウザ制御クラスオブジェクト
-Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブジェクト
-Attribute m_CDPCore.VB_VarHelpID = -1
-Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
-Attribute m_CDPBrowser.VB_VarHelpID = -1
-Private WebDriverBiDi_mapperTab As CDPTab       'BiDi-CDP Mapper 操作用タブ
-
-'非同期イベント発火
-Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)
-
-'クラスオブジェクト
-Private m_CharConv              As New CharacterCodeConversion
-Private m_JsonConverter         As New WebJsonConverter
-
-'CDPからWebDriverBiDi用のPayload結果を受け取るためのキュー
-Private QueueResultBiDi As Collection
-
-'BiDiコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
-Private Type cacheResultBiDi
-    response    As Dictionary   '「ID - それに対するBiDiコマンドの結果」というDictionary
-    Limit       As Long         'その`Dictionary`に詰め込む上限数
-End Type
-Private currentResultBiDi As cacheResultBiDi
-
-'デバッグ設定状況
-Private Type StateDebug
-    ViewDebugTab        As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
-    DiagnosticLog       As Boolean      '「BiDi-CDP Mapper」内の診断ログ情報を出力するか
-    seeRawSendMsgDbg    As Boolean      'BiDiのresponseをデバッグログに出すかの調整
-End Type
-Private currentDebug As StateDebug
-
-'操作中のタブ情報一式
-Private Type StateTab
-    sessionID   As String   'The ID to the current session tab.
-    targetID    As String   'The targetID of the current tab for ExecuteCDP
-End Type
-Private BiDiTab As StateTab
-
-'ステート管理
-Private m_MessageID                 As Long         'BiDiコマンド結果を確認するためのID管理
-Private m_Events                    As Dictionary   'BiDi向けの非同期イベント蓄積
-Private m_ErrorDetails              As Dictionary   '同期BiDiコマンドした際の最後のエラー情報
-Private timerOut                    As Long         '同期BiDiコマンドした際のタイムアウト設定
-
-
-
-'===================================
-' Constants
-'===================================
-'内部使用用
-Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
-Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
-Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
-Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
-Private Const LimitID           As Long = 2000000000                    'BiDiコマンド送信時のID上限値
-Private Const TIMEOUT_DEFAULT   As Long = 30                            '初期タイムアウト秒数
-
-'nmp情報
-Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
-Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
-
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 'BiDiからのイベント情報を格納する際のDictionaryKey名設定
 Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
+
+'その他
+Private Const TIMEOUT_DEFAULT       As Double = 30                  '初期タイムアウト秒数
+Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログのトレース用
+Private Const MaxStoreResultBiDi    As Long = 2 ^ 8                 'コマンド結果蓄積数
+
+
+
+'***************************************************************************************************
+'                                 ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'WebDriverBiDi制御用コアクラスオブジェクト
+Private WithEvents m_BiDiCore   As WebDriverBiDiCore      'イベント受け取りオブジェクト
+
+'各種便利クラスオブジェクト
+Public jsConverter              As New WebJsonConverter
+
+'BiDiコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)
+Private Type cacheResultBiDi
+    response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
+    Limit       As Long         'その`Dictionary`に詰め込む上限数
+End Type
+Private resultBiDi  As cacheResultBiDi
+
+'ブラウザからの非同期イベント状況
+Private m_Events    As Dictionary
+
+'各種エラー情報
+Private m_ErrorDetails  As Dictionary
+
+'その他
+Private timerOut        As Double  'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private LogID           As String
+Private BiDiUserName    As String  'User-data-dir と同等
 
 
 
