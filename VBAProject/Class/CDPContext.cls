@@ -576,7 +576,15 @@ step1:
     If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
         printMsg info_, "Attempting to update Session ID " & brTab.sessionID, FromProcedureName
-        Me.id = BrowserCore.attachToTab(brTab.targetID)
+
+        '`SessionId`の更新を試みる
+        Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
+
+        '更新に失敗時はエラーで停止
+        If newSessionID = "" Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
+
+        '更新させて、リトライ
+        Me.id = newSessionID
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
