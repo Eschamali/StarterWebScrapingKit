@@ -274,6 +274,69 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     printMsg Trace_, "BiDiCommand result ID:" & currentCommandID & " was returned from BiDi-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ BiDiCommand結果関連 ■■■
+'***************************************************************************************************
+'* 機能　　：WebDriverBiDiの実行結果を一旦、Dictionaryへ蓄積させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：id             コマンドID
+'            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
+'* 注意事項：・Jsonは、文字列のままで渡されます。
+'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteBiDiAsync`の結果)が全て削除されます
+'            ・IDが20億に達する場合も、結果履歴が全て削除されます
+'***************************************************************************************************
+Private Sub m_BiDiCore_detectionBiDiID(id As Long, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiID"
+
+
+    '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
+    If resultBiDi.response.Count + 1 > resultBiDi.Limit Then
+        resultBiDi.response.RemoveAll
+        printMsg WARN_, "The accumulation limit has exceeded " & resultBiDi.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
+    End If
+
+    '2. その後、結果を蓄積
+    resultBiDi.response.Add id, RawJson
+    printMsg Trace_, "The results of the WebDriverBiDi(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：CommandID  整理券番号
+'* 返値    ：そのIDの実行結果のJson文字列
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
+'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
+'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
+'            ・エラー判定、JsonDictionay化は別途行って下さい
+'***************************************************************************************************
+Property Get ResultBiDiFromWithEvents(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".ResultBiDiFromWithEvents"
+
+
+    '1. 存在するか？
+    If resultBiDi.response.Exists(commandID) Then
+        '2. Log化
+        Dim tmp As String: tmp = resultBiDi.response(commandID)
+        printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
+
+        '3. 返却
+        ResultBiDiFromWithEvents = tmp
+
+        '4. 取り出したので消しておく
+        resultBiDi.response.Remove commandID
+        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
+    Else
+        '2. 存在しない旨を伝える
+        printMsg Trace_, "This BiDi-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
+    End If
+End Property
+
 '***************************************************************************************************
 '* 機能　　：BiDi-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
 '---------------------------------------------------------------------------------------------------
@@ -333,39 +396,6 @@ End Function
 '***************************************************************************************************
 Public Property Get LastBiDiJsonError() As Dictionary
     Set LastBiDiJsonError = m_ErrorDetails
-End Property
-
-'***************************************************************************************************
-'* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：CommandID  整理券番号
-'* 返値    ：そのIDの実行結果のJson文字列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・事前に、`TakeEvents` が実行されてる必要があります
-'            ・見つかったIDは、取り出した後、Dictionaryから自動で削除されます
-'            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
-'            ・エラー判定、JsonDictionay化は別途行って下さい
-'***************************************************************************************************
-Property Get ResultBiDiFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiFromWithEvents"
-
-
-    '1. 存在するか？
-    If resultBiDi.response.Exists(commandID) Then
-        '2. Log化
-        Dim tmp As String: tmp = resultBiDi.response(commandID)
-        printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
-
-        '3. 返却
-        ResultBiDiFromWithEvents = tmp
-
-        '4. 取り出したので消しておく
-        resultBiDi.response.Remove commandID
-        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
-    Else
-        '2. 存在しない旨を伝える
-        printMsg Trace_, "This BiDi-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
-    End If
 End Property
 
 '***************************************************************************************************
