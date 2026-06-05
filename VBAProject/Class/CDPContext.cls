@@ -62,9 +62,11 @@ Attribute VB_Exposed = False
 Option Explicit
 
 
-'===================================
-' Win APIs Declarations
-'===================================
+
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+''----- CDPだけでは実現できない、Windows自体の機能によるウィンドウ操作関連 -----
 Private Declare PtrSafe Function FindWindowEx Lib "user32" Alias "FindWindowExW" ( _
     ByVal hwndParent As LongPtr, _
     ByVal hWndChildAfter As LongPtr, _
@@ -91,9 +93,10 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     lpdwProcessId As Long) As Long
 
 
-'===================================
-' Constants
-'===================================
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 'JSの`document.readyState`の状態一式
 Public Enum ReadyState      'Used for .wait method
     isLoading = 0           'equivalence of the browser's "loading" state
@@ -107,14 +110,14 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30          '初期タイムアウト秒数
-Private Const ThisClassName     As String = "CDPTab"    'ログのトレース用
+Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
 Private Const MaxStoreResultCDP As Long = 2 ^ 8         'ブラウザからのコマンド結果蓄積数
 
 
 
-'===================================
-' Global Variables
-'===================================
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
 'ブラウザ制御クラスオブジェクト
 Private WithEvents PipeCore As CDPCore      'イベント受け取りオブジェクト
 Attribute PipeCore.VB_VarHelpID = -1
@@ -1401,7 +1404,7 @@ End Sub
 '* 引数　　：methodName 非同期イベントメソッド名
 '            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：このClass独自の非同期イベント処理を行います
+'* 機能説明：非同期イベントキャプチャを行います
 '***************************************************************************************************
 Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
@@ -1431,7 +1434,7 @@ End Sub
 '            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
 '            sessionID  届いたSessionID
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：このClass独自の非同期イベント処理を行います
+'* 機能説明：非同期イベントキャプチャを行います
 '***************************************************************************************************
 Private Sub PipeCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPTabEvent"
@@ -2226,7 +2229,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
+'                              ■■■ 複製/継承用プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ったり継承させます
 '***************************************************************************************************
