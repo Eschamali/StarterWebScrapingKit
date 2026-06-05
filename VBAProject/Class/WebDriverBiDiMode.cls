@@ -140,78 +140,6 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 End Function
 
 
-'***************************************************************************************************
-'* 機能　　：BiDiセッション接続時のブラウザ情報を表示します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：ResultSessionNew   `session.new`時の結果Dictionaryオブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
-'            ・ログレベル - DEBUG のみ表示します
-'***************************************************************************************************
-Private Sub ViewNewSession(ResultSessionNew As Dictionary)
-    Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
-
-
-    '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
-    Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
-    If pfName = "" Then pfName = Application.Name
-
-    'ログビュー
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, " BiDi Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-
-    printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
-    printMsg Debug_, "acceptInsecureCerts   | " & ResultSessionNew("capabilities")("acceptInsecureCerts"), FromProcedureName
-    printMsg Debug_, "browserName           | " & ResultSessionNew("capabilities")("browserName"), FromProcedureName
-    printMsg Debug_, "browserVersion        | " & ResultSessionNew("capabilities")("browserVersion"), FromProcedureName
-    printMsg Debug_, "platformName          | " & pfName, FromProcedureName
-    printMsg Debug_, "setWindowRect         | " & ResultSessionNew("capabilities")("setWindowRect"), FromProcedureName
-    printMsg Debug_, "webSocketUrl          | " & ResultSessionNew("capabilities")("webSocketUrl"), FromProcedureName
-    printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
-End Sub
-
-
-
-'***************************************************************************************************
-'                           ■■■ BiDi-sessionコマンド関連 ■■■
-'***************************************************************************************************
-'* 機能　　：BiDiコマンド、`session.new`を実行します
-'---------------------------------------------------------------------------------------------------
-'* 返値　　：`session.new`時の結果Dictionaryオブジェクト
-'* 引数    ：params     `session.new`の`Parameters`
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`BiDi-CDP Mapper`を始動後は、これを必ず実行しないと、BiDiコマンドの結果が返りません
-'---------------------------------------------------------------------------------------------------
-'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
-'***************************************************************************************************
-Private Function sessionNew(Optional params As Dictionary) As Dictionary
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
-    If params Is Nothing Then
-        Set params = New Dictionary
-        params.Add "capabilities", New Dictionary
-    End If
-
-    '確立処理！
-    Set sessionNew = invokeMethod("session.new", params)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：BiDiコマンド、`session.status`を実行します
-'---------------------------------------------------------------------------------------------------
-'* 返値　　：`session.status`時の結果Dictionaryオブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：ソースコード上、結果は常に、「{ready: false, message: 'already connected'}」となります
-'            →src\bidiMapper\modules\session\SessionProcessor.ts:47
-'---------------------------------------------------------------------------------------------------
-'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
-'***************************************************************************************************
-Private Function sessionStatus() As Dictionary
-    Set sessionStatus = invokeMethod("session.status")
-End Function
-
-
 
 '***************************************************************************************************
 '                              ■■■ BiDicommand操作関連 ■■■
@@ -454,25 +382,6 @@ End Property
 
 
 '***************************************************************************************************
-'                              ■■■ PUBLIC PROPERTIES ■■■
-'***************************************************************************************************
-'* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
-'* LET引数 ：置き換えるタイムアウト秒数
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
-'***************************************************************************************************
-Property Get TimeOutSecond() As Long
-    TimeOutSecond = timerOut
-End Property
-Property Let TimeOutSecond(TimeSec As Long)
-    timerOut = TimeSec
-End Property
-
-
-
-'***************************************************************************************************
 '                                ■■■ 非同期イベント関連 ■■■
 '***************************************************************************************************
 '* 機能　　：WebDriverBiDiに対する非同期イベントを処理します
@@ -612,14 +521,117 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPCore.cls`直通メソッド ■■■
+'                                   ■■■ ステータス系 ■■■
 '***************************************************************************************************
+'* 機能　　：BiDiセッション接続時のブラウザ情報を表示します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：ResultSessionNew   `session.new`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
+'            ・ログレベル - DEBUG のみ表示します
+'***************************************************************************************************
+Private Sub ViewNewSession(ResultSessionNew As Dictionary)
+    Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
+
+
+    '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
+    Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
+    If pfName = "" Then pfName = Application.Name
+
+    'ログビュー
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg Debug_, " BiDi Information", FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+
+    printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
+    printMsg Debug_, "acceptInsecureCerts   | " & ResultSessionNew("capabilities")("acceptInsecureCerts"), FromProcedureName
+    printMsg Debug_, "browserName           | " & ResultSessionNew("capabilities")("browserName"), FromProcedureName
+    printMsg Debug_, "browserVersion        | " & ResultSessionNew("capabilities")("browserVersion"), FromProcedureName
+    printMsg Debug_, "platformName          | " & pfName, FromProcedureName
+    printMsg Debug_, "setWindowRect         | " & ResultSessionNew("capabilities")("setWindowRect"), FromProcedureName
+    printMsg Debug_, "webSocketUrl          | " & ResultSessionNew("capabilities")("webSocketUrl"), FromProcedureName
+    printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
+    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+End Sub
+
+
+
+'***************************************************************************************************
+'                            ■■■ Session系統コマンド ■■■
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.new`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.new`時の結果Dictionaryオブジェクト
+'* 引数    ：params     `session.new`の`Parameters`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`BiDi-CDP Mapper`を始動後は、これを必ず実行しないと、BiDiコマンドの結果が返りません
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
+'***************************************************************************************************
+Private Function sessionNew(Optional params As Dictionary) As Dictionary
+    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    If params Is Nothing Then
+        Set params = New Dictionary
+        params.Add "capabilities", New Dictionary
+    End If
+
+    '確立処理！
+    Set sessionNew = ExecuteBiDi("session.new", params)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.status`を実行します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.status`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ソースコード上、結果は常に、「{ready: false, message: 'already connected'}」となります
+'            →src\bidiMapper\modules\session\SessionProcessor.ts:47
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
+'***************************************************************************************************
+Private Function sessionStatus() As Dictionary
+    Set sessionStatus = ExecuteBiDi("session.status")
+End Function
+
+
+
+'***************************************************************************************************
+'                              ■■■ PUBLIC PROPERTIES ■■■
+'***************************************************************************************************
+'* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：設定中のタイムアウト秒数
+'* LET引数 ：置き換えるタイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
+'***************************************************************************************************
+Property Get TimeOutSecond() As Long
+    TimeOutSecond = timerOut
+End Property
+Property Let TimeOutSecond(TimeSec As Long)
+    timerOut = TimeSec
+End Property
+
+
+
+'***************************************************************************************************
+'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
+'***************************************************************************************************
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+End Sub
+
 Public Function TimerCounter() As Double
-    TimerCounter = m_CDPCore.LogControl.GetTicksMs
+    TimerCounter = m_BiDiCore.TimerCounter
 End Function
 
 Public Sub sleep(Optional seconds As Double = 0.5)
-    m_CDPCore.sleep seconds
+    m_BiDiCore.sleep seconds
+End Sub
+
+Public Sub TakeEvents(Optional destruction As Boolean)
+    m_BiDiCore.TakeEvents destruction
 End Sub
 
 
