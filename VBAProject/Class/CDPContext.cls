@@ -135,7 +135,6 @@ Private Type StatebBrowserTab
     LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Name        As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
-    reattach    As Boolean  'Remember reAttach preference from .reattach method - updated by Long 22/01/2026
 End Type
 Private br As StatebBrowserTab
 
