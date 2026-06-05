@@ -33,6 +33,9 @@ Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-C
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
 Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
+'その他
+Private Const LimitCommandID    As Long = 2000000000    'BiDiコマンド送信時のID上限値
+
 
 
 '***************************************************************************************************
@@ -41,6 +44,9 @@ Private Const npmName       As String = "chromium-bidi" '公式リポジトリ�
 'BiDiレスポンスの種類に応じた発信機
 Public Event detectionBiDiEvent(methodName As String, RawJson As String)    '非同期イベント
 Public Event detectionBiDiID(id As Long, RawJson As String)                 'BiDiコマンド結果
+
+'コマンドIDリセットサイン
+Public Event ResetCommandID()
 
 
 
@@ -54,6 +60,9 @@ Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
 Attribute m_CDPBrowser.VB_VarHelpID = -1
 Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
 
+'定義側からも呼び出せるチェーンクラスオブジェクト
+Public ErrorDetail      As New WinApiError      'エラーコードから、詳細を取得するやつ
+
 '「BiDi-CDP Mapper」のデバッグ設定状況
 Private Type StateDebug
     ViewDebugTab        As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
@@ -63,8 +72,8 @@ End Type
 Private BiDiDebug As StateDebug
 
 'ステート管理
-Private m_MessageID As Long     '現在のBiDiコマンドID
-Private LogID       As String   'このClassオブジェクトとしてのログID
+Private m_MessageID     As Long     '現在のBiDiコマンドID
+Private LogID           As String   'このClassオブジェクトとしてのログID
 
 
 
@@ -437,6 +446,9 @@ Private Function IssuanceCommandID() As Long
         '1. リクエスト数の上限に達したら、1にリセットしておく
         m_MessageID = 1
         printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+
+        '2. リセットした旨を伝える
+        RaiseEvent ResetCommandID
     Else
         '1. カウントアップ
         m_MessageID = m_MessageID + 1   'We increase the global ID counter
@@ -905,13 +917,9 @@ Public Function TimerCounter() As Double
     TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
-Public Function LimitCommandID() As Long
-    LimitCommandID = m_CDPCore.LimitCommandID
-End Function
-
-Public Function ShowLogBiDiresponse() As Boolean
-    ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
-End Function
+Public Sub ClosePipeCDP()
+    m_CDPCore.ClosePipeCDP
+End Sub
 
 
 
