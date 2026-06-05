@@ -140,7 +140,7 @@ Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後の�
 Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
-Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPTab.cls - attachToSession`専用
+Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 
 
 
@@ -647,7 +647,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ タブ操作関連 ■■■
 '***************************************************************************************************
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional isBackground As Boolean) As CDPTab
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional isBackground As Boolean) As CDPContext
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -688,9 +688,9 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
 
     '------ 専用のクラスとして返却する準備 ------
-    Set newTab = New CDPTab
+    Set newTab = New CDPContext
     With newTab
-        '1. パイプハンドル情報を渡す
+        '1. このブラウザのパイプハンドル情報を渡す
         Set .InheritanceCDPCore = PipeCore
 
         '2. このブラウザ情報を渡す
@@ -716,6 +716,7 @@ End Function
 '* 返り値　：クラスモジュール - CDPBrowser
 '* 引数　　：tabName    タブ名
 '            Url        URL
+'            setMain    `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
 '            SearchType "page","iframe" といった、セッションの種類を指定します
 '            doRetry    `True`で、出現まで何回かリトライします。
 '---------------------------------------------------------------------------------------------------
@@ -730,7 +731,7 @@ End Function
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。SearchType はデフォルトは、"page"にしてます。
 '* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '***************************************************************************************************
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPTab
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -830,9 +831,9 @@ searchfound:
 
     '------ 専用のクラスとして返却する準備 ------
     '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
-    Set getTab = New CDPTab
+    Set getTab = New CDPContext
     With getTab
-        '1. パイプハンドル情報を渡す
+        '1. このブラウザのパイプハンドル情報を渡す
         Set .InheritanceCDPCore = PipeCore
 
         '2. このブラウザ情報を渡す
