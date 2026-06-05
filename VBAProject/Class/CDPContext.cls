@@ -1435,8 +1435,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：非同期イベントキャプチャを行います
 '***************************************************************************************************
-Private Sub PipeCore_CDPTabEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPTabEvent"
+Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPContextEvent"
 
 
     '1. このタブクラスで設定中の`SessionId`以外は即抜け

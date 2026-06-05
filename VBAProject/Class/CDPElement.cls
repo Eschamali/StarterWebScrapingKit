@@ -33,7 +33,7 @@ Option Explicit
 
 Private Const ThisClassName As String = "CDPElement"
 
-Private main As CDPTab
+Private main As CDPContext
 Private varJS As String                  ' DOM検索式（ポーリング用 & objectId 未取得時の lazy 取得用）
 Private elemVarType As Long              ' VBA VarType定数: vbNull=1: 未発見 / vbString=8: objectId取得済み / vbEmpty=0: 未評価
 Private elementObjectId As String        ' CDPのobjectId（StrPtr=0:未取得 / StrPtr≠0:取得済み）
@@ -67,7 +67,7 @@ End Enum
 '            　`objectId_`は、「vbNull(1)=未発見 / vbString(8)=objectId取得済み / vbEmpty(0)=未評価」の3パターンを想定してます。
 '            ・現状複数取得系(getElementsByXPath等)の場合、`varJS_`は機能しません。
 '***************************************************************************************************
-Public Sub Init(targetObjMain As CDPTab, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
+Public Sub Init(targetObjMain As CDPContext, Optional varJS_ As String, Optional varType_ As Long, Optional objectId_ As String)
     Set main = targetObjMain
     varJS = varJS_
     elemVarType = varType_
@@ -1195,7 +1195,7 @@ End Function
 
 
 '***************************************************************************************************
-'                               ■■■ CDPTab.cls 直通メソッド ■■■
+'                             ■■■ CDPContext.cls 直通メソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     main.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError

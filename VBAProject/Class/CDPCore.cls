@@ -196,8 +196,8 @@ Private Const LimitID           As Long = 2000000000        'CDPコマンド送�
 'CDPレスポンスの種類に応じた発信機
 Public Event CDPBrowserEvent(methodName As String, RawJson As String)                   'ブラウザに対する非同期イベント
 Public Event CDPBrowserID(id As Long, RawJson As String)                                'ブラウザに対するCDPコマンド結果
-Public Event CDPTabEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
-Public Event CDPTabID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
+Public Event CDPContextEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
+Public Event CDPContextID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
 
 
 
@@ -948,7 +948,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         '--------- 2. タブに対する非同期イベントか？ ---------
         If GetContentsSessionId(CDPJsonString, sessionID) Then
             'タブに対する非同期イベントとして発信
-            RaiseEvent CDPTabEvent(AsynchronousEventName, CDPJsonString, sessionID)
+            RaiseEvent CDPContextEvent(AsynchronousEventName, CDPJsonString, sessionID)
         Else
             'ブラウザに対する非同期イベントとして発信
             RaiseEvent CDPBrowserEvent(AsynchronousEventName, CDPJsonString)
@@ -960,7 +960,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
             If DictionarySessionID.Exists(ResultCommandID) Then    '`id`項目での`sessionId`checkは、送信時に登録した`Dictionary`checkに委ねる
                 'タブに対するコマンド結果として発信
                 sessionID = DictionarySessionID(ResultCommandID)
-                RaiseEvent CDPTabID(ResultCommandID, CDPJsonString, sessionID)
+                RaiseEvent CDPContextID(ResultCommandID, CDPJsonString, sessionID)
 
                 '発信したので削除しておく
                 DictionarySessionID.Remove (ResultCommandID)

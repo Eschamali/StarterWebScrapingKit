@@ -33,7 +33,7 @@ Option Private Module
 '***************************************************************************************************
 '* 機能　　：設定シートから、パラメーターを読み込んで、CDPモードでタブ制御ができるところまで準備します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - CDPTab
+'* 返り値　：クラスモジュール - CDPContext
 '* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
 '                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
 '
@@ -46,7 +46,7 @@ Option Private Module
 '* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
 '            ・Chromeにもキオスクモードはありますが、Edgeほど引数での調整はありません
 '***************************************************************************************************
-Public Function 設定シートからのCDP起動ForTab(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPTab
+Public Function 設定シートからのCDP起動ForTab(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPContext
     '設定シートの各セルから設定値を取得し、適用
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
@@ -57,7 +57,7 @@ Public Function 設定シートからのCDP起動ForTab(Optional StartURL As Str
         Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動ForTab")).value, SwitchUser)
 
         'ブラウザ起動
-        Set 設定シートからのCDP起動ForTab = New CDPTab
+        Set 設定シートからのCDP起動ForTab = New CDPContext
         設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
@@ -91,10 +91,9 @@ End Function
 
 Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPTab: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動ForTab
+    Dim HelloWorldAutomationBrowser As CDPContext: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動ForTab
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
-
 
 
 
@@ -118,7 +117,7 @@ Sub ネットワークイベントの確認()
     Dim CharConvObj As New CharacterCodeConversion:
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim Demo_NetworkEvent As CDPTab: Set Demo_NetworkEvent = 設定シートからのCDP起動ForTab
+    Dim Demo_NetworkEvent As CDPContext: Set Demo_NetworkEvent = 設定シートからのCDP起動ForTab
 
     '一部の非同期イベントのみキャプチャするようにフィルターを設定
     '※未設定の場合は、全キャプチャとなります。このDemoの場合は、下記2つをコメントアウトすると、全キャプチャとなります
@@ -184,7 +183,7 @@ End Sub
 '***************************************************************************************************
 Sub JapaneseElementTest()
     '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
-    Dim Demo_Japanese As CDPTab: Set Demo_Japanese = 設定シートからのCDP起動ForTab("https://keisan.site/exec/system/1161228728")
+    Dim Demo_Japanese As CDPContext: Set Demo_Japanese = 設定シートからのCDP起動ForTab("https://keisan.site/exec/system/1161228728")
 
     ' 身長をセット
     Dim height As CDPElement
@@ -245,7 +244,7 @@ Sub UseExtensions()
 
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim controlExtensions As CDPTab: Set controlExtensions = 設定シートからのCDP起動ForTab
+    Dim controlExtensions As CDPContext: Set controlExtensions = 設定シートからのCDP起動ForTab
 
     '拡張機能のページへ遷移
     controlExtensions.navigate "edge://extensions/"
@@ -304,7 +303,7 @@ End Sub
 '***************************************************************************************************
 Sub TestAlert()
     '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
-    Dim Demo_alerts As CDPTab: Set Demo_alerts = 設定シートからのCDP起動ForTab("https://www.selenium.dev/selenium/web/alerts.html")
+    Dim Demo_alerts As CDPContext: Set Demo_alerts = 設定シートからのCDP起動ForTab("https://www.selenium.dev/selenium/web/alerts.html")
 
 
     '必要な変数を用意
@@ -458,7 +457,7 @@ Sub runEdge()
    'there are other chrome instances already running.
    'If reAttach = False, .start will not automatically try to reattach
    'to previous instances open by CDP but will start a brand new instead.
-    Dim edge As CDPTab
+    Dim edge As CDPContext
     Set edge = 設定シートからのCDP起動ForTab
 
    'Navigate and wait
@@ -489,7 +488,7 @@ Sub runHidden()
 ' ※日本国では、正しく機能しません。恐らく、検索地域の問題と思われます。
 '---------------------------------------------------------------------------------
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
 
    'Start and hide
     Set chrome = 設定シートからのCDP起動ForTab
@@ -531,7 +530,7 @@ Sub runHiddenForJapan()
 ' ※日本国向けに改良します。
 '---------------------------------------------------------------------------------
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
 
     'Start and hide
     Set chrome = 設定シートからのCDP起動ForTab
@@ -559,7 +558,7 @@ Sub runTabsAsOne()
 ' the same instance instead.
 '--------------------------------------------------------------------------
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
     Set chrome = 設定シートからのCDP起動ForTab
     chrome.show
 
@@ -587,9 +586,9 @@ Sub runTabsAsMany()
     Set chrome = 設定シートからのCDP起動ForBrowser
 
    'Create and assign tabs
-    Dim tab1 As CDPTab
-    Dim tab2 As CDPTab
-    Dim tab3 As CDPTab
+    Dim tab1 As CDPContext
+    Dim tab2 As CDPContext
+    Dim tab3 As CDPContext
     Set tab1 = chrome.getTab(setMain:=True)     'The first tab is open by default after .start
     Set tab2 = chrome.newTab(newWindow:=True)   'newWindow: open tab as a new window instead of a tab
     Set tab3 = chrome.newTab(newWindow:=True)
@@ -620,7 +619,7 @@ Sub runNewTab()
 '--------------------------------------------------------------------------
 
    'Init browser with custom arguments
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
     Set chrome = 設定シートからのCDP起動ForTab
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
     chrome.show asMaximized
@@ -638,7 +637,7 @@ Sub runNewTab()
     targetElement.click                             'Click the link, a new tab will be spontaneously open
 
    'Use getTabNew to quickly refer to the next newly open tab
-    Dim targetTab As New CDPTab
+    Dim targetTab As New CDPContext
     Set targetTab = chrome.InheritanceCDPBrowser.getTab
     targetTab.wait
 
@@ -661,7 +660,7 @@ Sub runIFrame()
     Dim demoUrl As String
     demoUrl = "https://www.w3schools.com/html/tryit.asp?filename=tryhtml_iframe_height_width"
 
-    Dim chrome As New CDPTab
+    Dim chrome As New CDPContext
     Set chrome = 設定シートからのCDP起動ForTab(demoUrl)
 
     Dim iFrame1 As CDPElement
@@ -686,7 +685,7 @@ Sub getSnapShot()
     Dim demoUrl As String
     demoUrl = "https://www.google.com/search?q=1sgd+to+vnd"
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
     Set chrome = 設定シートからのCDP起動ForTab   'not App Mode as sometimes Chrome App Mode does not allow file downloading
     chrome.navigate demoUrl
 
@@ -716,7 +715,7 @@ Sub fillReactForm()
     Dim demoUrl As String
     demoUrl = "https://cdpn.io/gaearon/fullpage/VmmPgp?anon=true&editors=0010&view="
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
     Set chrome = 設定シートからのCDP起動ForTab
     chrome.navigate demoUrl
 
@@ -753,7 +752,7 @@ Sub switchMain()
 ' for future reattachment.
 '---------------------------------------------------------------
 
-    Dim chrome As CDPTab
+    Dim chrome As CDPContext
     Set chrome = 設定シートからのCDP起動ForTab
     chrome.InheritanceCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
     chrome.InheritanceCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
@@ -793,7 +792,7 @@ Function execBot1()
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 started."
 
-    Dim e1 As CDPTab
+    Dim e1 As CDPContext
     Set e1 = 設定シートからのCDP起動ForTab
     e1.navigate "https://yahoo.com"
 
@@ -808,7 +807,7 @@ Function execBot2()
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 started."
 
-    Dim e2 As CDPTab
+    Dim e2 As CDPContext
     Set e2 = 設定シートからのCDP起動ForTab(SwitchUser:="CDP2")
     e2.navigate "https://finance.yahoo.com"
 
@@ -816,29 +815,34 @@ Function execBot2()
 
 End Function
 
-Sub demoReattachmentPart1()
-'----------------------------------------------------------------------------------------
-' From v3.1, .reattach is necessary to perform reattachment to the current CDP instances
-' as each instance is now identified with a unique user profile for multi-instances
-' operation. The below procedure starts a new CDP session under profile CDP2. After
-' running demoReattachmentPart1, you can run demoReattachmentPart2 to see the correct
-' way of applying .reattach to the CDP2 session.
-'----------------------------------------------------------------------------------------
 
-    Dim c As CDPTab
+
+'***************************************************************************************************
+'                               ■■■ リアタッチDemo ■■■
+'***************************************************************************************************
+'* 機能　　：複数プロシージャをまたがった段階的な処理を行う際の再接続Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
+'            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'***************************************************************************************************
+Sub demoReattachmentPart1()
+    
+    Dim c As CDPContext
     Set c = 設定シートからのCDP起動ForTab
     c.navigate "https://google.com"
 
-'    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足してください
+'    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足して`demoReattachmentPart2ForTab`にてお試しください
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ブラウザのパイプハンドルの接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、ブラウザの接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
+'            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
+'***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
-'----------------------------------------------------------------------------------------
-' See notes in demoReattachmentPart1
-'----------------------------------------------------------------------------------------
-
     Dim c As New CDPBrowser
-    Dim r As CDPTab
+    Dim r As CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
@@ -858,12 +862,13 @@ Sub demoReattachmentPart2ForBrowser()
     r.navigate "https://kemono-friends.jp/"
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：Context(タブ)接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：Context(タブ)情報が失ってる場合は、このDemoではエラーとなります
+'***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-'----------------------------------------------------------------------------------------
-' See notes in demoReattachmentPart1
-'----------------------------------------------------------------------------------------
-
-    Dim c As New CDPTab
+    Dim c As New CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
@@ -872,7 +877,8 @@ Sub demoReattachmentPart2ForTab()
     End With
 
     '1. Excelに記録されてる`TargetID`の生存確認
-    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical: Exit Sub
+    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です
+    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical: Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
