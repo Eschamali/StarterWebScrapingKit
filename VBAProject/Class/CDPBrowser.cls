@@ -1113,35 +1113,6 @@ Private Sub PipeCore_CDPBrowserID(id As Long, RawJson As String)
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ブラウザに対する非同期イベントを処理します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：methodName 非同期イベントメソッド名
-'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：`Target.targetCreated`に対する情報の蓄積を行います
-'***************************************************************************************************
-Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
-
-
-    '1. Select Case でスマートに、method名ごとの独自処理を行う
-    Select Case methodName
-        '1-1. `attachToSession`が行えるように準備する
-        Case "Target.targetCreated"
-            '1-2. `TargetInfo`を収集しない場合は、即抜け
-            If TargetInfos Is Nothing Then Exit Sub
-
-            '1-3. そのまま、蓄積
-            printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
-            TargetInfos.Add RawJson
-
-        Case Else
-            'None
-
-    End Select
-End Sub
-
-'***************************************************************************************************
 '* 機能　　：`WithEvents`によって蓄積されたコマンドIDを取り出します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：CommandID  整理券番号
@@ -1372,6 +1343,39 @@ Private Sub setCrashStateNormal()
 
     printMsg info_, "setCrashStateNormal completed", FromProcedureName
 
+End Sub
+
+
+
+'***************************************************************************************************
+'                                ■■■ 非同期イベント関連 ■■■
+'***************************************************************************************************
+'* 機能　　：ブラウザに対する非同期イベントを処理します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：methodName 非同期イベントメソッド名
+'            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`Target.targetCreated`に対する情報の蓄積を行います
+'***************************************************************************************************
+Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
+
+
+    '1. Select Case でスマートに、method名ごとの独自処理を行う
+    Select Case methodName
+        '1-1. `attachToSession`が行えるように準備する
+        Case "Target.targetCreated"
+            '1-2. `TargetInfo`を収集しない場合は、即抜け
+            If TargetInfos Is Nothing Then Exit Sub
+
+            '1-3. そのまま、蓄積
+            printMsg Debug_, "Collecting `Target.targetCreated`... → " & RawJson, FromProcedureName
+            TargetInfos.Add RawJson
+
+        Case Else
+            'None
+
+    End Select
 End Sub
 
 
