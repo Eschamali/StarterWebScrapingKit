@@ -1,4 +1,4 @@
-Attribute VB_Name = "Demo_WebSocketViaNamedPipe"
+Attribute VB_Name = "CDPCoreWebSocketHelpers"
 '***************************************************************************************************
 '             名前付きパイプの仕組みを利用したCDP-WebSocket連携機能を提供します。
 '       Excel ←NamedPipe→ PowerShell ←WebSocket→ Chromium といった連携確保まで担います。
