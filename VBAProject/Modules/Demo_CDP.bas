@@ -425,21 +425,21 @@ End Sub
 '***************************************************************************************************
 Sub ExcelのユーザーフォームにEdgeを埋め込む()
     '1. CDPでEdgeを起動
-    Dim 実質WebView2 As CDPBrowser: Set 実質WebView2 = 設定シートからのCDP起動(KioskMode:=fullscreen)
+    Dim 実質WebView2 As CDPContext: Set 実質WebView2 = 設定シートからのCDP起動ForTab(KioskMode:=fullscreen)
     実質WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"      'このツールのリポジトリURLとして、遷移します
 
     '2. フォームをロード（まだ表示はしない）
     Load EdgeInExcelForm
 
     '3. 誘拐（ドッキング）処理を実行させる！
-    実質WebView2.Sleep  'ちょこっとクールタイム
+    実質WebView2.InheritanceCDPCore.sleep  'ちょこっとクールタイム
     If Not (EdgeInExcelForm.AttachEdge(実質WebView2)) Then MsgBox "Edgeのハンドル情報の取得に失敗しました", vbCritical: Exit Sub
 
     '4. フォームを表示
     EdgeInExcelForm.show
 
     '5. ブラウザを正常に閉じる
-    実質WebView2.quit
+    実質WebView2.InheritanceCDPBrowser.quit
 End Sub
 
 Sub runEdge()
