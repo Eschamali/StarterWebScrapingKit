@@ -1,7 +1,5 @@
 # JSON API Reference
 
-> Current target: **JSON v1.0.1**. **JSON.cls** is a high-performance, zero-copy JSON reader and lightweight JSON writer for VBA Office hosts.
-
 It supports x86 and x64 VBA, compact token-tree parsing, lazy node wrappers, typed accessors, raw field access, token iteration for large arrays and objects, and `Stringify` support for parsed JSON, primitive VBA values, arrays, Collections, Dictionaries, and nested JSON nodes.
 
 This reference documents the current public API exposed by **JSON.cls**.
