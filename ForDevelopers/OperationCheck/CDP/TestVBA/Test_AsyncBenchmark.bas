@@ -20,7 +20,7 @@ Private Const SAVE_PATH             As String = "Downloads" ' ダウンロードフォル
 ' ネットサーフィン対象URL（安定していて、かつネットワークイベントが発生しやすいサイト）
 Private Const URL_1 As String = "https://www.google.com"
 Private Const URL_2 As String = "https://www.yahoo.co.jp"
-Private Const URL_3 As String = "https://example.com"
+Private Const URL_3 As String = "https://kemono-friends.jp/"
 Private Const URL_4 As String = "https://news.yahoo.co.jp"
 Private Const URL_5 As String = "https://www.amazon.co.jp"
 
