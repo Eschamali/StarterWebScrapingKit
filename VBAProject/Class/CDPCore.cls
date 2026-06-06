@@ -494,7 +494,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。
 '* 注意事項：・ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
-'            ・実際のエラーコードも特に確認しません。
+'            ・実際のエラーコードも特に確認しません
 '***************************************************************************************************
 Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
     '使用するパイプ通信判定
@@ -574,7 +574,7 @@ Private Function readProcCDP(ByRef strData As String) As Long
     '処理が成功すると、戻り値は 0 以外になります。
     lngRes = PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&)
 
-    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、`Err_PeekNamedPipe`にエラーコードを格納
+    'API関数:PeekNamedPipe が失敗した場合は、0 を返すため、エラーコードを記録
     If lngRes = 0 Then LastPipeError.PeekNamedPipe = Err.LastDllError: Exit Function
 
     'データがあったら実際に、データを入手する処理へ
@@ -598,7 +598,7 @@ Private Function readProcCDP(ByRef strData As String) As Long
             '取得サイズを返却
             readProcCDP = lPeekData
         Else
-            'API関数:ReadFile が失敗した場合は、0 を返すため、`Err_ReadFile`にエラーコードを格納
+            'API関数:ReadFile が失敗した場合は、0 を返すため、エラーコードを記録
             LastPipeError.ReadFile = Err.LastDllError
         End If
     End If
@@ -625,7 +625,7 @@ Private Sub writeProcCDP(strData As String)
         ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
 
-    '失敗時は、実際のエラーコードで返します
+    '失敗時は、実際のエラーコードを記録
     If ResultCode = 0 Then LastPipeError.WriteFile = Err.LastDllError
 End Sub
 
