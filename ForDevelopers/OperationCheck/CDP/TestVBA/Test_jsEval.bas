@@ -1,6 +1,6 @@
 Attribute VB_Name = "Test_jsEval"
 '==============================================================================
-' CDPBrowser.jsEval 動作確認（Runtime.evaluate / Runtime.callFunctionOn）
+' CDPContext.jsEval 動作確認（Runtime.evaluate / Runtime.callFunctionOn）
 ' ・HTML: ForDevelopers\OperationCheck\TestHtml\Test_jsEval\Test_jsEval.html
 ' ・実行前に CDP を起動し、WORKSPACE_PATH をルートに設定してから RunAll_jsEval_Tests を実行
 '==============================================================================
@@ -115,7 +115,7 @@ End Function
 ' エントリ
 '==============================================================================
 Public Sub RunAll_jsEval_Tests()
-    Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
+    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_jsEval\Test_jsEval.html", "\", "/")
     br.wait
@@ -145,13 +145,13 @@ Public Sub RunAll_jsEval_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", dbgMsg:=False
 
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
 
 '==============================================================================
 ' ① Runtime.evaluate - プリミティブ
 '==============================================================================
-Private Sub Test01_Evaluate_primitives(br As CDPBrowser)
+Private Sub Test01_Evaluate_primitives(br As CDPContext)
     PrintSection "① evaluate - 数値・文字列・真偽"
 
     Dim v As Variant
@@ -174,7 +174,7 @@ End Sub
 '==============================================================================
 ' ② returnByValue - オブジェクト・配列（Dictionary）
 '==============================================================================
-Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPBrowser)
+Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPContext)
     PrintSection "② evaluate - returnByValue オブジェクト / 配列"
 
     Dim o As Object, a As Object
@@ -199,7 +199,7 @@ End Sub
 '==============================================================================
 ' ③ undefined / null
 '==============================================================================
-Private Sub Test03_Evaluate_undefined_null(br As CDPBrowser)
+Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
     PrintSection "③ evaluate - undefined / null"
 
     Dim v As Variant
@@ -228,7 +228,7 @@ End Sub
 '==============================================================================
 ' ④ Unicode（日本語）
 '==============================================================================
-Private Sub Test04_Evaluate_unicode(br As CDPBrowser)
+Private Sub Test04_Evaluate_unicode(br As CDPContext)
     PrintSection "④ evaluate - Unicode"
 
     Dim v As Variant
@@ -241,7 +241,7 @@ End Sub
 '==============================================================================
 ' ⑤ awaitPromise
 '==============================================================================
-Private Sub Test05_Evaluate_promise_br(br As CDPBrowser)
+Private Sub Test05_Evaluate_promise_br(br As CDPContext)
     PrintSection "⑤ evaluate - awaitPromise"
 
     Dim v As Variant
@@ -254,7 +254,7 @@ End Sub
 '==============================================================================
 ' ⑥ objectId 取得（returnByValue:=False）
 '==============================================================================
-Private Sub Test06_callFunctionOn_get_objectId(br As CDPBrowser)
+Private Sub Test06_callFunctionOn_get_objectId(br As CDPContext)
     PrintSection "⑥ objectId 取得"
 
     Dim oid As Variant
@@ -274,7 +274,7 @@ End Sub
 '==============================================================================
 ' ⑦ callFunctionOn - 引数なし・this
 '==============================================================================
-Private Sub Test07_callFunctionOn_no_args(br As CDPBrowser)
+Private Sub Test07_callFunctionOn_no_args(br As CDPContext)
     PrintSection "⑦ callFunctionOn - 引数なし"
 
     Dim oid As String
@@ -293,7 +293,7 @@ End Sub
 '==============================================================================
 ' ⑧ 多引数（10個）
 '==============================================================================
-Private Sub Test08_callFunctionOn_many_args(br As CDPBrowser)
+Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     PrintSection "⑧ callFunctionOn - 多引数"
 
     Dim oid As String
@@ -315,7 +315,7 @@ End Sub
 '==============================================================================
 ' ⑨ シングルクォートを含む文字列（objectArguments）
 '==============================================================================
-Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPBrowser)
+Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPContext)
     PrintSection "⑨ callFunctionOn - アポストロフィ文字列"
 
     Dim oid As String
@@ -334,7 +334,7 @@ End Sub
 '==============================================================================
 ' ⑩ 子要素参照（ネスト）
 '==============================================================================
-Private Sub Test10_callFunctionOn_nested(br As CDPBrowser)
+Private Sub Test10_callFunctionOn_nested(br As CDPContext)
     PrintSection "⑩ callFunctionOn - 子要素"
 
     Dim oid As String
@@ -353,7 +353,7 @@ End Sub
 '==============================================================================
 ' ⑪ JS 例外（StopException 省略 = False → CVErr または Error 型）
 '==============================================================================
-Private Sub Test11_exception_stopException_off(br As CDPBrowser)
+Private Sub Test11_exception_stopException_off(br As CDPContext)
     PrintSection "⑪ 例外 - StopException=False"
 
     Dim r As Variant
@@ -373,7 +373,7 @@ End Sub
 '==============================================================================
 ' ⑫ IFEXCEPTION
 '==============================================================================
-Private Sub Test12_exception_IFEXCEPTION(br As CDPBrowser)
+Private Sub Test12_exception_IFEXCEPTION(br As CDPContext)
     PrintSection "⑫ 例外 - IFEXCEPTION"
 
     Dim r As Variant
@@ -387,7 +387,7 @@ End Sub
 '==============================================================================
 ' ⑬ 長い文字列（返却値サイズ）
 '==============================================================================
-Private Sub Test13_long_string(br As CDPBrowser)
+Private Sub Test13_long_string(br As CDPContext)
     PrintSection "⑬ 長い文字列 returnByValue"
 
     Dim v As Variant
@@ -407,15 +407,15 @@ End Sub
 '==============================================================================
 ' ⑭ contextId ? Page.createIsolatedWorld の executionContextId で evaluate
 '==============================================================================
-Private Sub Test14_contextId_isolatedWorld(br As CDPBrowser)
+Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
     PrintSection "⑭ contextId ? createIsolatedWorld"
 
     On Error GoTo Test14_Err
 
-    br.invokeMethod "Page.enable", Nothing
+    br.ExecuteCDP "Page.enable", Nothing
 
     Dim ftRes As Scripting.Dictionary
-    Set ftRes = br.invokeMethod("Page.getFrameTree", Nothing)
+    Set ftRes = br.ExecuteCDP("Page.getFrameTree", Nothing)
 
     Dim rootFrameId As String
     rootFrameId = CStr(ftRes("frameTree")("frame")("id"))
@@ -425,7 +425,7 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPBrowser)
     pCW.Add "worldName", "jsEvalTestIsolated"
 
     Dim cwRes As Scripting.Dictionary
-    Set cwRes = br.invokeMethod("Page.createIsolatedWorld", pCW)
+    Set cwRes = br.ExecuteCDP("Page.createIsolatedWorld", pCW)
 
     Dim execCtx As Long
     execCtx = CLng(cwRes("executionContextId"))
@@ -457,7 +457,7 @@ End Sub
 '==============================================================================
 ' ⑮ serializationOptions ? deep（deepSerializedValue 優先）
 '==============================================================================
-Private Sub Test15_serializationOptions_deep(br As CDPBrowser)
+Private Sub Test15_serializationOptions_deep(br As CDPContext)
     PrintSection "⑮ serializationOptions ? deep"
 
     Dim serOpts As New Scripting.Dictionary
@@ -498,12 +498,12 @@ End Sub
 '==============================================================================
 ' ⑯ RunAsyncCDP ? alert（Demo_CDP.TestAlert と同系）
 '==============================================================================
-Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
+Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
     PrintSection "⑯ RunAsyncCDP ? alert"
 
     On Error GoTo Test16_Err
 
-    br.invokeMethod "Page.enable", Nothing
+    br.ExecuteCDP "Page.enable", Nothing
 
     Dim oid As Variant
     oid = br.jsEval("document.getElementById('btn-async-alert')", returnByValue:=False, dbgMsg:=False)
@@ -532,12 +532,12 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
     Dim i As Long
     Dim found As Boolean
     For i = 1 To 100
-        br.TakeEvents
+        br.InheritanceCDPBrowser.TakeEvents
         If br.BrowserEvents("EventMethods").Exists(evName) Then
             found = True
             Exit For
         End If
-        br.sleep 0.05
+        br.InheritanceCDPBrowser.sleep 0.05
     Next i
 
     If found Then
@@ -550,7 +550,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPBrowser)
 
     Dim pDlg As New Scripting.Dictionary
     pDlg.Add "accept", True
-    br.invokeMethod "Page.handleJavaScriptDialog", pDlg
+    br.ExecuteCDP "Page.handleJavaScriptDialog", pDlg
 
     Set br.BrowserEvents = Nothing
 

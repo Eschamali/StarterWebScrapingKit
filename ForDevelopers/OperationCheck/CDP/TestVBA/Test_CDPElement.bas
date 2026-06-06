@@ -2,7 +2,7 @@ Attribute VB_Name = "Test_CDPElement"
 Option Explicit
 
 '==============================================================================
-' CDPElement 全機能テストモジュール
+' CDPContext 全機能テストモジュール
 ' ・テスト用HTMLファイル: ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html
 ' ・テスト実行前に CDPBrowser を開いて当該ページが表示されている状態にしてください
 '==============================================================================
@@ -26,7 +26,7 @@ End Function
 ' Main: 全テスト実行
 '==============================================================================
 Public Sub RunAll_CDPElement_Tests()
-    Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
+    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
 
     '--- ブラウザ起動 & HTMLページへナビゲート ---
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")
@@ -57,13 +57,13 @@ Public Sub RunAll_CDPElement_Tests()
     '--- 最終サマリー ---
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
 
 '==============================================================================
 ' ① value GET/LET / sendString / clearValue
 '==============================================================================
-Private Sub Test01_Value(br As CDPBrowser)
+Private Sub Test01_Value(br As CDPContext)
     PrintSection "① value / sendString / clearValue"
     Dim el As CDPElement
 
@@ -92,7 +92,7 @@ End Sub
 '==============================================================================
 ' ② innerText GET/LET
 '==============================================================================
-Private Sub Test02_innerText(br As CDPBrowser)
+Private Sub Test02_innerText(br As CDPContext)
     PrintSection "② innerText GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testInnerText")
@@ -110,7 +110,7 @@ End Sub
 '==============================================================================
 ' ③ innerHTML GET/LET
 '==============================================================================
-Private Sub Test03_innerHTML(br As CDPBrowser)
+Private Sub Test03_innerHTML(br As CDPContext)
     PrintSection "③ innerHTML GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testInnerHTML")
@@ -128,7 +128,7 @@ End Sub
 '==============================================================================
 ' ④ checked GET/LET
 '==============================================================================
-Private Sub Test04_checked(br As CDPBrowser)
+Private Sub Test04_checked(br As CDPContext)
     PrintSection "④ checked GET/LET"
     Dim el As CDPElement
     Set el = br.getElementByID("testCheckbox")
@@ -146,7 +146,7 @@ End Sub
 '==============================================================================
 ' ⑤ selected / setSelection
 '==============================================================================
-Private Sub Test05_selected(br As CDPBrowser)
+Private Sub Test05_selected(br As CDPContext)
     PrintSection "⑤ selected / setSelection"
     Dim el As CDPElement
     Set el = br.getElementByID("testSelect")
@@ -167,7 +167,7 @@ End Sub
 '==============================================================================
 ' ⑥ click() / fireEvent()
 '==============================================================================
-Private Sub Test06_click(br As CDPBrowser)
+Private Sub Test06_click(br As CDPContext)
     PrintSection "⑥ click / fireEvent"
     Dim el As CDPElement
     Set el = br.getElementByID("testButton")
@@ -192,7 +192,7 @@ End Sub
 '==============================================================================
 ' ⑦ getAttribute / setAttribute
 '==============================================================================
-Private Sub Test07_Attribute(br As CDPBrowser)
+Private Sub Test07_Attribute(br As CDPContext)
     PrintSection "⑦ getAttribute / setAttribute"
     Dim el As CDPElement
     Set el = br.getElementByID("testAttr")
@@ -210,7 +210,7 @@ End Sub
 '==============================================================================
 ' ⑧ focus / selectText
 '==============================================================================
-Private Sub Test08_focus_selectText(br As CDPBrowser)
+Private Sub Test08_focus_selectText(br As CDPContext)
     PrintSection "⑧ focus / selectText"
 
     ' focus
@@ -230,7 +230,7 @@ End Sub
 '==============================================================================
 ' ⑨ sendKey
 '==============================================================================
-Private Sub Test09_sendKey(br As CDPBrowser)
+Private Sub Test09_sendKey(br As CDPContext)
     PrintSection "⑨ sendKey"
 
     ' Field A にフォーカス→ Tab で Field B へ移動
@@ -251,7 +251,7 @@ End Sub
 '==============================================================================
 ' ⑩ submit
 '==============================================================================
-Private Sub Test10_submit(br As CDPBrowser)
+Private Sub Test10_submit(br As CDPContext)
     PrintSection "⑩ submit"
     Dim formEl As CDPElement
     Set formEl = br.getElementByID("testForm")
@@ -263,7 +263,7 @@ End Sub
 '==============================================================================
 ' ⑪ トラバーサル: getParent / getNextSibling / getPrevSibling / getFirstChild
 '==============================================================================
-Private Sub Test11_Traversal(br As CDPBrowser)
+Private Sub Test11_Traversal(br As CDPContext)
     PrintSection "⑪ トラバーサル"
 
     Dim child2 As CDPElement
@@ -295,7 +295,7 @@ End Sub
 '==============================================================================
 ' ⑫ コレクション: getChildren / getElementsByQuery / getElementsByXPath
 '==============================================================================
-Private Sub Test12_Collections(br As CDPBrowser)
+Private Sub Test12_Collections(br As CDPContext)
     PrintSection "⑫ コレクション"
     Dim ulEl As CDPElement
     Set ulEl = br.getElementByID("collection-list")
@@ -354,7 +354,7 @@ End Sub
 '==============================================================================
 ' ⑬ isExist / ifExist / onExist / onExistNot
 '==============================================================================
-Private Sub Test13_isExist_onExist(br As CDPBrowser)
+Private Sub Test13_isExist_onExist(br As CDPContext)
     PrintSection "⑬ isExist / ifExist / onExist / onExistNot"
 
     ' isExist: 存在する要素
@@ -393,7 +393,7 @@ End Sub
 '==============================================================================
 ' ⑭ getIFrame
 '==============================================================================
-Private Sub Test14_getIFrame(br As CDPBrowser)
+Private Sub Test14_getIFrame(br As CDPContext)
     PrintSection "⑭ getIFrame"
     Dim iframeEl As CDPElement
     Set iframeEl = br.getElementByID("testIFrame")

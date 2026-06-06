@@ -3,7 +3,7 @@ Attribute VB_Name = "Test_strBuffer"
 ' strBuffer 断片化検証テスト
 '---------------------------------------------------------------------------------------------------
 ' 目的：
-'   CDPBrowser 内の `strBuffer` が正しく機能しているかを検証する。
+'   CDPContext 内の `strBuffer` が正しく機能しているかを検証する。
 '   パイプから受信したJSONが途中で切れた（断片化した）際に、`strBuffer` に蓄積して
 '   次回受信分と結合し、完全なJSONに復元できるかを確認する。
 '
@@ -61,7 +61,7 @@ Private Const URL_5 As String = "https://twitter.com"
 Sub Test_strBuffer_Main()
 
     ' ① ブラウザ起動（設定シート準拠）
-    Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
+    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
 
     ' ② 統計カウンタの初期化
     Dim countSnap        As Long    ' snapPage 実行回数
@@ -78,7 +78,7 @@ Sub Test_strBuffer_Main()
     br.SetFilterEvents = EV_RESPONSE_RECEIVED
     br.SetFilterEvents = EV_LOADING_FINISHED
     Set br.BrowserEvents = New Dictionary       'イベントキャプチャを有効化
-    br.invokeMethod "Network.enable"
+    br.ExecuteCDP "Network.enable"
 
 
     '===================================================
@@ -108,7 +108,7 @@ Sub Test_strBuffer_Main()
         countNavigation = countNavigation + 1
 
         ' TakeEventsでパイプをフラッシュ（イベントデータを受信）
-        br.TakeEvents
+        br.InheritanceCDPBrowser.TakeEvents
 
         ' actionOrder に応じてCDPコマンドをランダム実行
         Select Case actionOrder
@@ -134,7 +134,7 @@ Sub Test_strBuffer_Main()
         End Select
 
         ' 再度TakeEventsで追加イベント収集（イベントの連鎖を起こしやすくする）
-        br.TakeEvents
+        br.InheritanceCDPBrowser.TakeEvents
     Next i
 
 
@@ -159,7 +159,7 @@ Sub Test_strBuffer_Main()
         ExecSnapPageFull br, j, countSnap       '連続で全ページキャプチャ（最もデータが多い）
         ExecGetAllCookies br, j, countCookies   '再度Cookie（連打）
 
-        br.TakeEvents
+        br.InheritanceCDPBrowser.TakeEvents
     Next j
 
 
@@ -180,7 +180,7 @@ Sub Test_strBuffer_Main()
     Debug.Print RESULT_SECTION_LINE
 
     ' ブラウザを閉じる
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
 
 
@@ -191,11 +191,11 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：スクリーンショット（通常ビュー）を実行し、カウントアップします
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：br          CDPBrowserオブジェクト
+'* 引数　　：br          CDPContextオブジェクト
 '            Step_       ステップ番号（ログ表示用）
 '            Count       カウンタ変数（参照渡しでインクリメント）
 '***************************************************************************************************
-Private Sub ExecSnapPage(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
+Private Sub ExecSnapPage(br As CDPContext, Step_ As Long, ByRef Count As Long)
     Dim savePath As String: savePath = Environ("UserProfile") & "\Downloads"
     Dim fileName As String: fileName = "strBuffer_test_step" & Step_ & "_" & Count & ".png"
 
@@ -208,14 +208,14 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：スクリーンショット（フルページ）を実行し、カウントアップします
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：br          CDPBrowserオブジェクト
+'* 引数　　：br          CDPContextオブジェクト
 '            Step_       ステップ番号（ログ表示用）
 '            Count       カウンタ変数（参照渡しでインクリメント）
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：getFullPage = True にするとページ全体をキャプチャするため、
 '            base64データが膨大になり、断片化を誘発しやすい
 '***************************************************************************************************
-Private Sub ExecSnapPageFull(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
+Private Sub ExecSnapPageFull(br As CDPContext, Step_ As Long, ByRef Count As Long)
     Dim savePath As String: savePath = Environ("UserProfile") & "\Downloads"
     Dim fileName As String: fileName = "strBuffer_test_full_step" & Step_ & "_" & Count & ".png"
 
@@ -228,13 +228,13 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Network.getAllCookies を実行し、カウントアップします
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：br          CDPBrowserオブジェクト
+'* 引数　　：br          CDPContextオブジェクト
 '            Step_       ステップ番号（ログ表示用）
 '            Count       カウンタ変数（参照渡しでインクリメント）
 '***************************************************************************************************
-Private Sub ExecGetAllCookies(br As CDPBrowser, Step_ As Long, ByRef Count As Long)
+Private Sub ExecGetAllCookies(br As CDPContext, Step_ As Long, ByRef Count As Long)
     Debug.Print "    [getAllCookies] 実行中..."
-    Dim result As Dictionary: Set result = br.invokeMethod("Network.getAllCookies")
+    Dim result As Dictionary: Set result = br.ExecuteCDP("Network.getAllCookies")
 
     If Not result Is Nothing Then
         If result.Exists("cookies") Then
