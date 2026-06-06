@@ -305,7 +305,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         'メインとなるWebDriverBiDiの結果
         Case BiDiResMain
             '4-1. エスケープ解除済みのpayload 部分を抽出
-            tmp = ExtractPayload(RawJson)
+            tmp = ExtractPayload(RawJson, NamePayload)
             If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & tmp, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
@@ -314,7 +314,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         'BiDi-Mapper 内部のデバッグログ用
         Case BiDiResDebug
             '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
-            tmp = ExtractPayload(RawJson)
+            tmp = ExtractPayload(RawJson, NamePayload)
             printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & tmp, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
@@ -333,48 +333,82 @@ End Sub
 Private Function ExtractName(resCDP As String) As String
     Const FromProcedureName As String = ThisClassName & ".ExtractName"
 
-    '--------- params-name項目から、`payload`の種類を特定 ---------
-    Const SearchKey_ParamsName As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":"""
-    Dim StartPos As Long, EndPos As Long
-    Dim CalledName As String
 
-    'name項目を抽出
-    StartPos = Len(SearchKey_ParamsName) + 1    '「{"method":"Runtime.bindingCalled","params":{"name":"」分、検索位置をずらす想定
-    EndPos = InStr(StartPos, resCDP, """,""")
-    ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+    '検索設定
+    Const SearchKeyName     As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '検索文字列
+    Const StartSearchPos    As Long = 1                                                                 'あるべき位置
+
+
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+
+    '2. 所定の位置にない場合は、存在しないとし、抜ける
+    '例：{"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","...
+    If StartPos = StartSearchPos Then
+
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName)
+
+        '4. name値の終点を求める
+        Dim EndPos As Long
+        EndPos = InStr(StartPos, resCDP, """,""")
+
+        '5. name値を取り出す
+        ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+        printMsg Trace_, LogID, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
+    Else
+        'name値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+        printMsg ERROR_, LogID, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+    End If
 End Function
 
 '***************************************************************************************************
 '* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
 '---------------------------------------------------------------------------------------------------
 '* 返値　　：エスケープ解除済み`payload`部分
-'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'* 引数　　：resCDP             CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'            bindingCalledName  `Runtime.bindingCalled`の`Name`値を指定。抽出精度を高めるために使用します
 '***************************************************************************************************
-Private Function ExtractPayload(resCDP As String) As String
-    Const SearchKey As String = """payload"":"""
-    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
-    If StartPos = 0 Then Exit Function
+Private Function ExtractPayload(resCDP As String, bindingCalledName As String) As String
+    Const FromProcedureName As String = ThisClassName & ".ExtractPayload"
 
-    StartPos = StartPos + Len(SearchKey)
 
-    ' payloadの終了位置を探す。通常はexecutionContextIdの前
-    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
-    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' 万が一の末尾判定
+    '検索設定
+    Const SearchKeyName As String = """,""payload"":"""                                             '実際の検索文字列
+    Const FirstLetter   As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '先頭の固定文字列
+    Dim StartSearchPos As Long: StartSearchPos = Len(FirstLetter) + Len(bindingCalledName) + 1      '`payload`があるべき位置を動的に特定
 
-    If EndPos > StartPos Then
-        ' JSONエンコードされた文字列をデコード（本来はもっと複雑だが、ここではWebJsonConverter.ParseJsonに任せるために、
-        ' いったん「JsonOfJson」の外殻だけ剥がす。ただしVBAのParserを完全に避けるならここが正念場）
-        ' 実はParseJsonにこの部分文字列を渡すのが一番安全。
-        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
 
-        ' 文字列内のエスケープ（\" -> "）を復元
-        ' ※WebJsonConverter.ParseJson は「JSON全体」を期待するので、
-        ' ここで完全に復元してしまうと、今度はその中の文字列が壊れる可能性がある。
-        ' なので、ここでは「JSONとしての文字列値」を取得するにとどめ、
-        ' クラス内のパース処理にそのまま渡す。
-        ' ただし、CDPのJSONエンコードにより \" になっているものを " に戻す必要がある。
-        ExtractPayload = Replace(ExtractPayload, "\""", """")
-        ExtractPayload = Replace(ExtractPayload, "\\", "\")
+    '1. 文字列を探索
+    Dim StartPos As Long
+    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+
+    '2. 所定の位置あるか確認する
+    If StartPos = StartSearchPos Then
+        '3. 開始位置をうまい具合にずらす
+        StartPos = StartSearchPos + Len(SearchKeyName)
+
+        '4. payloadの終了位置を探す。通常はexecutionContextIdの前
+        'https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#event-bindingCalled
+        Dim EndPos As Long: EndPos = InStrRev(resCDP, """,""executionContextId""")
+
+        '5. 取り出せる計算かチェック
+        If EndPos > StartPos Then
+            '6.payload値を取り出す
+            ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+
+            '7.「JsonOfJson」の外殻だけ剥がすための、エスケープ（\" -> "）を復元
+            'これにより、`WebJsonConverter`クラスのパース処理に渡せれる形になります
+            ExtractPayload = Replace(ExtractPayload, "\""", """")
+            ExtractPayload = Replace(ExtractPayload, "\\", "\")
+        Else
+            'payload値が取れない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+            printMsg ERROR_, LogID, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+        End If
+    Else
+        'payload値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+        printMsg ERROR_, LogID, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
     End If
 End Function
 
