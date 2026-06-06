@@ -74,7 +74,6 @@ Private BiDiDebug As StateDebug
 'ステート管理
 Private m_MessageID     As Long     '現在のBiDiコマンドID
 Private LogID           As String   'このClassオブジェクトとしてのログID
-Private StopCDPError    As Boolean  '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラーを無視するか？
 
 
 
@@ -382,11 +381,12 @@ End Function
 '***************************************************************************************************
 '* 機能　　：実際にCDPを実行します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strData    完成したBiDi-Jsonコマンド
+'* 引数　　：strData        完成したBiDi-Jsonコマンド
+'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：実行前に、エスケープ処理を行い、`Runtime.evaluate`として実行します
 '***************************************************************************************************
-Private Sub RunCDP(strData As String)
+Private Sub RunCDP(strData As String, StopCDPError As Boolean)
     '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
     Dim safeJson As String
     safeJson = Replace(strData, "\", "\\")
@@ -410,11 +410,12 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strMessage BiDi-Jsonコマンド
+'* 引数　　：strMessage     BiDi-Jsonコマンド
+'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Sub ReadyRunBiDi(strMessage As String)
+Public Sub ReadyRunBiDi(strMessage As String, StopCDPError As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
@@ -429,7 +430,7 @@ Public Sub ReadyRunBiDi(strMessage As String)
 
     '4. 実際に実行
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    RunCDP strMessage
+    RunCDP strMessage, StopCDPError
 End Sub
 
 '***************************************************************************************************
@@ -911,7 +912,6 @@ Public Sub sleep(Optional seconds As Double = 0.5)
 End Sub
 
 Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    StopCDPError = StopPipeError    '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
     m_CDPCore.TakeEvents StopPipeError, destruction
 End Sub
 

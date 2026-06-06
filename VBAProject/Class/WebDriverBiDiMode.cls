@@ -229,8 +229,8 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     '--------------------------------------------------
     printMsg Debug_, "runBiDi  - Async       = " & Async, FromProcedureName
 
-    m_BiDiCore.ReadyRunBiDi strMessage
-    Dim currentCommandID As Long: currentCommandID = m_BiDiCore.LastCommandID '`ReadyRunBiDi`直後のcommandIDを取得
+    m_BiDiCore.ReadyRunBiDi strMessage, dbgMsg                                  '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
+    Dim currentCommandID As Long: currentCommandID = m_BiDiCore.LastCommandID   '`ReadyRunBiDi`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
     If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & m_BiDiCore.ErrorDetail.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
