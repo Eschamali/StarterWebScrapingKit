@@ -585,8 +585,8 @@ Private Function isLiveBrowser() As Boolean
     '※生存確認なので、内部でのエラーは無視する
     SendMessage "{""method"":""Browser.getVersion"",""params"":{}}", dbgMsg:=False
 
-    '2. パイプのエラーコードをcheckし、両方とも生きてる場合、`True`とします
-    If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 Then isLiveBrowser = True
+    '2. いずれもパイプエラーコードがなければ、`True`とします
+    If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
 End Function
 
 
@@ -1260,7 +1260,7 @@ Public Sub quit()
 
     '2. パイプ生存確認
     Dim PipeExists As Boolean: PipeExists = Not (results Is Nothing)
-    If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then
+    If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Or PipeCore.LastErrorWriteFile > 0 Then
         '2-1. もうパイプは閉じてる
         PipeExists = False
     Else
