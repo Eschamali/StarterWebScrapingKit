@@ -262,7 +262,6 @@ Private DictionarySessionID As Dictionary
 'その他
 Private LastCommandID_Pipe  As Long     '現在のコマンドID
 Private m_Frequency         As Currency '実行マシンでの周波数記録用
-Public StopPipeError        As Boolean  'Pipe関連のエラーがあったら、`Err.Raise`で止めるか？
 
 
 
@@ -785,10 +784,15 @@ End Function
 '***************************************************************************************************
 '* 機能　　：パイプから、データ欠損がなくなるまで、ループして取り出していきます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
+'* 引数　　：StopPipeError  `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
+'                                    別途、`LastError○○`で後で確認可能です
+'
+'            destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
 '                           `False`:IDの解析やイベントの中身の解析を行います
+'
 '***************************************************************************************************
-Public Sub TakeEvents(Optional destruction As Boolean)
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
 
@@ -1298,8 +1302,5 @@ Private Sub Class_Initialize()
 
     '4. 実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
     Call QueryPerformanceFrequency(m_Frequency)
-
-    '5. defaultは止めるようにする
-    StopPipeError = True
     '------------------------------------------------------------------------------
 End Sub
