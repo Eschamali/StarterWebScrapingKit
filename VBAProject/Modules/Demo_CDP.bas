@@ -449,7 +449,7 @@ End Sub
 '***************************************************************************************************
 Sub SimpleShadowRootTest()
     '1. ShadowRootページを開く
-    Dim ShadowRootTest As CDPBrowser: Set ShadowRootTest = 設定シートからのCDP起動("https://jec.fish/demo/shadow-open-close")
+    Dim ShadowRootTest As CDPContext: Set ShadowRootTest = 設定シートからのCDP起動ForTab("https://jec.fish/demo/shadow-open-close")
     With ShadowRootTest
         '2. Shadow-Root(Open) 内のボタンをクリック
         .getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click
@@ -469,7 +469,7 @@ Sub SimpleShadowRootTest()
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
         Do
             '非同期イベントを取り出す
-            .TakeEvents
+            .InheritanceCDPBrowser.TakeEvents
 
             'イベント名の確認
             If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
@@ -482,7 +482,7 @@ Sub SimpleShadowRootTest()
                 Next
 
                 '1件、見つかったので少し待って、抜ける
-                .sleep 2
+                .InheritanceCDPBrowser.sleep 2
                 Exit Do
             End If
         Loop While True
@@ -490,10 +490,10 @@ Sub SimpleShadowRootTest()
         ' --- 7. ダイアログに反応しておく ---
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "accept", True
-        .invokeMethod "Page.handleJavaScriptDialog", paramsCDP
+        .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
 
         '8. ブラウザを正常に閉じる
-        .quit
+        .InheritanceCDPBrowser.quit
     End With
 End Sub
 
@@ -504,10 +504,10 @@ End Sub
 '***************************************************************************************************
 Sub iframeShadowRootTest()
     '1. captchaDemoページを開く
-    Dim captchaDemo As CDPBrowser: Set captchaDemo = 設定シートからのCDP起動("https://2captcha.com/demo/cloudflare-turnstile")
+    Dim captchaDemo As CDPBrowser: Set captchaDemo = 設定シートからのCDP起動ForBrowser("https://2captcha.com/demo/cloudflare-turnstile")
     With captchaDemo
         '2. cloudflare 用のiframeにアタッチする
-        Dim CloudflareTurnstile As CDPBrowser
+        Dim CloudflareTurnstile As CDPContext
         Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame)
 
         '3. そのiframe内にあるチェックBoxをクリックする
