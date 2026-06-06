@@ -1436,9 +1436,7 @@ Next i
 
 ### String Building
 
-The writer uses normal VBA string concatenation.
-
-This is simple and dependency-free. For extremely large generated JSON output, a future builder-buffer implementation could improve write performance.
+The writer uses Builder-Buffer.
 
 ### Threading
 
