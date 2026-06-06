@@ -668,7 +668,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30, Optional ra
 
     timeStart = TimerCounter
     Do While elemVarType <> vbNull
-        If TimerCounter - timeStart > timeOutInSeconds Then
+        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then
             printMsg ERROR_, "onExistsNot timeout on varJS = " & varJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
