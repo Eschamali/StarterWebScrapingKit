@@ -36,7 +36,7 @@ Private Function EOk() As String
 End Function
 
 Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30)
-    Dim br As CDPBrowser: Set br = 設定シートからのCDP起動
+    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_jsDialogAutoCloseRace\Test_jsDialogAutoCloseRace.html", "\", "/")
     br.wait
@@ -51,7 +51,7 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
     ext.DefaultAccept = True
     ext.DefaultPromptText = "N/A"
 
-    br.invokeMethod "Page.enable", Nothing
+    br.ExecuteCDP "Page.enable", Nothing
 
     Dim iter As Long
     For iter = 1 To iterations
@@ -137,15 +137,15 @@ Iter_Next:
 
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
     Set ext = Nothing
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
 
-Private Function TryResultCDPForAsync(br As CDPBrowser, ByVal cmdId As Long, ByRef box As Scripting.Dictionary, ByVal timeoutSec As Double) As Boolean
+Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByRef box As Scripting.Dictionary, ByVal timeoutSec As Double) As Boolean
     Dim t0 As Double: t0 = Timer
 
     Do
         On Error Resume Next
-        Set box = br.ResultCDPForAsync(cmdId)
+        Set box = br.InheritanceCDPBrowser.jsConverter.ParseJson(br.ResultCDPFromWithEvents(cmdId))
         
         On Error GoTo 0
 
@@ -155,7 +155,7 @@ Private Function TryResultCDPForAsync(br As CDPBrowser, ByVal cmdId As Long, ByR
         End If
 
         '取りこぼしを拾うために短くポンプ
-        br.TakeEvents
+        br.InheritanceCDPBrowser.TakeEvents
         DoEvents
 
         If (Timer - t0) > timeoutSec Then Exit Do

@@ -11,7 +11,7 @@ Option Explicit
 
 Sub TestAlertWithExpansion()
     '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
-    Dim Demo_alerts As CDPBrowser: Set Demo_alerts = 設定シートからのCDP起動("https://www.selenium.dev/selenium/web/alerts.html")
+    Dim Demo_alerts As CDPContext: Set Demo_alerts = 設定シートからのCDP起動ForTab("https://www.selenium.dev/selenium/web/alerts.html")
 
     '拡張機能を追加（prompt の入力値は 入力文字内容 と同一にし、Debug.Assert と整合させる）
     Dim testEX As New exCDP_JSDialogAutoClose
@@ -33,14 +33,14 @@ Sub TestAlertWithExpansion()
 
     With Demo_alerts
         ' --- 1. 必要なドメインを有効化 ---
-        .invokeMethod ("DOM.enable")
+        .ExecuteCDP ("DOM.enable")
         
 
         ' --- 2. DOMツリーを同期させ、ID割り振りを行う ---
         paramsCDP.RemoveAll
         paramsCDP.Add "depth", 0        '返却時のDOM情報は不要なので、0にしておく
         paramsCDP.Add "pierce", True    'Shadow DOMの中まで貫通させる
-        .invokeMethod "DOM.getDocument", paramsCDP
+        .ExecuteCDP "DOM.getDocument", paramsCDP
         ' これでブラウザ内の全ノードにIDが割り振られます
 
         Dim i As Long
@@ -55,7 +55,7 @@ Sub TestAlertWithExpansion()
             ' --- 3. XPathで検索 (Shadow DOMの貫通も可) ---
             paramsCDP.RemoveAll
             paramsCDP.Add "query", TargetXpath  '先頭のリンクを対象に
-            Set resCDP = .invokeMethod("DOM.performSearch", paramsCDP)
+            Set resCDP = .ExecuteCDP("DOM.performSearch", paramsCDP)
             searchId = resCDP("searchId")
     
     
@@ -64,14 +64,14 @@ Sub TestAlertWithExpansion()
             paramsCDP.Add "searchId", searchId
             paramsCDP.Add "fromIndex", 0   '先頭の件数から
             paramsCDP.Add "toIndex", 1     '1件分のみ
-            Set resCDP = .invokeMethod("DOM.getSearchResults", paramsCDP)
+            Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
             nodeId = resCDP("nodeIds")(1)  '配列の先頭を取得
     
     
             ' --- 5. nodeId を objectId に変換 ---
             paramsCDP.RemoveAll
             paramsCDP.Add "nodeId", nodeId
-            Set resCDP = .invokeMethod("DOM.resolveNode", paramsCDP)
+            Set resCDP = .ExecuteCDP("DOM.resolveNode", paramsCDP)
 
 
             ' --- 6. あえて、同期でコマンド実行(Jsのクリック処理) ---
@@ -87,6 +87,6 @@ Sub TestAlertWithExpansion()
         Debug.Assert Htmlの表示内容 = 入力文字内容
 
         Set testEX = Nothing      '拡張機能をOFF
-        .quit
+        .InheritanceCDPBrowser.quit
     End With
 End Sub

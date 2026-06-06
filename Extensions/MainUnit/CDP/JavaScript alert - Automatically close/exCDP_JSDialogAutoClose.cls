@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-' CDPBrowser 拡張 - JavaScript ダイアログ（alert / confirm / prompt 等）の自動応答
+' CDPContext 拡張 - JavaScript ダイアログ（alert / confirm / prompt 等）の自動応答
 '
 ' Page.javascriptDialogOpening を detectionCDPEvent で受け、Page.handleJavaScriptDialog を実行します。
 ' ・DefaultAccept … confirm / prompt / beforeunload で「はい相当」か「いいえ相当」か（alert は常に OK）
@@ -21,17 +21,20 @@ Option Explicit
 '***************************************************************************************************
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
-'内部参照用オブジェクト
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+'ブラウザ制御オブジェクト
+Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
+Attribute ex_CDPCore.VB_VarHelpID = -1
+Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
+Private ex_CDPContext               As CDPContext   '継承元のブラウザ
+
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
-Private mJson                       As New WebJsonConverter
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
+Private CurrentSessionId            As String       '継承時のSesssionID
 
 ' 既定: はい=OK 系 / prompt 用の入力文字列
 Private Type JavaScriptDialog
@@ -85,8 +88,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ メインとなる機能拡張部分 ■■■
 '***************************************************************************************************
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -97,14 +100,17 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. 対象のイベント以外も即抜け
+    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If CurrentSessionId <> sessionID Then Exit Sub
+
+    '3. 対象のイベント以外も即抜け
     '処理したい対象の非同期イベント名を、各Case に記述してください。
     Select Case methodName
         Case "Page.javascriptDialogOpening"
-            '3. デバッグログ用に、Jsonパース処理
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+            '4. デバッグログ用に、Jsonパース処理
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
             If seeRawSendMsgDbg Then
-                Dim DialogInfos As Dictionary: Set DialogInfos = mJson.ParseJson(EventRawJson)("params")
+                Dim DialogInfos As Dictionary: Set DialogInfos = ex_CDPBrowser.jsConverter.ParseJson(RawJson)("params")
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "javascriptDialogOpening information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -115,9 +121,9 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-            '4. ダイアログを閉じる処理を発動
+            '5. ダイアログを閉じる処理を発動
             With JavaScriptDialogClose
-                ex_CDPBrowser.handleDialog .Accept, .promptText
+                ex_CDPContext.handleDialog .Accept, .promptText
             End With
 
         Case Else
@@ -130,9 +136,9 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser`直通メソッド ■■■
+'                           ■■■ `CDPContext,CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
+'* 機能　　：いちいち、`○○.ExecuteCDP`といった記述を防ぐ措置となります。
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
@@ -140,11 +146,11 @@ Private Sub sleep(Optional seconds As Double = 0.5)
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
 
@@ -152,14 +158,19 @@ End Function
 '***************************************************************************************************
 '                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
+'* 機能　　：CDP制御のベースとなる`CDPCore.cls`を継承させます
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
-    '継承
-    Set ex_CDPBrowser = Inheritance
+Friend Sub Init(Inheritance As CDPContext)
+    '必要なCDPオブジェクトを継承
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+
+    'SessionIdを取得
+    CurrentSessionId = ex_CDPContext.id
 
     'Pageドメインの有効化
-    ex_CDPBrowser.pageEnable
+    ex_CDPContext.pageEnable
 End Sub
 
 '***************************************************************************************************
@@ -190,5 +201,5 @@ End Sub
 '***************************************************************************************************
 Private Sub Class_Terminate()
     'Pageドメインの無効化
-    ex_CDPBrowser.pageEnable False
+    ex_CDPContext.pageEnable False
 End Sub
