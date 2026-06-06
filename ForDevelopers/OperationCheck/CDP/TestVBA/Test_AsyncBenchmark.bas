@@ -254,3 +254,203 @@ Sub Test_AsyncBenchmark_Main()
     ' ブラウザを閉じる
     chrome.quit
 End Sub
+
+'===================================================================================================
+' メインテストプロシージャ（Cookieパターン）
+'===================================================================================================
+Sub Test_AsyncBenchmark_Cookies()
+    Dim chrome As New CDPBrowser
+    Dim tabs() As CDPContext
+    Dim tabStates() As TabState
+    Dim tickets() As ScreenshotTicket
+    Dim ticketCount As Long
+    Dim urls(1 To 5) As String
+    Dim i As Long, t As Long
+    Dim allFinished As Boolean
+    Dim saveDir As String
+    
+    ticketCount = 0
+    
+    ' URL配列の初期化
+    urls(1) = URL_1
+    urls(2) = URL_2
+    urls(3) = URL_3
+    urls(4) = URL_4
+    urls(5) = URL_5
+
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "[非同期ベンチマークテスト (Cookie版)] 開始"
+    Debug.Print "実行時刻: " & Format(Now, "yyyy/mm/dd hh:mm:ss")
+    Debug.Print "設定: タブ数=" & NUM_TABS & ", ラップ数=" & NUM_LAPS
+    Debug.Print RESULT_SECTION_LINE
+
+    ' 1. ブラウザの起動とタブの用意
+    Debug.Print "ブラウザを起動しています..."
+    Set chrome = 設定シートからのCDP起動ForBrowser
+    
+    ReDim tabs(1 To NUM_TABS)
+    ReDim tabStates(1 To NUM_TABS)
+    
+    ' 最初のタブを取得 (runTabsAsMany に準じる)
+    Set tabs(1) = chrome.getTab(setMain:=True)
+    
+    ' 2番目以降のタブを作成 (newWindow:=False)
+    For t = 2 To NUM_TABS
+        Set tabs(t) = chrome.newTab(newWindow:=False)
+    Next t
+
+    ' 各タブのイベントの有効化と初期遷移
+    Randomize
+    For t = 1 To NUM_TABS
+        Set tabStates(t).Context = tabs(t)
+        tabStates(t).Index = t
+        tabStates(t).CurrentLap = 1
+        tabStates(t).Status = "NAVIGATING"
+        
+        ' イベント監視の有効化 (Page.loadEventFired をキャッチするため)
+        tabs(t).ExecuteCDP "Page.enable"
+        tabs(t).ExecuteCDP "Network.enable" ' Cookie取得用ドメインの有効化
+        tabs(t).SetFilterEvents = "Page.loadEventFired"
+        Set tabs(t).BrowserEvents = New Dictionary
+        
+        ' 初期遷移先をランダムに決定
+        Dim rndIdx As Long
+        rndIdx = Int(Rnd * 5) + 1
+        tabStates(t).TargetUrl = urls(rndIdx)
+        
+        ' 非同期遷移の依頼
+        Dim navParams As Scripting.Dictionary
+        Set navParams = New Scripting.Dictionary
+        navParams.Add "url", tabStates(t).TargetUrl
+        
+        Call tabs(t).ExecuteCDPAsync("Page.navigate", navParams)
+        Debug.Print "Tab " & t & " Lap 1: 非同期遷移開始 -> " & tabStates(t).TargetUrl
+    Next t
+
+    ' 2. イベントループによる遷移・Cookie要求の並列制御
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "非同期処理のイベントループを開始します..."
+    
+    Do
+        ' ブラウザ全体のイベントポーリング（すべてのタブのイベントが処理される）
+        chrome.TakeEvents
+        
+        allFinished = True
+        For t = 1 To NUM_TABS
+            If tabStates(t).Status = "NAVIGATING" Then
+                allFinished = False
+                
+                ' Page.loadEventFired が発生したか確認
+                If tabStates(t).Context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
+                    Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " 読み込み完了！"
+                    
+                    ' (a) Cookie取得非同期依頼 (Network.getAllCookies)
+                    Dim cookieCmdID As Long
+                    cookieCmdID = tabStates(t).Context.ExecuteCDPAsync("Network.getAllCookies", Nothing)
+                    
+                    ' 整理券を記録
+                    ticketCount = ticketCount + 1
+                    ReDim Preserve tickets(1 To ticketCount)
+                    
+                    tickets(ticketCount).TabIndex = t
+                    Set tickets(ticketCount).Context = tabStates(t).Context
+                    tickets(ticketCount).CommandID = cookieCmdID
+                    tickets(ticketCount).Lap = tabStates(t).CurrentLap
+                    tickets(ticketCount).FileName = "" ' Cookie版ではファイル名不要
+                    tickets(ticketCount).Saved = False
+                    
+                    Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " Cookie非同期取得依頼完了 (整理券番号: " & cookieCmdID & ")"
+                    
+                    ' (b) 次の遷移を依頼するか、完了とするか
+                    If tabStates(t).CurrentLap < NUM_LAPS Then
+                        tabStates(t).CurrentLap = tabStates(t).CurrentLap + 1
+                        tabStates(t).Status = "NAVIGATING"
+                        
+                        ' 次のランダムURLを選択
+                        rndIdx = Int(Rnd * 5) + 1
+                        tabStates(t).TargetUrl = urls(rndIdx)
+                        
+                        ' イベントバッファをクリアして、次のロードに備える
+                        Set tabStates(t).Context.BrowserEvents = New Dictionary
+                        
+                        ' 非同期遷移の依頼
+                        Dim nextNavParams As Scripting.Dictionary
+                        Set nextNavParams = New Scripting.Dictionary
+                        nextNavParams.Add "url", tabStates(t).TargetUrl
+                        Call tabStates(t).Context.ExecuteCDPAsync("Page.navigate", nextNavParams)
+                        Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " 非同期遷移開始 -> " & tabStates(t).TargetUrl
+                    Else
+                        tabStates(t).Status = "COMPLETED"
+                        Debug.Print "  -> Tab " & t & " 全ラップの依頼が完了しました。"
+                    End If
+                End If
+            End If
+        Next t
+        
+        ' CPU負荷削減のためのスリープ
+        chrome.sleep 0.05
+    Loop Until allFinished
+
+    ' 3. 整理券を基にCookie情報を一括出力するフェーズ
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "全リクエストの送信が完了しました。Cookie取得結果の一括出力フェーズに移ります..."
+    
+    Dim allSaved As Boolean
+    Dim savedCount As Long
+    
+    savedCount = 0
+    
+    Do
+        chrome.TakeEvents
+        allSaved = True
+        
+        For i = 1 To ticketCount
+            If Not tickets(i).Saved Then
+                allSaved = False
+                
+                ' ResultCDPFromWithEvents で結果が戻っているか確認
+                Dim resJson As String
+                resJson = tickets(i).Context.ResultCDPFromWithEvents(tickets(i).CommandID)
+                
+                If Len(resJson) > 0 Then
+                    ' パース処理
+                    Dim resDic As Dictionary
+                    Set resDic = tickets(i).Context.InheritanceCDPBrowser.jsConverter.ParseJson(resJson)
+                    
+                    If Not resDic Is Nothing Then
+                        If resDic.Exists("error") Then
+                            Dim errMsg As String
+                            errMsg = resDic("error")("message")
+                            Debug.Print "  [取得失敗] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " : " & errMsg
+                            tickets(i).Saved = True
+                            savedCount = savedCount + 1
+                        ElseIf resDic.Exists("result") Then
+                            Dim resultData As Dictionary
+                            Set resultData = resDic("result")
+                            
+                            If resultData.Exists("cookies") Then
+                                Dim cookiesCol As Collection
+                                Set cookiesCol = resultData("cookies")
+                                
+                                Debug.Print "  [取得成功] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " -> 取得Cookie数: " & cookiesCol.Count & " 件"
+                                tickets(i).Saved = True
+                                savedCount = savedCount + 1
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        Next i
+        
+        If Not allSaved Then chrome.sleep 0.1
+    Loop Until allSaved
+
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "[テスト終了] ベンチマーク結果 (Cookie版)"
+    Debug.Print "  総リクエスト整理券数 : " & ticketCount
+    Debug.Print "  取得処理完了数       : " & savedCount
+    Debug.Print RESULT_SECTION_LINE
+
+    ' ブラウザを閉じる
+    chrome.quit
+End Sub
