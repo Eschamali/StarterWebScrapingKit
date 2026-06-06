@@ -286,7 +286,6 @@ End Function
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
 '* 注意事項：・Jsonは、文字列のままで渡されます。
 '            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteBiDiAsync`の結果)が全て削除されます
-'            ・IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub m_BiDiCore_detectionBiDiID(id As Long, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiID"
