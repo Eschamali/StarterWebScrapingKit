@@ -107,7 +107,8 @@ Sub Test_AsyncBenchmark_Main()
         tabStates(t).TargetUrl = urls(rndIdx)
         
         ' 非同期遷移の依頼
-        Dim navParams As New Scripting.Dictionary
+        Dim navParams As Scripting.Dictionary
+        Set navParams = New Scripting.Dictionary
         navParams.Add "url", tabStates(t).TargetUrl
         
         Call tabs(t).ExecuteCDPAsync("Page.navigate", navParams)
@@ -132,7 +133,8 @@ Sub Test_AsyncBenchmark_Main()
                     Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " 読み込み完了！"
                     
                     ' (a) スクショ非同期依頼
-                    Dim snapParams As New Scripting.Dictionary
+                    Dim snapParams As Scripting.Dictionary
+                    Set snapParams = New Scripting.Dictionary
                     ' 高速化のため getFullPage:=False 相当 (paramsは空でビューポートのみキャプチャ)
                     
                     Dim snapCmdID As Long
@@ -164,7 +166,8 @@ Sub Test_AsyncBenchmark_Main()
                         Set tabStates(t).Context.BrowserEvents = New Dictionary
                         
                         ' 非同期遷移の依頼
-                        Dim nextNavParams As New Scripting.Dictionary
+                        Dim nextNavParams As Scripting.Dictionary
+                        Set nextNavParams = New Scripting.Dictionary
                         nextNavParams.Add "url", tabStates(t).TargetUrl
                         Call tabStates(t).Context.ExecuteCDPAsync("Page.navigate", nextNavParams)
                         Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " 非同期遷移開始 -> " & tabStates(t).TargetUrl
