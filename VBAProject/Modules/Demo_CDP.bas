@@ -442,6 +442,83 @@ Sub ExcelのユーザーフォームにEdgeを埋め込む()
     実質WebView2.InheritanceCDPBrowser.quit
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ShadowRootに関するDemoです。シンプル版です
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Open/Close 問わず、メソッドチェーン操作で利用できます
+'***************************************************************************************************
+Sub SimpleShadowRootTest()
+    '1. ShadowRootページを開く
+    Dim ShadowRootTest As CDPBrowser: Set ShadowRootTest = 設定シートからのCDP起動("https://jec.fish/demo/shadow-open-close")
+    With ShadowRootTest
+        '2. Shadow-Root(Open) 内のボタンをクリック
+        .getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click
+
+        '3. Shadow-Root(Close) 内のボタン要素を取得(`.click`にしない理由は以降のコメントに)
+        Dim JavaScriptAlertButton As CDPElement
+        Set JavaScriptAlertButton = .getElementByXPath("//*[@id='closed']/closed-dom").GetShadowRoot.getElementByQuery("div > button")
+
+        '4. 次の操作前に下準備
+        .pageEnable                           '`Page`ドメインを有効
+        Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
+
+        '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行(先述にて、直で`.click`をしないのはこのため)
+        .jsEval "function() { this.click(); }", JavaScriptAlertButton.getObjectId, RunAsyncCDP:=True
+
+        ' --- 6. 特定のイベント名が出るまでループ ---
+        Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
+        Do
+            '非同期イベントを取り出す
+            .TakeEvents
+
+            'イベント名の確認
+            If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
+                '出ているダイアログの情報の確認
+                Dim tmp
+                For Each tmp In .BrowserEvents("EventMethods")(SearchEventName)
+                    Debug.Print "url    :"; tmp("params")("url")
+                    Debug.Print "message:"; tmp("params")("message")
+                    Debug.Print "type   :"; tmp("params")("type") & vbCrLf
+                Next
+
+                '1件、見つかったので少し待って、抜ける
+                .sleep 2
+                Exit Do
+            End If
+        Loop While True
+
+        ' --- 7. ダイアログに反応しておく ---
+        Dim paramsCDP As New Dictionary
+        paramsCDP.Add "accept", True
+        .invokeMethod "Page.handleJavaScriptDialog", paramsCDP
+
+        '8. ブラウザを正常に閉じる
+        .quit
+    End With
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ShadowRootに関するDemoです。iframe内のShadowRoot操作編です
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：iframe自体の`Target.getTargets`を取得して、そこのShadowRoot操作を行うイメージです
+'***************************************************************************************************
+Sub iframeShadowRootTest()
+    '1. captchaDemoページを開く
+    Dim captchaDemo As CDPBrowser: Set captchaDemo = 設定シートからのCDP起動("https://2captcha.com/demo/cloudflare-turnstile")
+    With captchaDemo
+        '2. cloudflare 用のiframeにアタッチする
+        Dim CloudflareTurnstile As CDPBrowser
+        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame)
+
+        '3. そのiframe内にあるチェックBoxをクリックする
+        CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
+
+        '4. 少し待って、閉じる
+        .sleep 2
+        .quit
+    End With
+End Sub
+
 Sub runEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
