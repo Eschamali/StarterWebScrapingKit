@@ -843,6 +843,9 @@ Public Sub TakeEvents(Optional destruction As Boolean)
 
             End If
         End If
+
+        '応答なし防止
+        DoEvents
     Loop Until vbNullCharTermination And intRes < 1
 
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
@@ -927,7 +930,6 @@ Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
 
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(CStr(JsonMessages(i)))
-        DoEvents
     Next
 End Function
 
