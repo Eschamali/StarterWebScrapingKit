@@ -448,7 +448,7 @@ Public Function deserialize(UserName As String) As Boolean
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
-    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
     If PipeInfo Is Nothing Then Exit Function
 
     'クラス内変数に適用
@@ -466,7 +466,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：パイプハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
+'* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
 Public Sub ClosePipeCDP()
     CloseHandle hStdOutRd
