@@ -442,6 +442,26 @@ Sub TestBiDiPlus_CDPTunnel()
     bidiPlus.quit
 End Sub
 
+Sub controlContextClassDemo()
+    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
+    Dim NewsSite As WebDriverBiDiMode
+    Set NewsSite = 設定シートからのBiDi起動("https://news.google.com/home")
+
+    'getタブでスマートにオブジェクト取得
+    Dim BiDiTab As WebDriverBiDiContext
+    Set BiDiTab = NewsSite.getTab("https://news.google.com/")
+
+    '別のURLへ遷移
+    BiDiTab.navigate "https://m365.cloud.microsoft/chat"
+
+    'CDP制御できるように変換
+    Dim CDPTab As CDPContext
+    Set CDPTab = BiDiTab.ConvertToCDPContext
+
+    'CDP実行してみる
+    CDPTab.notify "BiDiから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
+End Sub
+
 
 
 '***************************************************************************************************

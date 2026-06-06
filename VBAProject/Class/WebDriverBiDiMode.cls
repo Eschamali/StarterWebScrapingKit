@@ -145,6 +145,142 @@ End Function
 
 
 '***************************************************************************************************
+'                              ■■■ タブ操作関連 ■■■
+'***************************************************************************************************
+'* 機能　　：新規タブを返します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiContext
+'* 引数　　：newWindow      `True` ：新しいウィンドウを開く新規タブとして扱います
+'                           `False`：既存のウィンドウにて、タブを生成します
+'
+'            isBackground   `True` ：バックグラウンド（アクティブにしない）で開く
+'                           `False`：アクティブで開く
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebDriverBiDi では、いきなりURLで直遷移はできないようです
+'***************************************************************************************************
+Public Function newTab(Optional newWindow As Boolean, Optional isBackground As Boolean) As WebDriverBiDiContext
+    Const FromProcedureName As String = ThisClassName & ".newTab"
+
+
+    ' 1. 指定したパラメーターで実行
+    Dim bidiRes As Dictionary
+    Set bidiRes = SendMessage("{""method"":""browsingContext.create"",""params"":{""type"":""" & IIf(newWindow, "window", "tab") & """,""background"":" & LCase(isBackground) & "}}")
+
+    '2. 返却準備
+    Set newTab = New WebDriverBiDiContext
+    With newTab
+        '1. このBiDi情報を渡す
+        Set .InheritanceWebDriverBiDiMode = Me
+
+        '2. 先ほど得た`context`を渡す
+        .context = bidiRes("result")("context")
+    End With
+
+    printMsg info_, "newTab will now open a new BiDi instance", FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiContext
+'* 引数　　：tabName    タブ名
+'            Url        URL
+'            maxDepth   Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
+'            doRetry    `True`で、出現まで何回かリトライします。
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。maxDepth はデフォルトは、トップレベルのタブだけにしてます
+'* 注意事項：・url引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
+'            ・WebDriverBiDi では、タブ名での検索はできないようです
+'***************************************************************************************************
+Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional doRetry As Boolean) As WebDriverBiDiContext
+    Const FromProcedureName As String = ThisClassName & ".getTab"
+
+
+    Dim startTime As Double
+    Dim bidiRes As Dictionary
+    Dim contexts As Collection
+    Dim matchData As Dictionary
+
+    If doRetry Then startTime = TimerCounter
+
+    'シンプルに、`Instr`方式の検索で行う
+    Do
+        ' 1. 指定した深さまでのツリーを取得
+        Set bidiRes = SendMessage("{""method"":""browsingContext.getTree"",""params"":{""maxDepth"":" & maxDepth & "}}")
+
+        If Not bidiRes Is Nothing Then
+            Set contexts = bidiRes("result")("contexts")
+
+            ' 2. 再帰関数を呼び出して全階層からマッチするものを探す
+            Set matchData = FindContextRecursive(contexts, Url)
+
+            ' 3. 見つかったらオブジェクト化して返す
+            If Not matchData Is Nothing Then
+                Set getTab = New WebDriverBiDiContext
+                With getTab
+                    '1. このBiDi情報を渡す
+                    Set .InheritanceWebDriverBiDiMode = Me
+
+                    '2. 先ほど得た`context`を渡す
+                    .context = matchData("context")
+                End With
+
+                Exit Do
+            End If
+        End If
+
+        If Not doRetry Then Exit Do
+        If TimerCounter - startTime > timerOut Then Exit Do
+        DoEvents
+    Loop
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext.getTree`の再帰処理による検索処理です
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：contexts   browsingContext.InfoList
+'* 引数　　：Url        URL
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：再帰処理のため、深すぎるとエラーになりますが多分問題ないはずです
+'***************************************************************************************************
+Private Function FindContextRecursive(ByVal contexts As Collection, ByVal Url As String) As Dictionary
+    Dim ctxData As Object
+    Dim childMatch As Object
+ 
+    ' contextsはCollection（配列）としてループ
+    For Each ctxData In contexts
+        
+        ' A. このコンテキスト自体がマッチするかチェック
+        Dim isMatch As Boolean
+        If Url = "" Then
+            isMatch = True ' 両方空なら最初に見つかったヤツ
+        Else
+            If Url <> "" And InStr(1, ctxData("url"), Url) > 0 Then isMatch = True
+        End If
+
+        If isMatch Then
+            Set FindContextRecursive = ctxData
+            Exit Function
+        End If
+
+        ' B. 子要素（children）があれば、さらにその中を探索
+        If Not ctxData("children") Is Nothing Then
+            If ctxData("children").Count > 0 Then
+                Set childMatch = FindContextRecursive(ctxData("children"), Url)
+                If Not childMatch Is Nothing Then
+                    Set FindContextRecursive = childMatch
+                    Exit Function
+                End If
+            End If
+        End If
+    Next
+
+    Set FindContextRecursive = Nothing
+End Function
+
+
+
+'***************************************************************************************************
 '                              ■■■ BiDicommand操作関連 ■■■
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの送信 (同期)
