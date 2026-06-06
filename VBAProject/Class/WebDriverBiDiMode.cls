@@ -227,9 +227,6 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     '--------------------------------------------------
     'Send message to the browser
     '--------------------------------------------------
-    'Pipe関連のエラー停止設定
-    m_BiDiCore.StopPipeError = dbgMsg
-
     printMsg Debug_, "runBiDi  - Async       = " & Async, FromProcedureName
 
     m_BiDiCore.ReadyRunBiDi strMessage
@@ -251,7 +248,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
 
     Do
         '1. 受信処理によるパイプを拝見する
-        m_BiDiCore.TakeEvents
+        m_BiDiCore.TakeEvents dbgMsg
 
         '2. 受信処理にてエラーがあったら、即抜け
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
@@ -271,7 +268,6 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
 
         '4. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
-        DoEvents
     Loop
 
     printMsg Trace_, "BiDiCommand result ID:" & currentCommandID & " was returned from BiDi-Json, so the receiving loop will end.", FromProcedureName
@@ -716,8 +712,8 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     m_BiDiCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional destruction As Boolean)
-    m_BiDiCore.TakeEvents destruction
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    m_BiDiCore.TakeEvents StopPipeError, destruction
 End Sub
 
 Public Function TimerCounter() As Double

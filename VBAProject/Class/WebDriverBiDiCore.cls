@@ -74,7 +74,7 @@ Private BiDiDebug As StateDebug
 'ステート管理
 Private m_MessageID     As Long     '現在のBiDiコマンドID
 Private LogID           As String   'このClassオブジェクトとしてのログID
-Public StopPipeError    As Boolean  'Pipe関連のエラーがあったら、`Err.Raise`で止めるか？
+Private StopCDPError    As Boolean  '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラーを無視するか？
 
 
 
@@ -400,7 +400,7 @@ Private Sub RunCDP(strData As String)
     '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
     '※また内部にて、`RaiseEvent`よる発信も行われます
     '※`.jsEval`は、内部のお節介によりオーバーヘッドが積み重なることから、直通メソッドで使用します
-    WebDriverBiDi_mapperTab.ExecuteCDP "Runtime.evaluate", paramsCDP, StopPipeError
+    WebDriverBiDi_mapperTab.ExecuteCDP "Runtime.evaluate", paramsCDP, StopCDPError
 End Sub
 
 
@@ -910,8 +910,9 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     m_CDPCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional destruction As Boolean)
-    m_CDPCore.TakeEvents destruction
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    StopCDPError = StopPipeError    '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
+    m_CDPCore.TakeEvents StopPipeError, destruction
 End Sub
 
 Public Function TimerCounter() As Double
