@@ -12,6 +12,7 @@ Attribute VB_Name = "Demo_WebSocket"
 '   7. 2.からループ
 '***************************************************************************************************
 Option Explicit
+Option Private Module
 
 
 
