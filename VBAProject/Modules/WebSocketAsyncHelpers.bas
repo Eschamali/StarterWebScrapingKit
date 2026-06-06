@@ -16,6 +16,7 @@ Attribute VB_Name = "WebSocketAsyncHelpers"
 '       ・vtable オフセットが 0x40 → 0x38 に変わる（WinHttpCallbackProc がクラス先頭ユーザーメソッド）
 '***************************************************************************************************
 Option Explicit
+Option Private Module
 
 Private Declare PtrSafe Function GetModuleHandleW Lib "kernel32" (ByVal lpModuleName As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetProcAddress Lib "kernel32" (ByVal hModule As LongPtr, ByVal lpProcName As String) As LongPtr

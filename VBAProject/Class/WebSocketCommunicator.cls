@@ -18,7 +18,7 @@ Option Explicit
 '***************************************************************************************************
 '                                  ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
-'WebSokect関連API
+'----- WebSokect関連API -----
 Private Declare PtrSafe Function WinHttpWebSocketSend Lib "WinHttp" ( _
    ByVal hWebSocket As LongPtr, _
    ByVal eBufferType As Long, _
@@ -48,6 +48,10 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByVal dwReasonLength As Long, _
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
+
+'----- 待機関連 -----
+Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
+Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
 
 
 
@@ -138,6 +142,9 @@ Private Content_WinHttpWebSocketReceive() As Byte
 
 'プロシージャ`GetAsyncMessage`にて、次の断片データを受信する際のタイムアウト値
 Private timerOut   As Long
+
+'その他
+Private m_Frequency As Currency '実行マシンでの周波数記録用
 
 
 
@@ -235,7 +242,12 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
 End Sub
 
 Property Get TimerCounter() As Double
-    TimerCounter = ViewLog.GetTicksMs
+    '1. 今の「振動回数」を取得する
+    Dim currentCount As Currency
+    Call QueryPerformanceCounter(currentCount)
+
+    '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
+    TimerCounter = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
 End Property
 
 
@@ -785,6 +797,9 @@ Private Sub Class_Initialize()
     'バッファー情報を初期化
     InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
     Set m_res.collect = New Collection
+
+    '実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
+    Call QueryPerformanceFrequency(m_Frequency)
 End Sub
 
 Private Sub Class_Terminate()
