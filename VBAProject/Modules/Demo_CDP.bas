@@ -508,7 +508,7 @@ Sub iframeShadowRootTest()
     With captchaDemo
         '2. cloudflare 用のiframeにアタッチする
         Dim CloudflareTurnstile As CDPContext
-        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame)
+        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame, doRetry:=True)    '※見つかるまで、内部でループされます
 
         '3. そのiframe内にあるチェックBoxをクリックする
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
