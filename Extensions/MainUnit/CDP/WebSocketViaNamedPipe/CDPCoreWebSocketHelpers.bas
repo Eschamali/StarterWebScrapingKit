@@ -219,6 +219,22 @@ Private Function ConnectNamePipe(UserName As String) As Long
     serialize UserName, hNamePipe
 End Function
 
+'***************************************************************************************************
+'* 機能　　：WebView2のデバッグポートを開く際に使います
+'***************************************************************************************************
+Sub WebView2のクイックデバッグ切り替え(Optional port As Long = 9222)
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If port > 0 Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
+        Debug.Print "WebView2のデバッグポートを開けました: " & port
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        Debug.Print "WebView2のデバッグポートを閉じました"
+    End If
+End Sub
+
 
 
 '***************************************************************************************************
