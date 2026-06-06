@@ -249,6 +249,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
    'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
    'PeekNamedPipe error will be thrown.
+    If PipeCore.deserialize(br.User) Then PipeCore.ClosePipeCDP                                  'Excelテーブルにユーザー名に紐づくハンドル情報があったら、新規起動なのでClose処理しておく
     If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
     setCrashStateNormal 'Prevent "Restore Session" popup
    '------------------------------------------------------------------------------------------------------------------------------------
