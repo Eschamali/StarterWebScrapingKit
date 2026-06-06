@@ -10,12 +10,12 @@ Attribute VB_Exposed = False
 '/**
 ' * JSON - JSON Reader and Writer
 ' * @description A high-performance zero-copy JSON reader and lightweight JSON writer for VBA (x86/x64 compatible).
-' * Uses compact token trees, SAFEARRAY string aliasing, native InStr quote scanning, lazy node wrappers,
+' * Uses compact token trees, crash-safe character buffers, native InStr quote scanning, lazy node wrappers,
 ' * typed accessors, raw field access, token iteration for huge arrays, and Stringify support for parsed JSON,
 ' * primitive VBA values, arrays, Collections, Dictionaries, and nested JSON nodes.
 ' * Designed for fast parsing and traversal without Dictionary, Collection, or per-node object allocation during parse.
 ' * @author UesleiDev
-' * @version 1.0.2
+' * @version 1.0.3
 ' */
 
 Option Explicit
@@ -225,27 +225,15 @@ Friend Sub LoadText(ByRef Text As String)
     m_TokenCount = 0
     ReDim m_Tokens(1 To m_TokenCap)
     
-    Dim SA As SAFEARRAY1D
-    
-    With SA
-        .cDims = 1
-        .fFeatures = 0
-        .cbElements = 2
-        .cLocks = 0
-        .pvData = StrPtr(m_Text)
-        .cElements = m_Length
-        .lLbound = 0
-    End With
+    ReDim m_Chars(0 To m_Length - 1)
     
     #If VBA7 Then
-        Dim pSA As LongPtr
+        CopyMemory m_Chars(0), ByVal StrPtr(m_Text), CLngPtr(m_Length) * 2
     #Else
-        Dim pSA As Long
+        CopyMemory m_Chars(0), ByVal StrPtr(m_Text), m_Length * 2&
     #End If
     
-    pSA = VarPtr(SA)
-    CopyMemory ByVal VarPtrArray(m_Chars), pSA, PTR_SIZE
-    m_CharAliasActive = True
+    m_CharAliasActive = False
     
     m_RootId = ParseValue(0, 0, 0)
 End Sub
@@ -1090,17 +1078,19 @@ End Function
 ' * @brief Clears the character SAFEARRAY alias if it is active.
 ' */
 Private Sub ClearCharAlias()
-    If Not m_CharAliasActive Then Exit Sub
+    If m_CharAliasActive Then
+        #If VBA7 Then
+            Dim nullPtr As LongPtr
+        #Else
+            Dim nullPtr As Long
+        #End If
+        
+        nullPtr = 0
+        CopyMemory ByVal VarPtrArray(m_Chars), nullPtr, PTR_SIZE
+        m_CharAliasActive = False
+    End If
     
-    #If VBA7 Then
-        Dim nullPtr As LongPtr
-    #Else
-        Dim nullPtr As Long
-    #End If
-    
-    nullPtr = 0
-    CopyMemory ByVal VarPtrArray(m_Chars), nullPtr, PTR_SIZE
-    m_CharAliasActive = False
+    Erase m_Chars
 End Sub
 
 '/**
