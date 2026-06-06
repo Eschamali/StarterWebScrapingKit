@@ -1,7 +1,5 @@
 # JSON Architecture
 
-This document describes the internal architecture of **JSON v1.0.1**. It is intended for contributors, advanced users, and anyone who wants to understand how the parser and writer work under the hood.
-
 JSON is a single-file VBA class (`JSON.cls`) that implements a high-performance zero-copy JSON reader and lightweight JSON writer for Microsoft Office hosts.
 
 It combines compact token-tree parsing, SAFEARRAY string aliasing, native ordinal key comparison, native quote scanning, lazy node wrappers, typed accessors, raw field access, token iteration, and Stringify support while remaining contained inside one `.cls` file.
