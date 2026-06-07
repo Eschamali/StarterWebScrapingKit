@@ -390,7 +390,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = ResultBiDiFromWithEvents(currentCommandID)
+        tmp = TakeResultBiDi(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
             Set SendMessage = jsConverter.ParseJson(tmp)
@@ -458,8 +458,8 @@ End Sub
 '            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
 '            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Property Get ResultBiDiFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiFromWithEvents"
+Property Get TakeResultBiDi(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".TakeResultBiDi"
 
 
     '1. 存在するか？
@@ -469,7 +469,7 @@ Property Get ResultBiDiFromWithEvents(commandID As Long) As String
         printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
-        ResultBiDiFromWithEvents = tmp
+        TakeResultBiDi = tmp
 
         '4. 取り出したので消しておく
         resultBiDi.response.Remove commandID

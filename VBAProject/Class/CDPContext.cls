@@ -1183,7 +1183,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = ResultCDPFromWithEvents(currentCommandID)
+        tmp = TakeResultCDP(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
             Set SendMessage = BrowserCore.jsConverter.ParseJson(tmp)
@@ -1256,8 +1256,8 @@ End Sub
 '            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
 '            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Property Get ResultCDPFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
+Property Get TakeResultCDP(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".TakeResultCDP"
 
 
     '1. 存在するか？
@@ -1267,7 +1267,7 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
         printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
-        ResultCDPFromWithEvents = tmp
+        TakeResultCDP = tmp
 
         '4. 取り出したので消しておく
         ResultCDP_Tab.response.Remove commandID
