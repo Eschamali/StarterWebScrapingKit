@@ -57,7 +57,6 @@ Public Event ResetCommandID()
 Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブジェクト
 Attribute m_CDPCore.VB_VarHelpID = -1
 Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
-Attribute m_CDPBrowser.VB_VarHelpID = -1
 Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
 
 '定義側からも呼び出せるチェーンクラスオブジェクト
