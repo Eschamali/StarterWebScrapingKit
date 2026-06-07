@@ -1379,7 +1379,7 @@ End Property
 Public Sub closeTab()
 '------------------------------------------------------------------
 ' Close the current tab of the session. Requires targetId which can
-' be retrieved by using getTargetId. This is the targetId of the
+' be retrieved by using refreshTargetID. This is the targetId of the
 ' active tab under focus of the automation pipe.
 '------------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".closeTab"
@@ -1397,7 +1397,7 @@ Public Sub closeTab()
     End If
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(getTargetID)
+    params("targetId") = CStr(refreshTargetID)
     ExecuteCDP "Target.closeTarget", params
     printMsg info_, brTab.targetID & " was closed", FromProcedureName
 
@@ -1708,7 +1708,7 @@ Public Sub getSessionInfo()
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
     'タブIDを記録
-    brTab.targetID = getTargetID
+    brTab.targetID = refreshTargetID
 
 End Sub
 
@@ -1960,7 +1960,7 @@ Public Sub activate(Optional focus As Boolean = True)
 '----------------------------------------------------------------------------------
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(getTargetID)
+    params("targetId") = CStr(refreshTargetID)
     If focus Then ExecuteCDP "Target.activateTarget", params
 
 End Sub
@@ -1993,7 +1993,7 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 
 End Sub
 
-Private Function getTargetID() As String
+Private Function refreshTargetID() As String
 '----------------------------------------------------------------------------------
 ' Retrieve the targetId of the current tab (a.k.k "target" in CDP Documentation).
 ' This targetId is useful for tab automation, such as the .closeTab method.
@@ -2001,7 +2001,7 @@ Private Function getTargetID() As String
 
     Dim results As Scripting.Dictionary
     Set results = ExecuteCDP("Target.getTargetInfo")
-    getTargetID = results("targetInfo").Item("targetId")
+    refreshTargetID = results("targetInfo").Item("targetId")
 
 End Function
 
