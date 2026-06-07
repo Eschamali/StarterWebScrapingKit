@@ -541,18 +541,24 @@ End Function
 '***************************************************************************************************
 Private Sub viewStdoutAndStderr()
     Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
-    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
+    Const DividerMark       As String = vbLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
 
 
     Dim strRes As String, intRes As Long
 
     'Sometimes edge writes to stdout so we clear stdout too.
     intRes = readProcSTD(strRes, False)
-    If intRes > 0 Then printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    If intRes > 0 Then
+        If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
+        printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    End If
 
     'Sometimes edge writes to stderrout so we clear stderrout too.
     intRes = readProcSTD(strRes, True)
-    If intRes > 0 Then printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    If intRes > 0 Then
+        If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
+        printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    End If
 End Sub
 
 '***************************************************************************************************
