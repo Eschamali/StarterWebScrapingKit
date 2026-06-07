@@ -344,7 +344,7 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
     '6. sessionId生存check
-    If isLiveTab Then
+    If isLiveContext Then
         reattach = True
 
         'ステータス更新
@@ -397,7 +397,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
     End If
 End Sub
 
-Private Function isLiveTab() As Boolean
+Public Function isLiveContext() As Boolean
 '-----------------------------------------------------------------------------------
 ' Check if there is ongoing connection with an attached instance
 ' Original Name: connectionAlive
@@ -406,11 +406,11 @@ Private Function isLiveTab() As Boolean
     On Error GoTo iferr
     Dim strLoc As String
     strLoc = jsEval("window.location.href", dbgMsg:=False)
-    isLiveTab = True
+    isLiveContext = True
     Exit Function
 
 iferr:
-    isLiveTab = False
+    isLiveContext = False
 
 End Function
 
