@@ -397,21 +397,20 @@ Private Sub deserializeForTab(reuseSession As Boolean)
     End If
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：コンテキスト(タブ等)の生存確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`TargetId`生存論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassで設定中の`TargetId`を基に、生存確認を行います
+'***************************************************************************************************
 Public Function isLiveContext() As Boolean
-'-----------------------------------------------------------------------------------
-' Check if there is ongoing connection with an attached instance
-' Original Name: connectionAlive
-'-----------------------------------------------------------------------------------
+    '1. このClassで設定中の`TargetId`の情報取得を試みる
+    Dim targetInfo As Dictionary
+    Set targetInfo = SendMessage("{""method"":""Target.getTargetInfo"",""params"":{""targetId"":""" & brTab.targetID & """}}")
 
-    On Error GoTo iferr
-    Dim strLoc As String
-    strLoc = jsEval("window.location.href", dbgMsg:=False)
-    isLiveContext = True
-    Exit Function
-
-iferr:
-    isLiveContext = False
-
+    '2. エラーチェック結果を返却
+    isLiveContext = Not ExecuteError(targetInfo)
 End Function
 
 
