@@ -1,90 +1,117 @@
 # JSON API Reference
 
-It supports x86 and x64 VBA, compact token-tree parsing, lazy node wrappers, typed accessors, raw field access, token iteration for large arrays and objects, and `Stringify` support for parsed JSON, primitive VBA values, arrays, Collections, Dictionaries, and nested JSON nodes.
+**JSON** is a single-file JSON parser and writer for VBA. It is designed for Office projects that need fast parsing, low allocation, typed access, lightweight traversal, token iteration, and practical JSON serialization without requiring external references.
 
-This reference documents the current public API exposed by **JSON.cls**.
+This reference documents the current public API exposed by **JSON.cls**, including the newer typed helpers such as `StringKey`, `NumberKey`, `BoolKey`, `NodeKey`, `StringIndex`, `NodeIndex`, `ExistsKey`, `ExistsIndex`, and `Keys`.
 
 ## Table of Contents
 
+- [Overview](#overview)
 - [Core Concepts](#core-concepts)
-- [Mental Model](#mental-model)
-- [Document and Node Model](#document-and-node-model)
-- [Token Tree](#token-tree)
-- [Zero-Copy Parsing](#zero-copy-parsing)
-- [Lazy Node Wrappers](#lazy-node-wrappers)
-- [Typed Accessors](#typed-accessors)
-- [Raw Access](#raw-access)
-- [Token Iteration](#token-iteration)
-- [Stringify Pipeline](#stringify-pipeline)
-- [Compatibility Strategy](#compatibility-strategy)
+- [Recommended Usage](#recommended-usage)
 - [Parsing](#parsing)
 - [Serialization](#serialization)
 - [Core Node Properties](#core-node-properties)
-- [Child Lookup](#child-lookup)
-- [Indexed Access](#indexed-access)
-- [Typed Field Access](#typed-field-access)
-- [Typed Indexed Access](#typed-indexed-access)
+- [Generic Child Access](#generic-child-access)
+- [Keys and Existence](#keys-and-existence)
+- [Typed Object Access](#typed-object-access)
+- [Typed Array Access](#typed-array-access)
+- [Legacy Typed Accessors](#legacy-typed-accessors)
 - [Token Traversal](#token-traversal)
 - [Token Value Access](#token-value-access)
 - [Token Field Access](#token-field-access)
 - [Practical Recipes](#practical-recipes)
+- [Validation and Tests](#validation-and-tests)
 - [Best Practices](#best-practices)
+- [Notes and Limitations](#notes-and-limitations)
 - [Troubleshooting](#troubleshooting)
 - [Complete Public API Index](#complete-public-api-index)
+- [License](#license)
+
+## Overview
+
+`JSON.cls` provides a compact JSON document model for VBA.
+
+Main goals:
+
+- Parse JSON text into a compact token tree.
+- Avoid building nested `Scripting.Dictionary` or `Collection` trees during parse.
+- Keep node wrappers lazy and lightweight.
+- Provide typed accessors for common paths.
+- Keep compatibility with older generic access patterns.
+- Support `Stringify` for parsed documents and normal VBA values.
+- Work in 32-bit and 64-bit Office.
+
+The intended basic usage is:
+
+```vb
+Dim doc As JSON
+Set doc = JSON.Parse(jsonText)
+
+If doc.ExistsKey("name") Then
+    Debug.Print doc.StringKey("name")
+End If
+```
+
+For arrays:
+
+```vb
+Dim arr As JSON
+Set arr = JSON.Parse("[10,20,30]")
+
+If arr.ExistsIndex(0) Then
+    Debug.Print arr.NumberIndex(0)
+End If
+```
+
+For nested nodes:
+
+```vb
+Dim user As JSON
+Set user = doc.NodeKey("user")
+
+If Not user Is Nothing Then
+    Debug.Print user.StringKey("role")
+End If
+```
 
 ## Core Concepts
 
 ### Mental Model
 
-JSON has three main layers:
+The class has three important layers:
 
-1. **Document**: created with `JSON.Parse(text)`. The document owns the original JSON text and the internal token buffer.
-2. **Nodes**: lightweight wrappers around tokens. Objects and arrays can be accessed as `JSON` objects without copying their contents.
-3. **Tokens**: internal compact records that store JSON type, parent/child/sibling links, key slices, value slices, and child counts.
-
-The key distinction is:
+1. **Document**: the root `JSON` object returned by `JSON.Parse(text)`.
+2. **Node**: a lightweight `JSON` wrapper around an object or array token.
+3. **Token**: an internal parsed entry representing an object, array, string, number, boolean, or null.
 
 ```txt
-Document = parsed JSON root and source text owner
-Node     = lightweight wrapper around one token
+Document = owns parsed source and token buffer
+Node     = wrapper around one token inside the document
 Token    = internal parsed JSON entry
 ```
 
-A parsed JSON document does not eagerly allocate Dictionaries, Collections, or one object per node during parsing. It builds a compact token tree and creates node wrappers only when requested.
+The parser does not eagerly materialize every object into dictionaries. It builds a compact token tree and creates node wrappers only when code asks for them.
 
-```vb
-Dim doc As JSON
-Set doc = JSON.Parse("{""user"":{""name"":""Ueslei""},""score"":100}")
+### Document and Node Lifetime
 
-Debug.Print doc.StringValue("score")
-
-Dim user As JSON
-Set user = doc.Node("user")
-
-Debug.Print user.StringValue("name")
-```
-
-### Document and Node Model
-
-The root result returned by `JSON.Parse` is a document object. Calling `Node`, `NodeAt`, `TokenNode`, or `NodeFromToken` creates a lightweight wrapper pointing back to the original document.
-
-This means child nodes are cheap to create, but they depend on the root document staying alive.
+Child nodes depend on the root document staying alive.
 
 ```vb
 Dim doc As JSON
 Set doc = JSON.Parse("{""items"":[1,2,3]}")
 
 Dim items As JSON
-Set items = doc.Node("items")
+Set items = doc.NodeKey("items")
 
 Debug.Print items.Count
 ```
 
-Keep the root document variable alive for as long as you use any child node wrappers.
+Keep `doc` alive while using `items`, child nodes, or token helpers.
 
 ### Token Tree
 
-Internally, JSON stores parsed data as tokens. A token stores:
+Internally, each parsed value is stored as a token containing information such as:
 
 - JSON type.
 - Parent token.
@@ -92,10 +119,10 @@ Internally, JSON stores parsed data as tokens. A token stores:
 - Last child token.
 - Next sibling token.
 - Child count.
-- Key slice position.
-- Value slice position.
+- Key slice.
+- Value slice.
 
-This enables fast traversal without materializing the full JSON into nested VBA containers.
+Example tree:
 
 ```txt
 object
@@ -106,110 +133,128 @@ object
               └─ string
 ```
 
-### Zero-Copy Parsing
-
-The parser keeps slices into the original source text. Keys, strings, numbers, booleans, and raw fields are not copied during parsing.
-
-Values are converted only when requested:
-
-```vb
-Debug.Print doc.StringValue("name")
-Debug.Print doc.NumberValue("score")
-Debug.Print doc.BoolValue("active")
-```
-
-For best performance, parse once and reuse the document.
+This model allows fast traversal without allocating a full object graph.
 
 ### Lazy Node Wrappers
 
-Objects and arrays are wrapped lazily.
+Objects and arrays are wrapped only when requested:
 
 ```vb
 Dim profile As JSON
-Set profile = doc.Node("profile")
+Set profile = doc.NodeKey("profile")
 ```
 
-No wrapper is created for every parsed object or array automatically. This avoids large object-allocation overhead when parsing big API responses.
+This avoids creating one VBA object for every JSON object or array during parsing.
 
 ### Typed Accessors
 
-Typed accessors are direct helpers for known schemas.
+The preferred modern API uses explicit object-key and array-index helpers.
+
+Object access:
 
 ```vb
-Debug.Print doc.StringValue("name")
-Debug.Print doc.NumberValue("id")
-Debug.Print doc.BoolValue("verified")
+Debug.Print doc.StringKey("name")
+Debug.Print doc.NumberKey("id")
+Debug.Print doc.BoolKey("active")
 ```
 
-They are useful when you know the expected field type and want compact user code.
-
-### Raw Access
-
-Raw access returns the original JSON slice without additional traversal or conversion.
+Array access:
 
 ```vb
-Dim rawProfile As String
-rawProfile = users.TokenRawField(t, "profile")
+Debug.Print arr.StringIndex(0)
+Debug.Print arr.NumberIndex(1)
+Debug.Print arr.BoolIndex(2)
 ```
 
-This is useful for forwarding nested JSON, caching fragments, or delaying expensive traversal.
+These helpers are cleaner and avoid relying on `Variant` for the common read path.
 
-### Token Iteration
+### Generic Access Still Exists
 
-Token iteration is the fastest style for large arrays.
+The generic/default API is still available for compatibility:
 
 ```vb
-Dim rows As JSON
-Set rows = doc.Node("rows")
-
-Dim t As Long
-t = rows.FirstChildToken()
-
-Do While t <> 0
-    Debug.Print rows.TokenString(t, "name"), rows.TokenNumber(t, "score")
-    t = rows.NextToken(t)
-Loop
+Debug.Print doc("name")
+Debug.Print doc.Item("name")
+Debug.Print doc.ValueAt(0)
 ```
 
-This avoids creating a `JSON` wrapper for every array element.
+Use it when you want dynamic access. Use the typed API when the schema is known.
 
-### Stringify Pipeline
+## Recommended Usage
 
-JSON can serialize:
-
-- Parsed JSON documents.
-- Parsed JSON nodes.
-- Strings.
-- Booleans.
-- Numbers.
-- Dates.
-- Null and Empty values.
-- One-dimensional arrays.
-- Collections.
-- Scripting.Dictionary objects.
-- Nested JSON objects.
+### Recommended Object Style
 
 ```vb
-Debug.Print doc.Stringify()
-Debug.Print doc.Stringify(True)
-Debug.Print JSON.StringifyValue(dict, True)
+Public Sub ReadObject()
+    Dim doc As JSON
+    Set doc = JSON.Parse("{""name"":""Ueslei"",""age"":18,""active"":true}")
+
+    If doc.ExistsKey("name") Then
+        Debug.Print doc.StringKey("name")
+    End If
+
+    Debug.Print doc.NumberKey("age")
+    Debug.Print doc.BoolKey("active")
+End Sub
 ```
 
-### Compatibility Strategy
-
-JSON is distributed as a single predeclared `.cls` class named `JSON`.
-
-The intended usage style is:
+### Recommended Array Style
 
 ```vb
-Dim doc As JSON
-Set doc = JSON.Parse(jsonText)
+Public Sub ReadArray()
+    Dim arr As JSON
+    Set arr = JSON.Parse("[""Excel"",""PowerPoint"",""Access""]")
 
-Debug.Print doc.StringValue("name")
-Debug.Print JSON.StringifyValue(value, True)
+    Dim i As Long
+    For i = 0 To arr.Count - 1
+        Debug.Print arr.StringIndex(i)
+    Next i
+End Sub
 ```
 
-The class is compatible with 32-bit and 64-bit Office through conditional compilation.
+### Recommended Nested Style
+
+```vb
+Public Sub ReadNested()
+    Dim doc As JSON
+    Set doc = JSON.Parse("{""user"":{""name"":""Ueslei"",""role"":""developer""}}")
+
+    Dim user As JSON
+    Set user = doc.NodeKey("user")
+
+    If Not user Is Nothing Then
+        Debug.Print user.StringKey("name")
+        Debug.Print user.StringKey("role")
+    End If
+End Sub
+```
+
+### Recommended Large Array Style
+
+For very large arrays, prefer token iteration:
+
+```vb
+Public Sub ReadRows(ByVal responseText As String)
+    Dim doc As JSON
+    Set doc = JSON.Parse(responseText)
+
+    Dim rows As JSON
+    Set rows = doc.NodeKey("rows")
+
+    If rows Is Nothing Then Exit Sub
+
+    Dim t As Long
+    t = rows.FirstChildToken()
+
+    Do While t <> 0
+        Debug.Print rows.TokenString(t, "name")
+        Debug.Print rows.TokenNumber(t, "score")
+        Debug.Print rows.TokenBool(t, "active")
+
+        t = rows.NextToken(t)
+    Loop
+End Sub
+```
 
 ## Parsing
 
@@ -231,13 +276,20 @@ Public Sub ParseExample()
     Dim doc As JSON
     Set doc = JSON.Parse(text)
 
-    Debug.Print doc.StringValue("name")
-    Debug.Print doc.NumberValue("age")
-    Debug.Print doc.BoolValue("active")
+    Debug.Print doc.StringKey("name")
+    Debug.Print doc.NumberKey("age")
+    Debug.Print doc.BoolKey("active")
 End Sub
 ```
 
-The parser is optimized for well-formed JSON. It is intended for fast parsing and traversal of trusted or already validated JSON payloads.
+The current preferred return pattern is strongly typed:
+
+```vb
+Dim doc As JSON
+Set doc = JSON.Parse(jsonText)
+```
+
+This avoids treating the parse result as a generic `Variant`.
 
 ## Serialization
 
@@ -257,17 +309,7 @@ Dim doc As JSON
 Set doc = JSON.Parse("{""name"":""JSON"",""language"":""VBA""}")
 
 Debug.Print doc.Stringify()
-```
-
-Pretty output:
-
-```vb
 Debug.Print doc.Stringify(True)
-```
-
-Custom space count:
-
-```vb
 Debug.Print doc.Stringify(True, 4)
 ```
 
@@ -286,7 +328,7 @@ Serializes the current JSON document or node using a custom indentation string.
 Debug.Print doc.StringifyWithIndent(True, vbTab)
 ```
 
-Use this when you want tabs or a custom formatting style.
+Use this when you want tabs or a custom indentation string.
 
 ### StringifyValue
 
@@ -298,21 +340,24 @@ Public Function StringifyValue( _
 ) As String
 ```
 
-Serializes an external VBA value to JSON text.
+Serializes a normal VBA value to JSON text.
 
 Supported values include:
 
 | VBA Value | JSON Output |
+|:--|:--|
 | `String` | JSON string |
 | `Boolean` | `true` / `false` |
 | Numeric types | JSON number |
 | `Null` | `null` |
 | `Empty` | `null` |
-| `Date` | ISO-like JSON string |
+| `Date` | JSON string |
 | One-dimensional array | JSON array |
 | `Collection` | JSON array |
 | `Dictionary` / `Scripting.Dictionary` | JSON object |
 | `JSON` object/node | Serialized JSON |
+
+Example:
 
 ```vb
 Public Sub StringifyDictionaryExample()
@@ -337,7 +382,7 @@ Public Function StringifyValueWithIndent( _
 ) As String
 ```
 
-Serializes an external VBA value using custom indentation text.
+Serializes a normal VBA value using a custom indentation string.
 
 ```vb
 Debug.Print JSON.StringifyValueWithIndent(data, True, vbTab)
@@ -360,7 +405,7 @@ Debug.Print doc.Item("name")
 Debug.Print doc("name")
 ```
 
-Default-member access can be chained through nested objects and arrays. This is an important usage style for JSON because it lets code read known payload shapes without repeatedly calling `Node`, `ValueAt`, `StringAt`, or other accessor functions.
+Default member chaining is supported:
 
 ```vb
 Dim myJson As JSON
@@ -370,23 +415,18 @@ Debug.Print myJson("names")(0)
 Debug.Print myJson("names")(1)
 ```
 
-This style is not always highlighted in VBA JSON documentation, but it is intentional in this class. Use it when the JSON shape is known and concise traversal is more useful than explicit typed accessors.
+For primitive values, `Item` returns a `Variant`.
 
-For primitive values, it returns a `Variant`.
-
-For objects and arrays, it returns a `JSON` node wrapper.
+For objects and arrays, `Item` returns a `JSON` node wrapper.
 
 ```vb
-Dim doc As JSON
-Set doc = JSON.Parse("{""user"":{""name"":""Ueslei""},""score"":100}")
-
-Debug.Print doc("score")
-
 Dim user As JSON
 Set user = doc("user")
 
 Debug.Print user("name")
 ```
+
+Use `Item` when convenience matters. Prefer `StringKey`, `NumberKey`, `BoolKey`, `NodeKey`, `StringIndex`, `NumberIndex`, `BoolIndex`, and `NodeIndex` when you know the expected schema.
 
 ### Value
 
@@ -396,15 +436,12 @@ Public Property Get Value() As Variant
 
 Gets the current node value.
 
-For primitive nodes, returns the primitive `Variant`.
+For primitive nodes, returns a primitive `Variant`.
 
-For objects and arrays, returns the current `JSON` node.
+For object and array nodes, returns the current `JSON` node.
 
 ```vb
-Dim item As Variant
-item = doc.Item("score")
-
-Debug.Print item
+Debug.Print doc.NodeKey("user").Value
 ```
 
 ### Count
@@ -413,7 +450,7 @@ Debug.Print item
 Public Property Get Count() As Long
 ```
 
-Returns the amount of direct children in the current object or array.
+Returns the number of direct children in the current object or array.
 
 ```vb
 Dim arr As JSON
@@ -422,7 +459,7 @@ Set arr = JSON.Parse("[10,20,30]")
 Debug.Print arr.Count
 ```
 
-For primitive nodes, the count is `0`.
+Primitive nodes return `0`.
 
 ### JsonType
 
@@ -435,6 +472,7 @@ Returns the JSON type name of the current node.
 Possible values:
 
 | Value | Meaning |
+|:--|:--|
 | `object` | JSON object |
 | `array` | JSON array |
 | `string` | JSON string |
@@ -470,8 +508,8 @@ Public Property Get IsArray() As Boolean
 Returns `True` when the current node is a JSON array.
 
 ```vb
-If items.IsArray Then
-    Debug.Print items.Count
+If arr.IsArray Then
+    Debug.Print arr.Count
 End If
 ```
 
@@ -484,12 +522,147 @@ Public Property Get IsNull() As Boolean
 Returns `True` when the current node is JSON `null`.
 
 ```vb
-If doc.Node("meta").IsNull Then
-    Debug.Print "Meta is null"
+Dim meta As JSON
+Set meta = doc.NodeKey("meta")
+
+If Not meta Is Nothing Then
+    If meta.IsNull Then Debug.Print "Meta is null"
 End If
 ```
 
-## Child Lookup
+## Generic Child Access
+
+The generic access API exists for compatibility and dynamic scenarios.
+
+### Node
+
+```vb
+Public Function Node(ByVal key As Variant) As JSON
+```
+
+Gets a child object or array by object key or array index.
+
+Returns `Nothing` if the child does not exist or is not an object/array.
+
+```vb
+Dim user As JSON
+Set user = doc.Node("user")
+```
+
+Modern equivalent:
+
+```vb
+Set user = doc.NodeKey("user")
+```
+
+For arrays:
+
+```vb
+Set first = arr.Node(0)
+```
+
+Modern equivalent:
+
+```vb
+Set first = arr.NodeIndex(0)
+```
+
+### NodeAt
+
+```vb
+Public Function NodeAt(ByVal Index As Long) As JSON
+```
+
+Gets an object or array child by zero-based child position.
+
+Returns `Nothing` if the child does not exist or is not an object/array.
+
+```vb
+Dim firstUser As JSON
+Set firstUser = users.NodeAt(0)
+```
+
+Modern equivalent:
+
+```vb
+Set firstUser = users.NodeIndex(0)
+```
+
+### ValueAt
+
+```vb
+Public Function ValueAt(ByVal Index As Long) As Variant
+```
+
+Gets any child value by zero-based child position.
+
+Primitive values are returned as `Variant`.
+
+Objects and arrays are returned as `JSON` node wrappers.
+
+```vb
+Debug.Print arr.ValueAt(0)
+Debug.Print arr.ValueAt(1)
+Debug.Print arr.ValueAt(2)
+```
+
+### KeyAt
+
+```vb
+Public Function KeyAt(ByVal Index As Long) As String
+```
+
+Gets the key of an object child by zero-based child position.
+
+```vb
+Dim i As Long
+
+For i = 0 To doc.Count - 1
+    Debug.Print doc.KeyAt(i), doc.ValueAt(i)
+Next i
+```
+
+For arrays, `KeyAt` returns an empty string because array values do not have object keys.
+
+## Keys and Existence
+
+### Keys
+
+```vb
+Public Function Keys() As Variant
+```
+
+Returns the direct keys of the current node.
+
+For objects, it returns a zero-based `Variant` array containing property names.
+
+```vb
+Dim doc As JSON
+Set doc = JSON.Parse("{""name"":""Ueslei"",""age"":18,""active"":true}")
+
+Dim keys As Variant
+keys = doc.Keys
+
+Debug.Print keys(0) ' name
+Debug.Print keys(1) ' age
+Debug.Print keys(2) ' active
+```
+
+For arrays, it returns a zero-based `Variant` array containing numeric indexes.
+
+```vb
+Dim arr As JSON
+Set arr = JSON.Parse("[""a"",""b"",""c""]")
+
+Dim keys As Variant
+keys = arr.Keys
+
+Debug.Print keys(0) ' 0
+Debug.Print keys(1) ' 1
+Debug.Print keys(2) ' 2
+```
+
+For primitives or empty nodes, it returns an empty array.
 
 ### Exists
 
@@ -497,7 +670,7 @@ End If
 Public Function Exists(ByVal key As Variant) As Boolean
 ```
 
-Returns `True` when an object key or array index exists.
+Compatibility helper that checks whether an object key or array index exists.
 
 ```vb
 If doc.Exists("data") Then
@@ -513,91 +686,201 @@ If arr.Exists(0) Then
 End If
 ```
 
-### Node
+Prefer `ExistsKey` and `ExistsIndex` when the schema is known.
+
+### ExistsKey
 
 ```vb
-Public Function Node(ByVal key As Variant) As JSON
+Public Function ExistsKey(ByRef key As String) As Boolean
 ```
 
-Gets a child object or array by object key or array index.
-
-Returns `Nothing` if the child does not exist or is not an object/array.
+Checks whether an object field exists.
 
 ```vb
-Dim user As JSON
-Set user = doc.Node("user")
-
-If Not user Is Nothing Then
-    Debug.Print user.StringValue("name")
+If doc.ExistsKey("name") Then
+    Debug.Print doc.StringKey("name")
 End If
 ```
 
-For array indexes:
+Use this for object lookup instead of generic `Exists` when you know the input is a key.
+
+### ExistsIndex
+
+```vb
+Public Function ExistsIndex(ByVal Index As Long) As Boolean
+```
+
+Checks whether an array index exists.
+
+```vb
+If arr.ExistsIndex(2) Then
+    Debug.Print arr.StringIndex(2)
+End If
+```
+
+Use this for array lookup instead of generic `Exists` when you know the input is an index.
+
+## Typed Object Access
+
+Typed object accessors are the recommended API for known object schemas.
+
+### StringKey
+
+```vb
+Public Function StringKey(ByRef key As String) As String
+```
+
+Gets an object field as `String`.
+
+For JSON strings, it returns the decoded string value.
+
+For numbers and booleans, it returns the raw value text.
+
+For missing fields or `null`, it returns an empty string.
+
+```vb
+Debug.Print doc.StringKey("name")
+```
+
+### NumberKey
+
+```vb
+Public Function NumberKey(ByRef key As String) As Double
+```
+
+Gets an object field as `Double`.
+
+Returns `0` when the field is missing or not a number.
+
+```vb
+Debug.Print doc.NumberKey("score")
+```
+
+### BoolKey
+
+```vb
+Public Function BoolKey(ByRef key As String) As Boolean
+```
+
+Gets an object field as `Boolean`.
+
+Returns `False` when the field is missing or not a boolean.
+
+```vb
+If doc.BoolKey("active") Then
+    Debug.Print "Active"
+End If
+```
+
+### RawStringKey
+
+```vb
+Public Function RawStringKey(ByRef key As String) As String
+```
+
+Gets an object string field without unescaping.
+
+```vb
+Debug.Print doc.RawStringKey("message")
+```
+
+This is useful when you want the exact raw text inside the JSON string value.
+
+### NodeKey
+
+```vb
+Public Function NodeKey(ByRef key As String) As JSON
+```
+
+Gets an object field as a `JSON` node.
+
+Returns `Nothing` when the field is missing or is not an object/array.
+
+```vb
+Dim user As JSON
+Set user = doc.NodeKey("user")
+
+If Not user Is Nothing Then
+    Debug.Print user.StringKey("name")
+End If
+```
+
+Use `NodeKey` for nested objects and arrays.
+
+## Typed Array Access
+
+Typed array accessors are the recommended API for known array schemas.
+
+### StringIndex
+
+```vb
+Public Function StringIndex(ByVal Index As Long) As String
+```
+
+Gets an array item as `String`.
+
+```vb
+Debug.Print arr.StringIndex(0)
+```
+
+### NumberIndex
+
+```vb
+Public Function NumberIndex(ByVal Index As Long) As Double
+```
+
+Gets an array item as `Double`.
+
+```vb
+Debug.Print arr.NumberIndex(0)
+```
+
+### BoolIndex
+
+```vb
+Public Function BoolIndex(ByVal Index As Long) As Boolean
+```
+
+Gets an array item as `Boolean`.
+
+```vb
+Debug.Print arr.BoolIndex(0)
+```
+
+### RawStringIndex
+
+```vb
+Public Function RawStringIndex(ByVal Index As Long) As String
+```
+
+Gets an array string item without unescaping.
+
+```vb
+Debug.Print arr.RawStringIndex(0)
+```
+
+### NodeIndex
+
+```vb
+Public Function NodeIndex(ByVal Index As Long) As JSON
+```
+
+Gets an array item as a `JSON` node.
+
+Returns `Nothing` when the item is missing or is not an object/array.
 
 ```vb
 Dim first As JSON
-Set first = users.Node(0)
+Set first = users.NodeIndex(0)
+
+If Not first Is Nothing Then
+    Debug.Print first.StringKey("name")
+End If
 ```
 
-Use `Node` when you know the target is an object or array.
+## Legacy Typed Accessors
 
-## Indexed Access
-
-### NodeAt
-
-```vb
-Public Function NodeAt(ByVal Index As Long) As JSON
-```
-
-Gets an object or array child by zero-based child index.
-
-Returns `Nothing` if the child does not exist or is not an object/array.
-
-```vb
-Dim firstUser As JSON
-Set firstUser = users.NodeAt(0)
-```
-
-### ValueAt
-
-```vb
-Public Function ValueAt(ByVal Index As Long) As Variant
-```
-
-Gets any child value by zero-based child index.
-
-Primitive values are returned as `Variant`.
-
-Objects and arrays are returned as `JSON` node wrappers.
-
-```vb
-Dim arr As JSON
-Set arr = JSON.Parse("[10,20,30]")
-
-Debug.Print arr.ValueAt(0)
-Debug.Print arr.ValueAt(1)
-Debug.Print arr.ValueAt(2)
-```
-
-### KeyAt
-
-```vb
-Public Function KeyAt(ByVal Index As Long) As String
-```
-
-Gets the key of an object child by zero-based child index.
-
-```vb
-Dim i As Long
-
-For i = 0 To doc.Count - 1
-    Debug.Print doc.KeyAt(i), doc.ValueAt(i)
-Next
-```
-
-For arrays, keys are empty because array items do not have object keys.
-
-## Typed Field Access
+The older typed accessor names remain useful for compatibility and mixed key/index access.
 
 ### StringValue
 
@@ -607,14 +890,21 @@ Public Function StringValue(ByVal key As Variant) As String
 
 Gets a child value as `String` by object key or array index.
 
-For JSON strings, it returns the string value with basic JSON escapes decoded.
-
-For numbers and booleans, it returns the raw value text.
-
-For null, it returns an empty string.
-
 ```vb
 Debug.Print doc.StringValue("name")
+Debug.Print arr.StringValue(0)
+```
+
+Modern object equivalent:
+
+```vb
+Debug.Print doc.StringKey("name")
+```
+
+Modern array equivalent:
+
+```vb
+Debug.Print arr.StringIndex(0)
 ```
 
 ### NumberValue
@@ -625,10 +915,16 @@ Public Function NumberValue(ByVal key As Variant) As Double
 
 Gets a child value as `Double` by object key or array index.
 
-Returns `0` when the field is missing or not a number.
-
 ```vb
 Debug.Print doc.NumberValue("score")
+Debug.Print arr.NumberValue(0)
+```
+
+Modern equivalents:
+
+```vb
+Debug.Print doc.NumberKey("score")
+Debug.Print arr.NumberIndex(0)
 ```
 
 ### BoolValue
@@ -639,12 +935,16 @@ Public Function BoolValue(ByVal key As Variant) As Boolean
 
 Gets a child value as `Boolean` by object key or array index.
 
-Returns `False` when the field is missing or not a boolean.
+```vb
+Debug.Print doc.BoolValue("active")
+Debug.Print arr.BoolValue(0)
+```
+
+Modern equivalents:
 
 ```vb
-If doc.BoolValue("active") Then
-    Debug.Print "Active"
-End If
+Debug.Print doc.BoolKey("active")
+Debug.Print arr.BoolIndex(0)
 ```
 
 ### RawStringValue
@@ -653,15 +953,19 @@ End If
 Public Function RawStringValue(ByVal key As Variant) As String
 ```
 
-Gets a child string value without unescaping.
-
-This is useful when you want the exact raw string slice stored in the JSON text.
+Gets a child string value without unescaping by object key or array index.
 
 ```vb
 Debug.Print doc.RawStringValue("message")
+Debug.Print arr.RawStringValue(0)
 ```
 
-## Typed Indexed Access
+Modern equivalents:
+
+```vb
+Debug.Print doc.RawStringKey("message")
+Debug.Print arr.RawStringIndex(0)
+```
 
 ### StringAt
 
@@ -673,6 +977,12 @@ Gets an indexed child value as `String`.
 
 ```vb
 Debug.Print arr.StringAt(0)
+```
+
+Modern equivalent:
+
+```vb
+Debug.Print arr.StringIndex(0)
 ```
 
 ### NumberAt
@@ -687,6 +997,12 @@ Gets an indexed child value as `Double`.
 Debug.Print arr.NumberAt(0)
 ```
 
+Modern equivalent:
+
+```vb
+Debug.Print arr.NumberIndex(0)
+```
+
 ### BoolAt
 
 ```vb
@@ -697,6 +1013,12 @@ Gets an indexed child value as `Boolean`.
 
 ```vb
 Debug.Print arr.BoolAt(0)
+```
+
+Modern equivalent:
+
+```vb
+Debug.Print arr.BoolIndex(0)
 ```
 
 ### RawStringAt
@@ -711,9 +1033,17 @@ Gets an indexed string value without unescaping.
 Debug.Print arr.RawStringAt(0)
 ```
 
+Modern equivalent:
+
+```vb
+Debug.Print arr.RawStringIndex(0)
+```
+
 ## Token Traversal
 
 Token traversal is intended for high-performance loops over large arrays or objects.
+
+It avoids creating a `JSON` wrapper for every child.
 
 ### FirstChildToken
 
@@ -777,7 +1107,7 @@ Dim row As JSON
 Set row = rows.NodeFromToken(t)
 ```
 
-Use this when you need object-style access for a specific token.
+Use this only when you need object-style access for a specific token. For maximum speed, prefer `TokenString`, `TokenNumber`, `TokenBool`, and `TokenNode` directly.
 
 ## Token Value Access
 
@@ -821,7 +1151,7 @@ Debug.Print arr.TokenValue(t)
 Public Function TokenStringValue(ByVal TokenId As Long) As String
 ```
 
-Gets a token value as `String`, applying basic JSON unescape for strings.
+Gets a token value as `String`, applying JSON string unescape for string tokens.
 
 ```vb
 Debug.Print arr.TokenStringValue(t)
@@ -833,7 +1163,7 @@ Debug.Print arr.TokenStringValue(t)
 Public Function TokenRawStringValue(ByVal TokenId As Long) As String
 ```
 
-Gets a token value as a raw string without unescaping.
+Gets a token string value without unescaping.
 
 ```vb
 Debug.Print arr.TokenRawStringValue(t)
@@ -867,7 +1197,7 @@ Debug.Print arr.TokenBoolValue(t)
 
 Token field helpers are designed for arrays of objects.
 
-Given a JSON payload like this:
+Given this JSON:
 
 ```json
 {
@@ -878,14 +1208,14 @@ Given a JSON payload like this:
 }
 ```
 
-You can iterate without creating a node wrapper for every user:
+You can iterate without creating one wrapper per user:
 
 ```vb
 Dim doc As JSON
 Set doc = JSON.Parse(responseText)
 
 Dim users As JSON
-Set users = doc.Node("users")
+Set users = doc.NodeKey("users")
 
 Dim t As Long
 t = users.FirstChildToken()
@@ -931,23 +1261,14 @@ Public Function TokenRawField(ByVal TokenId As Long, ByVal key As String) As Str
 
 Gets a raw field slice from an object token using a schema-known string key.
 
+This is useful for nested objects and arrays:
+
 ```vb
 Dim rawProfile As String
 rawProfile = users.TokenRawField(t, "profile")
 ```
 
-This is useful for nested objects and arrays:
-
-```json
-{
-  "profile": {
-    "level": 12,
-    "rank": "S"
-  }
-}
-```
-
-`TokenRawField(t, "profile")` returns the raw JSON text of the nested object.
+If `profile` is an object or array, the raw JSON fragment is returned.
 
 ### TokenNumber
 
@@ -988,7 +1309,7 @@ Dim profile As JSON
 Set profile = users.TokenNode(t, "profile")
 
 If Not profile Is Nothing Then
-    Debug.Print profile.StringValue("rank")
+    Debug.Print profile.StringKey("rank")
 End If
 ```
 
@@ -1001,14 +1322,16 @@ Public Sub ReadApiResponse(ByVal responseText As String)
     Dim doc As JSON
     Set doc = JSON.Parse(responseText)
 
-    If Not doc.Exists("data") Then Exit Sub
+    If Not doc.ExistsKey("data") Then Exit Sub
 
     Dim data As JSON
-    Set data = doc.Node("data")
+    Set data = doc.NodeKey("data")
 
-    Debug.Print data.StringValue("name")
-    Debug.Print data.NumberValue("id")
-    Debug.Print data.BoolValue("active")
+    If data Is Nothing Then Exit Sub
+
+    Debug.Print data.StringKey("name")
+    Debug.Print data.NumberKey("id")
+    Debug.Print data.BoolKey("active")
 End Sub
 ```
 
@@ -1023,11 +1346,11 @@ Public Sub ReadNestedObject()
     Set doc = JSON.Parse(text)
 
     Dim user As JSON
-    Set user = doc.Node("user")
+    Set user = doc.NodeKey("user")
 
     If Not user Is Nothing Then
-        Debug.Print user.StringValue("name")
-        Debug.Print user.StringValue("role")
+        Debug.Print user.StringKey("name")
+        Debug.Print user.StringKey("role")
     End If
 End Sub
 ```
@@ -1041,7 +1364,7 @@ Public Sub ReadSimpleArray()
 
     Dim i As Long
     For i = 0 To arr.Count - 1
-        Debug.Print arr.StringAt(i)
+        Debug.Print arr.StringIndex(i)
     Next i
 End Sub
 ```
@@ -1054,7 +1377,7 @@ Public Sub ReadArrayOfObjects(ByVal responseText As String)
     Set doc = JSON.Parse(responseText)
 
     Dim users As JSON
-    Set users = doc.Node("users")
+    Set users = doc.NodeKey("users")
 
     If users Is Nothing Then Exit Sub
 
@@ -1062,11 +1385,11 @@ Public Sub ReadArrayOfObjects(ByVal responseText As String)
     Dim user As JSON
 
     For i = 0 To users.Count - 1
-        Set user = users.NodeAt(i)
+        Set user = users.NodeIndex(i)
 
         If Not user Is Nothing Then
-            Debug.Print user.StringValue("name")
-            Debug.Print user.NumberValue("score")
+            Debug.Print user.StringKey("name")
+            Debug.Print user.NumberKey("score")
         End If
     Next i
 End Sub
@@ -1080,7 +1403,7 @@ Public Sub ReadLargeArrayFast(ByVal responseText As String)
     Set doc = JSON.Parse(responseText)
 
     Dim rows As JSON
-    Set rows = doc.Node("rows")
+    Set rows = doc.NodeKey("rows")
 
     If rows Is Nothing Then Exit Sub
 
@@ -1094,6 +1417,23 @@ Public Sub ReadLargeArrayFast(ByVal responseText As String)
 End Sub
 ```
 
+### Extract Keys from an Object
+
+```vb
+Public Sub PrintKeys()
+    Dim doc As JSON
+    Set doc = JSON.Parse("{""name"":""JSON"",""language"":""VBA"",""fast"":true}")
+
+    Dim keys As Variant
+    keys = doc.Keys
+
+    Dim i As Long
+    For i = LBound(keys) To UBound(keys)
+        Debug.Print keys(i)
+    Next i
+End Sub
+```
+
 ### Extract a Raw Nested Field
 
 ```vb
@@ -1102,7 +1442,7 @@ Public Sub ExtractRawPayload(ByVal responseText As String)
     Set doc = JSON.Parse(responseText)
 
     Dim rows As JSON
-    Set rows = doc.Node("rows")
+    Set rows = doc.NodeKey("rows")
 
     If rows Is Nothing Then Exit Sub
 
@@ -1183,6 +1523,55 @@ Public Sub PrettyPrintWithTabs(ByVal text As String)
 End Sub
 ```
 
+### Default Member Chaining
+
+```vb
+Public Sub ChainRead()
+    Dim doc As JSON
+    Set doc = JSON.Parse("{""user"":{""badges"" : [""admin"",""dev""]}}")
+
+    Debug.Print doc("user")("badges")(0)
+    Debug.Print doc("user")("badges")(1)
+End Sub
+```
+
+This is concise, but it uses the generic `Variant` path. Prefer typed helpers in hot loops.
+
+## Validation and Tests
+
+A companion validation module can be used to test the parser behavior.
+
+Recommended safe entry points:
+
+```vb
+RunJSONSafeSmokeTests
+RunAllJSONTests
+```
+
+The current validation suite checks common valid JSON cases, including:
+
+- Objects.
+- Arrays.
+- Primitive roots.
+- Escaped strings.
+- Unicode escapes.
+- Numbers.
+- `Stringify` roundtrip.
+- `StringifyValue`.
+- `Keys`.
+- `Exists`, `ExistsKey`, and `ExistsIndex`.
+- Token iteration.
+
+A successful run should look like:
+
+```txt
+Total:   75
+Passed:  75
+Failed:  0
+```
+
+Invalid JSON tests should be used carefully unless the parser has strict error guards enabled. Invalid-input suites can reveal where validation needs to be improved, but they should not be allowed to freeze the VBE.
+
 ## Best Practices
 
 ### Keep the Root Document Alive
@@ -1196,21 +1585,51 @@ Dim doc As JSON
 Set doc = JSON.Parse(text)
 
 Dim data As JSON
-Set data = doc.Node("data")
+Set data = doc.NodeKey("data")
 
 Debug.Print data.Count
 ```
 
-Avoid returning only a child node from a short-lived local document unless you also keep the root alive.
+Avoid returning only a child node from a short-lived local document unless you also keep the root document alive.
 
-### Use Typed Accessors for Known Schemas
+### Prefer the New Typed API
 
-When you know the expected JSON structure, typed accessors keep code short and avoid repeated `Variant` handling.
+Use this style for known schemas:
 
 ```vb
-Debug.Print doc.StringValue("name")
-Debug.Print doc.NumberValue("id")
-Debug.Print doc.BoolValue("active")
+Debug.Print doc.StringKey("name")
+Debug.Print doc.NumberKey("id")
+Debug.Print doc.BoolKey("active")
+```
+
+And for arrays:
+
+```vb
+Debug.Print arr.StringIndex(0)
+Debug.Print arr.NumberIndex(1)
+Debug.Print arr.BoolIndex(2)
+```
+
+This is clearer than using the generic `Item` or `ValueAt` path everywhere.
+
+### Use ExistsKey and ExistsIndex
+
+Typed accessors return default VBA values when a field is missing.
+
+Use existence checks when default values are ambiguous.
+
+```vb
+If doc.ExistsKey("score") Then
+    Debug.Print doc.NumberKey("score")
+End If
+```
+
+For arrays:
+
+```vb
+If arr.ExistsIndex(3) Then
+    Debug.Print arr.StringIndex(3)
+End If
 ```
 
 ### Use Token Iteration for Large Arrays
@@ -1236,20 +1655,38 @@ Dim raw As String
 raw = rows.TokenRawField(t, "payload")
 ```
 
-### Prefer StringifyValue for External VBA Values
+### Use StringifyValue for External VBA Values
 
 Use `Stringify` for parsed JSON documents and nodes.
 
-Use `StringifyValue` for regular VBA values.
+Use `StringifyValue` for normal VBA values.
 
 ```vb
 Debug.Print doc.Stringify(True)
 Debug.Print JSON.StringifyValue(dict, True)
 ```
 
-### Use Dictionaries for JSON Objects
+### Avoid Generic Variant Access in Hot Loops
 
-`Scripting.Dictionary` maps naturally to a JSON object.
+This is convenient:
+
+```vb
+Debug.Print doc("user")("name")
+```
+
+This is better in hot paths:
+
+```vb
+Dim user As JSON
+Set user = doc.NodeKey("user")
+Debug.Print user.StringKey("name")
+```
+
+### Use Dictionaries Only for Writing External Objects
+
+The parser itself does not require `Scripting.Dictionary`.
+
+For `StringifyValue`, dictionaries are useful when building JSON objects manually:
 
 ```vb
 Dim obj As Object
@@ -1261,31 +1698,17 @@ obj("ok") = True
 Debug.Print JSON.StringifyValue(obj)
 ```
 
-### Use Collections or Arrays for JSON Arrays
-
-Collections are convenient when the length is dynamic.
-
-```vb
-Dim arr As Collection
-Set arr = New Collection
-
-arr.Add "a"
-arr.Add "b"
-
-Debug.Print JSON.StringifyValue(arr)
-```
-
 ## Notes and Limitations
 
 ### Parser Validation
 
-The parser is optimized for speed and low allocation. It assumes normal, well-formed JSON input.
+The parser is optimized for speed and low allocation. It is best used with well-formed JSON input.
 
-For untrusted input, validate or sanitize upstream if strict error reporting is required.
+For fully untrusted input, strict invalid-input validation should be tested carefully. A separate strict mode can be added later if rejecting every malformed JSON edge case becomes a priority.
 
 ### String Escapes
 
-String reading applies basic JSON unescape behavior for:
+String reading supports common JSON escapes such as:
 
 - `\"`
 - `\\`
@@ -1295,105 +1718,153 @@ String reading applies basic JSON unescape behavior for:
 - `\n`
 - `\r`
 - `\t`
+- `\uXXXX`
 
-Unicode escape sequences such as `\uXXXX` are not expanded into Unicode characters by the current lightweight unescape helper.
+Use the normal string helpers for decoded string values:
+
+```vb
+Debug.Print doc.StringKey("message")
+```
+
+Use raw helpers when you want the stored string slice without unescaping:
+
+```vb
+Debug.Print doc.RawStringKey("message")
+```
 
 ### Number Parsing
 
-Numbers are converted through VBA numeric conversion behavior.
+Numbers are exposed as `Double` through the numeric helpers.
 
 ```vb
-Debug.Print doc.NumberValue("price")
+Debug.Print doc.NumberKey("price")
 ```
 
-For exact decimal/financial handling, keep raw numeric text if needed.
+For exact decimal or financial handling, preserve raw numeric text if needed.
 
 ### Missing Values
 
-Most accessors return the default VBA value when a field is missing or has an unexpected type.
+Most typed accessors return default VBA values when a field is missing or has an unexpected type.
 
 | Accessor | Missing Result |
-| `StringValue` | `""` |
-| `NumberValue` | `0` |
-| `BoolValue` | `False` |
-| `Node` | `Nothing` |
-| `ValueAt` | Empty Variant |
+|:--|:--|
+| `StringKey`, `StringIndex` | `""` |
+| `NumberKey`, `NumberIndex` | `0` |
+| `BoolKey`, `BoolIndex` | `False` |
+| `NodeKey`, `NodeIndex` | `Nothing` |
+| `ValueAt` | Empty `Variant` |
 | `Token...` helpers | Default VBA value |
 
-Use `Exists` when you need to distinguish missing fields from default values.
-
-```vb
-If doc.Exists("score") Then
-    Debug.Print doc.NumberValue("score")
-End If
-```
+Use `ExistsKey` or `ExistsIndex` when you need to distinguish missing data from real default values.
 
 ### Object Key Comparison
 
-Object key lookup is case-sensitive and uses ordinal comparison.
+Object key lookup is case-sensitive.
 
 ```vb
-doc.Exists("name")
-doc.Exists("Name")
+doc.ExistsKey("name")
+doc.ExistsKey("Name")
 ```
 
 These are different keys.
 
+### Root Primitive Values
+
+JSON root values can be primitives:
+
+```vb
+Set doc = JSON.Parse("123")
+Debug.Print doc.JsonType
+Debug.Print doc.Value
+```
+
+Supported root types include object, array, string, number, boolean, and null.
+
 ## Troubleshooting
 
-### `Node` Returns Nothing
+### `NodeKey` Returns Nothing
 
-`Node` only returns objects and arrays.
+`NodeKey` only returns objects and arrays.
 
-This returns `Nothing` if `"name"` is a string:
-
-```vb
-Set value = doc.Node("name")
-```
-
-Use `StringValue` instead:
+This returns `Nothing` if `name` is a string:
 
 ```vb
-Debug.Print doc.StringValue("name")
+Set value = doc.NodeKey("name")
 ```
 
-### `NumberValue` Returns 0
+Use `StringKey` instead:
+
+```vb
+Debug.Print doc.StringKey("name")
+```
+
+### `NodeIndex` Returns Nothing
+
+`NodeIndex` only returns object or array items.
+
+If the array item is primitive, use a typed index helper:
+
+```vb
+Debug.Print arr.StringIndex(0)
+Debug.Print arr.NumberIndex(0)
+Debug.Print arr.BoolIndex(0)
+```
+
+### `NumberKey` Returns 0
 
 Possible causes:
 
 - The field is missing.
 - The field is not a number.
 - The number text cannot be converted as expected by VBA.
+- The real JSON value is actually `0`.
 
 Check existence first:
 
 ```vb
-If doc.Exists("score") Then
-    Debug.Print doc.NumberValue("score")
+If doc.ExistsKey("score") Then
+    Debug.Print doc.NumberKey("score")
 End If
 ```
 
-### `BoolValue` Returns False
+### `BoolKey` Returns False
 
-`False` can mean either the JSON value is actually `false`, the field is missing, or the field is not a boolean.
+`False` can mean the JSON value is actually `false`, the field is missing, or the field is not a boolean.
 
-Use `Exists` if needed:
+Check existence first:
 
 ```vb
-If doc.Exists("active") Then
-    Debug.Print doc.BoolValue("active")
+If doc.ExistsKey("active") Then
+    Debug.Print doc.BoolKey("active")
+End If
+```
+
+### `Keys` Seems Empty
+
+`Keys` returns direct keys or direct indexes only.
+
+For primitive nodes, it returns an empty array.
+
+For nested keys, get the nested node first:
+
+```vb
+Dim user As JSON
+Set user = doc.NodeKey("user")
+
+If Not user Is Nothing Then
+    Debug.Print user.Keys()(0)
 End If
 ```
 
 ### Large Arrays Feel Slow
 
-Avoid this pattern for huge arrays:
+Avoid creating a node wrapper for every item in huge arrays:
 
 ```vb
 For i = 0 To rows.Count - 1
-    Set row = rows.NodeAt(i)
-    Debug.Print row.StringValue("name")
-Next
+    Set row = rows.NodeIndex(i)
+    Debug.Print row.StringKey("name")
+Next i
 ```
 
 Prefer token iteration:
@@ -1408,7 +1879,7 @@ Do While t <> 0
 Loop
 ```
 
-### Dictionary Output Requires Scripting.Dictionary Object
+### Dictionary Output Requires a Dictionary Object
 
 You can use late binding:
 
@@ -1440,11 +1911,13 @@ Debug.Print doc.Stringify(True)
 ### Parsing
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `Parse` | `Parse(ByRef Text As String) As JSON` | Parses JSON text into a tokenized document. |
 
 ### Serialization
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `Stringify` | `Stringify(Optional Pretty As Boolean = False, Optional IndentSize As Long = 2) As String` | Serializes the current document or node. |
 | `StringifyWithIndent` | `StringifyWithIndent(Optional Pretty As Boolean = False, Optional IndentText As String = "  ") As String` | Serializes the current document or node with custom indentation. |
 | `StringifyValue` | `StringifyValue(Value As Variant, Optional Pretty As Boolean = False, Optional IndentSize As Long = 2) As String` | Serializes an external VBA value. |
@@ -1453,6 +1926,7 @@ Debug.Print doc.Stringify(True)
 ### Core Properties
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `Item` | `Item(key As Variant) As Variant` | Default member. Gets a child value by key or index. |
 | `Value` | `Value() As Variant` | Gets the current node value. |
 | `Count` | `Count() As Long` | Gets the direct child count. |
@@ -1461,30 +1935,52 @@ Debug.Print doc.Stringify(True)
 | `IsArray` | `IsArray() As Boolean` | Returns whether the node is an array. |
 | `IsNull` | `IsNull() As Boolean` | Returns whether the node is null. |
 
-### Child Lookup
+### Keys and Existence
 
 | API | Signature | Description |
-| `Exists` | `Exists(key As Variant) As Boolean` | Checks whether a field or array index exists. |
-| `Node` | `Node(key As Variant) As JSON` | Gets a child object or array as a node. |
+|:--|:--|:--|
+| `Keys` | `Keys() As Variant` | Returns object keys or array indexes. |
+| `Exists` | `Exists(key As Variant) As Boolean` | Compatibility helper. Checks whether a field or array index exists. |
+| `ExistsKey` | `ExistsKey(key As String) As Boolean` | Checks whether an object key exists. |
+| `ExistsIndex` | `ExistsIndex(Index As Long) As Boolean` | Checks whether an array index exists. |
 
-### Indexed Access
-
-| API | Signature | Description |
-| `NodeAt` | `NodeAt(Index As Long) As JSON` | Gets an object/array child by zero-based child index. |
-| `ValueAt` | `ValueAt(Index As Long) As Variant` | Gets any child value by zero-based child index. |
-| `KeyAt` | `KeyAt(Index As Long) As String` | Gets an object child key by zero-based child index. |
-
-### Typed Field Access
+### Generic Child Access
 
 | API | Signature | Description |
-| `StringValue` | `StringValue(key As Variant) As String` | Gets a child value as string. |
-| `NumberValue` | `NumberValue(key As Variant) As Double` | Gets a child value as double. |
-| `BoolValue` | `BoolValue(key As Variant) As Boolean` | Gets a child value as boolean. |
-| `RawStringValue` | `RawStringValue(key As Variant) As String` | Gets a child string without unescaping. |
+|:--|:--|:--|
+| `Node` | `Node(key As Variant) As JSON` | Gets a child object or array by key or index. |
+| `NodeAt` | `NodeAt(Index As Long) As JSON` | Gets an object/array child by zero-based child position. |
+| `ValueAt` | `ValueAt(Index As Long) As Variant` | Gets any child value by zero-based child position. |
+| `KeyAt` | `KeyAt(Index As Long) As String` | Gets an object child key by zero-based child position. |
 
-### Typed Indexed Access
+### Typed Object Access
 
 | API | Signature | Description |
+|:--|:--|:--|
+| `StringKey` | `StringKey(key As String) As String` | Gets an object field as string. |
+| `NumberKey` | `NumberKey(key As String) As Double` | Gets an object field as double. |
+| `BoolKey` | `BoolKey(key As String) As Boolean` | Gets an object field as boolean. |
+| `RawStringKey` | `RawStringKey(key As String) As String` | Gets an object string field without unescaping. |
+| `NodeKey` | `NodeKey(key As String) As JSON` | Gets an object field as a JSON node. |
+
+### Typed Array Access
+
+| API | Signature | Description |
+|:--|:--|:--|
+| `StringIndex` | `StringIndex(Index As Long) As String` | Gets an array item as string. |
+| `NumberIndex` | `NumberIndex(Index As Long) As Double` | Gets an array item as double. |
+| `BoolIndex` | `BoolIndex(Index As Long) As Boolean` | Gets an array item as boolean. |
+| `RawStringIndex` | `RawStringIndex(Index As Long) As String` | Gets an array string item without unescaping. |
+| `NodeIndex` | `NodeIndex(Index As Long) As JSON` | Gets an array item as a JSON node. |
+
+### Legacy Typed Accessors
+
+| API | Signature | Description |
+|:--|:--|:--|
+| `StringValue` | `StringValue(key As Variant) As String` | Gets a child value as string by key or index. |
+| `NumberValue` | `NumberValue(key As Variant) As Double` | Gets a child value as double by key or index. |
+| `BoolValue` | `BoolValue(key As Variant) As Boolean` | Gets a child value as boolean by key or index. |
+| `RawStringValue` | `RawStringValue(key As Variant) As String` | Gets a child string without unescaping by key or index. |
 | `StringAt` | `StringAt(Index As Long) As String` | Gets an indexed child value as string. |
 | `NumberAt` | `NumberAt(Index As Long) As Double` | Gets an indexed child value as double. |
 | `BoolAt` | `BoolAt(Index As Long) As Boolean` | Gets an indexed child value as boolean. |
@@ -1493,6 +1989,7 @@ Debug.Print doc.Stringify(True)
 ### Token Traversal
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `FirstChildToken` | `FirstChildToken() As Long` | Gets the first direct child token. |
 | `LastChildToken` | `LastChildToken() As Long` | Gets the last direct child token. |
 | `NextToken` | `NextToken(TokenId As Long) As Long` | Gets the next sibling token. |
@@ -1501,6 +1998,7 @@ Debug.Print doc.Stringify(True)
 ### Token Value Access
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `TokenKey` | `TokenKey(TokenId As Long) As String` | Gets the key associated with a token. |
 | `TokenValue` | `TokenValue(TokenId As Long) As Variant` | Gets a token value as Variant. |
 | `TokenStringValue` | `TokenStringValue(TokenId As Long) As String` | Gets a token value as string. |
@@ -1511,6 +2009,7 @@ Debug.Print doc.Stringify(True)
 ### Token Field Access
 
 | API | Signature | Description |
+|:--|:--|:--|
 | `TokenString` | `TokenString(TokenId As Long, key As Variant) As String` | Gets a field from an object token as string. |
 | `TokenRawString` | `TokenRawString(TokenId As Long, key As Variant) As String` | Gets a field from an object token as raw string. |
 | `TokenRawField` | `TokenRawField(TokenId As Long, key As String) As String` | Gets a raw field slice from an object token. |
