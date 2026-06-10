@@ -11,11 +11,11 @@ Attribute VB_Exposed = False
 ' * JSON - JSON Reader and Writer
 ' * @description A high-performance zero-copy JSON reader and lightweight JSON writer for VBA (x86/x64 compatible).
 ' * Uses compact token trees, crash-safe character buffers, native InStr quote scanning, lazy node wrappers,
-' * typed accessors, raw field access, token iteration for huge arrays, and Stringify support for parsed JSON,
+' * typed accessors, Exists/ExistsKey/ExistsIndex/Keys helpers, raw field access, token iteration for huge arrays, and Stringify support for parsed JSON,
 ' * primitive VBA values, arrays, Collections, Dictionaries, and nested JSON nodes.
 ' * Designed for fast parsing and traversal without Dictionary, Collection, or per-node object allocation during parse.
 ' * @author UesleiDev
-' * @version 1.0.3
+' * @version 1.0.4
 ' */
 
 Option Explicit
@@ -409,6 +409,95 @@ Public Function Exists(ByVal key As Variant) As Boolean
 End Function
 
 '/**
+' * @method ExistsKey
+' * @brief Returns True when an object key exists without using a Variant key parameter.
+' * @param Key Object key.
+' * @return Boolean state.
+' */
+Public Function ExistsKey(ByVal key As String) As Boolean
+    Dim doc As JSON
+    Dim baseId As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    ExistsKey = (doc.FindChildFast(baseId, key) <> 0)
+End Function
+
+'/**
+' * @method ExistsIndex
+' * @brief Returns True when an array/object child index exists without using a Variant key parameter.
+' * @param Index Zero-based child index.
+' * @return Boolean state.
+' */
+Public Function ExistsIndex(ByVal Index As Long) As Boolean
+    Dim doc As JSON
+    Dim baseId As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If Index < 0 Then Exit Function
+    
+    ExistsIndex = (Index < doc.TokenChildCountOf(baseId))
+End Function
+
+'/**
+' * @method Keys
+' * @brief Gets all direct object keys or array indexes as a zero-based Variant array.
+' * @return String array for objects, Long array for arrays, or an empty Variant array.
+' */
+Public Function keys() As Variant
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim child As Long
+    Dim i As Long
+    Dim total As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then
+        keys = Array()
+        Exit Function
+    End If
+    
+    total = doc.TokenChildCountOf(baseId)
+    
+    If total <= 0 Then
+        keys = Array()
+        Exit Function
+    End If
+    
+    If doc.TokenTypeOf(baseId) = jsObject Then
+        Dim objectKeys() As String
+        ReDim objectKeys(0 To total - 1)
+        
+        child = doc.TokenFirstChildOf(baseId)
+        
+        Do While child > 0
+            objectKeys(i) = doc.GetRawKey(child)
+            i = i + 1
+            child = doc.TokenNextSiblingOf(child)
+        Loop
+        
+        keys = objectKeys
+    ElseIf doc.TokenTypeOf(baseId) = jsArray Then
+        Dim arrayKeys() As Long
+        ReDim arrayKeys(0 To total - 1)
+        
+        For i = 0 To total - 1
+            arrayKeys(i) = i
+        Next i
+        
+        keys = arrayKeys
+    Else
+        keys = Array()
+    End If
+End Function
+
+'/**
 ' * @method Node
 ' * @brief Gets a child object or array by key/index without returning through Variant.
 ' * @param Key Object key as String or array index as Long.
@@ -432,6 +521,43 @@ Public Function node(ByVal key As Variant) As JSON
         nodeObj.InitNode id, doc
         Set node = nodeObj
     End If
+End Function
+
+'/**
+' * @method NodeKey
+' * @brief Gets an object child node by key without using Variant dispatch.
+' * @param Key Object key.
+' * @return JSON node wrapper.
+' */
+Public Function NodeKey(ByVal key As String) As JSON
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim id As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    id = doc.FindChildFast(baseId, key)
+    If id = 0 Then Exit Function
+    
+    If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
+        Dim nodeObj As JSON
+        Set nodeObj = New JSON
+        nodeObj.InitNode id, doc
+        Set NodeKey = nodeObj
+    End If
+End Function
+
+'/**
+' * @method NodeIndex
+' * @brief Gets an array/object child node by zero-based index without using Variant dispatch.
+' * @param Index Zero-based child index.
+' * @return JSON node wrapper.
+' */
+Public Function NodeIndex(ByVal Index As Long) As JSON
+    Set NodeIndex = NodeAt(Index)
 End Function
 
 '/**
@@ -591,6 +717,94 @@ Public Function RawStringValue(ByVal key As Variant) As String
     If id = 0 Then Exit Function
     
     RawStringValue = doc.GetRawSlice(id)
+End Function
+
+'/**
+' * @method StringKey
+' * @brief Gets a string field by object key without using Variant dispatch.
+' * @param Key Object key.
+' * @return String value.
+' */
+Public Function StringKey(ByVal key As String) As String
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim id As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    id = doc.FindChildFast(baseId, key)
+    If id = 0 Then Exit Function
+    
+    StringKey = doc.ValueAsString(id)
+End Function
+
+'/**
+' * @method NumberKey
+' * @brief Gets a numeric field by object key without using Variant dispatch.
+' * @param Key Object key.
+' * @return Double value.
+' */
+Public Function NumberKey(ByVal key As String) As Double
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim id As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    id = doc.FindChildFast(baseId, key)
+    If id = 0 Then Exit Function
+    
+    NumberKey = doc.ValueAsDouble(id)
+End Function
+
+'/**
+' * @method BoolKey
+' * @brief Gets a Boolean field by object key without using Variant dispatch.
+' * @param Key Object key.
+' * @return Boolean value.
+' */
+Public Function BoolKey(ByVal key As String) As Boolean
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim id As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    id = doc.FindChildFast(baseId, key)
+    If id = 0 Then Exit Function
+    
+    BoolKey = doc.ValueAsBool(id)
+End Function
+
+'/**
+' * @method RawStringKey
+' * @brief Gets a raw JSON field by object key without using Variant dispatch.
+' * @param Key Object key.
+' * @return Raw JSON slice.
+' */
+Public Function RawStringKey(ByVal key As String) As String
+    Dim doc As JSON
+    Dim baseId As Long
+    Dim id As Long
+    
+    ResolveBase doc, baseId
+    
+    If baseId = 0 Then Exit Function
+    If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
+    
+    id = doc.FindChildFast(baseId, key)
+    If id = 0 Then Exit Function
+    
+    RawStringKey = doc.GetRawSlice(id)
 End Function
 
 '/**
