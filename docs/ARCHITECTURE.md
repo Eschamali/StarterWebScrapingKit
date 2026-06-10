@@ -1,8 +1,10 @@
 # JSON Architecture
 
-JSON is a single-file VBA class (`JSON.cls`) that implements a high-performance zero-copy JSON reader and lightweight JSON writer for Microsoft Office hosts.
+JSON is a single-file VBA class (`JSON.cls`) that implements a fast JSON reader and lightweight JSON writer for Microsoft Office hosts.
 
-It combines compact token-tree parsing, SAFEARRAY string aliasing, native ordinal key comparison, native quote scanning, lazy node wrappers, typed accessors, raw field access, token iteration, and Stringify support while remaining contained inside one `.cls` file.
+It is designed around compact token-tree parsing, lazy node wrappers, typed accessors, raw field access, token iteration, `Keys`/`Exists` helpers, and `Stringify` support while staying fully contained inside one importable `.cls` file.
+
+This document describes the architecture used by the current `JSON_typed_api.cls` version.
 
 ## Table of Contents
 
@@ -10,287 +12,151 @@ It combines compact token-tree parsing, SAFEARRAY string aliasing, native ordina
 - [Design Goals](#design-goals)
 - [Runtime Model](#runtime-model)
 - [Class Layout](#class-layout)
-- [Global Constants](#global-constants)
-- [Native API Layer](#native-api-layer)
-- [SAFEARRAY String Alias](#safearray-string-alias)
-- [JSType](#jstype)
-- [JSToken](#jstoken)
+- [Core Data Structures](#core-data-structures)
 - [Document State](#document-state)
 - [Node Wrapper State](#node-wrapper-state)
 - [Parsing Pipeline](#parsing-pipeline)
-- [LoadText](#loadtext)
 - [Token Allocation](#token-allocation)
-- [Value Dispatch](#value-dispatch)
-- [Object Parsing](#object-parsing)
-- [Array Parsing](#array-parsing)
-- [String Scanning](#string-scanning)
-- [Number Parsing](#number-parsing)
-- [Primitive Parsing](#primitive-parsing)
-- [Hierarchy Linking](#hierarchy-linking)
+- [Object and Array Parsing](#object-and-array-parsing)
+- [String Parsing](#string-parsing)
+- [Number and Primitive Parsing](#number-and-primitive-parsing)
+- [Token Tree Linking](#token-tree-linking)
 - [Lookup Architecture](#lookup-architecture)
-- [Object Key Lookup](#object-key-lookup)
-- [Array Index Lookup](#array-index-lookup)
-- [Native Key Comparison](#native-key-comparison)
+- [Modern Typed API Layer](#modern-typed-api-layer)
+- [Compatibility API Layer](#compatibility-api-layer)
+- [Keys and Exists](#keys-and-exists)
 - [Value Conversion](#value-conversion)
 - [Raw Slice Access](#raw-slice-access)
 - [Lazy Node Wrappers](#lazy-node-wrappers)
 - [Token Iteration](#token-iteration)
 - [Stringify Architecture](#stringify-architecture)
-- [Parsed Token Serialization](#parsed-token-serialization)
 - [External Value Serialization](#external-value-serialization)
-- [Object Serialization](#object-serialization)
-- [Array Serialization](#array-serialization)
-- [Collection Serialization](#collection-serialization)
-- [Dictionary Serialization](#dictionary-serialization)
-- [String Escaping](#string-escaping)
-- [Pretty Printing](#pretty-printing)
 - [Memory Model](#memory-model)
 - [Performance Strategy](#performance-strategy)
+- [Validation and Testing Strategy](#validation-and-testing-strategy)
 - [Compatibility Strategy](#compatibility-strategy)
 - [Shutdown and Cleanup](#shutdown-and-cleanup)
 - [Known Architectural Boundaries](#known-architectural-boundaries)
+- [Summary](#summary)
 
 ## High-Level Overview
 
-JSON is a single-file VBA class (`JSON.cls`) that parses JSON text into a compact token tree instead of immediately materializing nested Dictionaries, Collections, or per-node objects.
+JSON parses text into a compact internal token tree instead of immediately converting the entire payload into nested `Scripting.Dictionary`, `Collection`, or one VBA object per node.
 
-The public API is designed to look simple:
+The public usage is intentionally simple:
 
 ```vb
 Dim doc As JSON
 Set doc = JSON.Parse(responseText)
 
-Debug.Print doc.StringValue("name")
-Debug.Print doc.NumberValue("id")
-Debug.Print doc.BoolValue("active")
+Debug.Print doc.StringKey("name")
+Debug.Print doc.NumberKey("id")
+Debug.Print doc.BoolKey("active")
 ```
 
-Internally, the parser keeps the original JSON string alive and stores token slices pointing into that string.
+Internally, the parser stores each JSON value as a token. A token records the value type, parent/child links, sibling links, key slice, value slice, and child count.
 
-```mermaid
-graph TD
-    A["Your VBA Code<br/>Parse / Node / StringValue / Stringify"] --> B["Public API Layer<br/>Typed accessors, node wrappers, token helpers"]
-    B --> C["Document Layer<br/>Source text, character alias, token buffer"]
-    C --> D["Parser Layer<br/>Value dispatch, object/array parsing, string/number scanning"]
-    C --> E["Token Tree<br/>Parent, child, sibling, key slice, value slice"]
-    B --> F["Writer Layer<br/>Token serialization and external value serialization"]
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#ccf,stroke:#333,stroke-width:2px
-    style C fill:#fca,stroke:#333,stroke-width:2px
-    style D fill:#cfc,stroke:#333,stroke-width:2px
-    style E fill:#ffc,stroke:#333,stroke-width:2px
-    style F fill:#ddd,stroke:#333,stroke-width:2px
+```txt
+JSON text
+  -> parser cursor
+  -> token buffer
+  -> root JSON document
+  -> typed access / lazy nodes / token iteration / Stringify
 ```
 
 The main architectural idea is:
 
 ```txt
-JSON text -> SAFEARRAY character alias -> token tree -> lazy wrappers / typed reads / raw slices
+Do the minimum work during parsing.
+Convert, wrap, copy, or allocate only when user code asks for data.
 ```
-
-This keeps parsing allocation low and makes large JSON traversal practical in Office/VBA.
 
 ## Design Goals
 
 | Goal | Architectural Choice |
+|:---|:---|
 | Single-file deployment | Everything lives inside `JSON.cls`. |
-| No references required | Uses late-bound compatible behavior and direct declarations only. |
-| Fast parsing | Parses into compact tokens instead of nested objects. |
-| Low allocation | Keeps key/value slices into the original source text. |
-| Fast traversal | Provides typed accessors and direct token iteration. |
-| Large-array support | Token iteration avoids wrapper allocation per element. |
-| Simple public API | `Parse`, `Item`, `Node`, `StringValue`, `Stringify`, and token helpers. |
-| Office compatibility | Supports x86 and x64 VBA through conditional declarations. |
-| Lightweight writer | Serializes parsed JSON and common VBA values without a separate builder object. |
+| No required references | The parser does not depend on `Scripting.Dictionary`. |
+| Fast parsing | Builds compact tokens instead of nested containers. |
+| Low allocation | Stores key/value positions and lengths instead of eagerly copying values. |
+| Comfortable API | Provides `StringKey`, `NumberKey`, `BoolKey`, `NodeKey`, `Keys`, and `Exists`. |
+| Compatibility | Keeps older generic methods such as `Item`, `Value`, `ValueAt`, `StringValue`, and `Node`. |
+| Large-array support | Exposes token iteration to avoid wrapper allocation per row. |
+| Practical writing | Supports `Stringify` for parsed nodes and `StringifyValue` for normal VBA values. |
+| Office compatibility | Works in normal VBA hosts and supports x86/x64 conditional declarations. |
 
-JSON is not intended to be a fully validating JSON schema engine. It is a fast reader/writer optimized for practical Office automation, API responses, configuration files, and local data pipelines.
+JSON is not meant to be a schema validator. It is a fast practical JSON reader/writer for API responses, local config files, automation payloads, and Office/VBA tooling.
 
 ## Runtime Model
 
-The runtime model has two object modes:
+The runtime has two object modes:
 
 ```txt
-Root document = owns source text, character alias, and token buffer
-Node wrapper  = points to a token owned by a root document
+Root document = owns the parsed text and token buffer
+Node wrapper  = points to a token owned by the root document
 ```
 
-A parsed document owns:
+A root document owns:
 
 ```txt
 m_Text       = original JSON text
-m_Chars()    = Integer() alias over m_Text UTF-16 characters
-m_Tokens()   = compact token buffer
+m_Tokens()   = parsed token tree
 m_RootId     = root token id
 ```
 
-A child node wrapper owns only:
+A child node wrapper owns:
 
 ```txt
 m_NodeId     = wrapped token id
 m_Document   = reference to the root document
 ```
 
-This allows code like:
+Example:
 
 ```vb
 Dim doc As JSON
 Set doc = JSON.Parse("{""user"":{""name"":""Ueslei""}}")
 
 Dim user As JSON
-Set user = doc.Node("user")
+Set user = doc.NodeKey("user")
 
-Debug.Print user.StringValue("name")
+Debug.Print user.StringKey("name")
 ```
 
-The `user` wrapper does not duplicate the `"user"` object. It points back to `doc` and stores the token id of the object.
+The `user` object does not duplicate the nested object. It only stores a reference back to `doc` plus the token id for the `user` object.
 
 ## Class Layout
 
-`JSON.cls` is a predeclared class:
+`JSON.cls` is intended to be a predeclared class:
 
 ```vb
 Attribute VB_Name = "JSON"
 Attribute VB_PredeclaredId = True
 ```
 
-This allows factory-style usage:
+That enables factory-style usage:
 
 ```vb
 Set doc = JSON.Parse(text)
 Debug.Print JSON.StringifyValue(value, True)
 ```
 
-The same class acts as:
+The same class contains:
 
-1. The public API object.
-2. The root document storage.
-3. The lightweight node wrapper.
-4. The parser implementation.
-5. The writer implementation.
+1. Public API methods.
+2. Root document state.
+3. Node wrapper state.
+4. Parser implementation.
+5. Token lookup implementation.
+6. Stringify writer implementation.
 
-This keeps deployment simple: one importable `.cls` file.
+This is why distribution stays simple: import one `JSON.cls` file.
 
-## Global Constants
+## Core Data Structures
 
-### JSON_MIN_TOKEN_CAPACITY
+### JSType
 
-```vb
-Private Const JSON_MIN_TOKEN_CAPACITY As Long = 65536
-```
-
-Minimum token capacity allocated for a parsed document.
-
-This avoids repeated `ReDim Preserve` calls on medium JSON documents.
-
-### JSON_MAX_INITIAL_TOKEN_CAPACITY
-
-```vb
-Private Const JSON_MAX_INITIAL_TOKEN_CAPACITY As Long = 3000000
-```
-
-Maximum initial token capacity guessed from text length.
-
-This prevents extremely large initial allocations based only on input size.
-
-### JSON_LARGE_TOKEN_CAPACITY
-
-```vb
-Private Const JSON_LARGE_TOKEN_CAPACITY As Long = 1048576
-```
-
-Threshold after which token-buffer growth changes from doubling to 1.5x growth.
-
-This reduces memory spikes for very large documents.
-
-### JSON_DEFAULT_INDENT_SIZE
-
-```vb
-Private Const JSON_DEFAULT_INDENT_SIZE As Long = 2
-```
-
-Default indentation size for pretty-printed output.
-
-## Native API Layer
-
-JSON uses a small native layer for speed and compatibility.
-
-### CopyMemory
-
-```vb
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (...)
-```
-
-Used to attach and clear the internal SAFEARRAY descriptor that aliases the source string.
-
-### VarPtrArray
-
-```vb
-Private Declare PtrSafe Function VarPtrArray Lib "vbe7" Alias "VarPtr" (...)
-```
-
-Used to obtain the internal array descriptor pointer for `m_Chars()`.
-
-On 32-bit VBA, the declaration targets `msvbvm60`.
-
-### CompareStringOrdinal
-
-```vb
-Private Declare PtrSafe Function CompareStringOrdinal Lib "kernel32" (...)
-```
-
-Used for ordinal UTF-16 key comparison without allocating key substrings during object lookup.
-
-This is a major part of the fast field access path.
-
-## SAFEARRAY String Alias
-
-VBA strings are UTF-16. JSON creates an `Integer()` alias over the string memory so the parser can inspect characters by numeric code without repeatedly calling `Mid$`.
-
-The descriptor layout is represented by:
-
-```vb
-Private Type SAFEARRAY1D
-    cDims As Integer
-    fFeatures As Integer
-    cbElements As Long
-    cLocks As Long
-    pvData As LongPtr
-    cElements As Long
-    lLbound As Long
-End Type
-```
-
-Conceptually:
-
-```txt
-m_Text = "{""name"":""Ueslei""}"
-
-m_Chars(0) = AscW("{")
-m_Chars(1) = AscW("""")
-m_Chars(2) = AscW("n")
-...
-```
-
-No character array copy is created. The array descriptor points directly at the string data.
-
-```mermaid
-graph TD
-    A["m_Text<br/>VBA String"] --> B["StrPtr(m_Text)"]
-    B --> C["SAFEARRAY1D descriptor"]
-    C --> D["m_Chars() As Integer"]
-    D --> E["Parser reads character codes"]
-
-    style A fill:#fca,stroke:#333
-    style D fill:#ccf,stroke:#333
-    style E fill:#cfc,stroke:#333
-```
-
-This is why cleanup is important: the descriptor must be cleared before the object is destroyed.
-
-## JSType
-
-`JSType` is the internal enum used by each token.
+The internal JSON type enum represents parsed value types.
 
 ```vb
 Private Enum JSType
@@ -304,9 +170,10 @@ Private Enum JSType
 End Enum
 ```
 
-The public `JsonType` property converts these values to user-facing strings:
+The public `JsonType` property converts these to user-facing strings:
 
 | Internal Type | Public Type |
+|:---|:---|
 | `jsObject` | `object` |
 | `jsArray` | `array` |
 | `jsString` | `string` |
@@ -314,9 +181,9 @@ The public `JsonType` property converts these values to user-facing strings:
 | `jsBool` | `boolean` |
 | `jsNull` | `null` |
 
-## JSToken
+### JSToken
 
-`JSToken` is the core internal data structure.
+`JSToken` is the core internal record.
 
 ```vb
 Private Type JSToken
@@ -333,54 +200,54 @@ Private Type JSToken
 End Type
 ```
 
-Each token stores hierarchy links and source slices.
+Each token stores hierarchy and text slice metadata.
 
 | Field | Purpose |
+|:---|:---|
 | `Type` | Internal JSON type. |
 | `Parent` | Parent token id. |
 | `NextSibling` | Next token under the same parent. |
 | `FirstChild` | First direct child token. |
 | `LastChild` | Last direct child token. |
 | `ChildCount` | Number of direct children. |
-| `KeyStart` | One-based start position of object key text. |
+| `KeyStart` | One-based start position of object key. |
 | `KeyLen` | Object key length. |
 | `ValStart` | One-based start position of value text. |
 | `ValLen` | Value text length. |
 
-Objects and arrays use child links.
+Example token layout:
 
-Strings, numbers, booleans, and null use value slices.
-
-Object children also store key slices.
-
-```txt
+```json
 {
   "name": "Ueslei",
   "age": 18
 }
+```
 
+```txt
 Token 1: object
   FirstChild -> 2
   LastChild  -> 3
 
 Token 2: string
-  Parent   -> 1
-  KeyStart -> "name"
-  ValStart -> "Ueslei"
-  Next     -> 3
+  Parent      -> 1
+  KeyStart    -> slice for name
+  ValStart    -> slice for Ueslei
+  NextSibling -> 3
 
 Token 3: number
-  Parent   -> 1
-  KeyStart -> "age"
-  ValStart -> "18"
+  Parent      -> 1
+  KeyStart    -> slice for age
+  ValStart    -> slice for 18
 ```
 
 ## Document State
 
-The root document stores:
+The root document stores parser and token state.
+
+Typical fields include:
 
 ```vb
-Private m_Chars() As Integer
 Private m_Text As String
 Private m_Length As Long
 Private m_Index As Long
@@ -390,25 +257,29 @@ Private m_TokenCap As Long
 Private m_RootId As Long
 Private m_NodeId As Long
 Private m_Document As JSON
-Private m_CharAliasActive As Boolean
 ```
 
+Depending on the exact build, the class may also include a character buffer or SAFEARRAY alias fields used for faster character access.
+
 | Field | Purpose |
+|:---|:---|
 | `m_Text` | Original JSON source text. |
-| `m_Chars()` | SAFEARRAY alias over `m_Text`. |
-| `m_Length` | Length of the source text. |
-| `m_Index` | Current zero-based parser cursor. |
+| `m_Length` | Length of source text. |
+| `m_Index` | Current parser cursor. |
 | `m_Tokens()` | Token buffer. |
 | `m_TokenCount` | Number of active tokens. |
-| `m_TokenCap` | Current token buffer capacity. |
+| `m_TokenCap` | Current token capacity. |
 | `m_RootId` | Root token id. |
-| `m_NodeId` | Wrapped token id for node wrappers. |
+| `m_NodeId` | Wrapped token id for child node wrappers. |
 | `m_Document` | Root document reference for wrappers. |
-| `m_CharAliasActive` | Whether the SAFEARRAY alias must be cleared. |
+
+The root document must stay alive while child node wrappers are being used.
 
 ## Node Wrapper State
 
-A node wrapper is initialized through:
+A node wrapper is a lightweight `JSON` instance that points to a token inside another root document.
+
+Conceptually:
 
 ```vb
 Friend Sub InitNode(ByVal TokenId As Long, ByVal Document As JSON)
@@ -417,37 +288,30 @@ Friend Sub InitNode(ByVal TokenId As Long, ByVal Document As JSON)
 End Sub
 ```
 
-The wrapper does not own token memory.
+The wrapper does not own the source text or token buffer.
 
-When a method needs to operate, it calls `ResolveBase`:
-
-```vb
-Private Sub ResolveBase(ByRef Document As JSON, ByRef baseId As Long)
-    If m_NodeId > 0 Then
-        Set Document = m_Document
-        baseId = m_NodeId
-    Else
-        Set Document = Me
-        baseId = m_RootId
-    End If
-End Sub
-```
-
-This allows the same public methods to work on both root documents and child nodes.
+Most public methods resolve their execution target like this:
 
 ```txt
-Root document:
-    Document = Me
-    BaseId   = m_RootId
+If this object is a node wrapper:
+    document = m_Document
+    baseId   = m_NodeId
+Else:
+    document = Me
+    baseId   = m_RootId
+```
 
-Node wrapper:
-    Document = m_Document
-    BaseId   = m_NodeId
+That lets the same API work on both root documents and nested nodes:
+
+```vb
+Debug.Print doc.StringKey("name")
+Debug.Print user.StringKey("name")
+Debug.Print items.StringIndex(0)
 ```
 
 ## Parsing Pipeline
 
-The full parse flow starts with `Parse`:
+Parsing starts at `Parse`:
 
 ```vb
 Public Function Parse(ByRef Text As String) As JSON
@@ -458,74 +322,32 @@ Public Function Parse(ByRef Text As String) As JSON
 End Function
 ```
 
-The heavy work is performed by `LoadText`.
-
-```mermaid
-graph TD
-    A["JSON.Parse(text)"] --> B["New JSON document"]
-    B --> C["LoadText"]
-    C --> D["Reset state"]
-    D --> E["Estimate token capacity"]
-    E --> F["Create SAFEARRAY alias"]
-    F --> G["ParseValue root"]
-    G --> H["Token tree ready"]
-    H --> I["Return document"]
-
-    style A fill:#e1f5fe,stroke:#0277bd
-    style I fill:#c8e6c9,stroke:#2e7d32
-    style F fill:#fff9c4,stroke:#f9a825
-```
-
-## LoadText
-
-`LoadText` performs document initialization.
-
-Main responsibilities:
-
-1. Clear any existing character alias.
-2. Store the source text.
-3. Reset parser state.
-4. Allocate the initial token buffer.
-5. Create the SAFEARRAY alias over the string.
-6. Parse the root JSON value.
-
-Conceptual flow:
+The full pipeline is:
 
 ```txt
-Clear previous alias
-m_Text = Text
-m_Length = Len(m_Text)
-m_Index = 0
-Erase previous chars/tokens
-Estimate token capacity
-ReDim m_Tokens
-Attach m_Chars() to m_Text
-m_RootId = ParseValue(0, 0, 0)
+JSON.Parse(text)
+  -> create new JSON document
+  -> reset state
+  -> store source text
+  -> allocate token buffer
+  -> parse root value
+  -> return document
 ```
 
-Token capacity is estimated from input length:
-
-```vb
-m_TokenCap = m_Length \ 24
-```
-
-Then clamped between the minimum and maximum initial capacity.
+The parser does not build Dictionaries or Collections. It only builds the token tree.
 
 ## Token Allocation
 
-Tokens are allocated through `AddToken`.
+Tokens are allocated sequentially.
+
+Conceptual implementation:
 
 ```vb
 Private Function AddToken() As Long
     m_TokenCount = m_TokenCount + 1
 
     If m_TokenCount > m_TokenCap Then
-        If m_TokenCap < JSON_LARGE_TOKEN_CAPACITY Then
-            m_TokenCap = m_TokenCap * 2
-        Else
-            m_TokenCap = m_TokenCap + (m_TokenCap \ 2)
-        End If
-
+        m_TokenCap = m_TokenCap * 2
         ReDim Preserve m_Tokens(1 To m_TokenCap)
     End If
 
@@ -533,173 +355,120 @@ Private Function AddToken() As Long
 End Function
 ```
 
-Growth strategy:
+The important performance rule is to avoid repeated small `ReDim Preserve` operations. The parser uses an estimated initial capacity and grows in larger blocks.
 
-| Current Capacity | Growth |
-| Below large threshold | 2x |
-| Above large threshold | 1.5x |
-
-This keeps small/medium documents fast while reducing huge memory jumps for very large payloads.
-
-## Value Dispatch
-
-`ParseValue` is the central parser dispatcher.
-
-It skips whitespace, creates a token, links it to the parent, and dispatches based on the current character:
-
-| Character | JSON Type | Parser |
-| `{` | Object | `ParseObject` |
-| `[` | Array | `ParseArray` |
-| `"` | String | `ParseString` |
-| `t` | Boolean true | Inline primitive parse |
-| `f` | Boolean false | Inline primitive parse |
-| `n` | Null | Inline primitive parse |
-| `-`, `0-9` | Number | `ParseNumber` |
-
-Conceptual dispatch:
+Why this matters:
 
 ```txt
-SkipWhitespace
-AddToken
-Attach to parent
-Select current character
-    {       -> object
-    [       -> array
-    "       -> string
-    true    -> bool
-    false   -> bool
-    null    -> null
-    number  -> number
+Few large resizes = good
+Many tiny resizes = slow
 ```
 
-## Object Parsing
+## Object and Array Parsing
 
-Objects are parsed by `ParseObject`.
+### Objects
 
-Conceptual flow:
+Object parsing follows this model:
 
 ```txt
-Consume {
-Loop:
-    Skip whitespace
-    If } then finish
-    Scan key string
-    Skip whitespace
-    Consume :
-    Parse child value with key slice
-    Skip whitespace
-    If , then continue
+consume {
+repeat:
+    skip whitespace
+    if } then finish
+    scan key string
+    skip whitespace
+    consume :
+    parse child value
+    link child token to object token
+    skip whitespace
+    if , continue
+    if } finish
 ```
 
-The important optimization is that keys are not immediately copied into new VBA strings. The parser stores:
+Object keys are stored as text slices:
 
 ```txt
 KeyStart
 KeyLen
 ```
 
-The key is converted only when needed by `GetRawKey`, `KeyAt`, or serialization.
+The key is not converted to a VBA string unless user code asks for it through methods such as `KeyAt`, `Keys`, `TokenKey`, or serialization.
 
-## Array Parsing
+### Arrays
 
-Arrays are parsed by `ParseArray`.
-
-Conceptual flow:
+Array parsing follows this model:
 
 ```txt
-Consume [
-Loop:
-    Skip whitespace
-    If ] then finish
-    Parse child value with no key
-    Skip whitespace
-    If , then continue
+consume [
+repeat:
+    skip whitespace
+    if ] then finish
+    parse child value
+    link child token to array token
+    skip whitespace
+    if , continue
+    if ] finish
 ```
 
-Array elements are stored as sibling tokens under the array token.
+Array items are sibling tokens under the array token.
 
 ```txt
 array token
-  FirstChild -> element 0
-  element 0 NextSibling -> element 1
-  element 1 NextSibling -> element 2
+  FirstChild -> item 0
+  item 0 NextSibling -> item 1
+  item 1 NextSibling -> item 2
 ```
 
-Indexed access walks this sibling chain.
+## String Parsing
 
-## String Scanning
-
-Strings are parsed by `ParseString`, which delegates to `ScanJSONString`.
-
-The parser stores only the content slice:
+String tokens store the slice inside the quotes.
 
 ```txt
 "Ueslei"
  ^    ^
- ValStart
- ValLen = 6
+ value slice only
 ```
 
-The quotes are not included in the stored value slice.
-
-The scanner is optimized around native quote searching and escape checks. This avoids checking every character one-by-one in the common case where strings do not contain escapes.
-
-When a string is later read through `StringValue`, JSON applies lightweight unescaping only if a backslash is present.
-
-## Number Parsing
-
-Number tokens store the raw numeric slice.
+Stored token fields:
 
 ```txt
-123.45
-^    ^
-ValStart
-ValLen
+ValStart = first character after opening quote
+ValLen   = number of characters before closing quote
 ```
 
-Conversion happens later through:
+When the string is read through `StringKey`, `StringIndex`, `StringValue`, or `TokenStringValue`, the raw slice is copied and then unescaped if needed.
+
+This keeps parse time cheaper because strings are not fully processed unless user code reads them.
+
+## Number and Primitive Parsing
+
+Numbers are stored as raw slices.
+
+```txt
+-123.45e+6
+ ^       ^
+ raw numeric slice
+```
+
+Conversion to `Double` happens only when requested:
 
 ```vb
-ValueAsDouble = Val(GetRawSlice(TokenId))
+Debug.Print doc.NumberKey("score")
 ```
 
-This means parse time stays low because numeric values are not converted eagerly.
+Booleans and null are also represented as tokens:
 
-## Primitive Parsing
+| JSON Literal | Internal Type |
+|:---|:---|
+| `true` | `jsBool` |
+| `false` | `jsBool` |
+| `null` | `jsNull` |
 
-Booleans and null are parsed inline.
+This means parsing remains focused on structure and tokenization, not on eagerly converting every value.
 
-| Literal | Type | Stored Slice |
-| `true` | `jsBool` | `true` |
-| `false` | `jsBool` | `false` |
-| `null` | `jsNull` | `null` |
+## Token Tree Linking
 
-Boolean reading checks the first character:
-
-```vb
-ValueAsBool = (m_Chars(m_Tokens(TokenId).ValStart - 1) = 116)
-```
-
-`116` is the UTF-16 character code for `t`.
-
-## Hierarchy Linking
-
-Every child token is linked to its parent when created.
-
-The parent stores:
-
-```txt
-FirstChild
-LastChild
-ChildCount
-```
-
-Each child stores:
-
-```txt
-Parent
-NextSibling
-```
+Every child token is linked to its parent.
 
 Conceptual link operation:
 
@@ -711,254 +480,315 @@ Else:
 
 parent.LastChild = child
 parent.ChildCount += 1
+child.Parent = parent
 ```
 
-This produces a compact forward-linked tree.
+This gives every object and array a forward-linked list of direct children.
 
-```mermaid
-graph TD
-    A["Parent Token"] --> B["FirstChild"]
-    B --> C["NextSibling"]
-    C --> D["NextSibling"]
-    A --> E["LastChild"]
-    A --> F["ChildCount"]
+Benefits:
 
-    style A fill:#fca,stroke:#333
-    style B fill:#ccf,stroke:#333
-    style C fill:#ccf,stroke:#333
-    style D fill:#ccf,stroke:#333
-```
+- very cheap append during parsing;
+- no container object allocation;
+- simple traversal;
+- token iteration can walk large arrays without wrapper objects.
 
 ## Lookup Architecture
 
-Public lookups route through `ResolveToken`.
+Lookup resolves a child token by either object key or array index.
+
+Generic compatibility methods use a `Variant` key:
 
 ```vb
-Friend Function ResolveToken(ByVal ParentId As Long, ByVal key As Variant) As Long
-    If VarType(key) = vbString Then
-        ResolveToken = FindChildFast(ParentId, CStr(key))
-    Else
-        ResolveToken = FindIndexChild(ParentId, CLng(key))
-    End If
-End Function
+Debug.Print doc.Item("name")
+Debug.Print arr.Item(0)
+Debug.Print doc.Exists("name")
+Debug.Print arr.Exists(0)
 ```
 
-This allows the same public API to support:
+Modern methods avoid ambiguity by splitting object-key access from array-index access:
 
 ```vb
-doc.StringValue("name")
-arr.StringValue(0)
-doc.Node("user")
-arr.Node(0)
+Debug.Print doc.StringKey("name")
+Debug.Print arr.StringIndex(0)
+Debug.Print doc.ExistsKey("name")
+Debug.Print arr.ExistsIndex(0)
 ```
 
-String keys use object lookup.
+This is cleaner and avoids using `Variant` in the common path.
 
-Numeric keys use index lookup.
+## Modern Typed API Layer
 
-## Object Key Lookup
+The modern API added to the class is the preferred usage style.
 
-Object lookup is performed by `FindChildFast`.
+### Object-key methods
 
-It walks the direct children of an object and compares key slices against the requested key.
+```vb
+ExistsKey(ByRef Key As String) As Boolean
+StringKey(ByRef Key As String) As String
+NumberKey(ByRef Key As String) As Double
+BoolKey(ByRef Key As String) As Boolean
+RawStringKey(ByRef Key As String) As String
+NodeKey(ByRef Key As String) As JSON
+```
 
-Conceptual flow:
+Example:
+
+```vb
+Dim doc As JSON
+Set doc = JSON.Parse("{""name"":""Ueslei"",""age"":18,""active"":true}")
+
+If doc.ExistsKey("name") Then
+    Debug.Print doc.StringKey("name")
+End If
+
+Debug.Print doc.NumberKey("age")
+Debug.Print doc.BoolKey("active")
+```
+
+### Array-index methods
+
+```vb
+ExistsIndex(ByVal Index As Long) As Boolean
+StringIndex(ByVal Index As Long) As String
+NumberIndex(ByVal Index As Long) As Double
+BoolIndex(ByVal Index As Long) As Boolean
+RawStringIndex(ByVal Index As Long) As String
+NodeIndex(ByVal Index As Long) As JSON
+```
+
+Example:
+
+```vb
+Dim arr As JSON
+Set arr = JSON.Parse("[""VBA"",""JSON"",true]")
+
+Debug.Print arr.StringIndex(0)
+Debug.Print arr.StringIndex(1)
+Debug.Print arr.BoolIndex(2)
+```
+
+### Why these methods exist
+
+The original generic API is flexible, but it uses `Variant` because a JSON child can be read by string key or numeric index.
+
+The typed API makes common usage faster and clearer:
 
 ```txt
-child = parent.FirstChild
-
-Do While child exists:
-    If key length matches:
-        CompareStringOrdinal(source key slice, requested key)
-        If equal, return child
-    child = child.NextSibling
-Loop
+Known object field -> use *Key
+Known array index  -> use *Index
+Unknown/generic    -> use Item/Value/Exists compatibility methods
 ```
 
-No key string allocation is required for normal lookup.
+## Compatibility API Layer
 
-## Array Index Lookup
+The class keeps older generic methods so existing code continues to work.
 
-Array index lookup is performed by `FindIndexChild`.
-
-```txt
-child = parent.FirstChild
-i = 0
-
-Do While child exists:
-    If i = requested index:
-        return child
-    i += 1
-    child = child.NextSibling
-Loop
-```
-
-This is simple and allocation-free.
-
-For extremely large arrays where every element is visited, token iteration is better because it walks the sibling chain once.
-
-## Native Key Comparison
-
-`KeyEquals` compares token keys with a VBA string using `CompareStringOrdinal`.
-
-Instead of doing this:
+Examples:
 
 ```vb
-Mid$(m_Text, KeyStart, KeyLen) = KeyName
+Debug.Print doc("name")
+Debug.Print doc.StringValue("name")
+Debug.Print doc.NumberValue("age")
+Debug.Print doc.BoolValue("active")
+
+Dim user As JSON
+Set user = doc.Node("user")
 ```
 
-It compares directly against the string memory:
+These methods are still useful when writing quick scripts or when the caller naturally has a `Variant` key.
 
-```txt
-source pointer = StrPtr(m_Text) + ((KeyStart - 1) * 2)
-key pointer    = StrPtr(KeyName)
-CompareStringOrdinal(...)
-```
-
-This avoids creating a temporary key substring for every comparison.
-
-Key lookup is case-sensitive and ordinal.
+The recommended style for new code is:
 
 ```vb
-doc.Exists("name")
-doc.Exists("Name")
+Debug.Print doc.StringKey("name")
+Set user = doc.NodeKey("user")
+Debug.Print arr.StringIndex(0)
 ```
 
-These are different keys.
+## Keys and Exists
+
+### Keys
+
+`Keys()` returns a `Variant` array of direct child identifiers.
+
+For objects, it returns object keys:
+
+```vb
+Dim doc As JSON
+Set doc = JSON.Parse("{""name"":""Ueslei"",""age"":18}")
+
+Dim keys As Variant
+keys = doc.Keys
+
+Debug.Print keys(0)  ' name
+Debug.Print keys(1)  ' age
+```
+
+For arrays, it returns indexes:
+
+```vb
+Dim arr As JSON
+Set arr = JSON.Parse("[10,20,30]")
+
+Dim keys As Variant
+keys = arr.Keys
+
+Debug.Print keys(0)  ' 0
+Debug.Print keys(1)  ' 1
+Debug.Print keys(2)  ' 2
+```
+
+Why this exists:
+
+- the parser does not materialize `Scripting.Dictionary` objects;
+- users still need a familiar way to inspect object fields;
+- it mirrors one of the most useful `Dictionary` helpers without depending on Dictionary internally.
+
+### Exists
+
+There are three existence helpers:
+
+```vb
+Exists(key As Variant) As Boolean
+ExistsKey(ByRef Key As String) As Boolean
+ExistsIndex(ByVal Index As Long) As Boolean
+```
+
+Use `ExistsKey` for objects:
+
+```vb
+If doc.ExistsKey("user") Then
+    Set user = doc.NodeKey("user")
+End If
+```
+
+Use `ExistsIndex` for arrays:
+
+```vb
+If arr.ExistsIndex(0) Then
+    Debug.Print arr.StringIndex(0)
+End If
+```
+
+Use `Exists` for compatibility or generic code:
+
+```vb
+Debug.Print doc.Exists("name")
+Debug.Print arr.Exists(0)
+```
 
 ## Value Conversion
 
-Primitive conversion is lazy.
+Primitive values are converted lazily.
 
 ### String
 
+String access copies the stored slice and applies JSON unescaping if needed.
+
 ```vb
-ValueAsString -> GetRawValue
+Debug.Print doc.StringKey("message")
 ```
 
-Strings are copied only when read.
+Raw string access skips unescaping:
 
-If the copied value contains `\`, it is passed through the unescape helper.
+```vb
+Debug.Print doc.RawStringKey("message")
+```
 
 ### Number
 
+Number access converts the stored numeric slice to `Double`.
+
 ```vb
-ValueAsDouble -> Val(GetRawSlice(TokenId))
+Debug.Print doc.NumberKey("price")
 ```
 
-Numbers are converted only when requested.
+Missing or incompatible values return `0`.
 
 ### Boolean
 
+Boolean access checks the token type and literal.
+
 ```vb
-ValueAsBool -> first literal character check
+If doc.BoolKey("active") Then
+    Debug.Print "active"
+End If
 ```
 
-`true` returns `True`.
-
-`false` returns `False`.
+Missing or incompatible values return `False`.
 
 ### Null
 
-`PrimitiveValue` returns `Null`.
+`IsNull` returns whether the current node is JSON null.
 
-String accessors return an empty string for null.
-
-Numeric and boolean accessors return the default VBA value when the token is not the expected type.
+String/numeric/boolean accessors return default values when pointed at `null`.
 
 ## Raw Slice Access
 
-Raw access uses `GetRawSlice`.
+Raw access returns text based on the original stored value slice.
 
-```vb
-Friend Function GetRawSlice(ByVal TokenId As Long) As String
-    GetRawSlice = Mid$(m_Text, m_Tokens(TokenId).ValStart, m_Tokens(TokenId).ValLen)
-End Function
-```
+Used by:
 
-This returns the exact stored value slice without unescaping.
-
-Raw access is used by:
-
+- `RawStringKey`
+- `RawStringIndex`
 - `RawStringValue`
 - `RawStringAt`
 - `TokenRawStringValue`
 - `TokenRawString`
 - `TokenRawField`
-- `StringifyToken` for numbers and booleans
 
-Raw field access is useful when nested JSON should be forwarded or cached without materializing a subtree.
-
-## Lazy Node Wrappers
-
-Objects and arrays are returned as lightweight `JSON` wrappers.
+Raw access is useful when you want to forward or cache nested JSON without walking or re-serializing the subtree.
 
 Example:
 
 ```vb
+Dim rawPayload As String
+rawPayload = rows.TokenRawField(t, "payload")
+```
+
+## Lazy Node Wrappers
+
+Objects and arrays are returned as lightweight wrappers.
+
+```vb
 Dim user As JSON
-Set user = doc.Node("user")
+Set user = doc.NodeKey("user")
 ```
 
 Internally:
 
 ```txt
-Resolve token for "user"
-If token type is object or array:
-    Set nodeObj = New JSON
-    nodeObj.InitNode tokenId, rootDocument
+resolve token for user
+if token is object or array:
+    create new JSON wrapper
+    wrapper.m_NodeId = token id
+    wrapper.m_Document = root document
 ```
 
-The wrapper stores:
+Wrappers are created only on demand.
 
-```txt
-m_NodeId = token id
-m_Document = root document
-```
-
-This avoids creating wrappers for every parsed object or array.
-
-Wrappers are only created when requested by:
+Methods that can return wrappers include:
 
 - `Item`
+- `Value`
+- `ValueAt`
 - `Node`
 - `NodeAt`
-- `ValueAt`
+- `NodeKey`
+- `NodeIndex`
 - `TokenValue`
 - `TokenNode`
 - `NodeFromToken`
 
+Keep the root document alive while using child wrappers.
+
 ## Token Iteration
 
-Token iteration exposes the internal sibling chain safely through public methods.
-
-```vb
-Dim t As Long
-t = arr.FirstChildToken()
-
-Do While t <> 0
-    Debug.Print arr.TokenStringValue(t)
-    t = arr.NextToken(t)
-Loop
-```
-
-The relevant methods are:
-
-| Method | Purpose |
-| `FirstChildToken` | Gets first direct child token. |
-| `LastChildToken` | Gets last direct child token. |
-| `NextToken` | Gets next sibling token. |
-| `NodeFromToken` | Wraps object/array token as a node. |
-| `TokenValue` | Reads token as a Variant. |
-| `TokenStringValue` | Reads token as String. |
-| `TokenNumberValue` | Reads token as Double. |
-| `TokenBoolValue` | Reads token as Boolean. |
-
-Token field helpers are optimized for arrays of objects:
+Token iteration is the fastest traversal model for large arrays.
 
 ```vb
 Dim rows As JSON
-Set rows = doc.Node("rows")
+Set rows = doc.NodeKey("rows")
 
 Dim t As Long
 t = rows.FirstChildToken()
@@ -966,19 +796,27 @@ t = rows.FirstChildToken()
 Do While t <> 0
     Debug.Print rows.TokenString(t, "name")
     Debug.Print rows.TokenNumber(t, "score")
+    Debug.Print rows.TokenBool(t, "active")
+
     t = rows.NextToken(t)
 Loop
 ```
 
-This avoids `NodeAt(i)` wrapper allocation in tight loops.
+This avoids:
+
+- creating a `JSON` wrapper for every row;
+- repeatedly scanning array indexes with `NodeIndex(i)`;
+- returning generic `Variant` objects in tight loops.
+
+Use token iteration when processing large arrays of objects.
 
 ## Stringify Architecture
 
-The writer has two main paths. Both use a two-pass buffer strategy: first compute the exact serialized character count, then allocate one output string and fill it with `Mid$`.
+The writer has two main paths:
 
 ```txt
-Parsed JSON node/document -> StringifyToken
-External VBA value        -> StringifyAny
+Parsed JSON document/node -> Stringify
+External VBA value        -> StringifyValue
 ```
 
 Public entry points:
@@ -993,307 +831,134 @@ JSON.StringifyValue(value, True)
 JSON.StringifyValueWithIndent(value, True, vbTab)
 ```
 
-```mermaid
-graph TD
-    A["Stringify"] --> B["StringifyCurrent"]
-    B --> C["StringifyToken"]
-    C --> D["SizeToken"]
-    C --> E["WriteToken"]
-    E --> F["Object Token"]
-    E --> G["Array Token"]
-    E --> H["Primitive Token"]
+### Parsed token serialization
 
-    I["StringifyValue"] --> J["StringifyAny"]
-    J --> K["SizeAny"]
-    J --> L["WriteAny"]
-    L --> M["Primitive VBA Value"]
-    L --> N["VBA Array"]
-    L --> O["Collection"]
-    L --> P["Dictionary"]
-    L --> Q["JSON Node"]
-
-    style A fill:#ccf,stroke:#333
-    style I fill:#ccf,stroke:#333
-    style C fill:#cfc,stroke:#333
-    style J fill:#cfc,stroke:#333
-```
-
-## Parsed Token Serialization
-
-`StringifyCurrent` resolves whether the current object is the root document or a node wrapper, then delegates to `StringifyToken`. `StringifyToken` sizes the output with `SizeToken`, allocates a `JSWriter`, and writes with `WriteToken`.
-
-```vb
-Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As String) As String
-    ResolveBase doc, baseId
-    StringifyCurrent = doc.StringifyToken(baseId, Pretty, IndentText, 0)
-End Function
-```
-
-`StringifyToken` remains a string-returning compatibility wrapper around the size/write path.
+`Stringify` resolves the current base token and recursively writes it.
 
 | Token Type | Serialization |
-| Object | `WriteObjectToken` |
-| Array | `WriteArrayToken` |
-| String | `WriteQuotedJSONString(GetRawValue(TokenId))` |
-| Number | Raw number slice |
-| Boolean | Raw boolean slice |
+|:---|:---|
+| Object | `{ ... }` |
+| Array | `[ ... ]` |
+| String | quoted/escaped JSON string |
+| Number | numeric text |
+| Boolean | `true` / `false` |
 | Null | `null` |
 
-Numbers and booleans preserve their raw JSON text.
+### Pretty printing
 
-Strings are unescaped and then re-escaped to produce normalized JSON output.
-
-## Object Serialization
-
-`WriteObjectToken` walks the child chain and writes directly into the preallocated output buffer:
-
-```txt
-write "{"
-child = FirstChild
-
-Do While child exists:
-    write quoted key
-    write :
-    write child value recursively
-    child = child.NextSibling
-Loop
-
-write "}"
-```
-
-Pretty mode inserts:
+Pretty output adds:
 
 - `vbCrLf`
-- indentation based on depth
-- space after `:`
+- indentation
+- spacing after `:`
 
-Compact mode emits no unnecessary whitespace.
+Examples:
 
-## Array Serialization
-
-`WriteArrayToken` is similar to object serialization, but without keys.
-
-```txt
-write "["
-child = FirstChild
-
-Do While child exists:
-    write child value recursively
-    child = child.NextSibling
-Loop
-
-write "]"
+```vb
+Debug.Print doc.Stringify(True)
+Debug.Print doc.Stringify(True, 4)
+Debug.Print doc.StringifyWithIndent(True, vbTab)
 ```
 
-Empty arrays serialize as:
-
-```json
-[]
-```
-
-Empty objects serialize as:
-
-```json
-{}
-```
+Compact output is recommended for storage, transport, or speed-sensitive paths.
 
 ## External Value Serialization
 
-`StringifyAny` serializes regular VBA values.
+`StringifyValue` serializes normal VBA values.
 
 Supported values include:
 
 | VBA Value | JSON Output |
+|:---|:---|
 | `String` | JSON string |
 | `Boolean` | `true` / `false` |
 | Numeric types | JSON number |
 | `Currency` | JSON number |
-| `Decimal` | JSON number |
-| `Date` | ISO-like string |
+| `Date` | JSON string |
 | `Null` | `null` |
 | `Empty` | `null` |
-| One-dimensional array | JSON array |
+| One-dimensional VBA array | JSON array |
 | `Collection` | JSON array |
-| `Dictionary` | JSON object |
-| `Scripting.Dictionary` | JSON object |
-| `JSON` object | Serialized JSON node/document |
+| `Dictionary` / `Scripting.Dictionary` | JSON object |
+| `JSON` document/node | serialized JSON |
 | Unsupported object | `null` |
 
-Object values are routed through `SizeObjectValue` and `WriteObjectValue`.
-
-## Object Serialization
-
-`WriteObjectValue` dispatches based on `TypeName`.
-
-```vb
-Select Case TypeName(Value)
-    Case "JSON"
-        WriteText writer, node.StringifyCurrent(...)
-    Case "Collection"
-        WriteCollection writer, ...
-    Case "Dictionary", "Scripting.Dictionary"
-        WriteDictionary writer, ...
-    Case Else
-        WriteText writer, "null"
-End Select
-```
-
-This lets parsed JSON nodes and common VBA containers participate in the same writer pipeline.
-
-## Array Serialization
-
-`WriteArrayValue` serializes one-dimensional VBA arrays.
-
-```vb
-For i = LBound(Value) To UBound(Value)
-    WriteAny writer, Value(i), Pretty, IndentText, Depth + 1
-Next i
-```
-
-This supports arrays declared like:
-
-```vb
-Dim values(0 To 2) As Variant
-```
-
-## Collection Serialization
-
-`SizeCollection` and `WriteCollection` serialize a VBA `Collection` as a JSON array.
-
-```vb
-Dim list As Collection
-Set list = New Collection
-
-list.Add "Excel"
-list.Add "PowerPoint"
-
-Debug.Print JSON.StringifyValue(list, True)
-```
-
-Collections are one-based in VBA, so the writer iterates from `1 To Value.Count`.
-
-## Dictionary Serialization
-
-`SizeDictionary` and `WriteDictionary` serialize a `Scripting.Dictionary` as a JSON object.
+Example:
 
 ```vb
 Dim dict As Object
 Set dict = CreateObject("Scripting.Dictionary")
 
 dict("name") = "JSON"
-dict("language") = "VBA"
+dict("version") = "1.0.1"
+dict("fast") = True
 
 Debug.Print JSON.StringifyValue(dict, True)
 ```
 
-Keys are converted to strings and escaped with `WriteQuotedJSONString`.
-
-Values are recursively serialized through the `SizeAny` and `WriteAny` path.
-
-## String Escaping
-
-Strings are quoted through `SizeQuotedJSONString` and `WriteQuotedJSONString`.
-
-Escaped characters include:
-
-| Character | JSON Escape |
-| `\` | `\\` |
-| `"` | `\"` |
-| CRLF | `\n` |
-| CR | `\r` |
-| LF | `\n` |
-| Tab | `\t` |
-| Backspace | `\b` |
-| Form feed | `\f` |
-
-String reading uses `UnescapeJSONString`, which handles the same basic JSON escapes.
-
-## Pretty Printing
-
-Pretty printing is controlled by two parameters:
-
-```vb
-Pretty As Boolean
-IndentText As String
-```
-
-`Stringify(True, 2)` converts the indent size to spaces:
-
-```vb
-Space$(IndentSize)
-```
-
-`StringifyWithIndent(True, vbTab)` uses the exact indent string.
-
-Indentation is sized with `IndentSize` and written through `WriteIndent`.
-
-```vb
-Private Sub WriteIndent(ByRef Writer As JSWriter, ByVal IndentText As String, ByVal Depth As Long)
-```
-
-The writer uses recursive depth to decide how many indentation units to write.
+The parser itself does not require Dictionary. Dictionary support here exists only for writing external VBA objects to JSON.
 
 ## Memory Model
 
-JSON's memory model is centered around three things:
+The memory model is centered around:
 
 ```txt
-Source string
-Character alias
+Source text
 Token buffer
+Lazy wrappers
 ```
 
-### Source String
+### Source text
 
-The original JSON text remains stored in `m_Text`.
+The original JSON text remains stored in the document.
 
-All key and value slices point into this string by position and length.
+Key/value tokens reference positions and lengths inside this text.
 
-### Character Alias
+### Token buffer
 
-`m_Chars()` is an alias over `m_Text`.
+The token buffer is a dynamic array of compact `JSToken` records.
 
-It enables fast character-code access without creating a copy.
+No Dictionary, Collection, or per-node wrapper is allocated during parse.
 
-### Token Buffer
+### Lazy wrappers
 
-`m_Tokens()` is a dynamic array of `JSToken`.
+Wrappers are created only when code asks for nested objects/arrays.
 
-Each token is compact and stores only integer metadata plus type information.
-
-No Dictionaries, Collections, or per-node objects are allocated during parsing.
+This keeps parsing cheap and makes large payloads more practical in VBA.
 
 ## Performance Strategy
 
-The main performance choices are:
+Main performance choices:
 
 | Area | Strategy |
-| Character access | SAFEARRAY alias over the source string. |
+|:---|:---|
 | Parse output | Compact token tree. |
-| Object lookup | Native ordinal comparison against source key slices. |
-| Value conversion | Lazy conversion only when requested. |
-| Node access | Lazy wrappers only for requested objects/arrays. |
-| Large arrays | Token iteration instead of wrapper allocation. |
-| Raw forwarding | Raw slice extraction without subtree materialization. |
-| Writing | Recursive string builder style over tokens and VBA containers. |
+| Object lookup | Scan direct children without materializing Dictionary. |
+| Value conversion | Convert only when requested. |
+| Object/array nodes | Create wrappers lazily. |
+| Large arrays | Use token iteration. |
+| Compatibility | Keep generic `Variant` methods, but add typed methods for common paths. |
+| Writing | Serialize parsed tokens or external values directly. |
 
-### Fast Path: Known Object Fields
+### Fast path: known object fields
 
 ```vb
-Debug.Print doc.StringValue("name")
-Debug.Print doc.NumberValue("score")
-Debug.Print doc.BoolValue("active")
+Debug.Print doc.StringKey("name")
+Debug.Print doc.NumberKey("score")
+Debug.Print doc.BoolKey("active")
 ```
 
-This path does:
+This avoids the generic `Variant` route where possible.
 
-```txt
-Resolve base token
-Find child by key
-Convert only requested value
+### Fast path: known array indexes
+
+```vb
+Debug.Print arr.StringIndex(0)
+Debug.Print arr.NumberIndex(1)
+Debug.Print arr.BoolIndex(2)
 ```
 
-### Fast Path: Large Arrays
+### Fast path: large array scan
 
 ```vb
 Dim t As Long
@@ -1305,55 +970,74 @@ Do While t <> 0
 Loop
 ```
 
-This path avoids:
+This is preferable to repeatedly calling `NodeIndex(i)` on huge arrays.
 
-- `NodeAt(i)` wrapper creation
-- repeated index scans from the beginning
-- Variant object returns for each row
+## Validation and Testing Strategy
 
-### Fast Path: Raw Nested Payloads
+The validation suite added for this version focuses on proving the safe, normal JSON path.
 
-```vb
-raw = rows.TokenRawField(t, "payload")
+Covered test groups:
+
+- valid objects;
+- valid arrays;
+- primitive roots;
+- escaped strings;
+- unicode escape handling;
+- numbers;
+- `Stringify` roundtrip;
+- `StringifyValue`;
+- `Keys` and `Exists`;
+- token iteration.
+
+The safe validation run produced:
+
+```txt
+Total:   75
+Passed:  75
+Failed:  0
 ```
 
-This path avoids:
+The invalid JSON suite should be treated carefully until the parser has stronger internal progress guards. Invalid-input tests must never be allowed to trap the VBE in an infinite parser loop.
 
-- wrapping the nested payload
-- walking the subtree
-- serializing it again
+Recommended testing order:
+
+```vb
+RunJSONSafeSmokeTests
+RunAllJSONTests
+```
+
+Run strict invalid-input tests only after parser guard improvements.
 
 ## Compatibility Strategy
 
-JSON supports both 32-bit and 64-bit Office.
+JSON is meant to work in normal Office VBA hosts.
 
-Conditional compilation controls:
+The class is designed around:
+
+- one `.cls` import;
+- no required project references;
+- x86/x64 conditional declarations where needed;
+- late-bound `Scripting.Dictionary` support only for external value serialization;
+- compatibility methods kept alongside the modern typed API.
+
+This means users can start simple:
 
 ```vb
-#If VBA7 Then
-    LongPtr declarations
-    vbe7 VarPtrArray
-    PTR_SIZE = 8
-#Else
-    Long declarations
-    msvbvm60 VarPtrArray
-    PTR_SIZE = 4
-#End If
+Set doc = JSON.Parse(text)
+Debug.Print doc("name")
 ```
 
-Pointer-sized operations are limited to:
+Then move to the more explicit typed API when performance and clarity matter:
 
-- SAFEARRAY alias setup
-- SAFEARRAY alias clearing
-- native string pointer comparison
-
-The public API remains normal VBA.
+```vb
+Debug.Print doc.StringKey("name")
+```
 
 ## Shutdown and Cleanup
 
-Because `m_Chars()` aliases `m_Text`, the alias must be cleared before the object is destroyed.
+If a build uses a native character alias or SAFEARRAY descriptor, cleanup must clear that alias before object destruction.
 
-`Class_Terminate` calls:
+Conceptual cleanup:
 
 ```vb
 Private Sub Class_Terminate()
@@ -1361,56 +1045,49 @@ Private Sub Class_Terminate()
 End Sub
 ```
 
-`ClearCharAlias` sets the internal array descriptor pointer to zero.
+The purpose is to prevent VBA from trying to free memory it does not own.
 
-Conceptually:
-
-```txt
-If alias active:
-    m_Chars descriptor pointer = 0
-    alias active = False
-```
-
-This prevents VBA from trying to free or manage memory that belongs to the string.
+For builds that copy characters instead of aliasing, cleanup is simpler, but the rule remains the same: root document state owns parse buffers; node wrappers only reference the root document.
 
 ## Known Architectural Boundaries
 
-### Parser Strictness
+### Parser strictness
 
-The parser is optimized for speed and assumes normal well-formed JSON.
+The parser is optimized for speed and normal well-formed JSON.
 
-It does not aim to provide detailed syntax diagnostics, schema validation, or rich parse-error reporting.
+It is not currently a full strict diagnostic parser with detailed syntax errors.
 
-### Unicode Escapes
+For untrusted input, strict validation should be added or performed upstream.
 
-The lightweight unescape helper handles common JSON escapes:
+### Invalid input safety
+
+Some malformed inputs can expose parser edge cases if internal progress guards are missing.
+
+A future hardening pass should ensure:
 
 ```txt
-\"
-\\
-\/
-\b
-\f
-\n
-\r
-\t
+Every parser loop either advances the cursor or exits with failure.
 ```
 
-It does not expand `\uXXXX` escape sequences into Unicode characters in the current version.
+This prevents infinite loops on invalid JSON.
 
-### Object Lookup Complexity
+### Unicode escapes
 
-Object key lookup scans direct children linearly.
+The current lightweight string handling supports common escapes and tested unicode cases. Full surrogate-pair normalization and advanced Unicode validation may require a dedicated stricter unescape path.
 
-This is intentional because parsing does not allocate a Dictionary per object.
+### Object lookup complexity
 
-For typical API payloads, this keeps parsing much cheaper. For repeated heavy lookup against the same very large object, a future optional index layer could be added.
+Object lookup scans direct children linearly.
 
-### Array Index Complexity
+This avoids building a Dictionary per object, which keeps parsing cheaper.
 
-`ValueAt(i)` and `NodeAt(i)` find the i-th child by walking siblings.
+For repeated heavy lookup against the same very large object, a future optional hash/index layer could improve access speed.
 
-For sequential scans of large arrays, use token iteration instead.
+### Array index complexity
+
+`NodeIndex(i)`, `ValueAt(i)`, and similar indexed methods walk sibling tokens to find the requested child.
+
+For sequential scans of large arrays, token iteration is better.
 
 Recommended:
 
@@ -1428,49 +1105,59 @@ Avoid for huge arrays:
 
 ```vb
 For i = 0 To rows.Count - 1
-    Set row = rows.NodeAt(i)
+    Set row = rows.NodeIndex(i)
 Next i
 ```
 
-### String Building
+### Variant cannot disappear completely
 
-The writer uses Builder-Buffer.
+JSON values are naturally mixed-type.
+
+The class reduces `Variant` use in the preferred API, but it still keeps `Variant` where it is necessary:
+
+- `Item` default member;
+- `Value`;
+- `ValueAt`;
+- `TokenValue`;
+- `StringifyValue`;
+- compatibility methods that accept either string keys or numeric indexes.
+
+That is intentional. The modern `*Key` and `*Index` methods exist so hot paths do not need to use the generic route.
 
 ### Threading
 
-JSON is not thread-based and does not require background workers.
+JSON is synchronous.
 
-All parsing, traversal, and serialization happen synchronously in the calling VBA procedure.
+It does not create threads, background workers, timers, or async jobs.
 
-### External Dependencies
-
-There are no shipped external dependencies.
-
-The module uses Windows/VBA runtime functions that are already available in normal Office hosts.
+All parsing, traversal, and serialization happen in the calling VBA procedure.
 
 ## Summary
 
-JSON's architecture is built around one core idea:
+JSON's architecture is built around one practical idea:
 
 ```txt
-Do the minimum work at parse time.
-Convert, wrap, or copy only when the user actually asks for data.
+Parse once into compact tokens.
+Read through typed helpers, lazy nodes, or token iteration.
+Serialize only when needed.
 ```
 
-That leads to the final design:
+The current design gives VBA code:
 
 ```txt
 Single .cls file
-    -> SAFEARRAY source alias
     -> compact token tree
+    -> no internal Dictionary dependency
+    -> typed object-key API
+    -> typed array-index API
+    -> Keys and Exists helpers
     -> lazy node wrappers
-    -> typed accessors
     -> token iteration
     -> raw field extraction
     -> lightweight Stringify pipeline
 ```
 
-This makes JSON suitable for fast Office automation, API response parsing, configuration loading, data extraction, and practical JSON writing from VBA.
+This makes the class suitable for fast Office automation, API response parsing, configuration loading, data extraction, and practical JSON writing from VBA.
 
 ## License
 
