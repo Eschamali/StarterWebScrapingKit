@@ -39,7 +39,7 @@ Attribute VB_Exposed = False
 '              }
 '---------------------------------------------------------------------------------------------------
 '* この設計の利点：
-'    ① UDT や中間変換が不要 → mJson.ParseJson(EventRawJson)("params") をそのまま格納
+'    ① UDT や中間変換が不要 → mJson.ParseJson(RawJson)("params") をそのまま格納
 '    ② CDP プロトコルが将来フィールドを追加しても自動対応
 '    ③ GetWillBeginParams / GetProgressParams で生データへも直接アクセス可能
 '---------------------------------------------------------------------------------------------------
@@ -95,8 +95,10 @@ Private Const PROG_FILE_PATH    As String = "filePath"
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+'ブラウザ制御オブジェクト
+Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
+Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
+Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
@@ -106,6 +108,7 @@ Private mJson                       As New WebJsonConverter
 Private seeRawSendMsgDbg            As Boolean
 Private EnableBrowserEvents         As Boolean
 Private BrowserDomain               As Boolean    ' True="Browser"/False="Page" - WillBegin/Progress イベントのどちらを受けるか（両方受けることも可能）
+Private CurrentSessionId            As String     '継承時のSesssionID
 
 
 
@@ -137,7 +140,7 @@ Private mSnapshotFiles              As Dictionary   'WatchStart 時点のフォルダス
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：DownloadDir    ダウンロード先フォルダのフルパス （省略時は一般的なDownloadフォルダ）
 '            AllowAndName   True: "allowAndName" / False: "allow"（通常はFalse）
-'            UsePageDomain  True: Pageドメインのイベントを受ける / False: Browserドメインのイベントを受ける（通常はFalse）
+'            UsePageDomain  True: Pageドメインのイベントも受ける / False: Browserドメインのイベントを受ける（通常はFalse）
 '* 機能説明：呼ぶたびに downloadInfos をクリアし、フォルダスナップショットを更新します
 '***************************************************************************************************
 Public Property Let EnableEvents(Optional DownloadDir As String, Optional AllowAndName As Boolean, Optional UsePageDomain As Boolean, ByVal v As Boolean)
@@ -303,14 +306,15 @@ End Function
 '* 機能　　：ダウンロード関連の CDP イベントを受け取り、downloadInfos に反映します
 '---------------------------------------------------------------------------------------------------
 '* 内部処理（WillBegin）：
-'   mJson.ParseJson(EventRawJson)("params") を丸ごと KEY_WILL_BEGIN に格納
+'   mJson.ParseJson(RawJson)("params") を丸ごと KEY_WILL_BEGIN に格納
 '* 内部処理（Progress）：
-'   mJson.ParseJson(EventRawJson)("params") を丸ごと KEY_PROGRESS に格納（毎回最新で上書き）
+'   mJson.ParseJson(RawJson)("params") を丸ごと KEY_PROGRESS に格納（毎回最新で上書き）
 '***************************************************************************************************
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPBrowserEvent"
 
 
+    '1. 非同期イベント処理自体が無効状態なら、即抜け
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled.", FromProcedureName
     Else
@@ -318,15 +322,42 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
+    '2. 共通の処理ロジックへ
+    EventCapture methodName, RawJson
+End Sub
+
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
+
+
+    '1. 非同期イベント処理自体が無効状態なら、即抜け
+    If EnableBrowserEvents Then
+        printMsg Trace_, "Asynchronous event handling is enabled.", FromProcedureName
+    Else
+        printMsg Trace_, "Asynchronous event handling is disabled.", FromProcedureName
+        Exit Sub
+    End If
+
+    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If CurrentSessionId <> sessionID Then Exit Sub
+
+    '3. 共通の処理ロジックへ
+    EventCapture methodName, RawJson
+End Sub
+
+Private Sub EventCapture(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".EventCapture"
+
+
     Select Case methodName
 
         '--- ダウンロード開始 ---
         Case "Browser.downloadWillBegin", "Page.downloadWillBegin"
-            printMsg Trace_, "`" & methodName & "` detected. Raw=" & EventRawJson, FromProcedureName
+            printMsg Trace_, "`" & methodName & "` detected. Raw=" & RawJson, FromProcedureName
 
             '① CDPの生params を丸ごと取得 → UDT/中間変換なし
             Dim wbParams As Scripting.Dictionary
-            Set wbParams = mJson.ParseJson(EventRawJson)("params")
+            Set wbParams = mJson.ParseJson(RawJson)("params")
 
             Dim guid As String: guid = CStr(wbParams(WB_GUID))
 
@@ -353,11 +384,11 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 
         '--- ダウンロード進捗 ---
         Case "Browser.downloadProgress", "Page.downloadProgress"
-            printMsg Trace_, "`" & methodName & "` detected. Raw=" & EventRawJson, FromProcedureName
+            printMsg Trace_, "`" & methodName & "` detected. Raw=" & RawJson, FromProcedureName
 
             '① CDPの生params を丸ごと取得
             Dim pgParams As Scripting.Dictionary
-            Set pgParams = mJson.ParseJson(EventRawJson)("params")
+            Set pgParams = mJson.ParseJson(RawJson)("params")
 
             Dim evGuid As String: evGuid = CStr(pgParams(PROG_GUID))
 
@@ -429,7 +460,6 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
             Exit Sub
 
     End Select
-
 End Sub
 
 
@@ -980,7 +1010,11 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 End Sub
 
 Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+    If alwaysBrowserContext Then
+        Set invokeMethod = ex_CDPBrowser.ExecuteCDP(methodName, params, StopError)
+    Else
+        Set invokeMethod = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
+    End If
 End Function
 
 
@@ -990,14 +1024,18 @@ End Function
 '***************************************************************************************************
 '* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
     Const FromProcedureName As String = ThisClassName & ".Init"
 
 
-    '継承
-    Set ex_CDPBrowser = Inheritance
-    printMsg Debug_, "exCDP_DownloadWatcher initialized.", FromProcedureName
+    '必要なCDPオブジェクトを継承
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
+    'SessionIdを取得
+    CurrentSessionId = ex_CDPContext.id
+    printMsg Debug_, "exCDP_DownloadWatcher initialized.", FromProcedureName
 End Sub
 
 '***************************************************************************************************

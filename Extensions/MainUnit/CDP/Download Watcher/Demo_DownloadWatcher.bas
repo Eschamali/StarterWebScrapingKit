@@ -65,24 +65,24 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
     outDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(TESTSITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(TESTSITE_URL)
     Debug.Print "[Demo01] ページ読み込み完了"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart outDir   '← ダウンロードトリガーの前に必ず呼ぶ
+    dw.Init browserTab
+    dw.EnableEvents(outDir) = True '← ダウンロードトリガーの前に必ず呼ぶ
 
     '--- 3. ネット速度を制限（進捗を実感できるように）---
     dw.ThrottleNetwork DownloadKBps:=300   '300KB/s → 5MB ≒ 17秒
 
     '--- 4. フォームを操作：5MB / PNG ---
-    Call SetDownloadForm(browser, Size:=5, Unit:="MB", Extension:="png")
+    Call SetDownloadForm(browserTab, Size:=5, Unit:="MB", Extension:="png")
 
     '--- 5. ダウンロードボタンをクリック ---
     Debug.Print "[Demo01] ダウンロードボタンをクリック..."
-    browser.getElementByID("submit-button").click
+    browserTab.getElementByID("submit-button").click
 
     '--- 6. 完了まで待機（最大 120 秒） ---
     Debug.Print "[Demo01] ダウンロード完了待ち..."
@@ -110,7 +110,7 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
     End If
 
     dw.UnthrottleNetwork
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -143,11 +143,11 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
     sizes(3) = 10: units(3) = "MB": exts(3) = "webp"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(TESTSITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(TESTSITE_URL)
 
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
+    dw.Init browserTab
 
     '--- 3ラウンド連続ダウンロード ---
     Dim i As Integer
@@ -155,12 +155,12 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
         Debug.Print "[Demo02] ─── ラウンド " & i & " / 3 (" & sizes(i) & units(i) & " " & exts(i) & ") ───"
 
         '毎回 WatchStart で downloadInfos をリセット＆スナップショット更新
-        dw.WatchStart outDir
+        dw.EnableEvents(outDir) = True
         dw.ThrottleNetwork DownloadKBps:=300
 
         'フォーム入力 → クリック → 完了待ち
-        Call SetDownloadForm(browser, sizes(i), units(i), exts(i))
-        browser.getElementByID("submit-button").click
+        Call SetDownloadForm(browserTab, sizes(i), units(i), exts(i))
+        browserTab.getElementByID("submit-button").click
         Debug.Print "[Demo02]   完了待ち..."
 
         If dw.WaitCompleted(TimeoutSec:=180) Then
@@ -175,13 +175,13 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
         End If
 
         dw.UnthrottleNetwork
-        browser.sleep 1.5   '次のダウンロードの前にボタンが再有効化されるまで待つ
+        browserTab.InheritanceCDPBrowser.sleep 1.5    '次のダウンロードの前にボタンが再有効化されるまで待つ
     Next i
 
     Debug.Print "[Demo02] 全ラウンド完了！"
     MsgBox "3ファイルのダウンロードが完了しました！" & vbCrLf & outDir, vbInformation
 
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -205,20 +205,20 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     outDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(TESTSITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(TESTSITE_URL)
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart outDir
+    dw.Init browserTab
+    dw.EnableEvents(outDir) = True
 '    dw.ThrottleNetwork DownloadKBps:=1000   '1000KB/s → 1GB ≒ 17分
 
     '--- 3. フォームを操作：1GB / png ---
-    Call SetDownloadForm(browser, Size:=1, Unit:="GB", Extension:="png")
+    Call SetDownloadForm(browserTab, Size:=1, Unit:="GB", Extension:="png")
 
     '--- 4. クリック ---
-    browser.getElementByID("submit-button").click
+    browserTab.getElementByID("submit-button").click
     Debug.Print "[Demo03] ダウンロードをトリガーしました（fetchフェーズ開始）"
     Debug.Print "[Demo03] ※ fetch完了後にダウンロードイベントが発生します..."
 
@@ -227,7 +227,7 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     Dim lastPct As Long: lastPct = -1
 
     Do
-        browser.TakeEvents
+        browserTab.InheritanceCDPBrowser.TakeEvents
         DoEvents
 
         If dw.HasStarted Then
@@ -263,11 +263,11 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
             Exit Do
         End If
 
-        browser.sleep 0.5
+        browserTab.InheritanceCDPBrowser.sleep 0.5
     Loop
 
     dw.UnthrottleNetwork
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -288,26 +288,26 @@ Sub Demo_DownloadWatcher_04_別名で保存()
     Dim saveDir As String: saveDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Saved"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(TESTSITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(TESTSITE_URL)
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart outDir
+    dw.Init browserTab
+    dw.EnableEvents(outDir) = True
     dw.ThrottleNetwork DownloadKBps:=200   '200KB/s → 3MB ≒ 15秒
 
     '--- 3. フォーム操作：3MB / WEBP ---
-    Call SetDownloadForm(browser, Size:=3, Unit:="MB", Extension:="webp")
+    Call SetDownloadForm(browserTab, Size:=3, Unit:="MB", Extension:="webp")
 
     '--- 4. クリック → 完了待ち ---
-    browser.getElementByID("submit-button").click
+    browserTab.getElementByID("submit-button").click
     Debug.Print "[Demo04] ダウンロード完了待ち..."
 
     If Not dw.WaitCompleted(TimeoutSec:=120) Then
         MsgBox "ダウンロード失敗。State=" & dw.state, vbCritical
         dw.UnthrottleNetwork
-        browser.quit
+        browserTab.InheritanceCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo04] ダウンロード完了: " & dw.DownloadedFilePath
@@ -325,7 +325,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
         MsgBox "SaveAs に失敗しました。", vbCritical
     End If
 
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -357,14 +357,14 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
     outDir = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(TESTSITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(TESTSITE_URL)
     Debug.Print "[Demo05] ページ読み込み完了"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart outDir
+    dw.Init browserTab
+    dw.EnableEvents(outDir) = True
     dw.ThrottleNetwork DownloadKBps:=500   '500KB/s → 合計10MB ≒ 20秒
 
     '--- 3. JS で 3件のダウンロードを「同時」トリガー ---
@@ -401,14 +401,14 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
     js = js & "  });"
     js = js & "})();"
 
-    browser.jsEval js
+    browserTab.jsEval js
     Debug.Print "[Demo05] 3件の fetch を同時発行しました..."
     Debug.Print "[Demo05] ※ fetch完了後に downloadWillBegin が 3回発火します"
 
     '--- 4. 3件の WillBegin を受信するまで待機 ---
     Dim tWait As Double: tWait = Timer
     Do
-        browser.TakeEvents
+        browserTab.InheritanceCDPBrowser.TakeEvents
         DoEvents
         Debug.Print "[Demo05]   待機中... DownloadCount=" & dw.DownloadCount & " / 3"
         If dw.DownloadCount >= 3 Then Exit Do
@@ -417,7 +417,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
             dw.UnthrottleNetwork
             Exit Sub
         End If
-        browser.sleep 0.5
+        browserTab.InheritanceCDPBrowser.sleep 0.5
     Loop
     Debug.Print "[Demo05] " & dw.DownloadCount & "件のダウンロードを検出！"
 
@@ -473,7 +473,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
     End If
 
     dw.UnthrottleNetwork
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -486,25 +486,25 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：custom-img.lb-product.com のダウンロードフォームに値を入力します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：browser    CDPBrowser インスタンス
+'* 引数　　：browserTab CDPContext インスタンス
 '            Size       ファイルサイズ（1~999、GBの場合は1まで）
 '            Unit       "KB" / "MB" / "GB"
 '            Extension  "png" / "jpeg" / "gif" / "webp"
 '***************************************************************************************************
-Private Sub SetDownloadForm(browser As CDPBrowser, Size As Integer, Unit As String, Extension As String)
+Private Sub SetDownloadForm(browserTab As CDPContext, Size As Integer, Unit As String, Extension As String)
 
     '--- サイズ入力 ---
-    Dim sizeEl As CDPElement: Set sizeEl = browser.getElementByID("size")
+    Dim sizeEl As CDPElement: Set sizeEl = browserTab.getElementByID("size")
     sizeEl.clearValue
     sizeEl.sendString CStr(Size)
     Debug.Print "[SetDownloadForm] size=" & Size
 
     '--- 単位セレクト ---
-    browser.getElementByID("unit").setSelection Unit
+    browserTab.getElementByID("unit").setSelection Unit
     Debug.Print "[SetDownloadForm] unit=" & Unit
 
     '--- 拡張子セレクト ---
-    browser.getElementByID("extension").setSelection Extension
+    browserTab.getElementByID("extension").setSelection Extension
     Debug.Print "[SetDownloadForm] extension=" & Extension
 
 End Sub
@@ -536,20 +536,20 @@ End Sub
 '***************************************************************************************************
 Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
 
-    Const SITE_URL  As String = "https://sample-img.lb-product.com/10mb/"
-    Const DL_URL    As String = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/10MB.png"
+    Const SITE_URL  As String = "https://sample-img.lb-product.com/1gb/"
+    Const DL_URL    As String = "https://sample-img.lb-product.com/wp-content/themes/hitchcock/images/1GB.png"
     Const OUT_DIR   As String = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(SITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(SITE_URL)
     Debug.Print "[Demo06] ページ読み込み完了"
     Debug.Print "[Demo06] ★ 直リンク型：click直後に WillBegin が来る（blob型とは逆）"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart OUT_DIR
+    dw.Init browserTab
+    dw.EnableEvents(OUT_DIR) = True
 
     '--- 3. throttle（転送フェーズに直接効く） ---
     dw.ThrottleNetwork DownloadKBps:=200   '200KB/s → 10MB ≒ 50秒
@@ -558,7 +558,7 @@ Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
     '    sample-img はフォームではなく直リンクなので、href 一致で <a> を特定する
     Dim clickJs As String
     clickJs = "document.querySelector('a[href=""" & DL_URL & """]').click();"
-    browser.jsEval clickJs
+    browserTab.jsEval clickJs
     Debug.Print "[Demo06] [" & Format(Time, "hh:mm:ss") & "] DLリンクをクリックしました"
     Debug.Print "[Demo06] ※ 直リンク型なので downloadWillBegin はすぐ来るはずです..."
 
@@ -568,7 +568,7 @@ Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
     Dim willBeginCame As Boolean: willBeginCame = False
 
     Do
-        browser.TakeEvents
+        browserTab.InheritanceCDPBrowser.TakeEvents
         DoEvents
 
         '--- WillBegin 到達の瞬間を検出 ---
@@ -587,7 +587,7 @@ Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
             If pct <> lastPct Then
                 Debug.Print "[Demo06]   " & Format(pct, "00") & "% | " _
                           & Format(dw.ReceivedBytes / 1024 / 1024, "0.00") & " / " _
-                          & Format(dw.TotalBytes   / 1024 / 1024, "0.00") & " MB" _
+                          & Format(dw.TotalBytes / 1024 / 1024, "0.00") & " MB" _
                           & "  (" & Format(Timer - t, "0.0") & "s)"
                 lastPct = pct
             End If
@@ -614,11 +614,11 @@ Sub Demo_DownloadWatcher_06_直リンク型_10MBをリアルタイム進捗表示()
             Exit Do
         End If
 
-        browser.sleep 0.3
+        browserTab.InheritanceCDPBrowser.sleep 0.3
     Loop
 
     dw.UnthrottleNetwork
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -651,15 +651,15 @@ Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
     Const OUT_DIR   As String = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\Download Watcher\Downloads"
 
     '--- 1. テストサイトを開く ---
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動(SITE_URL)
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab(SITE_URL)
     Debug.Print "[Demo07] ページ読み込み完了"
     Debug.Print "[Demo07] ★ 直リンク型 × 複数同時DL：3件のリンクをほぼ同時にクリック"
 
     '--- 2. DownloadWatcher 初期化 & 監視開始 ---
     Dim dw As New exCDP_DownloadWatcher
-    dw.Init browser
-    dw.WatchStart OUT_DIR
+    dw.Init browserTab
+    dw.EnableEvents(OUT_DIR) = True
     dw.ThrottleNetwork DownloadKBps:=500   '500KB/s → 1MB≒2秒 / 10MB≒20秒 / 100MB≒200秒
 
     '--- 3. JS で 3件のダウンロードをほぼ同時にトリガー ---
@@ -683,7 +683,7 @@ Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
     js = js & "  });"
     js = js & "})();"
 
-    browser.jsEval js
+    browserTab.jsEval js
     Debug.Print "[Demo07] [" & Format(Time, "hh:mm:ss") & "] 3件のリンクをクリックしました"
     Debug.Print "[Demo07] ★ 直リンク型なので downloadWillBegin が素早く 3回来るはずです..."
 
@@ -720,6 +720,6 @@ Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
     End If
 
     dw.UnthrottleNetwork
-    'browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
