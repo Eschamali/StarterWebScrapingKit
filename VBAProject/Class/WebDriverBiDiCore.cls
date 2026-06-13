@@ -59,9 +59,6 @@ Attribute m_CDPCore.VB_VarHelpID = -1
 Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
 Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
 
-'定義側からも呼び出せるチェーンクラスオブジェクト
-Public ErrorDetail      As New WinApiError      'エラーコードから、詳細を取得するやつ
-
 '「BiDi-CDP Mapper」のデバッグ設定状況
 Private Type StateDebug
     ViewDebugTab        As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。

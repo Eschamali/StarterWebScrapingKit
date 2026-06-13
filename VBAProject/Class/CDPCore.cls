@@ -211,9 +211,6 @@ Public Event ResetCommandID()
 Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private LogControl     As New Logger               'ログレベルの制御
 
-'定義側からも呼び出せるチェーンクラスオブジェクト
-Public ErrorDetail     As New WinApiError          'エラーコードから、詳細を取得するやつ
-
  'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
 Private Type StateFragmented
     strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
@@ -839,12 +836,12 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
             'データなしの場合は、エラーコードチェックを行う
             If LastPipeError.PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             ElseIf LastPipeError.ReadFile Then
                 'ReadFile にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & ErrorDetail.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             Else
