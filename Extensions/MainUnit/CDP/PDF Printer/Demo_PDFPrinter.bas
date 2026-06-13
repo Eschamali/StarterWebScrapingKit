@@ -28,11 +28,11 @@ Option Explicit
 Sub Demo_PDFPrinter_01_基本保存()
 
     '1. ブラウザ起動
-    Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://example.com")
+    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://example.com")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
-    pdf.Init browser
+    pdf.Init browserTab
 
     '3. PDF保存（デフォルト設定 = A4縦、背景あり）
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
@@ -41,13 +41,13 @@ Sub Demo_PDFPrinter_01_基本保存()
 
     '4. 結果確認
     If savedPath <> "" Then
-        browser.notify "PDF保存完了！: " & savedPath
+        browserTab.notify "PDF保存完了！: " & savedPath
     Else
         MsgBox "PDF保存に失敗しました。イミディエイトウィンドウを確認してください。", vbCritical, "Error"
     End If
 
     '5. ブラウザを閉じる
-    browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -67,11 +67,11 @@ End Sub
 Sub Demo_PDFPrinter_02_パラメーター指定()
 
     '1. ブラウザ起動
-    Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://www.wikipedia.org")
+    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
-    pdf.Init browser
+    pdf.Init browserTab
 
     '3. パラメーター指定PDF保存
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
@@ -94,10 +94,10 @@ Sub Demo_PDFPrinter_02_パラメーター指定()
 
     '4. 結果確認
     Debug.Print "保存パス: " & savedPath
-    If savedPath <> "" Then browser.notify "パラメーター指定PDF保存完了！: " & savedPath
+    If savedPath <> "" Then browserTab.notify "パラメーター指定PDF保存完了！: " & savedPath
 
     '5. ブラウザを閉じる
-    browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -116,11 +116,11 @@ End Sub
 Sub Demo_PDFPrinter_03_プリセット指定()
 
     '1. ブラウザ起動
-    Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://www.wikipedia.org")
+    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
-    pdf.Init browser
+    pdf.Init browserTab
 
     Dim outDir As String: outDir = Environ("UserProfile") & "\Downloads"
 
@@ -136,10 +136,10 @@ Sub Demo_PDFPrinter_03_プリセット指定()
     '3d. 未対応プリセット → A4フォールバック（WARN_ ログが出る）
     Debug.Print "未対応: " & pdf.PrintToPDFWithPreset(outDir, "demo_preset_unknown", PaperPreset:="B5")
 
-    browser.notify "プリセット指定PDF保存を3種類完了しました！"
+    browserTab.notify "プリセット指定PDF保存を3種類完了しました！"
 
     '4. ブラウザを閉じる
-    browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
@@ -150,7 +150,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：同一ページをPNGスクリーンショットとPDFの両方で保存するデモです
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPBrowser.snapPage`（スクショ）と `exCDP_PDFPrinter.PrintToPDF`（PDF）を
+'* 詳細説明：`CDPbrowserTab.snapPage`（スクショ）と `exCDP_PDFPrinter.PrintToPDF`（PDF）を
 '            組み合わせて使用します。ForAI\vba-cdp-webdriver の Sample_11 に相当する使い方です
 '* 確認ポイント：
 '   - ScreenShotとPDFが同じディレクトリに保存されること
@@ -163,26 +163,26 @@ Sub Demo_PDFPrinter_04_スクショとPDF同時保存()
     If Dir(outDir, vbDirectory) = "" Then MkDir outDir
 
     '1. ブラウザ起動（Googleの検索結果ページ）
-    Dim browser As CDPBrowser: Set browser = 設定シートからのCDP起動("https://www.google.com/search?q=1USD+to+JPY")
+    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.google.com/search?q=1USD+to+JPY")
 
-    '2. スクリーンショット（CDPBrowser.snapPage）
-    browser.snapPage outDir, "capture_shot.png"
+    '2. スクリーンショット（CDPbrowserTab.snapPage）
+    browserTab.snapPage outDir, "capture_shot.png"
     Debug.Print "スクショ保存: " & outDir & "\capture_shot.png"
 
     '3. PDF保存（exCDP_PDFPrinter）
     Dim pdf As New exCDP_PDFPrinter
-    pdf.Init browser
+    pdf.Init browserTab
     Dim pdfPath As String: pdfPath = pdf.PrintToPDF(outDir, "capture_pdf")
     Debug.Print "PDF保存: " & pdfPath
 
     '4. 結果通知
     If pdfPath <> "" Then
-        browser.notify "スクショ & PDF を同時保存しました！" & vbCrLf & outDir
+        browserTab.notify "スクショ & PDF を同時保存しました！" & vbCrLf & outDir
     Else
         MsgBox "PDF保存に失敗しました。", vbCritical
     End If
 
     '5. ブラウザを閉じる
-    browser.quit
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub

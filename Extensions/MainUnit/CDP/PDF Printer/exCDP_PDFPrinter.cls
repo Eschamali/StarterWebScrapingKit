@@ -29,8 +29,7 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+Private ex_CDPContext    As CDPContext
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_PDFPrinter"   'ログのトレース用
@@ -98,7 +97,7 @@ Public Function PrintToPDF( _
     '--- 2. CDP コマンド発行 ---
     printMsg Trace_, "Sending `Page.printToPDF` command...", FromProcedureName
     Dim result As Scripting.Dictionary
-    Set result = invokeMethod("Page.printToPDF", params, , False)  'StopError:=False でエラー時もNothingで返す
+    Set result = ExecuteCDP("Page.printToPDF", params, False)   'StopError:=False でエラー時もNothingで返す
 
     '--- 3. エラー確認 ---
     If result Is Nothing Then
@@ -205,15 +204,15 @@ End Function
 '                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+    ex_CDPContext.InheritanceCDPBrowser.sleep seconds
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
 
@@ -223,9 +222,9 @@ End Function
 '***************************************************************************************************
 '* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
     '継承
-    Set ex_CDPBrowser = Inheritance
+    Set ex_CDPContext = Inheritance
 End Sub
 
 '***************************************************************************************************
