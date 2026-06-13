@@ -63,13 +63,13 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     '--- 1. テストHTMLをブラウザで開く ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
-    browser.show
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    browserTab.show
 
     '--- 2. FileChooser拡張の初期化 ---
     Dim fc As New exCDP_FileChooser
-    fc.Init browser
+    fc.Init browserTab
 
     '--- 3. ★新API：ファイルパスを事前登録 ---
     fc.AddFilePath = txtFile
@@ -79,18 +79,19 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     fc.EnableEvents = True
 
     '--- 5. ファイル選択をトリガー ---
+    Dim element As CDPElement
     Debug.Print "[Demo01] static-file-input をクリックします..."
-    browser.getElementByID("static-file-input").click
+    Set element = browserTab.getElementByID("static-file-input")
 
     '--- 6. ★新API：パス引数なし、待機 & 注入 ---
     If Not fc.SetFiles(TimeoutSec:=10) Then
         MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
-        browser.quit
+        browserTab.InheritanceCDPBrowser.quit
         Exit Sub
     End If
 
     '--- 7. FileReader の読み取り & アニメーション完了を待つ ---
-    browser.sleep 1
+    browserTab.InheritanceCDPBrowser.sleep 1
     Debug.Print "[Demo01] 完了！FileReader がページに表示しています。"
 
     '--- 8. 後片付け ---
@@ -133,13 +134,13 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
     '--- 1. テストHTMLをブラウザで開く ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
-    browser.show
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    browserTab.show
 
     '--- 2. FileChooser拡張の初期化 ---
     Dim fc As New exCDP_FileChooser
-    fc.Init browser
+    fc.Init browserTab
 
     '--- 3. ★新API：ファイルパスを事前登録 ---
     fc.AddFilePath = txtFile
@@ -150,17 +151,17 @@ Sub Demo_FileChooser_02_動的ダイアログへ注入()
 
     '--- 5. Zone B の動的ボタンをクリック（JS が createElement して click） ---
     Debug.Print "[Demo02] btn-dynamic をクリックします..."
-    browser.getElementByID("btn-dynamic").click
+    browserTab.getElementByID("btn-dynamic").click
 
     '--- 6. ★新API：パス引数なし、待機 & 注入 ---
     If Not fc.SetFiles(TimeoutSec:=10) Then
         MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
-        browser.quit
+        browserTab.InheritanceCDPBrowser.quit
         Exit Sub
     End If
 
     '--- 7. 待機 ---
-    browser.sleep 1
+    browserTab.InheritanceCDPBrowser.sleep 1
     Debug.Print "[Demo02] 完了！動的inputへの注入 & FileReader による表示に成功！"
 
     '--- 8. 後片付け ---
@@ -203,20 +204,20 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
     '--- ブラウザ起動 ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
-    Dim browser As CDPBrowser
-    Set browser = 設定シートからのCDP起動("file:///" & Replace(htmlPath, "\", "/"))
-    browser.show
+    Dim browserTab As CDPContext
+    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    browserTab.show
 
     '--- FileChooser拡張初期化 ---
     Dim fc As New exCDP_FileChooser
-    fc.Init browser
+    fc.Init browserTab
 
     '--- 3ラウンド：毎回ファイルを差し替えて注入 ---
     fc.EnableEvents = True
     For i = 1 To 3
         Debug.Print "[Demo03] ラウンド " & i & " / 3 ..."
 
-        browser.getElementByID("static-file-input").click
+        browserTab.getElementByID("static-file-input").click
 
         '★ 単一用メソッドで、ファイルパスを登録
         Debug.Print "[Demo03]   登録: " & files(i)
@@ -227,7 +228,7 @@ Sub Demo_FileChooser_03_複数ファイル連続注入()
         End If
 
         '★ FileReader の読み取り完了を待つ
-        browser.sleep 2
+        browserTab.InheritanceCDPBrowser.sleep 2
         Debug.Print "[Demo03] ラウンド " & i & " 完了"
     Next i
     fc.EnableEvents = False

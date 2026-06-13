@@ -48,8 +48,9 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
+Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
+Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_FileChooser"  'ログのトレース用
@@ -60,6 +61,7 @@ Private mJson                       As New WebJsonConverter
 Private seeRawSendMsgDbg            As Boolean      'rawJSONをデバッグログに出すかの調整
 Private LogLevel                    As Long         'ログレベル（0:Off, 1:Trace, 2:Debug, 3:Info, 4:Warn, 5:Error）
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
+Private CurrentSessionId            As String       '継承時のSesssionID
 
 'FileChooser イベント受信バッファ
 Private Type FileChooserEventBuffer
@@ -134,7 +136,7 @@ Public Property Let EnableEvents(ByVal v As Boolean)
     '2. CDPにインターセプトの有効/無効を伝える
     Dim params As New Scripting.Dictionary
     params.Add "enabled", v
-    invokeMethod "Page.setInterceptFileChooserDialog", params
+    ExecuteCDP "Page.setInterceptFileChooserDialog", params
 
     '3. クラス内のスイッチも切り替える
     EnableBrowserEvents = v
@@ -172,8 +174,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：`Page.fileChooserOpened` イベントを受け取り、backendNodeId を記録します
 '***************************************************************************************************
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -184,13 +186,16 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. 各種非同期イベントの処理
+    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If CurrentSessionId <> sessionID Then Exit Sub
+
+    '3. 各種非同期イベントの処理
     Select Case methodName
         Case "Page.fileChooserOpened"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
 
-            '3. デバッグログ用に、Jsonパース処理
-            Dim ev As Dictionary: Set ev = mJson.ParseJson(EventRawJson)("params")
+            '4. デバッグログ用に、Jsonパース処理
+            Dim ev As Dictionary: Set ev = mJson.ParseJson(RawJson)("params")
             If seeRawSendMsgDbg Then
                 printMsg Debug_, String(80, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened - detail", FromProcedureName
@@ -201,11 +206,11 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
                 printMsg Debug_, String(80, "="), FromProcedureName
             End If
 
-            '4. JSONをパースしてbackendNodeId と mode を取り出す
+            '5. JSONをパースしてbackendNodeId と mode を取り出す
             FileChooserEvent.backendNodeId = CLng(ev("backendNodeId"))
             FileChooserEvent.mode = CStr(ev("mode"))
 
-            '5. 「ファイルダイアログが開いたよ！」というフラグを立てる
+            '6. 「ファイルダイアログが開いたよ！」というフラグを立てる
             FileChooserEvent.FileChooserDetected = True
 
             printMsg info_, "FileChooser detected. backendNodeId=" & FileChooserEvent.backendNodeId & " mode=" & FileChooserEvent.mode, FromProcedureName
@@ -363,7 +368,7 @@ Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long) As Bo
     injectParams.Add "files", filesCol
 
     Dim injectResult As Scripting.Dictionary
-    Set injectResult = invokeMethod("DOM.setFileInputFiles", injectParams)
+    Set injectResult = ExecuteCDP("DOM.setFileInputFiles", injectParams)
     printMsg Trace_, "DOM.setFileInputFiles sent. files=" & filesCol.Count & " backendNodeId=" & FileChooserEvent.backendNodeId, FromProcedureName
 
     '--- ③ 後片付け ---
@@ -383,11 +388,11 @@ Private Sub sleep(Optional seconds As Double = 0.5)
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
 
@@ -397,15 +402,20 @@ End Function
 '***************************************************************************************************
 '* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
     Const FromProcedureName As String = ThisClassName & ".Init"
 
 
-    '継承
-    Set ex_CDPBrowser = Inheritance
+    '必要なCDPオブジェクトを継承
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+
+    'SessionIdを取得
+    CurrentSessionId = ex_CDPContext.id
 
     'Page ドメインを有効化（fileChooserOpened イベント受信に必要）
-    ex_CDPBrowser.pageEnable
+    ex_CDPContext.pageEnable
     printMsg Debug_, "Page domain enabled for FileChooser event reception.", FromProcedureName
 
     'イベント受信の初期状態は有効にしておく
@@ -440,7 +450,7 @@ Private Sub Class_Terminate()
     'インターセプトが残っているまま消えると以降のファイル選択が全部ブロックされるため解除
     On Error Resume Next
     EnableBrowserEvents = False
-    ex_CDPBrowser.pageEnable False
+    ex_CDPContext.pageEnable False
     printMsg Debug_, "FileChooser intercept auto-disabled on class termination.", FromProcedureName
 
 End Sub
