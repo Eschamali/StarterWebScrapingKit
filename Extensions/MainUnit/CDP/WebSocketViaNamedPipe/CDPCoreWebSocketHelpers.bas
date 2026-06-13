@@ -1,4 +1,4 @@
-Attribute VB_Name = "CDPCoreViaWebSocketReady"
+Attribute VB_Name = "CDPCoreWebSocketHelpers"
 '***************************************************************************************************
 '             名前付きパイプの仕組みを利用したCDP-WebSocket連携機能を提供します。
 '       Excel ←NamedPipe→ PowerShell ←WebSocket→ Chromium といった連携確保まで担います。
@@ -57,7 +57,7 @@ Private Const DefaultName   As String = "ChromiumWebSocket"
 '***************************************************************************************************
 '* 機能　　：PowerShell が待受けしている名前付きパイプに Excel から接続します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：先に`StartConnectWebSocketForChromium.ps1`を手動で実行して待受けさせてください。待受けが無いと エラー番号:2 を返します
+'* 注意事項：先に`StartConnectWebSocketForChromium.ps1`を実行して待受けさせてください。待受けが無いと エラー番号:2 を返します
 '***************************************************************************************************
 Sub ManualSetup()
     '識別名称を設定する
@@ -119,7 +119,7 @@ Sub AutoSetup()
     ' -WindowStyle Hidden: ウィンドウを隠す
     ' -EncodedCommand: 特殊文字や改行を安全に渡す
     Dim cmd As String
-    cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Invoke-Expression $env:" & EnvironmentName & """"
+    cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden ""Invoke-Expression $env:" & EnvironmentName & """"
 
     ' 5. 非同期実行し、環境変数をクリアさせる
     Shell cmd, vbHide
@@ -263,7 +263,7 @@ Private Sub serialize(UserName As String, hNamePipe As LongPtr)
 
 
     '------------------ 2. タブ情報の記録準備 ------------------
-    '※データ枠のみ用意する
+    '※主要となる情報以外は一旦、一律空欄とし、必要なデータを`Dictionary`に詰める
     tmp.RemoveAll
     tmp.Add "BiDi-context", vbNullString
     tmp.Add "sessionID", vbNullString
