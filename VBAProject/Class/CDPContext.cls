@@ -125,7 +125,6 @@ Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
 '各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
-Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
 Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
 '操作中のタブ情報一式
@@ -2228,7 +2227,7 @@ Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As
 
     'Base64 から、バイト配列に変換
     Dim tmp() As Byte
-    tmp = DataConv.Decode(strB64, edfBase64)
+    tmp = WebCrypto.Decode(strB64, edfBase64)
 
     'そのバイト配列のまま、保存
     CharConv.BytesToSaveFile tmp, FolderPath, FileName
