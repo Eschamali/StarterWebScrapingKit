@@ -57,14 +57,18 @@ Option Explicit
 ' =========================================================
 ' 共通定義
 ' =========================================================
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+'ブラウザ制御オブジェクト
+Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
+Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
+Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 
+'内部使用用
 Private Const ThisClassName         As String = "exCDP_NetworkInterceptor"
 
 ' Network.responseReceived で蓄積するレスポンス情報
 ' 各要素は Scripting.Dictionary {RequestId, Url, Status, MimeType}
 Private capturedResponses_          As Collection
+Private CurrentSessionId            As String       '継承時のSesssionID
 
 ' イベント監視フラグ
 Private networkCaptureActive_       As Boolean
@@ -73,8 +77,16 @@ Private networkCaptureActive_       As Boolean
 ' =========================================================
 ' init
 ' =========================================================
-Friend Sub Init(Inheritance As CDPBrowser)
-    Set ex_CDPBrowser = Inheritance
+Friend Sub Init(Inheritance As CDPContext)
+    '必要なCDPオブジェクトを継承
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+
+    'SessionIdを取得
+    CurrentSessionId = ex_CDPContext.id
+
+
     Set capturedResponses_ = New Collection
 End Sub
 
@@ -83,12 +95,15 @@ End Sub
 '  CDPブラウザイベントハンドラ（CDPネイティブイベントを受け取る場所）
 '  ─ Network.enable 後に Network.responseReceived が届く
 ' =========================================================
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
 
 
     ' networkCaptureActive_ が False の間はすべて無視
     If Not networkCaptureActive_ Then Exit Sub
+
+    'このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If CurrentSessionId <> sessionID Then Exit Sub
 
     Dim reqId As String
     Dim k As Long
@@ -99,19 +114,19 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         ' Network.enable を呼んで初めて届く
         Case "Network.responseReceived"
             ' ヘッダー到着。Body はまだなので BodyReady=False
-            reqId = ExtractVal_(EventRawJson, """requestId"":""", """")
+            reqId = ExtractVal_(RawJson, """requestId"":""", """")
             Dim d As New Scripting.Dictionary
             d.Add "RequestId", reqId
-            d.Add "Url", ExtractVal_(EventRawJson, """url"":""", """")
-            d.Add "Status", ExtractVal_(EventRawJson, """status"":", ",")
-            d.Add "MimeType", ExtractVal_(EventRawJson, """mimeType"":""", """")
+            d.Add "Url", ExtractVal_(RawJson, """url"":""", """")
+            d.Add "Status", ExtractVal_(RawJson, """status"":", ",")
+            d.Add "MimeType", ExtractVal_(RawJson, """mimeType"":""", """")
             d.Add "BodyReady", False
             capturedResponses_.Add d
             printMsg Debug_, "<NetworkInterceptor> Header received: [" & d("Status") & "] " & d("Url"), FromProcedureName
 
         Case "Network.loadingFinished"
             ' Body DL完了 -> 対応エントリの BodyReady を True に更新
-            reqId = ExtractVal_(EventRawJson, """requestId"":""", """")
+            reqId = ExtractVal_(RawJson, """requestId"":""", """")
             For k = 1 To capturedResponses_.Count
                 If capturedResponses_(k)("RequestId") = reqId Then
                     capturedResponses_(k)("BodyReady") = True
@@ -135,7 +150,7 @@ Public Sub StartNetworkCapture()
     Const FromProcedureName As String = ThisClassName & ".StartNetworkCapture"
 
 
-    invokeMethod "Network.enable"
+    ExecuteCDP "Network.enable"
     networkCaptureActive_ = True
     Set capturedResponses_ = New Collection
     printMsg Debug_, "<NetworkInterceptor> Network.enable - capture started.", FromProcedureName
@@ -146,7 +161,7 @@ Public Sub StopNetworkCapture()
     Const FromProcedureName As String = ThisClassName & ".StopNetworkCapture"
 
 
-    invokeMethod "Network.disable"
+    ExecuteCDP "Network.disable"
     networkCaptureActive_ = False
     printMsg Debug_, "<NetworkInterceptor> Network.disable - capture stopped.", FromProcedureName
 End Sub
@@ -215,7 +230,7 @@ Public Function GetResponseBody(requestId As String) As String
     params("requestId") = requestId
 
     Dim res As Scripting.Dictionary
-    Set res = invokeMethod("Network.getResponseBody", params, , False)
+    Set res = ExecuteCDP("Network.getResponseBody", params, False)
 
     If res Is Nothing Then
         printMsg WARN_, "<GetResponseBody> Failed. (requestId: " & requestId & ")", FromProcedureName
@@ -253,7 +268,7 @@ Public Sub AddBlockedURL(urlPattern As String)
     js = js & "var p=" & JsStr_(urlPattern) & ";"
     js = js & "if(window.__vbaBlockedURLPatterns.indexOf(p)<0){window.__vbaBlockedURLPatterns.push(p);}"
     js = js & "return true;})();"
-    ex_CDPBrowser.jsEval js
+    ex_CDPContext.jsEval js
     printMsg Debug_, "<NetworkInterceptor> Block added: " & urlPattern, FromProcedureName
 End Sub
 
@@ -262,7 +277,7 @@ Public Sub ClearBlockedURLs()
     Const FromProcedureName As String = ThisClassName & ".ClearBlockedURLs"
 
 
-    ex_CDPBrowser.jsEval "(function(){window.__vbaBlockedURLPatterns=[];return true;})();"
+    ex_CDPContext.jsEval "(function(){window.__vbaBlockedURLPatterns=[];return true;})();"
     printMsg Debug_, "<NetworkInterceptor> Blocked URLs cleared.", FromProcedureName
 End Sub
 
@@ -292,7 +307,7 @@ Public Sub AddMockResponse(urlPattern As String, StatusCode As Long, Body As Str
     js = js & "body:" & JsStr_(Body) & ","
     js = js & "contentType:" & JsStr_(ContentType)
     js = js & "});return true;})();"
-    ex_CDPBrowser.jsEval js
+    ex_CDPContext.jsEval js
     printMsg Debug_, "<NetworkInterceptor> Mock added: [" & StatusCode & "] " & urlPattern, FromProcedureName
 End Sub
 
@@ -301,7 +316,7 @@ Public Sub ClearMockResponses()
     Const FromProcedureName As String = ThisClassName & ".ClearMockResponses"
 
 
-    ex_CDPBrowser.jsEval "(function(){window.__vbaMockResponses=[];return true;})();"
+    ex_CDPContext.jsEval "(function(){window.__vbaMockResponses=[];return true;})();"
     printMsg Debug_, "<NetworkInterceptor> Mock responses cleared.", FromProcedureName
 End Sub
 
@@ -318,7 +333,7 @@ Public Sub DisableInterceptor()
     js = js & "window.__vbaBlockedURLPatterns=[];window.__vbaMockResponses=[];"
     js = js & "window.__vbaNetworkInterceptionInstalled=false;"
     js = js & "return true;}catch(e){return false;}})();"
-    ex_CDPBrowser.jsEval js
+    ex_CDPContext.jsEval js
     printMsg Debug_, "<NetworkInterceptor> Interceptor disabled.", FromProcedureName
 End Sub
 
@@ -366,7 +381,7 @@ Private Sub installInterceptorIfNeeded_()
     js = js & "setTimeout(function(){if(x.onreadystatechange)x.onreadystatechange();if(x.onload)x.onload();},0);return;}"
     js = js & "return window.__vbaOriginalXHRSend.apply(this,arguments);};}"
     js = js & "return true;})();"
-    ex_CDPBrowser.jsEval js
+    ex_CDPContext.jsEval js
     printMsg Debug_, "<NetworkInterceptor> fetch/XHR hook installed.", FromProcedureName
 End Sub
 
@@ -399,6 +414,6 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function

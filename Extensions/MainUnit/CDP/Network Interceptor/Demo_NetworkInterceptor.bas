@@ -15,38 +15,38 @@ Option Explicit
 ' =========================================================
 
 Public Sub Demo_NetworkInterceptor_All()
-    Dim br As CDPBrowser
+    Dim tb As CDPContext
     Dim ni As exCDP_NetworkInterceptor
 
-    Set br = 設定シートからのCDP起動
-    br.navigate "about:blank"
+    Set tb = 設定シートからのCDP起動ForTab
+    tb.navigate "about:blank"
     Set ni = New exCDP_NetworkInterceptor
-    ni.Init br
+    ni.Init tb
 
-    br.printMsg info_, "================================================", "Demo"
-    br.printMsg info_, "  exCDP_NetworkInterceptor デモ開始", "Demo"
-    br.printMsg info_, "================================================", "Demo"
-    br.sleep 1
+    tb.printMsg info_, "================================================", "Demo"
+    tb.printMsg info_, "  exCDP_NetworkInterceptor デモ開始", "Demo"
+    tb.printMsg info_, "================================================", "Demo"
+    tb.InheritanceCDPBrowser.sleep 1
 
-    Demo_A_BlockURL br, ni
-    br.sleep 1
-    Demo_B_MockResponse br, ni
-    br.sleep 1
-    Demo_C_WaitForResponse br, ni
+    Demo_A_BlockURL tb, ni
+    tb.InheritanceCDPBrowser.sleep 1
+    Demo_B_MockResponse tb, ni
+    tb.InheritanceCDPBrowser.sleep 1
+    Demo_C_WaitForResponse tb, ni
 
-    br.printMsg info_, "================================================", "Demo"
-    br.printMsg info_, "  全テスト完了", "Demo"
-    br.printMsg info_, "================================================", "Demo"
-    br.sleep 2
-    br.quit
+    tb.printMsg info_, "================================================", "Demo"
+    tb.printMsg info_, "  全テスト完了", "Demo"
+    tb.printMsg info_, "================================================", "Demo"
+    tb.InheritanceCDPBrowser.sleep 2
+    tb.InheritanceCDPBrowser.quit
 End Sub
 
 
 ' =========================================================
 ' [A] URL ブロック テスト
 ' =========================================================
-Private Sub Demo_A_BlockURL(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] URLブロック テスト開始", "Demo"
+Private Sub Demo_A_BlockURL(tb As CDPContext, ni As exCDP_NetworkInterceptor)
+    tb.printMsg info_, WorksheetFunction.Unichar(9654) & " [A] URLブロック テスト開始", "Demo"
 
     ' httpbin.org をブロック登録
     ni.AddBlockedURL "httpbin.org"
@@ -62,18 +62,18 @@ Private Sub Demo_A_BlockURL(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
 
     ' awaitPromise=True で結果を待つ
     Dim res As String
-    res = br.jsEval(js, awaitPromise:=True)
+    res = tb.jsEval(js, awaitPromise:=True)
     ' 先頭末尾の " を除去
     If Left(res, 1) = """" Then res = Mid(res, 2)
     If Right(res, 1) = """" Then res = Left(res, Len(res) - 1)
 
-    br.printMsg info_, "  fetch結果: " & res, "Demo"
+    tb.printMsg info_, "  fetch結果: " & res, "Demo"
 
     If InStr(1, res, "blocked", vbTextCompare) > 0 Or InStr(1, res, "Blocked", vbTextCompare) > 0 Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " URLブロック成功！fetchがエラーになりました。", "Demo"
+        tb.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " URLブロック成功！fetchがエラーになりました。", "Demo"
         MsgBox "[A] URLブロック成功！" & vbCrLf & "結果: " & res, vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " URLブロックが効いていません。結果: " & res, "Demo"
+        tb.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " URLブロックが効いていません。結果: " & res, "Demo"
         MsgBox "[A] URLブロック未検出。" & vbCrLf & "結果: " & res, vbExclamation, "Demo"
     End If
 
@@ -85,8 +85,8 @@ End Sub
 ' =========================================================
 ' [B] モックレスポンス テスト
 ' =========================================================
-Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] モックレスポンス テスト開始", "Demo"
+Private Sub Demo_B_MockResponse(tb As CDPContext, ni As exCDP_NetworkInterceptor)
+    tb.printMsg info_, WorksheetFunction.Unichar(9654) & " [B] モックレスポンス テスト開始", "Demo"
 
     ' /api/user への通信を偽レスポンスで差し替える
     Dim mockJson As String
@@ -103,18 +103,18 @@ Private Sub Demo_B_MockResponse(br As CDPBrowser, ni As exCDP_NetworkInterceptor
     js = js & "});"
 
     Dim res As String
-    res = br.jsEval(js, awaitPromise:=True)
+    res = tb.jsEval(js, awaitPromise:=True)
     ' 先頭末尾の " を除去
     If Left(res, 1) = """" Then res = Mid(res, 2)
     If Right(res, 1) = """" Then res = Left(res, Len(res) - 1)
 
-    br.printMsg info_, "  fetchレスポンス: " & res, "Demo"
+    tb.printMsg info_, "  fetchレスポンス: " & res, "Demo"
 
     If InStr(1, res, "mock", vbTextCompare) > 0 Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " モックレスポンス成功！", "Demo"
+        tb.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " モックレスポンス成功！", "Demo"
         MsgBox "[B] モックレスポンス成功！" & vbCrLf & "Body: " & res, vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " モックレスポンスが効いていません。結果: " & res, "Demo"
+        tb.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " モックレスポンスが効いていません。結果: " & res, "Demo"
         MsgBox "[B] モック未検出。" & vbCrLf & "結果: " & res, vbExclamation, "Demo"
     End If
 
@@ -126,34 +126,34 @@ End Sub
 ' =========================================================
 ' [C] レスポンス待機 + Body取得 テスト（CDPネイティブ）
 ' =========================================================
-Private Sub Demo_C_WaitForResponse(br As CDPBrowser, ni As exCDP_NetworkInterceptor)
-    br.printMsg info_, WorksheetFunction.Unichar(9654) & " [C] WaitForResponse(CDPネイティブ) テスト開始", "Demo"
+Private Sub Demo_C_WaitForResponse(tb As CDPContext, ni As exCDP_NetworkInterceptor)
+    tb.printMsg info_, WorksheetFunction.Unichar(9654) & " [C] WaitForResponse(CDPネイティブ) テスト開始", "Demo"
 
     ' CDPの Network ドメインを有効化してキャプチャ開始
     ni.StartNetworkCapture
-    br.printMsg info_, "  Network.enable 完了。fetchを発行します...", "Demo"
+    tb.printMsg info_, "  Network.enable 完了。fetchを発行します...", "Demo"
 
     ' 実際に外部APIへリクエストを発行（httpbin.org は json を返す無料エンドポイント）
-    br.jsEval "fetch('https://httpbin.org/json');"
-    br.printMsg info_, "  fetch発行完了。レスポンスを待機中...", "Demo"
+    tb.jsEval "fetch('https://httpbin.org/json');"
+    tb.printMsg info_, "  fetch発行完了。レスポンスを待機中...", "Demo"
 
     Dim reqId As String
     reqId = ni.WaitForResponse("httpbin.org/json", 15)
 
     If reqId <> "" Then
-        br.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " レスポンス検出！ requestId=" & reqId, "Demo"
+        tb.printMsg info_, "  " & WorksheetFunction.Unichar(10004) & " レスポンス検出！ requestId=" & reqId, "Demo"
 
         ' Body を取得
         Dim Body As String
         Body = ni.GetResponseBody(reqId)
 
-        br.printMsg info_, "  レスポンスBody(先頭100文字): " & Left(Body, 100), "Demo"
+        tb.printMsg info_, "  レスポンスBody(先頭100文字): " & Left(Body, 100), "Demo"
         MsgBox "[C] WaitForResponse 成功！" & vbCrLf & _
                "requestId: " & reqId & vbCrLf & vbCrLf & _
                "Body(先頭100文字):" & vbCrLf & Left(Body, 100), _
                vbInformation, "Demo"
     Else
-        br.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " タイムアウト：レスポンスが検出できませんでした。", "Demo"
+        tb.printMsg WARN_, "  " & WorksheetFunction.Unichar(10008) & " タイムアウト：レスポンスが検出できませんでした。", "Demo"
         MsgBox "[C] WaitForResponse タイムアウト。", vbExclamation, "Demo"
     End If
 
