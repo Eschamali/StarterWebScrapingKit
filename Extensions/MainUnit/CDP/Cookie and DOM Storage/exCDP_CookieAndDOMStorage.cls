@@ -40,8 +40,8 @@ Option Explicit
 '***************************************************************************************************
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+'ブラウザ制御オブジェクト
+Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
 
 Private Const ThisClassName         As String = "exCDP_CookieAndDOMStorage"
 
@@ -332,7 +332,7 @@ Private Function CurrentSecurityOrigin() As String
 
 
     On Error Resume Next
-    CurrentSecurityOrigin = ex_CDPBrowser.jsEval("location.origin", dbgMsg:=False)
+    CurrentSecurityOrigin = ex_CDPContext.jsEval("location.origin", dbgMsg:=False)
     If Err.Number <> 0 Then
         Err.Clear
         CurrentSecurityOrigin = vbNullString
@@ -351,7 +351,7 @@ Private Function CurrentStorageKey() As String
     On Error Resume Next
     Dim res As Scripting.Dictionary
     Dim emptyParams As New Scripting.Dictionary
-    Set res = cdpInvoke("Storage.getStorageKey", emptyParams, , False)
+    Set res = cdpInvoke("Storage.getStorageKey", emptyParams, False)
     If res Is Nothing Then GoTo EH
 
     If res.Exists("storageKey") Then
@@ -460,15 +460,15 @@ End Function
 '                           ■■■ `CDPBrowser` 直通ヘルパ ■■■
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+    ex_CDPContext.InheritanceCDPBrowser.sleep seconds
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function cdpInvoke(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean = False, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set cdpInvoke = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function cdpInvoke(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+    Set cdpInvoke = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
 
@@ -476,11 +476,12 @@ End Function
 '***************************************************************************************************
 '                             ■■■ 初期設定 ■■■
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
     Const FromProcedureName As String = ThisClassName & ".Init"
 
 
-    Set ex_CDPBrowser = Inheritance
+    '必要なCDPオブジェクトを継承
+    Set ex_CDPContext = Inheritance
     printMsg info_, "CookieAndDOMStorage: Init bound to CDPBrowser session.", FromProcedureName
 End Sub
 

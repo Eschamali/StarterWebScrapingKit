@@ -44,8 +44,8 @@ Sub Demo_CookieAndDOMStorage()
     Const FromProcedureName As String = "Demo_CookieAndDOMStorage.Demo_CookieAndDOMStorage"
 
 
-    Dim br As CDPBrowser
-    Set br = 設定シートからのCDP起動("https://example.com")
+    Dim br As CDPContext
+    Set br = 設定シートからのCDP起動ForTab("https://example.com")
     br.show
     br.wait
 
@@ -84,7 +84,7 @@ Sub Demo_CookieAndDOMStorage()
     Debug.Print "SessionStorageAll=" & ObjToJsonForDebug(st.SessionStorageGetAll, jc)
 
     Debug.Print "[" & FromProcedureName & "] 完了。ブラウザを閉じます。"
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
 
 
@@ -96,8 +96,8 @@ Sub Demo_CookieAndDOMStorage_RemoveItems()
     Const FromProcedureName As String = "Demo_CookieAndDOMStorage.Demo_CookieAndDOMStorage_RemoveItems"
 
 
-    Dim br As CDPBrowser
-    Set br = 設定シートからのCDP起動("https://example.com")
+    Dim br As CDPContext
+    Set br = 設定シートからのCDP起動ForTab("https://example.com")
     br.show
     br.wait
 
@@ -118,5 +118,5 @@ Sub Demo_CookieAndDOMStorage_RemoveItems()
     Debug.Print "SessionStorageAll(x削除後)=" & ObjToJsonForDebug(st.SessionStorageGetAll, jc)
 
     Debug.Print "[" & FromProcedureName & "] 完了。"
-    br.quit
+    br.InheritanceCDPBrowser.quit
 End Sub
