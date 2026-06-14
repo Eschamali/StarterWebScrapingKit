@@ -733,7 +733,7 @@ End Function
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。SearchType はデフォルトは、"page"にしてます。
 '* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '***************************************************************************************************
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetry As Boolean = False) As CDPContext
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetrySecond As Double) As CDPContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -745,7 +745,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim bestScore As Long, score As Long
     Dim info As String
 
-    If doRetry Then timerStart = TimerCounter
+    If doRetrySecond > 0 Then timerStart = TimerCounter
 
     'Typeを決める
     Dim SearchType As String
@@ -812,7 +812,7 @@ searchit:
     End If
 
    'Do retry as long as not timeout
-    If Not tabfound And doRetry And TimerCounter - timerStart < timerOut Then GoTo searchit
+    If Not tabfound And TimerCounter - timerStart < doRetrySecond * 1000 Then GoTo searchit
 
    'Returns nothing if not found
    'Nothing is preferred over throwing error
