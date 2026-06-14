@@ -141,6 +141,7 @@ Private thisApp     As Object                   'A dymanic variable used in CDPB
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
+Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 
 
 
@@ -277,6 +278,33 @@ Public Sub start(Optional Name As String = "chrome", _
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：`targetCreated/targetInfoChanged/targetDestroyed`の3種の非同期イベントを流しつつ、Context のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・`CDPContext.cls`の生存状況把握に使います
+'            ・うまい具合に、`CDPContext.cls`確保中のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'***************************************************************************************************
+Property Let EnableDiscoverTargets(Flag As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableDiscoverTargets"
+
+
+    '1. カウント
+    DefinitionCDPContext = DefinitionCDPContext + IIf(Flag, 1, -1)
+
+    '2. 実行
+    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Flag) & "}}"
+
+    '3. 下限は、0にしておく
+    If DefinitionCDPContext < 0 Then DefinitionCDPContext = 0: printMsg WARN_, "`CDPContext.cls` no longer exists.", FromProcedureName
+
+    '4. ログ表示
+    printMsg info_, "Currently, " & DefinitionCDPContext & " `CDPContext.cls` file is being defined.", FromProcedureName
+End Property
+
+'***************************************************************************************************
 '* 機能　　："Target.targetCreated"による非同期イベント収集を有効/無効化します
 '---------------------------------------------------------------------------------------------------
 '* SET引数 ：格納させたいCollection変数。`Nothing`で渡せば、収集を無効化します
@@ -287,12 +315,8 @@ End Sub
 '* 注意事項：用が済んだら必ず、`Nothing`を渡して、参照カウンタを0にします
 '***************************************************************************************************
 Property Set RunCollect_TargetCreated(ArgCollect As Collection)
-    '1. 引数のポインタCollectionを指定させる
+    '引数のポインタCollectionを指定させる
     Set TargetInfos = ArgCollect
-
-    '2. オブジェクトの有無に応じた収集開始/終了を投げる
-    Dim Switching As Boolean: Switching = Not (ArgCollect Is Nothing)
-    SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Switching) & "}}"
 End Property
 
 Private Function getBrowserPath(strBrowserType As String) As String
@@ -690,6 +714,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
 
     '------ 専用のクラスとして返却する準備 ------
+    EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
         '1. このブラウザのパイプハンドル情報を渡す
@@ -833,6 +858,7 @@ searchfound:
 
     '------ 専用のクラスとして返却する準備 ------
     '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
+    EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
     With getTab
         '1. このブラウザのパイプハンドル情報を渡す

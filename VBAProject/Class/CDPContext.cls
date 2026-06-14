@@ -248,6 +248,7 @@ Private Sub attachToSession()
     '`Target.targetCreated`を収集できるように初期化
     Set FirstTabs = New Collection
 1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
+    Set BrowserCore.EnableDiscoverTargets = True
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -2493,6 +2494,8 @@ Private Sub Class_Terminate()
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
 
+    'カウントダウンはさせておく
+    BrowserCore.EnableDiscoverTargets = False
 End Sub
 '===============================================================================================
 ' Experimental Functions
