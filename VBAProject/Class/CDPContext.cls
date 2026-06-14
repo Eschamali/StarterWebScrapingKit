@@ -390,6 +390,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
 
     '3. タブのTargetID情報を適用
     brTab.targetID = objSerialize.Item("targetID")
+    If brTab.targetID = "" Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
 
     '4. SessionIDの適用方法に応じた分岐を行う
     If reuseSession And objSerialize.Item("sessionID") <> "" Then
