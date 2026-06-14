@@ -153,8 +153,9 @@ Private ControlError As SessionErrorDetails
 
 '操作中のタブ情報一式
 Private Type StateTab
-    sessionID   As String   'The ID to the current session tab.
-    targetID    As String   'The targetID of the current tab for ExecuteCDP
+    sessionID           As String   'The ID to the current session tab.
+    targetID            As String   'The targetID of the current tab for ExecuteCDP
+    browserContextId    As String  'どの`Profile`に属してるか
 End Type
 Private brTab As StateTab
 
@@ -286,10 +287,13 @@ Private Sub attachToSession()
     Else printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
 
    'Establish connection with the CDP pipes
-3   brTab.targetID = results__.Item("targetId")
-4   brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
-5   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-6   Set BrowserCore.RunCollect_TargetCreated = Nothing
+    With brTab
+3       .targetID = results__.Item("targetId")
+4       .sessionID = BrowserCore.attachToTab(brTab.targetID)
+5       .browserContextId = results__.Item("browserContextId")
+    End With
+6   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
+7   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
@@ -358,15 +362,18 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
     '6. sessionId生存check
-    If isLiveContext Then
+    If refreshTargetInfo Is Nothing Then
+        reattach = False
+        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
+    Else
         reattach = True
+
+        '`Context`(タブ等)の変化を捉えれるようにする
+        BrowserCore.EnableDiscoverTargets = True
 
         'ステータス更新
         getSessionInfo
         printParams
-    Else
-        reattach = False
-        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
     End If
 
 End Function
@@ -411,23 +418,6 @@ Private Sub deserializeForTab(reuseSession As Boolean)
         Me.id = newSessionID
     End If
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：コンテキスト(タブ等)の生存確認を行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：`TargetId`生存論理値
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：このClassで設定中の`TargetId`を基に、生存確認を行います
-'* 注意事項；この機能は`reattach`用で使う想定です。基本は、`isTarget○○`で生存確認を行います
-'***************************************************************************************************
-Private Function isLiveContext() As Boolean
-    '1. このClassで設定中の`TargetId`の情報取得を試みる
-    Dim targetInfo As Dictionary
-    Set targetInfo = SendMessage("{""method"":""Target.getTargetInfo"",""params"":{""targetId"":""" & brTab.targetID & """}}")
-
-    '2. エラーチェック結果を返却
-    isLiveContext = Not ExecuteError(targetInfo)
-End Function
 
 
 
@@ -1413,7 +1403,7 @@ Public Sub closeTab()
     End If
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(refreshTargetID)
+    params("targetId") = brTab.targetID
     ExecuteCDP "Target.closeTarget", params
     printMsg info_, brTab.targetID & " was closed", FromProcedureName
 
@@ -1436,6 +1426,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
 
 
     '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    Dim tmp As Dictionary
     Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '`SessionID`が切れたが、`targetId`は生存
@@ -1443,7 +1434,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
             SearchWord = "{""method"":""Target.detachedFromTarget"",""params"":{""sessionId"":"""
             StartPos = Len(SearchWord) + 1
-            If InStr(StartPos, RawJson, brTab.sessionID) = StartPos Then ControlStatus.detachedFromTarget = True
+            If InStr(StartPos, RawJson, brTab.sessionID) = StartPos Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
         Case "Target.targetCrashed"
@@ -1452,11 +1443,12 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             StartPos = Len(SearchWord) + 1
             If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then
                 ControlStatus.targetCrashed = True
+                Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)("params")
 
                 '1-2. エラー情報を格納
-                Dim tmpError As Dictionary: Set tmpError = BrowserCore.jsConverter.ParseJson(RawJson)("params")
-                ControlError.Status = tmpError("status")
-                ControlError.ErrorCode = tmpError("errorCode")
+                ControlError.Status = tmp("status")
+                ControlError.ErrorCode = tmp("errorCode")
+                printMsg WARN_, "The tab crashed. Using `Page.reload` might fix it. errorCode: " & ControlError.ErrorCode & " , status: " & ControlError.Status, FromProcedureName
             End If
 
         '`targetId`が消えて、`SessionID`も道ずれ破棄
@@ -1464,7 +1456,25 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
             SearchWord = "{""method"":""Target.targetDestroyed"",""params"":{""targetId"":"""
             StartPos = Len(SearchWord) + 1
-            If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then ControlStatus.targetDestroyed = True
+            If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+
+        '一部のパラメーター(URL等)を更新します
+        Case "Target.targetInfoChanged"
+            '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
+            SearchWord = "{""method"":""Target.targetDestroyed"",""params"":{""targetInfo"":{""targetId"":"""
+            StartPos = Len(SearchWord) + 1
+            If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then
+                Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)("params")("targetInfo")
+
+                '1-2. 各種パラメーター更新
+                With br
+                    .Name = tmp("title")
+                    .Url = tmp("url")
+                End With
+                brTab.browserContextId = tmp("browserContextId")
+
+                printMsg info_, "The information on this tab has been updated.", FromProcedureName
+            End If
 
     End Select
 
@@ -1479,7 +1489,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
 
     '2-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
+    Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
 
     '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -1750,8 +1760,9 @@ Public Sub getSessionInfo()
 
 
    'Get infos
-    br.Url = Url
-    br.Name = Name
+    Dim TargetInfo As Dictionary: Set TargetInfo = refreshTargetInfo
+    br.Url = refreshTargetInfo("url")
+    br.Name = refreshTargetInfo("title")
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
@@ -1759,7 +1770,10 @@ Public Sub getSessionInfo()
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
     'タブIDを記録
-    brTab.targetID = refreshTargetID
+    brTab.targetID = refreshTargetInfo("targetId")
+
+    'ProfileIDを記録
+    brTab.browserContextId = refreshTargetInfo("browserContextId")
 
 End Sub
 
@@ -2011,7 +2025,7 @@ Public Sub activate(Optional focus As Boolean = True)
 '----------------------------------------------------------------------------------
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(refreshTargetID)
+    params("targetId") = brTab.targetID
     If focus Then ExecuteCDP "Target.activateTarget", params
 
 End Sub
@@ -2044,15 +2058,18 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 
 End Sub
 
-Private Function refreshTargetID() As String
-'----------------------------------------------------------------------------------
-' Retrieve the targetId of the current tab (a.k.k "target" in CDP Documentation).
-' This targetId is useful for tab automation, such as the .closeTab method.
-'----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：`SessionID`に紐づく`Target.TargetInfo`オブジェクトを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
+'***************************************************************************************************
+Private Function refreshTargetInfo() As Dictionary
+    '1. このClassで設定中の`SessionID`を基に情報取得を試みる
+    Dim TargetInfo As Dictionary
+    Set TargetInfo = SendMessage("{""method"":""Target.getTargetInfo"",""params"":{}}")
 
-    Dim results As Scripting.Dictionary
-    Set results = ExecuteCDP("Target.getTargetInfo")
-    refreshTargetID = results("targetInfo").Item("targetId")
+    '2. エラーがなければ、返却
+    If Not ExecuteError(TargetInfo) Then Set refreshTargetInfo = TargetInfo("result")("targetInfo")
 
 End Function
 
