@@ -36,7 +36,7 @@ Private Const MaxStoreResultBiDi    As Long = 2 ^ 8                 'コマン�
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore      'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
 
-'各種便利クラスオブジェクト
+'BiDi圏内制御想定Class
 Public jsConverter              As New WebJsonConverter
 
 'BiDiコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)

@@ -97,7 +97,7 @@ Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザから�
 Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP engine
 Attribute PipeCore.VB_VarHelpID = -1
 
-'各種便利クラスオブジェクト
+'CDP圏内制御想定Class
 Public jsConverter          As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
 
 '操作中のブラウザ情報一式
