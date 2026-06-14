@@ -1759,10 +1759,10 @@ Public Sub getSessionInfo()
     Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
 
 
-   'Get infos
+    'Get infos
     Dim TargetInfo As Dictionary: Set TargetInfo = refreshTargetInfo
-    br.Url = refreshTargetInfo("url")
-    br.Name = refreshTargetInfo("title")
+    br.Url = TargetInfo("url")
+    br.Name = TargetInfo("title")
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
@@ -1770,10 +1770,10 @@ Public Sub getSessionInfo()
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
 
     'タブIDを記録
-    brTab.targetID = refreshTargetInfo("targetId")
+    brTab.targetID = TargetInfo("targetId")
 
     'ProfileIDを記録
-    brTab.browserContextId = refreshTargetInfo("browserContextId")
+    brTab.browserContextId = TargetInfo("browserContextId")
 
 End Sub
 
