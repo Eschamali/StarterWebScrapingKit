@@ -136,6 +136,21 @@ Private Type StatebBrowserTab
 End Type
 Private br As StatebBrowserTab
 
+'操作中のタブセッションステータス
+Private Type sessionStatus
+    detachedFromTarget  As Boolean  'Issued when detached from target for any reason (including detachFromTarget command). Can be issued multiple times per target if multiple sessions have been attached to it.
+    targetCrashed       As Boolean  'Issued when a target has crashed.
+    targetDestroyed     As Boolean  'Issued when a target is destroyed. ※`Target.setDiscoverTargets`の購読必須
+End Type
+Private ControlStatus As sessionStatus
+
+'操作中のタブセッションエラー情報
+Private Type SessionErrorDetails
+    Status      As String
+    ErrorCode   As Long
+End Type
+Private ControlError As SessionErrorDetails
+
 '操作中のタブ情報一式
 Private Type StateTab
     sessionID   As String   'The ID to the current session tab.
@@ -248,7 +263,7 @@ Private Sub attachToSession()
     '`Target.targetCreated`を収集できるように初期化
     Set FirstTabs = New Collection
 1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
-    Set BrowserCore.EnableDiscoverTargets = True
+    BrowserCore.EnableDiscoverTargets = True
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -402,8 +417,9 @@ End Sub
 '* 返り値　：`TargetId`生存論理値
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：このClassで設定中の`TargetId`を基に、生存確認を行います
+'* 注意事項；この機能は`reattach`用で使う想定です。基本は、`isTarget○○`で生存確認を行います
 '***************************************************************************************************
-Public Function isLiveContext() As Boolean
+Private Function isLiveContext() As Boolean
     '1. このClassで設定中の`TargetId`の情報取得を試みる
     Dim targetInfo As Dictionary
     Set targetInfo = SendMessage("{""method"":""Target.getTargetInfo"",""params"":{""targetId"":""" & brTab.targetID & """}}")
@@ -1412,25 +1428,59 @@ End Sub
 '* 引数　　：methodName 非同期イベントメソッド名
 '            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：非同期イベントキャプチャを行います
+'* 機能説明：非同期イベントキャプチャと、セッション状態の更新を行います
 '***************************************************************************************************
 Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
-    '------------------ 非同期イベントを収集します ------------------
-    '1. イベントキャプチャしない場合は、即抜け
+    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    Dim StartPos As Long, SearchWord As String
+    Select Case methodName
+        '`SessionID`が切れたが、`targetId`は生存
+        Case "Target.detachedFromTarget"
+            '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
+            SearchWord = "{""method"":""Target.detachedFromTarget"",""params"":{""sessionId"":"""
+            StartPos = Len(SearchWord) + 1
+            If InStr(StartPos, RawJson, brTab.sessionID) = StartPos Then ControlStatus.detachedFromTarget = True
+
+        '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
+        Case "Target.targetCrashed"
+            '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
+            SearchWord = "{""method"":""Target.targetCrashed"",""params"":{""targetId"":"""
+            StartPos = Len(SearchWord) + 1
+            If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then
+                ControlStatus.targetCrashed = True
+
+                '1-2. エラー情報を格納
+                Dim tmpError As Dictionary: Set tmpError = BrowserCore.jsConverter.ParseJson(RawJson)("params")
+                ControlError.Status = tmpError("status")
+                ControlError.ErrorCode = tmpError("errorCode")
+            End If
+
+        '`targetId`が消えて、`SessionID`も道ずれ破棄
+        Case "Target.targetDestroyed"
+            '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
+            SearchWord = "{""method"":""Target.targetDestroyed"",""params"":{""targetId"":"""
+            StartPos = Len(SearchWord) + 1
+            If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then ControlStatus.targetDestroyed = True
+
+    End Select
+
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '3. パース処理
+    '2-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
 
-    '4. 専用のプロシージャにて、蓄積処理
+    '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
@@ -1451,6 +1501,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
+    
     '------------------ 2. 非同期イベントを収集します ------------------
     '2-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
@@ -2416,6 +2467,39 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     End If
 End Property
 
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)が切断されたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`sessionId`に対する`Target.detachedFromTarget`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetDisconnected() As Boolean
+    isTargetDisconnected = ControlStatus.detachedFromTarget
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)がクラッシュされたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`targetId`に対する`Target.targetCrashed`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetCrashed() As Boolean
+    isTargetCrashed = ControlStatus.targetCrashed
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)が閉鎖されたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`targetId`に対する`Target.targetDestroyed`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetClosed() As Boolean
+    isTargetClosed = ControlStatus.targetDestroyed
+End Property
+
 
 
 '***************************************************************************************************
@@ -2484,14 +2568,20 @@ Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
 
-    'SessionIDを保持するオプションになってるか確認
-    If KeepSession Then
-        printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+    '`Target.detachFromTarget`を送るか判定
+    If ControlStatus.detachedFromTarget Then
+        'もうすでに閉じてるので、わざわざ破棄コマンドは送らない
+        printMsg info_, "The session ID (" & brTab.sessionID & ") has been discarded.", FromProcedureName
     Else
-        printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
+        'SessionIDを保持するオプションになってるか確認
+        If KeepSession Then
+            printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+        Else
+            printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
 
-        'SessionIDを破棄しておく
-        BrowserCore.DiscardSessionID brTab.sessionID
+            'SessionIDを破棄しておく
+            BrowserCore.DiscardSessionID brTab.sessionID
+        End If
     End If
 
     'カウントダウンはさせておく
