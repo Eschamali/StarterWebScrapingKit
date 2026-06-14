@@ -417,18 +417,21 @@ End Function
 '* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName   記録する識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
+'            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Public Sub serialize(UserName As String)
     '0. データ記録準備
     Dim tmp As New Dictionary
 
     '1. 必要なデータを`Dictionary`に詰める
-    tmp.Add "hStdOutRd", hStdOutRd
-    tmp.Add "hStderrOutRd", hStderrOutRd
-    tmp.Add "hStdInWr", hStdInWr
-    tmp.Add "hCDPOutRd", hCDPOutRd
-    tmp.Add "hCDPInWr", hCDPInWr
-    tmp.Add "dwProcessId", dwProcessId
+    tmp.Add "hStdOutRd", (hStdOutRd)
+    tmp.Add "hStderrOutRd", (hStderrOutRd)
+    tmp.Add "hStdInWr", (hStdInWr)
+    tmp.Add "hCDPOutRd", (hCDPOutRd)
+    tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
     Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
