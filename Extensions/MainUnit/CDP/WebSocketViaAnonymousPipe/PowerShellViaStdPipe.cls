@@ -463,17 +463,19 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：任意の利用ユーザー名
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`Init`の後に呼び出すこと
+'* 注意事項：・`Init`の後に呼び出すこと
+'            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
+'            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Public Sub serialize(UserName As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
     Dim tmp As New Dictionary
-    tmp.Add "hStdOutRd", hStdOutRd
-    tmp.Add "hStderrOutRd", hStderrOutRd
-    tmp.Add "hStdInWr", hStdInWr
-    tmp.Add "hCDPOutRd", hCDPOutRd
-    tmp.Add "hCDPInWr", hCDPInWr
-    tmp.Add "dwProcessId", dwProcessId
+    tmp.Add "hStdOutRd", (hStdOutRd)
+    tmp.Add "hStderrOutRd", (hStderrOutRd)
+    tmp.Add "hStdInWr", (hStdInWr)
+    tmp.Add "hCDPOutRd", (hCDPOutRd)
+    tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "dwProcessId", 0
 
     'Excelテーブルに、名前付きパイプハンドル情報を記録する
     Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "PowerShellViaStdPipe.serialize") = tmp

@@ -245,7 +245,9 @@ End Sub
 '* 引数　　：UserName   接続名称
 '            hNamePipe  `CreateFile`で得たハンドル値
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
+'            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String, hNamePipe As LongPtr)
     '------------------ 1. パイプ情報の記録準備 ------------------
@@ -254,8 +256,8 @@ Private Sub serialize(UserName As String, hNamePipe As LongPtr)
     tmp.Add "hStdOutRd", 0
     tmp.Add "hStderrOutRd", 0
     tmp.Add "hStdInWr", 0
-    tmp.Add "hCDPOutRd", hNamePipe
-    tmp.Add "hCDPInWr", hNamePipe
+    tmp.Add "hCDPOutRd", (hNamePipe)
+    tmp.Add "hCDPInWr", (hNamePipe)
     tmp.Add "dwProcessId", 0
 
     'Excelテーブルに、名前付きパイプハンドル情報を記録する
