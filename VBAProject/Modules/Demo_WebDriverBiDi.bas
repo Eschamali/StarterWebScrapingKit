@@ -41,6 +41,22 @@ Public Function 設定シートからのBiDi起動(Optional StartURL As String, 
     End With
 End Function
 
+Public Function 設定シートからのBiDi起動ForTab(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
+    '設定シートの各セルから設定値を取得し、適用
+    With ShSetting01_StartBrowser
+        '起動ブラウザ種類の設定
+        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
+
+        'ブラウザ起動
+        Set 設定シートからのBiDi起動ForTab = New WebDriverBiDiContext
+        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+    End With
+End Function
+
 Sub BiDiによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
     Dim HelloWorldAutomationBrowser As WebDriverBiDiMode: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
