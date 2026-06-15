@@ -358,7 +358,7 @@ Public Function ExecuteBiDi(ByVal methodName As String, Optional params As Dicti
     Dim results As Dictionary
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
+    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", , StopBiDiError)
 
     'Print error if there is
     If ExecuteError(results) Then
@@ -393,7 +393,7 @@ Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As 
     Dim paramStr As String
 
     If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True
+    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError
 
     '実行したIDを返却
     ExecuteBiDiAsync = m_BiDiCore.LastCommandID
