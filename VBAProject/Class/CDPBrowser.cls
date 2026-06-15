@@ -1484,16 +1484,15 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
 
 
-    'パラメーターを組んで破棄コマンド実行
-    Dim CDPparameters As New Dictionary
-    CDPparameters.Add "sessionId", sessionID
-    DiscardSessionID = Not (ExecuteCDP("Target.detachFromTarget", CDPparameters, False) Is Nothing)
+    '1. 破棄コマンド実行
+    Dim tmp As Dictionary
+    Set tmp = SendMessage("{""method"":""Target.detachFromTarget"",""params"":{""sessionId"":""" & sessionID & """}}")
 
-    'ログとして出しておく
-    If DiscardSessionID Then
-        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
-    Else
+    '2. ログとして出しておく
+    If ExecuteError(tmp) Then
         printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
+    Else
+        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
     End If
 End Function
 
