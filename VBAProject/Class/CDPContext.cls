@@ -155,7 +155,7 @@ Private ControlError As SessionErrorDetails
 Private Type StateTab
     sessionID           As String   'The ID to the current session tab.
     targetID            As String   'The targetID of the current tab for ExecuteCDP
-    browserContextId    As String  'どの`Profile`に属してるか
+    browserContextId    As String   'どの`Profile`に属してるか
 End Type
 Private brTab As StateTab
 
