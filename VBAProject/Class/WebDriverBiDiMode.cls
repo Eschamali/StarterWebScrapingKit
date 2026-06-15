@@ -892,7 +892,7 @@ Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Co
     params.Add "events", events
 
     '実行
-    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params
+    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
 End Property
 
 
