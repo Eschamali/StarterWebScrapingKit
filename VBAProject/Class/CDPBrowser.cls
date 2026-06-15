@@ -262,7 +262,7 @@ Public Sub start(Optional Name As String = "chrome", _
    'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
     br.CallString = strCall
     printMsg Debug_, "Starting pipe communication... → " & br.CallString, FromProcedureName
-    intRes = PipeCore.Init(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
+    intRes = PipeCore.InitCDP(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
    '-----------------------------------------------------------------------------------------------------------------------------------
 

@@ -94,7 +94,7 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub start(Optional Name As String = "chrome", _
+Public Sub InitBiDi(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _

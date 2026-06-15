@@ -271,7 +271,7 @@ Private m_Frequency         As Currency '実行マシンでの周波数記録用
 '* 引数　　：strExec            コマンドライン
 '            ShowWindowMode     初期ウィンドウ表示タイプ
 '***************************************************************************************************
-Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
+Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -286,35 +286,35 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
     'stderr
     result = CreatePipe(hStderrOutRd, hStderrOutWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'Then the out pipe for the CDP Protocol
     result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'And finally the in pipe
     result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
@@ -388,13 +388,13 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     '実行結果チェック
     If result = 0 Then
         'エラーコードを返す
-        Init = Err.LastDllError
+        InitCDP = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
         ClosePipeCDP
     Else
         '成功は、0として返却
-        Init = 0
+        InitCDP = 0
     End If
 
    'We close the sides of the handles that we dont need anymore

@@ -89,7 +89,7 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.start Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As Dictionary
