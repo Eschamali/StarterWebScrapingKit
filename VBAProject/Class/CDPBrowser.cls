@@ -295,7 +295,7 @@ Property Let EnableDiscoverTargets(Flag As Boolean)
     DefinitionCDPContext = DefinitionCDPContext + IIf(Flag, 1, -1)
 
     '2. 実行
-    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Flag) & "}}"
+    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Flag) & "}}", , False
 
     '3. 下限は、0にしておく
     If DefinitionCDPContext < 0 Then DefinitionCDPContext = 0: printMsg WARN_, "`CDPContext.cls` no longer exists.", FromProcedureName
