@@ -53,9 +53,11 @@ Private m_Events    As Dictionary
 Private m_ErrorDetails  As Dictionary
 
 'その他
-Private timerOut        As Double  'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private LogID           As String
-Private BiDiUserName    As String  'User-data-dir と同等
+Private BiDiUserName    As String       'User-data-dir と同等
+Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
+Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
 
 
 
@@ -98,6 +100,56 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
+
+'***************************************************************************************************
+'* 機能　　："browsingContext.contextCreated"による非同期イベント収集を有効/無効化します
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：格納させたいCollection変数。`Nothing`で渡せば、収集を無効化します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・タブやiframeが開いた際の非同期イベントを流すかの切り替えです。
+'            ・参照渡し方式により、わざわざ`Get`プロパティを介さず、取得可能です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：用が済んだら必ず、`Nothing`を渡して、参照カウンタを0にします
+'***************************************************************************************************
+Property Set RunCollect_InfoList(ArgCollect As Collection)
+    '引数のポインタCollectionを指定させる
+    Set InfoList = ArgCollect
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext.contextCreated/browsingContext.contextDestroyed`の2種の非同期イベントを流しつつ、Context のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・`WebDriverBiDiContext.cls`の生存状況把握に使います
+'            ・うまい具合に、`WebDriverBiDiContext.cls`確保中のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`WebDriverBiDiContext.cls`を生成/破棄時に呼ぶ想定です。
+'***************************************************************************************************
+Property Let EnableDiscoverContexts(Flag As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableDiscoverContexts"
+
+
+    '1. カウント
+    DefinitionBiDiContext = DefinitionBiDiContext + IIf(Flag, 1, -1)
+
+    '2. 実行判定
+    If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
+        '3. 購読準備
+        Dim ListenEventList As New Collection
+        ListenEventList.Add "browsingContext.contextCreated"
+        ListenEventList.Add "browsingContext.contextDestroyed"
+
+        '4. 実行
+        Set sessionSubscribe(Flag) = ListenEventList
+    End If
+
+    '5. 下限は、0にしておく
+    If DefinitionBiDiContext < 0 Then DefinitionBiDiContext = 0: printMsg WARN_, "`WebDriverBiDiContext.cls` no longer exists.", FromProcedureName
+
+    '6. ログ表示
+    printMsg info_, "Currently, " & DefinitionBiDiContext & " `WebDriverBiDiContext.cls` file is being defined.", FromProcedureName
+End Property
 
 
 
@@ -169,10 +221,13 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     '2. 返却準備
     Set newTab = New WebDriverBiDiContext
     With newTab
-        '1. このBiDi情報を渡す
+        '3. このBiDiのイベントオブジェクトを渡す
+        Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+
+        '4. このBiDi情報も渡す
         Set .InheritanceWebDriverBiDiMode = Me
 
-        '2. 先ほど得た`context`を渡す
+        '5. 先ほど得た`context`を渡す
         .context = bidiRes("result")("context")
     End With
 
@@ -218,10 +273,13 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
             If Not matchData Is Nothing Then
                 Set getTab = New WebDriverBiDiContext
                 With getTab
-                    '1. このBiDi情報を渡す
+                    '4. このこのBiDiのイベントオブジェクトを渡す
+                    Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+
+                    '5. このBiDi情報を渡す
                     Set .InheritanceWebDriverBiDiMode = Me
 
-                    '2. 先ほど得た`context`を渡す
+                    '6. 先ほど得た`context`を渡す
                     .context = matchData("context")
                 End With
 
@@ -604,15 +662,32 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiEvent"
 
 
-    '------------------ 非同期イベントを収集します ------------------
-    '1. イベントキャプチャしない場合は、即抜け
+    '------------------ 1. `Context`の生成情報を蓄積します ------------------
+    '1-1. Select Case でスマートに、method名ごとの独自処理を行う
+    Select Case methodName
+        Case "browsingContext.contextCreated"
+            '1-2. `InfoList`を収集するか判定
+            If Not InfoList Is Nothing Then
+                '1-3. そのまま、蓄積
+                printMsg Debug_, "Collecting `browsingContext.contextCreated`... → " & RawJson, FromProcedureName
+                InfoList.Add RawJson
+            End If
+
+        Case Else
+            'None
+
+    End Select
+
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
     If m_Events Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2. パース処理
+    '2-2. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(RawJson)
 
-    '3. 専用のプロシージャにて、蓄積処理
+    '2-3. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived m_Events, tmp, methodName
 End Sub
@@ -802,6 +877,24 @@ Private Function sessionStatus() As Dictionary
     Set sessionStatus = ExecuteBiDi("session.status")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.subscribe/unsubscribe`を実行します
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：`events`に渡すCollection変数
+'     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
+'                       `False`:`session.unsubscribe`として実行
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：何を購読中かは、ここでは管理しません
+'***************************************************************************************************
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+    'paramsに格納
+    Dim params As New Dictionary
+    params.Add "events", events
+
+    '実行
+    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params
+End Property
+
 
 
 '***************************************************************************************************
@@ -830,19 +923,6 @@ End Property
 '***************************************************************************************************
 Property Get InheritanceBiDiCore() As WebDriverBiDiCore
     Set InheritanceBiDiCore = m_BiDiCore
-End Property
-
-
-
-'***************************************************************************************************
-'                              ■■■ Cheat PROPERTIES ■■■
-'***************************************************************************************************
-'* 機能　　：この`WebDriverBiDiCore.cls`内で定義してる`CDPBrowser.cls`を受け取り、WebDriverBiDiモードでありつつ、直接CDP制御できる仕組みを提供します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：利用する際は、「BiDi-CDP Mapper」タブ自体を操作しないように気を付ける必要がある上級者向けです
-'***************************************************************************************************
-Property Get DirectControlCDP() As CDPBrowser
-    Set DirectControlCDP = m_BiDiCore.DirectControlCDP
 End Property
 
 
