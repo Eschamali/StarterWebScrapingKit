@@ -151,6 +151,26 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
     printMsg info_, "Currently, " & DefinitionBiDiContext & " `WebDriverBiDiContext.cls` file is being defined.", FromProcedureName
 End Property
 
+'***************************************************************************************************
+'* 機能　　：Excelテーブルに、BiDi-context情報を記録したり、読み取りを行います
+'***************************************************************************************************
+Public Property Let serializeMainTab(contextId As String)
+    Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
+
+
+    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+End Property
+Public Property Get serializeMainTab() As String
+    Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
+
+
+    '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
+    Dim tmp As Dictionary
+    Set tmp = ShSetting01_StartBrowser.deserializeFromTable(BiDiUserName, 2, FromProcedureName)
+
+    '2. 返却
+    If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
+End Property
 
 
 '***************************************************************************************************
@@ -207,10 +227,12 @@ End Function
 '
 '            isBackground   `True` ：バックグラウンド（アクティブにしない）で開く
 '                           `False`：アクティブで開く
+'
+'            setMain        `True`で、Excelに`context`を記録し、リアタッチに備えます
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：WebDriverBiDi では、いきなりURLで直遷移はできないようです
 '***************************************************************************************************
-Public Function newTab(Optional newWindow As Boolean, Optional isBackground As Boolean) As WebDriverBiDiContext
+Public Function newTab(Optional newWindow As Boolean, Optional isBackground As Boolean, Optional setMain As Boolean) As WebDriverBiDiContext
     Const FromProcedureName As String = ThisClassName & ".newTab"
 
 
@@ -229,6 +251,9 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes("result")("context")
+
+        '6. メイン化する場合は、Excelに記録しておく
+        If setMain Then serializeMainTab = bidiRes("result")("context")
     End With
 
     printMsg info_, "newTab will now open a new BiDi instance", FromProcedureName
@@ -241,13 +266,14 @@ End Function
 '* 引数　　：tabName    タブ名
 '            Url        URL
 '            maxDepth   Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
+'            setMain    `True`で、Excelに`context`を記録し、リアタッチに備えます
 '            doRetry    `True`で、出現まで何回かリトライします。
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。maxDepth はデフォルトは、トップレベルのタブだけにしてます
 '* 注意事項：・url引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '            ・WebDriverBiDi では、タブ名での検索はできないようです
 '***************************************************************************************************
-Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional doRetry As Boolean) As WebDriverBiDiContext
+Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional setMain As Boolean, Optional doRetry As Boolean) As WebDriverBiDiContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -281,6 +307,9 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
 
                     '6. 先ほど得た`context`を渡す
                     .context = matchData("context")
+
+                    '7. メイン化する場合は、Excelに記録しておく
+                    If setMain Then serializeMainTab = matchData("context")
                 End With
 
                 Exit Do

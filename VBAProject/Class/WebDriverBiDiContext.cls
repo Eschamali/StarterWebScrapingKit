@@ -203,16 +203,18 @@ Private Sub attachToContext()
     Dim tmp
     Dim FirstTab As Dictionary
     For Each tmp In FirstTabs
-        '1. Jsonパース処理
+        '4-1. Jsonパース処理
         Set FirstTab = m_BiDiMode.jsConverter.ParseJson(tmp)("params")
 
-        '2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
+        '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
         If IsNull(FirstTab("parent")) Then
             With InfoList
                 .context = FirstTab("context")
                 .Url = FirstTab("url")
             End With
 
+            '4-3. Excelに記録
+            m_BiDiMode.serializeMainTab = InfoList.context
             printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
             Exit For
         End If
