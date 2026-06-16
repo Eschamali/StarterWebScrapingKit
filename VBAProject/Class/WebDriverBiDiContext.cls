@@ -91,10 +91,19 @@ End Sub
 '* 機能説明：`Context`の生存確認に使います
 '***************************************************************************************************
 Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiEvent"
+
+
+    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    Dim tmp As Dictionary
+    Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '`context`が消えた
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
+            SearchWord = "{""type"":""event"",""method"":""browsingContext.contextDestroyed"",""params"":{""context"":"""
+            StartPos = Len(SearchWord) + 1
+            If InStr(StartPos, RawJson, InfoList.context) = StartPos Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
     End Select
 End Sub
