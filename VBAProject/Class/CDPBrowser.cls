@@ -1486,7 +1486,7 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
 
     '1. 破棄コマンド実行
     Dim tmp As Dictionary
-    Set tmp = SendMessage("{""method"":""Target.detachFromTarget"",""params"":{""sessionId"":""" & sessionID & """}}")
+    Set tmp = SendMessage("{""method"":""Target.detachFromTarget"",""params"":{""sessionId"":""" & sessionID & """}}", False)
 
     '2. ログとして出しておく
     If ExecuteError(tmp) Then
