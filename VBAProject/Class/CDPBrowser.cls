@@ -673,7 +673,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ タブ操作関連 ■■■
 '***************************************************************************************************
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional isBackground As Boolean) As CDPContext
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional browserContextId As String, Optional isBackground As Boolean) As CDPContext
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -695,10 +695,10 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Dim params As New Scripting.Dictionary
     Dim sessionID_ As String
 
-    params("url") = CStr(checkURI(Url))
-    If newWindow Then params("newWindow") = CBool(newWindow)
-    If isHidden Then params("hidden") = CBool(isHidden)
-    If isBackground Then params("background") = CBool(isBackground)
+    params("url") = checkURI(Url)
+    If newWindow Then params("newWindow") = newWindow
+    If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
+    If isBackground Then params("background") = isBackground
 
     Dim results As Scripting.Dictionary
     Set results = ExecuteCDP("Target.createTarget", params)
