@@ -110,49 +110,93 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
 
-    '3. BiDi-CDP Mapper を始動させます
+    '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
+    newTabForBiDi
+
+    '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：新規タブにて、`BiDi-CDP Mapper`を始動させます
+'* 機能　　：`BiDi-CDP Mapper`を始動させます
 '* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`CDPBrowser`を`New`してからご利用ください
 '            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '***************************************************************************************************
-Private Sub StartBiDiCDPMapper(Optional ReConnect As Boolean)
+Private Sub StartBiDiCDPMapper()
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
 
 
-    'ブラウザ単位実行
-    With m_CDPBrowser
-        '1. 新規タブに対して、BiDiコンソールタブを準備し、セッションターゲットをメイン化
-        '※タブ表示モードの際は、そのタブがフォアグラウンドにならないように仕向けます
-        If Not (ReConnect) Then Set WebDriverBiDi_mapperTab = .newTab(MapperURL, setMain:=True, isHidden:=Not (BiDiDebug.ViewDebugTab), isBackground:=True)
-        printMsg Debug_, LogID, "Booting `BiDi-CDP Mapper`... (ViewTab: " & CStr(BiDiDebug.ViewDebugTab) & ")", FromProcedureName
-
-        '2. BiDi用バインディングの追加
-        Dim paramsCDP As New Dictionary
-        paramsCDP.Add "bindingName", "cdp"
-        paramsCDP.Add "targetId", WebDriverBiDi_mapperTab.CurrentTargetID
-        paramsCDP.Add "inheritPermissions", True
-        .ExecuteCDP "Target.exposeDevToolsProtocol", paramsCDP, Not ReConnect   '再接続モードの場合は、エラー無視
-    End With
-
-    '3. JSからVBAへ返す経路を設定
+    '1. JSからVBAへ返す経路を設定
     Call BiDiResponseBiding
 
     'タブ単位実行
     With WebDriverBiDi_mapperTab
-        '4. パースしたJavaScriptをブラウザ上で実行
+        '2. パースしたJavaScript - mapperTab.js をブラウザ上で実行
         .jsEval Take_mapperTabJSstring
 
-        '5. ブートストラップ（初期化）JSの実行
+        '3. ブートストラップ（初期化）JSの実行
         .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
     End With
 
     printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
+'            ・普通の新しいタブOpenとは別の手法を用いるため、別プロシージャにて用意します
+'***************************************************************************************************
+Private Sub newTabForBiDi()
+    Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
+
+
+    '1. 各種パラメータ運用
+    Dim params As New Dictionary
+    params.Add "url", MapperURL     '目印用のURLを付与
+    params.Add "background", True   'フォアグランドさせない
+    If Not (BiDiDebug.ViewDebugTab) Then params.Add "hidden", Not (BiDiDebug.ViewDebugTab)  'タブを見せないか？
+
+    With m_CDPBrowser
+        '2. そのパラメータで、新しいタブを開き、`targetId`を取得
+        Dim tabId As String
+        tabId = .ExecuteCDP("Target.createTarget", params)("targetId")
+
+        '3. 得た`targetId`に対して、JavaScriptで、CDP制御の許可を与える
+        params.RemoveAll
+        params.Add "bindingName", "cdp"
+        params.Add "targetId", tabId
+        params.Add "inheritPermissions", True
+        .ExecuteCDP "Target.exposeDevToolsProtocol", params
+
+        '4. 得た`targetId`で、`sessionId`を取得
+        Dim sessionID As String
+        sessionID = .attachToTab(tabId)
+    End With
+
+    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    With WebDriverBiDi_mapperTab
+        '5-1. このブラウザのパイプハンドル情報を渡す
+        Set .InheritanceCDPCore = m_CDPBrowser.InheritanceCDPCore
+
+        '5-2. このブラウザ情報を渡す
+        Set .InheritanceCDPBrowser = m_CDPBrowser
+
+        '5-3. 先ほど得た`sessionId`を渡す
+        .id = sessionID
+
+        '5-4. ステータスの更新
+        .getSessionInfo
+
+        '5-5. Excelに、BiDiMapperTab情報を記録しておく
+        m_CDPBrowser.serializeForMainTab .id, .CurrentTargetID
+    End With
+
+    '6. ログ化
+    printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -237,7 +281,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
             Else
                 '6. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
                 printMsg Debug_, LogID, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
-                StartBiDiCDPMapper True
+                StartBiDiCDPMapper
 
                 '7. 再始動したサインを返す
                 ReBootBiDiCDPMapper = True
@@ -251,17 +295,20 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
             WebDriverBiDi_mapperTab.Url = MapperURL
 
             '6. `BiDi-CDP Mapper`を始動させる
-            StartBiDiCDPMapper True
+            StartBiDiCDPMapper
 
             '7. 再始動したサインを返す
             ReBootBiDiCDPMapper = True
         End If
     Else
-        '2. 既知タブ自体が失ってるので、新規タブで始動しなおす
+        '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, LogID, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
+        newTabForBiDi
+
+        '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
 
-        '3. 再始動したサインを返す
+        '4. 再始動したサインを返す
         ReBootBiDiCDPMapper = True
     End If
 End Function
