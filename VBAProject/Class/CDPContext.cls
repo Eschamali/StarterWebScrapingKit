@@ -1461,7 +1461,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '一部のパラメーター(URL等)を更新します
         Case "Target.targetInfoChanged"
             '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
-            SearchWord = "{""method"":""Target.targetDestroyed"",""params"":{""targetInfo"":{""targetId"":"""
+            SearchWord = "{""method"":""Target.targetInfoChanged"",""params"":{""targetInfo"":{""targetId"":"""
             StartPos = Len(SearchWord) + 1
             If InStr(StartPos, RawJson, brTab.targetID) = StartPos Then
                 Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)("params")("targetInfo")
