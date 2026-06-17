@@ -211,9 +211,6 @@ Public Event ResetCommandID()
 Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private LogControl     As New Logger               'ログレベルの制御
 
-'定義側からも呼び出せるチェーンクラスオブジェクト
-Public ErrorDetail     As New WinApiError          'エラーコードから、詳細を取得するやつ
-
  'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
 Private Type StateFragmented
     strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
@@ -274,7 +271,7 @@ Private m_Frequency         As Currency '実行マシンでの周波数記録用
 '* 引数　　：strExec            コマンドライン
 '            ShowWindowMode     初期ウィンドウ表示タイプ
 '***************************************************************************************************
-Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
+Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -289,35 +286,35 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     sa.lpSecurityDescriptor = 0&
     result = CreatePipe(hStdOutRd, hStdOutWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
     'stderr
     result = CreatePipe(hStderrOutRd, hStderrOutWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'Then stdin
     result = CreatePipe(hStdInRd, hStdInWr, sa, 0)
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'Then the out pipe for the CDP Protocol
     result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'And finally the in pipe
     result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
     If result = 0 Then
-        Init = Err.LastDllError     'エラーコードで返す
+        InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
@@ -391,13 +388,13 @@ Public Function Init(strExec As String, ShowWindowMode As WinState) As Long
     '実行結果チェック
     If result = 0 Then
         'エラーコードを返す
-        Init = Err.LastDllError
+        InitCDP = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
         ClosePipeCDP
     Else
         '成功は、0として返却
-        Init = 0
+        InitCDP = 0
     End If
 
    'We close the sides of the handles that we dont need anymore
@@ -420,18 +417,21 @@ End Function
 '* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName   記録する識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
+'            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Public Sub serialize(UserName As String)
     '0. データ記録準備
     Dim tmp As New Dictionary
 
     '1. 必要なデータを`Dictionary`に詰める
-    tmp.Add "hStdOutRd", hStdOutRd
-    tmp.Add "hStderrOutRd", hStderrOutRd
-    tmp.Add "hStdInWr", hStdInWr
-    tmp.Add "hCDPOutRd", hCDPOutRd
-    tmp.Add "hCDPInWr", hCDPInWr
-    tmp.Add "dwProcessId", dwProcessId
+    tmp.Add "hStdOutRd", (hStdOutRd)
+    tmp.Add "hStderrOutRd", (hStderrOutRd)
+    tmp.Add "hStdInWr", (hStdInWr)
+    tmp.Add "hCDPOutRd", (hCDPOutRd)
+    tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
     Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
@@ -448,7 +448,7 @@ Public Function deserialize(UserName As String) As Boolean
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
 
-    '取得に失敗した場合は、接続情報が失ってるので、抜ける
+    '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
     If PipeInfo Is Nothing Then Exit Function
 
     'クラス内変数に適用
@@ -466,7 +466,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：パイプハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`deserialize` or `Init` をした状態にすること
+'* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
 Public Sub ClosePipeCDP()
     CloseHandle hStdOutRd
@@ -541,18 +541,24 @@ End Function
 '***************************************************************************************************
 Private Sub viewStdoutAndStderr()
     Const FromProcedureName As String = ThisClassName & ".viewStdoutAndStderr"
-    Const DividerMark       As String = vbCrLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
+    Const DividerMark       As String = vbLf  '標準出力、標準エラー出力は、改行コード区切りであることを確認
 
 
     Dim strRes As String, intRes As Long
 
     'Sometimes edge writes to stdout so we clear stdout too.
     intRes = readProcSTD(strRes, False)
-    If intRes > 0 Then printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    If intRes > 0 Then
+        If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
+        printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    End If
 
     'Sometimes edge writes to stderrout so we clear stderrout too.
     intRes = readProcSTD(strRes, True)
-    If intRes > 0 Then printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    If intRes > 0 Then
+        If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
+        printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+    End If
 End Sub
 
 '***************************************************************************************************
@@ -833,12 +839,12 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
             'データなしの場合は、エラーコードチェックを行う
             If LastPipeError.PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & ErrorDetail.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             ElseIf LastPipeError.ReadFile Then
                 'ReadFile にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & ErrorDetail.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             Else
