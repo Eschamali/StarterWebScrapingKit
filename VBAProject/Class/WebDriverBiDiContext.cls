@@ -268,6 +268,8 @@ Public Function ConvertToCDPContext() As CDPContext
     End With
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
@@ -297,7 +299,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiMode.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiMode()
+Property Get InheritanceWebDriverBiDiMode() As WebDriverBiDiMode
     Set InheritanceWebDriverBiDiMode = m_BiDiMode
 End Property
 Property Set InheritanceWebDriverBiDiMode(Target As WebDriverBiDiMode)
@@ -307,7 +309,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiCore()
+Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
     Set InheritanceWebDriverBiDiCore = m_BiDiCore
 End Property
 Property Set InheritanceWebDriverBiDiCore(Target As WebDriverBiDiCore)
@@ -319,6 +321,9 @@ End Property
 '***************************************************************************************************
 Property Let context(param As String)
     InfoList.context = param
+End Property
+Property Get context() As String
+    context = InfoList.context
 End Property
 
 
