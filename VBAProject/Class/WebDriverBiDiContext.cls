@@ -169,7 +169,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     '1. 待機モードの設定
     Dim targetState As String
     Select Case till
-        Case isLoading: targetState = "loading"
+        Case isLoading: targetState = "none"
         Case isInteractive: targetState = "interactive"
         Case isComplete: targetState = "complete"
     End Select
