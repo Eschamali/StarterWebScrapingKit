@@ -2338,7 +2338,6 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Url = jsEval("document.URL", dbgMsg:=False)
     Url = br.Url
 
 End Property
@@ -2360,7 +2359,6 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Name = jsEval("document.title", dbgMsg:=False)
     Name = br.Name
 
 End Property
