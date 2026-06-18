@@ -673,7 +673,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ タブ操作関連 ■■■
 '***************************************************************************************************
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional browserContextId As String, Optional isBackground As Boolean) As CDPContext
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional browserContextId As String, Optional isBackground As Boolean) As CDPContext
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -697,6 +697,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
+    If isHidden Then params("hidden") = isHidden
     If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
