@@ -236,7 +236,7 @@ Private Type ErrorCode
 End Type
 Private LastPipeError   As ErrorCode
 
-'パイプ情報
+'各種ハンドル情報
 Private hStdOutWr       As LongPtr
 Private hStdOutRd       As LongPtr
 Private hStderrOutWr    As LongPtr
@@ -385,13 +385,17 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
 
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
 
+    '起動アプリハンドルを取得
+    hProcess = proc.hProcess
+    dwProcessId = proc.dwProcessId
+
     '実行結果チェック
     If result = 0 Then
         'エラーコードを返す
         InitCDP = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
-        ClosePipeCDP
+        CloseHandleBrowser
     Else
         '成功は、0として返却
         InitCDP = 0
@@ -403,9 +407,6 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
     CloseHandle hCDPOutWr
     CloseHandle hCDPInRd
     CloseHandle hStderrOutWr
-
-    hProcess = proc.hProcess
-    dwProcessId = proc.dwProcessId
 
 End Function
 
@@ -431,6 +432,7 @@ Public Sub serialize(UserName As String)
     tmp.Add "hStdInWr", (hStdInWr)
     tmp.Add "hCDPOutRd", (hCDPOutRd)
     tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "hProcess", (hProcess)
     tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
@@ -457,6 +459,7 @@ Public Function deserialize(UserName As String) As Boolean
     hStdInWr = PipeInfo("hStdInWr")
     hCDPOutRd = PipeInfo("hCDPOutRd")
     hCDPInWr = PipeInfo("hCDPInWr")
+    hProcess = PipeInfo("hProcess")
     dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
@@ -464,16 +467,17 @@ Public Function deserialize(UserName As String) As Boolean
 End Function
 
 '***************************************************************************************************
-'* 機能　　：パイプハンドル情報をクリーニングします
+'* 機能　　：各種ハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
-Public Sub ClosePipeCDP()
+Public Sub CloseHandleBrowser()
     CloseHandle hStdOutRd
     CloseHandle hStdInWr
     CloseHandle hCDPOutRd
     CloseHandle hCDPInWr
     CloseHandle hStderrOutRd
+    CloseHandle hProcess
 End Sub
 
 
@@ -1168,8 +1172,12 @@ Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDP�
     ConnectionPipe_hCDPInWr = hCDPInWr
 End Property
 
-Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
-    ConnectionProcessId = dwProcessId
+Property Get Connection_hProcess() As LongPtr           '`--remote-debugging-pipe`で起動した際のhProcess
+    Connection_hProcess = hProcess
+End Property
+
+Property Get Connection_dwProcessId() As LongPtr        '`--remote-debugging-pipe`で起動した際のProcessID
+    Connection_dwProcessId = dwProcessId
 End Property
 
 '***************************************************************************************************

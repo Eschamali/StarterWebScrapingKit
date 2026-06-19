@@ -996,8 +996,8 @@ Public Function TimerCounter() As Double
     TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
-Public Sub ClosePipeCDP()
-    m_CDPCore.ClosePipeCDP
+Public Sub CloseHandleBrowser()
+    m_CDPCore.CloseHandleBrowser
 End Sub
 
 

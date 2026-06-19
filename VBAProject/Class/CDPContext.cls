@@ -1800,7 +1800,7 @@ Private Function getHandle() As LongPtr
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.ConnectionProcessId Then
+        If currentPID = PipeCore.Connection_dwProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 

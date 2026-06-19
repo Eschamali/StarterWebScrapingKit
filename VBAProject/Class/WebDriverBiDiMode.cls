@@ -653,8 +653,8 @@ Public Sub quit()
     SendMessage "{""method"":""browser.close"",""params"":{}}", dbgMsg:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    m_BiDiCore.ClosePipeCDP 'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
+    deleteCDPID                     'テーブルからも削除する
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     sleep 1
