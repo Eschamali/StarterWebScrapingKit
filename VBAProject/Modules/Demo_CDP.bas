@@ -58,7 +58,7 @@ Public Function 設定シートからのCDP起動ForTab(Optional StartURL As Str
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForTab = New CDPContext
-        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
+        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 
@@ -85,7 +85,7 @@ Public Function 設定シートからのCDP起動ForBrowser(Optional StartURL As
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForBrowser = New CDPBrowser
-        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
+        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 

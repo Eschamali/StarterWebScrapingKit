@@ -154,7 +154,6 @@ Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` �
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
-'            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
 '            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
@@ -184,7 +183,6 @@ Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` �
 '***************************************************************************************************
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, _
     Optional addArgs As String, Optional KioskMode As edgeKioskType)
     Const FromProcedureName As String = ThisClassName & ".start"
@@ -252,8 +250,8 @@ Public Sub start(Optional Name As String = "chrome", _
    'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
    'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
    'PeekNamedPipe error will be thrown.
-    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser                            'Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
-    If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
+    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser        'Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+    cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
     setCrashStateNormal 'Prevent "Restore Session" popup
    '------------------------------------------------------------------------------------------------------------------------------------
 
@@ -393,14 +391,19 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
 End Function
 
-Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
-'-----------------------------------------------------------------------------------------------------------------------------------------
-' Provides cleaning before firing up a new session to prevent
-' pipe error
-' Update: 05/11/24: Daniel Polak - modified to solve problems with closing sessions (that do not belong to this user) on terminal server
-'         23/10/25: Daniel Polak - p.name and p.terminate were not correct, replaced by proc.name and proc.terminate (discovered this bug because we are using Option Explicit now). On Error Resume Next was hiding the bug too.
-'                                - only terminate automation-processes (where command line contains --remote-debugging-pipe)
-'-----------------------------------------------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：新しいデバッグブラウザセッションを開始する前にクリーンアップを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果　※0で成功です
+'* 引数    ：BrowserPath        起動しようとするブラウザフルパス
+'            UserDataArg        `--user-data-dir` or `--profile-directory`といった起動ユーザー引数を適用します
+'            onlyCdpSessions    `True` ：`--remote-debugging-pipe`,`--user-data-dir="..."`を含む、CDP制御サインに対してのブラウザをKillします
+'                               `False`：起動しようとするブラウザパスのみに対してのブラウザをKillします。ポリシー：UserDataDir の対策です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・基本は対象ブラウザの`remote-debugging-pipe`プロセスのみを終了します
+'            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
+'***************************************************************************************************
+Private Sub cleanUpSessions(onlyCdpSessions As Boolean)
     Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
 
 
@@ -409,32 +412,31 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
     ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
 
-    'Clean up all running sessions
+    ' 2. exe名を取得
+    Dim exeName As String, tmp
+    tmp = Split(br.Path, "\")
+    exeName = tmp(UBound(tmp))
+
+    ' 3. 起動中のプロセスを巡る
     Dim proc As Object
     On Error Resume Next
-
-    '2. 前述の2つの情報を基に、起動中のアプリたちを取得する
     For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
-        '3. 起動中のブラウザ名であるか確認
-        If LCase$(proc.Name) = LCase$(br.Type) Then
-            '4. Killタイプ判定
+        '4. 起動中のブラウザ名であるか確認
+        If LCase$(proc.Name) = LCase$(exeName) Then
+            '5. Killタイプ判定
             If Not onlyCdpSessions Then
-                '5. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
+                '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
                 proc.Terminate
 
             ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 0 And InStr(1, proc.CommandLine, br.User) > 0 Then
-                '5. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
+                '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
                  proc.Terminate
             End If
         End If
         DoEvents
     Next
     On Error GoTo 0
-    Err.Number = 0
-
-    'Also clean up all prev CDP
-    PipeCore.ClosePipeCDP   'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    Err.Clear
 
     printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
 

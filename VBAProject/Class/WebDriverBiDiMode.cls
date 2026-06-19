@@ -68,9 +68,6 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
-'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
-'                                           `False`:起動チェックをせずに、ブラウザを起動します
-'
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
@@ -81,7 +78,6 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '***************************************************************************************************
 Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
@@ -91,7 +87,7 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As Dictionary
