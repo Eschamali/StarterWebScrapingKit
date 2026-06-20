@@ -475,7 +475,7 @@ End Function
 '* 機能　　：バイト配列データで、WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：SendData           Byte 型
-'            TextType           WINHTTP_WEB_SOCKET_BUFFER_TYPE に沿った枠。このプロシージャを直接使う場合は、バイナリ送信を想定してますので、省略でOK
+'            TextMode           WINHTTP_WEB_SOCKET_BUFFER_TYPE に沿った枠。このプロシージャを直接使う場合は、バイナリ送信を想定してますので、省略でOK
 '                               `True` :UTF8_MESSAGE
 '                               `False`:BINARY_MESSAGE
 '
@@ -486,17 +486,17 @@ End Function
 '            ・`WinHttpWebSocketSend`の実行結果コードは基本的に0です。
 '              送信がうまくいったは、`LastSendStatus`にて、確認できます。
 '***************************************************************************************************
-Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
+Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextMode As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
     '1. ステータスをリセット
-    printMsg Debug_, IIf(TextType, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
+    printMsg Debug_, IIf(TextMode, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
     currentebWebSocket.isSended = False
 
     '2. `SendData`のサイズで一括送信し、実行結果コードを返却
     SendAsyncMessageAsBINARY = WinHttpWebSocketSend(ExistingWebsockethandle_, _
-                                IIf(TextType, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
+                                IIf(TextMode, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
                                 VarPtr(SendData(0)), UBound(SendData) + 1)
 End Function
 
