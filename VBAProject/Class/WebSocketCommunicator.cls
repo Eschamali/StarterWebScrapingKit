@@ -624,24 +624,15 @@ Public Sub zzProtWinHttpStatusCallback( _
     End Select
 End Sub
 
-
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：ForceClose
+'               `True`  必ず、ハンドル破棄まで突っ走ります
+'               `False` 途中でエラーがある場合は、そこで終わります。正しい手続きで終わらせます
 '***************************************************************************************************
-Public Function CloseWebSocket() As Boolean
-    On Error GoTo quit
-    If WebSocket Is Nothing Then
-        CloseWebSocket = True
-        Exit Function
-    End If
+Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
 
-    ' 非同期運用では protocol close 交渉よりも、即時に callback/handle を閉じる運用を優先する。
-    WebSocket.CloseHWebsocketHandle
-    CloseWebSocket = True
-    Exit Function
-
-quit:
-    CloseWebSocket = False
 End Function
 
 
