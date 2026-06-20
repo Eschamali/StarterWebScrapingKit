@@ -210,7 +210,7 @@ Public Sub zzProtWinHttpStatusCallback( _
     ByVal lpvStatusInformation As LongPtr, _
     ByVal dwStatusInformationLength As Long)
 
-    Const ErrorSource As String = ThisClassName & ".zzProtWinHttpStatusCallback"
+    Const FromProcedureName As String = ThisClassName & ".zzProtWinHttpStatusCallback"
 
 
     'WebSocket 関連コールバックのみ処理する
@@ -219,11 +219,11 @@ Public Sub zzProtWinHttpStatusCallback( _
             Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
             CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
 
-            printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
-            printMsg Debug_, "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
-            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
-            printMsg Debug_, "---------------------------------------------------", ErrorSource
-            printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
+            printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", FromProcedureName
+            printMsg Debug_, "Bytes：" & WebSocketStatus.dwBytesTransferred, FromProcedureName
+            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, FromProcedureName) & "(" & WebSocketStatus.eBufferType & ")", FromProcedureName
+            printMsg Debug_, "---------------------------------------------------", FromProcedureName
+            printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, FromProcedureName) & "(" & dwInternetStatus & ")", FromProcedureName
 
             Select Case dwInternetStatus
                 Case READ_COMPLETE
@@ -253,7 +253,7 @@ Public Sub zzProtWinHttpStatusCallback( _
                     printMsg info_, "WebSocket を閉じました。", FromProcedureName
                 
                 Case Else
-                    printMsg WARN_, "未定義の WINHTTP_STATUS_CALLBACK が来てます：" & dwInternetStatus, ErrorSource
+                    printMsg WARN_, "未定義の WINHTTP_STATUS_CALLBACK が来てます：" & dwInternetStatus, FromProcedureName
             End Select
 
         Case Else
