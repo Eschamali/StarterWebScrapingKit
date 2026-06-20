@@ -99,17 +99,22 @@ End Sub
 '                             ■■■ 接続後に行う主要メソッドDemo ■■■
 '***************************************************************************************************
 Sub WebSocketDemoASync_受信予約()
-    If websocketForEcho Is Nothing Then
+    Dim UseWebSocketObj As WebSocketCommunicator
+    Set UseWebSocketObj = websocketForEcho
+    Set UseWebSocketObj = websocketForCDP
+
+
+    If UseWebSocketObj Is Nothing Then
         Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
         Exit Sub
     End If
 
     '1. 既に予約中か？
-    If websocketForEcho.isWaitingReceiveResponse Then Debug.Print "既に、受信予約中です": Exit Sub
+    If UseWebSocketObj.isWaitingReceiveResponse Then Debug.Print "既に、受信予約中です": Exit Sub
 
     '2. 受信予約結果を受け取る
     Dim ResultCode As Long
-    ResultCode = websocketForEcho.RequestWebSocketReceive
+    ResultCode = UseWebSocketObj.RequestWebSocketReceive
 
     If ResultCode Then
         Debug.Print "受信予約エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
@@ -119,24 +124,29 @@ Sub WebSocketDemoASync_受信予約()
 End Sub
 
 Sub WebSocketDemoASync_受信データを取得()
-    If websocketForEcho Is Nothing Then
+    Dim UseWebSocketObj As WebSocketCommunicator
+    Set UseWebSocketObj = websocketForEcho
+    Set UseWebSocketObj = websocketForCDP
+
+
+    If UseWebSocketObj Is Nothing Then
         Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
         Exit Sub
     End If
 
     '1. 受信データが届いてるか？
-    If Not websocketForEcho.LastReceiveExisting Then Debug.Print "データがまだ、届いてません。": Exit Sub
+    If Not UseWebSocketObj.LastReceiveExisting Then Debug.Print "データがまだ、届いてません。": Exit Sub
 
     '2. 受信メッセージを受け取るようにリクエスト
     Dim ResultCode As Long
-    ResultCode = websocketForEcho.GetAsyncMessage
+    ResultCode = UseWebSocketObj.GetAsyncMessage
 
     '3. エラーがなければ、受信内容をプロパティメソッドから内容を、取得します
     If ResultCode Then
         Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print "受信結果：" & WinApiError.GetMessage(ResultCode, "WinHttp"), "Demo"
-        websocketForEcho.printMsg info_, "受信内容：" & websocketForEcho.LastReceiveContentUTF8, "Demo"
+        UseWebSocketObj.printMsg info_, "受信内容：" & UseWebSocketObj.LastReceiveContentUTF8, "Demo"
     End If
 End Sub
 
@@ -181,6 +191,105 @@ End Sub
 'End Sub
 
 
+
+'***************************************************************************************************
+'                               ■■■ ベンチマークテスト ■■■
+'***************************************************************************************************
+'* 目的　　：コールバック排水が死んでいないかを、送受信回収率で簡易判定します。いわゆる、ベンチマークテストです
+'* 使い方　：
+'*   1) WebSocketDemoASync_初期化_wss を実行
+'*   2) WebSocketDemoASync_判定_Drain必要性 を実行
+'* 判定目安：
+'*   - send と recv が概ね一致し、待機状態で詰まらなければ OK
+'*   - recv が極端に少ない / isWaitingReceiveResponse が長時間 True 固定なら NG 疑い
+'***************************************************************************************************
+Sub WebSocketDemoASync_ベンチマークテスト(Optional ByVal BurstCount As Long = 30, Optional ByVal TimeoutMSec As Double = 20000)
+    Const FromProcedureName As String = "Demo_WebSocket.WebSocketDemoASync_ベンチマークテスト"
+    Dim i As Long
+    Dim sendOk As Long
+    Dim recvOk As Long
+    Dim rc As Long
+    Dim startTick As Double
+    Dim msgText As String
+
+    Dim UseWebSocketObj As WebSocketCommunicator
+    Set UseWebSocketObj = websocketForEcho
+    Set UseWebSocketObj = websocketForCDP
+
+
+    If UseWebSocketObj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+        Exit Sub
+    End If
+
+    If BurstCount <= 0 Then BurstCount = 1
+    If TimeoutMSec <= 0 Then TimeoutMSec = 10000
+
+    UseWebSocketObj.printMsg info_, "ベンチマークを開始します。BurstCount=" & BurstCount & ", TimeoutSec=" & TimeoutMSec, FromProcedureName
+
+    ' 受信予約が未予約なら先に 1 回だけ予約
+    If Not UseWebSocketObj.isWaitingReceiveResponse And Not UseWebSocketObj.LastReceiveExisting Then
+        rc = UseWebSocketObj.RequestWebSocketReceive
+        If rc <> 0 Then
+            UseWebSocketObj.printMsg WARN_, "初回の受信予約に失敗しました。ErrorCode=" & rc, FromProcedureName
+        End If
+    End If
+
+    ' 1) バースト送信
+    For i = 1 To BurstCount
+        rc = UseWebSocketObj.SendAsyncMessageAsUTF8("#" & CStr(i) & "|" & String$(40, "X"))
+        If rc = 0 Then
+            sendOk = sendOk + 1
+        Else
+            UseWebSocketObj.printMsg WARN_, "送信失敗 i=" & i & ", ErrorCode=" & rc, FromProcedureName
+        End If
+        DoEvents
+    Next
+    UseWebSocketObj.printMsg info_, "送信完了 sendOk=" & sendOk, FromProcedureName
+
+    ' 2) タイムアウトまで受信回収
+    startTick = UseWebSocketObj.TimerCounter
+    Do
+        ' 受信データが来ていれば取り出す
+        If UseWebSocketObj.LastReceiveExisting Then
+            rc = UseWebSocketObj.GetAsyncMessage
+            If rc = 0 Then
+                recvOk = recvOk + 1
+                msgText = UseWebSocketObj.LastReceiveContentUTF8
+                UseWebSocketObj.printMsg Debug_, "受信回収 recvOk=" & recvOk & ", Len=" & Len(msgText), FromProcedureName
+            Else
+                UseWebSocketObj.printMsg WARN_, "GetAsyncMessage 失敗 ErrorCode=" & rc, FromProcedureName
+            End If
+        End If
+
+        ' 予約が外れていたら再予約
+        If Not UseWebSocketObj.isWaitingReceiveResponse And Not UseWebSocketObj.LastReceiveExisting Then
+            rc = UseWebSocketObj.RequestWebSocketReceive
+            If rc <> 0 Then
+                UseWebSocketObj.printMsg WARN_, "再予約失敗 ErrorCode=" & rc, FromProcedureName
+            End If
+        End If
+
+        If recvOk >= sendOk And sendOk > 0 Then Exit Do
+        DoEvents
+        sleep3 10
+    Loop While UseWebSocketObj.TimerCounter - startTick < TimeoutMSec
+
+    ' 3) 判定出力
+    UseWebSocketObj.printMsg info_, "判定結果 sendOk=" & sendOk & ", recvOk=" & recvOk & _
+                                   ", waiting=" & UseWebSocketObj.isWaitingReceiveResponse & _
+                                   ", hasData=" & UseWebSocketObj.LastReceiveExisting, FromProcedureName, True
+
+    If sendOk = 0 Then
+        UseWebSocketObj.printMsg WARN_, "送信成功が 0 件のため判定不能です。接続状態を確認してください。", FromProcedureName
+    ElseIf recvOk >= sendOk Then
+        UseWebSocketObj.printMsg info_, "OK: 機能している可能性が高いです。", FromProcedureName
+    ElseIf UseWebSocketObj.isWaitingReceiveResponse And Not UseWebSocketObj.LastReceiveExisting Then
+        UseWebSocketObj.printMsg WARN_, "NG疑い: 受信待機が詰まり気味です。", FromProcedureName
+    Else
+        UseWebSocketObj.printMsg WARN_, "要観察: 回収率が低いです。BurstCount/TimeoutSec を変えて再試験してください。", FromProcedureName
+    End If
+End Sub
 
 
 
@@ -280,3 +389,4 @@ Private Function CdpJsonEscape(ByVal s As String) As String
     t = Replace(t, """", "\""")
     CdpJsonEscape = t
 End Function
+
