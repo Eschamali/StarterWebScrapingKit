@@ -20,12 +20,6 @@ Option Explicit
 '***************************************************************************************************
 '                           ■■■ WindowsAPI宣言と定数定義 ■■■
 '***************************************************************************************************
-Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
-Private Const ERROR_SUCCESS = 0
-Private Const ERROR_INVALID_FUNCTION = 1
-Private Const ERROR_INVALID_HANDLE = 6
-Private Const ERROR_NOT_ENOUGH_MEMORY = 8
-
 Private Declare PtrSafe Function WinHttpOpen Lib "WinHttp" ( _
    ByVal pszAgentW As LongPtr, _
    ByVal dwAccessType As Long, _
