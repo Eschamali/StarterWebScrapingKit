@@ -38,9 +38,8 @@ Public Event OnCallback(ByVal dwInternetStatus As Long, _
                         ByVal eBufferType As Long, _
                         ByVal dwStatusInformationLength As Long)
 
-'フォームインスタンス（SafeTimer の m_form 相当。ハンドル取得＆ライフタイム管理に使用）
-Private m_form As New WinHttpSetStatusCallbackForm
-
+' PostMessage 通知先: message-only ウィンドウ（UserForm は表示しない）
+Private m_notifyHwnd As LongPtr
 Private Type CallbackQueueItem
     HINTERNET As LongPtr
     dwInternetStatus As Long
@@ -53,7 +52,6 @@ Private m_queueRead As Long
 Private m_queueWrite As Long
 Private m_droppedCallbacks As Long
 Private m_callbackHitCount As Long
-Private m_notifyHwnd As LongPtr
 
 
 
@@ -194,7 +192,14 @@ Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowL
 Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowProcA" ( _
     ByVal lpPrevWndFunc As LongPtr, ByVal hWnd As LongPtr, ByVal msg As Long, _
     ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
+Private Declare PtrSafe Function CreateWindowEx Lib "user32" Alias "CreateWindowExW" ( _
+    ByVal dwExStyle As Long, ByVal lpClassName As LongPtr, ByVal lpWindowName As LongPtr, _
+    ByVal dwStyle As Long, ByVal x As Long, ByVal y As Long, ByVal nWidth As Long, _
+    ByVal nHeight As Long, ByVal hWndParent As LongPtr, ByVal hMenu As LongPtr, _
+    ByVal hInstance As LongPtr, ByVal lpParam As LongPtr) As LongPtr
+Private Declare PtrSafe Function DestroyWindow Lib "user32" (ByVal hWnd As LongPtr) As Long
 Private Const GWLP_WNDPROC As Long = -4
+Private Const HWND_MESSAGE As LongPtr = -3
 
 Private hSessionHandle_     As LongPtr
 Private hConnectionHandle_  As LongPtr
@@ -327,10 +332,15 @@ End Sub
 
 Private Sub EnsureNotifyHwnd()
     If m_notifyHwnd <> 0 Then Exit Sub
+    m_notifyHwnd = CreateWindowEx(0, StrPtr("STATIC"), 0, 0, 0, 0, 0, 0, HWND_MESSAGE, 0, 0, 0)
+End Sub
+
+Private Sub DestroyNotifyHwnd()
     On Error Resume Next
-    m_form.Show vbModeless
-    m_form.Hide
-    m_notifyHwnd = m_form.Controls.Add("Forms.Frame.1").[_GethWnd]
+    If m_notifyHwnd <> 0 Then
+        DestroyWindow m_notifyHwnd
+        m_notifyHwnd = 0
+    End If
     On Error GoTo 0
 End Sub
 
@@ -605,7 +615,7 @@ End Sub
 
 Private Sub Class_Terminate()
     WinHttpCallbackRouter.RemoveWinHttpMessageHook m_notifyHwnd
-    m_notifyHwnd = 0
+    DestroyNotifyHwnd
     CloseHInternetHandles
     CloseHWebsocketHandle
 End Sub
