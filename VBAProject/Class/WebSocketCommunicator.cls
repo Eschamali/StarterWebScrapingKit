@@ -459,7 +459,7 @@ Public Sub connectionWebSocket(Host As String, Optional Path As String, Optional
     If HttpHelper.Connect(Host, Path, port, SecureMode) Then
         printMsg info_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に成功しました。WebSocketへの Upgrade 処理を行います...", FromProcedureName
     Else
-        Set HttpHelper = Nothing  '失敗時は、オブジェクト破棄しておく
+        FreeCallbackThunk   '失敗時は、thunk破棄しておく
         printMsg ERROR_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
@@ -469,7 +469,7 @@ Public Sub connectionWebSocket(Host As String, Optional Path As String, Optional
     If HttpHelper.UpgradeToWebSocket(m_pCallbackThunk, ObjPtr(Me)) Then
         printMsg info_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、成功しました。", FromProcedureName
     Else
-        Set HttpHelper = Nothing  '失敗時は、オブジェクト破棄しておく
+        FreeCallbackThunk   '失敗時は、thunk破棄しておく
         printMsg ERROR_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
@@ -830,6 +830,9 @@ Private Sub Class_Initialize()
 
     '実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
     Call QueryPerformanceFrequency(m_Frequency)
+
+    '非同期コールバック thunk を生成（Upgrade 前に必須）
+    m_pCallbackThunk = CreateCallbackThunk
 End Sub
 
 Private Sub Class_Terminate()
