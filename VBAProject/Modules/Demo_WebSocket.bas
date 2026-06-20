@@ -198,7 +198,7 @@ End Sub
 '* 目的　　：コールバック排水が死んでいないかを、送受信回収率で簡易判定します。いわゆる、ベンチマークテストです
 '* 使い方　：
 '*   1) WebSocketDemoASync_初期化_wss を実行
-'*   2) WebSocketDemoASync_判定_Drain必要性 を実行
+'*   2) WebSocketDemoASync_ベンチマークテスト を実行
 '* 判定目安：
 '*   - send と recv が概ね一致し、待機状態で詰まらなければ OK
 '*   - recv が極端に少ない / isWaitingReceiveResponse が長時間 True 固定なら NG 疑い
