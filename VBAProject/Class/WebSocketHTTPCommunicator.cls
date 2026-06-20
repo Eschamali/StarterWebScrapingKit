@@ -274,7 +274,9 @@ Public Sub HandlePostedWinHttpCallback(ByVal packedStatusAndLength As LongPtr, B
 #End If
     m_callbackHitCount = m_callbackHitCount + 1
 #If Win64 Then
-    If dwStatusInformationLength >= LenB(statusInfo) Then
+    ' PostMessage 経路: lParam に WINHTTP_WEB_SOCKET_STATUS がパック済み。
+    ' wParam 上位 DWORD (length) が 0 でも lParam が有効なら採用する。
+    If packedStatusInformation <> 0 Then
         EnqueueCallback 0, dwInternetStatus, VarPtr(statusInfo), LenB(statusInfo)
     Else
         EnqueueCallback 0, dwInternetStatus, 0, 0

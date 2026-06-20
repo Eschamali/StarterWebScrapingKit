@@ -533,14 +533,18 @@ Private Sub WebSocket_OnCallback(ByVal dwInternetStatus As Long, _
     Select Case dwInternetStatus
         Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
 
-            If dwStatusInformationLength = 0 Then
-                'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
+            If dwStatusInformationLength = 0 And eBufferType < 0 Then
+                ' CLOSE/SHUTDOWN 等、または PostMessage 経路で status 未同梱のケース
                 printMsg WARN_, "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, FromProcedureName
             End If
 
             printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", FromProcedureName
             printMsg Debug_, "Bytes：" & dwBytesTransferred, FromProcedureName
-            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(eBufferType, FromProcedureName) & "(" & eBufferType & ")", FromProcedureName
+            If eBufferType >= 0 Then
+                printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(eBufferType, FromProcedureName) & "(" & eBufferType & ")", FromProcedureName
+            Else
+                printMsg Debug_, "Type ：(n/a)", FromProcedureName
+            End If
             printMsg Debug_, "---------------------------------------------------", FromProcedureName
             printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, FromProcedureName) & "(" & dwInternetStatus & ")", FromProcedureName
 
