@@ -42,8 +42,8 @@ Private Declare PtrSafe Function SetActiveWindow Lib "user32" (ByVal hWnd As Lon
 '                               ■■■ 制御に必要な変数定義 ■■■
 '***************************************************************************************************
 '外部から渡されるEdgeのウィンドウハンドル
-Private EdgeHwnd                As LongPtr
-Private WithEvents targetCDP    As CDPBrowser
+Private EdgeHwnd    As LongPtr
+Private targetCDP   As CDPContext
 Attribute targetCDP.VB_VarHelpID = -1
 
 '自身のUserFormのハンドルを保存する変数
@@ -74,7 +74,7 @@ Private Const WS_VISIBLE    As Long = &H10000000    ' headlessモードでも強
 '* 返り値　：成功可否論理値
 '* 引数　　：TargetCDPBrowser   CDPモードでStartした後のオブジェクト変数
 '***************************************************************************************************
-Public Function AttachEdge(TargetCDPBrowser As CDPBrowser) As Boolean
+Public Function AttachEdge(TargetCDPBrowser As CDPContext) As Boolean
     '1. 必要な変数を適用
     Set targetCDP = TargetCDPBrowser
     EdgeHwnd = targetCDP.BrowserWindowHandle(True)
@@ -243,13 +243,12 @@ End Sub
 '***************************************************************************************************
 Private Sub FocusNotify()
     Me.focusNotice.Visible = True
-    DoEvents
 
-    Dim endTime As Single
-    endTime = Timer + 1
-    Do While Timer < endTime
+    Dim endTime As Double
+    endTime = targetCDP.InheritanceCDPBrowser.TimerCounter + 1000 '1000ms間表示させる
+    Do
         DoEvents ' これを入れないとExcelがフリーズしてイベントが拾えない！
-    Loop
+    Loop While targetCDP.InheritanceCDPBrowser.TimerCounter < endTime
 
     Me.focusNotice.Visible = False
 End Sub

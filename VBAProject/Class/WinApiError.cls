@@ -5,7 +5,7 @@ END
 Attribute VB_Name = "WinApiError"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = False
+Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '***************************************************************************************************
 '                    VBAから、WindowsAPI使用時のエラーコードを詳細情報を出力します

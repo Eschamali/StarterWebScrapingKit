@@ -471,6 +471,9 @@
         parseReloadParams(params) {
             return params;
         }
+        parseSetBypassCspParams(params) {
+            return params;
+        }
         parseSetViewportParams(params) {
             return params;
         }
@@ -508,6 +511,9 @@
             return params;
         }
         parseSetScriptingEnabledParams(params) {
+            return params;
+        }
+        parseSetScrollbarTypeOverrideParams(params) {
             return params;
         }
         parseSetTimezoneOverrideParams(params) {
@@ -1250,6 +1256,24 @@
             await Promise.all(browsingContexts.map(async (context) => {
                 const config = this.#contextConfigStorage.getActiveConfig(context.id, context.userContext);
                 await context.setScriptingEnabled(config.scriptingEnabled ?? null);
+            }));
+            return {};
+        }
+        async setScrollbarTypeOverride(params) {
+            const browsingContexts = await this.#getRelatedTopLevelBrowsingContexts(params.contexts, params.userContexts);
+            for (const browsingContextId of params.contexts ?? []) {
+                this.#contextConfigStorage.updateBrowsingContextConfig(browsingContextId, {
+                    scrollbarType: params.scrollbarType,
+                });
+            }
+            for (const userContextId of params.userContexts ?? []) {
+                this.#contextConfigStorage.updateUserContextConfig(userContextId, {
+                    scrollbarType: params.scrollbarType,
+                });
+            }
+            await Promise.all(browsingContexts.map(async (context) => {
+                const config = this.#contextConfigStorage.getActiveConfig(context.id, context.userContext);
+                await context.setScrollbarTypeOverride(config.scrollbarType ?? null);
             }));
             return {};
         }
@@ -5137,6 +5161,9 @@
                     return await this.#browsingContextProcessor.print(this.#parser.parsePrintParams(command.params));
                 case 'browsingContext.reload':
                     return await this.#browsingContextProcessor.reload(this.#parser.parseReloadParams(command.params));
+                case 'browsingContext.setBypassCSP':
+                    this.#parser.parseSetBypassCspParams(command.params);
+                    throw new UnsupportedOperationException(`Method ${command.method} is not implemented.`);
                 case 'browsingContext.setViewport':
                     return await this.#browsingContextProcessor.setViewport(this.#parser.parseSetViewportParams(command.params));
                 case 'browsingContext.traverseHistory':
@@ -5162,6 +5189,8 @@
                     return await this.#emulationProcessor.setScreenSettingsOverride(this.#parser.parseSetScreenSettingsOverrideParams(command.params));
                 case 'emulation.setScriptingEnabled':
                     return await this.#emulationProcessor.setScriptingEnabled(this.#parser.parseSetScriptingEnabledParams(command.params));
+                case 'emulation.setScrollbarTypeOverride':
+                    return await this.#emulationProcessor.setScrollbarTypeOverride(this.#parser.parseSetScrollbarTypeOverrideParams(command.params));
                 case 'emulation.setTimezoneOverride':
                     return await this.#emulationProcessor.setTimezoneOverride(this.#parser.parseSetTimezoneOverrideParams(command.params));
                 case 'emulation.setTouchOverride':
@@ -5697,6 +5726,7 @@
         screenArea;
         screenOrientation;
         scriptingEnabled;
+        scrollbarType;
         timezone;
         userAgent;
         userPromptHandler;
@@ -7481,7 +7511,7 @@
         }
         async setViewport(viewport, devicePixelRatio, screenOrientation) {
             const config = this.#configStorage.getActiveConfig(this.id, this.userContext);
-            await this.cdpTarget.setDeviceMetricsOverride(viewport, devicePixelRatio, screenOrientation, config.screenArea ?? null);
+            await this.cdpTarget.setDeviceMetricsOverride(viewport, devicePixelRatio, screenOrientation, config.screenArea ?? null, config.scrollbarType ?? null);
         }
         async handleUserPrompt(accept, userText) {
             await this.top.#cdpTarget.cdpClient.sendCommand('Page.handleJavaScriptDialog', {
@@ -7996,6 +8026,10 @@
         }
         async setExtraHeaders(cdpExtraHeaders) {
             await Promise.all(this.#getAllRelatedCdpTargets().map(async (cdpTarget) => await cdpTarget.setExtraHeaders(cdpExtraHeaders)));
+        }
+        async setScrollbarTypeOverride(scrollbarType) {
+            const config = this.#configStorage.getActiveConfig(this.id, this.userContext);
+            await this.cdpTarget.setDeviceMetricsOverride(config.viewport ?? null, config.devicePixelRatio ?? null, config.screenOrientation ?? null, config.screenArea ?? null, scrollbarType);
         }
     }
     _a$5 = BrowsingContextImpl;
@@ -10051,11 +10085,12 @@
                 return script.initInTarget(this, true);
             }));
         }
-        async setDeviceMetricsOverride(viewport, devicePixelRatio, screenOrientation, screenArea) {
+        async setDeviceMetricsOverride(viewport, devicePixelRatio, screenOrientation, screenArea, scrollbarType = null) {
             if (viewport === null &&
                 devicePixelRatio === null &&
                 screenOrientation === null &&
-                screenArea === null) {
+                screenArea === null &&
+                scrollbarType === null) {
                 await this.cdpClient.sendCommand('Emulation.clearDeviceMetricsOverride');
                 return;
             }
@@ -10067,6 +10102,7 @@
                 mobile: false,
                 screenWidth: screenArea?.width,
                 screenHeight: screenArea?.height,
+                scrollbarType: scrollbarType === 'overlay' ? 'overlay' : 'default',
             };
             await this.cdpClient.sendCommand('Emulation.setDeviceMetricsOverride', metricsOverride);
         }
@@ -10082,7 +10118,7 @@
                 config.devicePixelRatio !== undefined ||
                 config.screenOrientation !== undefined ||
                 config.screenArea !== undefined) {
-                promises.push(this.setDeviceMetricsOverride(config.viewport ?? null, config.devicePixelRatio ?? null, config.screenOrientation ?? null, config.screenArea ?? null).catch(() => {
+                promises.push(this.setDeviceMetricsOverride(config.viewport ?? null, config.devicePixelRatio ?? null, config.screenOrientation ?? null, config.screenArea ?? null, config.scrollbarType ?? null).catch(() => {
                 }));
             }
             if (config.geolocation !== undefined && config.geolocation !== null) {
@@ -16602,6 +16638,7 @@
         BrowsingContext$1.NavigateSchema,
         BrowsingContext$1.PrintSchema,
         BrowsingContext$1.ReloadSchema,
+        BrowsingContext$1.SetBypassCspSchema,
         BrowsingContext$1.SetViewportSchema,
         BrowsingContext$1.TraverseHistorySchema,
     ]));
@@ -16616,6 +16653,7 @@
         BrowsingContext$1.NavigateResultSchema,
         BrowsingContext$1.PrintResultSchema,
         BrowsingContext$1.ReloadResultSchema,
+        BrowsingContext$1.SetBypassCspResultSchema,
         BrowsingContext$1.SetViewportResultSchema,
         BrowsingContext$1.TraverseHistoryResultSchema,
     ]));
@@ -16714,6 +16752,7 @@
             navigation: z.union([BrowsingContext.NavigationSchema, z.null()]),
             timestamp: JsUintSchema,
             url: z.string(),
+            userContext: Browser$1.UserContextSchema.optional(),
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
     (function (BrowsingContext) {
@@ -16820,6 +16859,7 @@
     (function (BrowsingContext) {
         BrowsingContext.CreateResultSchema = z.lazy(() => z.object({
             context: BrowsingContext.BrowsingContextSchema,
+            userContext: Browser$1.UserContextSchema.optional(),
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
     (function (BrowsingContext) {
@@ -16951,6 +16991,25 @@
         BrowsingContext.ReloadResultSchema = z.lazy(() => BrowsingContext.NavigateResultSchema);
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
     (function (BrowsingContext) {
+        BrowsingContext.SetBypassCspSchema = z.lazy(() => z.object({
+            method: z.literal('browsingContext.setBypassCSP'),
+            params: BrowsingContext.SetBypassCspParametersSchema,
+        }));
+    })(BrowsingContext$1 || (BrowsingContext$1 = {}));
+    (function (BrowsingContext) {
+        BrowsingContext.SetBypassCspParametersSchema = z.lazy(() => z.object({
+            bypass: z.union([z.literal(true), z.null()]),
+            contexts: z
+                .array(BrowsingContext.BrowsingContextSchema)
+                .min(1)
+                .optional(),
+            userContexts: z.array(Browser$1.UserContextSchema).min(1).optional(),
+        }));
+    })(BrowsingContext$1 || (BrowsingContext$1 = {}));
+    (function (BrowsingContext) {
+        BrowsingContext.SetBypassCspResultSchema = z.lazy(() => EmptyResultSchema);
+    })(BrowsingContext$1 || (BrowsingContext$1 = {}));
+    (function (BrowsingContext) {
         BrowsingContext.SetViewportSchema = z.lazy(() => z.object({
             method: z.literal('browsingContext.setViewport'),
             params: BrowsingContext.SetViewportParametersSchema,
@@ -17023,6 +17082,7 @@
             context: BrowsingContext.BrowsingContextSchema,
             timestamp: JsUintSchema,
             url: z.string(),
+            userContext: Browser$1.UserContextSchema.optional(),
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
     (function (BrowsingContext) {
@@ -17106,6 +17166,7 @@
             context: BrowsingContext.BrowsingContextSchema,
             accepted: z.boolean(),
             type: BrowsingContext.UserPromptTypeSchema,
+            userContext: Browser$1.UserContextSchema.optional(),
             userText: z.string().optional(),
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
@@ -17121,6 +17182,7 @@
             handler: Session$1.UserPromptHandlerTypeSchema,
             message: z.string(),
             type: BrowsingContext.UserPromptTypeSchema,
+            userContext: Browser$1.UserContextSchema.optional(),
             defaultValue: z.string().optional(),
         }));
     })(BrowsingContext$1 || (BrowsingContext$1 = {}));
@@ -17132,6 +17194,7 @@
         Emulation$1.SetScreenOrientationOverrideSchema,
         Emulation$1.SetScreenSettingsOverrideSchema,
         Emulation$1.SetScriptingEnabledSchema,
+        Emulation$1.SetScrollbarTypeOverrideSchema,
         Emulation$1.SetTimezoneOverrideSchema,
         Emulation$1.SetTouchOverrideSchema,
         Emulation$1.SetUserAgentOverrideSchema,
@@ -17142,6 +17205,7 @@
         Emulation$1.SetLocaleOverrideResultSchema,
         Emulation$1.SetScreenOrientationOverrideResultSchema,
         Emulation$1.SetScriptingEnabledResultSchema,
+        Emulation$1.SetScrollbarTypeOverrideResultSchema,
         Emulation$1.SetTimezoneOverrideResultSchema,
         Emulation$1.SetTouchOverrideResultSchema,
         Emulation$1.SetUserAgentOverrideResultSchema,
@@ -17365,6 +17429,29 @@
         Emulation.SetScriptingEnabledResultSchema = z.lazy(() => EmptyResultSchema);
     })(Emulation$1 || (Emulation$1 = {}));
     (function (Emulation) {
+        Emulation.SetScrollbarTypeOverrideSchema = z.lazy(() => z.object({
+            method: z.literal('emulation.setScrollbarTypeOverride'),
+            params: Emulation.SetScrollbarTypeOverrideParametersSchema,
+        }));
+    })(Emulation$1 || (Emulation$1 = {}));
+    (function (Emulation) {
+        Emulation.SetScrollbarTypeOverrideParametersSchema = z.lazy(() => z.object({
+            scrollbarType: z.union([
+                z.literal('classic'),
+                z.literal('overlay'),
+                z.null(),
+            ]),
+            contexts: z
+                .array(BrowsingContext$1.BrowsingContextSchema)
+                .min(1)
+                .optional(),
+            userContexts: z.array(Browser$1.UserContextSchema).min(1).optional(),
+        }));
+    })(Emulation$1 || (Emulation$1 = {}));
+    (function (Emulation) {
+        Emulation.SetScrollbarTypeOverrideResultSchema = z.lazy(() => EmptyResultSchema);
+    })(Emulation$1 || (Emulation$1 = {}));
+    (function (Emulation) {
         Emulation.SetTimezoneOverrideSchema = z.lazy(() => z.object({
             method: z.literal('emulation.setTimezoneOverride'),
             params: Emulation.SetTimezoneOverrideParametersSchema,
@@ -17461,6 +17548,7 @@
             redirectCount: JsUintSchema,
             request: Network.RequestDataSchema,
             timestamp: JsUintSchema,
+            userContext: z.union([Browser$1.UserContextSchema, z.null()]).optional(),
             intercepts: z.array(Network.InterceptSchema).min(1).optional(),
         }));
     })(Network$1 || (Network$1 = {}));
@@ -18132,6 +18220,7 @@
         Script.WindowRealmInfoSchema = z.lazy(() => Script.BaseRealmInfoSchema.and(z.object({
             type: z.literal('window'),
             context: BrowsingContext$1.BrowsingContextSchema,
+            userContext: Browser$1.UserContextSchema.optional(),
             sandbox: z.string().optional(),
         })));
     })(Script$1 || (Script$1 = {}));
@@ -18437,6 +18526,7 @@
         Script.SourceSchema = z.lazy(() => z.object({
             realm: Script.RealmSchema,
             context: BrowsingContext$1.BrowsingContextSchema.optional(),
+            userContext: Browser$1.UserContextSchema.optional(),
         }));
     })(Script$1 || (Script$1 = {}));
     (function (Script) {
@@ -18906,30 +18996,13 @@
     })(Input$1 || (Input$1 = {}));
     (function (Input) {
         Input.PointerCommonPropertiesSchema = z.lazy(() => z.object({
-            width: JsUintSchema.default(1).optional(),
-            height: JsUintSchema.default(1).optional(),
-            pressure: z.number().default(0).optional(),
-            tangentialPressure: z.number().default(0).optional(),
-            twist: z
-                .number()
-                .int()
-                .nonnegative()
-                .gte(0)
-                .lte(359)
-                .default(0)
-                .optional(),
-            altitudeAngle: z
-                .number()
-                .gte(0)
-                .lte(1.5707963267948966)
-                .default(0)
-                .optional(),
-            azimuthAngle: z
-                .number()
-                .gte(0)
-                .lte(6.283185307179586)
-                .default(0)
-                .optional(),
+            width: JsUintSchema.optional(),
+            height: JsUintSchema.optional(),
+            pressure: z.number().gte(0).lte(1).optional(),
+            tangentialPressure: z.number().gte(-1).lte(1).optional(),
+            twist: z.number().int().nonnegative().gte(0).lte(359).optional(),
+            altitudeAngle: z.number().gte(0).lte(1.5707963267948966).optional(),
+            azimuthAngle: z.number().gte(0).lte(6.283185307179586).optional(),
         }));
     })(Input$1 || (Input$1 = {}));
     (function (Input) {
@@ -18981,6 +19054,7 @@
     (function (Input) {
         Input.FileDialogInfoSchema = z.lazy(() => z.object({
             context: BrowsingContext$1.BrowsingContextSchema,
+            userContext: Browser$1.UserContextSchema.optional(),
             element: Script$1.SharedReferenceSchema.optional(),
             multiple: z.boolean(),
         }));
@@ -19220,6 +19294,10 @@
             return parseObject(params, BrowsingContext$1.ReloadParametersSchema);
         }
         BrowsingContext.parseReloadParams = parseReloadParams;
+        function parseSetBypassCspParams(params) {
+            return parseObject(params, BrowsingContext$1.SetBypassCspParametersSchema);
+        }
+        BrowsingContext.parseSetBypassCspParams = parseSetBypassCspParams;
         function parseSetViewportParams(params) {
             return parseObject(params, BrowsingContext$1.SetViewportParametersSchema);
         }
@@ -19289,6 +19367,10 @@
             return parseObject(params, Emulation$1.SetScriptingEnabledParametersSchema);
         }
         Emulation.parseSetScriptingEnabledParams = parseSetScriptingEnabledParams;
+        function parseSetScrollbarTypeOverrideParams(params) {
+            return parseObject(params, Emulation$1.SetScrollbarTypeOverrideParametersSchema);
+        }
+        Emulation.parseSetScrollbarTypeOverrideParams = parseSetScrollbarTypeOverrideParams;
         function parseSetTimezoneOverrideParams(params) {
             return parseObject(params, Emulation$1.SetTimezoneOverrideParametersSchema);
         }
@@ -19517,6 +19599,9 @@
         parseReloadParams(params) {
             return BrowsingContext.parseReloadParams(params);
         }
+        parseSetBypassCspParams(params) {
+            return BrowsingContext.parseSetBypassCspParams(params);
+        }
         parseSetViewportParams(params) {
             return BrowsingContext.parseSetViewportParams(params);
         }
@@ -19555,6 +19640,9 @@
         }
         parseSetScriptingEnabledParams(params) {
             return Emulation.parseSetScriptingEnabledParams(params);
+        }
+        parseSetScrollbarTypeOverrideParams(params) {
+            return Emulation.parseSetScrollbarTypeOverrideParams(params);
         }
         parseSetTimezoneOverrideParams(params) {
             return Emulation.parseSetTimezoneOverrideParams(params);
