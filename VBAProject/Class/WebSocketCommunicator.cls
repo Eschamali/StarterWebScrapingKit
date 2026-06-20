@@ -49,41 +49,6 @@ Private Declare PtrSafe Function WinHttpWebSocketQueryCloseStatus Lib "WinHttp" 
    ByRef pdwReasonLengthConsumed As Long _
    ) As Long
 
-Private Declare PtrSafe Function WinHttpSetStatusCallback Lib "WinHttp" ( _
-  ByVal hWebSocket As LongPtr, _
-  ByVal lpfnInternetCallback As LongPtr, _
-  ByVal dwNotificationFlags As Long, _
-  ByVal dwReserved As LongPtr _
-   ) As LongPtr
-
-'----- thunk 生成用 (stdWebView / WebView2-For-Excel-VBA パターン) -----
-Private Declare PtrSafe Function VirtualAlloc Lib "kernel32" ( _
-    ByVal lpAddress As LongPtr, _
-    ByVal dwSize As LongPtr, _
-    ByVal flAllocationType As Long, _
-    ByVal flProtect As Long) As LongPtr
-
-Private Declare PtrSafe Function VirtualFree Lib "kernel32" ( _
-    ByVal lpAddress As LongPtr, _
-    ByVal dwSize As LongPtr, _
-    ByVal dwFreeType As Long) As Long
-
-Private Declare PtrSafe Function GetModuleHandle Lib "kernel32" Alias "GetModuleHandleA" ( _
-    ByVal lpModuleName As String) As LongPtr
-
-Private Declare PtrSafe Function GetProcAddress Lib "kernel32" ( _
-    ByVal hModule As LongPtr, _
-    ByVal lpProcName As String) As LongPtr
-
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" ( _
-    Destination As Any, Source As Any, ByVal length As LongPtr)
-
-Private Declare PtrSafe Sub CopyMemoryByPtr Lib "kernel32" Alias "RtlMoveMemory" ( _
-    ByVal Destination As LongPtr, ByVal Source As LongPtr, ByVal length As LongPtr)
-
-Private Declare PtrSafe Sub CopyMemoryByAddr Lib "kernel32" Alias "RtlMoveMemory" ( _
-    ByRef Destination As Any, ByVal Source As LongPtr, ByVal length As LongPtr)
-
 '----- 待機関連 -----
 Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
 Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
@@ -108,7 +73,7 @@ Private m_res   As WebSocketReceiveManage
 
 
 '***************************************************************************************************
-'                                  ■■■ 各種定数宣言 ■■■
+'                                  ■■■ 定数宣言 ■■■
 '***************************************************************************************************
 'ログトレース用
 Private Const ThisClassName As String = "WebSocketCommunicator"
@@ -140,19 +105,7 @@ Private Enum WINHTTP_STATUS_CALLBACK
 End Enum
 
 'WebSokect関連のステータス
-Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS As Long = 1000
-Private Const WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS As Long = &HFFFFFFFF
-Private Const WINHTTP_INVALID_STATUS_CALLBACK As LongPtr = -1
-
-'thunk系
-Private Const MEM_COMMIT As Long = &H1000
-Private Const MEM_RESERVE As Long = &H2000
-Private Const MEM_RELEASE As Long = &H8000
-Private Const PAGE_EXECUTE_READWRITE As Long = &H40
-
-' zzProtWinHttpStatusCallback の vtable index (IUnknown=3 + IDispatch=4 の直後 = 先頭 Public メンバー)
-' 本 Sub はクラス内で最初の Public メンバーとして配置すること（以降の API 追加はこの後ろへ）
-Private Const CALLBACK_VTABLE_INDEX As Long = 0
+Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS = 1000
 
 'その他
 Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
@@ -163,8 +116,10 @@ Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 '                                  ■■■ グローバル変数 ■■■
 '***************************************************************************************************
 '内部使用用オブジェクト
-Private CharConv            As New CharacterCodeConversion  'バイト配列←→UTF-8変換用
-Private ViewLog             As New Logger                   'ログ用
+Private WithEvents WebSocket        As WebSocketHTTPCommunicator    'SafeTimer の WithEvents st As SafeTimer 相当。WebSocketハンドルもここに格納されてる
+Attribute WebSocket.VB_VarHelpID = -1
+Private CharConv                    As New CharacterCodeConversion  'バイト配列←→UTF-8変換用
+Private ViewLog                     As New Logger                   'ログ用
 
 '--- WebSokect関連の補助ステータス ---
 Private Type StateWebSocket
@@ -182,65 +137,14 @@ Private Type StateLog
 End Type
 Private currentLog As StateLog
 
-'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ns-winhttp-winhttp_web_socket_status
-Private Type WINHTTP_WEB_SOCKET_STATUS
-    dwBytesTransferred As Long
-    eBufferType As Long
-End Type
+'最後のWebSocketから得た受信データ
+Private Content_WinHttpWebSocketReceive() As Byte
+
+'プロシージャ`GetAsyncMessage`にて、次の断片データを受信する際のタイムアウト値
+Private timerOut   As Long
 
 'その他
-Private m_Frequency                         As Currency '実行マシンでの周波数記録用
-Private timerOut                            As Long     'プロシージャ`GetAsyncMessage`にて、次の断片データを受信する際のタイムアウト値
-Private ExistingWebsockethandle_            As LongPtr  'WebSocketハンドル値
-Private m_pCallbackThunk                    As LongPtr  'コールバックポインター
-Private Content_WinHttpWebSocketReceive()   As Byte     '最後のWebSocketから得た受信データ
-
-
-
-'***************************************************************************************************
-'          ■■■ WinHTTP コールバック（thunk からのみ呼ばれる Public エントリポイント） ■■■
-'          ※ vtable 先頭固定のため、他の Public メンバーより前に配置すること
-'***************************************************************************************************
-Public Sub zzProtWinHttpStatusCallback( _
-    ByVal HINTERNET As LongPtr, _
-    ByVal dwContext As LongPtr, _
-    ByVal dwInternetStatus As Long, _
-    ByVal lpvStatusInformation As LongPtr, _
-    ByVal dwStatusInformationLength As Long)
-
-
-    ' WinHTTP 非同期コールバックは任意スレッドから呼ばれる。
-    ' printMsg / Logger / Property Get 等の COM 操作は再入時に Excel が落ちるため、ここではフラグ更新のみ行う。
-    ' （CDP は Send 直後に READ_COMPLETE が続くため echo より再入しやすい）
-    Select Case dwInternetStatus
-        Case WINHTTP_STATUS_CALLBACK.READ_COMPLETE
-            '受信バッファ管理情報の更新は READ_COMPLETE のときだけ行う。
-            'WRITE_COMPLETE 等でここを上書きすると、巨大レスポンス分割受信中に m_res が壊れる。
-            Dim wsStatus As WINHTTP_WEB_SOCKET_STATUS
-            CopyMemory wsStatus, ByVal lpvStatusInformation, LenB(wsStatus)
-
-            '`CopyMemory`で得た変数をクラス内変数へコピー
-            m_res.Status = wsStatus.eBufferType
-            m_res.ReceiveBytes = wsStatus.dwBytesTransferred
-
-            'ステータス更新
-            currentebWebSocket.isReceiving = True    'データが届いたので、データが残存してるフラグを`True`にする
-            currentebWebSocket.isReserved = False    'データは届いたので、受信予約フラグを`False`にする
-
-        Case WINHTTP_STATUS_CALLBACK.WRITE_COMPLETE
-            currentebWebSocket.isSended = True       '送信の確認が取れたので、そのフラグを`True`にする
-
-        Case WINHTTP_STATUS_CALLBACK.CLOSE_COMPLETE
-            'フラグ更新機能を導入予定
-
-        Case WINHTTP_STATUS_CALLBACK.SHUTDOWN_COMPLETE
-            'フラグ更新機能を導入予定
-
-        Case Else
-            'LastCode○○ 等で、更新予定
-
-    End Select
-End Sub
+Private m_Frequency As Currency '実行マシンでの周波数記録用
 
 
 
@@ -259,6 +163,7 @@ End Property
 '* 機能    ：`WinHttpReceiveResponse`による受信待機中かを確認します
 '***************************************************************************************************
 Public Property Get isWaitingReceiveResponse() As Boolean
+    If Not WebSocket Is Nothing Then WebSocket.PumpWinHttpCallbacks
     isWaitingReceiveResponse = currentebWebSocket.isReserved
 End Property
 
@@ -266,6 +171,7 @@ End Property
 '* 機能    ：`WinHttpReceiveResponse`による受信データが届いたかを確認します
 '***************************************************************************************************
 Public Property Get LastReceiveExisting() As Boolean
+    If Not WebSocket Is Nothing Then WebSocket.PumpWinHttpCallbacks
     LastReceiveExisting = currentebWebSocket.isReceiving
 End Property
 
@@ -417,10 +323,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：WebSocket 接続を確立し、コールバックを登録します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：Host               ws://127.0.0.1:9222/devtools/page/0C8CFAE925AD5989381C5987A0FF7715 なら、"127.0.0.1"
-'            Path               ws://127.0.0.1:9222/devtools/page/0C8CFAE925AD5989381C5987A0FF7715 なら、"devtools/page/0C8CFAE925AD5989381C5987A0FF7715"
-'            port               基本は、ws始まりなら80、wss始まりなら、443ですが、カスタムも可能です。
-'            SecureMode         基本は、ws始まりならFalse、wss始まりなら、Trueですが、カスタムも可能です。
+'* 引数    ：Host       接続先ホスト名
+'            Path       接続先パス
+'            port       ws=80、wss=443、カスタムも可（省略時=443）
+'            SecureMode wss なら True（省略時=True）
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：常に非同期モードで動作します。コールバックは Http_OnCallback で自動受信されます。
 '* 注意事項：・SecureMode が正しくないと失敗します
@@ -432,30 +338,26 @@ Public Sub connectionWebSocket(Host As String, Optional Path As String, Optional
 
 
     '1. 最初はhttp(s)で接続確立
-    Dim HttpHelper As WebSocketHTTPCommunicator
     Dim FullURI As String: FullURI = Host & ":" & port & "/" & Path
     printMsg Debug_, IIf(SecureMode, "https://", "http://") & FullURI & "　に接続します...", FromProcedureName
-    Set HttpHelper = New WebSocketHTTPCommunicator
-    If HttpHelper.Connect(Host, Path, port, SecureMode) Then
+    Set WebSocket = New WebSocketHTTPCommunicator
+    If WebSocket.Connect(Host, Path, port, SecureMode) Then
         printMsg info_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に成功しました。WebSocketへの Upgrade 処理を行います...", FromProcedureName
     Else
-        FreeCallbackThunk   '失敗時は、thunk破棄しておく
+        Set WebSocket = Nothing  '失敗時は、オブジェクト破棄しておく
         printMsg ERROR_, IIf(SecureMode, "https://", "http://") & FullURI & "　への接続に失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
 
     '2. WebSocketへUpgrade
     printMsg Debug_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade します...", FromProcedureName
-    If HttpHelper.UpgradeToWebSocket(m_pCallbackThunk, ObjPtr(Me)) Then
+    If WebSocket.UpgradeToWebSocket() Then
         printMsg info_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、成功しました。", FromProcedureName
     Else
-        FreeCallbackThunk   '失敗時は、thunk破棄しておく
+        Set WebSocket = Nothing  '失敗時は、オブジェクト破棄しておく
         printMsg ERROR_, IIf(SecureMode, "wss://", "ws://") & FullURI & "　に Upgrade、失敗しました。", FromProcedureName, doRaiseError:=True
         Exit Sub
     End If
-
-    '3. WebSocketハンドルを確保する
-    ExistingWebsockethandle_ = HttpHelper.websockethandle
 End Sub
 
 '***************************************************************************************************
@@ -475,7 +377,7 @@ End Function
 '* 機能　　：バイト配列データで、WebSocketへ送信を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：SendData           Byte 型
-'            TextMode           WINHTTP_WEB_SOCKET_BUFFER_TYPE に沿った枠。このプロシージャを直接使う場合は、バイナリ送信を想定してますので、省略でOK
+'            TextType           WINHTTP_WEB_SOCKET_BUFFER_TYPE に沿った枠。このプロシージャを直接使う場合は、バイナリ送信を想定してますので、省略でOK
 '                               `True` :UTF8_MESSAGE
 '                               `False`:BINARY_MESSAGE
 '
@@ -486,18 +388,21 @@ End Function
 '            ・`WinHttpWebSocketSend`の実行結果コードは基本的に0です。
 '              送信がうまくいったは、`LastSendStatus`にて、確認できます。
 '***************************************************************************************************
-Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextMode As Boolean) As Long
+Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
     '1. ステータスをリセット
-    printMsg Debug_, IIf(TextMode, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
+    printMsg Debug_, IIf(TextType, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
     currentebWebSocket.isSended = False
 
     '2. `SendData`のサイズで一括送信し、実行結果コードを返却
-    SendAsyncMessageAsBINARY = WinHttpWebSocketSend(ExistingWebsockethandle_, _
-                                IIf(TextMode, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
+    SendAsyncMessageAsBINARY = WinHttpWebSocketSend(WebSocket.websockethandle, _
+                                IIf(TextType, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
                                 VarPtr(SendData(0)), UBound(SendData) + 1)
+    WebSocket.PumpWinHttpCallbacks
+    DoEvents
+    WebSocket.PumpWinHttpCallbacks
 End Function
 
 '***************************************************************************************************
@@ -538,9 +443,12 @@ Public Function RequestWebSocketReceive() As Long
     '2. このクラスオブジェクトの変数に格納するように受信リクエストし、実行結果を返却
     With m_res
         RequestWebSocketReceive = WinHttpWebSocketReceive( _
-                                ExistingWebsockethandle_, .Buffer(m_res.CurrentPointer), .BufferLength, _
+                                WebSocket.websockethandle, .Buffer(m_res.CurrentPointer), .BufferLength, _
                                 .ReceiveBytes, .Status)
     End With
+    WebSocket.PumpWinHttpCallbacks
+    DoEvents
+    WebSocket.PumpWinHttpCallbacks
 End Function
 
 '***************************************************************************************************
@@ -594,24 +502,112 @@ Public Function GetAsyncMessage() As Long
             Do Until currentebWebSocket.isReceiving
                 printMsg Trace_, "Waiting for the next data...", FromProcedureName
                 If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
+                WebSocket.PumpWinHttpCallbacks
                 DoEvents
             Loop
         End If
 
+        WebSocket.PumpWinHttpCallbacks
         DoEvents
 
     Loop While currentebWebSocket.isReceiving
 End Function
 
+
+
+'***************************************************************************************************
+'                              ■■■ WebSocket ステータス処理関連 ■■■
+'***************************************************************************************************
+'* 機能    ：WinHttp コールバックイベントハンドラ（SafeTimer の st_TimerCall 相当）
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：予め、WebSokect用に引数を最適化してます
+'***************************************************************************************************
+Private Sub WebSocket_OnCallback(ByVal dwInternetStatus As Long, _
+                                 ByVal dwBytesTransferred As Long, _
+                                 ByVal eBufferType As Long, _
+                                 ByVal dwStatusInformationLength As Long)
+    Const FromProcedureName As String = ThisClassName & ".WebSocket_OnCallback"
+
+
+    'WebSocket 関連コールバックのみ処理する
+    Select Case dwInternetStatus
+        Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
+
+            If dwStatusInformationLength = 0 Then
+                'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
+                printMsg WARN_, "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, FromProcedureName
+            End If
+
+            printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", FromProcedureName
+            printMsg Debug_, "Bytes：" & dwBytesTransferred, FromProcedureName
+            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(eBufferType, FromProcedureName) & "(" & eBufferType & ")", FromProcedureName
+            printMsg Debug_, "---------------------------------------------------", FromProcedureName
+            printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, FromProcedureName) & "(" & dwInternetStatus & ")", FromProcedureName
+
+            Select Case dwInternetStatus
+                Case READ_COMPLETE
+                    '受信バッファ管理情報の更新は READ_COMPLETE のときだけ行う。
+                    'WRITE_COMPLETE 等でここを上書きすると、巨大レスポンス分割受信中に m_res が壊れる。
+                    m_res.Status = eBufferType
+                    m_res.ReceiveBytes = dwBytesTransferred
+
+                    'ステータス更新
+                    currentebWebSocket.isReceiving = True    'データが届いたので、データが残存してるフラグを`True`にする
+                    currentebWebSocket.isReserved = False    'データは届いたので、受信予約フラグを`False`にする
+
+                    'ログ化
+                    printMsg Debug_, "非同期処理により、受信メッセージを格納しました。", FromProcedureName
+
+                Case WRITE_COMPLETE
+                    'ステータス更新
+                    currentebWebSocket.isSended = True       '送信の確認が取れたので、そのフラグを`True`にする
+
+                    'ログ化
+                    printMsg Debug_, "非同期処理により、送信の確認が取れました。", FromProcedureName
+
+                Case SHUTDOWN_COMPLETE
+                    printMsg info_, "WebSocket の接続が正常にシャットダウンされました。", FromProcedureName
+
+                Case CLOSE_COMPLETE
+                    printMsg info_, "WebSocket を閉じました。", FromProcedureName
+
+            End Select
+
+        Case Else
+            printMsg WARN_, "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, FromProcedureName
+
+    End Select
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：VBE ブレーク中～リセット前にイミディエイトから呼ぶ用。内部 Http の WinHTTP コールバック解除。
+'* 注意事項：デバッグ専用。`Demo_WinHttpUnregisterBeforeReset` から呼ばれる想定です。
+'***************************************************************************************************
+Public Sub EmergencyUnregisterWinHttpCallbacks()
+    On Error Resume Next
+    If Not WebSocket Is Nothing Then
+        WebSocket.EmergencyUnregisterCallbacks
+    End If
+    On Error GoTo 0
+End Sub
+
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：ForceClose
-'               `True`  必ず、ハンドル破棄まで突っ走ります
-'               `False` 途中でエラーがある場合は、そこで終わります。正しい手続きで終わらせます
 '***************************************************************************************************
-Public Function CloseWebSocket(Optional ForceClose As Boolean) As Boolean
+Public Function CloseWebSocket() As Boolean
+    On Error GoTo quit
+    If WebSocket Is Nothing Then
+        CloseWebSocket = True
+        Exit Function
+    End If
 
+    ' 非同期運用では protocol close 交渉よりも、即時に callback/handle を閉じる運用を優先する。
+    WebSocket.CloseHWebsocketHandle
+    CloseWebSocket = True
+    Exit Function
+
+quit:
+    CloseWebSocket = False
 End Function
 
 
@@ -649,11 +645,18 @@ Private Function MakeResponseFullBytes(collect As Collection) As Byte()
     Dim i As Long
     
     ' 1. まず合計サイズを計算する
+    totalSize = 0
     For Each chunk In collect
         ' 配列のサイズを加算（UBound+1）
         totalSize = totalSize + (UBound(chunk) + 1)
-    Next
+    Next chunk
     
+    If totalSize <= 0 Then
+        Dim emptyBytes() As Byte
+        MakeResponseFullBytes = emptyBytes
+        Exit Function
+    End If
+
     ' 2. 巨大な配列を確保
     ReDim fullBytes(0 To totalSize - 1)
 
@@ -780,9 +783,6 @@ End Sub
 
 
 
-'***************************************************************************************************
-'                           ■■■ クラス構築/破棄時の処理 ■■■
-'***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
 
@@ -810,202 +810,12 @@ Private Sub Class_Initialize()
 
     '実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
     Call QueryPerformanceFrequency(m_Frequency)
-
-    '非同期コールバック thunk を生成（Upgrade 前に必須）
-    m_pCallbackThunk = CreateCallbackThunk
 End Sub
 
 Private Sub Class_Terminate()
-    On Error Resume Next
+    'WebSocketを閉じます
+    CloseWebSocket
 
-    UnregisterStatusCallback ExistingWebsockethandle_
-    FreeCallbackThunk
-End Sub
-
-
-
-'***************************************************************************************************
-'                           ■■■ コールバック thunk 基盤 ■■■
-'***************************************************************************************************
-Private Function CreateCallbackThunk() As LongPtr
-    Dim procAddr As LongPtr
-    procAddr = GetComProcAddress(Me, CALLBACK_VTABLE_INDEX)
-    If procAddr = 0 Then Exit Function
-    CreateCallbackThunk = BuildWinHttpCallbackThunk(Me, procAddr)
-End Function
-
-Private Sub FreeCallbackThunk()
-    If m_pCallbackThunk <> 0 Then
-        Call VirtualFree(m_pCallbackThunk, 0, MEM_RELEASE)
-        m_pCallbackThunk = 0
-    End If
-End Sub
-
-Private Sub UnregisterStatusCallback(ByVal hWebSocket As LongPtr)
-    If hWebSocket = 0 Then Exit Sub
-    Call WinHttpSetStatusCallback(hWebSocket, WINHTTP_INVALID_STATUS_CALLBACK, 0, 0)
-End Sub
-
-Private Function GetComProcAddress(ByVal o As Object, ByVal publicMemberIndex As Long) As LongPtr
-    Dim pObj As LongPtr
-    Dim pVTable As LongPtr
-    Dim cbPtr As LongPtr
-    Dim pEntry As LongPtr
-
-    pObj = ObjPtr(o)
-    If pObj = 0 Then Exit Function
-
-    cbPtr = LenB(pObj)
-    CopyMemoryByAddr pVTable, pObj, cbPtr
-    pEntry = pVTable + ((7 + publicMemberIndex) * cbPtr)
-    CopyMemoryByAddr GetComProcAddress, pEntry, cbPtr
-End Function
-
-Private Function BuildWinHttpCallbackThunk(ByVal o As Object, ByVal comProcAddress As LongPtr) As LongPtr
-    Dim lEbMode As LongPtr
-    On Error Resume Next
-    Debug.Print 1 / 0
-    If Err Then
-        Err.Clear
-        On Error GoTo 0
-        Dim hVBE As LongPtr
-        hVBE = GetModuleHandle("vbe7.dll")
-        If hVBE <> 0 Then lEbMode = GetProcAddress(hVBE, "EbMode")
-    End If
-    On Error GoTo 0
-
-#If Win64 Then
-    Dim pThis As LongPtr: pThis = ObjPtr(o)
-    If pThis = 0 Or comProcAddress = 0 Then Exit Function
-
-    Dim p As Long: p = 0
-    Dim bb() As Byte: ReDim bb(0 To 191)
-    Dim iThunkSize As LongPtr
-
-    EmitBytes bb, p, &H48, &H83, &HEC, &H58
-    EmitBytes bb, p, &H48, &H89, &H4C, &H24, &H38
-    EmitBytes bb, p, &H48, &H89, &H54, &H24, &H40
-    EmitBytes bb, p, &H4C, &H89, &H44, &H24, &H48
-    EmitBytes bb, p, &H4C, &H89, &H4C, &H24, &H50
-
-    EmitBytes bb, p, &H48, &HB8
-    EmitPtr bb, p, lEbMode
-    EmitBytes bb, p, &H48, &H85, &HC0
-    EmitBytes bb, p, &H74, &H7
-    EmitBytes bb, p, &HFF, &HD0
-    EmitBytes bb, p, &H83, &HF8, &H1
-    Dim jneAt As Long: jneAt = p + 1
-    EmitBytes bb, p, &H75, &H0
-
-    ' WinHTTP x64 args -> VBA class method (RCX=this, RDX/R8/R9, stack 4th/5th)
-    EmitBytes bb, p, &H48, &HB9
-    EmitPtr bb, p, pThis
-    EmitBytes bb, p, &H48, &H8B, &H54, &H24, &H38
-    EmitBytes bb, p, &H4C, &H8B, &H44, &H24, &H40
-    EmitBytes bb, p, &H4C, &H8B, &H4C, &H24, &H48
-    EmitBytes bb, p, &H48, &H8B, &H44, &H24, &H50
-    EmitBytes bb, p, &H48, &H89, &H44, &H24, &H20
-    EmitBytes bb, p, &H8B, &H84, &H24, &H80, &H0, &H0, &H0
-    EmitBytes bb, p, &H89, &H44, &H24, &H28
-    EmitBytes bb, p, &H48, &HB8
-    EmitPtr bb, p, comProcAddress
-    EmitBytes bb, p, &HFF, &HD0
-
-    EmitBytes bb, p, &H48, &H83, &HC4, &H58
-    EmitBytes bb, p, &HC3
-
-    Dim retZeroAt As Long: retZeroAt = p
-    EmitBytes bb, p, &H48, &H83, &HC4, &H58
-    EmitBytes bb, p, &HC3
-
-    bb(jneAt) = CByte(retZeroAt - (jneAt + 1))
-
-    iThunkSize = p
-    ReDim Preserve bb(0 To p - 1)
-
-    BuildWinHttpCallbackThunk = VirtualAlloc(0, iThunkSize, MEM_COMMIT Or MEM_RESERVE, PAGE_EXECUTE_READWRITE)
-    If BuildWinHttpCallbackThunk = 0 Then Exit Function
-    CopyMemoryByPtr BuildWinHttpCallbackThunk, VarPtr(bb(0)), iThunkSize
-
-#Else
-    If comProcAddress = 0 Or ObjPtr(o) = 0 Then Exit Function
-
-    Dim p32 As Long
-    Dim bb32() As Byte: ReDim bb32(0 To 159)
-
-    EmitBytes bb32, p32, &H55
-    EmitBytes bb32, p32, &H89, &HE5
-    EmitBytes bb32, p32, &H83, &HEC, &H4
-
-    EmitBytes bb32, p32, &HB8
-    Dim ebModeAt32 As Long: ebModeAt32 = p32
-    EmitBytes bb32, p32, &H0, &H0, &H0, &H0
-    EmitBytes bb32, p32, &H85, &HC0
-    EmitBytes bb32, p32, &H74, &H7
-    EmitBytes bb32, p32, &HFF, &HD0
-    EmitBytes bb32, p32, &H83, &HF8, &H1
-    Dim jneAt32 As Long: jneAt32 = p32 + 1
-    EmitBytes bb32, p32, &H75, &H0
-
-    EmitBytes bb32, p32, &HFF, &H75, &H18
-    EmitBytes bb32, p32, &HFF, &H75, &H14
-    EmitBytes bb32, p32, &HFF, &H75, &H10
-    EmitBytes bb32, p32, &HFF, &H75, &HC
-    EmitBytes bb32, p32, &HFF, &H75, &H8
-
-    EmitBytes bb32, p32, &H68
-    Dim objImmAt As Long: objImmAt = p32
-    EmitBytes bb32, p32, &H55, &H55, &H55, &H55
-
-    EmitBytes bb32, p32, &HB8
-    Dim procImmAt As Long: procImmAt = p32
-    EmitBytes bb32, p32, &H66, &H66, &H66, &H66
-    EmitBytes bb32, p32, &HFF, &HD0
-
-    EmitBytes bb32, p32, &H89, &HEC
-    EmitBytes bb32, p32, &H5D
-    EmitBytes bb32, p32, &HC2, &H14, &H0
-
-    Dim retZeroAt32 As Long: retZeroAt32 = p32
-    EmitBytes bb32, p32, &H89, &HEC
-    EmitBytes bb32, p32, &H5D
-    EmitBytes bb32, p32, &HC2, &H14, &H0
-
-    bb32(jneAt32) = CByte(retZeroAt32 - (jneAt32 + 1))
-
-    Dim iThunkSize32 As LongPtr: iThunkSize32 = p32
-    ReDim Preserve bb32(0 To p32 - 1)
-
-    CopyMemory bb32(ebModeAt32), lEbMode, 4&
-    Dim pObj32 As Long: pObj32 = ObjPtr(o)
-    CopyMemory bb32(objImmAt), pObj32, 4&
-    CopyMemory bb32(procImmAt), comProcAddress, 4&
-
-    Dim pThunk32 As LongPtr
-    pThunk32 = VirtualAlloc(0, iThunkSize32, MEM_COMMIT Or MEM_RESERVE, PAGE_EXECUTE_READWRITE)
-    If pThunk32 = 0 Then Exit Function
-    CopyMemoryByPtr pThunk32, VarPtr(bb32(0)), iThunkSize32
-    BuildWinHttpCallbackThunk = pThunk32
-#End If
-End Function
-
-Private Sub EmitBytes(ByRef bb() As Byte, ByRef p As Long, ParamArray values() As Variant)
-    Dim v As Variant
-    For Each v In values
-        bb(p) = CByte(v)
-        p = p + 1
-    Next v
-End Sub
-
-Private Sub EmitPtr(ByRef bb() As Byte, ByRef p As Long, ByVal ptrValue As LongPtr)
-#If Win64 Then
-    Dim i As Long
-    For i = 0 To 7
-        bb(p + i) = CByte((ptrValue \ (2 ^ (8 * i))) And &HFF)
-    Next i
-    p = p + 8
-#Else
-    CopyMemory bb(p), ptrValue, 4&
-    p = p + 4
-#End If
+    'オブジェクト破棄
+    Set WebSocket = Nothing
 End Sub
