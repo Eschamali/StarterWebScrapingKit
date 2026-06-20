@@ -163,8 +163,6 @@ Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 '                                  ■■■ グローバル変数 ■■■
 '***************************************************************************************************
 '内部使用用オブジェクト
-Private CurrentWebSocket    As WebSocketHTTPCommunicator    'http処理関連　※WebSocket関連はここでは行わない。101Upgrade処理まで
-Attribute CurrentWebSocket.VB_VarHelpID = -1
 Private CharConv            As New CharacterCodeConversion  'バイト配列←→UTF-8変換用
 Private ViewLog             As New Logger                   'ログ用
 
