@@ -299,10 +299,14 @@ quit:
     IsResponseStatus = False
 End Function
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末系 ■■■
 '***************************************************************************************************
 '* 機能　　：HTTP通信ハンドル系統の後始末を行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：WebSocket も後始末する場合は、次項のプロシージャも呼び出して下さい
+'* 注意事項：WebSocket の後始末はここではしません
 '***************************************************************************************************
 Private Sub CloseHInternetHandles()
     If hRequestHandle_ Then WinHttpCloseHandle hRequestHandle_: hRequestHandle_ = 0
@@ -314,8 +318,6 @@ Private Sub CloseHInternetHandles()
     If hSessionHandle_ Then WinHttpCloseHandle hSessionHandle_: hSessionHandle_ = 0
     If Err.LastDllError Then Debug.Print "SessionHandle 破棄にて、エラー：" & Err.LastDllError
 End Sub
-
-
 
 Private Sub Class_Terminate()
     CloseHInternetHandles
