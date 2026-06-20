@@ -247,25 +247,10 @@ Public Function UpgradeToWebSocket(Optional callbackPtr As LongPtr, Optional Con
 Exit Function
 quit:
     If result = 0 Then Debug.Print "Upgrade：" & result
-    If result < 0 Then Debug.Print "コールバック登録失敗。ErrorCode：" & result: CloseHWebsocketHandle
+    If result < 0 Then Debug.Print "コールバック登録失敗。ErrorCode：" & result: WinHttpCloseHandle hwebsockethandle_
     If hwebsockethandle_ = 0 Then Debug.Print "Upgrade：" & Err.LastDllError
     UpgradeToWebSocket = False
 End Function
-
-'***************************************************************************************************
-'* 機能　　：WebSocketハンドルの後始末を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：anyHandle      保存したハンドルを使用するときに指定して下さい。
-'***************************************************************************************************
-Public Sub CloseHWebsocketHandle(Optional anyHandle As LongPtr)
-    'クラス内部で保存してるWebSocketハンドル
-    If hwebsockethandle_ Then WinHttpCloseHandle hwebsockethandle_: hwebsockethandle_ = 0
-    If Err.LastDllError Then Debug.Print "クラス内 websockethandle 破棄にて、エラー：" & Err.LastDllError
-
-    '引数としてのWebSocketハンドル
-    If anyHandle <> 0 Then WinHttpCloseHandle anyHandle
-    If Err.LastDllError Then Debug.Print "引数の handle 破棄にて、エラー：" & Err.LastDllError
-End Sub
 
 
 
