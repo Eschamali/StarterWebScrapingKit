@@ -200,6 +200,71 @@ Private Content_WinHttpWebSocketReceive()   As Byte     '最後のWebSocketか�
 
 
 '***************************************************************************************************
+'          ■■■ WinHTTP コールバック（thunk からのみ呼ばれる Public エントリポイント） ■■■
+'          ※ vtable 先頭固定のため、他の Public メンバーより前に配置すること
+'***************************************************************************************************
+Public Sub zzProtWinHttpStatusCallback( _
+    ByVal HINTERNET As LongPtr, _
+    ByVal dwContext As LongPtr, _
+    ByVal dwInternetStatus As Long, _
+    ByVal lpvStatusInformation As LongPtr, _
+    ByVal dwStatusInformationLength As Long)
+
+    Const ErrorSource As String = ThisClassName & ".zzProtWinHttpStatusCallback"
+
+
+    'WebSocket 関連コールバックのみ処理する
+    Select Case dwInternetStatus
+        Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
+            Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
+            CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
+
+            printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
+            printMsg Debug_, "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
+            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
+            printMsg Debug_, "---------------------------------------------------", ErrorSource
+            printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
+
+            Select Case dwInternetStatus
+                Case READ_COMPLETE
+                    '受信バッファ管理情報の更新は READ_COMPLETE のときだけ行う。
+                    'WRITE_COMPLETE 等でここを上書きすると、巨大レスポンス分割受信中に m_res が壊れる。
+                    m_res.Status = WebSocketStatus.eBufferType
+                    m_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
+
+                    'ステータス更新
+                    currentebWebSocket.isReceiving = True    'データが届いたので、データが残存してるフラグを`True`にする
+                    currentebWebSocket.isReserved = False    'データは届いたので、受信予約フラグを`False`にする
+
+                    'ログ化
+                    printMsg Debug_, "非同期処理により、受信メッセージを格納しました。", FromProcedureName
+                
+                Case WRITE_COMPLETE
+                    'ステータス更新
+                    currentebWebSocket.isSended = True       '送信の確認が取れたので、そのフラグを`True`にする
+
+                    'ログ化
+                    printMsg Debug_, "非同期処理により、送信の確認が取れました。", FromProcedureName
+
+                Case SHUTDOWN_COMPLETE
+                    printMsg info_, "WebSocket の接続が正常にシャットダウンされました。", FromProcedureName
+
+                Case CLOSE_COMPLETE
+                    printMsg info_, "WebSocket を閉じました。", FromProcedureName
+                
+                Case Else
+                    printMsg WARN_, "未定義の WINHTTP_STATUS_CALLBACK が来てます：" & dwInternetStatus, ErrorSource
+            End Select
+
+        Case Else
+            printMsg WARN_, "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, FromProcedureName
+
+    End Select
+End Sub
+
+
+
+'***************************************************************************************************
 '                                ■■■ check用プロパティ ■■■
 '***************************************************************************************************
 '* 機能    ：前回の`WinHttpWebSocketSend`がうまくいったかを確認します
@@ -557,72 +622,6 @@ Public Function GetAsyncMessage() As Long
 
     Loop While currentebWebSocket.isReceiving
 End Function
-
-'***************************************************************************************************
-'                              ■■■ WebSocket ステータス処理関連 ■■■
-'***************************************************************************************************
-'* 機能    ：WinHttp コールバックイベントハンドラ（SafeTimer の st_TimerCall 相当）
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：予め、WebSokect用に引数を最適化してます
-'***************************************************************************************************
-Public Sub zzProtWinHttpStatusCallback( _
-    ByVal HINTERNET As LongPtr, _
-    ByVal dwContext As LongPtr, _
-    ByVal dwInternetStatus As Long, _
-    ByVal lpvStatusInformation As LongPtr, _
-    ByVal dwStatusInformationLength As Long)
-
-    Const ErrorSource As String = ThisClassName & ".zzProtWinHttpStatusCallback"
-
-
-    'WebSocket 関連コールバックのみ処理する
-    Select Case dwInternetStatus
-        Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
-            Dim WebSocketStatus As WINHTTP_WEB_SOCKET_STATUS
-            CopyMemory WebSocketStatus, ByVal lpvStatusInformation, LenB(WebSocketStatus)
-
-            printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", ErrorSource
-            printMsg Debug_, "Bytes：" & WebSocketStatus.dwBytesTransferred, ErrorSource
-            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(WebSocketStatus.eBufferType, ErrorSource) & "(" & WebSocketStatus.eBufferType & ")", ErrorSource
-            printMsg Debug_, "---------------------------------------------------", ErrorSource
-            printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, ErrorSource) & "(" & dwInternetStatus & ")", ErrorSource
-
-            Select Case dwInternetStatus
-                Case READ_COMPLETE
-                    '受信バッファ管理情報の更新は READ_COMPLETE のときだけ行う。
-                    'WRITE_COMPLETE 等でここを上書きすると、巨大レスポンス分割受信中に m_res が壊れる。
-                    m_res.Status = WebSocketStatus.eBufferType
-                    m_res.ReceiveBytes = WebSocketStatus.dwBytesTransferred
-
-                    'ステータス更新
-                    currentebWebSocket.isReceiving = True    'データが届いたので、データが残存してるフラグを`True`にする
-                    currentebWebSocket.isReserved = False    'データは届いたので、受信予約フラグを`False`にする
-
-                    'ログ化
-                    printMsg Debug_, "非同期処理により、受信メッセージを格納しました。", FromProcedureName
-                
-                Case WRITE_COMPLETE
-                    'ステータス更新
-                    currentebWebSocket.isSended = True       '送信の確認が取れたので、そのフラグを`True`にする
-
-                    'ログ化
-                    printMsg Debug_, "非同期処理により、送信の確認が取れました。", FromProcedureName
-
-                Case SHUTDOWN_COMPLETE
-                    printMsg info_, "WebSocket の接続が正常にシャットダウンされました。", FromProcedureName
-
-                Case CLOSE_COMPLETE
-                    printMsg info_, "WebSocket を閉じました。", FromProcedureName
-                
-                Case Else
-                    printMsg WARN_, "未定義の WINHTTP_STATUS_CALLBACK が来てます：" & dwInternetStatus, ErrorSource
-            End Select
-
-        Case Else
-            printMsg WARN_, "WebSocket 関連以外のコールバックが来たようです。WINHTTP_STATUS_CALLBACK：" & dwInternetStatus, FromProcedureName
-
-    End Select
-End Sub
 
 '***************************************************************************************************
 '* 機能　　：Websocket通信を終了させます
