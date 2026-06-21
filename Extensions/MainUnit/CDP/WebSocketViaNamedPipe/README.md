@@ -135,9 +135,8 @@ Edge の場合、接続に必要なポート番号やパスの情報は以下の
 
 | ファイル | 役割 |
 |---|---|
-| `WebSocketViaNamedPipe.cls` | VBA 側の名前付きパイプ管理クラス |
+| `CDPCoreWebSocketHelpers.bas` | VBA 側のWebSocket接続アシスト・管理用モジュール（Shift-JIS形式の標準モジュール） |
 | `StartConnectWebSocketForChromium.ps1` | PowerShell 側のブリッジスクリプト |
-| `Demo_WebSocketViaNamedPipe.bas` | 動作確認用デモコード |
 
 ---
 
@@ -178,7 +177,15 @@ sequenceDiagram
 
 ## セットアップ手順
 
-### Step 1：ブラウザ（Chromium）を準備する
+### Step 1：VBAモジュールのインポート
+
+1. VBAのVBE（Visual Basic Editor）を開きます。
+2. `CDPCoreWebSocketHelpers.bas` (Shift-JIS形式) をプロジェクトへインポートします。
+   * **ポイント**: Shift-JIS形式で保存されているため、日本語コメントが文字化けすることなく安全にインポートでき、これ1枚でWebSocket接続アシスト（手動・自動接続やWebView2設定など）の準備が完了します。
+
+---
+
+### Step 2：ブラウザ（Chromium）を準備する
 
 以下のいずれかの方法で、リモートデバッグが可能なブラウザを用意します。
 
@@ -191,7 +198,7 @@ sequenceDiagram
 
 ---
 
-### Step 2：接続ブリッジの起動と接続（2つのパターン）
+### Step 3：接続ブリッジの起動と接続（2つのパターン）
 
 環境や用途に合わせて、以下のいずれかの方法で接続を確立します。
 
@@ -219,7 +226,7 @@ PowerShell スクリプトを手動で起動する方法です。
 ---
 
 2.  **VBA から接続**:  
-    `Demo_WebSocketViaNamedPipe.bas` の `ManualSetup` を実行します。内部で `ConnectNamePipe` が呼ばれ、接続が確立されます。
+    VBAの `CDPCoreWebSocketHelpers.bas` にある `ManualSetup` を実行します。内部で `ConnectNamePipe` が呼ばれ、接続が確立されます。
 
 #### パターンB：自動実行（AutoSetup）
 PowerShell のコードを Excel 内に保持し、VBA から自動で呼び出す方法です。
@@ -234,29 +241,34 @@ PowerShell のコードを Excel 内に保持し、VBA から自動で呼び出�
 3.  GUIセレクト画面が出たら、タイムアウトまでに、接続先を選択してください
 ---
 
-### Step 3：CDP 操作を開始する
+### Step 4：CDP 操作を開始する
 
 ```vba
-Sub WebSocketにてCDPの始まり()
-    Dim WebSocketCDP As New CDPBrowser
+Sub WebSocketによる冒険の始まり()
+    Dim WebSocketCDP As New CDPContext
+
+    '識別名称を設定する
+    Dim UseName As String
+    UseName = "ChromiumWebSocket"
 
     ' まず targetID に再接続を試みる
-    If Not WebSocketCDP.reattach("ChromiumWebSocket") Then
+    If Not WebSocketCDP.reattach(UseName) Then
         ' 失敗した場合はタブを取得して新規接続
-        WebSocketCDP.getTab setMain:=True
+        Set WebSocketCDP = WebSocketCDP.InheritanceCDPBrowser.newTab(setMain:=True)
     End If
 
     ' 通常の CDPBrowser と同様に操作可能
     WebSocketCDP.navigate "https://example.com"
     ' ...
 
-    WebSocketCDP.quit
+    ' ブラウザを正常に閉じる（名前付きパイプのハンドルも自動クリーンされます）
+    WebSocketCDP.InheritanceCDPBrowser.quit
 End Sub
 ```
 
 ---
 
-## API リファレンス（`WebSocketViaNamedPipe.cls`）
+## API リファレンス（`CDPCoreWebSocketHelpers.bas`）
 
 ### `ConnectNamePipe(UserName As String) As Long`
 
@@ -270,7 +282,15 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 
 ---
 
+### `WebView2のクイックデバッグ切り替え(Optional port As Long = 9222)`
 
+WebView2のデバッグポート（環境変数 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`）の設定・解除を行います。
+
+| 項目 | 内容 |
+|---|---|
+| 引数 `port` | デバッグポート番号（0を指定すると環境変数を削除してデバッグポートを閉じます） |
+
+---
 
 > [!WARNING]
 > Excel テーブルに記録されていないパイプハンドルは破棄できません。
@@ -283,17 +303,18 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 ### パターンA：手動実行の場合
 ```
 ① （PowerShell コンソールで StartConnectWebSocketForChromium.ps1 を実行）
-② ManualSetup()             ← VBA からパイプへ接続
-③ WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
-④ cleanNamedPipe()         ← 後片付け
+② ManualSetup()                ← VBA からパイプへ接続
+③ WebSocketによる冒険の始まり()  ← 操作開始
 ```
 
 ### パターンB：自動実行の場合
 ```
-① AutoSetup()              ← PS起動から接続まで自動実行
-② WebSocketにてCDPの始まり()  ← CDPBrowser で操作開始
-③ cleanNamedPipe()         ← 後片付け
+① AutoSetup()                 ← PS起動から接続まで自動実行
+② WebSocketによる冒険の始まり()  ← 操作開始
 ```
+
+> [!NOTE]
+> `WebSocketCDP.InheritanceCDPBrowser.quit` を呼び出すと、ブラウザを閉じると同時に、名前付きパイプのハンドルも自動的にクリーンアップ（解放）されます。
 
 ---
 
@@ -301,7 +322,7 @@ PowerShell が作成した名前付きパイプにクライアントとして接
 
 ### serialize / deserialize（設定の永続化）
 
-`WebSocketViaNamedPipe.cls` は、パイプハンドル（`hNamePipe`）を  
+`CDPCoreWebSocketHelpers.bas` は、パイプハンドル（`hNamePipe`）を  
 `ShSetting01_StartBrowser` シートの専用テーブルに書き込みます（`serialize`）。  
 再接続時はテーブルから読み戻します（`deserialize`）。
 
