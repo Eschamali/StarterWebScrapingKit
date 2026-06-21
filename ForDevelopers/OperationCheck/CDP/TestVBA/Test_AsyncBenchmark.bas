@@ -76,7 +76,12 @@ Sub Test_AsyncBenchmark_Main()
     ' 1. ブラウザの起動とタブの用意
     Debug.Print "ブラウザを起動しています..."
     Set chrome = 設定シートからのCDP起動ForBrowser
-    
+
+    '------- リアタッチ用 -------
+    'Set chrome = New CDPBrowser
+    'chrome.reattach "ChromiumWebSocket"
+    '---------------------------
+
     ReDim tabs(1 To NUM_TABS)
     ReDim tabStates(1 To NUM_TABS)
     
@@ -204,7 +209,7 @@ Sub Test_AsyncBenchmark_Main()
                 
                 ' ResultCDPFromWithEvents で結果が戻っているか確認
                 Dim resJson As String
-                resJson = tickets(i).Context.ResultCDPFromWithEvents(tickets(i).CommandID)
+                resJson = tickets(i).Context.TakeResultCDP(tickets(i).CommandID)
                 
                 If Len(resJson) > 0 Then
                     ' パース処理
@@ -287,7 +292,12 @@ Sub Test_AsyncBenchmark_Cookies()
     ' 1. ブラウザの起動とタブの用意
     Debug.Print "ブラウザを起動しています..."
     Set chrome = 設定シートからのCDP起動ForBrowser
-    
+
+    '------- リアタッチ用 -------
+    'Set chrome = New CDPBrowser
+    'chrome.reattach "ChromiumWebSocket"
+    '---------------------------
+
     ReDim tabs(1 To NUM_TABS)
     ReDim tabStates(1 To NUM_TABS)
     
@@ -410,7 +420,7 @@ Sub Test_AsyncBenchmark_Cookies()
                 
                 ' ResultCDPFromWithEvents で結果が戻っているか確認
                 Dim resJson As String
-                resJson = tickets(i).Context.ResultCDPFromWithEvents(tickets(i).CommandID)
+                resJson = tickets(i).Context.TakeResultCDP(tickets(i).CommandID)
                 
                 If Len(resJson) > 0 Then
                     ' パース処理
