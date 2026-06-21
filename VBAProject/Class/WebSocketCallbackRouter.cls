@@ -2,17 +2,17 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "WinHttpCallbackRouter"
+Attribute VB_Name = "WebSocketCallbackRouter"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   WebSocket ”ñ“¯ŠúƒR[ƒ‹ƒoƒbƒN‚Ì hWnd ƒ‹[ƒeƒBƒ“ƒO + VirtualAlloc ƒlƒCƒeƒBƒu thunk
-'   AddressOf / .bas / RtlMoveMemory •sg—piPointerAccessor + VirtualAlloc ‚Ì‚İj
+'   WebSocket éåŒæœŸã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã® hWnd ãƒ«ãƒ¼ãƒ†ã‚£ãƒ³ã‚° + VirtualAlloc ãƒã‚¤ãƒ†ã‚£ãƒ– thunk
+'   AddressOf / .bas / RtlMoveMemory ä¸ä½¿ç”¨ï¼ˆPointerAccessor + VirtualAlloc ã®ã¿ï¼‰
 '
-'   x64 WinHTTP callback: PostMessageW ‚Ì‚İiƒ[ƒJ[ƒXƒŒƒbƒh‚©‚ç VBA ”ñŒÄ‚Ño‚µj
-'   WndProc ƒtƒbƒN       : ƒƒCƒ“ƒXƒŒƒbƒhã‚Å vtable Œo—R OnBridgeWndProc ŒÄ‚Ño‚µ
+'   x64 WinHTTP callback: PostMessageW ã®ã¿ï¼ˆãƒ¯ãƒ¼ã‚«ãƒ¼ã‚¹ãƒ¬ãƒƒãƒ‰ã‹ã‚‰ VBA éå‘¼ã³å‡ºã—ï¼‰
+'   WndProc ãƒ•ãƒƒã‚¯       : ãƒ¡ã‚¤ãƒ³ã‚¹ãƒ¬ãƒƒãƒ‰ä¸Šã§ vtable çµŒç”± OnBridgeWndProc å‘¼ã³å‡ºã—
 '***************************************************************************************************
 Option Explicit
 
@@ -30,7 +30,7 @@ Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowL
 Private Declare PtrSafe Function GetModuleHandleW Lib "kernel32" ( _
     ByVal lpModuleName As LongPtr) As LongPtr
 Private Declare PtrSafe Function PeekMessage Lib "user32" Alias "PeekMessageW" ( _
-    lpMsg As MSG, ByVal hwnd As LongPtr, ByVal wMsgFilterMin As Long, _
+    lpMsg As msg, ByVal hWnd As LongPtr, ByVal wMsgFilterMin As Long, _
     ByVal wMsgFilterMax As Long, ByVal wRemoveMsg As Long) As Long
 
 Private Const PM_REMOVE As Long = 1
@@ -39,8 +39,8 @@ Private Type POINTAPI
     x As Long
     y As Long
 End Type
-Private Type MSG
-    hwnd As LongPtr
+Private Type msg
+    hWnd As LongPtr
     message As Long
     wParam As LongPtr
     lParam As LongPtr
@@ -99,7 +99,7 @@ Private Type PointerAccessor
 End Type
 
 '***************************************************************************************************
-' !! vtable æ“ª Public ƒƒ“ƒo[ŒÅ’èiGetVTableProcPtr index=0j!!
+' !! vtable å…ˆé ­ Public ãƒ¡ãƒ³ãƒãƒ¼å›ºå®šï¼ˆGetVTableProcPtr index=0ï¼‰!!
 '***************************************************************************************************
 Public Function OnBridgeWndProc(ByVal hWnd As LongPtr, ByVal msg As Long, _
                                 ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
@@ -164,8 +164,8 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
     Dim prev As LongPtr
 
 #If Win64 Then
-    ' x64: WndProc ‚©‚ç VBA COM ‚ğŒÄ‚Ô‚Æ VBE7.DLL ƒNƒ‰ƒbƒVƒ…‚·‚é‚½‚ßAhwnd “o˜^‚Ì‚İB
-    ' PostMessage ‚³‚ê‚½ WM_APP ‚Í PumpPostedWinHttpMessages (PeekMessage) ‚Å UI ƒXƒŒƒbƒh”r…‚·‚éB
+    ' x64: WndProc ã‹ã‚‰ VBA COM ã‚’å‘¼ã¶ã¨ VBE7.DLL ã‚¯ãƒ©ãƒƒã‚·ãƒ¥ã™ã‚‹ãŸã‚ã€hwnd ç™»éŒ²ã®ã¿ã€‚
+    ' PostMessage ã•ã‚ŒãŸ WM_APP ã¯ PumpPostedWinHttpMessages (PeekMessage) ã§ UI ã‚¹ãƒ¬ãƒƒãƒ‰æ’æ°´ã™ã‚‹ã€‚
     Target.RegisterAsHookTarget targetHwnd, 0
     Set g_targetByHwnd(Key) = Target
 #Else
@@ -185,7 +185,7 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
 #End If
 End Sub
 
-' x64: worker¨PostMessage ‚³‚ê‚½ WM_APP ‚ğ UI ƒXƒŒƒbƒh‚Å PeekMessage ”r…iVBA/COM ˆÀ‘Sj
+' x64: workerâ†’PostMessage ã•ã‚ŒãŸ WM_APP ã‚’ UI ã‚¹ãƒ¬ãƒƒãƒ‰ã§ PeekMessage æ’æ°´ï¼ˆVBA/COM å®‰å…¨ï¼‰
 Public Sub PumpPostedWinHttpMessages(Optional ByVal targetHwnd As LongPtr = 0)
     On Error Resume Next
     EnsureHookMaps
@@ -202,7 +202,7 @@ Public Sub PumpPostedWinHttpMessages(Optional ByVal targetHwnd As LongPtr = 0)
 End Sub
 
 Private Sub PumpPostedWinHttpMessagesForHwnd(ByVal targetHwnd As LongPtr)
-    Dim msg As MSG
+    Dim msg As msg
     Dim Key As String
     Key = HwndKey(targetHwnd)
 
@@ -274,10 +274,10 @@ Private Function BuildPostMessageCallbackThunkX64() As LongPtr
     EmitBytes bb, p, &H48, &H89, &HD1                          ' MOV RCX, RDX  (hWnd = dwContext)
     EmitBytes bb, p, &H48, &HC7, &HC2                            ' MOV RDX, imm32
     EmitDword bb, p, WM_APP_WINHTTP_CALLBACK
-    EmitBytes bb, p, &H4C, &H8B, &H54, &H24, &H40                  ' MOV R10, [RSP+40h] ‘æ5ˆø”
+    EmitBytes bb, p, &H4C, &H8B, &H54, &H24, &H40                  ' MOV R10, [RSP+40h] ç¬¬5å¼•æ•°
     EmitBytes bb, p, &H49, &HC1, &HE2, &H20
     EmitBytes bb, p, &H45, &H8B, &HD8
-    EmitBytes bb, p, &H4D, &H0B, &HD3
+    EmitBytes bb, p, &H4D, &HB, &HD3
     EmitBytes bb, p, &H4D, &H89, &HD0
     EmitBytes bb, p, &H4D, &H85, &HC9
     EmitBytes bb, p, &H74, &H3
@@ -434,9 +434,9 @@ Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)
     ptrs(0) = ptr
 End Sub
 
-Private Sub WriteBytesToNative(ByVal dest As LongPtr, ByRef bb() As Byte, ByVal n As Long)
+Private Sub WriteBytesToNative(ByVal dest As LongPtr, ByRef bb() As Byte, ByVal N As Long)
     Dim i As Long
-    For i = 0 To n - 1
+    For i = 0 To N - 1
         WriteNativeByte dest + i, bb(i)
     Next i
 End Sub
