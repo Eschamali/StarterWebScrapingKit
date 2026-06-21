@@ -249,8 +249,8 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
             .statusInformation.dwBytesTransferred = CLng(rawWsStatus And &HFFFFFFFF^)
             .statusInformation.eBufferType = CLng((rawWsStatus \ &H100000000^) And &HFFFFFFFF^)
 #Else
-            .statusInformation.dwBytesTransferred = CLng(WinHttpCallbackRouter.ReadMemLongPtr(lpvStatusInformation))
-            .statusInformation.eBufferType = CLng(WinHttpCallbackRouter.ReadMemLongPtr(lpvStatusInformation + 4))
+            .statusInformation.dwBytesTransferred = CLng(WebSocketCallbackRouter.ReadMemLongPtr(lpvStatusInformation))
+            .statusInformation.eBufferType = CLng(WebSocketCallbackRouter.ReadMemLongPtr(lpvStatusInformation + 4))
 #End If
             .hasStatusInformation = 1
         End If
