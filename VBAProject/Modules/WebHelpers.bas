@@ -922,10 +922,7 @@ Public Function Base64Decode(Encoded As Variant) As String
     web_Command = "echo " & PrepareTextForShell(Encoded) & " | openssl base64 -d"
     Base64Decode = ExecuteInShell(web_Command).Output
 #Else
-    Dim web_Crypto As WebCrypto
-    Set web_Crypto = New WebCrypto
-    Base64Decode = VBA.StrConv(web_Crypto.Decode(Encoded, edfBase64), vbUnicode)
-    Set web_Crypto = Nothing
+    Base64Decode = VBA.StrConv(WebCrypto.Decode(Encoded, edfBase64), vbUnicode)
 #End If
 End Function
 
@@ -1625,7 +1622,6 @@ Public Function HMACSHA1(Text As String, Secret As String, Optional Format As St
 
     HMACSHA1 = VBA.Replace(ExecuteInShell(web_Command).Output, vbLf, "")
 #Else
-    Dim web_Crypto As Object
     Dim web_TextBytes() As Byte
     Dim web_SecretBytes() As Byte
     Dim web_Bytes() As Byte
@@ -1633,20 +1629,9 @@ Public Function HMACSHA1(Text As String, Secret As String, Optional Format As St
     web_TextBytes = VBA.StrConv(Text, vbFromUnicode)
     web_SecretBytes = VBA.StrConv(Secret, vbFromUnicode)
 
-    ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
-    On Error Resume Next
-        Set web_Crypto = CreateObject("System.Security.Cryptography.HMACSHA1")
-    On Error GoTo 0
-    
-    If web_Crypto Is Nothing Then
-        ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
-        Set web_Crypto = New WebCrypto
-        web_Crypto.InitHMAC web_SecretBytes
-        web_Bytes = web_Crypto.HMACSHA1(web_TextBytes)
-    Else
-        web_Crypto.Key = web_SecretBytes
-        web_Bytes = web_Crypto.ComputeHash_2(web_TextBytes)
-    End If
+    ' .NET Framework is soon unavailable, use WebCrypto class to perform hash.
+    WebCrypto.InitHMAC web_SecretBytes
+    web_Bytes = WebCrypto.HMACSHA1(web_TextBytes)
 
     Select Case Format
     Case "Base64"
@@ -1683,7 +1668,6 @@ Public Function HMACSHA256(Text As String, Secret As String, Optional Format As 
 
     HMACSHA256 = VBA.Replace(ExecuteInShell(web_Command).Output, vbLf, "")
 #Else
-    Dim web_Crypto As Object
     Dim web_TextBytes() As Byte
     Dim web_SecretBytes() As Byte
     Dim web_Bytes() As Byte
@@ -1691,20 +1675,9 @@ Public Function HMACSHA256(Text As String, Secret As String, Optional Format As 
     web_TextBytes = VBA.StrConv(Text, vbFromUnicode)
     web_SecretBytes = VBA.StrConv(Secret, vbFromUnicode)
 
-    ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
-    On Error Resume Next
-        Set web_Crypto = CreateObject("System.Security.Cryptography.HMACSHA256")
-    On Error GoTo 0
-    
-    If web_Crypto Is Nothing Then
-        ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
-        Set web_Crypto = New WebCrypto
-        web_Crypto.InitHMAC web_SecretBytes
-        web_Bytes = web_Crypto.HMACSHA256(web_TextBytes)
-    Else
-        web_Crypto.Key = web_SecretBytes
-        web_Bytes = web_Crypto.ComputeHash_2(web_TextBytes)
-    End If
+    ' If .NET Framework is soon unavailable, use WebCrypto class to perform hash.
+    WebCrypto.InitHMAC web_SecretBytes
+    web_Bytes = WebCrypto.HMACSHA256(web_TextBytes)
     
     Select Case Format
     Case "Base64"
@@ -1755,18 +1728,8 @@ Public Function MD5(BytesOrText As Variant, Optional Format As String = "Hex") A
         web_ccMd5 0, 0, VarPtr(web_HashBytes(0))    ' Hash empty input.
     End If
 #Else
-    ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
-    On Error Resume Next
-        Set web_Crypto = CreateObject("System.Security.Cryptography.MD5CryptoServiceProvider")
-    On Error GoTo 0
-    
-    If web_Crypto Is Nothing Then
-        ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
-        Set web_Crypto = New WebCrypto
-        web_HashBytes = web_Crypto.MD5(web_InputBytes)
-    Else
-        web_HashBytes = web_Crypto.ComputeHash_2(web_InputBytes)
-    End If
+    ' If .NET Framework is soon unavailable, use WebCrypto class to perform hash.
+    web_HashBytes = WebCrypto.MD5(web_InputBytes)
 #End If
     
     ' Output in desired format.
@@ -1797,24 +1760,13 @@ Public Function SHA256(Text As String, Optional Format As String = "Hex") As Str
     
     SHA256 = VBA.Replace(ExecuteInShell(web_Command).Output, vbLf, vbNullString)
 #Else
-    Dim web_Crypto As Object
     Dim web_TextBytes() As Byte
     Dim web_Bytes() As Byte
 
     web_TextBytes = VBA.StrConv(Text, vbFromUnicode)
 
-    ' Attempt to create system object. This will error if .NET Framework 3.5 is not available.
-    On Error Resume Next
-        'Set web_Crypto = CreateObject("System.Security.Cryptography.SHA256Managed")
-    On Error GoTo 0
-    
-    If web_Crypto Is Nothing Then
-        ' If .NET Framework is unavailable, use WebCrypto class to perform hash.
-        Set web_Crypto = New WebCrypto
-        web_Bytes = web_Crypto.SHA256(web_TextBytes)
-    Else
-        web_Bytes = web_Crypto.ComputeHash_2(web_TextBytes)
-    End If
+    ' If .NET Framework is soon unavailable, use WebCrypto class to perform hash.
+    web_Bytes = WebCrypto.SHA256(web_TextBytes)
 
     Select Case Format
     Case "Base64"
