@@ -298,7 +298,7 @@ try {
         # 🌟 ここがキモ！「パイプ」か「WebSocket」、先にデータが来た方から処理を進める
         $idx = [System.Threading.Tasks.Task]::WaitAny($taskReadPipe, $taskReadWs)
 
-if ($idx -eq 0) {
+        if ($idx -eq 0) {
             # ----------------------------------------------------
             # パイプ(VBA) からデータが来た！ ➡️ WebSocket(Chrome) へ送信
             # ----------------------------------------------------
