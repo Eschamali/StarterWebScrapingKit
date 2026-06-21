@@ -394,7 +394,7 @@ Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextMode A
     '3. 送信がうまくいったかを確認
     Dim timerStart As Double: timerStart = TimerCounter
     Do Until currentebWebSocket.isSended
-        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to send result.", FromProcedureName
+        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to send result.", FromProcedureName, doRaiseError:=True
         TakeWebSocketCallback
     Loop
 End Function
