@@ -104,9 +104,6 @@ Private Enum WINHTTP_STATUS_CALLBACK
     SHUTDOWN_COMPLETE = 67108864    '接続が正常にシャットダウンされました。         `WinHttpWebSocketShutdown`使用後、呼び出される合図
 End Enum
 
-'WebSokect関連のステータス
-Private Const WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS = 1000
-
 'その他
 Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 
@@ -163,7 +160,6 @@ End Property
 '* 機能    ：`WinHttpReceiveResponse`による受信待機中かを確認します
 '***************************************************************************************************
 Public Property Get isWaitingReceiveResponse() As Boolean
-    If Not WebSocket Is Nothing Then WebSocket.PumpWinHttpCallbacks
     isWaitingReceiveResponse = currentebWebSocket.isReserved
 End Property
 
@@ -171,7 +167,6 @@ End Property
 '* 機能    ：`WinHttpReceiveResponse`による受信データが届いたかを確認します
 '***************************************************************************************************
 Public Property Get LastReceiveExisting() As Boolean
-    If Not WebSocket Is Nothing Then WebSocket.PumpWinHttpCallbacks
     LastReceiveExisting = currentebWebSocket.isReceiving
 End Property
 
@@ -382,27 +377,26 @@ End Function
 '                               `False`:BINARY_MESSAGE
 '
 '* 返り値  ：実行結果コード     ※成功時は、0です
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・必要に応じて、`LastSendStatus`にて、最後の送信がうまくいったかを確認してください
-'            ・前回の送信がうまくいったかの確認はこのプロシージャでは行いません
-'            ・`WinHttpWebSocketSend`の実行結果コードは基本的に0です。
-'              送信がうまくいったは、`LastSendStatus`にて、確認できます。
 '***************************************************************************************************
-Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
-    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+Public Function SendAsyncMessageAsBINARY(SendData() As Byte, Optional TextMode As Boolean) As Long
+    Const FromProcedureName As String = ThisClassName & ".SendAsyncMessageAsBINARY"
 
 
     '1. ステータスをリセット
-    printMsg Debug_, IIf(TextType, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
+    printMsg Debug_, IIf(TextMode, "UTF-8", "バイナリ") & "として送信します...", FromProcedureName
     currentebWebSocket.isSended = False
 
     '2. `SendData`のサイズで一括送信し、実行結果コードを返却
     SendAsyncMessageAsBINARY = WinHttpWebSocketSend(WebSocket.websockethandle, _
-                                IIf(TextType, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
+                                IIf(TextMode, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE), _
                                 VarPtr(SendData(0)), UBound(SendData) + 1)
-    WebSocket.PumpWinHttpCallbacks
-    DoEvents
-    WebSocket.PumpWinHttpCallbacks
+
+    '3. 送信がうまくいったかを確認
+    Dim timerStart As Double: timerStart = TimerCounter
+    Do Until currentebWebSocket.isSended
+        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to send result.", FromProcedureName
+        TakeWebSocketCallback
+    Loop
 End Function
 
 '***************************************************************************************************
@@ -446,9 +440,10 @@ Public Function RequestWebSocketReceive() As Long
                                 WebSocket.websockethandle, .Buffer(m_res.CurrentPointer), .BufferLength, _
                                 .ReceiveBytes, .Status)
     End With
-    WebSocket.PumpWinHttpCallbacks
-    DoEvents
-    WebSocket.PumpWinHttpCallbacks
+
+    '3. ステータス更新
+    TakeWebSocketCallback
+
 End Function
 
 '***************************************************************************************************
@@ -502,16 +497,25 @@ Public Function GetAsyncMessage() As Long
             Do Until currentebWebSocket.isReceiving
                 printMsg Trace_, "Waiting for the next data...", FromProcedureName
                 If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for the WebSocket to load the next fragment data.", FromProcedureName, doRaiseError:=True
-                WebSocket.PumpWinHttpCallbacks
-                DoEvents
+                TakeWebSocketCallback
             Loop
         End If
 
-        WebSocket.PumpWinHttpCallbacks
-        DoEvents
+        '2-3. ステータス更新
+        TakeWebSocketCallback
 
     Loop While currentebWebSocket.isReceiving
 End Function
+
+'***************************************************************************************************
+'* 機能    ：WebSocket コールバックイベントを取り出します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`currentebWebSocket`のステータス更新を行います
+'***************************************************************************************************
+Public Sub TakeWebSocketCallback()
+    WebSocket.PumpWinHttpCallbacks
+    DoEvents
+End Sub
 
 
 
@@ -533,18 +537,14 @@ Private Sub WebSocket_OnCallback(ByVal dwInternetStatus As Long, _
     Select Case dwInternetStatus
         Case CLOSE_COMPLETE, READ_COMPLETE, SHUTDOWN_COMPLETE, WRITE_COMPLETE
 
-            If dwStatusInformationLength = 0 And eBufferType < 0 Then
-                ' CLOSE/SHUTDOWN 等、または PostMessage 経路で status 未同梱のケース
+            If dwStatusInformationLength = 0 Then
+                'CLOSE/SHUTDOWN 等では statusInformation が来ないケースがある
                 printMsg WARN_, "statusInformation が Null/不足のため既定値で処理します。status=" & dwInternetStatus & ", len=" & dwStatusInformationLength, FromProcedureName
             End If
 
             printMsg Debug_, "------------ WINHTTP_WEB_SOCKET_STATUS ------------", FromProcedureName
             printMsg Debug_, "Bytes：" & dwBytesTransferred, FromProcedureName
-            If eBufferType >= 0 Then
-                printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(eBufferType, FromProcedureName) & "(" & eBufferType & ")", FromProcedureName
-            Else
-                printMsg Debug_, "Type ：(n/a)", FromProcedureName
-            End If
+            printMsg Debug_, "Type ：" & Name__WINHTTP_WEB_SOCKET_BUFFER_TYPE(eBufferType, FromProcedureName) & "(" & eBufferType & ")", FromProcedureName
             printMsg Debug_, "---------------------------------------------------", FromProcedureName
             printMsg Debug_, "WINHTTP_STATUS_CALLBACK：" & Name__WINHTTP_STATUS_CALLBACK(dwInternetStatus, FromProcedureName) & "(" & dwInternetStatus & ")", FromProcedureName
 
@@ -617,7 +617,7 @@ End Function
 
 
 '***************************************************************************************************
-'                                ■■■ ヘルパープロシージャ ■■■
+'                           ■■■ WebSocketから得た受信データ管理 ■■■
 '***************************************************************************************************
 '* 機能　　：バッファ初期化
 '***************************************************************************************************
@@ -788,7 +788,7 @@ End Sub
 
 
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
     'Assign an objID for easy debug identification

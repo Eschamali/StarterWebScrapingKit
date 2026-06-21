@@ -38,8 +38,6 @@ Public Event OnCallback(ByVal dwInternetStatus As Long, _
                         ByVal eBufferType As Long, _
                         ByVal dwStatusInformationLength As Long)
 
-' PostMessage 通知先: message-only ウィンドウ（UserForm は表示しない）
-Private m_notifyHwnd As LongPtr
 Private Type CallbackQueueItem
     HINTERNET As LongPtr
     dwInternetStatus As Long
@@ -52,6 +50,7 @@ Private m_queueRead As Long
 Private m_queueWrite As Long
 Private m_droppedCallbacks As Long
 Private m_callbackHitCount As Long
+Private m_notifyHwnd As LongPtr     ' PostMessage 通知先: message-only ウィンドウ（UserForm は表示しない）
 
 
 
@@ -195,7 +194,7 @@ Private Declare PtrSafe Function CallWindowProc Lib "user32" Alias "CallWindowPr
 Private Declare PtrSafe Function CreateWindowEx Lib "user32" Alias "CreateWindowExW" ( _
     ByVal dwExStyle As Long, ByVal lpClassName As LongPtr, ByVal lpWindowName As LongPtr, _
     ByVal dwStyle As Long, ByVal x As Long, ByVal y As Long, ByVal nWidth As Long, _
-    ByVal nHeight As Long, ByVal hWndParent As LongPtr, ByVal hMenu As LongPtr, _
+    ByVal nHeight As Long, ByVal hwndParent As LongPtr, ByVal hMenu As LongPtr, _
     ByVal hInstance As LongPtr, ByVal lpParam As LongPtr) As LongPtr
 Private Declare PtrSafe Function DestroyWindow Lib "user32" (ByVal hWnd As LongPtr) As Long
 Private Const GWLP_WNDPROC As Long = -4
@@ -246,7 +245,7 @@ Private Sub EnqueueCallback(ByVal HINTERNET As LongPtr, _
             'ReadMemLongPtr（PointerAccessor）で読み取り + ビット演算で分解
 #If Win64 Then
             Dim rawWsStatus As LongLong
-            rawWsStatus = WinHttpCallbackRouter.ReadMemLongPtr(lpvStatusInformation)
+            rawWsStatus = WebSocketCallbackRouter.ReadMemLongPtr(lpvStatusInformation)
             .statusInformation.dwBytesTransferred = CLng(rawWsStatus And &HFFFFFFFF^)
             .statusInformation.eBufferType = CLng((rawWsStatus \ &H100000000^) And &HFFFFFFFF^)
 #Else
@@ -319,7 +318,7 @@ Public Sub ResetDroppedCallbackCount()
 End Sub
 
 Public Property Get CallbackHitCount() As Long
-    CallbackHitCount = WinHttpCallbackRouter.GetWinHttpMessageCount
+    CallbackHitCount = WebSocketCallbackRouter.GetWinHttpMessageCount
 End Property
 
 Public Property Get NotifyHwnd() As LongPtr
@@ -327,7 +326,7 @@ Public Property Get NotifyHwnd() As LongPtr
 End Property
 
 Public Sub PumpWinHttpCallbacks()
-    If m_notifyHwnd <> 0 Then WinHttpCallbackRouter.PumpPostedWinHttpMessages m_notifyHwnd
+    If m_notifyHwnd <> 0 Then WebSocketCallbackRouter.PumpPostedWinHttpMessages m_notifyHwnd
 End Sub
 
 Private Sub EnsureNotifyHwnd()
@@ -390,7 +389,7 @@ Public Function DispatchHookedMessage(ByVal hWnd As LongPtr, _
                                        ByVal wParam As LongPtr, _
                                        ByVal lParam As LongPtr) As LongPtr
     On Error Resume Next
-    If msg = WinHttpCallbackRouter.AppWinHttpCallbackMsg Then
+    If msg = WebSocketCallbackRouter.AppWinHttpCallbackMsg Then
         HandlePostedWinHttpCallback wParam, lParam
         DispatchHookedMessage = 0
         Exit Function
@@ -490,10 +489,10 @@ Public Function UpgradeToWebSocket() As Boolean
         EnsureNotifyHwnd
         Debug.Print "[Upgrade] F0: NotifyHwnd=" & m_notifyHwnd
     End If
-    WinHttpCallbackRouter.InstallWinHttpMessageHook m_notifyHwnd, Me
+    WebSocketCallbackRouter.InstallWinHttpMessageHook m_notifyHwnd, Me
 
     Dim requestCallbackResult As LongPtr
-    Dim cbPtr As LongPtr: cbPtr = WinHttpCallbackRouter.GetWinHttpStatusCallbackPtr(Me)
+    Dim cbPtr As LongPtr: cbPtr = WebSocketCallbackRouter.GetWinHttpStatusCallbackPtr(Me)
     Debug.Print "[Upgrade] F: CallbackPtr=" & cbPtr
     If cbPtr = 0 Then GoTo quit
 
@@ -533,7 +532,7 @@ Exit Function
 quit:
     Debug.Print "[Upgrade] FAIL ゴート: result=" & result & " requestCallbackResult=" & requestCallbackResult & " callbackResult=" & callbackResult & " LastDllError=" & Err.LastDllError
     On Error Resume Next
-    WinHttpCallbackRouter.RemoveWinHttpMessageHook
+    WebSocketCallbackRouter.RemoveWinHttpMessageHook
     
     On Error GoTo 0
     UpgradeToWebSocket = False
@@ -604,7 +603,7 @@ End Sub
 '***************************************************************************************************
 Public Sub EmergencyUnregisterCallbacks()
     On Error Resume Next
-    WinHttpCallbackRouter.RemoveWinHttpMessageHook
+    WebSocketCallbackRouter.RemoveWinHttpMessageHook
     If hwebsockethandle_ <> 0 Then
         WinHttpSetStatusCallback hwebsockethandle_, 0, 0, 0
     End If
@@ -614,7 +613,7 @@ End Sub
 
 
 Private Sub Class_Terminate()
-    WinHttpCallbackRouter.RemoveWinHttpMessageHook m_notifyHwnd
+    WebSocketCallbackRouter.RemoveWinHttpMessageHook m_notifyHwnd
     DestroyNotifyHwnd
     CloseHInternetHandles
     CloseHWebsocketHandle
