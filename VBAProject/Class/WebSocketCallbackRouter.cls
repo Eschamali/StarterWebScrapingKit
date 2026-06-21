@@ -163,12 +163,11 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
 
     Dim prev As LongPtr
 
-#If Win64 Then
-    ' x64: WndProc から VBA COM を呼ぶと VBE7.DLL クラッシュするため、hwnd 登録のみ。
-    ' PostMessage された WM_APP は PumpPostedWinHttpMessages (PeekMessage) で UI スレッド排水する。
-    Target.RegisterAsHookTarget targetHwnd, 0
-    Set g_targetByHwnd(Key) = Target
-#Else
+    ' x64/x86 共通: notify hwnd の WndProc を安全サンクへ差し替える。
+    ' WinHTTP コールバック本体は worker スレッド→PostMessage サンク（VBA 非呼び出し）。
+    ' WM_APP は UI スレッドの DispatchMessage 経由でこの WndProc サンク→OnBridgeWndProc→
+    ' DispatchHookedMessage と自動排水される（旧 WebSocketAsyncHelpers と同じ構図）。
+    ' これにより DoEvents だけで断片受信が滞りなく届き、isReserved の固着を防ぐ。
     If g_targetByHwnd.Exists(Key) Then
         Dim existing As WebSocketHTTPCommunicator
         Set existing = g_targetByHwnd(Key)
@@ -182,7 +181,6 @@ Public Sub InstallWinHttpMessageHook(ByVal targetHwnd As LongPtr, ByVal Target A
 
     Target.RegisterAsHookTarget targetHwnd, prev
     Set g_targetByHwnd(Key) = Target
-#End If
 End Sub
 
 ' x64: worker→PostMessage された WM_APP を UI スレッドで PeekMessage 排水（VBA/COM 安全）
