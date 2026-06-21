@@ -258,6 +258,7 @@ Private Sub serialize(UserName As String, hNamePipe As LongPtr)
     tmp.Add "hStdInWr", 0
     tmp.Add "hCDPOutRd", (hNamePipe)
     tmp.Add "hCDPInWr", (hNamePipe)
+    tmp.Add "hProcess", 0
     tmp.Add "dwProcessId", 0
 
     'Excelテーブルに、名前付きパイプハンドル情報を記録する
