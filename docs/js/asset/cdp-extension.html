@@ -65,21 +65,21 @@
 </ul>
 
 <pre><code class="language-vb">' デモ的使用例
-Dim Demo_alerts As CDPBrowser
-Set Demo_alerts = 設定シートからのCDP起動("https://www.selenium.dev/selenium/web/alerts.html")
+Dim Demo_alerts As CDPContext
+Set Demo_alerts = 設定シートからのCDP起動forTab("https://www.selenium.dev/selenium/web/alerts.html")
 
 ' 拡張機能のセットアップ
 Dim testEX As New CDPexpansion_JSDialogAutoClose
-testEX.Init Demo_alerts
+testEX.Init Demo_alerts.InheritanceCDPBrowser
 
 ' デフォルトでOKを選択し、テキストを入力する設定
 testEX.DefaultAccept = True
 testEX.DefaultPromptText = "VBAから自動入力！"
 
 ' あとは普通に操作するだけ。Alertは裏で自動処理される
-Demo_alerts.invokeMethod "DOM.enable"
+Demo_alerts.ExecuteCDP "DOM.enable"
 ' ... クリックなどの処理が続く</code></pre>
 
 <p>
-このように、<strong>「低レベルな <code>invokeMethod</code> のベース」</strong>と<strong>「AIが生成するコード」</strong>、そして<strong>「拡張テンプレートによる非同期制御」</strong>を組み合わせることで、どんなに複雑なブラウザ操作要求にも応えることができる最強の土台が完成します。
+このように、<strong>「低レベルな <code>ExecuteCDP</code> のベース」</strong>と<strong>「AIが生成するコード」</strong>、そして<strong>「拡張テンプレートによる非同期制御」</strong>を組み合わせることで、どんなに複雑なブラウザ操作要求にも応えることができる最強の土台が完成します。
 </p>

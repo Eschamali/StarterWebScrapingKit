@@ -1,6 +1,6 @@
 <h1>CDPの<span style="color:var(--accent-color)">高度な制御</span></h1>
 
-<h2><code>invokeMethod</code> / <code>invokeMethodAsync</code> メソッドの取り扱いについて</h2>
+<h2><code>ExecuteCDP</code> / <code>ExecuteCDPAsync</code> メソッドの取り扱いについて</h2>
 <p>これらはChrome DevTools Protocol (CDP) のコマンドを直接指定して実行するための<strong>低レベル操作用メソッド</strong>です。<br>
 もしあなたがブラウザのより深く根源的な力を意のままに操りたいと願うなら、この万能の魔法詠唱スティックが力になります。</p>
 
@@ -15,24 +15,24 @@
 </div>
 
 <h3>【鉄の掟】</h3>
-<p><code>〇〇</code> ドメインのコマンドを使いたいなら、必ず事前に一度だけ <code>invokeMethod "〇〇.enable"</code> と唱えなさい。<br>
+<p><code>〇〇</code> ドメインのコマンドを使いたいなら、必ず事前に一度だけ <code>ExecuteCDP "〇〇.enable"</code> と唱えなさい。<br>
 これは神官の目を開かせるための儀式です。</p>
 
 <pre><code class="language-vb">' 【正しい、儀式の例】
 ' まず、"挨拶"をする
-HelloWorldAutomationBrowser.invokeMethod "Page.enable"
-HelloWorldAutomationBrowser.invokeMethod "Network.enable"
+Demo_NetworkEvent.ExecuteCDP "Page.enable"
+Demo_NetworkEvent.ExecuteCDP "Network.enable"
 
 ' そして、"要求"する
-HelloWorldAutomationBrowser.invokeMethod "Page.addScriptToEvaluateOnNewDocument", ...
-HelloWorldAutomationBrowser.invokeMethod "Network.getCookies", ...</code></pre>
+Demo_NetworkEvent.ExecuteCDP "Page.addScriptToEvaluateOnNewDocument", ...
+Demo_NetworkEvent.ExecuteCDP "Network.getCookies", ...</code></pre>
 
 <hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
 
 <h3>🔥 推奨プラクティス：不要なドメインの <code>disable</code></h3>
 <p>特定のドメインを <code>enable</code> した後は、<strong>不要になった時点で</strong> 対応する <code>disable</code> を呼び出すことを強く推奨します。</p>
 
-<p><strong>理由:</strong> <code>enable</code> コマンドを実行するとブラウザはイベントの生成を開始します。VBA側で受け取らなくても、バックグラウンドでの受信・破棄によるオーバーヘッドが発生し続けます。<br>
+<p><strong>理由:</strong> <code>enable</code> コマメントを実行するとブラウザはイベントの生成を開始します。VBA側で受け取らなくても、バックグラウンドでの受信・破棄によるオーバーヘッドが発生し続けます。<br>
 用が済んだら「もうよい、休んでおれ」と慈悲を与えることで、不要なノイズから解放されたクリーンなライフサイクル管理を実現してください。</p>
 
 <hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
@@ -41,23 +41,23 @@ HelloWorldAutomationBrowser.invokeMethod "Network.getCookies", ...</code></pre>
     <div class="alert-icon">🚀</div>
     <div class="alert-content">
         <strong>パフォーマンス最適化：イベントフィルタリング</strong>
-        <p><code>Network</code> ドメインなどは大量の非同期イベントを発生させます。すべてのイベントを律儀に受診・解析していると、VBA側の処理がボトルネックになることがあります。</p>
-        <p>v1.6.1より導入された <code>SetFilterEvents</code> プロパティを使用することで、<strong>「特定のイベントだけをJSONパース＆蓄積する」</strong>という、知的な省エネ運転が可能になりました。</p>
+        <p><code>Network</code> ドメインなどは大量の非同期イベントを発生させます。すべてのイベントを律儀に受信・解析していると、VBA側の処理がボトルネックになることがあります。</p>
+        <p><code>SetFilterEvents</code> プロパティを使用することで、<strong>「特定のイベントだけをJSONパース＆蓄積する」</strong>という、知的な省エネ運転が可能になります。</p>
     </div>
 </div>
 
 <h3><code>SetFilterEvents</code> の使い方</h3>
-<p>このプロパティにイベント名をセットすることで、フィルタリングリストに追加されます。リストが1つ以上存在する場合、そのリストにあるイベントのみが記録対象となります。</p>
+<p>このプロパティにイベント名をセットすることで、フィルタリングリストに追加されます。リストが1つ以上存在する場合、そのリストにあるイベントのみが記録対象となります（<code>CDPContext</code> に実装されています）。</p>
 
 <pre><code class="language-vb">' 収集したいイベントのみを登録する（複数追加可能）
-HelloWorldAutomationBrowser.SetFilterEvents = "Network.requestWillBeSent"
-HelloWorldAutomationBrowser.SetFilterEvents = "Network.loadingFinished"
+Demo_NetworkEvent.SetFilterEvents = "Network.requestWillBeSent"
+Demo_NetworkEvent.SetFilterEvents = "Network.loadingFinished"
 
 ' (オプション) 特定の環境だけフィルターから削除したい場合
-HelloWorldAutomationBrowser.SetFilterEvents(DelMode:=True) = "Network.loadingFinished"
+Demo_NetworkEvent.SetFilterEvents(DelMode:=True) = "Network.loadingFinished"
 
 ' 全削除（フィルター解除 ＝ 全キャプチャに戻る）
-HelloWorldAutomationBrowser.SetFilterEvents(DelMode:=True) = ""</code></pre>
+Demo_NetworkEvent.SetFilterEvents(DelMode:=True) = ""</code></pre>
 
 <p><strong>メリット:</strong> 不要なイベントのJSONパース処理がスキップされるため、高負荷なサイトのスクレイピングや、大量の通信が発生する状況で劇的なパフォーマンス向上が期待できます。</p>
 
@@ -72,7 +72,7 @@ HelloWorldAutomationBrowser.SetFilterEvents(DelMode:=True) = ""</code></pre>
 <p><strong>「CDPコマンド、なんか複雑そうでわかんない🥺便利なメソッドを、作ってくれませんか？🥺」</strong></p>
 
 <p>あなたの、その 「もっと、楽をしたい」 という願い、痛いほど、分かります。<br>
-SeleniumVBAが持つ、あの、至れり尽くせりの、便利なメソッド群。<br>
+SeleniumVBAが持つ、あの、至れり尽くセリの、便利なメソッド群。<br>
 我々もまた、 羨望（せんぼう） の眼差しで、それを見ています🥲。</p>
 
 <p>しかし、我々は、あえて、「作らない」という、"選択"をしました。<br>
@@ -103,7 +103,7 @@ SeleniumVBAが持つ、あの、至れり尽くせりの、便利なメソッド
 
 <p>あなたが、彼に、こう、語りかけるだけでいい。</p>
 
-<pre><code class="language-plaintext">invokeMethodを使って、
+<pre><code class="language-plaintext">ExecuteCDPを使って、
 CDPで要素の、中心を、クリックする、VBAコードを、生成して</code></pre>
 
 <p>その "言葉" は、 一瞬 で、 "コード" へと、変わる🥳🥳<br>
@@ -114,8 +114,8 @@ CDPで要素の、中心を、クリックする、VBAコードを、生成し�
     <div class="alert-icon">🤝</div>
     <div class="alert-content">
         <p>我々、ツール作成者の、"使命"は、<br>
-        "揺るぎない、最高の『土台（<code>invokeMethod</code>）』"を、磨き上げ、提供し続けること。</p>
-        <p>そして、<br>
+        "揺るぎない、最高の『土台（<code>ExecuteCDP</code>）』"を、磨き上げ、提供し続けること。</p>
+        <p>And,<br>
         あなた、利用者の、"使命"は、<br>
         AIという、"翼"を、使いこなし、<br>
         その土台の上で、<br>
@@ -125,7 +125,7 @@ CDPで要素の、中心を、クリックする、VBAコードを、生成し�
 
 <p>―――これこそが、 この質問に対する、我々の「答え」 です。<br>
 我々は、 魚（便利なメソッド） を、与えません。<br>
-<strong>最高の「釣り竿（<code>invokeMethod</code>）」</strong> と、 <strong>最高の「釣り方ガイド（AI）」</strong> を、あなたに、託します。</p>
+<strong>最高の「釣り竿（<code>ExecuteCDP</code>）」</strong> と、 <strong>最高の「釣り方ガイド（AI）」</strong> を、あなたに、託します。</p>
 
 <p style="font-size: 0.9em; opacity: 0.8; margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
     なお、AIが出した答えは必ずしも合っているとは限らないので、下記の公式ドキュメントと並行して使うとよいでしょう。<br>
