@@ -243,7 +243,7 @@ Public Function ConvertToCDPContext() As CDPContext
     Dim newSessionID As String: newSessionID = m_BiDiCore.DirectControlCDP.attachToTab(InfoList.context)
 
     '2. 発行失敗時はエラーで即抜け
-    If newSessionID = "" Then m_BiDiMode.printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.DirectControlCDP.LastCDPJsonError("message"), FromProcedureName: Exit Function
+    If LenB(newSessionID) = 0 Then m_BiDiMode.printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.DirectControlCDP.LastCDPJsonError("message"), FromProcedureName: Exit Function
 
     '3. 無事発行出来たら、変換手続き
     '------ CDPContext.clsとして返却する準備 ------

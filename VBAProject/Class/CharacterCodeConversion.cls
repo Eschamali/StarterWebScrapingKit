@@ -212,7 +212,7 @@ Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String,
     Dim FileFullpath As String: FileFullpath = FolderPath & "\" & FileName
 
     '追記じゃない場合は、パスにファイルがあったら削除するようにします
-    If Dir(FileFullpath) <> "" And Not (AddMode) Then Kill FileFullpath
+    If LenB(Dir(FileFullpath)) > 0 And Not (AddMode) Then Kill FileFullpath
 
     '書き込み準備
     Dim fNum As Integer: fNum = FreeFile

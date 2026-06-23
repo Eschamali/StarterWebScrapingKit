@@ -335,10 +335,10 @@ Private Function FindContextRecursive(ByVal contexts As Collection, ByVal Url As
         
         ' A. このコンテキスト自体がマッチするかチェック
         Dim isMatch As Boolean
-        If Url = "" Then
-            isMatch = True ' 両方空なら最初に見つかったヤツ
+        If LenB(Url) = 0 Then
+            isMatch = True ' 空なら最初に見つかったヤツ
         Else
-            If Url <> "" And InStr(1, ctxData("url"), Url) > 0 Then isMatch = True
+            If InStr(1, ctxData("url"), Url) > 0 Then isMatch = True
         End If
 
         If isMatch Then
@@ -844,7 +844,7 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
 
     '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
     Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
-    If pfName = "" Then pfName = Application.Name
+    If LenB(pfName) = 0 Then pfName = Application.Name
 
     'ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName

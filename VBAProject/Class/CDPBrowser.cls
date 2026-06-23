@@ -337,7 +337,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
-        If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
+        If LenB(.Range(.UseRangeName(1, FromProcedureName)).value) = 0 Then
             '1. 必要な変数を用意
             Dim strKeyPath      As String   'ベースパス
             Dim ValueSize       As Long     '値の大きさ
@@ -732,7 +732,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         .id = sessionID_
 
         '4. Urlが設定されてる場合は、読み込み完了まで待機する
-        If Url <> "" Then .wait
+        If LenB(Url) Then .wait
 
         '5. ステータスの更新
         .getSessionInfo
@@ -798,7 +798,7 @@ searchit:
         If Obj("type") = SearchType Then
             score = -1
             Select Case True
-                Case tabName <> ""
+                Case LenB(tabName)
                     If Obj.Exists("title") Then
                         If Obj("title") = tabName Then
                             score = 100
@@ -808,7 +808,7 @@ searchit:
                             errMsg = "with name containing """ & tabName & """"
                         End If
                     End If
-                Case Url <> ""
+                Case LenB(Url)
                     If Obj.Exists("url") Then
                         If Left$(Obj("url"), Len(Url)) = Url Then
                             score = 90
@@ -847,7 +847,7 @@ searchit:
    'Returns nothing if not found
    'Nothing is preferred over throwing error
     If Not tabfound Then
-        info = IIf(tabName <> "", tabName, IIf(Url <> "", Url, "(no new tab found)"))
+        info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
         Exit Function
     Else
@@ -1526,7 +1526,7 @@ Public Function checkURI(URI As String) As String
 
     '0. 空文字の場合は、チェックしません
     printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
-    If URI = "" Then
+    If LenB(URI) = 0 Then
         printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
 
         checkURI = URI

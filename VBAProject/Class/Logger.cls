@@ -188,7 +188,7 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
         If doPrintDbgMsg Then Debug.Print LogString
 
         'ファイルパスが指定されてたら、ログファイルへ保存
-        If SaveLogFolderPath <> "" And LogFileName <> "" Then
+        If LenB(SaveLogFolderPath) > 0 And LenB(LogFileName) > 0 Then
             With SaveLogObj
                 .BytesToSaveFile .BytesFromString(LogString & vbCrLf), SaveLogFolderPath, LogFileName, True
             End With
