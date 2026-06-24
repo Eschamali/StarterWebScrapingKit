@@ -52,7 +52,12 @@ Sub AutoSetup()
     RunPowerShell.RegisterAndSetEnv("fromVBA_hCDPInRd") = RunPowerShell.CreatePipeForCDPInRd
     ' -----------------------------------------------------------------------------------------
 
-    ' 3. PowerShell を起動
+    ' ----------------------- 3. Excel内で使われてるWebView2 を起動させる -----------------------
+    WebView2のクイックデバッグ切り替え
+    Application.CommandBars.ExecuteMso "Help"
+    ' -----------------------------------------------------------------------------------------
+
+    ' 4. PowerShell を起動
     RunPowerShell.UseStdOut = False                     'パイプバッファオーバー対策により、VBAへの標準出力を無効化
     Dim ResultCode As Long
     If ShowConsoleWindow Then
@@ -68,7 +73,7 @@ Sub AutoSetup()
         Exit Sub
     End If
 
-    '4. 一括挿入で起動させる準備を行う
+    '5. 一括挿入で起動させる準備を行う
     If ShowConsoleWindow Then
         'コンソールで表示させるのでせっかくなので、UTF-8で見せるように工夫する
         Dim CharConv As New CharacterCodeConversion
@@ -86,7 +91,7 @@ Sub AutoSetup()
         RunPowerShell.writeProcSTD psCode & vbCrLf & vbCrLf
     End If
 
-    '5. 指定の識別名称で、接続パイプハンドル情報を記録
+    '6. 指定の識別名称で、接続パイプハンドル情報を記録
     Dim UseName As String
     With ShSetting01_StartBrowser
         UseName = .Range(.UseRangeName(2, "Demo_WebSocketViaAnonymousPipe.AutoSetup")).value  '設定セルから、ユーザ名を取得します
@@ -94,9 +99,9 @@ Sub AutoSetup()
 
     RunPowerShell.serialize UseName
 
-    '6. 後始末
+    '7. 後始末
     RunPowerShell.CleanAllRegisteredEnv
-    MsgBox "CDP通信PowerShellとの連携が完了しました", vbInformation
+    MsgBox "CDP通信PowerShellとの連携準備が完了しました", vbInformation
 End Sub
 
 '***************************************************************************************************
