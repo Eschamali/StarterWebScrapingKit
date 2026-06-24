@@ -290,45 +290,40 @@ try {
             $bytesRead = $taskReadPipe.Result
             if ($bytesRead -eq 0) { break } # 切断された
 
-            # 今回の破片が「Null文字」で終わっているか判定
-            $endsWithNull = ($bufferPipe[$bytesRead - 1] -eq 0)
+            # 読み取った断片データを一旦蓄積バッファに追加
+            $vbaReceiveBuffer.Write($bufferPipe, 0, $bytesRead)
 
-            # 🌟 ハイブリッド判定ロジック
-            if ($vbaReceiveBuffer.Length -eq 0 -and $endsWithNull) {
-                # --- 【高速ルート：直通便 🚀】 ---
-                # 今まで貯まったものがなく、かつ今回の1回でヌル文字が来た場合
-                $realLength = $bytesRead - 1
-                $sendSegment = [System.ArraySegment[byte]]::new($bufferPipe, 0, $realLength)
+            # 現在バッファにあるデータをバイト配列で取得
+            $currentData = $vbaReceiveBuffer.ToArray()
+            $startIdx = 0
+            $foundNull = $false
 
-                # 直接 Chrome へ送信！
-                $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
-                Log "🚀 【直通】 短文JSONを即座に送信しました ($realLength バイト)" @{ForegroundColor="Cyan"}
-
-            } else {
-                # --- 【蓄積ルート：慎重便 📦】 ---
-                # すでに貯まっている途中があるか、今回のデータがヌル文字で終わっていない場合
-
-                # とりあえずバッファーに貯める
-                $vbaReceiveBuffer.Write($bufferPipe, 0, $bytesRead)
-
-                if ($endsWithNull) {
-                    # ヌル文字が来た！これでガッチャンコ完了
-                    $fullData = $vbaReceiveBuffer.ToArray()
-                    $realLength = $fullData.Length - 1 # 最後のヌル文字を除く
-
-                    # 1つの巨大な塊にして Chrome へ送信！
-                    $sendSegment = [System.ArraySegment[byte]]::new($fullData, 0, $realLength)
-                    $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
-
-                    Log "📦 【合体】 蓄積された長文JSONを送信しました ($realLength バイト)" @{ForegroundColor="DarkCyan"}
-
-                    # 次のためにバッファーを空にする
-                    $vbaReceiveBuffer.SetLength(0)
-
-                } else {
-                    # まだヌル文字が来ない。次を待つ
-                    Log "⏳ 【蓄積中...】 パケットが分割されています (現在 $($vbaReceiveBuffer.Length) バイト)" @{ForegroundColor="Yellow"}
+            # バッファ内のヌル文字 (0x00) を探して切り出し送信を行う
+            for ($i = 0; $i -lt $currentData.Length; $i++) {
+                if ($currentData[$i] -eq 0) {
+                    $msgLength = $i - $startIdx
+                    if ($msgLength -gt 0) {
+                        # ヌル文字の手前までのメッセージを切り出して送信
+                        $sendSegment = [System.ArraySegment[byte]]::new($currentData, $startIdx, $msgLength)
+                        $ws.SendAsync($sendSegment, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+                        Log "🚀 【分割送信】 JSONメッセージを個別に送信しました ($msgLength バイト)" @{ForegroundColor="Cyan"}
+                    }
+                    $startIdx = $i + 1
+                    $foundNull = $true
                 }
+            }
+
+            # 1つ以上のメッセージが処理された場合、送信済み領域をバッファから取り除く
+            if ($foundNull) {
+                $vbaReceiveBuffer.SetLength(0)
+                $remainingLength = $currentData.Length - $startIdx
+                if ($remainingLength -gt 0) {
+                    # 送信しきれなかった未完了のデータ（次のJSONの破片など）をバッファに書き戻す
+                    $vbaReceiveBuffer.Write($currentData, $startIdx, $remainingLength)
+                    Log "⏳ 【蓄積中】 未完了のパケットがあります ($remainingLength バイト)" @{ForegroundColor="Yellow"}
+                }
+            } else {
+                Log "⏳ 【蓄積中...】 パケットが分割されています (現在 $($vbaReceiveBuffer.Length) バイト)" @{ForegroundColor="Yellow"}
             }
 
             # 次のパイプ受信タスクを再セット
