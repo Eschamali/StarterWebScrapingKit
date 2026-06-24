@@ -475,6 +475,7 @@ Public Sub serialize(UserName As String)
     tmp.Add "hStdInWr", (hStdInWr)
     tmp.Add "hCDPOutRd", (hCDPOutRd)
     tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "hProcess", (hProcess)
     tmp.Add "dwProcessId", 0
 
     'Excelテーブルに、名前付きパイプハンドル情報を記録する
@@ -484,9 +485,9 @@ Public Sub serialize(UserName As String)
     '------------------ 2. タブ情報の記録準備 ------------------
     '※主要となる情報以外は一旦、一律空欄とし、必要なデータを`Dictionary`に詰める
     tmp.RemoveAll
-    tmp.Add "lngLastID", 1
-    tmp.Add "sessionID", ""
-    tmp.Add "targetID", ""
+    tmp.Add "BiDi-context", vbNullString
+    tmp.Add "sessionID", vbNullString
+    tmp.Add "targetID", vbNullString
 
     'Excelテーブルに、タブ情報欄を確保する
     Set ShSetting01_StartBrowser.serializeToTable(UserName, 2, "PowerShellViaStdPipe.serialize") = tmp
