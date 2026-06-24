@@ -134,13 +134,12 @@ Sub WebSocketによる冒険の始まり()
 
     '1. まずは、既存のTargetIDに接続できるか？
     If Not WebSocketCDP.reattach(UseName) Then
-        Dim CurrentTab As CDPContext
         '既存のTargetIDが消えちゃったので、別タブへの再接続フェーズへ
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブか、今開いている直近のタブに再接続して、そこから処理を再開します。"
 
         '2. 未接続のタブに接続
-        Set CurrentTab = WebSocketCDP.InheritanceCDPBrowser.getTab(setMain:=True)
-        'Set CurrentTab = WebSocketCDP.InheritanceCDPBrowser.newTab(setMain:=True)  '新しいタブでもOK
+        'Set WebSocketCDP = WebSocketCDP.InheritanceCDPBrowser.getTab(setMain:=True)
+        Set WebSocketCDP = WebSocketCDP.InheritanceCDPBrowser.newTab(setMain:=True)  '新しいタブでもOK
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
     End If
