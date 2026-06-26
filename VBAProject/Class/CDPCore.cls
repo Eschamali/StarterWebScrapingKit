@@ -1302,7 +1302,7 @@ Private Sub Class_Initialize()
 
         '2-2. パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
-        If LenB(LogFolderPath) = 0 Then
+        If LenB(LogFolderPath) > 0 Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If
