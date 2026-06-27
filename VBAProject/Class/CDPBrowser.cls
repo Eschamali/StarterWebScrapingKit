@@ -26,6 +26,8 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, _
     ByRef pSessionId As Long) As Long
 
+Private Declare PtrSafe Function TerminateProcess Lib "kernel32" (ByVal hProcess As LongPtr, ByVal uExitCode As Long) As Long
+
 'ポリシー情報確認用API(ReadOnly)
 Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
     ByVal hKey As LongPtr, _
@@ -152,7 +154,6 @@ Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` �
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
-'            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
 '            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
@@ -182,7 +183,6 @@ Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` �
 '***************************************************************************************************
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, _
     Optional addArgs As String, Optional KioskMode As edgeKioskType)
     Const FromProcedureName As String = ThisClassName & ".start"
@@ -250,8 +250,8 @@ Public Sub start(Optional Name As String = "chrome", _
    'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
    'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
    'PeekNamedPipe error will be thrown.
-    If PipeCore.deserialize(br.User) Then PipeCore.ClosePipeCDP                                  'Excelテーブルにユーザー名に紐づくハンドル情報があったら、新規起動なのでClose処理しておく
-    If cleanActive Then cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
+    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser        'Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+    cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
     setCrashStateNormal 'Prevent "Restore Session" popup
    '------------------------------------------------------------------------------------------------------------------------------------
 
@@ -337,7 +337,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
-        If .Range(.UseRangeName(1, FromProcedureName)).value = "" Then
+        If LenB(.Range(.UseRangeName(1, FromProcedureName)).value) = 0 Then
             '1. 必要な変数を用意
             Dim strKeyPath      As String   'ベースパス
             Dim ValueSize       As Long     '値の大きさ
@@ -391,14 +391,19 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
 End Function
 
-Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
-'-----------------------------------------------------------------------------------------------------------------------------------------
-' Provides cleaning before firing up a new session to prevent
-' pipe error
-' Update: 05/11/24: Daniel Polak - modified to solve problems with closing sessions (that do not belong to this user) on terminal server
-'         23/10/25: Daniel Polak - p.name and p.terminate were not correct, replaced by proc.name and proc.terminate (discovered this bug because we are using Option Explicit now). On Error Resume Next was hiding the bug too.
-'                                - only terminate automation-processes (where command line contains --remote-debugging-pipe)
-'-----------------------------------------------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：新しいデバッグブラウザセッションを開始する前にクリーンアップを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：実行結果　※0で成功です
+'* 引数    ：BrowserPath        起動しようとするブラウザフルパス
+'            UserDataArg        `--user-data-dir` or `--profile-directory`といった起動ユーザー引数を適用します
+'            onlyCdpSessions    `True` ：`--remote-debugging-pipe`,`--user-data-dir="..."`を含む、CDP制御サインに対してのブラウザをKillします
+'                               `False`：起動しようとするブラウザパスのみに対してのブラウザをKillします。ポリシー：UserDataDir の対策です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・基本は対象ブラウザの`remote-debugging-pipe`プロセスのみを終了します
+'            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
+'***************************************************************************************************
+Private Sub cleanUpSessions(onlyCdpSessions As Boolean)
     Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
 
 
@@ -407,32 +412,31 @@ Private Sub cleanUpSessions(Optional onlyCdpSessions As Boolean = True)
     lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
     ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
 
-    'Clean up all running sessions
+    ' 2. exe名を取得
+    Dim exeName As String, tmp
+    tmp = Split(br.Path, "\")
+    exeName = tmp(UBound(tmp))
+
+    ' 3. 起動中のプロセスを巡る
     Dim proc As Object
     On Error Resume Next
-
-    '2. 前述の2つの情報を基に、起動中のアプリたちを取得する
     For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
-        '3. 起動中のブラウザ名であるか確認
-        If LCase$(proc.Name) = LCase$(br.Type) Then
-            '4. Killタイプ判定
+        '4. 起動中のブラウザ名であるか確認
+        If LCase$(proc.Name) = LCase$(exeName) Then
+            '5. Killタイプ判定
             If Not onlyCdpSessions Then
-                '5. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
+                '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
                 proc.Terminate
 
             ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 0 And InStr(1, proc.CommandLine, br.User) > 0 Then
-                '5. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
+                '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
                  proc.Terminate
             End If
         End If
         DoEvents
     Next
     On Error GoTo 0
-    Err.Number = 0
-
-    'Also clean up all prev CDP
-    PipeCore.ClosePipeCDP   'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    Err.Clear
 
     printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
 
@@ -673,7 +677,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ タブ操作関連 ■■■
 '***************************************************************************************************
-Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional browserContextId As String, Optional isBackground As Boolean) As CDPContext
+Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Optional setMain As Boolean, Optional isHidden As Boolean, Optional browserContextId As String, Optional isBackground As Boolean) As CDPContext
 '------------------------------------------------------------------
 ' Create a new blank tab within the same instance.
 ' url: The initial URL the page will be navigated to. An empty
@@ -697,6 +701,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
+    If isHidden Then params("hidden") = isHidden
     If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
@@ -727,7 +732,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         .id = sessionID_
 
         '4. Urlが設定されてる場合は、読み込み完了まで待機する
-        If Url <> "" Then .wait
+        If LenB(Url) Then .wait
 
         '5. ステータスの更新
         .getSessionInfo
@@ -793,7 +798,7 @@ searchit:
         If Obj("type") = SearchType Then
             score = -1
             Select Case True
-                Case tabName <> ""
+                Case LenB(tabName)
                     If Obj.Exists("title") Then
                         If Obj("title") = tabName Then
                             score = 100
@@ -803,7 +808,7 @@ searchit:
                             errMsg = "with name containing """ & tabName & """"
                         End If
                     End If
-                Case Url <> ""
+                Case LenB(Url)
                     If Obj.Exists("url") Then
                         If Left$(Obj("url"), Len(Url)) = Url Then
                             score = 90
@@ -842,7 +847,7 @@ searchit:
    'Returns nothing if not found
    'Nothing is preferred over throwing error
     If Not tabfound Then
-        info = IIf(tabName <> "", tabName, IIf(Url <> "", Url, "(no new tab found)"))
+        info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
         Exit Function
     Else
@@ -1302,15 +1307,15 @@ Public Sub quit()
         Loop
     End If
 
-    '3. 一定時間たっても閉じない場合は、プロセス終了をかけて、無理やり閉じる
+    '3. 一定時間たっても閉じない場合は、応答なしとし、プロセス終了をかけて、無理やり閉じる
     If PipeExists Then
         printMsg WARN_, "Browser didn't close gracefully within 5s; invoking cleanUpSessions.", FromProcedureName
-        cleanUpSessions
+        TerminateDebugBrowser
     End If
 
     '4. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    PipeCore.ClosePipeCDP   'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    PipeCore.CloseHandleBrowser '各種ハンドルを閉じる
+    deleteCDPID                 'テーブルからも削除する
 
     '5. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     sleep 1
@@ -1371,6 +1376,15 @@ Private Sub setCrashStateNormal()
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：`CDPCore.InitCDP`で起動したデバッグブラウザプロセスハンドルに対して、プロセス終了をかけます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：CDPコマンド`Browser.close`を実行したのに、閉じれないアクシデント時に使用して下さい
+'***************************************************************************************************
+Private Sub TerminateDebugBrowser()
+    TerminateProcess PipeCore.Connection_hProcess, 0
+End Sub
+
 
 
 '***************************************************************************************************
@@ -1428,7 +1442,7 @@ Public Sub printParams()
     printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.ConnectionPipe_hStderrOutRd, FromProcedureName
     printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & PipeCore.ConnectionPipe_hCDPInWr, FromProcedureName
     printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & PipeCore.ConnectionPipe_hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & PipeCore.ConnectionProcessId, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
     printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
@@ -1438,12 +1452,9 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
-    Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
-
-
     br.Type = ExecuteCDP("Browser.getVersion")("product")
     br.Ver = Split(br.Type, "/")(1)
-    If PipeCore.ConnectionProcessId > 0 Then br.Path = getBrowserPath(br.Type)  'プロセスID情報がない場合は、取らない
+    If PipeCore.Connection_dwProcessId > 0 Then br.Path = getBrowserPath(br.Type)  'プロセスID情報がない場合は、取らない
 End Sub
 
 
@@ -1515,7 +1526,7 @@ Public Function checkURI(URI As String) As String
 
     '0. 空文字の場合は、チェックしません
     printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
-    If URI = "" Then
+    If LenB(URI) = 0 Then
         printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
 
         checkURI = URI

@@ -80,9 +80,6 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
-'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
-'                                           `False`:起動チェックをせずに、ブラウザを起動します
-'
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
@@ -96,7 +93,6 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '***************************************************************************************************
 Public Sub InitBiDi(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
@@ -105,7 +101,7 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
 
     '1. 引数から設定を適用し、まずはCDPとして起動
     Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
+    m_CDPBrowser.start Name, appUrl, userProfile, addArgs, KioskMode
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
@@ -996,8 +992,8 @@ Public Function TimerCounter() As Double
     TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
-Public Sub ClosePipeCDP()
-    m_CDPCore.ClosePipeCDP
+Public Sub CloseHandleBrowser()
+    m_CDPCore.CloseHandleBrowser
 End Sub
 
 

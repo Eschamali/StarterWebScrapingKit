@@ -220,7 +220,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
    'Perform msg logging if needed
     If currentLog.doLog Then
         logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebSokect.log"
-        If Dir(currentLog.logPath, vbDirectory) = "" Then MkDir currentLog.logPath
+        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
     End If
 
    'Perform msg output to Immediate Window if needed
@@ -785,7 +785,7 @@ Private Sub Class_Initialize()
     With ShSetting01_StartBrowser
         '1. パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
-        If LogFolderPath <> "" Then
+        If LenB(LogFolderPath) Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If

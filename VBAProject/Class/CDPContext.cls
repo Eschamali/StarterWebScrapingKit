@@ -192,7 +192,6 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
-'            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
@@ -200,13 +199,12 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '***************************************************************************************************
 Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
     '1. ブラウザ起動
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
+    BrowserCore.start Name, appUrl, userProfile, addArgs, KioskMode
 
     '2. WithEventsClassオブジェクトを受け取る
     Set PipeCore = BrowserCore.InheritanceCDPCore
@@ -221,10 +219,10 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
     Dim timerStart As Double, strLoc As String
-    If appUrl <> "" Then
+    If LenB(appUrl) Then
         timerStart = TimerCounter
         Do
-            If Me.Name <> "" Then Exit Do
+            If LenB(Me.Name) Then Exit Do
             If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
@@ -359,7 +357,7 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     deserializeForTab reuseSession
 
     '5. `sessionId`が空欄の場合は、即抜け
-    If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
+    If LenB(brTab.sessionID) = 0 Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
     '6. sessionId生存check
     If refreshTargetInfo Is Nothing Then
@@ -397,10 +395,10 @@ Private Sub deserializeForTab(reuseSession As Boolean)
 
     '3. タブのTargetID情報を適用
     brTab.targetID = objSerialize.Item("targetID")
-    If brTab.targetID = "" Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
+    If LenB(brTab.targetID) = 0 Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
 
     '4. SessionIDの適用方法に応じた分岐を行う
-    If reuseSession And objSerialize.Item("sessionID") <> "" Then
+    If reuseSession And LenB(objSerialize.Item("sessionID")) Then
         '既存のSessionIDを適用
         '4-1. 古いSessionIDを適用
         brTab.sessionID = objSerialize.Item("sessionID")
@@ -409,7 +407,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
         '古いSessionIDを破棄してから、新しいSessionIDを付与
         '4-1. 新しい`sessionId`を発行し、失敗時はエラーログを出して抜ける
         Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
-        If newSessionID = "" Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
+        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
 
         '4-2. 一旦、古いSessionIDを適用
         brTab.sessionID = objSerialize.Item("sessionID")
@@ -586,7 +584,7 @@ step1:
         Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
 
         '更新に失敗時はエラーで停止
-        If newSessionID = "" Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
+        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
 
         '更新させて、リトライ
         Me.id = newSessionID
@@ -1591,7 +1589,7 @@ Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
 
 
     '1. イベント名が空欄か？
-    If EventName = "" Then
+    If LenB(EventName) = 0 Then
         '1-2. 削除モードか？
         If DelMode Then
             'LETのイベントメソッド名が空欄の場合は、全削除します
@@ -1800,7 +1798,7 @@ Private Function getHandle() As LongPtr
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.ConnectionProcessId Then
+        If currentPID = PipeCore.Connection_dwProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 
@@ -1811,7 +1809,7 @@ Private Function getHandle() As LongPtr
             windowTitle = Left(bufferString, titleLen)
 
             'Verify if matching with the sessionTitle and is really an edge/chrome window
-            If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
         End If
 
         'Continue with the next handle value
@@ -1916,7 +1914,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If br.WID = "" Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
         params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
@@ -2338,7 +2336,6 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Url = jsEval("document.URL", dbgMsg:=False)
     Url = br.Url
 
 End Property
@@ -2360,7 +2357,6 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Name = jsEval("document.title", dbgMsg:=False)
     Name = br.Name
 
 End Property

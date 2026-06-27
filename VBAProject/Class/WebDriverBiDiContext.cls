@@ -50,9 +50,6 @@ Private LogID  As String
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
-'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
-'                                           `False`:起動チェックをせずに、ブラウザを起動します
-'
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
@@ -63,7 +60,6 @@ Private LogID  As String
 '***************************************************************************************************
 Public Sub StartBiDiModeAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
@@ -72,7 +68,7 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As String = "chrome", _
     Set m_BiDiMode = New WebDriverBiDiMode
 
     '2. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
-    m_BiDiMode.StartBiDiMode Name, appUrl, cleanActive, userProfile, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, KioskMode, sessionCapabilitiesRequest
 
     '3. イベントを継承
     Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
@@ -247,7 +243,7 @@ Public Function ConvertToCDPContext() As CDPContext
     Dim newSessionID As String: newSessionID = m_BiDiCore.DirectControlCDP.attachToTab(InfoList.context)
 
     '2. 発行失敗時はエラーで即抜け
-    If newSessionID = "" Then m_BiDiMode.printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.DirectControlCDP.LastCDPJsonError("message"), FromProcedureName: Exit Function
+    If LenB(newSessionID) = 0 Then m_BiDiMode.printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.DirectControlCDP.LastCDPJsonError("message"), FromProcedureName: Exit Function
 
     '3. 無事発行出来たら、変換手続き
     '------ CDPContext.clsとして返却する準備 ------

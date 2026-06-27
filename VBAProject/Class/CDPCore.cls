@@ -236,7 +236,7 @@ Private Type ErrorCode
 End Type
 Private LastPipeError   As ErrorCode
 
-'パイプ情報
+'各種ハンドル情報
 Private hStdOutWr       As LongPtr
 Private hStdOutRd       As LongPtr
 Private hStderrOutWr    As LongPtr
@@ -385,13 +385,17 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
 
     result = CreateProcess(0&, StrPtr(strExec), sa, sa, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
 
+    '起動アプリハンドルを取得
+    hProcess = proc.hProcess
+    dwProcessId = proc.dwProcessId
+
     '実行結果チェック
     If result = 0 Then
         'エラーコードを返す
         InitCDP = Err.LastDllError
 
         '失敗なので、自身で使用するはずだったハンドルも削除
-        ClosePipeCDP
+        CloseHandleBrowser
     Else
         '成功は、0として返却
         InitCDP = 0
@@ -403,9 +407,6 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
     CloseHandle hCDPOutWr
     CloseHandle hCDPInRd
     CloseHandle hStderrOutWr
-
-    hProcess = proc.hProcess
-    dwProcessId = proc.dwProcessId
 
 End Function
 
@@ -431,6 +432,7 @@ Public Sub serialize(UserName As String)
     tmp.Add "hStdInWr", (hStdInWr)
     tmp.Add "hCDPOutRd", (hCDPOutRd)
     tmp.Add "hCDPInWr", (hCDPInWr)
+    tmp.Add "hProcess", (hProcess)
     tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
@@ -457,6 +459,7 @@ Public Function deserialize(UserName As String) As Boolean
     hStdInWr = PipeInfo("hStdInWr")
     hCDPOutRd = PipeInfo("hCDPOutRd")
     hCDPInWr = PipeInfo("hCDPInWr")
+    hProcess = PipeInfo("hProcess")
     dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
@@ -464,16 +467,17 @@ Public Function deserialize(UserName As String) As Boolean
 End Function
 
 '***************************************************************************************************
-'* 機能　　：パイプハンドル情報をクリーニングします
+'* 機能　　：各種ハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
-Public Sub ClosePipeCDP()
+Public Sub CloseHandleBrowser()
     CloseHandle hStdOutRd
     CloseHandle hStdInWr
     CloseHandle hCDPOutRd
     CloseHandle hCDPInWr
     CloseHandle hStderrOutRd
+    CloseHandle hProcess
 End Sub
 
 
@@ -773,7 +777,7 @@ Private Function searchNull(checkString As String) As Long
 
     Dim lngPos As Long
 
-    If Len(checkString) = 0 Then Exit Function
+    If LenB(checkString) = 0 Then Exit Function
     lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
     If lngPos > 0 Then
         searchNull = lngPos
@@ -896,7 +900,7 @@ Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
         '4-1. 欠けたデータがあるか？
         If FragmentedDate.Index > 0 Then
             '4-2. 空データか？
-            If JsonMessages(FirstIndex) = "" Then
+            If LenB(JsonMessages(FirstIndex)) = 0 Then
                 '4-2-1. 終端目印を付与
                 FragmentedCDP = DividerMark
                 printMsg Trace_, LogID, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
@@ -918,7 +922,7 @@ Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
 
     '------------------------- 5. 最後の要素に対して特別な処理を施す -------------------------
     '5-1. 空欄か？
-    If JsonMessages(LastIndex) = "" Then
+    If LenB(JsonMessages(LastIndex)) = 0 Then
         '5-2. 今回の受信で全て正しいJson形式として得れました
         printMsg Debug_, LogID, LastIndex & " messages received.", FromProcedureName
         printMsg Debug_, LogID, "readProcCDP was able to receive everything!", FromProcedureName
@@ -1168,8 +1172,12 @@ Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDP�
     ConnectionPipe_hCDPInWr = hCDPInWr
 End Property
 
-Property Get ConnectionProcessId() As LongPtr           '`--remote-debugging-pipe`で起動した際のProcessID
-    ConnectionProcessId = dwProcessId
+Property Get Connection_hProcess() As LongPtr           '`--remote-debugging-pipe`で起動した際のhProcess
+    Connection_hProcess = hProcess
+End Property
+
+Property Get Connection_dwProcessId() As LongPtr        '`--remote-debugging-pipe`で起動した際のProcessID
+    Connection_dwProcessId = dwProcessId
 End Property
 
 '***************************************************************************************************
@@ -1222,7 +1230,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
    'Perform msg logging if needed
     If currentLog.doLog Then
         logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
-        If Dir(currentLog.logPath, vbDirectory) = "" Then MkDir currentLog.logPath
+        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
     End If
 
    'Perform msg output to Immediate Window if needed
@@ -1294,7 +1302,7 @@ Private Sub Class_Initialize()
 
         '2-2. パスが設定されてたら、ログファイル保存を有効化
         Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
-        If LogFolderPath <> "" Then
+        If LenB(LogFolderPath) > 0 Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
         End If

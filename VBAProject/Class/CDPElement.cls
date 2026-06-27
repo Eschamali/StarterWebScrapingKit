@@ -110,7 +110,7 @@ End Property
 '* 注意事項：サイトによってはこの不自然なグローバル変数を検知するスクレイピング対策があります。ご利用時は注意してください。
 '***************************************************************************************************
 Public Sub ExposeDevTools(ByVal varName As String)
-    If elementObjectId = "" Then Exit Sub
+    If LenB(elementObjectId) = 0 Then Exit Sub
 
     Dim params As New Dictionary
     Dim arg As New Dictionary
@@ -1220,7 +1220,7 @@ End Function
 '***************************************************************************************************
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
-    If elementObjectId <> "" Then
+    If LenB(elementObjectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", elementObjectId
         ExecuteCDP "Runtime.releaseObject", paramsCDP, False

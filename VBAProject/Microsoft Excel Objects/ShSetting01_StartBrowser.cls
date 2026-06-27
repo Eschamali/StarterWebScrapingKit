@@ -42,7 +42,7 @@ End Enum
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const ConnectionInfoNum As Long = 6       '1ユーザーにつき、5つ分のパイプハンドル情報 + プロセスID
+Private Const ConnectionInfoNum As Long = 7       '1ユーザーにつき、6つ分のパイプハンドル情報 + プロセスID
 Private Const BrowserInfoNum    As Long = 3       '1ユーザーにつき、2つ分のブラウザセッション + BiDi-context情報
 
 
@@ -63,7 +63,6 @@ Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
         Case 3: UseRangeName = "追加の起動引数一式"
         Case 4: UseRangeName = "Chromeで使用"
         Case 5: UseRangeName = "LogLevel"
-        Case 6: UseRangeName = "常にブラウザを新規で起動"
         Case 7: UseRangeName = "イミディエイトに表示"
         Case 8: UseRangeName = "ブラウザから受信した生のJSONをイミディエイトに表示"
         Case 9: UseRangeName = "ログファイル保存"

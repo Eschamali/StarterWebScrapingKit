@@ -68,9 +68,6 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
-'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
-'                                           `False`:起動チェックをせずに、ブラウザを起動します
-'
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
@@ -81,7 +78,6 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '***************************************************************************************************
 Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
@@ -91,7 +87,7 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As Dictionary
@@ -339,10 +335,10 @@ Private Function FindContextRecursive(ByVal contexts As Collection, ByVal Url As
         
         ' A. このコンテキスト自体がマッチするかチェック
         Dim isMatch As Boolean
-        If Url = "" Then
-            isMatch = True ' 両方空なら最初に見つかったヤツ
+        If LenB(Url) = 0 Then
+            isMatch = True ' 空なら最初に見つかったヤツ
         Else
-            If Url <> "" And InStr(1, ctxData("url"), Url) > 0 Then isMatch = True
+            If InStr(1, ctxData("url"), Url) > 0 Then isMatch = True
         End If
 
         If isMatch Then
@@ -653,8 +649,8 @@ Public Sub quit()
     SendMessage "{""method"":""browser.close"",""params"":{}}", dbgMsg:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    m_BiDiCore.ClosePipeCDP 'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
+    deleteCDPID                     'テーブルからも削除する
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     sleep 1
@@ -848,7 +844,7 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
 
     '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
     Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
-    If pfName = "" Then pfName = Application.Name
+    If LenB(pfName) = 0 Then pfName = Application.Name
 
     'ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName

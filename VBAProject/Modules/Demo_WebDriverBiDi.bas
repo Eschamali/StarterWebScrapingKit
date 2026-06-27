@@ -37,7 +37,7 @@ Public Function 設定シートからのBiDi起動(Optional StartURL As String, 
 
         'ブラウザ起動
         Set 設定シートからのBiDi起動 = New WebDriverBiDiMode
-        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
     End With
 End Function
 
@@ -53,7 +53,7 @@ Public Function 設定シートからのBiDi起動ForTab(Optional StartURL As St
 
         'ブラウザ起動
         Set 設定シートからのBiDi起動ForTab = New WebDriverBiDiContext
-        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
     End With
 End Function
 

@@ -53,7 +53,7 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
     Flags = FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_IGNORE_INSERTS
     
     ' DLL指定がある場合
-    If DllName <> "" Then
+    If LenB(DllName) Then
         ' まずロード済みか探す
         hModule = GetModuleHandle(DllName)
         
