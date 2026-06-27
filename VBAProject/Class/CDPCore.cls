@@ -185,7 +185,6 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
 'その他
 Private Const ThisClassName     As String = "CDPCore"
-Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
 Private Const InitialBuffer     As Long = 2 ^ 20            '初期バッファー上限
 Private Const LimitCommandID    As Long = 2000000000        'CDPコマンド送信時のID上限値
 
@@ -212,14 +211,7 @@ Public Event ResetCommandID()
 Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private LogControl     As New Logger               'ログレベルの制御
 
- 'バッファー管理(パイプ通信の仕様による欠けデータの蓄積管理)
-Private Type StateFragmented
-    strBuffer()     As String   'ストリーム受信で欠けたデータを一時的に蓄積するための配列です
-    Index           As Long     '埋まってる位置
-    expansionCount  As Long     '拡張確保回数
-End Type
-Private FragmentedDate As StateFragmented
-
+ 'バッファー管理
 Private Type ResponseBufferCDP
     strBuffer       As String   'ブラウザから送られたCDP情報をどんどん蓄積する変数
     EndCursor       As Long     '次に蓄積し始める位置
@@ -723,6 +715,13 @@ End Function
 '***************************************************************************************************
 '                            ■■■ CDPレスポンス、蓄積/取得処理 ■■■
 '***************************************************************************************************
+'* 機能　　：`ReadFile`から得たデータを蓄積していきます
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：`ReadFile`から得たデータそのまんま
+'* GET返値 ：1件1件取得されます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：新規メッセージがない場合は、Getは`vbnullstring`で返ります
+'***************************************************************************************************
 Private Property Let AccumulateCDP(PipeResponse As String)
     Const FromProcedureName As String = ThisClassName & ".AccumulateCDP - Let"
 
@@ -730,6 +729,7 @@ Private Property Let AccumulateCDP(PipeResponse As String)
     '1. レスポンスサイズを取得
     Dim PipeResponseLen As Long
     PipeResponseLen = Len(PipeResponse)
+    printMsg Trace_, LogID, "Accumulating... : " & PipeResponse, FromProcedureName
 
     With responseCDP
         '2. 上限を越しそうになったら、拡張する(高負荷ポイント)
@@ -781,68 +781,7 @@ Private Property Get AccumulateCDP() As String
     End With
 End Property
 
-
-
-'***************************************************************************************************
-'                               ■■■ 断片データの結合処理 ■■■
-'***************************************************************************************************
-'* 機能　　：`ReadFile`から得たデータが欠けた際のバッファー管理を担うヘルパープライベートプロパティです
-'---------------------------------------------------------------------------------------------------
-'* LET引数 ：pieceData  欠けたデータ
-'* GET返値 ：集めた`pieceData`を結合した物
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：断片データ（pieceData）を高速結合するための専用バッファプロパティ。
-'  　　　　　【Let】データを配列の空き部屋（Index）に順次格納。（溢れた時のみバッファ拡張）
-'  　　　　　【Get】格納された全データを Join し、vbNullChar を目印に1件分の完全なJSONを抽出。
-'  　　　　　　　　 抽出後は Index を 0 に戻すことで、実質的なメモリクリアを負荷ゼロで行います。
-'
-'* 注意事項：・`pieceData`に入れるのは必ず欠けたデータであること
-'            ・GET時、`vbnullchar`がどこかに存在するとし、先頭から1件分取り出せる目印として機能していること
-'***************************************************************************************************
-Private Property Let FragmentedCDP(pieceData As String)
-    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP - Let"
-
-
-    With FragmentedDate
-        '1. 上限を越したら、拡張する(高負荷ポイント)
-        If .Index >= InitialAllocationStrBuffer * .expansionCount Then
-            .expansionCount = .expansionCount + 1
-            ReDim Preserve .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-            printMsg Debug_, LogID, "The buffer has been expanded to " & InitialAllocationStrBuffer * .expansionCount, FromProcedureName
-        End If
-
-        '2. 配列に入れる
-        .strBuffer(.Index) = pieceData
-        printMsg Trace_, LogID, "Data has been placed in array " & .Index, FromProcedureName
-
-        '3. カウント
-        .Index = .Index + 1
-    End With
-End Property
-
-Private Property Get FragmentedCDP() As String
-    Const FromProcedureName As String = ThisClassName & ".FragmentedCDP - Get"
-
-
-    '1. 確保中の配列を全部結合する
-    printMsg Trace_, LogID, "Now we'll begin the buffer merging process...", FromProcedureName
-    Dim tmp As String: tmp = Join(FragmentedDate.strBuffer, "")
-    printMsg Trace_, LogID, "concatenated Raw-string: " & tmp, FromProcedureName
-
-    '2. `vbnullchar`がある位置を先頭から探す
-    Dim EndPos As Long: EndPos = searchNull(tmp)
-
-    '3. その目印を元に、1件分返却
-    FragmentedCDP = Mid(tmp, 1, EndPos - 1)
-    printMsg Debug_, LogID, "Trim complete. Result: " & FragmentedCDP, FromProcedureName
-
-    '4. インデックスリセット
-    FragmentedDate.Index = 0
-    printMsg Trace_, LogID, "Buffer Index reset.", FromProcedureName
-
-End Property
-
-Private Function searchNull(checkString As String, Optional StartPos As Long = 1) As Long
+Private Function searchNull(checkString As String, StartPos As Long) As Long
 '------------------------------------------------------------
 ' CDP messages received from chrome are null-terminated
 ' Updated: 25/10/25: Daniel Polak - new faster version
@@ -886,7 +825,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
     printMsg Trace_, LogID, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
-    Dim vbNullCharTermination As Boolean: vbNullCharTermination = True  '初期化
+    Dim EOvbNullChar As Boolean: EOvbNullChar = True  '初期化
     Do
         'std系の中身を出力
         viewStdoutAndStderr
@@ -897,6 +836,9 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         '返り値チェック
         If intRes > 0 Then
+            '欠けチェック
+            EOvbNullChar = (InStrRev(strRes, vbNullChar) = intRes)
+
             '破棄モードかの判定
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
@@ -904,16 +846,10 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
                 printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
                 If currentLog.seeRawSendMsgDbg Then printMsg Trace_, LogID, "Discarded - strRes = " & strRes, FromProcedureName
 
-                '欠けチェック
-                vbNullCharTermination = (InStrRev(strRes, vbNullChar) = Len(strRes))
             Else
-                '中身の解析をし、IDや非同期イベントを取り出します
-                printMsg Trace_, LogID, "Analyzing the data in the pipe...", FromProcedureName
+                '中身の解析に備えて、蓄積処理
+                printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
                 AccumulateCDP = strRes
-                Call ReceiveFromPipeSplit(strRes)
-
-                '欠けチェック
-                vbNullCharTermination = (FragmentedDate.Index = 0)
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -929,99 +865,38 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
             Else
                 'パイプ内は空
-                printMsg Trace_, LogID, "The message queue is currently empty.", FromProcedureName
+                printMsg Trace_, LogID, "The ReadFile is currently empty.", FromProcedureName
 
             End If
         End If
 
         '応答なし防止
         DoEvents
-    Loop Until vbNullCharTermination And intRes < 1
-
+    Loop Until EOvbNullChar And intRes < 1
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
-End Sub
 
-'***************************************************************************************************
-'* 機能　　：1度の`ReadFile`で取り出した長文を、1件1件に分割し、必要に応じて、断片データを1件分に復元するようにします
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：ReceiveRawString       パイプから得たそのまんまの文字列
-'***************************************************************************************************
-Private Function ReceiveFromPipeSplit(ReceiveRawString As String)
-    Const FromProcedureName As String = ThisClassName & ".ReceiveFromPipeSplit"
-    Const DividerMark       As String = vbNullChar  'CDPの受信データは、null文字区切りであることを確認
+    'データがあったら解析を始めます
+    Dim ResCounter As Long
+    If responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "Analyzing the data in the responseCDP.strBuffer...", FromProcedureName
+    Do While responseCDP.ExistsNewRes
+        'カウント
+        ResCounter = ResCounter + 1
 
-
-    '1. 受信メッセージを活用するため、null文字区切りとしてスマートに分割
-    Dim JsonMessages: JsonMessages = Split(ReceiveRawString, DividerMark)
-
-    '2. 各要素数を確認
-    Dim FirstIndex  As Long: FirstIndex = LBound(JsonMessages)  'TIP：Split後の配列は、0始まりIndexです
-    Dim LastIndex   As Long:  LastIndex = UBound(JsonMessages)
-
-    '3. いくつかログ化
-    '3-1. `ReadFile`で得た内容を確認
-    If currentLog.seeRawSendMsgDbg Then printMsg Trace_, LogID, "Raw - ReadFileRes = " & ReceiveRawString, FromProcedureName
-
-    '3-2. 最初と最後の中身を確認
-    If FirstIndex = LastIndex Then
-        printMsg Trace_, LogID, "SingleResCDP  - contents: " & JsonMessages(FirstIndex), FromProcedureName
-    Else
-        printMsg Trace_, LogID, "FirstIndexCDP - contents: " & JsonMessages(FirstIndex), FromProcedureName
-        printMsg Trace_, LogID, "LastIndexCDP  - contents: " & JsonMessages(LastIndex), FromProcedureName
-    End If
-
-    '------------------------- 4. 最初の要素に対して特別な処理を施す -------------------------
-    '※最初と最後の要素数が同じの場合は、欠けてる状態なのでパス
-    If FirstIndex < LastIndex Then
-        '4-1. 欠けたデータがあるか？
-        If FragmentedDate.Index > 0 Then
-            '4-2. 空データか？
-            If LenB(JsonMessages(FirstIndex)) = 0 Then
-                '4-2-1. 終端目印を付与
-                FragmentedCDP = DividerMark
-                printMsg Trace_, LogID, "Input data has arrived, but since it is an empty string, the currently stored data will be treated as JSON data.", FromProcedureName
-            Else
-                '4-2-1. 最後の断片データを挿入し、終端目印も付与
-                FragmentedCDP = JsonMessages(FirstIndex)
-                FragmentedCDP = DividerMark
-                printMsg Trace_, LogID, "The merge completes the JSON data.", FromProcedureName
-            End If
-
-            '4-3. 集まったデータを取り出し、最初の要素に上書きし、以降のFor文で活用できるようにする
-            '※内部で、Jsonデータが完成されたとし、蓄積中のデータも実質クリアされます
-            JsonMessages(FirstIndex) = FragmentedCDP
-        Else
-            printMsg Trace_, LogID, "There is no missing data being stored.", FromProcedureName
-        End If
-    End If
-    '-----------------------------------------------------------------------------------------
-
-    '------------------------- 5. 最後の要素に対して特別な処理を施す -------------------------
-    '5-1. 空欄か？
-    If LenB(JsonMessages(LastIndex)) = 0 Then
-        '5-2. 今回の受信で全て正しいJson形式として得れました
-        printMsg Debug_, LogID, LastIndex & " messages received.", FromProcedureName
-        printMsg Debug_, LogID, "readProcCDP was able to receive everything!", FromProcedureName
-    Else
-        '5-2. データが、"欠けた"状態なので蓄積で、キャッシュしておく。頻繁には来ない想定
-        printMsg Debug_, LogID, LastIndex + 1 & " messages received.", FromProcedureName
-        printMsg Trace_, LogID, "The Split(" & LastIndex & ") data is missing JSON data. Accumulate until completion.", FromProcedureName
-        FragmentedCDP = JsonMessages(LastIndex)
-
-        printMsg Debug_, LogID, "readProcCDP was unable to receive all the data. It accumulates the last element data...", FromProcedureName
-    End If
-    '-----------------------------------------------------------------------------------------
-
-    '6. 最後の要素以外をループで回して、ブラウザからのメッセージを確認する
-    Dim i As Long
-    For i = LBound(JsonMessages) To UBound(JsonMessages) - 1
         'レスの確認
-        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Split(" & i & ") - strRes = " & JsonMessages(i), FromProcedureName 'Only enable if needs to see every raw JS message for debugging/development
+        Dim tmp As String: tmp = AccumulateCDP
+        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
         '受信データのチェックを行うプロシージャへ遷移します。
-        Call BrowserReceivedDataCheck(CStr(JsonMessages(i)))
-    Next
-End Function
+        Call BrowserReceivedDataCheck(tmp)
+    Loop
+
+    'ログ化
+    If ResCounter Then
+        printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
+    Else
+        printMsg Trace_, LogID, "The received message was empty.", FromProcedureName
+    End If
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：ブラウザからの受信データの構造をチェックし、各クラスへイベント発信をします
@@ -1364,13 +1239,6 @@ Private Sub Class_Initialize()
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
-    '1. Json分断時の一時キュー関連の初期設定
-    With FragmentedDate
-        .expansionCount = 1
-        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-        .Index = 0
-    End With
-
     '1. 初期バッファー設定
     With responseCDP
         .length = InitialBuffer
