@@ -186,6 +186,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 'その他
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialAllocationStrBuffer As Long = 2 ^ 8    '初期バッファー上限
+Private Const InitialBuffer     As Long = 2 ^ 20            '初期バッファー上限
 Private Const LimitCommandID    As Long = 2000000000        'CDPコマンド送信時のID上限値
 
 
@@ -218,6 +219,15 @@ Private Type StateFragmented
     expansionCount  As Long     '拡張確保回数
 End Type
 Private FragmentedDate As StateFragmented
+
+Private Type ResponseBufferCDP
+    strBuffer       As String   'ブラウザから送られたCDP情報をどんどん蓄積する変数
+    EndCursor       As Long     '次に蓄積し始める位置
+    length          As Long     '現在のバッファ全体の長さ
+    StartCursor     As Long     '取り出しの開始位置
+    ExistsNewRes    As Boolean  '新規メッセージ有無
+End Type
+Private responseCDP As ResponseBufferCDP
 
 'ログ設定状況
 Private Type StateLog
@@ -305,14 +315,14 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
     End If
 
    'Then the out pipe for the CDP Protocol
-    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, 2 ^ 20)   '※下限は、2 ^ 16
+    result = CreatePipe(hCDPOutRd, hCDPOutWr, sa, InitialBuffer)    '※下限は、2 ^ 16
     If result = 0 Then
         InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
     End If
 
    'And finally the in pipe
-    result = CreatePipe(hCDPInRd, hCDPInWr, sa, 2 ^ 20)     '※下限は、2 ^ 16
+    result = CreatePipe(hCDPInRd, hCDPInWr, sa, InitialBuffer)      '※下限は、2 ^ 16
     If result = 0 Then
         InitCDP = Err.LastDllError     'エラーコードで返す
         Exit Function
@@ -711,6 +721,69 @@ End Function
 
 
 '***************************************************************************************************
+'                            ■■■ CDPレスポンス、蓄積/取得処理 ■■■
+'***************************************************************************************************
+Private Property Let AccumulateCDP(PipeResponse As String)
+    Const FromProcedureName As String = ThisClassName & ".AccumulateCDP - Let"
+
+
+    '1. レスポンスサイズを取得
+    Dim PipeResponseLen As Long
+    PipeResponseLen = Len(PipeResponse)
+
+    With responseCDP
+        '2. 上限を越しそうになったら、拡張する(高負荷ポイント)
+        '※オーバフローしたらこのツールでは対応できません
+        If .EndCursor + PipeResponseLen > .length Then
+            .strBuffer = .strBuffer & String$(.length, vbNullChar)
+            .length = .length * 2
+            printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
+        End If
+
+        '3. Midステートメント で、うまい具合に上書きさせる
+        '※Midステートメント 操作なので、`+1`補正しておく
+        Mid$(.strBuffer, .EndCursor + 1) = PipeResponse
+        printMsg Trace_, LogID, "Added to cursor: " & .EndCursor + 1, FromProcedureName
+
+        '4. カーソル位置を更新
+        .EndCursor = .EndCursor + PipeResponseLen
+
+        '5. 新規メッセージフラグを付与
+        .ExistsNewRes = True
+    End With
+End Property
+
+Private Property Get AccumulateCDP() As String
+    Const FromProcedureName As String = ThisClassName & ".AccumulateCDP - Get"
+
+
+    With responseCDP
+        '1. 次に蓄積し始める位置が先頭の場合は即抜け
+        If .EndCursor = 0 Then printMsg Trace_, LogID, "There are no new responses.", FromProcedureName: Exit Property
+
+        '2. 今の位置から`vbnullchar`の位置を探索
+        Dim EndPos As Long
+        EndPos = searchNull(.strBuffer, .StartCursor + 1)
+
+        '3. その目印を元に、1件分返却
+        AccumulateCDP = Mid(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
+
+        '4. 次の検索開始位置を更新
+        If .EndCursor = EndPos Then
+            '次に蓄積し始める位置にたどり着いちゃったら、リセットしておく
+            .StartCursor = 0
+            .EndCursor = 0
+            .ExistsNewRes = False
+        Else
+            '次の取り出しに備えて更新
+            .StartCursor = EndPos
+        End If
+    End With
+End Property
+
+
+
+'***************************************************************************************************
 '                               ■■■ 断片データの結合処理 ■■■
 '***************************************************************************************************
 '* 機能　　：`ReadFile`から得たデータが欠けた際のバッファー管理を担うヘルパープライベートプロパティです
@@ -769,7 +842,7 @@ Private Property Get FragmentedCDP() As String
 
 End Property
 
-Private Function searchNull(checkString As String) As Long
+Private Function searchNull(checkString As String, Optional StartPos As Long = 1) As Long
 '------------------------------------------------------------
 ' CDP messages received from chrome are null-terminated
 ' Updated: 25/10/25: Daniel Polak - new faster version
@@ -778,7 +851,7 @@ Private Function searchNull(checkString As String) As Long
     Dim lngPos As Long
 
     If LenB(checkString) = 0 Then Exit Function
-    lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
+    lngPos = InStr(StartPos, checkString, vbNullChar, vbBinaryCompare)
     If lngPos > 0 Then
         searchNull = lngPos
     Else
@@ -801,6 +874,8 @@ End Function
 '            destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
 '                           `False`:IDの解析やイベントの中身の解析を行います
 '
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：不整合を防ぐため、終端ヌル文字が来るまで、受信を繰り返します
 '***************************************************************************************************
 Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
@@ -834,6 +909,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
             Else
                 '中身の解析をし、IDや非同期イベントを取り出します
                 printMsg Trace_, LogID, "Analyzing the data in the pipe...", FromProcedureName
+                AccumulateCDP = strRes
                 Call ReceiveFromPipeSplit(strRes)
 
                 '欠けチェック
@@ -1293,6 +1369,12 @@ Private Sub Class_Initialize()
         .expansionCount = 1
         ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
         .Index = 0
+    End With
+
+    '1. 初期バッファー設定
+    With responseCDP
+        .length = InitialBuffer
+        .strBuffer = String$(.length, vbNullChar)
     End With
 
     '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
