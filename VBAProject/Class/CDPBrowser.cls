@@ -274,7 +274,7 @@ Public Sub start(Optional Name As String = "chrome", _
 
     'ブラウザステータス表示
     printParams
-    printMsg info_, "Browser initialization completed after " & TimerCounter - timeStart & "s", FromProcedureName
+    printMsg info_, "Browser initialization completed after " & (TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Sub
 
 '***************************************************************************************************
