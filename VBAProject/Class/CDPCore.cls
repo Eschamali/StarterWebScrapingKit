@@ -636,6 +636,10 @@ Private Sub writeProcCDP(strData As String)
         ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(BinData(0)), UBound(BinData) + 1, lngWritten, ByVal 0&)
     End If
 
+    '終端目印`vbnullchar`相当も送る ※前回の`WriteFile`が成功してる場合
+    Dim nullByte As Byte
+    If ResultCode Then ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(nullByte), 1, lngWritten, ByVal 0&)
+
     '失敗時は、実際のエラーコードを記録
     If ResultCode = 0 Then LastPipeError.WriteFile = Err.LastDllError
 End Sub
@@ -676,7 +680,7 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
     dicMessage.Add "id", currentCommandID
 
     '4. 実際に実行
-    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & CDPJson.StringifyValue(dicMessage) & vbnullchar , FromProcedureName
+    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & CDPJson.StringifyValue(dicMessage), FromProcedureName
     writeProcCDP strMessage
 End Sub
 
