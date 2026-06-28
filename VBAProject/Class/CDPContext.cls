@@ -1498,13 +1498,13 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
     '2-3. パース処理
-    Dim jsConverter As New WebJsonConverter
+    Dim jsConverter As New WebJsonConverter, tmpDic As New Dictionary
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Set tmp = jsConverter.ParseJson(RawJson)
+    Set tmpDic = jsConverter.ParseJson(RawJson)
 
     '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-    OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
+    OnNewEventReceived publicBrowserEvents.Queue, tmpDic, methodName
 End Sub
 
 '***************************************************************************************************
