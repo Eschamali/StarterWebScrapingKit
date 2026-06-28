@@ -20,30 +20,47 @@ Attribute VB_Exposed = False
 
 Option Explicit
 
+' NOTE: This module contains NO Declare statements. The character buffers are
+' aliased directly over String memory (true zero-copy) using self-bootstrapping
+' SAFEARRAY accessors whose single pointer write is performed natively. The slot
+' address of each aliased array is obtained with the built-in VarPtr (the array is
+' the first member of its accessor UDT), so no VarPtrArray/ArrPtr import is needed.
+' Technique adapted from VBA-FastJSON (Ion Cristian Buse, MIT) and the native
+' pointer-write trick by WNKLER/RefTypes:
+'   https://github.com/cristianbuse/VBA-FastJSON
+'   https://github.com/WNKLER/RefTypes/discussions/3
+' Windows-only (Mac support intentionally dropped).
 #If VBA7 Then
-    '/** @description Fast memory block copy used to attach and clear SAFEARRAY descriptors. */
-    Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal length As LongPtr)
-    
-    '/** @description Returns the internal address of a dynamic array descriptor. */
-    Private Declare PtrSafe Function VarPtrArray Lib "vbe7" Alias "VarPtr" (ByRef Var() As Any) As LongPtr
-    
     '/** @description Performs ordinal UTF-16 string comparison without allocating key substrings. */
     Private Declare PtrSafe Function CompareStringOrdinal Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal cchCount1 As Long, ByVal lpString2 As LongPtr, ByVal cchCount2 As Long, ByVal bIgnoreCase As Long) As Long
-    
+
     '/** @description Native pointer size used when copying SAFEARRAY descriptor pointers. */
-    Private Const PTR_SIZE As LongPtr = 8
+    #If Win64 Then
+        Private Const PTR_SIZE As Long = 8
+    #Else
+        Private Const PTR_SIZE As Long = 4
+    #End If
 #Else
-    '/** @description Fast memory block copy used to attach and clear SAFEARRAY descriptors. */
-    Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
-    
-    '/** @description Returns the internal address of a dynamic array descriptor. */
-    Private Declare Function VarPtrArray Lib "msvbvm60" Alias "VarPtr" (ByRef Var() As Any) As Long
-    
     '/** @description Performs ordinal UTF-16 string comparison without allocating key substrings. */
     Private Declare Function CompareStringOrdinal Lib "kernel32" (ByVal lpString1 As Long, ByVal cchCount1 As Long, ByVal lpString2 As Long, ByVal cchCount2 As Long, ByVal bIgnoreCase As Long) As Long
-    
+
     '/** @description Native pointer size used when copying SAFEARRAY descriptor pointers. */
     Private Const PTR_SIZE As Long = 4
+#End If
+
+'/** @description SAFEARRAY feature flags. FADF_AUTO|FADF_FIXEDSIZE stop VBA from
+'    ever attempting to free the aliased memory (crash-safety). */
+Private Const FADF_AUTO As Long = &H1
+Private Const FADF_FIXEDSIZE As Long = &H10
+
+' LONG_PTR is the element type used by WritePtrNatively. On VBA7 it is the
+' built-in pointer-wide type (this specific type is what lets a UDT array be
+' passed to it by reference - the built-in LongPtr is rejected there). On legacy
+' VBA6 (x86 only, 4-byte pointers) we define it as an empty enum.
+#If VBA7 = 0 Then
+Private Enum LONG_PTR
+    [_unused]
+End Enum
 #End If
 
 '/** @description Default minimum token capacity used for parsed documents. */
@@ -83,6 +100,35 @@ Private Type SAFEARRAY1D
 End Type
 
 '/**
+' * @struct PointerAccessor
+' * @brief Pairs a pointer-typed array with its own descriptor so that, once the
+' *        array is aliased over the descriptor, plain array assignment writes a
+' *        pointer-sized value to any address. Used to write SAFEARRAY descriptor
+' *        pointers without CopyMemory. 'arr' MUST stay the first member.
+' */
+Private Type PointerAccessor
+    #If VBA7 Then
+        arr() As LongPtr
+    #Else
+        arr() As Long
+    #End If
+    sa As SAFEARRAY1D
+End Type
+
+'/**
+' * @struct IntegerAccessor
+' * @brief Pairs an Integer array with its own descriptor so the array can be
+' *        aliased over arbitrary UTF-16 memory (zero-copy). Because 'arr' is the
+' *        first member, VarPtr(accessor) yields the address of arr's descriptor
+' *        pointer slot, so no VarPtrArray/ArrPtr import is needed. 'arr' MUST stay
+' *        the first member.
+' */
+Private Type IntegerAccessor
+    arr() As Integer
+    sa As SAFEARRAY1D
+End Type
+
+'/**
 ' * @enum JSType
 ' * @brief Internal JSON token type identifiers.
 ' */
@@ -113,7 +159,8 @@ Private Type JSToken
     ValLen As Long
 End Type
 
-Private m_Chars() As Integer
+Private m_CharAcc As IntegerAccessor
+Private m_KeyAcc As IntegerAccessor
 Private m_Text As String
 Private m_Length As Long
 Private m_Index As Long
@@ -207,7 +254,6 @@ Friend Sub LoadText(ByRef Text As String)
     m_NodeId = 0
     Set m_Document = Nothing
     
-    Erase m_Chars
     Erase m_Tokens
     
     If m_Length = 0 Then Exit Sub
@@ -225,15 +271,20 @@ Friend Sub LoadText(ByRef Text As String)
     m_TokenCount = 0
     ReDim m_Tokens(1 To m_TokenCap)
     
-    ReDim m_Chars(0 To m_Length - 1)
-    
-    #If VBA7 Then
-        CopyMemory m_Chars(0), ByVal StrPtr(m_Text), CLngPtr(m_Length) * 2
-    #Else
-        CopyMemory m_Chars(0), ByVal StrPtr(m_Text), m_Length * 2&
-    #End If
-    
-    m_CharAliasActive = False
+    ' Zero-copy: alias m_CharAcc.arr() directly over the live UTF-16 buffer of m_Text.
+    ' No data is copied and no CopyMemory is used. m_Text is never mutated while
+    ' aliased, so StrPtr(m_Text) stays valid for the lifetime of this document.
+    With m_CharAcc.sa
+        .cDims = 1
+        .fFeatures = FADF_AUTO Or FADF_FIXEDSIZE
+        .cbElements = 2
+        .cLocks = 1
+        .pvData = StrPtr(m_Text)
+        .cElements = m_Length
+        .lLbound = 0
+    End With
+    MemLongPtr(VarPtr(m_CharAcc)) = VarPtr(m_CharAcc.sa)
+    m_CharAliasActive = True
     
     m_RootId = ParseValue(0, 0, 0)
 End Sub
@@ -1289,23 +1340,84 @@ End Function
 
 '/**
 ' * @method ClearCharAlias
-' * @brief Clears the character SAFEARRAY alias if it is active.
+' * @brief Detaches the character SAFEARRAY alias if it is active. Detaching BEFORE
+' *        the string buffer goes away is essential: it leaves m_CharAcc.arr with a null
+' *        descriptor so VBA never tries to free the aliased string memory.
 ' */
 Private Sub ClearCharAlias()
     If m_CharAliasActive Then
-        #If VBA7 Then
-            Dim NullPtr As LongPtr
-        #Else
-            Dim NullPtr As Long
-        #End If
-        
-        NullPtr = 0
-        CopyMemory ByVal VarPtrArray(m_Chars), NullPtr, PTR_SIZE
+        ' Null the descriptor pointer of m_CharAcc.arr() natively (no CopyMemory).
+        MemLongPtr(VarPtr(m_CharAcc)) = 0
+        m_CharAcc.sa.cElements = 0
+        m_CharAcc.sa.pvData = 0
         m_CharAliasActive = False
     End If
     
-    Erase m_Chars
+    Erase m_CharAcc.arr
 End Sub
+
+'/**
+' * @method InitSafeArray
+' * @brief Initializes a SAFEARRAY1D descriptor as a fixed, locked 1-D array whose
+' *        backing memory must never be freed by VBA.
+' * @param sa Descriptor to initialize.
+' * @param elemSize Element size in bytes.
+' */
+Private Sub InitSafeArray(ByRef sa As SAFEARRAY1D, ByVal elemSize As Long)
+    With sa
+        .cDims = 1
+        .fFeatures = FADF_AUTO Or FADF_FIXEDSIZE
+        .cbElements = elemSize
+        .cLocks = 1
+    End With
+End Sub
+
+'/**
+' * @method MemLongPtr (Let)
+' * @brief Writes a pointer-sized value to an arbitrary address WITHOUT CopyMemory.
+' *        A per-instance pointer accessor is aliased over its own descriptor once
+' *        (the only bootstrap), after which a plain array assignment performs the
+' *        write. Adapted from VBA-FastJSON (MIT, Ion Cristian Buse).
+' * @param memAddress Target address.
+' * @param newValue Pointer-sized value to store.
+' */
+Private Property Let MemLongPtr(ByVal memAddress As LongPtr, ByVal newValue As LongPtr)
+    Static pa(0) As PointerAccessor
+    
+    With pa(0)
+        If .sa.cDims = 0 Then
+            InitSafeArray .sa, PTR_SIZE
+            WritePtrNatively pa, VarPtr(.sa)
+        End If
+        
+        .sa.pvData = memAddress
+        .sa.cElements = 1
+        .arr(0) = newValue
+        .sa.cElements = 0
+        .sa.pvData = 0
+    End With
+End Property
+
+'/**
+' * @method WritePtrNatively
+' * @brief The single native pointer write that bootstraps the accessor above.
+' *        Passing a PointerAccessor() array to a pointer-array parameter
+' *        reinterprets its storage so that ptrs(0) lands on the accessor's own
+' *        'arr' descriptor pointer. Trick by WNKLER/RefTypes:
+' *        https://github.com/WNKLER/RefTypes/discussions/3
+' *        If your VBA host rejects the element type here at COMPILE time, change
+' *        the parameter to a dedicated 'Private Enum LONG_PTR' array type as in
+' *        VBA-FastJSON. This is the only line whose compilation is host-sensitive.
+' */
+#If VBA7 Then
+Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)
+    ptrs(0) = ptr
+End Sub
+#Else
+Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As Long)
+    ptrs(0) = ptr
+End Sub
+#End If
 
 '/**
 ' * @method ResolveBase
@@ -1404,7 +1516,7 @@ Friend Function ValueAsBool(ByVal TokenId As Long) As Boolean
     If TokenId < 1 Or TokenId > m_TokenCount Then Exit Function
     
     If m_Tokens(TokenId).Type = jsBool Then
-        ValueAsBool = (m_Chars(m_Tokens(TokenId).ValStart - 1) = 116)
+        ValueAsBool = (m_CharAcc.arr(m_Tokens(TokenId).ValStart - 1) = 116)
     End If
 End Function
 
@@ -1463,7 +1575,7 @@ Private Function ParseValue(ByVal ParentId As Long, ByVal KeyStart As Long, ByVa
         m_Tokens(ParentId).ChildCount = m_Tokens(ParentId).ChildCount + 1
     End If
     
-    Select Case m_Chars(m_Index)
+    Select Case m_CharAcc.arr(m_Index)
         Case 123
             m_Tokens(id).Type = jsObject
             ParseObject id
@@ -1506,7 +1618,7 @@ End Function
 ' */
 Private Sub SkipWhitespace()
     Do While m_Index < m_Length
-        Select Case m_Chars(m_Index)
+        Select Case m_CharAcc.arr(m_Index)
             Case 32, 9, 10, 13
                 m_Index = m_Index + 1
             Case Else
@@ -1528,7 +1640,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 125 Then
+        If m_CharAcc.arr(m_Index) = 125 Then
             m_Index = m_Index + 1
             Exit Sub
         End If
@@ -1536,7 +1648,7 @@ Private Sub ParseObject(ByVal id As Long)
         Dim kStart As Long
         Dim kLen As Long
         
-        If m_Chars(m_Index) = 34 Then
+        If m_CharAcc.arr(m_Index) = 34 Then
             ScanJSONString kStart, kLen
         End If
         
@@ -1544,7 +1656,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 58 Then
+        If m_CharAcc.arr(m_Index) = 58 Then
             m_Index = m_Index + 1
         End If
         
@@ -1554,7 +1666,7 @@ Private Sub ParseObject(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 44 Then
+        If m_CharAcc.arr(m_Index) = 44 Then
             m_Index = m_Index + 1
         End If
     Loop
@@ -1573,7 +1685,7 @@ Private Sub ParseArray(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 93 Then
+        If m_CharAcc.arr(m_Index) = 93 Then
             m_Index = m_Index + 1
             Exit Sub
         End If
@@ -1584,7 +1696,7 @@ Private Sub ParseArray(ByVal id As Long)
         
         If m_Index >= m_Length Then Exit Do
         
-        If m_Chars(m_Index) = 44 Then
+        If m_CharAcc.arr(m_Index) = 44 Then
             m_Index = m_Index + 1
         End If
     Loop
@@ -1601,7 +1713,7 @@ End Sub
 
 '/**
 ' * @method ScanJSONString
-' * @brief Scans a JSON string using native InStr for quote search and m_Chars for escape checks.
+' * @brief Scans a JSON string using native InStr for quote search and m_CharAcc.arr for escape checks.
 ' * @param StartPos Receives one-based string content start.
 ' * @param LengthOut Receives string content length.
 ' */
@@ -1630,7 +1742,7 @@ Private Sub ScanJSONString(ByRef StartPos As Long, ByRef LengthOut As Long)
         p = quotePos - 2
         
         Do While p >= firstChar
-            If m_Chars(p) <> 92 Then Exit Do
+            If m_CharAcc.arr(p) <> 92 Then Exit Do
             slashCount = slashCount + 1
             p = p - 1
         Loop
@@ -1654,7 +1766,7 @@ Private Sub ParseNumber(ByVal id As Long)
     m_Tokens(id).ValStart = m_Index + 1
     
     Do While m_Index < m_Length
-        Select Case m_Chars(m_Index)
+        Select Case m_CharAcc.arr(m_Index)
             Case 45, 46, 48 To 57, 69, 101, 43
                 m_Index = m_Index + 1
             Case Else
