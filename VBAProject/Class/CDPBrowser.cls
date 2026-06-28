@@ -1522,19 +1522,15 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
 
 
     '1. コマンド準備
-    Dim CDPcommand As New Dictionary
-    Dim CDPparams As New Dictionary
-    CDPcommand.Add "method", "Target.detachFromTarget"
-
+    Dim CDPparams As New Scripting.Dictionary
     CDPparams.Add "sessionId", sessionID
-    CDPcommand.Add "params", CDPparams
 
     '2. 破棄コマンド実行
     Dim tmp As CDPJson
-    Set tmp = CDPJson.Parse(SendMessage(CDPcommand))
+    Set tmp = ExecuteCDP("Target.detachFromTarget", CDPparams, False)
 
     '3. ログとして出しておく
-    If ExecuteError(tmp) Then
+    If tmp Is Nothing Then
         printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
     Else
         printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
