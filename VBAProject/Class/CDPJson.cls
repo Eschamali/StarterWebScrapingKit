@@ -176,8 +176,8 @@ End Function
 ' * @param IndentSize Number of spaces per indentation level.
 ' * @return JSON text.
 ' */
-Public Function StringifyValue(ByVal Value As Variant, Optional ByVal Pretty As Boolean = False, Optional ByVal IndentSize As Long = JSON_DEFAULT_INDENT_SIZE) As String
-    StringifyValue = StringifyAny(Value, Pretty, Space$(IndentSize), 0)
+Public Function StringifyValue(ByVal value As Variant, Optional ByVal Pretty As Boolean = False, Optional ByVal IndentSize As Long = JSON_DEFAULT_INDENT_SIZE) As String
+    StringifyValue = StringifyAny(value, Pretty, Space$(IndentSize), 0)
 End Function
 
 '/**
@@ -188,8 +188,8 @@ End Function
 ' * @param IndentText Text used for each indentation level, such as spaces or vbTab.
 ' * @return JSON text.
 ' */
-Public Function StringifyValueWithIndent(ByVal Value As Variant, Optional ByVal Pretty As Boolean = False, Optional ByVal IndentText As String = "  ") As String
-    StringifyValueWithIndent = StringifyAny(Value, Pretty, IndentText, 0)
+Public Function StringifyValueWithIndent(ByVal value As Variant, Optional ByVal Pretty As Boolean = False, Optional ByVal IndentText As String = "  ") As String
+    StringifyValueWithIndent = StringifyAny(value, Pretty, IndentText, 0)
 End Function
 
 '/**
@@ -255,7 +255,7 @@ End Sub
 ' * @param Key Object key as String or array index as Long.
 ' * @return Primitive Variant or JSON node wrapper.
 ' */
-Public Property Get Item(ByVal key As Variant) As Variant
+Public Property Get Item(ByVal Key As Variant) As Variant
 Attribute Item.VB_UserMemId = 0
     Dim doc As CDPJson
     Dim baseId As Long
@@ -265,14 +265,14 @@ Attribute Item.VB_UserMemId = 0
     
     If baseId = 0 Then Exit Property
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Property
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim node As CDPJson
-        Set node = New CDPJson
-        node.InitNode id, doc
-        Set Item = node
+        Dim Node As CDPJson
+        Set Node = New CDPJson
+        Node.InitNode id, doc
+        Set Item = Node
     Else
         Item = doc.PrimitiveValue(id)
     End If
@@ -283,7 +283,7 @@ End Property
 ' * @brief Gets the current node value. Objects and arrays return the node itself.
 ' * @return Primitive Variant or current JSON node.
 ' */
-Public Property Get Value() As Variant
+Public Property Get value() As Variant
     Dim doc As CDPJson
     Dim baseId As Long
     
@@ -292,9 +292,9 @@ Public Property Get Value() As Variant
     If baseId = 0 Then Exit Property
     
     If doc.TokenTypeOf(baseId) = jsObject Or doc.TokenTypeOf(baseId) = jsArray Then
-        Set Value = Me
+        Set value = Me
     Else
-        Value = doc.PrimitiveValue(baseId)
+        value = doc.PrimitiveValue(baseId)
     End If
 End Property
 
@@ -397,7 +397,7 @@ End Property
 ' * @param Key Object key as String or array index as Long.
 ' * @return Boolean state.
 ' */
-Public Function Exists(ByVal key As Variant) As Boolean
+Public Function Exists(ByVal Key As Variant) As Boolean
     Dim doc As CDPJson
     Dim baseId As Long
     
@@ -405,7 +405,7 @@ Public Function Exists(ByVal key As Variant) As Boolean
     
     If baseId = 0 Then Exit Function
     
-    Exists = (doc.ResolveToken(baseId, key) <> 0)
+    Exists = (doc.ResolveToken(baseId, Key) <> 0)
 End Function
 
 '/**
@@ -414,7 +414,7 @@ End Function
 ' * @param Key Object key.
 ' * @return Boolean state.
 ' */
-Public Function ExistsKey(ByVal key As String) As Boolean
+Public Function ExistsKey(ByVal Key As String) As Boolean
     Dim doc As CDPJson
     Dim baseId As Long
     
@@ -423,7 +423,7 @@ Public Function ExistsKey(ByVal key As String) As Boolean
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    ExistsKey = (doc.FindChildFast(baseId, key) <> 0)
+    ExistsKey = (doc.FindChildFast(baseId, Key) <> 0)
 End Function
 
 '/**
@@ -503,7 +503,7 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return JSON node wrapper.
 ' */
-Public Function node(ByVal key As Variant) As CDPJson
+Public Function Node(ByVal Key As Variant) As CDPJson
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -512,14 +512,14 @@ Public Function node(ByVal key As Variant) As CDPJson
     
     If baseId = 0 Then Exit Function
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
         Dim nodeObj As CDPJson
         Set nodeObj = New CDPJson
         nodeObj.InitNode id, doc
-        Set node = nodeObj
+        Set Node = nodeObj
     End If
 End Function
 
@@ -529,7 +529,7 @@ End Function
 ' * @param Key Object key.
 ' * @return JSON node wrapper.
 ' */
-Public Function NodeKey(ByVal key As String) As CDPJson
+Public Function NodeKey(ByVal Key As String) As CDPJson
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -539,7 +539,7 @@ Public Function NodeKey(ByVal key As String) As CDPJson
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    id = doc.FindChildFast(baseId, key)
+    id = doc.FindChildFast(baseId, Key)
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
@@ -605,10 +605,10 @@ Public Function ValueAt(ByVal Index As Long) As Variant
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim node As CDPJson
-        Set node = New CDPJson
-        node.InitNode id, doc
-        Set ValueAt = node
+        Dim Node As CDPJson
+        Set Node = New CDPJson
+        Node.InitNode id, doc
+        Set ValueAt = Node
     Else
         ValueAt = doc.PrimitiveValue(id)
     End If
@@ -641,7 +641,7 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return String value.
 ' */
-Public Function StringValue(ByVal key As Variant) As String
+Public Function StringValue(ByVal Key As Variant) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -650,7 +650,7 @@ Public Function StringValue(ByVal key As Variant) As String
     
     If baseId = 0 Then Exit Function
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Function
     
     StringValue = doc.ValueAsString(id)
@@ -662,7 +662,7 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return Double value.
 ' */
-Public Function NumberValue(ByVal key As Variant) As Double
+Public Function NumberValue(ByVal Key As Variant) As Double
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -671,7 +671,7 @@ Public Function NumberValue(ByVal key As Variant) As Double
     
     If baseId = 0 Then Exit Function
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Function
     
     NumberValue = doc.ValueAsDouble(id)
@@ -683,7 +683,7 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return Boolean value.
 ' */
-Public Function BoolValue(ByVal key As Variant) As Boolean
+Public Function BoolValue(ByVal Key As Variant) As Boolean
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -692,7 +692,7 @@ Public Function BoolValue(ByVal key As Variant) As Boolean
     
     If baseId = 0 Then Exit Function
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Function
     
     BoolValue = doc.ValueAsBool(id)
@@ -704,7 +704,7 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return Raw string slice.
 ' */
-Public Function RawStringValue(ByVal key As Variant) As String
+Public Function RawStringValue(ByVal Key As Variant) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -713,7 +713,7 @@ Public Function RawStringValue(ByVal key As Variant) As String
     
     If baseId = 0 Then Exit Function
     
-    id = doc.ResolveToken(baseId, key)
+    id = doc.ResolveToken(baseId, Key)
     If id = 0 Then Exit Function
     
     RawStringValue = doc.GetRawSlice(id)
@@ -725,7 +725,7 @@ End Function
 ' * @param Key Object key.
 ' * @return String value.
 ' */
-Public Function StringKey(ByVal key As String) As String
+Public Function StringKey(ByVal Key As String) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -735,7 +735,7 @@ Public Function StringKey(ByVal key As String) As String
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    id = doc.FindChildFast(baseId, key)
+    id = doc.FindChildFast(baseId, Key)
     If id = 0 Then Exit Function
     
     StringKey = doc.ValueAsString(id)
@@ -747,7 +747,7 @@ End Function
 ' * @param Key Object key.
 ' * @return Double value.
 ' */
-Public Function NumberKey(ByVal key As String) As Double
+Public Function NumberKey(ByVal Key As String) As Double
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -757,7 +757,7 @@ Public Function NumberKey(ByVal key As String) As Double
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    id = doc.FindChildFast(baseId, key)
+    id = doc.FindChildFast(baseId, Key)
     If id = 0 Then Exit Function
     
     NumberKey = doc.ValueAsDouble(id)
@@ -769,7 +769,7 @@ End Function
 ' * @param Key Object key.
 ' * @return Boolean value.
 ' */
-Public Function BoolKey(ByVal key As String) As Boolean
+Public Function BoolKey(ByVal Key As String) As Boolean
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -779,7 +779,7 @@ Public Function BoolKey(ByVal key As String) As Boolean
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    id = doc.FindChildFast(baseId, key)
+    id = doc.FindChildFast(baseId, Key)
     If id = 0 Then Exit Function
     
     BoolKey = doc.ValueAsBool(id)
@@ -791,7 +791,7 @@ End Function
 ' * @param Key Object key.
 ' * @return Raw JSON slice.
 ' */
-Public Function RawStringKey(ByVal key As String) As String
+Public Function RawStringKey(ByVal Key As String) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -801,7 +801,7 @@ Public Function RawStringKey(ByVal key As String) As String
     If baseId = 0 Then Exit Function
     If doc.TokenTypeOf(baseId) <> jsObject Then Exit Function
     
-    id = doc.FindChildFast(baseId, key)
+    id = doc.FindChildFast(baseId, Key)
     If id = 0 Then Exit Function
     
     RawStringKey = doc.GetRawSlice(id)
@@ -957,10 +957,10 @@ Public Function NodeFromToken(ByVal TokenId As Long) As CDPJson
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
-        Dim node As CDPJson
-        Set node = New CDPJson
-        node.InitNode TokenId, doc
-        Set NodeFromToken = node
+        Dim Node As CDPJson
+        Set Node = New CDPJson
+        Node.InitNode TokenId, doc
+        Set NodeFromToken = Node
     End If
 End Function
 
@@ -998,10 +998,10 @@ Public Function TokenValue(ByVal TokenId As Long) As Variant
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
-        Dim node As CDPJson
-        Set node = New CDPJson
-        node.InitNode TokenId, doc
-        Set TokenValue = node
+        Dim Node As CDPJson
+        Set Node = New CDPJson
+        Node.InitNode TokenId, doc
+        Set TokenValue = Node
     Else
         TokenValue = doc.PrimitiveValue(TokenId)
     End If
@@ -1086,7 +1086,7 @@ End Function
 ' * @param Key Field key.
 ' * @return String value.
 ' */
-Public Function TokenString(ByVal TokenId As Long, ByVal key As Variant) As String
+Public Function TokenString(ByVal TokenId As Long, ByVal Key As Variant) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1096,7 +1096,7 @@ Public Function TokenString(ByVal TokenId As Long, ByVal key As Variant) As Stri
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.ResolveToken(TokenId, key)
+    id = doc.ResolveToken(TokenId, Key)
     If id = 0 Then Exit Function
     
     TokenString = doc.ValueAsString(id)
@@ -1109,7 +1109,7 @@ End Function
 ' * @param Key Field key.
 ' * @return Raw string slice.
 ' */
-Public Function TokenRawString(ByVal TokenId As Long, ByVal key As Variant) As String
+Public Function TokenRawString(ByVal TokenId As Long, ByVal Key As Variant) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1119,7 +1119,7 @@ Public Function TokenRawString(ByVal TokenId As Long, ByVal key As Variant) As S
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.ResolveToken(TokenId, key)
+    id = doc.ResolveToken(TokenId, Key)
     If id = 0 Then Exit Function
     
     TokenRawString = doc.GetRawSlice(id)
@@ -1132,7 +1132,7 @@ End Function
 ' * @param Key Field key.
 ' * @return Raw string slice.
 ' */
-Public Function TokenRawField(ByVal TokenId As Long, ByVal key As String) As String
+Public Function TokenRawField(ByVal TokenId As Long, ByVal Key As String) As String
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1142,7 +1142,7 @@ Public Function TokenRawField(ByVal TokenId As Long, ByVal key As String) As Str
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.FindChildFast(TokenId, key)
+    id = doc.FindChildFast(TokenId, Key)
     If id = 0 Then Exit Function
     
     TokenRawField = doc.GetRawSlice(id)
@@ -1155,7 +1155,7 @@ End Function
 ' * @param Key Field key.
 ' * @return Double value.
 ' */
-Public Function TokenNumber(ByVal TokenId As Long, ByVal key As Variant) As Double
+Public Function TokenNumber(ByVal TokenId As Long, ByVal Key As Variant) As Double
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1165,7 +1165,7 @@ Public Function TokenNumber(ByVal TokenId As Long, ByVal key As Variant) As Doub
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.ResolveToken(TokenId, key)
+    id = doc.ResolveToken(TokenId, Key)
     If id = 0 Then Exit Function
     
     TokenNumber = doc.ValueAsDouble(id)
@@ -1178,7 +1178,7 @@ End Function
 ' * @param Key Field key.
 ' * @return Boolean value.
 ' */
-Public Function TokenBool(ByVal TokenId As Long, ByVal key As Variant) As Boolean
+Public Function TokenBool(ByVal TokenId As Long, ByVal Key As Variant) As Boolean
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1188,7 +1188,7 @@ Public Function TokenBool(ByVal TokenId As Long, ByVal key As Variant) As Boolea
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.ResolveToken(TokenId, key)
+    id = doc.ResolveToken(TokenId, Key)
     If id = 0 Then Exit Function
     
     TokenBool = doc.ValueAsBool(id)
@@ -1201,7 +1201,7 @@ End Function
 ' * @param Key Field key.
 ' * @return JSON node wrapper.
 ' */
-Public Function TokenNode(ByVal TokenId As Long, ByVal key As Variant) As CDPJson
+Public Function TokenNode(ByVal TokenId As Long, ByVal Key As Variant) As CDPJson
     Dim doc As CDPJson
     Dim baseId As Long
     Dim id As Long
@@ -1211,14 +1211,14 @@ Public Function TokenNode(ByVal TokenId As Long, ByVal key As Variant) As CDPJso
     If baseId = 0 Then Exit Function
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
-    id = doc.ResolveToken(TokenId, key)
+    id = doc.ResolveToken(TokenId, Key)
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim node As CDPJson
-        Set node = New CDPJson
-        node.InitNode id, doc
-        Set TokenNode = node
+        Dim Node As CDPJson
+        Set Node = New CDPJson
+        Node.InitNode id, doc
+        Set TokenNode = Node
     End If
 End Function
 
@@ -1294,13 +1294,13 @@ End Function
 Private Sub ClearCharAlias()
     If m_CharAliasActive Then
         #If VBA7 Then
-            Dim nullPtr As LongPtr
+            Dim NullPtr As LongPtr
         #Else
-            Dim nullPtr As Long
+            Dim NullPtr As Long
         #End If
         
-        nullPtr = 0
-        CopyMemory ByVal VarPtrArray(m_Chars), nullPtr, PTR_SIZE
+        NullPtr = 0
+        CopyMemory ByVal VarPtrArray(m_Chars), NullPtr, PTR_SIZE
         m_CharAliasActive = False
     End If
     
@@ -1330,13 +1330,13 @@ End Sub
 ' * @param Key Object key as String or array index as Long.
 ' * @return Child token id.
 ' */
-Friend Function ResolveToken(ByVal ParentId As Long, ByVal key As Variant) As Long
+Friend Function ResolveToken(ByVal ParentId As Long, ByVal Key As Variant) As Long
     If ParentId < 1 Or ParentId > m_TokenCount Then Exit Function
     
-    If VarType(key) = vbString Then
-        ResolveToken = FindChildFast(ParentId, CStr(key))
+    If VarType(Key) = vbString Then
+        ResolveToken = FindChildFast(ParentId, CStr(Key))
     Else
-        ResolveToken = FindIndexChild(ParentId, CLng(key))
+        ResolveToken = FindIndexChild(ParentId, CLng(Key))
     End If
 End Function
 
@@ -2099,7 +2099,7 @@ End Sub
 ' */
 Private Sub WriteObjectToken(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
     Dim child As Long
-    Dim first As Boolean
+    Dim First As Boolean
     
     If m_Tokens(TokenId).ChildCount = 0 Then
         WriterAppend Buffer, Position, Capacity, "{}"
@@ -2107,12 +2107,12 @@ Private Sub WriteObjectToken(ByRef Buffer As String, ByRef Position As Long, ByR
     End If
     
     WriterAppend Buffer, Position, Capacity, "{"
-    first = True
+    First = True
     child = m_Tokens(TokenId).FirstChild
     
     Do While child > 0
-        If first Then
-            first = False
+        If First Then
+            First = False
         Else
             WriterAppend Buffer, Position, Capacity, ","
         End If
@@ -2155,7 +2155,7 @@ End Sub
 ' */
 Private Sub WriteArrayToken(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal TokenId As Long, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
     Dim child As Long
-    Dim first As Boolean
+    Dim First As Boolean
     
     If m_Tokens(TokenId).ChildCount = 0 Then
         WriterAppend Buffer, Position, Capacity, "[]"
@@ -2163,12 +2163,12 @@ Private Sub WriteArrayToken(ByRef Buffer As String, ByRef Position As Long, ByRe
     End If
     
     WriterAppend Buffer, Position, Capacity, "["
-    first = True
+    First = True
     child = m_Tokens(TokenId).FirstChild
     
     Do While child > 0
-        If first Then
-            first = False
+        If First Then
+            First = False
         Else
             WriterAppend Buffer, Position, Capacity, ","
         End If
@@ -2199,13 +2199,13 @@ End Sub
 ' * @param Depth Current nesting depth.
 ' * @return JSON text.
 ' */
-Friend Function StringifyAny(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+Friend Function StringifyAny(ByVal value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     Dim Buffer As String
     Dim Position As Long
     Dim Capacity As Long
     
     WriterStart Buffer, Position, Capacity, JSON_VALUE_WRITER_CAPACITY
-    WriteAny Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    WriteAny Buffer, Position, Capacity, value, Pretty, IndentText, Depth
     StringifyAny = WriterFinish(Buffer, Position)
 End Function
 
@@ -2220,48 +2220,48 @@ End Function
 ' * @param IndentText Text used for each indentation level.
 ' * @param Depth Current nesting depth.
 ' */
-Private Sub WriteAny(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
-    If VBA.IsObject(Value) Then
+Private Sub WriteAny(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    If VBA.IsObject(value) Then
         Dim objectValue As Object
-        Set objectValue = Value
+        Set objectValue = value
         WriteObjectValue Buffer, Position, Capacity, objectValue, Pretty, IndentText, Depth
         Exit Sub
     End If
     
-    If VBA.IsNull(Value) Then
+    If VBA.IsNull(value) Then
         WriterAppend Buffer, Position, Capacity, "null"
         Exit Sub
     End If
     
-    If VBA.IsEmpty(Value) Then
+    If VBA.IsEmpty(value) Then
         WriterAppend Buffer, Position, Capacity, "null"
         Exit Sub
     End If
     
-    If (VarType(Value) And vbArray) = vbArray Then
-        WriteArrayValue Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    If (VarType(value) And vbArray) = vbArray Then
+        WriteArrayValue Buffer, Position, Capacity, value, Pretty, IndentText, Depth
         Exit Sub
     End If
     
-    Select Case VarType(Value)
+    Select Case VarType(value)
         Case vbString
-            WriteQuotedJSONString Buffer, Position, Capacity, CStr(Value)
+            WriteQuotedJSONString Buffer, Position, Capacity, CStr(value)
         
         Case vbBoolean
-            If CBool(Value) Then
+            If CBool(value) Then
                 WriterAppend Buffer, Position, Capacity, "true"
             Else
                 WriterAppend Buffer, Position, Capacity, "false"
             End If
         
         Case vbByte, vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal
-            WriterAppend Buffer, Position, Capacity, NormalizeNumber(CStr(Value))
+            WriterAppend Buffer, Position, Capacity, NormalizeNumber(CStr(value))
         
         Case vbDate
-            WriteQuotedJSONString Buffer, Position, Capacity, Format$(CDate(Value), "yyyy-mm-dd\THH:nn:ss")
+            WriteQuotedJSONString Buffer, Position, Capacity, Format$(CDate(value), "yyyy-mm-dd\THH:nn:ss")
         
         Case Else
-            WriteQuotedJSONString Buffer, Position, Capacity, CStr(Value)
+            WriteQuotedJSONString Buffer, Position, Capacity, CStr(value)
     End Select
 End Sub
 
@@ -2274,13 +2274,13 @@ End Sub
 ' * @param Depth Current nesting depth.
 ' * @return JSON text.
 ' */
-Private Function StringifyObjectValue(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+Private Function StringifyObjectValue(ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     Dim Buffer As String
     Dim Position As Long
     Dim Capacity As Long
     
     WriterStart Buffer, Position, Capacity, JSON_VALUE_WRITER_CAPACITY
-    WriteObjectValue Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    WriteObjectValue Buffer, Position, Capacity, value, Pretty, IndentText, Depth
     StringifyObjectValue = WriterFinish(Buffer, Position)
 End Function
 
@@ -2295,23 +2295,23 @@ End Function
 ' * @param IndentText Text used for each indentation level.
 ' * @param Depth Current nesting depth.
 ' */
-Private Sub WriteObjectValue(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
-    If Value Is Nothing Then
+Private Sub WriteObjectValue(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+    If value Is Nothing Then
         WriterAppend Buffer, Position, Capacity, "null"
         Exit Sub
     End If
     
-    Select Case TypeName(Value)
+    Select Case TypeName(value)
         Case "JSON"
-            Dim node As CDPJson
-            Set node = Value
-            node.WriteCurrent Buffer, Position, Capacity, Pretty, IndentText, Depth
+            Dim Node As CDPJson
+            Set Node = value
+            Node.WriteCurrent Buffer, Position, Capacity, Pretty, IndentText, Depth
         
         Case "Collection"
-            WriteCollection Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+            WriteCollection Buffer, Position, Capacity, value, Pretty, IndentText, Depth
         
         Case "Dictionary", "Scripting.Dictionary"
-            WriteDictionary Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+            WriteDictionary Buffer, Position, Capacity, value, Pretty, IndentText, Depth
         
         Case Else
             WriterAppend Buffer, Position, Capacity, "null"
@@ -2350,13 +2350,13 @@ End Sub
 ' * @param Depth Current nesting depth.
 ' * @return JSON array text.
 ' */
-Private Function StringifyArrayValue(ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+Private Function StringifyArrayValue(ByVal value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     Dim Buffer As String
     Dim Position As Long
     Dim Capacity As Long
     
     WriterStart Buffer, Position, Capacity, JSON_VALUE_WRITER_CAPACITY
-    WriteArrayValue Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    WriteArrayValue Buffer, Position, Capacity, value, Pretty, IndentText, Depth
     StringifyArrayValue = WriterFinish(Buffer, Position)
 End Function
 
@@ -2371,16 +2371,16 @@ End Function
 ' * @param IndentText Text used for each indentation level.
 ' * @param Depth Current nesting depth.
 ' */
-Private Sub WriteArrayValue(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+Private Sub WriteArrayValue(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal value As Variant, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
     Dim i As Long
-    Dim first As Boolean
+    Dim First As Boolean
     
     WriterAppend Buffer, Position, Capacity, "["
-    first = True
+    First = True
     
-    For i = LBound(Value) To UBound(Value)
-        If first Then
-            first = False
+    For i = LBound(value) To UBound(value)
+        If First Then
+            First = False
         Else
             WriterAppend Buffer, Position, Capacity, ","
         End If
@@ -2390,10 +2390,10 @@ Private Sub WriteArrayValue(ByRef Buffer As String, ByRef Position As Long, ByRe
             WriterAppendIndent Buffer, Position, Capacity, IndentText, Depth + 1
         End If
         
-        WriteAny Buffer, Position, Capacity, Value(i), Pretty, IndentText, Depth + 1
+        WriteAny Buffer, Position, Capacity, value(i), Pretty, IndentText, Depth + 1
     Next i
     
-    If Pretty And Not first Then
+    If Pretty And Not First Then
         WriterAppend Buffer, Position, Capacity, vbCrLf
         WriterAppendIndent Buffer, Position, Capacity, IndentText, Depth
     End If
@@ -2410,13 +2410,13 @@ End Sub
 ' * @param Depth Current nesting depth.
 ' * @return JSON array text.
 ' */
-Private Function StringifyCollection(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+Private Function StringifyCollection(ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     Dim Buffer As String
     Dim Position As Long
     Dim Capacity As Long
     
     WriterStart Buffer, Position, Capacity, JSON_VALUE_WRITER_CAPACITY
-    WriteCollection Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    WriteCollection Buffer, Position, Capacity, value, Pretty, IndentText, Depth
     StringifyCollection = WriterFinish(Buffer, Position)
 End Function
 
@@ -2431,17 +2431,17 @@ End Function
 ' * @param IndentText Text used for each indentation level.
 ' * @param Depth Current nesting depth.
 ' */
-Private Sub WriteCollection(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+Private Sub WriteCollection(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
     Dim i As Long
     
-    If Value.Count = 0 Then
+    If value.Count = 0 Then
         WriterAppend Buffer, Position, Capacity, "[]"
         Exit Sub
     End If
     
     WriterAppend Buffer, Position, Capacity, "["
     
-    For i = 1 To Value.Count
+    For i = 1 To value.Count
         If i > 1 Then WriterAppend Buffer, Position, Capacity, ","
         
         If Pretty Then
@@ -2449,7 +2449,7 @@ Private Sub WriteCollection(ByRef Buffer As String, ByRef Position As Long, ByRe
             WriterAppendIndent Buffer, Position, Capacity, IndentText, Depth + 1
         End If
         
-        WriteAny Buffer, Position, Capacity, Value.Item(i), Pretty, IndentText, Depth + 1
+        WriteAny Buffer, Position, Capacity, value.Item(i), Pretty, IndentText, Depth + 1
     Next i
     
     If Pretty Then
@@ -2469,13 +2469,13 @@ End Sub
 ' * @param Depth Current nesting depth.
 ' * @return JSON object text.
 ' */
-Private Function StringifyDictionary(ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
+Private Function StringifyDictionary(ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long) As String
     Dim Buffer As String
     Dim Position As Long
     Dim Capacity As Long
     
     WriterStart Buffer, Position, Capacity, JSON_VALUE_WRITER_CAPACITY
-    WriteDictionary Buffer, Position, Capacity, Value, Pretty, IndentText, Depth
+    WriteDictionary Buffer, Position, Capacity, value, Pretty, IndentText, Depth
     StringifyDictionary = WriterFinish(Buffer, Position)
 End Function
 
@@ -2490,17 +2490,17 @@ End Function
 ' * @param IndentText Text used for each indentation level.
 ' * @param Depth Current nesting depth.
 ' */
-Private Sub WriteDictionary(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
+Private Sub WriteDictionary(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal value As Object, ByVal Pretty As Boolean, ByVal IndentText As String, ByVal Depth As Long)
     Dim keys As Variant
-    Dim key As Variant
+    Dim Key As Variant
     Dim i As Long
     
-    If Value.Count = 0 Then
+    If value.Count = 0 Then
         WriterAppend Buffer, Position, Capacity, "{}"
         Exit Sub
     End If
     
-    keys = Value.keys
+    keys = value.keys
     WriterAppend Buffer, Position, Capacity, "{"
     
     For i = LBound(keys) To UBound(keys)
@@ -2511,8 +2511,8 @@ Private Sub WriteDictionary(ByRef Buffer As String, ByRef Position As Long, ByRe
             WriterAppendIndent Buffer, Position, Capacity, IndentText, Depth + 1
         End If
         
-        key = keys(i)
-        WriteQuotedJSONString Buffer, Position, Capacity, CStr(key)
+        Key = keys(i)
+        WriteQuotedJSONString Buffer, Position, Capacity, CStr(Key)
         
         If Pretty Then
             WriterAppend Buffer, Position, Capacity, ": "
@@ -2520,7 +2520,7 @@ Private Sub WriteDictionary(ByRef Buffer As String, ByRef Position As Long, ByRe
             WriterAppend Buffer, Position, Capacity, ":"
         End If
         
-        WriteAny Buffer, Position, Capacity, Value.Item(key), Pretty, IndentText, Depth + 1
+        WriteAny Buffer, Position, Capacity, value.Item(Key), Pretty, IndentText, Depth + 1
     Next i
     
     If Pretty Then
@@ -2819,7 +2819,7 @@ Private Sub WriteQuotedJSONString(ByRef Buffer As String, ByRef Position As Long
     Dim length As Long
     Dim i As Long
     Dim segmentStart As Long
-    Dim code As Long
+    Dim Code As Long
     Dim escaped As String
     
     WriterAppend Buffer, Position, Capacity, """"
@@ -2829,10 +2829,10 @@ Private Sub WriteQuotedJSONString(ByRef Buffer As String, ByRef Position As Long
         segmentStart = 1
         
         For i = 1 To length
-            code = AscW(Mid$(Text, i, 1))
+            Code = AscW(Mid$(Text, i, 1))
             escaped = vbNullString
             
-            Select Case code
+            Select Case Code
                 Case 34
                     escaped = "\"""
                 Case 92
@@ -2848,7 +2848,7 @@ Private Sub WriteQuotedJSONString(ByRef Buffer As String, ByRef Position As Long
                 Case 13
                     escaped = "\r"
                 Case 0 To 31
-                    escaped = "\u" & Right$("000" & Hex$(code), 4)
+                    escaped = "\u" & Right$("000" & Hex$(Code), 4)
             End Select
             
             If Len(escaped) > 0 Then
