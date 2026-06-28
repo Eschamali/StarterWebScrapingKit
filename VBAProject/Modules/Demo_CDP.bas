@@ -130,7 +130,7 @@ Sub ネットワークイベントの確認()
 
 
     'ネットワークイベント受信を有効化する
-    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.ExecuteCDP("Network.enable")
+    Demo_NetworkEvent.ExecuteCDP "Network.enable"
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -250,7 +250,7 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPparams As Dictionary, ResultCDP As Dictionary
+    Dim CDPparams As Dictionary, ResultCDP As CDPJson
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
     Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
@@ -308,7 +308,7 @@ Sub TestAlert()
 
     '必要な変数を用意
     Dim paramsCDP As New Scripting.Dictionary
-    Dim resCDP As Scripting.Dictionary
+    Dim resCDP As CDPJson
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double
@@ -343,7 +343,7 @@ Sub TestAlert()
             paramsCDP.RemoveAll
             paramsCDP.Add "query", TargetXpath  '先頭のリンクを対象に
             Set resCDP = .ExecuteCDP("DOM.performSearch", paramsCDP)
-            searchId = resCDP("searchId")
+            searchId = resCDP.StringKey("searchId")
 
 
             ' --- 4. nodeIdを取得 ---
@@ -352,7 +352,7 @@ Sub TestAlert()
             paramsCDP.Add "fromIndex", 0   '先頭の件数から
             paramsCDP.Add "toIndex", 1     '1件分のみ
             Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP("nodeIds")(1)  '配列の先頭を取得
+            nodeId = resCDP.NodeKey("nodeIds").NumberAt(0) '配列の先頭を取得
 
 
             ' --- 5. nodeId を objectId に変換 ---
@@ -364,7 +364,7 @@ Sub TestAlert()
             ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
             Dim AsyncID As Long
-            AsyncID = .jsEval("function() { this.click(); }", CStr(resCDP("object")("objectId")), RunAsyncCDP:=True)
+            AsyncID = .jsEval("function() { this.click(); }", resCDP.NodeKey("object").StringKey("objectId"), RunAsyncCDP:=True)
 
 
             ' --- 7. イベントキャプチャを有効化 ---
@@ -397,7 +397,7 @@ Sub TestAlert()
             paramsCDP.RemoveAll
             paramsCDP.Add "accept", True
             paramsCDP.Add "promptText", 入力文字内容
-            Set resCDP = .ExecuteCDP("Page.handleJavaScriptDialog", paramsCDP)
+            .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
 
 
             ' --- 10. 以前、非同期で実行した結果も拝見する ---
@@ -903,7 +903,7 @@ End Function
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
 '***************************************************************************************************
 Sub demoReattachmentPart1()
-    
+
     Dim c As CDPContext
     Set c = 設定シートからのCDP起動ForTab
     c.navigate "https://google.com"
