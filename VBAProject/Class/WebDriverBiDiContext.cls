@@ -118,7 +118,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`params`に、`context`を付け足した上で実行されます
 '***************************************************************************************************
-Public Function ExecuteBiDi(ByVal methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As Dictionary
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
     '`context`情報の追加
     If params Is Nothing Then Set params = New Dictionary
     params.Add "context", InfoList.context
@@ -137,7 +137,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`params`に、`context`を付け足した上で実行し、結果の待機は行いません。
 '***************************************************************************************************
-Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
     '`context`情報の追加
     If params Is Nothing Then Set params = New Dictionary
     params.Add "context", InfoList.context
@@ -197,15 +197,15 @@ Private Sub attachToContext()
 
     '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
     Dim tmp
-    Dim FirstTab As Dictionary
+    Dim FirstTab As BiDiCDPJson
     For Each tmp In FirstTabs
         '4-1. Jsonパース処理
-        Set FirstTab = m_BiDiMode.jsConverter.ParseJson(tmp)("params")
+        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
 
         '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
         If IsNull(FirstTab("parent")) Then
             With InfoList
-                .context = FirstTab("context")
+                .context = FirstTab.StringKey("context")
                 .Url = FirstTab("url")
             End With
 
