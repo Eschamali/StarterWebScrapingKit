@@ -1160,13 +1160,17 @@ Public Function GetShadowRoots() As Collection
     If Not ResultCDP.NodeKey("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. 各`shadowRoots`の`backendNodeId`を取得していく
+    Dim shadowRootsNodes As CDPJson: Set shadowRootsNodes = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
     Set GetShadowRoots = New Collection
-    printMsg Debug_, ResultCDP.NodeKey("node").NodeKey("shadowRoots").Count & " `Shadow-Root` instances were found.", FromProcedureName
-    Dim shadowRootsNodes  As CDPJson
-    For Each shadowRootsNodes In ResultCDP("node").NodeKey("shadowRoots")
+    printMsg Debug_, shadowRootsNodes.Count & " `Shadow-Root` instances were found.", FromProcedureName
+    Dim i As Long, CurrentShadowRoot As CDPJson
+    For i = 0 To shadowRootsNodes.Count - 1
+        Set CurrentShadowRoot = shadowRootsNodes.NodeIndex(i)
+
+
         '4. 各`shadowRoots`の`backendNodeId`を取得
         Dim shadowRootNodeId As Long
-        shadowRootNodeId = shadowRootsNodes.NumberKey("backendNodeId")
+        shadowRootNodeId = CurrentShadowRoot.NumberKey("backendNodeId")
         printMsg Debug_, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
 
         '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
