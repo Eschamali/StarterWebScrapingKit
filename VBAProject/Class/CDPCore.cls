@@ -618,7 +618,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：実際にブラウザへ命令を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strData    完成したCDP-Jsonコマンド
+'* 引数　　：strData    完成したCDP-Json文字列コマンド
 '***************************************************************************************************
 Private Sub writeProcCDP(strData As String)
     Dim lngWritten As Long
@@ -648,38 +648,35 @@ End Sub
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`WriteFile`の実行結果  ※0で成功です
-'* 引数　　：strMessage CDP-Jsonコマンド
+'* 引数　　：dicMessage Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
 '            SessionID  タブへの命令の場合は指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Sub ReadyRunCDP(strMessage As String, Optional sessionID As String)
+Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
     Dim currentCommandID As Long: currentCommandID = IssuanceCommandID
 
-    '2. 末尾付与しやすいように、末尾1文字削減
-    strMessage = Left(strMessage, Len(strMessage) - 1)
-
-    '3. `sessionId`check
+    '2. `sessionId`check
     If StrPtr(sessionID) Then
-        '3-1. 末尾に`sessionId`付与を行う
-        strMessage = strMessage & ", ""sessionId"":""" & sessionID & """"
+        '2-1. `sessionId`付与
+        dicMessage.Add "sessionId", sessionID
 
-        '3-2. commandIDと`sessionId`の紐づけを行う
+        '2-2. commandIDと`sessionId`の紐づけを行う
         DictionarySessionID.Add currentCommandID, sessionID
         printMsg Trace_, LogID, "commandID:" & currentCommandID & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
         printMsg Trace_, LogID, "commandID:" & currentCommandID & " does not have a SessionID.", FromProcedureName
     End If
 
-    '4. 末尾に`id`,ヌル文字を付与
-    strMessage = strMessage & ", ""id"":" & currentCommandID & "}" & vbNullChar
+    '3.`id`を付与
+    dicMessage.Add "id", currentCommandID
 
-    '5. 実際に実行
-    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
+    '4. 実際に実行
+    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & CDPJson.StringifyValue(dicMessage) & vbnullchar , FromProcedureName
     writeProcCDP strMessage
 End Sub
 
