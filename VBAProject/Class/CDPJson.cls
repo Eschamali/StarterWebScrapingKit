@@ -7,6 +7,11 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'==============================================================================================================
+'                      主に、Chrome DevTools Protocol のメッセージ解析として使うコアクラスです
+'                      オリジナルライブラリから、`CopyMemory`依存を除去した物になります
+'==============================================================================================================
+
 '/**
 ' * JSON - JSON Reader and Writer
 ' * @description A high-performance zero-copy JSON reader and lightweight JSON writer for VBA (x86/x64 compatible).
