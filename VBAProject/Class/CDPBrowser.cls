@@ -291,8 +291,14 @@ Property Let EnableDiscoverTargets(Flag As Boolean)
     '1. カウント
     DefinitionCDPContext = DefinitionCDPContext + IIf(Flag, 1, -1)
 
-    '2. 実行
-    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage "{""method"":""Target.setDiscoverTargets"",""params"":{""discover"":" & LCase(Flag) & "}}", , False
+    '2. コマンド準備
+    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
+    CDPcommand.Add "method", "Target.setDiscoverTargets"
+
+    CDPparams.Add "discover", Flag
+    CDPcommand.Add "params", CDPparams
+
+    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage CDPcommand, , False
 
     '3. 下限は、0にしておく
     If DefinitionCDPContext < 0 Then DefinitionCDPContext = 0: printMsg WARN_, "`CDPContext.cls` no longer exists.", FromProcedureName
