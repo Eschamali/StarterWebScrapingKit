@@ -175,7 +175,7 @@ Private publicBrowserEvents As StateBrowserEvents   'bas側で使用する用
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
-Private lastExceptionDetailsJS  As CDPJson     'JavaScript実行時の最後のエラー情報(Node情報方式)
+Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
 
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
@@ -267,10 +267,10 @@ Private Sub attachToSession()
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
-    Dim boolFound As Boolean, doc As CDPJson
+    Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
         ' 1. 文字列をパース
-        Set doc = CDPJson.Parse(CStr(result))
+        Set doc = BiDiCDPJson.Parse(CStr(result))
 
         ' 2. 必要なノードを安全に辿る
         If doc.ExistsKey("params") Then
@@ -301,7 +301,7 @@ Private Sub attachToSession()
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 
     'JavaScript関連機能を有効化
-    Dim CDPcommand As New Scripting.Dictionary, results_ As CDPJson
+    Dim CDPcommand As New Scripting.Dictionary, results_ As BiDiCDPJson
 3   Set results_ = ExecuteCDP("Runtime.enable")
 4   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
@@ -574,7 +574,7 @@ step1:
         jsEval = PipeCore.LastCommandID
         Exit Function
     Else
-        Dim Node_CDPresult As CDPJson: Set Node_CDPresult = CDPJson.Parse(CDPresult)
+        Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
         If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
@@ -611,7 +611,7 @@ step1:
 step2:
 
     'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
-    Dim Node_RemoteObject As CDPJson
+    Dim Node_RemoteObject As BiDiCDPJson
     Set Node_RemoteObject = Node_CDPresult.NodeKey("result").NodeKey("result")
     If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
@@ -696,7 +696,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：返す値は、`value` OR `objectId` OR `deepSerializedValue` に限ります。`description`等といった補助情報やエラー情報は返しません。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As CDPJson, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
     Const ErrorLandmark     As String = "error"
 
@@ -1092,18 +1092,18 @@ End Property
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As CDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
     Dim CDPcommand As New Scripting.Dictionary
-    Dim resultJson As CDPJson
+    Dim resultJson As BiDiCDPJson
 
     CDPcommand.Add "method", methodName
     If Not params Is Nothing Then CDPcommand.Add "params", params
 
     Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
-    Set resultJson = CDPJson.Parse(ResultStr)
+    Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
     'Print error if there is
     If ExecuteError(resultJson) Then
@@ -1133,6 +1133,7 @@ End Function
 '***************************************************************************************************
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
+
 
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
@@ -1309,7 +1310,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As CDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -1337,7 +1338,7 @@ Private Function ExecuteError(result As CDPJson, Optional ErrorCode As Long, Opt
             ExecuteError = True
 
             '`error`オブジェクトの中身で記録
-            Dim errNode As CDPJson
+            Dim errNode As BiDiCDPJson
             Set errNode = result.NodeKey("error")
 
             '主要なエラー情報を抜き出す
@@ -1445,8 +1446,8 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
 
 
     '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
-    Dim CDPBrowserEvent As CDPJson: Set CDPBrowserEvent = CDPJson.Parse(RawJson)
-    Dim tmp As CDPJson
+    Dim CDPBrowserEvent As BiDiCDPJson: Set CDPBrowserEvent = BiDiCDPJson.Parse(RawJson)
+    Dim tmp As BiDiCDPJson
     Select Case CDPBrowserEvent.StringKey("method")
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
@@ -1772,13 +1773,13 @@ Public Sub getSessionInfo()
 
 
     'Get infos
-    Dim TargetInfo As CDPJson: Set TargetInfo = refreshTargetInfo
+    Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
     br.Url = TargetInfo.StringKey("url")
     br.Name = TargetInfo.StringKey("title")
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As CDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
+    Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
     If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.StringKey("windowId")
 
     'タブIDを記録
@@ -2012,7 +2013,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 
     Dim params As New Scripting.Dictionary
-    Dim r As CDPJson
+    Dim r As BiDiCDPJson
     Dim b64 As String, tmpPng As String
 
    'Verify if the page can be captured with screenshot
@@ -2080,9 +2081,9 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
 '***************************************************************************************************
-Private Function refreshTargetInfo() As CDPJson
+Private Function refreshTargetInfo() As BiDiCDPJson
     '1. このClassで設定中の`SessionID`を基に情報取得を試みる
-    Dim TargetInfo As CDPJson
+    Dim TargetInfo As BiDiCDPJson
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
     '2. エラーがなければ、返却

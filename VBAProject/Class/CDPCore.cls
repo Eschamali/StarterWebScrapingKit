@@ -680,7 +680,7 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
     dicMessage.Add "id", currentCommandID
 
     '4. 実際に実行
-    Dim strMessage As String: strMessage = CDPJson.StringifyValue(dicMessage)
+    Dim strMessage As String: strMessage = BiDiCDPJson.StringifyValue(dicMessage)
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
     writeProcCDP strMessage
 End Sub

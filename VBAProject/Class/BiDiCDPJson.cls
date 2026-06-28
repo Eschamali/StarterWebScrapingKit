@@ -2,14 +2,15 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPJson"
+Attribute VB_Name = "BiDiCDPJson"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '==============================================================================================================
-'                      主に、Chrome DevTools Protocol のメッセージ解析として使うコアクラスです
+'                   主に、Chrome DevTools Protocol のメッセージ解析として使うコアクラスです
 '                      オリジナルライブラリから、`CopyMemory`依存を除去した物になります
+'                              なお、CDPだけでなく、WebDriverBiDi でも使用します
 '==============================================================================================================
 
 '/**
@@ -174,7 +175,7 @@ Private m_TokenCount As Long
 Private m_TokenCap As Long
 Private m_RootId As Long
 Private m_NodeId As Long
-Private m_Document As CDPJson
+Private m_Document As BiDiCDPJson
 Private m_CharAliasActive As Boolean
 
 '/**
@@ -191,9 +192,9 @@ End Sub
 ' * @param Text Source JSON string.
 ' * @return Parsed JSON document.
 ' */
-Public Function Parse(ByRef Text As String) As CDPJson
-    Dim doc As CDPJson
-    Set doc = New CDPJson
+Public Function Parse(ByRef Text As String) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
+    Set doc = New BiDiCDPJson
     doc.LoadText Text
     Set Parse = doc
 End Function
@@ -300,7 +301,7 @@ End Sub
 ' * @param TokenId Token to wrap.
 ' * @param Document Root document that owns the token buffer.
 ' */
-Friend Sub InitNode(ByVal TokenId As Long, ByVal Document As CDPJson)
+Friend Sub InitNode(ByVal TokenId As Long, ByVal Document As BiDiCDPJson)
     m_NodeId = TokenId
     Set m_Document = Document
 End Sub
@@ -313,7 +314,7 @@ End Sub
 ' */
 Public Property Get Item(ByVal Key As Variant) As Variant
 Attribute Item.VB_UserMemId = 0
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -325,8 +326,8 @@ Attribute Item.VB_UserMemId = 0
     If id = 0 Then Exit Property
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim Node As CDPJson
-        Set Node = New CDPJson
+        Dim Node As BiDiCDPJson
+        Set Node = New BiDiCDPJson
         Node.InitNode id, doc
         Set Item = Node
     Else
@@ -340,7 +341,7 @@ End Property
 ' * @return Primitive Variant or current JSON node.
 ' */
 Public Property Get value() As Variant
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -360,7 +361,7 @@ End Property
 ' * @return Direct child count.
 ' */
 Public Property Get Count() As Long
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -376,7 +377,7 @@ End Property
 ' * @return object, array, string, number, boolean, null, or empty string.
 ' */
 Public Property Get JsonType() As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -405,7 +406,7 @@ End Property
 ' * @return Boolean state.
 ' */
 Public Property Get IsObject() As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -421,7 +422,7 @@ End Property
 ' * @return Boolean state.
 ' */
 Public Property Get IsArray() As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -437,7 +438,7 @@ End Property
 ' * @return Boolean state.
 ' */
 Public Property Get IsNull() As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -454,7 +455,7 @@ End Property
 ' * @return Boolean state.
 ' */
 Public Function Exists(ByVal Key As Variant) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -471,7 +472,7 @@ End Function
 ' * @return Boolean state.
 ' */
 Public Function ExistsKey(ByVal Key As String) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -489,7 +490,7 @@ End Function
 ' * @return Boolean state.
 ' */
 Public Function ExistsIndex(ByVal Index As Long) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -506,7 +507,7 @@ End Function
 ' * @return String array for objects, Long array for arrays, or an empty Variant array.
 ' */
 Public Function keys() As Variant
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim child As Long
     Dim i As Long
@@ -559,8 +560,8 @@ End Function
 ' * @param Key Object key as String or array index as Long.
 ' * @return JSON node wrapper.
 ' */
-Public Function Node(ByVal Key As Variant) As CDPJson
-    Dim doc As CDPJson
+Public Function Node(ByVal Key As Variant) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -572,8 +573,8 @@ Public Function Node(ByVal Key As Variant) As CDPJson
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim nodeObj As CDPJson
-        Set nodeObj = New CDPJson
+        Dim nodeObj As BiDiCDPJson
+        Set nodeObj = New BiDiCDPJson
         nodeObj.InitNode id, doc
         Set Node = nodeObj
     End If
@@ -585,8 +586,8 @@ End Function
 ' * @param Key Object key.
 ' * @return JSON node wrapper.
 ' */
-Public Function NodeKey(ByVal Key As String) As CDPJson
-    Dim doc As CDPJson
+Public Function NodeKey(ByVal Key As String) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -599,8 +600,8 @@ Public Function NodeKey(ByVal Key As String) As CDPJson
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim nodeObj As CDPJson
-        Set nodeObj = New CDPJson
+        Dim nodeObj As BiDiCDPJson
+        Set nodeObj = New BiDiCDPJson
         nodeObj.InitNode id, doc
         Set NodeKey = nodeObj
     End If
@@ -612,7 +613,7 @@ End Function
 ' * @param Index Zero-based child index.
 ' * @return JSON node wrapper.
 ' */
-Public Function NodeIndex(ByVal Index As Long) As CDPJson
+Public Function NodeIndex(ByVal Index As Long) As BiDiCDPJson
     Set NodeIndex = NodeAt(Index)
 End Function
 
@@ -622,8 +623,8 @@ End Function
 ' * @param Index Zero-based child index.
 ' * @return JSON node wrapper.
 ' */
-Public Function NodeAt(ByVal Index As Long) As CDPJson
-    Dim doc As CDPJson
+Public Function NodeAt(ByVal Index As Long) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -635,8 +636,8 @@ Public Function NodeAt(ByVal Index As Long) As CDPJson
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim nodeObj As CDPJson
-        Set nodeObj = New CDPJson
+        Dim nodeObj As BiDiCDPJson
+        Set nodeObj = New BiDiCDPJson
         nodeObj.InitNode id, doc
         Set NodeAt = nodeObj
     End If
@@ -649,7 +650,7 @@ End Function
 ' * @return Primitive Variant or JSON node wrapper.
 ' */
 Public Function ValueAt(ByVal Index As Long) As Variant
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -661,8 +662,8 @@ Public Function ValueAt(ByVal Index As Long) As Variant
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim Node As CDPJson
-        Set Node = New CDPJson
+        Dim Node As BiDiCDPJson
+        Set Node = New BiDiCDPJson
         Node.InitNode id, doc
         Set ValueAt = Node
     Else
@@ -677,7 +678,7 @@ End Function
 ' * @return Object key text.
 ' */
 Public Function KeyAt(ByVal Index As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -698,7 +699,7 @@ End Function
 ' * @return String value.
 ' */
 Public Function StringValue(ByVal Key As Variant) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -719,7 +720,7 @@ End Function
 ' * @return Double value.
 ' */
 Public Function NumberValue(ByVal Key As Variant) As Double
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -740,7 +741,7 @@ End Function
 ' * @return Boolean value.
 ' */
 Public Function BoolValue(ByVal Key As Variant) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -761,7 +762,7 @@ End Function
 ' * @return Raw string slice.
 ' */
 Public Function RawStringValue(ByVal Key As Variant) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -782,7 +783,7 @@ End Function
 ' * @return String value.
 ' */
 Public Function StringKey(ByVal Key As String) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -804,7 +805,7 @@ End Function
 ' * @return Double value.
 ' */
 Public Function NumberKey(ByVal Key As String) As Double
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -826,7 +827,7 @@ End Function
 ' * @return Boolean value.
 ' */
 Public Function BoolKey(ByVal Key As String) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -848,7 +849,7 @@ End Function
 ' * @return Raw JSON slice.
 ' */
 Public Function RawStringKey(ByVal Key As String) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -870,7 +871,7 @@ End Function
 ' * @return String value.
 ' */
 Public Function StringAt(ByVal Index As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -891,7 +892,7 @@ End Function
 ' * @return Double value.
 ' */
 Public Function NumberAt(ByVal Index As Long) As Double
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -912,7 +913,7 @@ End Function
 ' * @return Boolean value.
 ' */
 Public Function BoolAt(ByVal Index As Long) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -933,7 +934,7 @@ End Function
 ' * @return Raw string slice.
 ' */
 Public Function RawStringAt(ByVal Index As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -953,7 +954,7 @@ End Function
 ' * @return First child token id.
 ' */
 Public Function FirstChildToken() As Long
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -969,7 +970,7 @@ End Function
 ' * @return Last child token id.
 ' */
 Public Function LastChildToken() As Long
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -986,7 +987,7 @@ End Function
 ' * @return Next sibling token id.
 ' */
 Public Function NextToken(ByVal TokenId As Long) As Long
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1003,8 +1004,8 @@ End Function
 ' * @param TokenId Token id.
 ' * @return JSON node wrapper.
 ' */
-Public Function NodeFromToken(ByVal TokenId As Long) As CDPJson
-    Dim doc As CDPJson
+Public Function NodeFromToken(ByVal TokenId As Long) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1013,8 +1014,8 @@ Public Function NodeFromToken(ByVal TokenId As Long) As CDPJson
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
-        Dim Node As CDPJson
-        Set Node = New CDPJson
+        Dim Node As BiDiCDPJson
+        Set Node = New BiDiCDPJson
         Node.InitNode TokenId, doc
         Set NodeFromToken = Node
     End If
@@ -1027,7 +1028,7 @@ End Function
 ' * @return Token key text.
 ' */
 Public Function TokenKey(ByVal TokenId As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1045,7 +1046,7 @@ End Function
 ' * @return Primitive Variant or JSON node wrapper.
 ' */
 Public Function TokenValue(ByVal TokenId As Long) As Variant
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1054,8 +1055,8 @@ Public Function TokenValue(ByVal TokenId As Long) As Variant
     If TokenId < 1 Or TokenId > doc.TokenCount Then Exit Function
     
     If doc.TokenTypeOf(TokenId) = jsObject Or doc.TokenTypeOf(TokenId) = jsArray Then
-        Dim Node As CDPJson
-        Set Node = New CDPJson
+        Dim Node As BiDiCDPJson
+        Set Node = New BiDiCDPJson
         Node.InitNode TokenId, doc
         Set TokenValue = Node
     Else
@@ -1070,7 +1071,7 @@ End Function
 ' * @return String value.
 ' */
 Public Function TokenStringValue(ByVal TokenId As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1088,7 +1089,7 @@ End Function
 ' * @return Raw string slice.
 ' */
 Public Function TokenRawStringValue(ByVal TokenId As Long) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1106,7 +1107,7 @@ End Function
 ' * @return Double value.
 ' */
 Public Function TokenNumberValue(ByVal TokenId As Long) As Double
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1124,7 +1125,7 @@ End Function
 ' * @return Boolean value.
 ' */
 Public Function TokenBoolValue(ByVal TokenId As Long) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId
@@ -1143,7 +1144,7 @@ End Function
 ' * @return String value.
 ' */
 Public Function TokenString(ByVal TokenId As Long, ByVal Key As Variant) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1166,7 +1167,7 @@ End Function
 ' * @return Raw string slice.
 ' */
 Public Function TokenRawString(ByVal TokenId As Long, ByVal Key As Variant) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1189,7 +1190,7 @@ End Function
 ' * @return Raw string slice.
 ' */
 Public Function TokenRawField(ByVal TokenId As Long, ByVal Key As String) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1212,7 +1213,7 @@ End Function
 ' * @return Double value.
 ' */
 Public Function TokenNumber(ByVal TokenId As Long, ByVal Key As Variant) As Double
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1235,7 +1236,7 @@ End Function
 ' * @return Boolean value.
 ' */
 Public Function TokenBool(ByVal TokenId As Long, ByVal Key As Variant) As Boolean
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1257,8 +1258,8 @@ End Function
 ' * @param Key Field key.
 ' * @return JSON node wrapper.
 ' */
-Public Function TokenNode(ByVal TokenId As Long, ByVal Key As Variant) As CDPJson
-    Dim doc As CDPJson
+Public Function TokenNode(ByVal TokenId As Long, ByVal Key As Variant) As BiDiCDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim id As Long
     
@@ -1271,8 +1272,8 @@ Public Function TokenNode(ByVal TokenId As Long, ByVal Key As Variant) As CDPJso
     If id = 0 Then Exit Function
     
     If doc.TokenTypeOf(id) = jsObject Or doc.TokenTypeOf(id) = jsArray Then
-        Dim Node As CDPJson
-        Set Node = New CDPJson
+        Dim Node As BiDiCDPJson
+        Set Node = New BiDiCDPJson
         Node.InitNode id, doc
         Set TokenNode = Node
     End If
@@ -1430,7 +1431,7 @@ End Sub
 ' * @param Document Receives the real root document.
 ' * @param BaseId Receives the active token id.
 ' */
-Private Sub ResolveBase(ByRef Document As CDPJson, ByRef baseId As Long)
+Private Sub ResolveBase(ByRef Document As BiDiCDPJson, ByRef baseId As Long)
     If m_NodeId > 0 Then
         Set Document = m_Document
         baseId = m_NodeId
@@ -2123,7 +2124,7 @@ End Function
 ' * @return JSON text.
 ' */
 Friend Function StringifyCurrent(ByVal Pretty As Boolean, ByVal IndentText As String) As String
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     Dim Buffer As String
     Dim Position As Long
@@ -2420,7 +2421,7 @@ Private Sub WriteObjectValue(ByRef Buffer As String, ByRef Position As Long, ByR
     
     Select Case TypeName(value)
         Case "JSON"
-            Dim Node As CDPJson
+            Dim Node As BiDiCDPJson
             Set Node = value
             Node.WriteCurrent Buffer, Position, Capacity, Pretty, IndentText, Depth
         
@@ -2445,7 +2446,7 @@ End Sub
 ' * @param IndentText Text used for each indentation level.
 ' */
 Friend Sub WriteCurrent(ByRef Buffer As String, ByRef Position As Long, ByRef Capacity As Long, ByVal Pretty As Boolean, ByVal IndentText As String, Optional ByVal Depth As Long = 0)
-    Dim doc As CDPJson
+    Dim doc As BiDiCDPJson
     Dim baseId As Long
     
     ResolveBase doc, baseId

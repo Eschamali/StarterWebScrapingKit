@@ -250,7 +250,7 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPparams As Dictionary, ResultCDP As CDPJson
+    Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
     Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
@@ -308,7 +308,7 @@ Sub TestAlert()
 
     '必要な変数を用意
     Dim paramsCDP As New Scripting.Dictionary
-    Dim resCDP As CDPJson
+    Dim resCDP As BiDiCDPJson
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double

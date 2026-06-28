@@ -1100,7 +1100,7 @@ End Function
 '***************************************************************************************************
 Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
-    Dim paramsCDP As Dictionary, ResultCDP As CDPJson
+    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
 
 
     '1. `objectId`に対して、直下のNode情報を取得
@@ -1145,7 +1145,7 @@ End Function
 '***************************************************************************************************
 Public Function GetShadowRoots() As Collection
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
-    Dim paramsCDP As Dictionary, ResultCDP As CDPJson
+    Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
 
 
     '1. `objectId`に対して、直下のNode情報を取得
@@ -1160,10 +1160,10 @@ Public Function GetShadowRoots() As Collection
     If Not ResultCDP.NodeKey("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. 各`shadowRoots`の`backendNodeId`を取得していく
-    Dim shadowRootsNodes As CDPJson: Set shadowRootsNodes = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
+    Dim shadowRootsNodes As BiDiCDPJson: Set shadowRootsNodes = ResultCDP.NodeKey("node").NodeKey("shadowRoots")
     Set GetShadowRoots = New Collection
     printMsg Debug_, shadowRootsNodes.Count & " `Shadow-Root` instances were found.", FromProcedureName
-    Dim i As Long, CurrentShadowRoot As CDPJson
+    Dim i As Long, CurrentShadowRoot As BiDiCDPJson
     For i = 0 To shadowRootsNodes.Count - 1
         Set CurrentShadowRoot = shadowRootsNodes.NodeIndex(i)
 
@@ -1213,7 +1213,7 @@ Private Function TimerCounter() As Double
     TimerCounter = main.InheritanceCDPBrowser.TimerCounter
 End Function
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As CDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 

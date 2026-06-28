@@ -710,7 +710,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
-    Dim results As CDPJson
+    Dim results As BiDiCDPJson
     Set results = ExecuteCDP("Target.createTarget", params)
 
    'Return the new tab's Session ID
@@ -774,7 +774,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
     Dim NodeToken As Long
     Dim tabId As String, candidateTabId As String, errMsg As String
-    Dim targets As CDPJson
+    Dim targets As BiDiCDPJson
     Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
@@ -986,18 +986,18 @@ End Function
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As CDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
     Dim CDPcommand As New Scripting.Dictionary
-    Dim resultJson As CDPJson
+    Dim resultJson As BiDiCDPJson
 
     CDPcommand.Add "method", methodName
     If Not params Is Nothing Then CDPcommand.Add "params", params
 
     Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
-    Set resultJson = CDPJson.Parse(ResultStr)
+    Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
     'Print error if there is
     If ExecuteError(resultJson) Then
@@ -1027,6 +1027,7 @@ End Function
 '***************************************************************************************************
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
+
 
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
@@ -1198,7 +1199,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As CDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
@@ -1226,7 +1227,7 @@ Private Function ExecuteError(result As CDPJson, Optional ErrorCode As Long, Opt
             ExecuteError = True
 
             '`error`オブジェクトの中身で記録
-            Dim errNode As CDPJson
+            Dim errNode As BiDiCDPJson
             Set errNode = result.NodeKey("error")
 
             '主要なエラー情報を抜き出す
@@ -1499,8 +1500,8 @@ Public Function attachToTab(tabId As String) As String
     CDPcommand.Add "params", CDPparams
 
     '2. 実行
-    Dim tmp As CDPJson
-    Set tmp = CDPJson.Parse(SendMessage(CDPcommand))
+    Dim tmp As BiDiCDPJson
+    Set tmp = BiDiCDPJson.Parse(SendMessage(CDPcommand))
 
     '2. 結果があれば、返却
     If Not ExecuteError(tmp) Then attachToTab = tmp("result")("sessionId")
@@ -1525,7 +1526,7 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     CDPparams.Add "sessionId", sessionID
 
     '2. 破棄コマンド実行
-    Dim tmp As CDPJson
+    Dim tmp As BiDiCDPJson
     Set tmp = ExecuteCDP("Target.detachFromTarget", CDPparams, False)
 
     '3. ログとして出しておく
