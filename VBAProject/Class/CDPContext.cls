@@ -2012,12 +2012,12 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 
     Dim params As New Scripting.Dictionary
-    Dim r As Scripting.Dictionary
+    Dim r As CDPJson
     Dim b64 As String, tmpPng As String
 
    'Verify if the page can be captured with screenshot
     Set r = ExecuteCDP("Page.getLayoutMetrics")
-    If ExecuteError(r) Then
+    If r Is Nothing Then
         printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
     End If
@@ -2027,8 +2027,8 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     Set r = ExecuteCDP("Page.captureScreenshot", params)
 
    'Save to the same folder if not indicated
-    If Not ExecuteError(r) Then
-        b64 = r("data")
+    If Not r Is Nothing Then
+        b64 = r.StringKey("data")
         SaveBase64ToFile b64, FolderPath, FileName
         printMsg info_, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
     End If

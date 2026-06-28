@@ -710,12 +710,12 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
-    Dim results As Scripting.Dictionary
+    Dim results As CDPJson
     Set results = ExecuteCDP("Target.createTarget", params)
 
    'Return the new tab's Session ID
     Dim tabId As String
-    tabId = results("targetId")
+    tabId = results.StringKey("targetId")
     sessionID_ = attachToTab(tabId)
 
    'Switch attachment to the new tab
@@ -772,9 +772,9 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
-    Dim results As Scripting.Dictionary, Obj As Scripting.Dictionary
+    Dim NodeToken As Long
     Dim tabId As String, candidateTabId As String, errMsg As String
-    Dim targets As Collection
+    Dim targets As CDPJson
     Dim timerStart As Double
     Dim tabfound As Boolean
     Dim bestScore As Long, score As Long
@@ -792,54 +792,53 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 searchit:
 
-    Set results = ExecuteCDP("Target.getTargets")
-    Set targets = results("targetInfos")
+    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
+    NodeToken = targets.FirstChildToken  ' 配列の先頭トークン
 
     'スコア方式を利用して、理想の対象タブ情報を取得します
     Const MaxScore As Long = 100
     bestScore = -1
     candidateTabId = ""
-    For Each Obj In targets
-        If Obj("type") = SearchType Then
+    Do While NodeToken > 0
+        If targets.TokenString(NodeToken, "type") = SearchType Then
             score = -1
             Select Case True
                 Case LenB(tabName)
-                    If Obj.Exists("title") Then
-                        If Obj("title") = tabName Then
-                            score = 100
-                        ElseIf InStr(Obj("title"), tabName) Then
-                            score = 50
-                        Else
-                            errMsg = "with name containing """ & tabName & """"
-                        End If
+                    If targets.TokenString(NodeToken, "title") = tabName Then
+                        score = 100
+                    ElseIf InStr(targets.TokenString(NodeToken, "title"), tabName) Then
+                        score = 50
+                    Else
+                        errMsg = "with name containing """ & tabName & """"
                     End If
                 Case LenB(Url)
-                    If Obj.Exists("url") Then
-                        If Left$(Obj("url"), Len(Url)) = Url Then
-                            score = 90
-                        ElseIf InStr(Obj("url"), Url) Then
-                            score = 40
-                        Else
-                            errMsg = "with url containing """ & Url & """"
-                        End If
+                    If Left$(targets.TokenString(NodeToken, "url"), Len(Url)) = Url Then
+                        score = 90
+                    ElseIf InStr(targets.TokenString(NodeToken, "url"), Url) Then
+                        score = 40
+                    Else
+                        errMsg = "with url containing """ & Url & """"
                     End If
                 Case Else
-                    If Obj("attached") = False Then
+                    If targets.TokenBool(NodeToken, "attached") = False Then
                         score = 80
                     Else
                         score = 30
                         errMsg = "as no new unattached tab could be found"
                     End If
             End Select
+
             If score > bestScore Then
                 bestScore = score
-                candidateTabId = Obj("targetId")
+                candidateTabId = targets.TokenString(NodeToken, "targetId")
             End If
 
             '最大スコアが出てるなら、捜査打ち切り
-            If bestScore = MaxScore Then Exit For
+            If bestScore = MaxScore Then Exit Do
         End If
-    Next
+
+        NodeToken = targets.NextToken(NodeToken) ' 次の要素へ
+    Loop
 
     If bestScore >= 0 Then
         tabfound = True
