@@ -1087,7 +1087,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：現在の`ObjectID`配下のShadow-root(open/close)での、`ObjectID`の`CDPElement`を取得します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：Index  複数の`Shadow-root`があった際のIndex値。
+'* 引数    ：Index  複数の`Shadow-root`があった際のIndex値。    ※先頭は、0始まり基準
 '* 返り値　：`CDPElement`オブジェクト
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：1. `getElementByXPath`等で、Shadow-root(open/close)手前の要素`CDPElement`を取得します
@@ -1098,9 +1098,9 @@ End Function
 '            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
 '            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
 '***************************************************************************************************
-Public Function GetShadowRoot(Optional Index As Long = 1) As CDPElement
+Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
-    Dim paramsCDP As Dictionary, ResultCDP As Dictionary
+    Dim paramsCDP As Dictionary, ResultCDP As CDPJson
 
 
     '1. `objectId`に対して、直下のNode情報を取得
@@ -1112,11 +1112,11 @@ Public Function GetShadowRoot(Optional Index As Long = 1) As CDPElement
 
     '2. `shadowRoots`の存在確認
     If Not ResultCDP.Exists("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. 先頭の`shadowRoots`の`backendNodeId`を取得
     Dim shadowRootNodeId As Long
-    shadowRootNodeId = ResultCDP("node")("shadowRoots")(Index)("backendNodeId")
+    shadowRootNodeId = ResultCDP("node").NodeKey("shadowRoots").NodeIndex(Index).NumberKey("backendNodeId")
     printMsg Debug_, "`Shadow-Root` was found. backendNodeId: " & shadowRootNodeId, FromProcedureName
 
     '4. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
@@ -1126,11 +1126,11 @@ Public Function GetShadowRoot(Optional Index As Long = 1) As CDPElement
 
     '5. `Runtime.RemoteObject`の存在確認
     If Not ResultCDP.Exists("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
-    If Not ResultCDP("object").Exists("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("object").Exists("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
     '6. `objectId`を取得
     Dim shadowRootObjectID As String
-    shadowRootObjectID = ResultCDP("object")("objectId")
+    shadowRootObjectID = ResultCDP.NodeKey("object").StringKey("objectId")
     printMsg Debug_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
 
     '7. `CDPElement`に必要な情報を継承して返却
@@ -1145,7 +1145,7 @@ End Function
 '***************************************************************************************************
 Public Function GetShadowRoots() As Collection
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
-    Dim paramsCDP As Dictionary, ResultCDP As Dictionary
+    Dim paramsCDP As Dictionary, ResultCDP As CDPJson
 
 
     '1. `objectId`に対して、直下のNode情報を取得
@@ -1157,16 +1157,16 @@ Public Function GetShadowRoots() As Collection
 
     '2. `shadowRoots`の存在確認
     If Not ResultCDP.Exists("node") Then printMsg WARN_, "No child nodes were found in the current `CDPElement`.", FromProcedureName: Exit Function
-    If Not ResultCDP("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
+    If Not ResultCDP.NodeKey("node").Exists("shadowRoots") Then printMsg WARN_, "The `Shadow-Root` was not found in the child nodes of the current `CDPElement`.", FromProcedureName: Exit Function
 
     '3. 各`shadowRoots`の`backendNodeId`を取得していく
     Set GetShadowRoots = New Collection
-    printMsg Debug_, ResultCDP("node")("shadowRoots").Count & " `Shadow-Root` instances were found.", FromProcedureName
-    Dim shadowRootsNodes
-    For Each shadowRootsNodes In ResultCDP("node")("shadowRoots")
+    printMsg Debug_, ResultCDP.NodeKey("node").NodeKey("shadowRoots").Count & " `Shadow-Root` instances were found.", FromProcedureName
+    Dim shadowRootsNodes  As CDPJson
+    For Each shadowRootsNodes In ResultCDP("node").NodeKey("shadowRoots")
         '4. 各`shadowRoots`の`backendNodeId`を取得
         Dim shadowRootNodeId As Long
-        shadowRootNodeId = shadowRootsNodes("backendNodeId")
+        shadowRootNodeId = shadowRootsNodes.NumberKey("backendNodeId")
         printMsg Debug_, "`Shadow-Root` - backendNodeId: " & shadowRootNodeId, FromProcedureName
 
         '5. 得た`backendNodeId`を`CDPElement`で使える`ObjectID`に変換
@@ -1176,11 +1176,11 @@ Public Function GetShadowRoots() As Collection
 
         '6. `Runtime.RemoteObject`の存在確認
         If Not ResultCDP.Exists("object") Then printMsg WARN_, "The existence of `Runtime.RemoteObject` could not be confirmed.", FromProcedureName: Exit Function
-        If Not ResultCDP("object").Exists("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
+        If Not ResultCDP.NodeKey("object").Exists("objectId") Then printMsg WARN_, "Failed to retrieve the `ObjectID` in `Runtime.RemoteObject`.", FromProcedureName: Exit Function
 
         '7. `objectId`を取得
         Dim shadowRootObjectID As String
-        shadowRootObjectID = ResultCDP("object")("objectId")
+        shadowRootObjectID = ResultCDP.NodeKey("object").StringKey("objectId")
         printMsg Debug_, "`Successfully infiltrated `Shadow-Root`. objectId: " & shadowRootObjectID, FromProcedureName
 
         '8. `CDPElement`に必要な情報を継承して返却
@@ -1209,7 +1209,7 @@ Private Function TimerCounter() As Double
     TimerCounter = main.InheritanceCDPBrowser.TimerCounter
 End Function
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As Scripting.Dictionary
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As CDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
