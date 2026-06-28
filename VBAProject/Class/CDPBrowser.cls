@@ -99,9 +99,6 @@ Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザから�
 Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP engine
 Attribute PipeCore.VB_VarHelpID = -1
 
-'CDP圏内制御想定Class
-Public jsConverter          As New WebJsonConverter 'Excelで、JsonデータをDictionary(Collection)に変換できるすごいやつ
-
 '操作中のブラウザ情報一式
 Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
@@ -612,7 +609,10 @@ End Sub
 Public Function isLiveBrowser() As Boolean
     '1. バージョン確認CDPを送る
     '※生存確認なので、内部でのエラーは無視する
-    SendMessage "{""method"":""Browser.getVersion"",""params"":{}}", dbgMsg:=False
+    Dim CDPcommand As New Scripting.Dictionary
+    CDPcommand.Add "method", "Browser.getVersion"
+    CDPcommand.Add "params", New Scripting.Dictionary
+    SendMessage CDPcommand, dbgMsg:=False
 
     '2. いずれもパイプエラーコードがなければ、`True`とします
     If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
@@ -959,7 +959,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
+'* 返り値　：CDP-Jsonコマンド の実行結果情報。失敗時は、`Nothing`となります。
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
 '            StopCDPError           `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
@@ -982,33 +982,36 @@ End Function
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As Scripting.Dictionary
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As CDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
-    Dim paramStr As String
-    Dim results As Scripting.Dictionary
+    Dim CDPcommand As New Scripting.Dictionary
+    Dim resultJson As CDPJson
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", dbgMsg:=StopCDPError)
+    CDPcommand.Add "method", methodName
+    CDPcommand.Add "params", params
 
-   'Print error if there is
-    If ExecuteError(results) Then
+    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
+    Set resultJson = CDPJson.Parse(ResultStr)
+
+    'Print error if there is
+    If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
-        If results.Exists("result") Then Set ExecuteCDP = results.Item("result")
+        If resultJson.Exists("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultStr, FromProcedureName
 
 End Function
 
@@ -1021,24 +1024,24 @@ End Function
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
+    Dim CDPcommand As New Scripting.Dictionary
+    CDPcommand.Add "method", methodName
+    CDPcommand.Add "params", params
 
-    Dim paramStr As String
-
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError
+    SendMessage CDPcommand, True, StopError
 
     '実行したIDを返却
     ExecuteCDPAsync = PipeCore.LastCommandID
-    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
+    printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
 '* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
-'                      `True`  → `nothing`
+'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json文字列操作)
+'                      `True`  → `vbnullstring`
 '
-'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'* 引数　　：DirMessage             Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
@@ -1052,7 +1055,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：Async:=True の場合は常に`nothing`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1061,7 +1064,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
    '--------------------------------------------------
     printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
-    PipeCore.ReadyRunCDP strMessage                                         'Send message to the browser instance
+    PipeCore.ReadyRunCDP DirMessage                                         'Send message to the browser instance
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
@@ -1089,7 +1092,7 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
         tmp = TakeResultCDP(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
-            Set SendMessage = jsConverter.ParseJson(tmp)
+            SendMessage = tmp
             printMsg info_, "Browser have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
 
             'ループから抜ける
@@ -1180,7 +1183,7 @@ End Property
 '* 機能　　：CDP-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：エラー有無論理値
-'* 引数　　：result         パース処理済みのCDP-Jsonコマンド実行結果
+'* 引数　　：result         パース済CDP-Jsonコマンド実行結果
 '            ErrorCode      エラーコード　      ※参照渡しにより返されます
 '            ErrorMessage   エラーメッセージ    ※参照渡しにより返されます
 '---------------------------------------------------------------------------------------------------
@@ -1191,14 +1194,14 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As CDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
     Dim ErrorData As Variant
 
     'データの状態をチェック
-    If result Is Nothing Then
+    If result.Count = 0 Then
         'タイムアウトもしくは、パイプは生きてるが、応答なしによる結果無し
         ExecuteError = True
 
@@ -1213,33 +1216,41 @@ Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode
         lastErrorDetailsCDP.Add "code", ErrorCode
         lastErrorDetailsCDP.Add "message", ErrorMessage
 
-    ElseIf result.Exists("error") Then
-        'CDPコマンドエラー
-        ExecuteError = True
-
-        '`error`オブジェクトの中身で記録
-        Set lastErrorDetailsCDP = result("error")
-
-        '主要なエラー情報を抜き出す
-        ErrorCode = lastErrorDetailsCDP("code")
-        ErrorMessage = lastErrorDetailsCDP("message")
-        printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-
-        '追加情報がある場合は、それもログ化
-        If lastErrorDetailsCDP.Exists("data") Then
-            ErrorData = lastErrorDetailsCDP("data")
-            printMsg WARN_, "       " & ErrorData, FromProcedureName
-        Else
-            ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
-        End If
     Else
-        'CDPコマンド正常終了
-        ExecuteError = False
+        If result.Exists("error") Then
+            'CDPコマンドエラー
+            ExecuteError = True
 
-        'クリアしておく
-        ErrorCode = 0
-        ErrorMessage = vbNullString
-        ErrorData = vbEmpty
+            '`error`オブジェクトの中身で記録
+            Dim errNode As CDPJson
+            Set errNode = result.NodeKey("error")
+
+            '主要なエラー情報を抜き出す
+            ErrorCode = errNode.NumberKey("code")
+            ErrorMessage = errNode.StringKey("message")
+            printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+
+            '追加情報がある場合は、それもログ化
+            If errNode.Exists("data") Then
+                ErrorData = errNode("data")
+                printMsg WARN_, "       " & ErrorData, FromProcedureName
+            Else
+                ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
+            End If
+
+            '最後のエラー情報を記録
+            Set lastErrorDetailsCDP = New Dictionary
+            lastErrorDetailsCDP.Add "code", ErrorCode
+            lastErrorDetailsCDP.Add "message", ErrorMessage
+        Else
+            'CDPコマンド正常終了
+            ExecuteError = False
+    
+            'クリアしておく
+            ErrorCode = 0
+            ErrorMessage = vbNullString
+            ErrorData = vbEmpty
+        End If
     End If
 
 End Function
@@ -1283,15 +1294,17 @@ Public Sub quit()
     Const FromProcedureName As String = ThisClassName & ".quit"
 
 
-    Dim results As Scripting.Dictionary
     Dim sngT As Double
 
     '1. 終了コマンドを送る
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
-    Set results = SendMessage("{""method"":""Browser.close"",""params"":{}}", dbgMsg:=False)
+    Dim CDPcommand As New Scripting.Dictionary
+    CDPcommand.Add "method", "Browser.close"
+    CDPcommand.Add "params", New Scripting.Dictionary
+    SendMessage CDPcommand, dbgMsg:=False
 
     '2. パイプ生存確認
-    Dim PipeExists As Boolean: PipeExists = Not (results Is Nothing)
+    Dim PipeExists As Boolean
     If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Or PipeCore.LastErrorWriteFile > 0 Then
         '2-1. もうパイプは閉じてる
         PipeExists = False
@@ -1473,9 +1486,18 @@ End Sub
 '            Returns: a session ID string that is needed for CDP automation.
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
-    '1. 実行
-    Dim tmp As Dictionary
-    Set tmp = SendMessage("{""method"":""Target.attachToTarget"",""params"":{""targetId"":""" & tabId & """,""flatten"":true}}")
+    '1. コマンド準備
+    Dim CDPcommand As New Dictionary
+    Dim CDPparams As New Dictionary
+    CDPcommand.Add "method", "Target.attachToTarget"
+
+    CDPparams.Add "targetId", tabId
+    CDPparams.Add "flatten", True
+    CDPcommand.Add "params", CDPparams
+
+    '2. 実行
+    Dim tmp As CDPJson
+    Set tmp = CDPJson.Parse(SendMessage(CDPcommand))
 
     '2. 結果があれば、返却
     If Not ExecuteError(tmp) Then attachToTab = tmp("result")("sessionId")
@@ -1495,11 +1517,19 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
 
 
-    '1. 破棄コマンド実行
-    Dim tmp As Dictionary
-    Set tmp = SendMessage("{""method"":""Target.detachFromTarget"",""params"":{""sessionId"":""" & sessionID & """}}", dbgMsg:=False)
+    '1. コマンド準備
+    Dim CDPcommand As New Dictionary
+    Dim CDPparams As New Dictionary
+    CDPcommand.Add "method", "Target.detachFromTarget"
 
-    '2. ログとして出しておく
+    CDPparams.Add "sessionId", sessionID
+    CDPcommand.Add "params", CDPparams
+
+    '2. 破棄コマンド実行
+    Dim tmp As CDPJson
+    Set tmp = CDPJson.Parse(SendMessage(CDPcommand))
+
+    '3. ログとして出しておく
     If ExecuteError(tmp) Then
         printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
     Else
