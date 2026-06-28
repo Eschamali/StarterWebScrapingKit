@@ -611,7 +611,6 @@ Public Function isLiveBrowser() As Boolean
     '※生存確認なので、内部でのエラーは無視する
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", "Browser.getVersion"
-    CDPcommand.Add "params", New Scripting.Dictionary
     SendMessage CDPcommand, dbgMsg:=False
 
     '2. いずれもパイプエラーコードがなければ、`True`とします
@@ -990,7 +989,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Dim resultJson As CDPJson
 
     CDPcommand.Add "method", methodName
-    CDPcommand.Add "params", params
+    If Not params Is Nothing Then CDPcommand.Add "params", params
 
     Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
     Set resultJson = CDPJson.Parse(ResultStr)
@@ -1026,7 +1025,7 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
 
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
-    CDPcommand.Add "params", params
+    If Not params Is Nothing Then CDPcommand.Add "params", params
 
     SendMessage CDPcommand, True, StopError
 
@@ -1053,7 +1052,7 @@ End Function
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`nothing`で、返ります
+'* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
 '***************************************************************************************************
 Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
@@ -1091,7 +1090,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
         tmp = TakeResultCDP(currentCommandID)
         If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
+            '送ったコマンド結果であることを確認できたので結果を返す
             SendMessage = tmp
             printMsg info_, "Browser have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
 
@@ -1300,7 +1299,6 @@ Public Sub quit()
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", "Browser.close"
-    CDPcommand.Add "params", New Scripting.Dictionary
     SendMessage CDPcommand, dbgMsg:=False
 
     '2. パイプ生存確認
