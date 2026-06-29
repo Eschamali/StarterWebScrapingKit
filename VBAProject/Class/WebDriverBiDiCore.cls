@@ -466,12 +466,14 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
     '--------- 1. BiDiからのイベントか？ ---------
     If BiDiNode.StringKey("type") = "event" Then
         '非同期イベントとして発信
-        RaiseEvent detectionBiDiEvent(BiDiNode.StringKey("method"), BiDiJsonString)
+        AsynchronousEventName = BiDiNode.StringKey("method")
+        RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
     Else
         '--------- 2. `id`項目があるか？ ---------
         If BiDiNode.ExistsKey("id") Then
             'コマンド結果として発信
-            RaiseEvent detectionBiDiID(CLng(BiDiNode.NumberKey("id")), BiDiJsonString)
+            ResultCommandID = BiDiNode.NumberKey("id")
+            RaiseEvent detectionBiDiID(ResultCommandID, BiDiJsonString)
         Else
             '`method`も`id`項目もない場合、BiDi-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
             printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteBiDi/ExecuteBiDiAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & BiDiJsonString, FromProcedureName, doRaiseError:=True
@@ -815,3 +817,213 @@ Private Sub Class_Initialize()
         BiDiDebug.DiagnosticLog = .Range(.UseRangeName(13, FromProcedureName)).value   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ HISTORICAL ARCHIVE ■■■
+'***************************************************************************************************
+' かつて、VBAのJSONパース制限と戦うため、極限の位置計算によって
+' 巨大データから必要項目を1ミリ秒で撃ち抜いていた伝説のロマンコード。
+' ゼロコピーパーサー(vbacollective/json)の導入に伴い、ここに栄誉を称え封印する。
+' 2026/06/28 退役
+'
+' 消すのがなんかもったいないので、残しておきます。※`Github`に残るだろ、というクレームは受け付けません
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから name 部分を抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`name`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+'Private Function ExtractName(resCDP As String) As String
+'    Const FromProcedureName As String = ThisClassName & ".ExtractName"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '検索文字列
+'    Const StartSearchPos    As Long = 1                                                                 'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+'
+'    '2. 所定の位置にない場合は、存在しないとし、抜ける
+'    '例：{"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","...
+'    If StartPos = StartSearchPos Then
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName)
+'
+'        '4. name値の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, resCDP, """,""")
+'
+'        '5. name値を取り出す
+'        ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
+'    Else
+'        'name値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'        printMsg ERROR_, LogID, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
+''---------------------------------------------------------------------------------------------------
+''* 返値　　：エスケープ解除済み`payload`部分
+''* 引数　　：resCDP             CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+''            bindingCalledName  `Runtime.bindingCalled`の`Name`値を指定。抽出精度を高めるために使用します
+''***************************************************************************************************
+'Private Function ExtractPayload(resCDP As String, bindingCalledName As String) As String
+'    Const FromProcedureName As String = ThisClassName & ".ExtractPayload"
+'
+'
+'    '検索設定
+'    Const SearchKeyName As String = """,""payload"":"""                                             '実際の検索文字列
+'    Const FirstLetter   As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '先頭の固定文字列
+'    Dim StartSearchPos As Long: StartSearchPos = Len(FirstLetter) + Len(bindingCalledName) + 1      '`payload`があるべき位置を動的に特定
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+'
+'    '2. 所定の位置あるか確認する
+'    If StartPos = StartSearchPos Then
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName)
+'
+'        '4. payloadの終了位置を探す。通常はexecutionContextIdの前
+'        'https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#event-bindingCalled
+'        Dim EndPos As Long: EndPos = InStrRev(resCDP, """,""executionContextId""")
+'
+'        '5. 取り出せる計算かチェック
+'        If EndPos > StartPos Then
+'            '6.payload値を取り出す
+'            ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+'
+'            '7.「JsonOfJson」の外殻だけ剥がすための、エスケープ（\" -> "）を復元
+'            'これにより、`WebJsonConverter`クラスのパース処理に渡せれる形になります
+'            ExtractPayload = Replace(ExtractPayload, "\""", """")
+'            ExtractPayload = Replace(ExtractPayload, "\\", "\")
+'        Else
+'            'payload値が取れない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'            printMsg ERROR_, LogID, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'        End If
+'    Else
+'        'payload値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'        printMsg ERROR_, LogID, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'    End If
+'End Function
+''***************************************************************************************************
+''* 機能　　：BiDiからの受信データの構造をチェックする際の1つ、`id`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：jsonString         BiDiのレスポンス(JSON文字列そのまま)
+''*            idValueContents   コマンド結果のID値を格納する変数(参照渡し)
+''---------------------------------------------------------------------------------------------------
+''* 注意事項：コマンド結果のエラー、成功の区別はしません。
+''***************************************************************************************************
+'Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
+'
+'
+'    '検索設定
+'    Const SearchKeyNameOK   As String = "success"       '検索文字列(コマンド成功時)
+'    Const SearchKeyNameNG   As String = "error"         '検索文字列(コマンド失敗時)
+'    Const SearchKeyid       As String = """,""id"":"    '検索文字列の末尾のID部分
+'    Const StartSearchPos    As Long = 10                'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim existenceSuccess As Boolean, existenceError As Boolean
+'    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK & SearchKeyid) = StartSearchPos)
+'    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG & SearchKeyid) = StartSearchPos)
+'
+'    '2. どっちも所定の位置にない場合は、存在しないとし、抜ける
+'    '下記の例に基づき、10文字目にない場合は、コマンド結果ではないとして、扱います。
+'    '・{"type":"success", "id":... （コマンドの成功）
+'    '・{"type":"error", "id":... （コマンドの失敗）
+'    '・{"type":"error","error":...(構文エラー)　※これは通さない
+'    If existenceSuccess Or existenceError Then
+'        GetContentsID = True
+'
+'        '3. 検索ワードを適用
+'        Dim SearchKeyName As String
+'        SearchKeyName = IIf(existenceSuccess, SearchKeyNameOK, SearchKeyNameNG)
+'
+'        '4. 開始位置をうまい具合にずらす
+'        Dim StartPos As Long
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(SearchKeyid) '「","id":」分、ずらすイメージ
+'
+'        '5. ID値の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, jsonString, ",")
+'
+'        '6. ID値を取り出す
+'        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
+'    Else
+'        GetContentsID = False
+'        printMsg Trace_, LogID, "This BiDi response does not have an `id`.", FromProcedureName
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
+''*            methodValueContents  非同期イベントのメソッド名(参照渡し)
+''---------------------------------------------------------------------------------------------------
+''* 詳細説明：前方一致、後方一致を確認します
+''***************************************************************************************************
+'Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "event" '検索文字列
+'    Const StartSearchPos    As Long = 10        'あるべき位置
+'
+'
+'    '1. 前方文字列を探索
+'    Dim StartPos As Long, EndPos As Long
+'    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+'
+'    '2. 所定の位置あるか確認する
+'    '下記の例に基づき、10文字目にない場合は、次に後方一致を確認
+'    '・{"type":"event","method":...
+'    If StartPos = StartSearchPos Then
+'        GetContentsMethod = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""method"":""") '「","method":"」分、ずらすイメージ
+'
+'        '4. method名の終点を求める
+'        EndPos = InStr(StartPos, jsonString, """,")
+'
+'        '5. method名を取り出す
+'        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'
+'    '下記の例に基づき、後方にない場合は、非同期イベントではないとして、扱います。
+'    '・{"method":"network.beforeRequestSent", ... (中略) ..., "type":"event"}
+'    ElseIf Right(jsonString, Len(SearchKeyName) + Len("""}")) = SearchKeyName & """}" Then
+'        GetContentsMethod = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = 1 + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
+'
+'        '4. method名の終点を求める
+'        EndPos = InStr(StartPos, jsonString, """,")
+'
+'        '5. method名を取り出す
+'        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'    Else
+'        GetContentsMethod = False
+'        printMsg Trace_, LogID, "This BiDi response does not have an `method`.", FromProcedureName
+'    End If
+'End Function

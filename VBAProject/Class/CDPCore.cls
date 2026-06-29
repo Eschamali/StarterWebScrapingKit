@@ -912,13 +912,17 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String, sessionID As String
+    Dim CDPNode As BiDiCDPJson: Set CDPNode = BiDiCDPJson.Parse(CDPJsonString)
 
     '--------- 1. ブラウザからのイベントか？ ---------
-    If GetContentsMethod(CDPJsonString, AsynchronousEventName) Then
+    If CDPNode.ExistsKey("method") Then
+        '非同期イベント名を取得
+        AsynchronousEventName = CDPNode.StringKey("method")
 
         '--------- 2. タブに対する非同期イベントか？ ---------
-        If GetContentsSessionId(CDPJsonString, sessionID) Then
+        If CDPNode.ExistsKey("sessionId") Then
             'タブに対する非同期イベントとして発信
+            sessionID = CDPNode.StringKey("sessionId")
             RaiseEvent CDPContextEvent(AsynchronousEventName, CDPJsonString, sessionID)
         Else
             'ブラウザに対する非同期イベントとして発信
@@ -926,7 +930,10 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         End If
     Else
         '--------- 2. `id`項目があるか？ ---------
-        If GetContentsID(CDPJsonString, ResultCommandID) Then
+        If CDPNode.ExistsKey("id") Then
+            'id値を取得
+            ResultCommandID = CDPNode.NumberKey("id")
+
             '--------- 3. タブに対するCDP-Jsonコマンド結果か？ ---------
             If DictionarySessionID.Exists(ResultCommandID) Then    '`id`項目での`sessionId`checkは、送信時に登録した`Dictionary`checkに委ねる
                 'タブに対するコマンド結果として発信
@@ -945,140 +952,6 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
         End If
     End If
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`id`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
-'            idValueContents    コマンド結果のID値を格納する変数(参照渡しによって返します)
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`{"id":27,"result":{"result":...`という感じで返るので、`InStr`による探索で抜き出します
-'***************************************************************************************************
-Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "id"    '検索文字列
-    Const StartSearchPos    As Long = 3         'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、3文字目にない場合は、コマンド結果ではないとして、扱います。
-    '・{"id":27,"result":{"result":...
-    '・{"id":57,"error":{"code":...
-    If StartPos = StartSearchPos Then
-        GetContentsID = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":") '「id":」分、ずらすイメージ
-
-        '4. ID値の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, jsonString, ",")
-
-        '5. ID値を取り出す
-        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "This response is the command result. ID:" & idValueContents, FromProcedureName
-    Else
-        GetContentsID = False
-        printMsg Trace_, LogID, "This response does not have an `id`.", FromProcedureName
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：JsonString             CDPのレスポンス(Json文字列そのまんま)
-'            methodValueContents    非同期イベントのメソッド名(参照渡しによって返します)
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`{"method":"Network.dataReceived","params":{"...`という感じで返るので、`InStr`による探索で抜き出します
-'***************************************************************************************************
-Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "method"    '検索文字列
-    Const StartSearchPos    As Long = 3             'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、3文字目にない場合は、非同期イベントではないとして、扱います。
-    '・{"method":"Network.dataReceived","params":{"...
-    If StartPos = StartSearchPos Then
-        GetContentsMethod = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":""") '「method":"」分、ずらすイメージ
-
-        '4. method名の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, jsonString, """,")
-
-        '5. method名を取り出す
-        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
-    Else
-        GetContentsMethod = False
-        printMsg Trace_, LogID, "This response does not have an `method`.", FromProcedureName
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`sessionId`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
-'            idValueContents    sessionId値を格納する変数(参照渡しによって返します)
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`...},"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}`という感じで返るので、後方から抜き出します
-'***************************************************************************************************
-Private Function GetContentsSessionId(jsonString As String, ByRef sessionIdValueContents As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsSessionId"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "sessionId" '検索文字列
-    Const LenSessionID      As Long = 32            '現時点での、`sessionId`文字数
-
-    '検索開始位置を特定
-    Dim StartSearchPos As Long
-    StartSearchPos = Len(jsonString) - Len(SearchKeyName) - Len(""":""") - LenSessionID - Len("""}")   '「"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
-
-    '負になってたら即抜け
-    If StartSearchPos < 0 Then
-        GetContentsSessionId = False
-        printMsg Trace_, LogID, "This response is the short command result for the browser.", FromProcedureName
-        Exit Function
-    End If
-
-    '1. 文字列検索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, Chr(34) & SearchKeyName & """:""")   '「"sessionId":"」で検索をかけるようにする
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    If StartPos = StartSearchPos Then
-        GetContentsSessionId = True
-
-        '3. sessionId値を取り出す
-        sessionIdValueContents = Mid(jsonString, Len(jsonString) - LenSessionID - Len("""}") + 1, LenSessionID)  '「0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
-        printMsg Trace_, LogID, "This response is the command result for the tab. sessionId:" & sessionIdValueContents, FromProcedureName
-    Else
-        GetContentsSessionId = False
-        printMsg Trace_, LogID, "This response is the command result for the browser.", FromProcedureName
-    End If
-End Function
 
 
 
@@ -1269,3 +1142,148 @@ Private Sub Class_Initialize()
     Call QueryPerformanceFrequency(m_Frequency)
     '------------------------------------------------------------------------------
 End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ HISTORICAL ARCHIVE ■■■
+'***************************************************************************************************
+' かつて、VBAのJSONパース制限と戦うため、極限の位置計算によって
+' 巨大データから必要項目を1ミリ秒で撃ち抜いていた伝説のロマンコード。
+' ゼロコピーパーサー(vbacollective/json)の導入に伴い、ここに栄誉を称え封印する。
+' 2026/06/28 退役
+'
+' 消すのがなんかもったいないので、残しておきます。※`Github`に残るだろ、というクレームは受け付けません
+'***************************************************************************************************
+'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`id`チェックを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：存在有無論理値
+'* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
+'            idValueContents    コマンド結果のID値を格納する変数(参照渡しによって返します)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`{"id":27,"result":{"result":...`という感じで返るので、`InStr`による探索で抜き出します
+'***************************************************************************************************
+'Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "id"    '検索文字列
+'    Const StartSearchPos    As Long = 3         'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+'
+'    '2. 所定の位置にない場合は、存在しないとし、抜ける
+'    '下記の例に基づき、3文字目にない場合は、コマンド結果ではないとして、扱います。
+'    '・{"id":27,"result":{"result":...
+'    '・{"id":57,"error":{"code":...
+'    If StartPos = StartSearchPos Then
+'        GetContentsID = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":") '「id":」分、ずらすイメージ
+'
+'        '4. ID値の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, jsonString, ",")
+'
+'        '5. ID値を取り出す
+'        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This response is the command result. ID:" & idValueContents, FromProcedureName
+'    Else
+'        GetContentsID = False
+'        printMsg Trace_, LogID, "This response does not have an `id`.", FromProcedureName
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：JsonString             CDPのレスポンス(Json文字列そのまんま)
+''            methodValueContents    非同期イベントのメソッド名(参照渡しによって返します)
+''---------------------------------------------------------------------------------------------------
+''* 詳細説明：`{"method":"Network.dataReceived","params":{"...`という感じで返るので、`InStr`による探索で抜き出します
+''***************************************************************************************************
+'Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "method"    '検索文字列
+'    Const StartSearchPos    As Long = 3             'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+'
+'    '2. 所定の位置にない場合は、存在しないとし、抜ける
+'    '下記の例に基づき、3文字目にない場合は、非同期イベントではないとして、扱います。
+'    '・{"method":"Network.dataReceived","params":{"...
+'    If StartPos = StartSearchPos Then
+'        GetContentsMethod = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""":""") '「method":"」分、ずらすイメージ
+'
+'        '4. method名の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, jsonString, """,")
+'
+'        '5. method名を取り出す
+'        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
+'    Else
+'        GetContentsMethod = False
+'        printMsg Trace_, LogID, "This response does not have an `method`.", FromProcedureName
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`sessionId`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：JsonString         CDPのレスポンス(Json文字列そのまんま)
+''            idValueContents    sessionId値を格納する変数(参照渡しによって返します)
+''---------------------------------------------------------------------------------------------------
+''* 詳細説明：`...},"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}`という感じで返るので、後方から抜き出します
+''***************************************************************************************************
+'Private Function GetContentsSessionId(jsonString As String, ByRef sessionIdValueContents As String) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsSessionId"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "sessionId" '検索文字列
+'    Const LenSessionID      As Long = 32            '現時点での、`sessionId`文字数
+'
+'    '検索開始位置を特定
+'    Dim StartSearchPos As Long
+'    StartSearchPos = Len(jsonString) - Len(SearchKeyName) - Len(""":""") - LenSessionID - Len("""}")   '「"sessionId":"0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
+'
+'    '負になってたら即抜け
+'    If StartSearchPos < 0 Then
+'        GetContentsSessionId = False
+'        printMsg Trace_, LogID, "This response is the short command result for the browser.", FromProcedureName
+'        Exit Function
+'    End If
+'
+'    '1. 文字列検索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, jsonString, Chr(34) & SearchKeyName & """:""")   '「"sessionId":"」で検索をかけるようにする
+'
+'    '2. 所定の位置にない場合は、存在しないとし、抜ける
+'    If StartPos = StartSearchPos Then
+'        GetContentsSessionId = True
+'
+'        '3. sessionId値を取り出す
+'        sessionIdValueContents = Mid(jsonString, Len(jsonString) - LenSessionID - Len("""}") + 1, LenSessionID)  '「0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
+'        printMsg Trace_, LogID, "This response is the command result for the tab. sessionId:" & sessionIdValueContents, FromProcedureName
+'    Else
+'        GetContentsSessionId = False
+'        printMsg Trace_, LogID, "This response is the command result for the browser.", FromProcedureName
+'    End If
+'End Function
