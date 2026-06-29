@@ -1311,9 +1311,7 @@ Public Sub quit()
 
     '1. 終了コマンドを送る
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
-    Dim CDPcommand As New Scripting.Dictionary
-    CDPcommand.Add "method", "Browser.close"
-    SendMessage CDPcommand, dbgMsg:=False
+    ExecuteCDP "Browser.close", StopCDPError:=False
 
     '2. パイプ生存確認
     Dim PipeExists As Boolean
