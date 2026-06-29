@@ -80,6 +80,51 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ 再接続処理系 ■■■
+'***************************************************************************************************
+'* 機能　　：Excelテーブルにある既存のBiDi-contextタブ情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
+'            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
+'***************************************************************************************************
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
+
+    '1. 新オブジェクトを用意
+    Set m_BiDiMode = New WebDriverBiDiMode
+
+    '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
+    If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+
+    '3. タブ情報を再セット
+    InfoList.context = m_BiDiMode.serializeMainTab
+
+    '4. 生存確認
+    Dim BiDiparams As New Dictionary, BiDiResult As BiDiCDPJson
+    BiDiparams.Add "root", InfoList.context
+    BiDiparams.Add "maxDepth", 0
+    Set BiDiResult = m_BiDiMode.ExecuteBiDi("browsingContext.getTree", BiDiparams, False)
+
+    '5. 判定
+    If BiDiResult Is Nothing Then
+        '6. エラーログを出す
+        printMsg ERROR_, "Failed to reattach to Previous BiDi-context.", FromProcedureName: Exit Function
+        reattach = False
+    Else
+        '6. 購読処理
+        m_BiDiMode.EnableDiscoverContexts = True
+        reattach = True
+    End If
+End Function
+
+
+
+'***************************************************************************************************
 '                              ■■■ BiDi非同期イベント関連 ■■■
 '***************************************************************************************************
 '* 機能　　：BiDiの非同期イベント

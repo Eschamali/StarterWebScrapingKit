@@ -433,25 +433,20 @@ End Sub
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
-    Dim First As WebDriverBiDiMode
-    Set First = 設定シートからのBiDi起動
-
-    '現在のコンテキストIDを取得する
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = First.ExecuteBiDi("browsingContext.getTree")
-    Dim targetContext As String
-    If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
-    End If
+    Dim First As WebDriverBiDiContext
+    Set First = 設定シートからのBiDi起動ForTab
 
     'GoogleTopページへ遷移
-    Set paramsBiDi = New Dictionary
-    paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://www.google.com/"
-    paramsBiDi.Add "wait", "complete"
-    First.ExecuteBiDi "browsingContext.navigate", paramsBiDi
+    First.navigate "https://www.google.com/"
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：WebDriverBiDi制御用タブの接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、WebDriverBiDi制御用のタブ接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
+'            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
+'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
+'***************************************************************************************************
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
     With ShSetting01_StartBrowser
@@ -459,28 +454,42 @@ Sub demoReattachmentPart2()
         UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
     End With
 
-    ' リアタッチとして起動
+    '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
-    Dim ResultReattach As Boolean
-    ResultReattach = Reattachment.reattach(UserName)
+    If Not Reattachment.reattach(UserName) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
-    If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+    '2. 未接続のタブに接続
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Dim ReattachmentTab As WebDriverBiDiContext
+    Set ReattachmentTab = Reattachment.getTab(setMain:=True)
+'    Set ReattachmentTab = Reattachment.newTab(setMain:=True)   '新しいタブ生成からでもOK
 
-    '現在のコンテキストIDを取得する
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = Reattachment.ExecuteBiDi("browsingContext.getTree")
-    Dim targetContext As String
-    If Not (resultBiDi Is Nothing) Then
-        '※ここでエラーが起こる場合、ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。
-        targetContext = resultBiDi("contexts")(1)("context")     '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
-    End If
+    '3. エラーチェック
+    '※特に`getTab`の場合は、0個で返ることがあるのでそのチェックを行います
+    If ReattachmentTab Is Nothing Then MsgBox "`browsingContext.getTree`の実行に成功しましたが、有効なタブが見つかりませんでした。" & vbCrLf & "ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。", vbCritical, "WebDriver BiDi": Exit Sub
+
+    '4．別ページに遷移して終了
+    ReattachmentTab.navigate "https://kemono-friends-20170110.jp/"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：最後にWebDriverBiDiで制御したタブの接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
+'***************************************************************************************************
+Sub demoReattachmentPart2ForTab()
+    '設定セルから、ユーザ名を取得
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+    End With
+
+    ' リアタッチとして起動
+    Dim Reattachment As New WebDriverBiDiContext
+    If Not Reattachment.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
     '別ページに遷移
-    Set paramsBiDi = New Dictionary
-    paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://kemono-friends-20170110.jp/"
-    paramsBiDi.Add "wait", "complete"
-    Reattachment.ExecuteBiDi "browsingContext.navigate", paramsBiDi
+    Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
 End Sub
 
 
