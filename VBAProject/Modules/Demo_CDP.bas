@@ -924,7 +924,7 @@ Sub demoReattachmentPart2ForBrowser()
     End With
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
-    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical: Exit Sub
+    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -951,7 +951,7 @@ Sub demoReattachmentPart2ForTab()
 
     '1. Excelに記録されてる`TargetID`の生存確認
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です
-    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical: Exit Sub
+    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
