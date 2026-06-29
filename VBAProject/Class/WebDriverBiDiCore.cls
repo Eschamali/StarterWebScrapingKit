@@ -260,7 +260,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
         printMsg info_, LogID, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
         '4. そのタブURLは、このクラスで用意した専用URLか？
-        If LCase(MapperURL) = LCase(WebDriverBiDi_mapperTab.Url) Then
+        If StrComp(MapperURL, WebDriverBiDi_mapperTab.Url, vbTextCompare) = 0 Then
             '5. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
             '→ typeof window.onBidiMessage === 'function' かどうかを調べる
             Dim isMapperRunning As Boolean
