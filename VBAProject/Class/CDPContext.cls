@@ -506,8 +506,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
 
 
     Dim CDPresult   As String
-    Dim strMessage  As String
-    Dim objMessage  As New Scripting.Dictionary
+    Dim CDPcommand  As New Scripting.Dictionary
     Dim CDPparams   As New Scripting.Dictionary
 
 step1:
@@ -560,15 +559,15 @@ step1:
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
     'CDP-Jsonを組み立て
-    objMessage.RemoveAll
-    objMessage.Add "method", UseJsMethod
-    objMessage.Add "params", CDPparams
+    CDPcommand.RemoveAll
+    CDPcommand.Add "method", UseJsMethod
+    CDPcommand.Add "params", CDPparams
 
    '----------------------------------------------------------------------------------------
 
     'Send and check CDPresult -------------------------------------------------------------------------------------------
     '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
-    CDPresult = SendMessage(objMessage, RunAsyncCDP, dbgMsg)
+    CDPresult = SendMessage(CDPcommand, RunAsyncCDP, dbgMsg)
     If RunAsyncCDP Then
         'ID返却して抜ける
         jsEval = PipeCore.LastCommandID
