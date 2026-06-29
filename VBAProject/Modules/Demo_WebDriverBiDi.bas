@@ -62,7 +62,7 @@ Sub BiDiによる冒険の始まり()
     Dim HelloWorldAutomationBrowser As WebDriverBiDiContext: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動ForTab
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
-    HelloWorldAutomationBrowser.navigate "https://www.w3.org/TR/webdriver-bidi/"
+
 
 
 
