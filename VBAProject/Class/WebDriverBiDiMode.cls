@@ -10,6 +10,8 @@ Attribute VB_Exposed = False
 '==============================================================================================================
 '                    WebDriverBiDi制御モードとしてのメソッドやパラメータ運用を行います
 '                       このClassオブジェクトは、低レベル操作として運用します
+'
+'   `ExecuteBiDi`等で使用できるコマンド一覧は、右記にてアクセスして下さい → https://www.w3.org/TR/webdriver-bidi/
 '==============================================================================================================
 Option Explicit
 
@@ -166,6 +168,7 @@ Public Property Get serializeMainTab() As String
 End Property
 
 
+
 '***************************************************************************************************
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
@@ -261,17 +264,17 @@ End Function
 '* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - WebDriverBiDiContext
-'* 引数　　：tabName    タブ名
-'            Url        URL
-'            maxDepth   Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
-'            setMain    `True`で、Excelに`context`を記録し、リアタッチに備えます
-'            doRetry    `True`で、出現まで何回かリトライします。
+'* 引数　　：tabName        タブ名
+'            Url            URL
+'            maxDepth       Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
+'            setMain        `True`で、Excelに`context`を記録し、リアタッチに備えます
+'            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。maxDepth はデフォルトは、トップレベルのタブだけにしてます
 '* 注意事項：・url引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '            ・WebDriverBiDi では、タブ名での検索はできないようです
 '***************************************************************************************************
-Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional setMain As Boolean, Optional doRetry As Boolean) As WebDriverBiDiContext
+Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional setMain As Boolean, Optional doRetrySecond As Double) As WebDriverBiDiContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -392,19 +395,24 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
     If params Is Nothing Then Set params = New Dictionary
 
+    'コマンド組み立て
     Dim BiDiCommand As New Scripting.Dictionary
     BiDiCommand.Add "method", methodName
     BiDiCommand.Add "params", params
 
+    '送信して結果を受け取り、Node変換
     Dim ResultStr As String: ResultStr = SendMessage(BiDiCommand, , StopBiDiError)
     Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
     'Print error if there is
     If ExecuteError(resultJson) Then
+        'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
+            'エラーになったmethod名と、結果生responseを表示して停止
             printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
+            'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to BiDi-invoke method """ & methodName & """", FromProcedureName
         End If
     Else
@@ -433,15 +441,17 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
     If params Is Nothing Then Set params = New Dictionary
 
+    'コマンド組み立て
     Dim BiDiCommand As New Scripting.Dictionary
     BiDiCommand.Add "method", methodName
     BiDiCommand.Add "params", params
 
+    '送信
     SendMessage BiDiCommand, True, StopError
 
     '実行したIDを返却
     ExecuteBiDiAsync = m_BiDiCore.LastCommandID
-    printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
+    printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -590,7 +600,7 @@ End Property
 '* 引数　　：ResultsObj         パース処理済みのCDP-Jsonコマンド実行結果
 '***************************************************************************************************
 Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
+    Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
     Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String

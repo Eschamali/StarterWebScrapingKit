@@ -10,6 +10,8 @@ Attribute VB_Exposed = False
 '==============================================================================================================
 '                         ブラウザそのものに関するメソッドやパラメータ運用を行います
 '                  このClassオブジェクトは、`--user-data-dir`単位で管理する前提とします
+'
+'   `ExecuteCDP`等で使用できるコマンド一覧は、右記にてアクセスして下さい → https://chromedevtools.github.io/devtools-protocol/
 '==============================================================================================================
 Option Explicit
 
@@ -751,11 +753,11 @@ End Function
 '* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - CDPBrowser
-'* 引数　　：tabName    タブ名
-'            Url        URL
-'            setMain    `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
-'            SearchType "page","iframe" といった、セッションの種類を指定します
-'            doRetry    `True`で、出現まで何回かリトライします。
+'* 引数　　：tabName        タブ名
+'            Url            URL
+'            setMain        `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
+'            SearchType     "page","iframe" といった、セッションの種類を指定します
+'            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：06/06/23               - Added doRetry argument
 '            03/05/23               - Combined the method with the getTabNew
@@ -990,13 +992,14 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
+    'コマンド組み立て
     Dim CDPcommand As New Scripting.Dictionary
-    Dim resultJson As BiDiCDPJson
-
     CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params
+    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
+    '送信して結果を受け取り、Node変換
     Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
+    Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
     'Print error if there is
@@ -1029,10 +1032,12 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
+    'コマンド組み立て
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params
+    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
+    '送信
     SendMessage CDPcommand, True, StopError
 
     '実行したIDを返却
@@ -1210,6 +1215,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         'タイムアウトもしくは、パイプは生きてるが、応答なしによる結果無し
         ExecuteError = True
 
+
         'カスタムなエラー情報として記載
         ErrorCode = -1 'arbitrary nonzero value, may change in future
         ErrorMessage = "Timeout or No results"
@@ -1225,6 +1231,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         If result.Exists("error") Then
             'CDPコマンドエラー
             ExecuteError = True
+
 
             '`error`オブジェクトの中身で記録
             Dim errNode As BiDiCDPJson
@@ -1250,6 +1257,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         Else
             'CDPコマンド正常終了
             ExecuteError = False
+
 
             'クリアしておく
             ErrorCode = 0
