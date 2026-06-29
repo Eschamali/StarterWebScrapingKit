@@ -29,7 +29,6 @@ Private Const ThisClassName As String = "WebDriverBiDiContext" 'ログのトレ�
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore    'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
 Private m_BiDiMode              As WebDriverBiDiMode    'BiDi全体
-Attribute m_BiDiMode.VB_VarHelpID = -1
 
 '各種ステータス
 Private Type browsingContextInfo
