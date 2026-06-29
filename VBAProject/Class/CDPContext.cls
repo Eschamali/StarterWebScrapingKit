@@ -1450,18 +1450,17 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
 
 
     '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
-    Dim CDPBrowserEvent As BiDiCDPJson: Set CDPBrowserEvent = BiDiCDPJson.Parse(RawJson)
     Dim tmp As BiDiCDPJson
-    Select Case CDPBrowserEvent.StringKey("method")
+    Select Case methodName
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
-            If CDPBrowserEvent.NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
+            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
 
         '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
         Case "Target.targetCrashed"
             '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
-            Set tmp = CDPBrowserEvent.NodeKey("params")
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 ControlStatus.targetCrashed = True
 
@@ -1474,12 +1473,12 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
         '`targetId`が消えて、`SessionID`も道ずれ破棄
         Case "Target.targetDestroyed"
             '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
-            If CDPBrowserEvent.NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
         '一部のパラメーター(URL等)を更新します
         Case "Target.targetInfoChanged"
             '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
-            Set tmp = CDPBrowserEvent.NodeKey("params").NodeKey("targetInfo")
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 '1-2. 各種パラメーター更新
                 With br
@@ -1503,9 +1502,9 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
     '2-3. パース処理
-    Dim jsConverter As New WebJsonConverter, tmpDic As New Dictionary
+    Dim tmpDic As New Dictionary
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Set tmpDic = jsConverter.ParseJson(RawJson)
+    Set tmpDic = WebJsonConverter.Parse(RawJson).value
 
     '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -1538,9 +1537,8 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
     '2-3. パース処理
-    Dim jsConverter As New WebJsonConverter
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(RawJson)
+    Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
     '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
