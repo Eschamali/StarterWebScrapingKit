@@ -681,7 +681,7 @@ Public Sub quit()
 
     '1. 終了コマンドを送る
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
-    ExecuteBiDi "browser.close", dbgMsg:=False
+    ExecuteBiDi "browser.close", StopBiDiError:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
     m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
