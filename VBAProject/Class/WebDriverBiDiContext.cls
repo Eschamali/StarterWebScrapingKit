@@ -142,9 +142,8 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
         '`context`が消えた
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
-            SearchWord = "{""type"":""event"",""method"":""browsingContext.contextDestroyed"",""params"":{""context"":"""
-            StartPos = Len(SearchWord) + 1
-            If InStr(StartPos, RawJson, InfoList.context) = StartPos Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson)
+            If BiDiEventNode.NodeKey("params").StringKey("context") = InfoList.context Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
     End Select
 End Sub
