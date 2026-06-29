@@ -889,6 +889,25 @@ searchfound:
     End With
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`targetId`に対する`DevTools`ウィンドウを開きます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：targetId   対象のタブID
+'            panelId    最初に開きたい項目があれば指定
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：F12が効かないページでも`DevTools`ウィンドウを開かせます
+'* 注意事項：WebView2,Electronの場合は、効かない場合があります
+'***************************************************************************************************
+Public Sub openDevTools(TrgetID As String, Optional panelId As String)
+    'パラメーター準備
+    Dim params As New Scripting.Dictionary
+    params.Add "targetId", TrgetID
+    If StrPtr(panelId) Then params.Add "panelId", panelId
+
+    '実行
+    ExecuteCDP "Target.openDevTools", params
+End Sub
+
 Public Sub printTabs()
 '------------------------------------------------------------------
 ' Print all current tabs info. Useful for debugging.
