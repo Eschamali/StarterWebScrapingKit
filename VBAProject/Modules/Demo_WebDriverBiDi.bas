@@ -190,7 +190,7 @@ Sub UseExtensions()
     paramsBiDi.Add "extensionData", extData
 
     ' 今回はエラー無視で設定 (StopError:=False)
-    Dim resultBiDi As Dictionary
+    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = controlExtensions.ExecuteBiDi("webExtension.install", paramsBiDi, False)
 
     '読み込まれたか確認する
@@ -207,7 +207,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & resultBiDi("extension")
 
     Else
-        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(resultBiDi), vbExclamation, "Not found id"
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & resultBiDi.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
         controlExtensions.InheritanceWebDriverBiDiMode.quit
@@ -255,7 +255,7 @@ Sub TestAlert()
     Set Demo_alerts = 設定シートからのBiDi起動ForTab("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
@@ -365,7 +365,7 @@ Sub TestBiDiPlus_CDPTunnel()
     ' ブラウザ起動
     Set bidiPlus = 設定シートからのBiDi起動ForTab
 
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
     '-----------------------------------------------------------------------
     ' 1. CDPのセッションIDを取得する (goog:cdp.getSession)
@@ -375,7 +375,7 @@ Sub TestBiDiPlus_CDPTunnel()
 
     If Not resultBiDi Is Nothing Then
          MsgBox "現在のタブ(Context)に紐づく、裏側の『CDPセッションID』を取得しました！" & vbCrLf & vbCrLf & _
-                "【SessionID】" & resultBiDi("session"), vbInformation, "BiDi+ GetSession"
+                "【SessionID】" & resultBiDi.StringKey("session"), vbInformation, "BiDi+ GetSession"
 
          Dim cdpSessionId As String
          cdpSessionId = resultBiDi("session")
@@ -393,8 +393,8 @@ Sub TestBiDiPlus_CDPTunnel()
 
     If Not resultBiDi Is Nothing Then
         MsgBox "CDPコマンド(Browser.getVersion)をBiDi経由で実行できました！" & vbCrLf & vbCrLf & _
-               "【Browser】" & resultBiDi("result")("userAgent") & vbCrLf & _
-               "【Protocol-Version】" & resultBiDi("result")("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
+               "【Browser】" & resultBiDi.NodeKey("result").StringKey("userAgent") & vbCrLf & _
+               "【Protocol-Version】" & resultBiDi.NodeKey("result").StringKey("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
     End If
 
     '終了
@@ -418,7 +418,7 @@ Sub controlContextClassDemo()
     Set CDPTab = BiDiTab.ConvertToCDPContext
 
     'CDP実行してみる
-    CDPTab.notify "BiDiから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
+    CDPTab.notify "BiDiオブジェクトクラスから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
 End Sub
 
 

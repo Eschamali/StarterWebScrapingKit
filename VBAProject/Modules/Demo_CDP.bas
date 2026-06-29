@@ -265,7 +265,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & ResultCDP("id")
 
     Else
-        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(ResultCDP), vbExclamation, "Not found id"
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
         controlExtensions.InheritanceCDPBrowser.quit
