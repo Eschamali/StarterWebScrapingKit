@@ -36,7 +36,7 @@ Option Private Module
 ' @param {VbVarType} ReturnAs | Whether to return a JSON string or object. `vbString` or `vbObject` only.
 ' @return {Dictionary|Collection|String} JSON object or string.
 ''
-Public Function ConvertXmlToJson(ByVal XmlValue As Variant, Optional ByVal Whitespace As Variant, Optional ByVal ReturnAs As VbVarType = vbString) As Variant
+Public Function ConvertXmlToJson(ByVal XmlValue As Variant, Optional ByVal Whitespace As Long, Optional ByVal ReturnAs As VbVarType = vbString) As Variant
     Dim xml_ChildNode As Dictionary
     Dim xml_JsonObject As Dictionary
     Dim xml_JsonNodeName As String
@@ -183,8 +183,7 @@ Public Function ConvertXmlToJson(ByVal XmlValue As Variant, Optional ByVal White
     If ReturnAs = vbObject Then
         Set ConvertXmlToJson = xml_ReturnObject
     Else
-        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
-        ConvertXmlToJson = APIConverter.ConvertToJson(xml_ReturnObject, Whitespace)
+        ConvertXmlToJson = WebJsonConverter.serialize(xml_ReturnObject, Whitespace)
     End If
 End Function
 
@@ -210,8 +209,7 @@ Public Function ConvertJsonToXml(ByVal JsonValue As Variant, Optional ByVal Whit
     
     Select Case VarType(JsonValue)
     Case vbString
-        Dim APIConverter As WebJsonConverter: Set APIConverter = New WebJsonConverter
-        Set json_ReturnObject = ConvertJsonToXml(APIConverter.ParseJson(JsonValue), Whitespace, vbObject)
+        Set json_ReturnObject = ConvertJsonToXml(WebJsonConverter.Parse(JsonValue).value, Whitespace, vbObject)
     Case VBA.vbObject
         If VBA.TypeName(JsonValue) = "Dictionary" Then
             ' TODO - proccess Dictionary.

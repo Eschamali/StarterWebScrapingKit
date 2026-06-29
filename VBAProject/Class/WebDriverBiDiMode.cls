@@ -745,8 +745,7 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
     '2-2. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim jsConverter As WebJsonConverter
-    Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(RawJson)
+    Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
     '2-3. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName

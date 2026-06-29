@@ -82,7 +82,6 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion
 
     'WebDriverBiDiの初期化とブラウザ立ち上げ
@@ -111,7 +110,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -126,7 +125,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので破棄状態（0バイト等）になります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -139,7 +138,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -153,9 +152,6 @@ End Sub
 '* 注意事項：・このテストを行う際は、事前シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御` をONにしてください
 '***************************************************************************************************
 Sub UseExtensions()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(msoFileDialogFolderPicker)
@@ -242,9 +238,6 @@ End Sub
 '* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
 '***************************************************************************************************
 Sub TestAlert()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     'WebDriverBiDiの初期化とブラウザ立ち上げ
     Dim Demo_alerts As WebDriverBiDiContext
 
@@ -367,7 +360,6 @@ End Sub
 '*           トンネリング（中継）して呼び出す「BiDi+」の機能デモンストレーションです。
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
-    Dim JsonDicObj As New WebJsonConverter
     Dim bidiPlus As WebDriverBiDiContext
 
     ' ブラウザ起動

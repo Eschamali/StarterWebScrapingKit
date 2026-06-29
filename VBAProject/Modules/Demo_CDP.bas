@@ -113,7 +113,6 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion:
 
     '設定シートに基づくブラウザ立ち上げ
@@ -139,7 +138,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -154,7 +153,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -168,7 +167,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -229,9 +228,6 @@ End Sub
 '            ・`Extensions`は実験的ドメインですが、Class内Err.Raiseでは止めずに、ここの自力判定でエラーハンドリングします
 '***************************************************************************************************
 Sub UseExtensions()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     '参考 → https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
     Dim ExtensionsFolderPath As String
