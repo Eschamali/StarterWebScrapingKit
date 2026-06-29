@@ -109,9 +109,9 @@ Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 'その他
-Private Const TIMEOUT_DEFAULT   As Double = 30          '初期タイムアウト秒数
+Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
-Private Const MaxStoreResultCDP As Long = 2 ^ 8         'ブラウザからのコマンド結果蓄積数
+Private Const MaxStoreResultCDP As Long = 2 ^ 16            'ブラウザからのコマンド結果蓄積数
 
 
 
@@ -1361,7 +1361,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         Else
             'CDPコマンド正常終了
             ExecuteError = False
-    
+
             'クリアしておく
             ErrorCode = 0
             ErrorMessage = vbNullString
@@ -1388,10 +1388,9 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を蓄積させる上限を決めます
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中の上限数
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
 '***************************************************************************************************
 Property Let SetLimitCDPResult(Number As Long)
     ResultCDP_Tab.Limit = Number

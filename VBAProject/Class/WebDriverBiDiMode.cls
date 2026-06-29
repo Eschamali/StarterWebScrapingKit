@@ -25,7 +25,7 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 'その他
 Private Const TIMEOUT_DEFAULT       As Double = 30                  '初期タイムアウト秒数
 Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログのトレース用
-Private Const MaxStoreResultBiDi    As Long = 2 ^ 8                 'コマンド結果蓄積数
+Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマンド結果蓄積数
 
 
 
@@ -654,7 +654,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
 '***************************************************************************************************
 Property Let SetLimitBiDi(Number As Long)
     resultBiDi.Limit = Number

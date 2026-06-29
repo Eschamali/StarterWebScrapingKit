@@ -88,7 +88,7 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
-Private Const MaxStoreResultCDP As Long = 2 ^ 8             'ブラウザからのコマンド結果蓄積数
+Private Const MaxStoreResultCDP As Long = 2 ^ 16            'ブラウザからのコマンド結果蓄積数
 
 
 
@@ -1250,7 +1250,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         Else
             'CDPコマンド正常終了
             ExecuteError = False
-    
+
             'クリアしておく
             ErrorCode = 0
             ErrorMessage = vbNullString
@@ -1279,7 +1279,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
 '***************************************************************************************************
 Property Let SetLimitCDPResult(Number As Long)
     ResultCDP_Browser.Limit = Number
