@@ -197,12 +197,12 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '3. セッション一覧を取得して、既存のものがあるか確認する
     ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Dim resultBiDi As Dictionary
+    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
     If resultBiDi.Exists("ready") Then
-        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
+        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
         reattach = True
     Else
         printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
@@ -233,7 +233,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
 
 
     '1. パラメーター準備
-    Dim BiDiparams As Scripting.Dictionary
+    Dim BiDiparams As New Scripting.Dictionary
     BiDiparams.Add "type", IIf(newWindow, "window", "tab")
     BiDiparams.Add "background", isBackground
 
@@ -281,14 +281,14 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
     Dim startTime As Double
     Dim bidiRes As BiDiCDPJson
     Dim contexts As BiDiCDPJson
-    Dim matchData As Dictionary
+    Dim matchData As BiDiCDPJson
 
     'パラメーターを用意
-    Dim BiDiparams As Scripting.Dictionary
+    Dim BiDiparams As New Scripting.Dictionary
     BiDiparams.Add "maxDepth", maxDepth
 
     'タイマースタート
-    If doRetry Then startTime = TimerCounter
+    If doRetrySecond Then startTime = TimerCounter
     
     'シンプルに、`Instr`方式の検索で行う
     Do
@@ -322,8 +322,8 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
             End If
         End If
 
-        If Not doRetry Then Exit Do
-        If TimerCounter - startTime > timerOut Then Exit Do
+        If Not doRetrySecond Then Exit Do
+        If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
         DoEvents
     Loop
 End Function

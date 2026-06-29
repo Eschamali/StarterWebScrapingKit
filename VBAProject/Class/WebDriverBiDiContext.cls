@@ -91,7 +91,7 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
 
     '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
-    Dim tmp As Dictionary
+    Dim BiDiEventNode As BiDiCDPJson
     Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '`context`が消えた
@@ -152,7 +152,7 @@ End Function
 '                              ■■■ JavaScript コア機能 ■■■
 '***************************************************************************************************
 '                                           工事中...
-
+    
 
 
 
