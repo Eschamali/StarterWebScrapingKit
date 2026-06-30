@@ -734,25 +734,25 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
         '`objectId`があるか？
         If RemoteObject.Exists("objectId") Then
             '見つかったので、`objectId`を返す
-            ReturnValue = CStr(RemoteObject("objectId"))
+            ReturnValue = RemoteObject.StringKey("objectId")
             printMsg info_, "JS-Return type: objectId", FromProcedureName
 
             '返ったObjectID情報を列挙する
-            Dim objectSubtype As String: objectSubtype = RemoteObject("subtype")
+            Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
             printMsg Debug_, String(100, "="), FromProcedureName
             printMsg Debug_, "objectId information", FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
+            printMsg Debug_, String(100, "-"), FromProcedureName
             printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-            printMsg Debug_, "objectType        : " & RemoteObject("type"), FromProcedureName
+            printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
             printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-            printMsg Debug_, "objectClassName   : " & RemoteObject("className"), FromProcedureName
-            printMsg Debug_, "objectDescription : " & RemoteObject("description"), FromProcedureName
+            printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
+            printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
             If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
             printMsg Debug_, String(100, "="), FromProcedureName
 
             'エラー情報があればそのログを出しておく
             '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
+            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
 
             Exit Function
         Else
