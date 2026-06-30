@@ -300,7 +300,7 @@ Public Function ConvertToCDPContext() As CDPContext
         Set .InheritanceCDPBrowser = m_BiDiCore.DirectControlCDP
 
         '6. 先ほど発行したSessionIDを渡す
-        .id = newSessionID
+        .CurrentSessionID = newSessionID
 
         '7. ステータスの更新
         .getSessionInfo

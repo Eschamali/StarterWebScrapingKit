@@ -422,7 +422,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
         brTab.sessionID = objSerialize.Item("sessionID")
 
         '4-3. 内部で、その古いSessionIDを破棄させ、新しいSessionIDを付与
-        Me.id = newSessionID
+        Me.CurrentSessionID = newSessionID
     End If
 End Sub
 
@@ -2412,17 +2412,17 @@ Property Let Name(newName As String)
 
 End Property
 
-Property Get id() As String
+Property Get CurrentSessionID() As String
 '------------------------------------------------------------
 ' Get the session ID of the current browser
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    id = brTab.sessionID
+    CurrentSessionID = brTab.sessionID
 
 End Property
 
-Property Let id(newID As String)
+Property Let CurrentSessionID(newSessionID As String)
 '------------------------------------------------------------
 ' Set the session ID of the current browser to a new value
 ' Added 02/03/2023
@@ -2432,12 +2432,12 @@ Property Let id(newID As String)
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
     If StrPtr(brTab.sessionID) Then
-        printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+        printMsg info_, "A property was called that receives a new SessionID (" & newSessionID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
 
     '渡されたIDで、再設定
-    brTab.sessionID = newID
+    brTab.sessionID = newSessionID
 
     '新SessionIDを記録しておく
     ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID

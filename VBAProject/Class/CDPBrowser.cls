@@ -736,7 +736,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         Set .InheritanceCDPBrowser = Me
 
         '3. 先ほど生成した`sessionId`を渡す
-        .id = sessionID_
+        .CurrentSessionID = sessionID_
 
         '4. Urlが設定されてる場合は、読み込み完了まで待機する
         If LenB(Url) Then .wait
@@ -745,7 +745,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         .getSessionInfo
 
         '6. メイン化する場合は、Excelに記録しておく
-        If setMain Then serializeForMainTab .id, .CurrentTargetID
+        If setMain Then serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 End Function
 
@@ -879,13 +879,13 @@ searchfound:
         Set .InheritanceCDPBrowser = Me
 
         '3. 先ほど生成した`sessionId`を渡す
-        .id = sessionID_
+        .CurrentSessionID = sessionID_
 
         '4. ステータスの更新
         .getSessionInfo
 
         '5. メイン化する場合は、Excelに記録しておく
-        If setMain Then serializeForMainTab .id, .CurrentTargetID
+        If setMain Then serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 End Function
 
