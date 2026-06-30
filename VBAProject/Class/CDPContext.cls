@@ -2147,7 +2147,7 @@ End Function
 
 
 '***************************************************************************************************
-'                             ■■■ `CDPElement.cls`準備 ■■■
+'                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
 Public Function getElementByID(strID As String) As CDPElement
 '----------------------------------------------------------------------------------
@@ -2157,15 +2157,19 @@ Public Function getElementByID(strID As String) As CDPElement
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.getElementById(""" & strID & """)"
-    result = jsEval(varJS, returnByValue:=False)
+    '1. ID値で、検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.getElementById(""" & strID & """)"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '3. 結果を`CDPElement.cls`に格納
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varJS, VarType(result), oid
+    getElementByID.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2185,19 +2189,23 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '---------------------------------------------------------------------------------------
 
-   'Verify double slash syntax
-   'People normally get this wrong when using XPath
+    '1. Verify double slash syntax
+    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    result = jsEval(varJS, returnByValue:=False)
+    '2. Xpath方式で検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '3. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '4. 結果を`CDPElement.cls`に格納
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varJS, VarType(result), oid
+    getElementByXPath.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2210,38 +2218,56 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Verify double slash syntax
-   'People normally get this wrong when using XPath
+    '1. Verify double slash syntax
+    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE)
-    Dim collResult As Variant
-    collResult = jsEval("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", returnByValue:=False)
-    If VarType(collResult) <> vbString Then Exit Function
-    Dim collOid As String: collOid = CStr(collResult)
+    '2. 複数Xpath方式で検索実行
+    Dim SearchJS As String, resultsSearch As Variant
+    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)"
+    resultsSearch = jsEval(SearchJS)
 
-   'Get snapshotLength via callFunctionOn
-    Dim elements As Collection: Set elements = New Collection
+    '3. 結果を判定。文字型なら、ObjectIDを確保
+    Dim collOid As String
+    If VarType(resultsSearch) = vbString Then
+        collOid = resultsSearch
+    Else
+        'ない場合は、即抜け
+        Exit Function
+    End If
+
+    '4. Get snapshotLength via callFunctionOn
+    Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
     length_ = jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
 
-   'Get each item's objectId via callFunctionOn
+    '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
     Dim itemArgs As Collection, itemArg As Scripting.Dictionary
-    Dim itemResult As Variant, itemOid As String
+    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
+        '5-1. `callFunctionOn`に渡す引数を初期化
         Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
+
+        '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         itemArgs.Add itemArg
-        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
-        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
-        Set tElement = New CDPElement
-        tElement.Init Me, , VarType(itemResult), itemOid
-        elements.Add tElement
-    Next
 
-    Set getElementsByXPath = elements
+        '5-3. 引数付きで実行
+        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
+
+        '5-4. 念のため、有効な`ObjectID`かチェック
+        itemResultVarType = VarType(itemResult)
+        If itemResultVarType = vbString Then
+            itemObjectID = itemResult
+
+            '5-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
+            Set tElement = New CDPElement
+            tElement.Init Me, itemResultVarType, itemObjectID
+            getElementsByXPath.Add tElement
+        End If
+    Next
 
 End Function
 
@@ -2273,15 +2299,19 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' child's children for the first element with id containing 'invoiceno'.
 '----------------------------------------------------------------------------------
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.querySelector(""" & strQuery & """)"
-    result = jsEval(varJS, returnByValue:=False)
+    '1. querySelector方式で検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.querySelector(""" & strQuery & """)"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '3. 結果を`CDPElement.cls`に格納
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varJS, VarType(result), oid
+    getElementByQuery.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2293,34 +2323,52 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get the NodeList objectId
-    Dim collResult As Variant
-    collResult = jsEval("document.querySelectorAll(""" & strQuery & """)", returnByValue:=False)
-    If VarType(collResult) <> vbString Then Exit Function
-    Dim collOid As String: collOid = CStr(collResult)
+    '1. querySelectorAll方式で検索実行
+    Dim SearchJS As String, resultsSearch As Variant
+    SearchJS = "document.querySelectorAll(""" & strQuery & """)"
+    resultsSearch = jsEval(SearchJS)
 
-   'Get length via callFunctionOn
-    Dim result As Variant, elements As Collection: Set elements = New Collection
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim collOid As String
+    If VarType(resultsSearch) = vbString Then
+        collOid = resultsSearch
+    Else
+        'ない場合は、即抜け
+        Exit Function
+    End If
+
+    '3. Get length via callFunctionOn
+    Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
     length_ = jsEval("function(){ return this.length }", objectId:=collOid)
 
-   'Get each item's objectId via callFunctionOn
+    '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
     Dim itemArgs As Collection, itemArg As Scripting.Dictionary
-    Dim itemResult As Variant, itemOid As String
+    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
+        '4-1. `callFunctionOn`に渡す引数を初期化
         Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
+
+        '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         itemArgs.Add itemArg
-        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
-        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
-        Set tElement = New CDPElement
-        tElement.Init Me, , VarType(itemResult), itemOid
-        elements.Add tElement
-    Next
 
-    Set getElementsByQuery = elements
+        '4-3. 引数付きで実行
+        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+
+        '4-4. 念のため、有効な`ObjectID`かチェック
+        itemResultVarType = VarType(itemResult)
+        If itemResultVarType = vbString Then
+            itemObjectID = itemResult
+
+            '4-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
+            Set tElement = New CDPElement
+            tElement.Init Me, itemResultVarType, itemObjectID
+            getElementsByQuery.Add tElement
+        End If
+    Next
 
 End Function
 
