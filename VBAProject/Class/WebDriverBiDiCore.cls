@@ -99,7 +99,7 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. 引数から設定を適用し、まずはCDPとして起動
+    '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
     m_CDPBrowser.start Name, appUrl, userProfile, addArgs, KioskMode
 
@@ -117,7 +117,7 @@ End Sub
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
-'            ・普通の新しいタブOpenとは別の手法を用いるため、別プロシージャにて用意します
+'            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
 Private Sub newTabForBiDi()
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
@@ -132,7 +132,7 @@ Private Sub newTabForBiDi()
     With m_CDPBrowser
         '2. そのパラメータで、新しいタブを開き、`targetId`を取得
         Dim tabId As String
-        tabId = .ExecuteCDP("Target.createTarget", params)("targetId")
+        tabId = .ExecuteCDP("Target.createTarget", params).StringKey("targetId")
 
         '3. 得た`targetId`に対して、JavaScriptで、CDP制御の許可を与える
         params.RemoveAll
@@ -156,13 +156,13 @@ Private Sub newTabForBiDi()
         Set .InheritanceCDPBrowser = m_CDPBrowser
 
         '5-3. 先ほど得た`sessionId`を渡す
-        .id = sessionID
+        .CurrentSessionID = sessionID
 
         '5-4. ステータスの更新
         .getSessionInfo
 
         '5-5. Excelに、BiDiMapperTab情報を記録しておく
-        m_CDPBrowser.serializeForMainTab .id, .CurrentTargetID
+        m_CDPBrowser.serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 
     '6. ログ化
@@ -328,37 +328,37 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
 
 
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
-    If sessionID <> WebDriverBiDi_mapperTab.id Then Exit Sub
+    If sessionID <> WebDriverBiDi_mapperTab.CurrentSessionID Then Exit Sub
 
     '2. 対象のイベント以外も即抜け
     If methodName <> BiDiForCDPEventName Then Exit Sub
 
     '3. PayloadのName部分を取得
     Dim CDPToBiDi As BiDiCDPJson: Set CDPToBiDi = BiDiCDPJson.Parse(RawJson).NodeKey("params")
-    Dim NamePayload As String: NamePayload = CDPToBiDi.StringKey("name")
+    Dim bindingCalledName As String: bindingCalledName = CDPToBiDi.StringKey("name")
 
     '4. `Name`値に応じた処理
-    Dim tmp As String
-    Select Case NamePayload
+    Dim bindingCalledPayload As String
+    Select Case bindingCalledName
         'メインとなるWebDriverBiDiの結果
         Case BiDiResMain
             '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
-            tmp = CDPToBiDi.StringKey("payload")
-            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & tmp, FromProcedureName
+            bindingCalledPayload = CDPToBiDi.StringKey("payload")
+            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
-            BiDiReceivedDataCheck tmp
+            BiDiReceivedDataCheck bindingCalledPayload
 
         'BiDi-Mapper 内部のデバッグログ用
         Case BiDiResDebug
             '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
-            tmp = CDPToBiDi.StringKey("payload")
-            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & tmp, FromProcedureName
+            bindingCalledPayload = CDPToBiDi.StringKey("payload")
+            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
         '※この場合は、追加処理しない
         Case Else
-            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
+            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & bindingCalledName, FromProcedureName
     End Select
 End Sub
 
@@ -511,7 +511,7 @@ Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時の
     LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
 End Property
 
-Property Get LastCommandID() As Long    '最後に実行したcommandID値
+Property Get LastCommandID() As Long                    '最後に実行したcommandID値
     LastCommandID = m_MessageID
 End Property
 
