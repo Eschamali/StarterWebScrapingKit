@@ -466,8 +466,7 @@ End Sub
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
 '
 '            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
-'
-'            dbgMsg                         Allow the option to bypass error if intended
+'            StopPipeError                  `True`で、Pipeハンドルエラー時、エラーで停止します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：This function commands the attached browser instance to execute a Javascript expression to perform required tasks.
 '            Note: the original function has a bool retry variable which was removed for simplicity.
@@ -501,7 +500,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
-                       Optional dbgMsg As Boolean = True) As Variant
+                       Optional StopPipeError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
@@ -567,7 +566,7 @@ step1:
 
     'Send and check CDPresult -------------------------------------------------------------------------------------------
     '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
-    CDPresult = SendMessage(CDPcommand, RunAsyncCDP, dbgMsg)
+    CDPresult = SendMessage(CDPcommand, RunAsyncCDP, StopPipeError)
     If RunAsyncCDP Then
         'ID返却して抜ける
         jsEval = PipeCore.LastCommandID
@@ -1101,7 +1100,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
     '送信して結果を受け取り、Node変換
-    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
+    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, StopPipeError:=StopCDPError)
     Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
@@ -1159,7 +1158,7 @@ End Function
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
-'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
+'            StopPipeError          `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
 '                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
@@ -1168,7 +1167,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As String
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopPipeError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1181,7 +1180,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
@@ -1196,7 +1195,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
     Do
         '1. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
-        TakeEvents dbgMsg
+        TakeEvents StopPipeError
 
         '2. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
@@ -1804,7 +1803,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False, IFEXCEPTION:="about:blank")
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:="about:blank")
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
@@ -1851,7 +1850,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
    'Check if already navigated
     Dim curURL As String
-    curURL = jsEval("window.location.href", dbgMsg:=False)
+    curURL = jsEval("window.location.href")
     If curURL = checkURI(strURL) Then
         printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
@@ -1900,8 +1899,8 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
     strState = "loading"
 
     Do Until strState = targetState
-        strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName 'option to print ReadyState info during iteration
+        strState = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
@@ -2395,7 +2394,7 @@ Property Get Name() As String
     Name = br.Name
 
     '`--app`で起動した場合の対策
-    If LenB(Name) = 0 Then Name = jsEval("document.title", dbgMsg:=False)
+    If LenB(Name) = 0 Then Name = jsEval("document.title")
 End Property
 
 Property Let Name(newName As String)
@@ -2406,7 +2405,7 @@ Property Let Name(newName As String)
     Const FromProcedureName As String = ThisClassName & ".Name"
 
 
-    jsEval "document.title = '" & newName & "'", dbgMsg:=False
+    jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
     br.Name = newName
 

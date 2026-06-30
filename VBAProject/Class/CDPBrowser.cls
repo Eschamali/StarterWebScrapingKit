@@ -619,7 +619,7 @@ Public Function isLiveBrowser() As Boolean
     '※生存確認なので、内部でのエラーは無視する
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", "Browser.getVersion"
-    SendMessage CDPcommand, dbgMsg:=False
+    SendMessage CDPcommand, StopPipeError:=False
 
     '2. いずれもパイプエラーコードがなければ、`True`とします
     If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
@@ -1017,7 +1017,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
     '送信して結果を受け取り、Node変換
-    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, dbgMsg:=StopCDPError)
+    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, StopPipeError:=StopCDPError)
     Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
@@ -1047,7 +1047,7 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
@@ -1057,7 +1057,7 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
     If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
     '送信
-    SendMessage CDPcommand, True, StopError
+    SendMessage CDPcommand, True, StopPipeError
 
     '実行したIDを返却
     ExecuteCDPAsync = PipeCore.LastCommandID
@@ -1075,7 +1075,7 @@ End Function
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
-'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
+'            StopPipeError          `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
 '                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
@@ -1084,7 +1084,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As String
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopPipeError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1097,7 +1097,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
@@ -1112,7 +1112,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
     Do
         '1. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
-        TakeEvents dbgMsg
+        TakeEvents StopPipeError
 
         '2. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
