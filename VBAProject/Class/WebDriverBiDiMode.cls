@@ -384,6 +384,7 @@ End Function
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
 '*           StopBiDiError 実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
+'
 '* 返値    ：ブラウザから返却されたBiDi結果 (パースされたDictionary)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、ID返却されるまで待機します。
@@ -430,6 +431,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
+'            StopError     内部エラーがあったら止めるか？
+'
 '* 返値    ：送信したメッセージの ID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
@@ -464,12 +467,12 @@ End Function
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
-'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
-'                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
+'            StopError              `True` ：内部エラーがあったら止まります
+'                                   `False`：内部エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：Async:=True の場合は常に`vbnullstring`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As String
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -478,11 +481,11 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
     '--------------------------------------------------
     printMsg Debug_, "runBiDi  - Async       = " & Async, FromProcedureName
 
-    m_BiDiCore.ReadyRunBiDi DirMessage, dbgMsg                                  '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
+    m_BiDiCore.ReadyRunBiDi DirMessage, StopError                               '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
     Dim currentCommandID As Long: currentCommandID = m_BiDiCore.LastCommandID   '`ReadyRunBiDi`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
@@ -497,7 +500,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
 
     Do
         '1. 受信処理によるパイプを拝見する
-        m_BiDiCore.TakeEvents dbgMsg
+        m_BiDiCore.TakeEvents StopError
 
         '2. 受信処理にてエラーがあったら、即抜け
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
