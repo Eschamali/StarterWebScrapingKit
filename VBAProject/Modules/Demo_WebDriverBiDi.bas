@@ -401,14 +401,14 @@ Sub TestBiDiPlus_CDPTunnel()
     bidiPlus.InheritanceWebDriverBiDiMode.quit
 End Sub
 
-Sub controlContextClassDemo()
+Sub ConvertToCDPContextDemo()
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
     Dim NewsSite As WebDriverBiDiMode
     Set NewsSite = 設定シートからのBiDi起動("https://news.google.com/home")
 
     'getタブでスマートにオブジェクト取得
     Dim BiDiTab As WebDriverBiDiContext
-    Set BiDiTab = NewsSite.getTab("https://news.google.com/")
+    Set BiDiTab = NewsSite.getTab("https://news.google.com/", setMain:=True)
 
     '別のURLへ遷移
     BiDiTab.navigate "https://m365.cloud.microsoft/chat"
