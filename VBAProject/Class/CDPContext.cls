@@ -572,10 +572,14 @@ step1:
         jsEval = PipeCore.LastCommandID
         Exit Function
     Else
-        Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
+        'タイムアウトやパイプハンドルの応答なしによる空文字判定
+        If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
+
+        'CDP自体の結果ログ表示
         If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
-        If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
+        'エラーチェック
+        Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
         If Not ExecuteError(Node_CDPresult) Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
     End If
     '-----------------------------------------------------------------------------------------------------------------
@@ -595,7 +599,7 @@ step1:
         If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
 
         '更新させて、リトライ
-        Me.id = newSessionID
+        Me.CurrentSessionID = newSessionID
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
@@ -609,14 +613,19 @@ step1:
 step2:
 
     'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
-    Dim Node_RemoteObject As BiDiCDPJson
-    Set Node_RemoteObject = Node_CDPresult.NodeKey("result").NodeKey("result")
+    '各種`Return Object`を取り出します
+    Dim Node_ReturnObject       As BiDiCDPJson: Set Node_ReturnObject = Node_CDPresult.NodeKey("result")
+
+    Dim Node_RemoteObject       As BiDiCDPJson: Set Node_RemoteObject = Node_ReturnObject.NodeKey("result")
+    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.Exists("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
+
+    '`RemoteObject`部分を文字ログ化
     If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If Node_CDPresult.NodeKey("result").Exists("exceptionDetails") Then
+    If Not Node_ExceptionDetails Is Nothing Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = Node_CDPresult.NodeKey("result").NodeKey("exceptionDetails")
+        Set lastExceptionDetailsJS = Node_ExceptionDetails
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
         strLogValue = LogFormat(JavaScriptStr, 100)
