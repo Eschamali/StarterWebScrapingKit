@@ -410,7 +410,9 @@ Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Bool
     dicMessage.Add "id", currentCommandID
 
     '3. 実際に実行
-    Dim strMessage As String: strMessage = BiDiCDPJson.StringifyValue(dicMessage)
+    Dim strMessage As String
+'    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
+    strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
     RunCDP strMessage, StopCDPError
 End Sub
