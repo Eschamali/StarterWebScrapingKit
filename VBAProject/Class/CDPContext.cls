@@ -1415,12 +1415,11 @@ Public Sub closeTab()
 
 
    'Get the original serialized tab ID
-    Dim mainID As String, serial As Dictionary
-    Set serial = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
-    mainID = serial.Item("targetID")
+    Dim MainTargetID As String
+    MainTargetID = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)("targetID")
 
     'メインタブは閉じないように仕向ける
-    If brTab.targetID = mainID Then
+    If brTab.targetID = MainTargetID Then
         printMsg WARN_, "Unable to close this tab " & brTab.targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
     End If
@@ -2438,8 +2437,12 @@ Property Let CurrentSessionID(newSessionID As String)
     '渡されたIDで、再設定
     brTab.sessionID = newSessionID
 
-    '新SessionIDを記録しておく
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
+    'メインタブの場合は、新SessionIDも記録しておく
+    With ShSetting01_StartBrowser
+        Dim MainTargetID As String
+        MainTargetID = .deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)("targetID")
+        If MainTargetID = brTab.targetID Then .serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
+    End With
 
     getSessionInfo        'update all session infos
     printMsg info_, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
