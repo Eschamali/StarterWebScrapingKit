@@ -1130,7 +1130,7 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
@@ -1140,7 +1140,7 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripti
     If Not params Is Nothing Then CDPcommand.Add "params", params
 
     '送信
-    SendMessage CDPcommand, True, StopError
+    SendMessage CDPcommand, True, StopPipeError
 
     '実行したIDを返却
     ExecuteCDPAsync = PipeCore.LastCommandID
