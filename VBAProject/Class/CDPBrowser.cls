@@ -1529,7 +1529,7 @@ Public Function attachToTab(tabId As String) As String
     Set tmp = BiDiCDPJson.Parse(SendMessage(CDPcommand))
 
     '2. 結果があれば、返却
-    If Not ExecuteError(tmp) Then attachToTab = tmp("result")("sessionId")
+    If Not ExecuteError(tmp) Then attachToTab = tmp.NodeKey("result").StringKey("sessionId")
 End Function
 
 '***************************************************************************************************
