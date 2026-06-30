@@ -114,32 +114,6 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`BiDi-CDP Mapper`を始動させます
-'* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・`CDPBrowser`を`New`してからご利用ください
-'            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
-'***************************************************************************************************
-Private Sub StartBiDiCDPMapper()
-    Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
-
-
-    '1. JSからVBAへ返す経路を設定
-    Call BiDiResponseBiding
-
-    'タブ単位実行
-    With WebDriverBiDi_mapperTab
-        '2. パースしたJavaScript - mapperTab.js をブラウザ上で実行
-        .jsEval Take_mapperTabJSstring
-
-        '3. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
-    End With
-
-    printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
-End Sub
-
-'***************************************************************************************************
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
@@ -193,6 +167,30 @@ Private Sub newTabForBiDi()
 
     '6. ログ化
     printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`BiDi-CDP Mapper`を始動させます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
+'***************************************************************************************************
+Private Sub StartBiDiCDPMapper()
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
+
+
+    '1. JSからVBAへ返す経路を設定
+    Call BiDiResponseBiding
+
+    'タブ単位実行
+    With WebDriverBiDi_mapperTab
+        '2. パースしたJavaScript - mapperTab.js をブラウザ上で実行
+        .jsEval Take_mapperTabJSstring
+
+        '3. ブートストラップ（初期化）JSの実行
+        .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
+    End With
+
+    printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
 End Sub
 
 '***************************************************************************************************
