@@ -459,7 +459,7 @@ Sub SimpleShadowRootTest()
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
         '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行(先述にて、直で`.click`をしないのはこのため)
-        .jsEval "function() { this.click(); }", JavaScriptAlertButton.getObjectId, RunAsyncCDP:=True
+        .jsEval "function() { this.click(); }", JavaScriptAlertButton.CurrentObjectId, RunAsyncCDP:=True
 
         ' --- 6. 特定のイベント名が出るまでループ ---
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
@@ -487,6 +487,7 @@ Sub SimpleShadowRootTest()
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "accept", True
         .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
+        .InheritanceCDPBrowser.sleep
 
         '8. ブラウザを正常に閉じる
         .InheritanceCDPBrowser.quit
