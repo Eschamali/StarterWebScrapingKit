@@ -771,7 +771,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 
     Dim NodeToken As Long
-    Dim tabId As String, candidateTabId As String, errMsg As String
+    Dim tabId As String, candidateTabId As String
     Dim targets As BiDiCDPJson
     Dim timerStart As Double
     Dim tabfound As Boolean
@@ -818,7 +818,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 50
                         '一致せず
                         Else
-                            errMsg = "with name containing """ & tabName & """"
+                            printMsg Debug_, "with name containing """ & tabName & """", FromProcedureName
                         End If
 
                     '第二優先：URL
@@ -836,7 +836,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 40
                         '一致せず
                         Else
-                            errMsg = "with url containing """ & Url & """"
+                            printMsg Debug_, "with url containing """ & Url & """", FromProcedureName
                         End If
 
                     '第三優先：直近の未接続タブ
@@ -844,7 +844,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                         If targets.TokenBool(NodeToken, "attached") = False Then
                             score = 80
                         Else
-                            score = 30: errMsg = "as no new unattached tab could be found"
+                            score = 30: printMsg Debug_, "as no new unattached tab could be found", FromProcedureName
                         End If
 
                 End Select
