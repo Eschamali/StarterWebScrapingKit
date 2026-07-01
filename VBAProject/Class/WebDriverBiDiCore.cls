@@ -181,10 +181,10 @@ Private Sub StartBiDiCDPMapper()
     'タブ単位実行
     With WebDriverBiDi_mapperTab
         '2. パースしたJavaScript - mapperTab.js をブラウザ上で実行
-        .jsEval Take_mapperTabJSstring
+        .jsEval ShLibrary01_JS.TableMapperTabJS
 
         '3. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
+        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
     End With
 
     printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
@@ -369,13 +369,13 @@ End Sub
 '***************************************************************************************************
 Private Sub RunCDP(strData As String, StopCDPError As Boolean)
     '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
-    Dim safeJson As String
-    safeJson = Replace(strData, "\", "\\")
-    safeJson = Replace(safeJson, "'", "\'")
+'    Dim safeJson As String
+'    safeJson = Replace(strData, "\", "\\")
+'    safeJson = Replace(safeJson, "'", "\'")
 
     '2. `expression`を組み立て
     Dim paramsCDP As New Dictionary
-    paramsCDP.Add "expression", "window." & BiDiSend & "('" & safeJson & "');"
+    paramsCDP.Add "expression", "window." & BiDiSend & "('" & strData & "');"
 
     '3. CDP実行
     '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
@@ -524,116 +524,32 @@ End Property
 
 
 '***************************************************************************************************
-'                           ■■■ ワークシートからJS取得 ■■■
+'                            ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：指定のテーブルから、mapperTab.jsコードを取得します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：mapperTab.jsコード
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：テーブルに格納した分割文字列を結合して返却します
-'***************************************************************************************************
-Private Function Take_mapperTabJSstring() As String
-    Dim tmp2
-    Dim chunkNum As Long
+Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+End Sub
 
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.Take_mapperTabJSstring"))
-            'データがそもそもない場合は、エラーで止める
-            If .ListRows.Count = 0 Then
-                Err.Raise vbObjectError, , "mapperTab.js がセットされていません"
-                Exit Function
-            End If
+Public Sub sleep(Optional seconds As Double = 0.5)
+    m_CDPCore.sleep seconds
+End Sub
 
-            '一旦、2次元配列で受け取る
-            tmp2 = .DataBodyRange
-            chunkNum = UBound(tmp2)
-        End With
-    End With
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.TakeEvents StopPipeError, destruction
+End Sub
 
-    '1次元配列に変換
-    ReDim tmp1(1 To chunkNum)
-    Dim i As Long
-    For i = 1 To chunkNum
-        tmp1(i) = tmp2(i, 1)
-    Next
-
-    '返却
-    Take_mapperTabJSstring = Join(tmp1, "")
+Public Function TimerCounter() As Double
+    TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
-
-
-'***************************************************************************************************
-'                               ■■■ 更新関連 ■■■
-'***************************************************************************************************
-'* 機能　　：受け取った`mapperTab.js`のコードを、32,767文字ごとに分割し、テーブルに格納します
-'***************************************************************************************************
-Private Sub InsertMapperTab(Code As String)
-    '1セルごとの格納文字数上限
-    Const LimitCellCharacter As Long = 32767
-
-    'テーブル追加時のアニメーション動作を止める
-    Application.ScreenUpdating = False
-
-
-    '1. 分割数を確認
-    Dim NumberOfSplit As Long: NumberOfSplit = Len(Code) / LimitCellCharacter
-
-    '2. 配列確保
-    ReDim JsCodeChunk(NumberOfSplit, 0)
-
-    '3. 分割して格納する
-    Dim i As Long
-    For i = 0 To NumberOfSplit
-        JsCodeChunk(i, 0) = Mid(Code, LimitCellCharacter * i + 1, LimitCellCharacter)
-    Next
-
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.InsertMapperTab"))
-
-            '4. テーブルの中身を全消去
-            If .ListRows.Count Then .DataBodyRange.Delete
-            
-            '5. 挿入範囲の確定
-            Dim TargetRange As Range
-            Set TargetRange = .ListColumns(1).Range(2).Resize(NumberOfSplit + 1, 1)
-
-            '6. 挿入前に書式を「文字列(@)」に設定
-            TargetRange.NumberFormatLocal = "@"
-
-            '7. 挿入
-            TargetRange.value = JsCodeChunk
-        End With
-    End With
-
-
-    '元に戻す
-    Application.ScreenUpdating = True
+Public Sub CloseHandleBrowser()
+    m_CDPCore.CloseHandleBrowser
 End Sub
 
+
+
 '***************************************************************************************************
-'* 機能　　：`mapperTab.js`置き場のExcelテーブルの中身を削除します
-'***************************************************************************************************
-Private Sub DeleteMapperTab()
-    'テーブル削除時のアニメーション動作を止める
-    Application.ScreenUpdating = False
-
-
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.DeleteMapperTab"))
-            'テーブルの中身を全消去
-            If .ListRows.Count Then .DataBodyRange.Delete
-        End With
-    End With
-
-
-    '元に戻す
-    Application.ScreenUpdating = True
-End Sub
-
+'                               ■■■ `mapperTab.js`更新関連 ■■■
 '***************************************************************************************************
 '* 機能　　：ローカルファイルから、JSコードを取得します
 '---------------------------------------------------------------------------------------------------
@@ -644,27 +560,30 @@ End Sub
 '* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
 '***************************************************************************************************
 Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
-    'ファイルから、Jsコードを取得
-    '※Windows方式の改行コード(CRLF)だと、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
+    Const FromProcedureName As String = ThisClassName & ".UpdateFromLocalFile"
+
+
+    '1. ファイルから、Jsコードを取得
+    '※Windows方式の改行コード(CRLF)だと、テーブル挿入時の分割にて、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
     Dim m_CharConv As New CharacterCodeConversion
     Dim JsCode As String
     With m_CharConv
         JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
     End With
 
-    'テーブルに置く作業
-    InsertMapperTab JsCode
-
-    '正しく置けてるか確認
-    UpdateFromLocalFile = (Take_mapperTabJSstring = JsCode)
-
-    'ミスの場合はテーブルの中身を削除
-    If Not (UpdateFromLocalFile) Then DeleteMapperTab
-
-    'ローカルファイルで更新した旨を記録
-    '※ミスの場合は、空欄にする
     With ShLibrary01_JS
-        .Range(.UseRangeName(1, "WebDriverBiDiCore.UpdateFromLocalFile")).value = IIf(UpdateFromLocalFile, " Local", "")
+        '2. 専用のテーブルに配置
+        .TableMapperTabJS = JsCode
+
+        '3. 正しく置けてるか確認
+        UpdateFromLocalFile = (JsCode = .TableMapperTabJS)
+
+        '4. ミスの場合はテーブルの中身を削除
+        If Not (UpdateFromLocalFile) Then .DeleteMapperTabJS
+
+        'ローカルファイルで更新した旨を記録
+        '※ミスの場合は、空欄にする
+        .UseRangeID(1, FromProcedureName) = IIf(UpdateFromLocalFile, " Local", "")
     End With
 End Function
 
@@ -678,8 +597,6 @@ End Function
 '            `chromium-bidi`の`mapperTab.js`を更新させます
 '***************************************************************************************************
 Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
-    Dim ResultResponse As WebResponse
-
     'リクエストパラメーターを設定する
     Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
     With リクエスト情報一式
@@ -699,13 +616,13 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
         '200確認
         If .StatusCode = vbWebStatusOk Then
             'テーブルに置く作業
-            InsertMapperTab .Content
+            ShLibrary01_JS.TableMapperTabJS = .Content
 
             '正しく置けてるか確認
-            UpdateFromNPMFile = (Take_mapperTabJSstring = .Content)
+            UpdateFromNPMFile = (.Content = ShLibrary01_JS.TableMapperTabJS)
 
             'ミスの場合はテーブルの中身を削除
-            If Not (UpdateFromNPMFile) Then DeleteMapperTab
+            If Not (UpdateFromNPMFile) Then ShLibrary01_JS.DeleteMapperTabJS
 
         Else
             MsgBox "npm経由による`" & MapperJSName & "`の取得に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .Content, vbCritical, "ErrorCode:" & .StatusCode
@@ -769,31 +686,6 @@ Private Function jsDelivrへリクエスト(リクエスト情報一式 As WebRe
     'リクエスト設定とホスト設定を使ってリクエストし、結果を返します
     Set jsDelivrへリクエスト = EndPointAPI.Execute(リクエスト情報一式)
 End Function
-
-
-
-'***************************************************************************************************
-'                            ■■■ CDPCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
-End Sub
-
-Public Sub sleep(Optional seconds As Double = 0.5)
-    m_CDPCore.sleep seconds
-End Sub
-
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_CDPCore.TakeEvents StopPipeError, destruction
-End Sub
-
-Public Function TimerCounter() As Double
-    TimerCounter = m_CDPCore.GetTicksMs
-End Function
-
-Public Sub CloseHandleBrowser()
-    m_CDPCore.CloseHandleBrowser
-End Sub
 
 
 

@@ -153,7 +153,7 @@ Public Property Let serializeMainTab(contextId As String)
     Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
 
 
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+    ShSetting01_StartBrowser.UpdateBrowserContext(BiDiUserName, "BiDi-context", FromProcedureName) = contextId
 End Property
 Public Property Get serializeMainTab() As String
     Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
@@ -161,7 +161,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.deserializeFromTable(BiDiUserName, 2, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserHandle(BiDiUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
@@ -703,8 +703,8 @@ Private Sub deleteCDPID()
 
 
     With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = BiDiUserName  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, FromProcedureName) = BiDiUserName  'ブラウザセッション情報
+        .DeleteBrowserHandle(FromProcedureName) = BiDiUserName   'パイプ通信Handle情報
+        .DeleteBrowserContext(FromProcedureName) = BiDiUserName  'ブラウザセッション情報
     End With
 End Sub
 
@@ -898,7 +898,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
     printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
     printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.UseRangeID(1, FromProcedureName), FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
 

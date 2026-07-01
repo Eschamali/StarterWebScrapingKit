@@ -951,7 +951,7 @@ Sub demoReattachmentPart2ForTab()
     End With
 
     '1. Excelに記録されてる`TargetID`の生存確認
-    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です
+    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
     If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了

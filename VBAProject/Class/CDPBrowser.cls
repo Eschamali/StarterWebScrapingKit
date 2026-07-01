@@ -663,7 +663,7 @@ Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As 
     BrowserInfo.Add "targetID", targetID_mainTab
 
     '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.serializeToTable(br.User, 2, FromProcedureName) = BrowserInfo
+    Set ShSetting01_StartBrowser.TableBrowserContext(br.User, FromProcedureName) = BrowserInfo
 End Sub
 
 '***************************************************************************************************
@@ -674,8 +674,8 @@ Private Sub deleteCDPID()
 
 
     With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = br.User  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, FromProcedureName) = br.User  'ブラウザセッション情報
+        .DeleteBrowserHandle(FromProcedureName) = br.User   'パイプ通信Handle情報
+        .DeleteBrowserContext(FromProcedureName) = br.User  'ブラウザセッション情報
     End With
 End Sub
 
@@ -1606,23 +1606,7 @@ Public Function checkURI(URI As String) As String
     End If
 
     '1. ホワイトリストのプロトコルを取得
-    With ShSetting01_StartBrowser
-        Dim tmp, WhiteList
-        tmp = .ListObjects(.UseTableName(3, FromProcedureName)).DataBodyRange.Columns(Table03ColumnID.接頭辞)
-
-        '配列か？
-        If IsArray(tmp) Then
-            'そのまんま
-            WhiteList = tmp
-        Else
-            '配列じゃない場合は配列にしておく
-            ReDim WhiteList(1 To 1, 1 To 1)
-            WhiteList(1, 1) = tmp
-        End If
-
-        '解放
-        tmp = vbNullString
-    End With
+    Dim WhiteList: WhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
 
     '2. 先頭始まりかチェック
     Dim i As Long

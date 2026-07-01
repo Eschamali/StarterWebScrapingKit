@@ -438,7 +438,7 @@ Public Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.serializeToTable(UserName, 1, "CDPCore.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.serialize") = tmp
 
 End Sub
 
@@ -450,7 +450,7 @@ End Sub
 Public Function deserialize(UserName As String) As Boolean
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.deserializeFromTable(UserName, 1, "CDPCore.deserialize")
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.deserialize")
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
     If PipeInfo Is Nothing Then Exit Function

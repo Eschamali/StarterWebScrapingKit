@@ -397,7 +397,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim objSerialize As Scripting.Dictionary
-    Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
+    Set objSerialize = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
 
     '2. そもそもない場合は即抜け
     If objSerialize Is Nothing Then Exit Sub
@@ -1423,9 +1423,10 @@ Public Sub closeTab()
     Const FromProcedureName As String = ThisClassName & ".closeTab"
 
 
-   'Get the original serialized tab ID
-    Dim MainTargetID As String
-    MainTargetID = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)("targetID")
+    'Get the original serialized tab ID
+    Dim MainTargetID As String, tmp As Scripting.Dictionary
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
+    If Not tmp Is Nothing Then MainTargetID = ("targetID")
 
     'メインタブは閉じないように仕向ける
     If brTab.targetID = MainTargetID Then
@@ -2496,9 +2497,11 @@ Property Let CurrentSessionID(newSessionID As String)
 
     'メインタブの場合は、新SessionIDも記録しておく
     With ShSetting01_StartBrowser
-        Dim MainTargetID As String
-        MainTargetID = .deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)("targetID")
-        If MainTargetID = brTab.targetID Then .serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
+        Dim MainTargetID As String, tmp As Scripting.Dictionary
+        Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
+        If Not tmp Is Nothing Then MainTargetID = ("targetID")
+
+        If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
 
     getSessionInfo        'update all session infos
