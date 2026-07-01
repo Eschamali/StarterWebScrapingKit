@@ -749,8 +749,8 @@ End Function
 '* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - CDPBrowser
-'* 引数　　：tabName        タブ名
-'            Url            URL
+'* 引数　　：tabName        タブ名  第一優先
+'            Url            URL     第二優先
 '            setMain        `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
 '            SearchType     "page","iframe" といった、セッションの種類を指定します
 '            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
@@ -778,9 +778,8 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim bestScore As Long, score As Long
     Dim info As String
 
-    If doRetrySecond > 0 Then timerStart = TimerCounter
 
-    'Typeを決める
+    '1. タブTypeを決める
     Dim SearchType As String
     Select Case SearchTypeID
         Case TargetgetTargetsType.Page: SearchType = "page"
@@ -788,65 +787,92 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         Case Else: Err.Raise vbObjectError + 1, FromProcedureName, "This parameter is undefined."
     End Select
 
-searchit:
-
+    '2. タイマースタートして探索を開始する
+    If doRetrySecond > 0 Then timerStart = TimerCounter
+    Do
+        '3. 実行して、`Target.TargetInfo`オブジェクトリストを取得します
         Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
         NodeToken = targets.FirstChildToken  ' 配列の先頭トークン
 
-    'スコア方式を利用して、理想の対象タブ情報を取得します
+        '4. スコア方式を利用して、理想の対象タブ情報を取得します
         Const MaxScore As Long = 100
         bestScore = -1
         candidateTabId = ""
         Do While NodeToken > 0
+            '4-1. タブの種類があってるか？
             If targets.TokenString(NodeToken, "type") = SearchType Then
+                '4-2. 現スコアをリセット
                 score = -1
+
+                '4-3. 入力した引数に応じた確認
                 Select Case True
-                Case LenB(tabName)
-                    If targets.TokenString(NodeToken, "title") = tabName Then
+                    '第一優先：タブ名
+                    Case StrPtr(tabName)
+                        Dim TargetInfo_title As String: TargetInfo_title = targets.TokenString(NodeToken, "title")
+
+                        '完全一致
+                        If TargetInfo_title = tabName Then
                             score = 100
-                    ElseIf InStr(targets.TokenString(NodeToken, "title"), tabName) Then
+                        '部分一致
+                        ElseIf InStr(TargetInfo_title, tabName) Then
                             score = 50
+                        '一致せず
                         Else
                             errMsg = "with name containing """ & tabName & """"
                         End If
-                Case LenB(Url)
-                    If Left$(targets.TokenString(NodeToken, "url"), Len(Url)) = Url Then
+
+                    '第二優先：URL
+                    Case StrPtr(Url)
+                        Dim TargetInfo_url As String: TargetInfo_url = targets.TokenString(NodeToken, "url")
+
+                        '一致位置検査
+                        Dim StartPos As Long: StartPos = InStr(1, TargetInfo_url, Url)
+
+                        '先頭一致
+                        If StartPos = 1 Then
                             score = 90
-                    ElseIf InStr(targets.TokenString(NodeToken, "url"), Url) Then
+                        '部分一致
+                        ElseIf StartPos Then
                             score = 40
+                        '一致せず
                         Else
                             errMsg = "with url containing """ & Url & """"
                         End If
+
+                    '第三優先：直近の未接続タブ
                     Case Else
                         If targets.TokenBool(NodeToken, "attached") = False Then
                             score = 80
                         Else
-                        score = 30
-                        errMsg = "as no new unattached tab could be found"
+                            score = 30: errMsg = "as no new unattached tab could be found"
                         End If
+
                 End Select
 
+                '4-4. 記録中のベストスコアを上回ったら更新
                 If score > bestScore Then
                     bestScore = score
                     candidateTabId = targets.TokenString(NodeToken, "targetId")
                 End If
 
-            '最大スコアが出てるなら、捜査打ち切り
+                '4-5. 最大スコアが出てるなら、捜査打ち切り
                 If bestScore = MaxScore Then Exit Do
             End If
 
-        NodeToken = targets.NextToken(NodeToken) ' 次の要素へ
+            '4-6. 次の`Target.TargetInfo`へ
+            NodeToken = targets.NextToken(NodeToken)
         Loop
 
+        '5. 目的の物っぽいのがあったら見つけたとします
         If bestScore >= 0 Then
             tabfound = True
             tabId = candidateTabId
         End If
 
-   'Do retry as long as not timeout
-    If Not tabfound And TimerCounter - timerStart < doRetrySecond * 1000 Then GoTo searchit
+    '6. Do retry as long as not timeout
+    Loop Until tabfound Or TimerCounter - timerStart > doRetrySecond * 1000
 
-   'Returns nothing if not found
+    '7. Returns nothing if not found
     'Nothing is preferred over throwing error
     If Not tabfound Then
         info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
@@ -856,9 +882,7 @@ searchit:
         printMsg info_, "Found the tab with ID: " & tabId & ". (Certainty：" & bestScore & "%)", FromProcedureName
     End If
 
-searchfound:
-
-   'Return the session object for reference
+    '8.Return the session object for reference
     Dim sessionID_ As String
     sessionID_ = attachToTab(tabId)
 
