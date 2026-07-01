@@ -123,7 +123,7 @@ Private Sub newTabForBiDi()
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
-    '1. 各種パラメータ運用
+    '1. BiDi用に、各種パラメータ運用
     Dim params As New Dictionary
     params.Add "url", MapperURL     '目印用のURLを付与
     params.Add "background", True   'フォアグランドさせない
@@ -134,7 +134,7 @@ Private Sub newTabForBiDi()
         Dim tabId As String
         tabId = .ExecuteCDP("Target.createTarget", params).StringKey("targetId")
 
-        '3. 得た`targetId`に対して、JavaScriptで、CDP制御の許可を与える
+        '3. 得た`targetId`に対して、JavaScriptによるCDP制御の許可を与える
         params.RemoveAll
         params.Add "bindingName", "cdp"
         params.Add "targetId", tabId
@@ -144,28 +144,25 @@ Private Sub newTabForBiDi()
         '4. 得た`targetId`で、`sessionId`を取得
         Dim sessionID As String
         sessionID = .attachToTab(tabId)
+
+        '5. Excelに、BiDiMapperTab情報を記録してメイン化しておく
+        .serializeForMainTab sessionID, tabId
     End With
 
-    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    '6. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
-        '5-1. このブラウザのパイプハンドル情報を渡す
+        '6-1. このブラウザのパイプハンドル情報を渡す
         Set .InheritanceCDPCore = m_CDPBrowser.InheritanceCDPCore
 
-        '5-2. このブラウザ情報を渡す
+        '6-2. このブラウザ情報を渡す
         Set .InheritanceCDPBrowser = m_CDPBrowser
 
-        '5-3. 先ほど得た`sessionId`を渡す
+        '6-3. 先ほど得た`sessionId`を渡す
         .CurrentSessionID = sessionID
-
-        '5-4. ステータスの更新
-        .getSessionInfo
-
-        '5-5. Excelに、BiDiMapperTab情報を記録しておく
-        m_CDPBrowser.serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 
-    '6. ログ化
+    '7. ログ化
     printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
 End Sub
 

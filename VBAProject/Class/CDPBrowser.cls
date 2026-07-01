@@ -703,29 +703,31 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Const FromProcedureName As String = ThisClassName & ".newTab"
 
 
+    '1. パラメーター準備
     Dim params As New Scripting.Dictionary
-    Dim sessionID_ As String
-
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
     If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
+    '2. 実行
     Dim results As BiDiCDPJson
     Set results = ExecuteCDP("Target.createTarget", params)
 
-   'Return the new tab's Session ID
-    Dim tabId As String
+    '3. Return the new tab's Session ID
+    Dim tabId As String, sessionID_ As String
     tabId = results.StringKey("targetId")
     sessionID_ = attachToTab(tabId)
 
-   'Switch attachment to the new tab
-   '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
+    '4. メイン化する場合は、Excelに記録しておく
+    If setMain Then serializeForMainTab tabId, sessionID_
+
+
+    '------ 5. 専用のクラスとして返却する準備 ------
+    'Switch attachment to the new tab
+    '22/01/26: From v3.1, reattachment is no longer automatic so .reattach is needed
     printMsg info_, "newTab will now open a new CDP instance", FromProcedureName
-
-
-    '------ 専用のクラスとして返却する準備 ------
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
@@ -740,12 +742,6 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
         '4. Urlが設定されてる場合は、読み込み完了まで待機する
         If LenB(Url) Then .wait
-
-        '5. ステータスの更新
-        .getSessionInfo
-
-        '6. メイン化する場合は、Excelに記録しておく
-        If setMain Then serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 End Function
 
@@ -794,64 +790,64 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 searchit:
 
-    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
-    NodeToken = targets.FirstChildToken  ' 配列の先頭トークン
+        Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
+        NodeToken = targets.FirstChildToken  ' 配列の先頭トークン
 
     'スコア方式を利用して、理想の対象タブ情報を取得します
-    Const MaxScore As Long = 100
-    bestScore = -1
-    candidateTabId = ""
-    Do While NodeToken > 0
-        If targets.TokenString(NodeToken, "type") = SearchType Then
-            score = -1
-            Select Case True
+        Const MaxScore As Long = 100
+        bestScore = -1
+        candidateTabId = ""
+        Do While NodeToken > 0
+            If targets.TokenString(NodeToken, "type") = SearchType Then
+                score = -1
+                Select Case True
                 Case LenB(tabName)
                     If targets.TokenString(NodeToken, "title") = tabName Then
-                        score = 100
+                            score = 100
                     ElseIf InStr(targets.TokenString(NodeToken, "title"), tabName) Then
-                        score = 50
-                    Else
-                        errMsg = "with name containing """ & tabName & """"
-                    End If
+                            score = 50
+                        Else
+                            errMsg = "with name containing """ & tabName & """"
+                        End If
                 Case LenB(Url)
                     If Left$(targets.TokenString(NodeToken, "url"), Len(Url)) = Url Then
-                        score = 90
+                            score = 90
                     ElseIf InStr(targets.TokenString(NodeToken, "url"), Url) Then
-                        score = 40
-                    Else
-                        errMsg = "with url containing """ & Url & """"
-                    End If
-                Case Else
-                    If targets.TokenBool(NodeToken, "attached") = False Then
-                        score = 80
-                    Else
+                            score = 40
+                        Else
+                            errMsg = "with url containing """ & Url & """"
+                        End If
+                    Case Else
+                        If targets.TokenBool(NodeToken, "attached") = False Then
+                            score = 80
+                        Else
                         score = 30
                         errMsg = "as no new unattached tab could be found"
-                    End If
-            End Select
+                        End If
+                End Select
 
-            If score > bestScore Then
-                bestScore = score
-                candidateTabId = targets.TokenString(NodeToken, "targetId")
-            End If
+                If score > bestScore Then
+                    bestScore = score
+                    candidateTabId = targets.TokenString(NodeToken, "targetId")
+                End If
 
             '最大スコアが出てるなら、捜査打ち切り
-            If bestScore = MaxScore Then Exit Do
-        End If
+                If bestScore = MaxScore Then Exit Do
+            End If
 
         NodeToken = targets.NextToken(NodeToken) ' 次の要素へ
-    Loop
+        Loop
 
-    If bestScore >= 0 Then
-        tabfound = True
-        tabId = candidateTabId
-    End If
+        If bestScore >= 0 Then
+            tabfound = True
+            tabId = candidateTabId
+        End If
 
    'Do retry as long as not timeout
     If Not tabfound And TimerCounter - timerStart < doRetrySecond * 1000 Then GoTo searchit
 
    'Returns nothing if not found
-   'Nothing is preferred over throwing error
+    'Nothing is preferred over throwing error
     If Not tabfound Then
         info = IIf(LenB(tabName), tabName, IIf(LenB(Url), Url, "(no new tab found)"))
         printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
@@ -866,8 +862,11 @@ searchfound:
     Dim sessionID_ As String
     sessionID_ = attachToTab(tabId)
 
+    '9. メイン化する場合は、Excelに記録しておく
+    If setMain Then serializeForMainTab tabId, sessionID_
 
-    '------ 専用のクラスとして返却する準備 ------
+
+    '------ 10.専用のクラスとして返却する準備 ------
     '22/01/26 .reattach br.User is needed from v3.1 onwards to enable multi-instances automation
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
@@ -880,12 +879,6 @@ searchfound:
 
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
-
-        '4. ステータスの更新
-        .getSessionInfo
-
-        '5. メイン化する場合は、Excelに記録しておく
-        If setMain Then serializeForMainTab .CurrentSessionID, .CurrentTargetID
     End With
 End Function
 
