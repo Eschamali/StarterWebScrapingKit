@@ -214,9 +214,10 @@ Private LogControl     As New Logger               'ログレベルの制御
 'バッファー管理
 Private Type ResponseBufferCDP
     strBuffer       As String   'ブラウザから送られたCDP情報をどんどん蓄積する変数
-    EndCursor       As Long     '次に蓄積し始める位置
     length          As Long     '現在のバッファ全体の長さ
     StartCursor     As Long     '取り出しの開始位置
+    AddCursor       As Long     '次に蓄積し始める位置
+    EndCursor       As Long     '有効なデータ末尾位置
     ExistsNewRes    As Boolean  '新規メッセージ有無
 End Type
 Private responseCDP     As ResponseBufferCDP
@@ -748,24 +749,27 @@ End Sub
 '***************************************************************************************************
 Private Sub ReadyCDPMessage()
     With CDPPipeStream
-        '1. まず先頭に巻き戻す
-        .Position = 0
+        '1. 追加するバイト数を確定
+        .SetEOS
 
-        '2. 指定の文字コードに一括変換させる
+        '2. 先頭に巻き戻す
+        '※既に0の場合(メッセージが空)は即抜け
+        If .Position Then .Position = 0 Else Exit Sub
+
+        '3. 指定の文字コードに一括変換させる
         'バイト配列をUTF-8に変換するか？
         If Utf8Converter Is Nothing Then
             'そのまんま返却
-            Mid$(responseCDP.strBuffer, 1) = StrConv((.Read(responseCDP.EndCursor)), vbUnicode)
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = StrConv((.Read), vbUnicode)
         Else
             '変換した上で、返却
-            Mid$(responseCDP.strBuffer, 1) = Utf8Converter.BytesToString((.Read(responseCDP.EndCursor)))
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = Utf8Converter.BytesToString((.Read))
         End If
 
-        '3. デバック用にファイル化する際の設定を行う
-        .Position = responseCDP.EndCursor
-        .SetEOS
+        '3. 次の蓄積位置を記録
+        responseCDP.AddCursor = responseCDP.EndCursor
 
-        '4.設定出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
+        '4 .追加出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
         .Position = 0
     End With
 End Sub
@@ -792,6 +796,7 @@ Private Function TakeCDPMessage() As String
         If .EndCursor = EndPos Then
             '次に蓄積し始める位置にたどり着いちゃったら、リセットしておく
             .StartCursor = 0
+            .AddCursor = 0
             .EndCursor = 0
             .ExistsNewRes = False
         Else
@@ -888,8 +893,8 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     If destruction Or Not responseCDP.ExistsNewRes Then
         printMsg Trace_, LogID, "The received message was empty.", FromProcedureName
     Else
-    '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
-    Call ReadyCDPMessage
+        '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
+        Call ReadyCDPMessage
     End If
 End Sub
 
@@ -916,6 +921,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(tmp)
+        TakePipe StopPipeError, destruction
 
         '応答なし防止するため、一定間隔で呼び出す
         If ResCounter Mod 2 ^ 10 = 0 Then DoEvents
