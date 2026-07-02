@@ -881,9 +881,6 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
             End If
         End If
-
-        '応答なし防止
-        DoEvents
     Loop Until EOvbNullChar And intRes < 1
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
 
@@ -906,6 +903,9 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(tmp)
+
+        '応答なし防止
+        DoEvents
     Loop
 
     'CDPメッセージ処理件数をログ化
