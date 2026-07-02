@@ -891,13 +891,24 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
 
     '破棄モード or 新規受信判定
     If destruction Or Not responseCDP.ExistsNewRes Then
-        printMsg Trace_, LogID, "The received message was empty.", FromProcedureName
+        printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
     Else
         '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
         Call ReadyCDPMessage
+        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete..", FromProcedureName
     End If
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：メッセージ解析を行い、イベント発火まで行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopPipeError  `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
+'                                    別途、`LastError○○`で後で確認可能です
+'
+'            destruction    `True` :ストリームに蓄積しません
+'                           `False`:ストリームに蓄積し、ID、イベント解析に備えます
+'***************************************************************************************************
 Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
