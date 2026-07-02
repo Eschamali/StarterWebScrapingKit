@@ -624,67 +624,6 @@ Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, Recei
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にバイト配列変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：collect  コレクションバイト配列
-'* 返り値  ：合体したバイト配列
-'***************************************************************************************************
-Private Function MakeResponseFullBytes(collect As Collection) As Byte()
-    Dim totalSize As Long
-    Dim chunk As Variant
-    Dim fullBytes() As Byte
-    Dim currentPos As Long
-    Dim i As Long
-    
-    ' 1. まず合計サイズを計算する
-    totalSize = 0
-    For Each chunk In collect
-        ' 配列のサイズを加算（UBound+1）
-        totalSize = totalSize + (UBound(chunk) + 1)
-    Next chunk
-    
-    If totalSize <= 0 Then
-        Dim emptyBytes() As Byte
-        MakeResponseFullBytes = emptyBytes
-        Exit Function
-    End If
-
-    ' 2. 巨大な配列を確保
-    ReDim fullBytes(0 To totalSize - 1)
-
-    ' 3. バイトデータをコピーして結合
-    currentPos = 0
-    For Each chunk In collect
-        For i = 0 To UBound(chunk)
-            fullBytes(currentPos) = chunk(i)
-            currentPos = currentPos + 1
-        Next
-    Next
-
-    '4. 返却
-    MakeResponseFullBytes = fullBytes
-End Function
-
-'***************************************************************************************************
-'* 機能　　：先頭から指定サイズ分だけ切り出したバイト配列を返します
-'***************************************************************************************************
-Private Function SliceBytes(ByRef Source() As Byte, ByVal dataSize As Long) As Byte()
-    Dim clipped() As Byte
-    Dim i As Long
-
-    If dataSize <= 0 Then
-        SliceBytes = clipped
-        Exit Function
-    End If
-
-    ReDim clipped(0 To dataSize - 1)
-    For i = 0 To dataSize - 1
-        clipped(i) = Source(i)
-    Next
-    SliceBytes = clipped
-End Function
-
-'***************************************************************************************************
 '* 機能　　：WinHttpWebSocketReceive のバッファー管理を担います
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`WebSocketReceiveManage`型のクラス内変数の情報を駆使して、良い感じに、WebSocketからの受信データを蓄積させます
