@@ -27,7 +27,7 @@ Private Const URL_5 As String = "https://www.amazon.co.jp"
 ' 各タブの状態を管理する構造体
 Private Type TabState
     Index As Long           ' タブのインデックス (1 to NUM_TABS)
-    Context As CDPContext   ' タブオブジェクト
+    context As CDPContext   ' タブオブジェクト
     CurrentLap As Long      ' 現在のラップ数 (1 to NUM_LAPS)
     Status As String        ' "NAVIGATING", "COMPLETED"
     TargetUrl As String     ' 現在遷移中のURL
@@ -36,8 +36,8 @@ End Type
 ' 非同期スクショの整理券情報を記録する構造体
 Private Type ScreenshotTicket
     TabIndex As Long        ' タブのインデックス
-    Context As CDPContext   ' タブオブジェクト
-    CommandID As Long       ' 非同期コマンドID (整理券番号)
+    context As CDPContext   ' タブオブジェクト
+    commandID As Long       ' 非同期コマンドID (整理券番号)
     Lap As Long             ' ラップ数
     FileName As String      ' 保存ファイル名
     Saved As Boolean        ' 保存完了フラグ
@@ -96,7 +96,7 @@ Sub Test_AsyncBenchmark_Main()
     ' 各タブのイベントの有効化と初期遷移
     Randomize
     For t = 1 To NUM_TABS
-        Set tabStates(t).Context = tabs(t)
+        Set tabStates(t).context = tabs(t)
         tabStates(t).Index = t
         tabStates(t).CurrentLap = 1
         tabStates(t).Status = "NAVIGATING"
@@ -134,7 +134,7 @@ Sub Test_AsyncBenchmark_Main()
                 allFinished = False
                 
                 ' Page.loadEventFired が発生したか確認
-                If tabStates(t).Context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
+                If tabStates(t).context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
                     Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " 読み込み完了！"
                     
                     ' (a) スクショ非同期依頼
@@ -143,15 +143,15 @@ Sub Test_AsyncBenchmark_Main()
                     ' 高速化のため getFullPage:=False 相当 (paramsは空でビューポートのみキャプチャ)
                     
                     Dim snapCmdID As Long
-                    snapCmdID = tabStates(t).Context.ExecuteCDPAsync("Page.captureScreenshot", snapParams)
+                    snapCmdID = tabStates(t).context.ExecuteCDPAsync("Page.captureScreenshot", snapParams)
                     
                     ' 整理券を記録
                     ticketCount = ticketCount + 1
                     ReDim Preserve tickets(1 To ticketCount)
                     
                     tickets(ticketCount).TabIndex = t
-                    Set tickets(ticketCount).Context = tabStates(t).Context
-                    tickets(ticketCount).CommandID = snapCmdID
+                    Set tickets(ticketCount).context = tabStates(t).context
+                    tickets(ticketCount).commandID = snapCmdID
                     tickets(ticketCount).Lap = tabStates(t).CurrentLap
                     tickets(ticketCount).FileName = "bench_tab" & t & "_lap" & tabStates(t).CurrentLap & ".png"
                     tickets(ticketCount).Saved = False
@@ -168,13 +168,13 @@ Sub Test_AsyncBenchmark_Main()
                         tabStates(t).TargetUrl = urls(rndIdx)
                         
                         ' イベントバッファをクリアして、次のロードに備える
-                        Set tabStates(t).Context.BrowserEvents = New Dictionary
+                        Set tabStates(t).context.BrowserEvents = New Dictionary
                         
                         ' 非同期遷移の依頼
                         Dim nextNavParams As Scripting.Dictionary
                         Set nextNavParams = New Scripting.Dictionary
                         nextNavParams.Add "url", tabStates(t).TargetUrl
-                        Call tabStates(t).Context.ExecuteCDPAsync("Page.navigate", nextNavParams)
+                        Call tabStates(t).context.ExecuteCDPAsync("Page.navigate", nextNavParams)
                         Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " 非同期遷移開始 -> " & tabStates(t).TargetUrl
                     Else
                         tabStates(t).Status = "COMPLETED"
@@ -209,12 +209,12 @@ Sub Test_AsyncBenchmark_Main()
                 
                 ' ResultCDPFromWithEvents で結果が戻っているか確認
                 Dim resJson As String
-                resJson = tickets(i).Context.TakeResultCDP(tickets(i).CommandID)
+                resJson = tickets(i).context.TakeResultCDP(tickets(i).commandID)
                 
                 If Len(resJson) > 0 Then
                     ' パース処理
                     Dim resDic As Dictionary
-                    Set resDic = tickets(i).Context.InheritanceCDPBrowser.jsConverter.ParseJson(resJson)
+                    Set resDic = WebJsonConverter.Parse(resJson).value
                     
                     If Not resDic Is Nothing Then
                         If resDic.Exists("error") Then
@@ -232,9 +232,9 @@ Sub Test_AsyncBenchmark_Main()
                                 b64 = resultData("data")
                                 
                                 ' Base64データをデコードしてファイル保存
-                                Dim bytes() As Byte
-                                bytes = DataConv.Decode(b64, edfBase64)
-                                CharConv.BytesToSaveFile bytes, saveDir, tickets(i).FileName
+                                Dim Bytes() As Byte
+                                Bytes = DataConv.Decode(b64, edfBase64)
+                                CharConv.BytesToSaveFile Bytes, saveDir, tickets(i).FileName
                                 
                                 Debug.Print "  [保存成功] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " -> " & tickets(i).FileName
                                 tickets(i).Saved = True
@@ -312,7 +312,7 @@ Sub Test_AsyncBenchmark_Cookies()
     ' 各タブのイベントの有効化と初期遷移
     Randomize
     For t = 1 To NUM_TABS
-        Set tabStates(t).Context = tabs(t)
+        Set tabStates(t).context = tabs(t)
         tabStates(t).Index = t
         tabStates(t).CurrentLap = 1
         tabStates(t).Status = "NAVIGATING"
@@ -351,20 +351,20 @@ Sub Test_AsyncBenchmark_Cookies()
                 allFinished = False
                 
                 ' Page.loadEventFired が発生したか確認
-                If tabStates(t).Context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
+                If tabStates(t).context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
                     Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " 読み込み完了！"
                     
                     ' (a) Cookie取得非同期依頼 (Network.getAllCookies)
                     Dim cookieCmdID As Long
-                    cookieCmdID = tabStates(t).Context.ExecuteCDPAsync("Network.getAllCookies", Nothing)
+                    cookieCmdID = tabStates(t).context.ExecuteCDPAsync("Network.getAllCookies", Nothing)
                     
                     ' 整理券を記録
                     ticketCount = ticketCount + 1
                     ReDim Preserve tickets(1 To ticketCount)
                     
                     tickets(ticketCount).TabIndex = t
-                    Set tickets(ticketCount).Context = tabStates(t).Context
-                    tickets(ticketCount).CommandID = cookieCmdID
+                    Set tickets(ticketCount).context = tabStates(t).context
+                    tickets(ticketCount).commandID = cookieCmdID
                     tickets(ticketCount).Lap = tabStates(t).CurrentLap
                     tickets(ticketCount).FileName = "" ' Cookie版ではファイル名不要
                     tickets(ticketCount).Saved = False
@@ -381,13 +381,13 @@ Sub Test_AsyncBenchmark_Cookies()
                         tabStates(t).TargetUrl = urls(rndIdx)
                         
                         ' イベントバッファをクリアして、次のロードに備える
-                        Set tabStates(t).Context.BrowserEvents = New Dictionary
+                        Set tabStates(t).context.BrowserEvents = New Dictionary
                         
                         ' 非同期遷移の依頼
                         Dim nextNavParams As Scripting.Dictionary
                         Set nextNavParams = New Scripting.Dictionary
                         nextNavParams.Add "url", tabStates(t).TargetUrl
-                        Call tabStates(t).Context.ExecuteCDPAsync("Page.navigate", nextNavParams)
+                        Call tabStates(t).context.ExecuteCDPAsync("Page.navigate", nextNavParams)
                         Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " 非同期遷移開始 -> " & tabStates(t).TargetUrl
                     Else
                         tabStates(t).Status = "COMPLETED"
@@ -420,12 +420,12 @@ Sub Test_AsyncBenchmark_Cookies()
                 
                 ' ResultCDPFromWithEvents で結果が戻っているか確認
                 Dim resJson As String
-                resJson = tickets(i).Context.TakeResultCDP(tickets(i).CommandID)
+                resJson = tickets(i).context.TakeResultCDP(tickets(i).commandID)
                 
                 If Len(resJson) > 0 Then
                     ' パース処理
                     Dim resDic As Dictionary
-                    Set resDic = tickets(i).Context.InheritanceCDPBrowser.jsConverter.ParseJson(resJson)
+                    Set resDic = WebJsonConverter.Parse(resJson).value
                     
                     If Not resDic Is Nothing Then
                         If resDic.Exists("error") Then
