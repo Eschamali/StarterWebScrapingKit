@@ -176,8 +176,8 @@ Sub WebSocketDemoASync_受信データを取得()
     If ResultCode Then
         Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "受信結果：" & WinApiError.GetMessage(ResultCode, "WinHttp"), "Demo"
-        g_WebsocketObj.printMsg info_, "受信内容：" & g_WebsocketObj.LastReceiveContentUTF8, "Demo"
+        Debug.Print "受信結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "受信内容：" & g_WebsocketObj.LastReceiveContentUTF8
     End If
 End Sub
 
