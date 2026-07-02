@@ -904,8 +904,8 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(tmp)
 
-        '応答なし防止
-        DoEvents
+        '応答なし防止するため、一定間隔で呼び出す
+        If ResCounter Mod 2 ^ 10 = 0 Then DoEvents
     Loop
 
     'CDPメッセージ処理件数をログ化
