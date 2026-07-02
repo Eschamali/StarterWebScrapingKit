@@ -831,12 +831,12 @@ End Function
 '                                    別途、`LastError○○`で後で確認可能です
 '
 '            destruction    `True` :ストリームに蓄積しません
-'                           `False`:ストリームに蓄積し以後の、ID、イベント解析を行います
+'                           `False`:ストリームに蓄積し、ID、イベント解析に備えます
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：不整合を防ぐため、終端ヌル文字が来るまで、受信を繰り返します
 '***************************************************************************************************
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakePipe"
 
 
     Dim intRes As Long
@@ -884,11 +884,24 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
     Loop Until EOvbNullChar And intRes < 1
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
 
-    '破棄モード or 新規受信なし ならここで抜ける
-    If destruction Or Not responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "The received message was empty.", FromProcedureName: Exit Sub
-
+    '破棄モード or 新規受信判定
+    If destruction Or Not responseCDP.ExistsNewRes Then
+        printMsg Trace_, LogID, "The received message was empty.", FromProcedureName
+    Else
     '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
     Call ReadyCDPMessage
+    End If
+End Sub
+
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeEvents"
+
+
+    'パイプから、バイト配列を取り出します
+    TakePipe StopPipeError, destruction
+
+    '破棄モード or 新規受信なし ならここで抜ける
+    If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
 
     '解析を始めます
     Dim ResCounter As Long
