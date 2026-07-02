@@ -921,6 +921,8 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(tmp)
+
+        '受信データのチェックの間に来たPipeも取り出しておきます
         TakePipe StopPipeError, destruction
 
         '応答なし防止するため、一定間隔で呼び出す
