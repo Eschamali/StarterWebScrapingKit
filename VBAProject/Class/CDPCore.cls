@@ -765,7 +765,7 @@ Private Sub ReadyCDPMessage()
         .Position = responseCDP.EndCursor
         .SetEOS
 
-        '4.設定出来たので、カーソル位置をリセット
+        '4.設定出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
         .Position = 0
     End With
 End Sub
