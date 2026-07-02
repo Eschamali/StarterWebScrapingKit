@@ -185,8 +185,8 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
 'その他
 Private Const ThisClassName     As String = "CDPCore"
-Private Const InitialBuffer     As Long = 2 ^ 20            '初期バッファー上限
-Private Const LimitCommandID    As Long = 2000000000        'CDPコマンド送信時のID上限値
+Private Const InitialBuffer     As Long = 2 ^ 20        '初期バッファー上限
+Private Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値
 
 
 
@@ -211,7 +211,7 @@ Public Event ResetCommandID()
 Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private LogControl     As New Logger               'ログレベルの制御
 
- 'バッファー管理
+'バッファー管理
 Private Type ResponseBufferCDP
     strBuffer       As String   'ブラウザから送られたCDP情報をどんどん蓄積する変数
     EndCursor       As Long     '次に蓄積し始める位置
@@ -219,7 +219,8 @@ Private Type ResponseBufferCDP
     StartCursor     As Long     '取り出しの開始位置
     ExistsNewRes    As Boolean  '新規メッセージ有無
 End Type
-Private responseCDP As ResponseBufferCDP
+Private responseCDP     As ResponseBufferCDP
+Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェクト
 
 'ログ設定状況
 Private Type StateLog
@@ -512,7 +513,6 @@ Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As L
     Dim lPeekData As Long
     PeekNamedPipe UsehStdRd, ByVal 0&, 0&, ByVal 0&, lPeekData, ByVal 0&
 
-
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
         Dim Buffer() As Byte
@@ -568,17 +568,19 @@ Private Sub viewStdoutAndStderr()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報の読み取りを試みます
+'* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報をストリート受信して蓄積させます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：読み取ったバイト数を返します。
-'* 引数　　：strData            CDP-Json の実行結果、ブラウザからのイベント情報を格納したい変数。実質返り値です
+'* 返り値　：読み取ったバイト数を返します
+'* 引数　　：EndOfData      終端null文字か？`True`なら、「欠けなし」という意味になります
+'            destruction    ストリーム蓄積させるか？`True`で、蓄積させません
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。各種エラーコードは、`Get property`で確認してください。
-'* 注意事項：`strData`を初期化せずに、使いまわす場合、次のような仕様になります
-'            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：最後に受け取った`ReadFile`の内容を保持します
-'            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：その受信した`ReadFile`の内容に置き換わります
+'* 注意事項：このメソッドでは直接のメッセージ受け取りは行いません
+'            `EndOfData`を初期化せずに、使いまわす場合、次のような仕様になります
+'            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：引数に渡した`EndOfData`の内容を保持します
+'            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：終端null文字判定結果を`EndOfData`に更新します
 '***************************************************************************************************
-Private Function readProcCDP(ByRef strData As String) As Long
+Private Function readProcCDP(ByRef EndOfData As Boolean, destruction As Boolean) As Long
     Dim lPeekData As Long
     Dim lngRes As Long
 
@@ -590,21 +592,17 @@ Private Function readProcCDP(ByRef strData As String) As Long
 
     'データがあったら実際に、データを入手する処理へ
     If lPeekData > 0 Then
-        Dim Buffer() As Byte
         Dim bSuccess As Long
-        ReDim Buffer(lPeekData - 1)
+        ReDim Buffer(lPeekData - 1) As Byte
         bSuccess = ReadFile(hCDPOutRd, ByVal VarPtr(Buffer(0)), lPeekData, 0&, 0&)
 
         '0以外なら成功です
         If bSuccess Then
-            'バイト配列をUTF-8に変換するか？
-            If Utf8Converter Is Nothing Then
-                'そのまんま返却
-                strData = StrConv(Buffer, vbUnicode)
-            Else
-                '変換した上で、返却
-                strData = Utf8Converter.BytesToString(Buffer)
-            End If
+            'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+            If Not destruction Then CDPPipeStream.Write Buffer
+
+            '終端null文字があるかチェック
+            EndOfData = (Buffer(lPeekData - 1) = 0)
 
             '取得サイズを返却
             readProcCDP = lPeekData
@@ -718,60 +716,77 @@ End Function
 
 
 '***************************************************************************************************
-'                            ■■■ CDPレスポンス、蓄積/取得処理 ■■■
+'                         ■■■ CDPレスポンス、蓄積/取得管理処理 ■■■
 '***************************************************************************************************
-'* 機能　　：`ReadFile`から得たデータを蓄積していきます
+'* 機能　　：適切な文字列変数バッファーが確保されてるかチェックします
 '---------------------------------------------------------------------------------------------------
-'* LET引数 ：`ReadFile`から得たデータそのまんま
-'* GET返値 ：1件1件取得されます
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：新規メッセージがない場合は、Getは`vbnullstring`で返ります
+'* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
 '***************************************************************************************************
-Private Property Let AccumulateCDP(PipeResponse As String)
-    Const FromProcedureName As String = ThisClassName & ".AccumulateCDP - Let"
+Private Sub bufferCheck(resSize As Long)
+    Const FromProcedureName As String = ThisClassName & ".bufferCheck"
 
-
-    '1. レスポンスサイズを取得
-    Dim PipeResponseLen As Long
-    PipeResponseLen = Len(PipeResponse)
-    printMsg Trace_, LogID, "Accumulating... : " & PipeResponse, FromProcedureName
 
     With responseCDP
-        '2. 上限を越しそうになったら、拡張する(高負荷ポイント)
+        '1. 上限を越しそうになったら、拡張する(高負荷ポイント)
         '※オーバフローしたらこのツールでは対応できません
-        If .EndCursor + PipeResponseLen > .length Then
+        If .EndCursor + resSize > .length Then
             .strBuffer = .strBuffer & String$(.length, vbNullChar)
             .length = .length * 2
             printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
-        '3. Midステートメント で、うまい具合に上書きさせる
-        '※Midステートメント 操作なので、`+1`補正しておく
-        Mid$(.strBuffer, .EndCursor + 1) = PipeResponse
-        printMsg Trace_, LogID, "Added to cursor: " & .EndCursor + 1, FromProcedureName
+        '2. カーソル位置を更新
+        .EndCursor = .EndCursor + resSize
 
-        '4. カーソル位置を更新
-        .EndCursor = .EndCursor + PipeResponseLen
-
-        '5. 新規メッセージフラグを付与
-        .ExistsNewRes = True
+        '3. 新規メッセージフラグを付与
+        If resSize > 0 Then .ExistsNewRes = True
     End With
-End Property
+End Sub
 
-Private Property Get AccumulateCDP() As String
-    Const FromProcedureName As String = ThisClassName & ".AccumulateCDP - Get"
+'***************************************************************************************************
+'* 機能　　：ストリームからテキスト変換したのを`responseCDP.strBuffer`に反映して、メッセージ取り出しの準備を行います
+'***************************************************************************************************
+Private Sub ReadyCDPMessage()
+    With CDPPipeStream
+        '1. まず先頭に巻き戻す
+        .Position = 0
+
+        '2. 指定の文字コードに一括変換させる
+        'バイト配列をUTF-8に変換するか？
+        If Utf8Converter Is Nothing Then
+            'そのまんま返却
+            Mid$(responseCDP.strBuffer, 1) = StrConv((.Read(responseCDP.EndCursor)), vbUnicode)
+        Else
+            '変換した上で、返却
+            Mid$(responseCDP.strBuffer, 1) = Utf8Converter.BytesToString((.Read(responseCDP.EndCursor)))
+        End If
+
+        '3. デバック用にファイル化する際の設定を行う
+        .Position = responseCDP.EndCursor
+        .SetEOS
+
+        '4.設定出来たので、カーソル位置をリセット
+        .Position = 0
+    End With
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：呼び出す度に1件1件、CDPメッセージを取り出します
+'***************************************************************************************************
+Private Function TakeCDPMessage() As String
+    Const FromProcedureName As String = ThisClassName & ".TakeCDPMessage"
 
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .EndCursor = 0 Then printMsg Trace_, LogID, "There are no new responses.", FromProcedureName: Exit Property
+        If .EndCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
         '3. その目印を元に、1件分返却
-        AccumulateCDP = Mid(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
+        TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
 
         '4. 次の検索開始位置を更新
         If .EndCursor = EndPos Then
@@ -784,7 +799,7 @@ Private Property Get AccumulateCDP() As String
             .StartCursor = EndPos
         End If
     End With
-End Property
+End Function
 
 Private Function searchNull(checkString As String, StartPos As Long) As Long
 '------------------------------------------------------------
@@ -815,8 +830,8 @@ End Function
 '                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
 '                                    別途、`LastError○○`で後で確認可能です
 '
-'            destruction    `True` :IDの解析やイベントの中身の解析を行わず、破棄します。解析しない分、多少パフォーマンスが向上します
-'                           `False`:IDの解析やイベントの中身の解析を行います
+'            destruction    `True` :ストリームに蓄積しません
+'                           `False`:ストリームに蓄積し以後の、ID、イベント解析を行います
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：不整合を防ぐため、終端ヌル文字が来るまで、受信を繰り返します
 '***************************************************************************************************
@@ -825,7 +840,6 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
 
     Dim intRes As Long
-    Dim strRes As String
     printMsg Trace_, LogID, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
@@ -835,25 +849,19 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
         viewStdoutAndStderr
 
         '受信処理
-        intRes = readProcCDP(strRes)
+        intRes = readProcCDP(EOvbNullChar, destruction)
         printMsg Trace_, LogID, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
         If intRes > 0 Then
-            '欠けチェック
-            EOvbNullChar = (InStrRev(strRes, vbNullChar) = intRes)
-
             '破棄モードかの判定
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
-                '※強いていうなら、破棄するメッセージをそのまま出す
-                printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
-                If currentLog.seeRawSendMsgDbg Then printMsg Trace_, LogID, "Discarded - strRes = " & strRes, FromProcedureName
-
+                printMsg Trace_, LogID, "Discarding data in pipe... : " & intRes & " byte", FromProcedureName
             Else
-                '中身の解析に備えて、蓄積処理
+                '中身の解析に備えて、蓄積準備
+                bufferCheck intRes
                 printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
-                AccumulateCDP = strRes
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
@@ -879,7 +887,13 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
     Loop Until EOvbNullChar And intRes < 1
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
 
-    'データがあったら解析を始めます
+    '破棄モード or 新規受信なし ならここで抜ける
+    If destruction Or Not responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "The received message was empty.", FromProcedureName: Exit Sub
+
+    '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
+    Call ReadyCDPMessage
+
+    '解析を始めます
     Dim ResCounter As Long
     If responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "Analyzing the data in the responseCDP.strBuffer...", FromProcedureName
     Do While responseCDP.ExistsNewRes
@@ -887,19 +901,15 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
         ResCounter = ResCounter + 1
 
         'レスの確認
-        Dim tmp As String: tmp = AccumulateCDP
+        Dim tmp As String: tmp = TakeCDPMessage
         If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
         '受信データのチェックを行うプロシージャへ遷移します。
         Call BrowserReceivedDataCheck(tmp)
     Loop
 
-    'ログ化
-    If ResCounter Then
-        printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
-    Else
-        printMsg Trace_, LogID, "The received message was empty.", FromProcedureName
-    End If
+    'CDPメッセージ処理件数をログ化
+    printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -1106,10 +1116,23 @@ Public Function GetTicksMs() As Double
     GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
 End Function
 
+'***************************************************************************************************
+'* 機能　　：呼び出し時点での`CDPPipeStream`の中身をファイルに保存します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：FolderPath 保存フォルダ名
+'            LogName    保存ログ名
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：デバック用としてお使い下さい
+'* 注意事項：`ReadyCDPMessage`を行うたびに上書きする点に注意。Public的には、`TakeEvents`で上書きします
+'***************************************************************************************************
+Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
+    CDPPipeStream.SaveToFile FolderPath & "\" & FileName, 2
+End Sub
+
 
 
 '***************************************************************************************************
-'                               ■■■ 初期化処理 ■■■
+'                               ■■■ 初期化/後始末処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
@@ -1117,9 +1140,21 @@ Private Sub Class_Initialize()
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '1. 初期バッファー設定
+    '  文字列バッファーの初期化
     With responseCDP
         .length = InitialBuffer
         .strBuffer = String$(.length, vbNullChar)
+    End With
+
+    '  バイト配列バッファーの初期化
+    ReDim binBuffer(InitialBuffer - 1) As Byte
+    Set CDPPipeStream = CreateObject("ADODB.Stream")
+    With CDPPipeStream
+        .Open
+        .Type = 1           ' adTypeBinary
+        .Write binBuffer    ' 疑似的に大きめのバッファーを確保
+        .Position = 0       ' カーソルだけ先頭に戻す
+        .SetEOS             ' 終端（EOS）としてマークする
     End With
 
     '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
@@ -1144,6 +1179,12 @@ Private Sub Class_Initialize()
     '4. 実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
     Call QueryPerformanceFrequency(m_Frequency)
     '------------------------------------------------------------------------------
+End Sub
+
+Private Sub Class_Terminate()
+    On Error Resume Next
+    CDPPipeStream.Close
+    Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub
 
 
