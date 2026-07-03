@@ -723,8 +723,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
 '***************************************************************************************************
-Private Sub bufferCheck(resSize As Long)
-    Const FromProcedureName As String = ThisClassName & ".bufferCheck"
+Private Sub StrBufferCheck(resSize As Long)
+    Const FromProcedureName As String = ThisClassName & ".StrBufferCheck"
 
 
     '新規メッセージがない場合は即抜け
@@ -869,7 +869,7 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
                 printMsg Trace_, LogID, "Discarding data in pipe... : " & intRes & " byte", FromProcedureName
             Else
                 '中身の解析に備えて、蓄積準備
-                bufferCheck intRes
+                StrBufferCheck intRes
                 printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
             End If
         Else
