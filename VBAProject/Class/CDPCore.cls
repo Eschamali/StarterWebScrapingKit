@@ -910,8 +910,8 @@ End Sub
 '                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
 '                                    別途、`LastError○○`で後で確認可能です
 '
-'            destruction    `True` :ストリームに蓄積しません
-'                           `False`:ストリームに蓄積し、ID、イベント解析に備えます
+'            destruction    `True` :メッセージ解析をせずに溜まったデータの取り出しのみ行います
+'                           `False`:ID、イベント解析を行いつつ、溜まったデータの取り出しも並行して行います
 '***************************************************************************************************
 Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
