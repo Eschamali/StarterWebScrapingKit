@@ -839,10 +839,10 @@ End Function
 '                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
 '                                    別途、`LastError○○`で後で確認可能です
 '
-'            destruction    `True` :ストリームに蓄積しません
+'            destruction    `True` :ストリームに蓄積しません。破棄用にどうぞ
 '                           `False`:ストリームに蓄積し、ID、イベント解析に備えます
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：不整合を防ぐため、終端ヌル文字が来るまで、受信を繰り返します
+'* 注意事項：不整合を防ぐため、終端ヌル文字が来るまで、受信を繰り返すようにしてください
 '***************************************************************************************************
 Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakePipe"
@@ -866,7 +866,7 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
             '破棄モードかの判定
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
-                printMsg Trace_, LogID, "Discarding data in pipe... : " & intRes & " byte", FromProcedureName
+                printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
             Else
                 '中身の解析に備えて、蓄積準備
                 StrBufferCheck intRes
