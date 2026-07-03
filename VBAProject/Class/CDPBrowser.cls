@@ -567,7 +567,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：パイプが生きてない場合は、このメソッドから再開できません
 '***************************************************************************************************
-Public Function reattach(userProfile As String) As Boolean
+Public Function reattach(userProfile As String, Optional WebSocketMode As WebSocketCommunicator) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -579,6 +579,7 @@ Public Function reattach(userProfile As String) As Boolean
     PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
 
     '3. 1を基に、Excelテーブルからハンドル情報を取得
+    Set PipeCore.WebSocketMode = WebSocketMode
     deserializeForPipe
 
     '4. バージョン確認CDPコマンドを打ってパイプ生存確認

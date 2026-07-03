@@ -207,9 +207,11 @@ Public Event ResetCommandID()
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'クラスオブジェクト
-Private Utf8Converter  As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
-Private LogControl     As New Logger               'ログレベルの制御
+'各種クラスオブジェクト
+Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private LogControl              As New Logger               'ログレベルの制御
+Private WithEvents viaWebSocket As WebSocketCommunicator    'WebSocket経由でCDP制御したい場合のオブジェクト用
+Attribute viaWebSocket.VB_VarHelpID = -1
 
 'バッファー管理
 Private Type ResponseBufferCDP
@@ -263,6 +265,7 @@ Private DictionarySessionID As Dictionary
 'その他
 Private LastCommandID_Pipe  As Long     '現在のコマンドID
 Private m_Frequency         As Currency '実行マシンでの周波数記録用
+Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 
 
 
@@ -450,6 +453,9 @@ End Sub
 '* 引数　　：UserName   読み取る識別名称
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
+    'WebSocketModeの場合は即抜け
+    If Not viaWebSocket Is Nothing Then deserialize = True: Exit Function
+
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.deserialize")
@@ -636,11 +642,32 @@ Private Sub writeProcCDP(strData As String)
     End If
 
     '終端目印`vbnullchar`相当も送る ※前回の`WriteFile`が成功してる場合
-    Dim nullByte As Byte
-    If ResultCode Then ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(nullByte), 1, lngWritten, ByVal 0&)
+    If ResultCode Then ResultCode = WriteFile(hCDPInWr, ByVal VarPtr(m_NullTerminator(0)), 1, lngWritten, ByVal 0&)
 
     '失敗時は、実際のエラーコードを記録
     If ResultCode = 0 Then LastPipeError.WriteFile = Err.LastDllError
+End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ WebSocketの読み書き ■■■
+'***************************************************************************************************
+'* 機能　　：WinHttpWebSocketReceive から得たデータをPipe処理ロジックで扱えるように変換します
+'***************************************************************************************************
+Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
+    'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+    CDPPipeStream.Write res
+
+    'メッセージの終わりであれば、その目印も追記
+    If EOS Then CDPPipeStream.Write m_NullTerminator
+
+    '取得サイズをcursor管理へ反映
+    StrBufferCheck resSize + EOS * -1
+End Sub
+
+Private Sub viaWebSocket_WebSocketSend(strData As String)
+    LastPipeError.WriteFile = viaWebSocket.SendAsyncMessageAsUTF8(strData)
 End Sub
 
 
@@ -684,7 +711,7 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
 
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
-    writeProcCDP strMessage
+    If viaWebSocket Is Nothing Then writeProcCDP strMessage Else viaWebSocket_WebSocketSend strMessage
 End Sub
 
 '***************************************************************************************************
@@ -910,6 +937,21 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     End If
 End Sub
 
+Private Sub TakeWebSocketReceive()
+    Do
+        '予約して...
+        viaWebSocket.RequestWebSocketReceive
+
+        DoEvents
+
+        '受信開始
+        viaWebSocket.GetAsyncMessage
+    Loop Until viaWebSocket.isWaitingReceiveResponse And Not viaWebSocket.LastReceiveExisting
+
+    
+    Call ReadyCDPMessage
+End Sub
+
 '***************************************************************************************************
 '* 機能　　：メッセージ解析を行い、イベント発火まで行います
 '---------------------------------------------------------------------------------------------------
@@ -925,7 +967,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
 
     'パイプから、バイト配列を取り出します
-    TakePipe StopPipeError, destruction
+    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocketReceive
 
     '破棄モード or 新規受信なし ならここで抜ける
     If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
@@ -947,7 +989,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
         End If
 
         '受信データのチェックの間に来たPipeも取り出しておきます
-        TakePipe StopPipeError, destruction
+        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocketReceive
 
         '応答なし防止するため、一定間隔で呼び出す
         If ResCounter Mod 2 ^ 10 = 0 Then DoEvents
@@ -1087,6 +1129,13 @@ End Property
 '***************************************************************************************************
 Property Get ShowLogCDPresponse() As Boolean
     ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set WebSocketMode(ws As WebSocketCommunicator)
+    Set viaWebSocket = ws
 End Property
 
 

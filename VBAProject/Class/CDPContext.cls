@@ -348,7 +348,7 @@ End Sub
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional reuseSession As Boolean) As Boolean
+Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As WebSocketCommunicator) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -356,7 +356,7 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
-    reattach = BrowserCore.reattach(userProfile)
+    reattach = BrowserCore.reattach(userProfile, WebSocketMode)
     Set PipeCore = BrowserCore.InheritanceCDPCore
 
     '3. パイプが生きてない場合は、VBAエラーで停止させる
