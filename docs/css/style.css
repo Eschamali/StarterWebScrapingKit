@@ -444,6 +444,106 @@ p code, li code {
     border-radius: 4px;
 }
 
+/* Expandable method reference (details/summary) */
+.method-ref-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0 1.5rem;
+}
+
+details.method-ref {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+details.method-ref[open] {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.04);
+}
+
+details.method-ref > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    font-weight: 500;
+    user-select: none;
+}
+
+details.method-ref > summary::-webkit-details-marker {
+    display: none;
+}
+
+details.method-ref > summary::before {
+    content: "▸";
+    color: var(--accent-color);
+    font-size: 0.85rem;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+details.method-ref[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+details.method-ref > summary .method-kind {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-weight: normal;
+}
+
+details.method-ref > summary .method-ref-hint {
+    flex: 1 1 100%;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-weight: normal;
+    padding-left: 1.1rem;
+}
+
+@media (min-width: 640px) {
+    details.method-ref > summary .method-ref-hint {
+        flex: 1 1 auto;
+        padding-left: 0;
+    }
+}
+
+.method-ref-body {
+    padding: 0 1rem 1rem 1.1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.method-ref-body > p:first-child {
+    margin-top: 0.85rem;
+}
+
+.method-ref-body .method-table {
+    margin: 0.75rem 0 0;
+}
+
+details.method-ref.highlight {
+    border-color: rgba(59, 130, 246, 0.25);
+    background: rgba(59, 130, 246, 0.03);
+}
+
+details.method-ref.highlight[open] {
+    border-color: rgba(59, 130, 246, 0.45);
+}
+
+details.method-ref.event-ref {
+    border-color: rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.03);
+}
+
+details.method-ref.event-ref[open] {
+    border-color: rgba(16, 185, 129, 0.45);
+}
+
 /* ============================================================
    Story Article スタイル
    ============================================================ */

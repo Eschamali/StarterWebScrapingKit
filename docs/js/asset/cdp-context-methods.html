@@ -1,6 +1,7 @@
 <h1>メソッド リファレンス：<span style="color:var(--accent-color)">CDPContext</span></h1>
 <p><code>CDPContext.cls</code> が公開する Public メソッド・Propertyの完全リファレンスです。<br>
-1タブ（Target）単位のナビゲーション、JavaScript 実行、要素検索、イベントキャプチャを担います。</p>
+1タブ（Target）単位のナビゲーション、JavaScript 実行、要素検索、イベントキャプチャを担います。<br>
+各項目をクリックすると、シグネチャ・引数・使い方が展開されます。</p>
 
 <div class="alert tip">
   <div class="alert-icon">💡</div>
@@ -13,143 +14,480 @@
 <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
 <h2>🚀 ライフサイクル</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>StartAndConnectTab</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
-  <p style="margin:0 0 1rem;">ブラウザ起動とタブ接続を一括で行います（最も一般的なエントリポイント）。</p>
-  <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>Name</code></td><td><code>String</code></td><td>✔ (<code>"chrome"</code>)</td><td>ブラウザ種別</td></tr>
-      <tr><td><code>appUrl</code></td><td><code>String</code></td><td>✔</td><td>起動時URL</td></tr>
-      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✔</td><td>プロファイル名</td></tr>
-      <tr><td><code>addArgs</code></td><td><code>String</code></td><td>✔</td><td>追加起動引数</td></tr>
-      <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>✔</td><td>キオスクモード</td></tr>
-    </tbody>
-  </table>
-</div>
+<details class="method-ref">
+  <summary><code>StartAndConnectTab</code> <span class="method-kind">Sub</span><span class="method-ref-hint">ブラウザ起動とタブ接続を一括で行う（最も一般的なエントリポイント）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub StartAndConnectTab( _
+    Optional Name As String = "chrome", _
+    Optional appUrl As String, _
+    Optional userProfile As String, _
+    Optional addArgs As String, _
+    Optional KioskMode As edgeKioskType)</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>Name</code></td><td><code>String</code></td><td>✔ (<code>"chrome"</code>)</td><td>ブラウザ種別</td></tr>
+        <tr><td><code>appUrl</code></td><td><code>String</code></td><td>✔</td><td>起動時URL</td></tr>
+        <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✔</td><td>プロファイル名</td></tr>
+        <tr><td><code>addArgs</code></td><td><code>String</code></td><td>✔</td><td>追加起動引数</td></tr>
+        <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>✔</td><td>キオスクモード</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>reattach</code> / <code>closeTab</code></h3>
-  <p style="margin:0;"><code>reattach(userProfile, reuseSession)</code> で再接続（<code>Boolean</code>）。<code>closeTab</code> でタブを閉じます。</p>
+<details class="method-ref">
+  <summary><code>reattach</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">既存のデバッグブラウザセッションへ再接続する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function reattach(userProfile As String, Optional reuseSession As Boolean) As Boolean</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>型</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>userProfile</code></td><td><code>String</code></td><td>再接続対象のプロファイル名</td></tr>
+        <tr><td><code>reuseSession</code></td><td><code>Boolean</code></td><td>非同期イベント購読中は <code>True</code> 推奨</td></tr>
+      </tbody>
+    </table>
+    <p><strong>戻り値：</strong><code>True</code> = 成功 / <code>False</code> = 失敗</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>closeTab</code> <span class="method-kind">Sub</span><span class="method-ref-hint">現在のタブを閉じる</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub closeTab()</code></pre>
+    <p>CDP の <code>Target.closeTarget</code> を呼び出し、タブを閉じます。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>🌐 ナビゲーション・待機</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>navigate</code> / <code>wait</code></h3>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)</code></pre>
-  <p style="margin:0;"><code>ReadyState</code>: <code>isLoading</code>, <code>isInteractive</code>, <code>isComplete</code></p>
+<details class="method-ref">
+  <summary><code>navigate</code> <span class="method-kind">Sub</span><span class="method-ref-hint">URL へ遷移し、ReadyState まで待機する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)</code></pre>
+    <p><code>ReadyState</code>: <code>isLoading</code>, <code>isInteractive</code>, <code>isComplete</code></p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>wait</code> <span class="method-kind">Sub</span><span class="method-ref-hint">ページの読み込み状態が指定 ReadyState になるまで待機する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>till</code></td><td>待機する ReadyState（デフォルト <code>isComplete</code>）</td></tr>
+        <tr><td><code>dbgState</code></td><td><code>True</code> で状態遷移をログ出力</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>📜 JavaScript</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>jsEval</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function</span></h3>
-  <p style="margin:0 0 1rem;">ページ上で JavaScript を実行します。<code>objectId</code>, <code>contextId</code>, <code>IFEXCEPTION</code> 等のオプション引数をサポートします。</p>
-  <p style="margin:0;"><code>LastJavaScriptException</code> (Property Get) で直前の JS 例外情報を取得できます。</p>
-</div>
+<details class="method-ref">
+  <summary><code>jsEval</code> <span class="method-kind">Function → Variant</span><span class="method-ref-hint">ページ上で JavaScript を実行する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
+    Optional objectArguments As Collection, _
+    Optional returnByValue As Boolean, _
+    Optional awaitPromise As Boolean, _
+    Optional userGesture As Boolean, _
+    Optional allowUnsafeEvalBlockedByCSP As Boolean, _
+    Optional serializationOptions As Dictionary, _
+    Optional generatePreview As Boolean, _
+    Optional RunAsyncCDP As Boolean, _
+    Optional StopException As Boolean, _
+    Optional StopPipeError As Boolean = True) As Variant</code></pre>
+    <p><code>objectId</code>, <code>contextId</code>, <code>IFEXCEPTION</code> 等のオプション引数をサポートします。CDP <code>Runtime.evaluate</code> のラッパーです。</p>
+  </div>
+</details>
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>jsAddLib</code> / <code>jsAddScript</code></h3>
-  <p style="margin:0;"><code>jsAddLib(strURL)</code> で外部ライブラリを注入。<code>jsAddScript(strLocalScriptPath)</code> でローカルスクリプトを注入します。</p>
+<details class="method-ref">
+  <summary><code>LastJavaScriptException</code> <span class="method-kind">Property Get → Dictionary</span><span class="method-ref-hint">直前の jsEval で発生した JS 例外情報を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get LastJavaScriptException() As Dictionary</code></pre>
+    <p>例外がなかった場合は空の Dictionary が返ります。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>jsAddLib</code> <span class="method-kind">Sub</span><span class="method-ref-hint">外部 JavaScript ライブラリをページへ注入する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub jsAddLib(strURL As String)</code></pre>
+    <p>指定 URL のスクリプトを <code>&lt;script&gt;</code> タグとして追加します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>jsAddScript</code> <span class="method-kind">Sub</span><span class="method-ref-hint">ローカルの JavaScript ファイルをページへ注入する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub jsAddScript(strLocalScriptPath As String)</code></pre>
+    <p>ローカルファイルの内容を読み込み、ページに注入します。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>⚡ CDP コマンド</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>ExecuteCDP</code> / <code>ExecuteCDPAsync</code></h3>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, Optional StopPipeError As Boolean = True) As Long</code></pre>
-  <p style="margin:0;">タブスコープの CDP コマンド実行。<code>CDPBrowser</code> と同様の Property: <code>LastCDPJsonError</code>, <code>TakeResultCDP</code>, <code>SetLimitCDPResult</code>, <code>TimeOutSecond</code></p>
+<details class="method-ref highlight">
+  <summary><code>ExecuteCDP</code> <span class="method-kind">Function → BiDiCDPJson</span><span class="method-ref-hint">タブスコープの CDP コマンドを同期送信する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>型</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>methodName</code></td><td><code>String</code></td><td>CDP メソッド名</td></tr>
+        <tr><td><code>params</code></td><td><code>Dictionary</code></td><td>パラメータ Dictionary</td></tr>
+        <tr><td><code>StopCDPError</code></td><td><code>Boolean</code></td><td>失敗時 <code>Err.Raise</code>（デフォルト <code>True</code>）</td></tr>
+      </tbody>
+    </table>
+    <p>成功時は CDP <code>result</code> ノード。<code>StopCDPError:=False</code> で失敗時は <code>Nothing</code> → <code>LastCDPJsonError</code> を参照。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>ExecuteCDPAsync</code> <span class="method-kind">Function → Long</span><span class="method-ref-hint">タブスコープの CDP コマンドを非同期送信し、コマンドIDを返す</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long</code></pre>
+    <p>戻り値のコマンドIDを <code>TakeResultCDP</code> に渡して結果を取得します。事前に <code>InheritanceCDPBrowser.TakeEvents</code> が必要です。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>LastCDPJsonError</code> <span class="method-kind">Property Get → Dictionary</span><span class="method-ref-hint">直前の同期 ExecuteCDP 失敗時のエラー情報</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get LastCDPJsonError() As Dictionary</code></pre>
+    <p>キー例: <code>"code"</code>, <code>"message"</code>。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>TakeResultCDP</code> <span class="method-kind">Property Get → String</span><span class="method-ref-hint">非同期コマンドIDに対応する結果 JSON を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get TakeResultCDP(commandID As Long) As String</code></pre>
+    <p>取り出し後はバッファから削除されます。未着の場合は空文字列です。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>SetLimitCDPResult</code> <span class="method-kind">Property Let</span><span class="method-ref-hint">非同期結果バッファの最大保持件数を設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Let SetLimitCDPResult(Number As Long)</code></pre>
+    <p>デフォルトは <code>10</code>。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>TimeOutSecond</code> <span class="method-kind">Property Get/Let → Double</span><span class="method-ref-hint">同期 CDP コマンドのタイムアウト秒数</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get TimeOutSecond() As Double
+Property Let TimeOutSecond(TimeSec As Double)</code></pre>
+    <p>デフォルトは <code>30</code> 秒前後。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>🔍 要素検索</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>メソッド</th><th>戻り値</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>getElementByID</code></td><td><code>CDPElement</code></td><td>ID 属性で検索</td></tr>
-    <tr><td><code>getElementByXPath</code></td><td><code>CDPElement</code></td><td>XPath で単一要素</td></tr>
-    <tr><td><code>getElementsByXPath</code></td><td><code>Collection</code></td><td>XPath で複数要素</td></tr>
-    <tr><td><code>getElementByQuery</code></td><td><code>CDPElement</code></td><td>CSS セレクタで単一</td></tr>
-    <tr><td><code>getElementsByQuery</code></td><td><code>Collection</code></td><td>CSS セレクタで複数</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>getElementByID</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">ID 属性で単一要素を検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByID(strID As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementByXPath</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">XPath で単一要素を検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByXPath(strXPath As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementsByXPath</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">XPath で複数要素を検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementsByXPath(strXPath As String) As Collection</code></pre>
+    <p>各要素は <code>CDPElement</code> として格納されます。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementByQuery</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">CSS セレクタで単一要素を検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByQuery(strQuery As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementsByQuery</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">CSS セレクタで複数要素を検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementsByQuery(strQuery As String) As Collection</code></pre>
+    <p>各要素は <code>CDPElement</code> として格納されます。</p>
+  </div>
+</details>
+
+</div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>📡 イベントキャプチャ</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(59,130,246,0.2); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(59,130,246,0.04);">
-  <h3 style="margin:0 0 0.5rem;"><code>BrowserEvents</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get / Set → Dictionary</span></h3>
-  <p style="margin:0 0 1rem;">非同期 CDP イベントの蓄積を制御します。</p>
-  <table class="method-table">
-    <thead><tr><th>渡す値</th><th>動作</th></tr></thead>
-    <tbody>
-      <tr><td><code>New Dictionary</code></td><td>イベントキャプチャを<strong>新規開始</strong></td></tr>
-      <tr><td>既存の <code>BrowserEvents</code> 値</td><td>セーブデータから<strong>再開</strong></td></tr>
-      <tr><td><code>Nothing</code></td><td>イベントキャプチャを<strong>停止</strong></td></tr>
-    </tbody>
-  </table>
-  <p style="margin:0.8rem 0 0;">受信処理は <code>InheritanceCDPBrowser.TakeEvents</code> で行います。</p>
-</div>
+<details class="method-ref">
+  <summary><code>BrowserEvents</code> <span class="method-kind">Property Get/Set → Dictionary</span><span class="method-ref-hint">非同期 CDP イベントの蓄積を制御する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get BrowserEvents() As Dictionary
+Property Set BrowserEvents(ObjDic As Dictionary)</code></pre>
+    <table class="method-table">
+      <thead><tr><th>渡す値</th><th>動作</th></tr></thead>
+      <tbody>
+        <tr><td><code>New Dictionary</code></td><td>イベントキャプチャを<strong>新規開始</strong></td></tr>
+        <tr><td>既存の <code>BrowserEvents</code> 値</td><td>セーブデータから<strong>再開</strong></td></tr>
+        <tr><td><code>Nothing</code></td><td>イベントキャプチャを<strong>停止</strong></td></tr>
+      </tbody>
+    </table>
+    <p>受信処理は <code>InheritanceCDPBrowser.TakeEvents</code> で行います。</p>
+  </div>
+</details>
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>SetFilterEvents</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Property Let</span></h3>
-  <pre style="margin:0 0 1rem;"><code class="language-vb">Property Let SetFilterEvents(Optional DelMode As Boolean = False, EventName As String)</code></pre>
-  <p style="margin:0;">特定イベントのみ JSON パース・蓄積するフィルター。詳細は <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')">CDPの高度な制御</a> を参照。</p>
+<details class="method-ref">
+  <summary><code>SetFilterEvents</code> <span class="method-kind">Property Let</span><span class="method-ref-hint">特定イベントのみ JSON パース・蓄積するフィルターを設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Let SetFilterEvents(Optional DelMode As Boolean = False, EventName As String)</code></pre>
+    <p>詳細は <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')">CDPの高度な制御</a> を参照。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>🖥️ UI・ダイアログ・その他</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>show</code> / <code>hide</code></td><td>ウィンドウ表示/非表示</td></tr>
-    <tr><td><code>activate</code> / <code>bringToForeground</code></td><td>フォーカス制御</td></tr>
-    <tr><td><code>notify</code></td><td>Chrome 通知表示</td></tr>
-    <tr><td><code>snapPage</code></td><td>スクリーンショット保存</td></tr>
-    <tr><td><code>handleDialog</code></td><td>alert/confirm/prompt への応答</td></tr>
-    <tr><td><code>pageEnable</code></td><td>Page ドメインの enable/disable</td></tr>
-    <tr><td><code>openDevTools</code></td><td>DevTools を開く</td></tr>
-    <tr><td><code>printParams</code> / <code>getSessionInfo</code></td><td>デバッグ情報出力</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>show</code> <span class="method-kind">Sub</span><span class="method-ref-hint">ブラウザウィンドウを表示する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub show(Optional state As WinState = asNormal, Optional xywh As String = "0 0 0 0")</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>state</code></td><td>ウィンドウ状態（<code>asNormal</code> 等）</td></tr>
+        <tr><td><code>xywh</code></td><td>位置・サイズ（<code>"x y w h"</code> 形式）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>hide</code> <span class="method-kind">Sub</span><span class="method-ref-hint">ブラウザウィンドウを非表示にする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub hide()</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>activate</code> <span class="method-kind">Sub</span><span class="method-ref-hint">タブをアクティブにする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub activate(Optional focus As Boolean = True)</code></pre>
+    <p><code>focus:=True</code> でウィンドウにもフォーカスを当てます。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>bringToForeground</code> <span class="method-kind">Function</span><span class="method-ref-hint">ブラウザウィンドウを最前面に持ってくる</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function bringToForeground()</code></pre>
+    <p>WinAPI でウィンドウを前面表示します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>notify</code> <span class="method-kind">Sub</span><span class="method-ref-hint">Chrome デスクトップ通知を表示する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub notify(msg)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>snapPage</code> <span class="method-kind">Sub</span><span class="method-ref-hint">スクリーンショットをファイルに保存する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPage As Boolean = False)</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>FolderPath</code></td><td>保存先フォルダ</td></tr>
+        <tr><td><code>FileName</code></td><td>ファイル名</td></tr>
+        <tr><td><code>getFullPage</code></td><td><code>True</code> でフルページキャプチャ</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>handleDialog</code> <span class="method-kind">Sub</span><span class="method-ref-hint">alert / confirm / prompt ダイアログに応答する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub handleDialog(Accept As Boolean, Optional promptText As String)</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>Accept</code></td><td><code>True</code> = OK / <code>False</code> = キャンセル</td></tr>
+        <tr><td><code>promptText</code></td><td>prompt ダイアログへの入力テキスト</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>pageEnable</code> <span class="method-kind">Sub</span><span class="method-ref-hint">Page ドメインの enable / disable を切り替える</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub pageEnable(Optional enable As Boolean = True)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>openDevTools</code> <span class="method-kind">Sub</span><span class="method-ref-hint">現在タブの DevTools を開く</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub openDevTools(Optional panelId As String)</code></pre>
+    <p><code>panelId</code> で開くパネルを指定できます（省略可）。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>printParams</code> <span class="method-kind">Sub</span><span class="method-ref-hint">セッション情報をログ出力する（デバッグ用）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub printParams()</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getSessionInfo</code> <span class="method-kind">Sub</span><span class="method-ref-hint">セッション情報を内部に格納する（デバッグ用）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub getSessionInfo()</code></pre>
+    <p><code>printParams</code> の前提データを取得します。</p>
+  </div>
+</details>
+
+</div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>📦 Property</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>名前</th><th>Get/Let</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>Url</code></td><td>Get/Let</td><td>現在の URL</td></tr>
-    <tr><td><code>Name</code></td><td>Get/Let</td><td>タブ名</td></tr>
-    <tr><td><code>html</code></td><td>Get</td><td>ページ HTML</td></tr>
-    <tr><td><code>CurrentSessionID</code></td><td>Get/Let</td><td>CDP セッション ID</td></tr>
-    <tr><td><code>CurrentTargetID</code></td><td>Get</td><td>Target ID</td></tr>
-    <tr><td><code>BrowserWindowHandle</code></td><td>Get</td><td>ウィンドウハンドル</td></tr>
-    <tr><td><code>BrowserWindowID</code></td><td>Get</td><td>ウィンドウ ID</td></tr>
-    <tr><td><code>isTargetDisconnected</code></td><td>Get</td><td>切断状態</td></tr>
-    <tr><td><code>isTargetCrashed</code></td><td>Get</td><td>クラッシュ状態</td></tr>
-    <tr><td><code>isTargetClosed</code></td><td>Get</td><td>クローズ状態</td></tr>
-    <tr><td><code>InheritanceCDPBrowser</code></td><td>Get/Set</td><td>親 <code>CDPBrowser</code> 参照</td></tr>
-    <tr><td><code>InheritanceCDPCore</code></td><td>Get/Set</td><td>内部 <code>CDPCore</code> 参照</td></tr>
-    <tr><td><code>TimeOutSecond</code></td><td>Get/Let</td><td>タイムアウト（<code>Double</code>）</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>Url</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">現在の URL を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get Url() As String
+Property Let Url(newURL As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>Name</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">タブ名（ページタイトル）を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get Name() As String
+Property Let Name(newName As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>html</code> <span class="method-kind">Property Get → String</span><span class="method-ref-hint">ページの HTML ソースを取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get html() As String</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>CurrentSessionID</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">CDP セッション ID を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get CurrentSessionID() As String
+Property Let CurrentSessionID(newSessionID As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>CurrentTargetID</code> <span class="method-kind">Property Get → String</span><span class="method-ref-hint">Target ID を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get CurrentTargetID() As String</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>BrowserWindowHandle</code> <span class="method-kind">Property Get → LongPtr</span><span class="method-ref-hint">ブラウザウィンドウの HWND を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr</code></pre>
+    <p><code>alwaysRequest:=True</code> で毎回 CDP から再取得します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>BrowserWindowID</code> <span class="method-kind">Property Get → Long</span><span class="method-ref-hint">ブラウザウィンドウ ID を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>isTargetDisconnected</code> <span class="method-kind">Property Get → Boolean</span><span class="method-ref-hint">ターゲットが切断されたかを取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get isTargetDisconnected() As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>isTargetCrashed</code> <span class="method-kind">Property Get → Boolean</span><span class="method-ref-hint">ターゲットがクラッシュしたかを取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get isTargetCrashed() As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>isTargetClosed</code> <span class="method-kind">Property Get → Boolean</span><span class="method-ref-hint">ターゲットが閉じられたかを取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get isTargetClosed() As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>InheritanceCDPBrowser</code> <span class="method-kind">Property Get/Set → CDPBrowser</span><span class="method-ref-hint">親 CDPBrowser への参照を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get InheritanceCDPBrowser() As CDPBrowser
+Property Set InheritanceCDPBrowser(Target As CDPBrowser)</code></pre>
+    <p><code>TakeEvents</code> 等のブラウザ単位 API へのアクセスに使用します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>InheritanceCDPCore</code> <span class="method-kind">Property Get/Set → CDPCore</span><span class="method-ref-hint">内部 CDPCore への参照を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get InheritanceCDPCore() As CDPCore
+Property Set InheritanceCDPCore(Target As CDPCore)</code></pre>
+  </div>
+</details>
+
+</div>
 
 <p style="margin-top: 2rem; text-align: center;">
   <a href="#cdp-element-methods" onclick="loadContent('cdp-element-methods')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">CDPElement →</a>

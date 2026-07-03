@@ -1,90 +1,325 @@
 <h1>メソッド リファレンス：<span style="color:var(--accent-color)">CDPElement</span></h1>
 <p><code>CDPElement.cls</code> が公開する Public メソッド・Propertyの完全リファレンスです。<br>
-<code>objectId</code> ベースで DOM 要素を操作するラッパーです。通常は <code>CDPContext.getElementBy*</code> から取得します。</p>
+<code>objectId</code> ベースで DOM 要素を操作するラッパーです。通常は <code>CDPContext.getElementBy*</code> から取得します。<br>
+各項目をクリックすると、シグネチャ・引数・使い方が展開されます。</p>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
 <h2>🔧 初期化</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>Init</code> / <code>ExposeDevTools</code></h3>
-  <p style="margin:0;"><code>Init</code> は内部生成用。<code>ExposeDevTools(varName)</code> で DevTools コンソールに要素を公開します。</p>
+<details class="method-ref">
+  <summary><code>Init</code> <span class="method-kind">Sub</span><span class="method-ref-hint">内部生成用の初期化（通常は直接呼ばない）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)</code></pre>
+    <p><code>CDPContext.getElementBy*</code> 内部で使用されます。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>ExposeDevTools</code> <span class="method-kind">Sub</span><span class="method-ref-hint">DevTools コンソールに要素を変数として公開する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Sub ExposeDevTools(varName As String)</code></pre>
+    <p>コンソールで <code>varName</code> として要素を参照できるようになります。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>🖱️ 操作</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>メソッド</th><th>戻り値</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>click</code></td><td><code>Boolean</code></td><td>クリック（<code>till</code> で ReadyState 待機可）</td></tr>
-    <tr><td><code>submit</code></td><td><code>Boolean</code></td><td>フォーム送信</td></tr>
-    <tr><td><code>focus</code></td><td>—</td><td>フォーカス</td></tr>
-    <tr><td><code>fireEvent</code></td><td><code>Boolean</code></td><td>任意イベント発火</td></tr>
-    <tr><td><code>sendString</code></td><td><code>Boolean</code></td><td>テキスト入力（日本語・絵文字対応）</td></tr>
-    <tr><td><code>sendClick</code></td><td><code>Boolean</code></td><td>座標クリック</td></tr>
-    <tr><td><code>sendKey</code></td><td><code>Boolean</code></td><td>キー入力（<code>keyboardCode</code> Enum）</td></tr>
-    <tr><td><code>clearValue</code></td><td><code>Boolean</code></td><td>入力値クリア</td></tr>
-    <tr><td><code>selectText</code></td><td>—</td><td>テキスト選択</td></tr>
-    <tr><td><code>setSelection</code></td><td>—</td><td>select 要素の option 選択</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>click</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">要素をクリックする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function click(Optional till As ReadyState = isComplete) As Boolean</code></pre>
+    <p><code>till</code> でクリック後の ReadyState 待機が可能です。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>submit</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">フォームを送信する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function submit(Optional till As ReadyState = isComplete) As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>focus</code> <span class="method-kind">Function</span><span class="method-ref-hint">要素にフォーカスを当てる</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function focus()</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>fireEvent</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">任意の DOM イベントを発火する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete) As Boolean</code></pre>
+    <p>例: <code>"change"</code>, <code>"input"</code>, <code>"mouseover"</code></p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>sendString</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">テキストを入力する（日本語・絵文字対応）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function sendString(textToSend As String) As Boolean</code></pre>
+    <p>CDP <code>Input.insertText</code> ベースで、IME 不要の直接入力です。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>sendClick</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">要素の座標をクリックする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function sendClick() As Boolean</code></pre>
+    <p>要素の中心座標に対してマウスクリックを送信します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>sendKey</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">キーボード入力を送信する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False) As Boolean</code></pre>
+    <p><code>keyboardCode</code> Enum でキーを指定します。<code>altKey:=True</code> で Alt 修飾。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>clearValue</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">入力フィールドの値をクリアする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function clearValue() As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>selectText</code> <span class="method-kind">Function</span><span class="method-ref-hint">要素内のテキストを全選択する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function selectText()</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>setSelection</code> <span class="method-kind">Function</span><span class="method-ref-hint">select 要素の option を選択する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function setSelection(strOptionName As String)</code></pre>
+    <p>option の表示テキストまたは value で選択します。</p>
+  </div>
+</details>
+
+</div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>📋 属性・内容</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>名前</th><th>種別</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>value</code></td><td>Property Get/Let</td><td>input の value</td></tr>
-    <tr><td><code>innerText</code></td><td>Property Get/Let</td><td>表示テキスト</td></tr>
-    <tr><td><code>innerHTML</code></td><td>Property Get/Let</td><td>内部 HTML</td></tr>
-    <tr><td><code>checked</code></td><td>Property Get/Let</td><td>checkbox 状態</td></tr>
-    <tr><td><code>selected</code></td><td>Property Get/Let</td><td>select の選択値</td></tr>
-    <tr><td><code>getAttribute</code></td><td>Function</td><td>属性値取得</td></tr>
-    <tr><td><code>setAttribute</code></td><td>Function</td><td>属性値設定</td></tr>
-    <tr><td><code>CurrentObjectId</code></td><td>Property Get</td><td>CDP objectId</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>value</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">input 要素の value を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get value() As String
+Property Let value(strTextVal As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>innerText</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">表示テキストを取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get innerText() As String
+Property Let innerText(strTextVal As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>innerHTML</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">内部 HTML を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get innerHTML() As String
+Property Let innerHTML(strTextVal As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>checked</code> <span class="method-kind">Property Get/Let → Boolean</span><span class="method-ref-hint">checkbox / radio の checked 状態を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get checked() As Boolean
+Property Let checked(boolChecked As Boolean)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>selected</code> <span class="method-kind">Property Get/Let → String</span><span class="method-ref-hint">select 要素の選択値を取得・設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get selected() As String
+Property Let selected(selectedOption As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getAttribute</code> <span class="method-kind">Function → String</span><span class="method-ref-hint">属性値を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getAttribute(strAttributeName As String) As String</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>setAttribute</code> <span class="method-kind">Function</span><span class="method-ref-hint">属性値を設定する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function setAttribute(strAttributeName As String, strValue As String)</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>CurrentObjectId</code> <span class="method-kind">Property Get → String</span><span class="method-ref-hint">CDP objectId を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Property Get CurrentObjectId() As String</code></pre>
+    <p>低レベル CDP 操作時に使用します。</p>
+  </div>
+</details>
+
+</div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>⏳ 存在確認・待機</h2>
+<div class="method-ref-list">
 
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>isExist</code> / <code>onExist</code> / <code>onExistNot</code></h3>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function isExist() As Boolean
-Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement
-Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean</code></pre>
-  <p style="margin:0;"><code>onExist</code> は要素出現までポーリングし、見つかった <code>CDPElement</code> を返します。</p>
+<details class="method-ref">
+  <summary><code>isExist</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">要素が DOM 上に存在するか即時確認する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function isExist() As Boolean</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>onExist</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">要素の出現までポーリングし、見つかった CDPElement を返す</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement</code></pre>
+    <table class="method-table">
+      <thead><tr><th>引数</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td><code>timeOutInSeconds</code></td><td>タイムアウト秒数（デフォルト <code>30</code>）</td></tr>
+        <tr><td><code>raiseTimeoutError</code></td><td>タイムアウト時に例外を発生（デフォルト <code>True</code>）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>onExistNot</code> <span class="method-kind">Function → Boolean</span><span class="method-ref-hint">要素の消失までポーリングする</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean</code></pre>
+    <p>要素が消えるまで待機し、成功時 <code>True</code> を返します。</p>
+  </div>
+</details>
+
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
 <h2>🌳 DOM ツリー・検索</h2>
+<div class="method-ref-list">
 
-<table class="method-table">
-  <thead><tr><th>メソッド</th><th>戻り値</th><th>説明</th></tr></thead>
-  <tbody>
-    <tr><td><code>getParent</code></td><td><code>CDPElement</code></td><td>親要素</td></tr>
-    <tr><td><code>getNextSibling</code> / <code>getPrevSibling</code></td><td><code>CDPElement</code></td><td>兄弟要素</td></tr>
-    <tr><td><code>getFirstChild</code> / <code>getChildren</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>子要素</td></tr>
-    <tr><td><code>getElementByID</code></td><td><code>CDPElement</code></td><td>子孫を ID で検索</td></tr>
-    <tr><td><code>getElementByQuery</code> / <code>getElementsByQuery</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>CSS セレクタ</td></tr>
-    <tr><td><code>getElementByXPath</code> / <code>getElementsByXPath</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>XPath</td></tr>
-    <tr><td><code>getIFrame</code></td><td><code>CDPElement</code></td><td>iframe 要素</td></tr>
-    <tr><td><code>GetShadowRoot</code></td><td><code>CDPElement</code></td><td>Shadow DOM ルート（メソッドチェーン可）</td></tr>
-    <tr><td><code>GetShadowRoots</code></td><td><code>Collection</code></td><td>複数 Shadow Root</td></tr>
-  </tbody>
-</table>
+<details class="method-ref">
+  <summary><code>getParent</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">親要素を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getParent() As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getNextSibling</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">次の兄弟要素を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getNextSibling() As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getPrevSibling</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">前の兄弟要素を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getPrevSibling() As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getFirstChild</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">最初の子要素を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getFirstChild() As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getChildren</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">すべての子要素を Collection で取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getChildren() As Collection</code></pre>
+    <p>各要素は <code>CDPElement</code> として格納されます。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementByID</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">子孫要素を ID で検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByID(strID As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementByQuery</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">子孫要素を CSS セレクタで単一検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByQuery(strQuery As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementsByQuery</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">子孫要素を CSS セレクタで複数検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementsByQuery(strQuery As String) As Collection</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementByXPath</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">子孫要素を XPath で単一検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementByXPath(strXPath As String) As CDPElement</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getElementsByXPath</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">子孫要素を XPath で複数検索する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getElementsByXPath(strXPath As String) As Collection</code></pre>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>getIFrame</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">iframe 要素を取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function getIFrame() As CDPElement</code></pre>
+    <p>iframe 内の操作に使用します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>GetShadowRoot</code> <span class="method-kind">Function → CDPElement</span><span class="method-ref-hint">Shadow DOM ルートを取得する（メソッドチェーン可）</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function GetShadowRoot(Optional Index As Long) As CDPElement</code></pre>
+    <p>複数 Shadow Root がある場合は <code>Index</code> で指定します。</p>
+  </div>
+</details>
+
+<details class="method-ref">
+  <summary><code>GetShadowRoots</code> <span class="method-kind">Function → Collection</span><span class="method-ref-hint">すべての Shadow Root を Collection で取得する</span></summary>
+  <div class="method-ref-body">
+    <pre><code class="language-vb">Public Function GetShadowRoots() As Collection</code></pre>
+  </div>
+</details>
+
+</div>
 
 <div class="alert tip">
   <div class="alert-icon">💡</div>
   <div class="alert-content">
     <strong>Shadow DOM の例</strong>
-    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">ctx.getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click</code></pre>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vb">ctx.getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click</code></pre>
   </div>
 </div>
 
