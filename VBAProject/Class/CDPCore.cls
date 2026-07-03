@@ -727,6 +727,8 @@ Private Sub bufferCheck(resSize As Long)
     Const FromProcedureName As String = ThisClassName & ".bufferCheck"
 
 
+    '新規メッセージがない場合は即抜け
+    If resSize <= 0 Then printMsg WARN_, LogID, "No message was found, so the buffer check will be skipped.", FromProcedureName: Exit Sub
     With responseCDP
         '1. 上限を越しそうになったら、拡張する(高負荷ポイント)
         '※オーバフローしたらこのツールでは対応できません
@@ -736,11 +738,11 @@ Private Sub bufferCheck(resSize As Long)
             printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
-        '2. カーソル位置を更新
+        '2. 有効予定なCDPメッセージカーソル末尾位置を更新
         .EndCursor = .EndCursor + resSize
 
         '3. 新規メッセージフラグを付与
-        If resSize > 0 Then .ExistsNewRes = True
+        .ExistsNewRes = True
     End With
 End Sub
 
