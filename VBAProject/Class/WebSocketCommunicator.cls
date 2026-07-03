@@ -608,7 +608,7 @@ End Function
 '***************************************************************************************************
 '                                ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：バッファ初期化
+'* 機能　　：cursor管理情報の初期化
 '***************************************************************************************************
 Private Sub InitializeBuffer(CurrentPointer As Long, BufferLength As Long)
     CurrentPointer = 0
@@ -616,9 +616,9 @@ Private Sub InitializeBuffer(CurrentPointer As Long, BufferLength As Long)
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：バッファ管理情報更新
+'* 機能　　：cursor管理情報更新
 '***************************************************************************************************
-Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
+Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes As Long)
     CurrentPointer = CurrentPointer + ReceiveBytes
     BufferLength = BufferLength - ReceiveBytes
 End Sub
