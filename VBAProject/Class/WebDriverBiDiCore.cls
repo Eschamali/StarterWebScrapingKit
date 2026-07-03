@@ -369,9 +369,8 @@ End Sub
 '***************************************************************************************************
 Private Sub RunCDP(strData As String, StopCDPError As Boolean)
     '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
-'    Dim safeJson As String
-'    safeJson = Replace(strData, "\", "\\")
-'    safeJson = Replace(safeJson, "'", "\'")
+    If InStr(1, strData, "\") Then strData = Replace(strData, "\", "\\")
+    If InStr(1, strData, "'") Then strData = Replace(strData, "'", "\'")
 
     '2. `expression`を組み立て
     Dim paramsCDP As New Dictionary
