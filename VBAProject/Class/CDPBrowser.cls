@@ -721,7 +721,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     sessionID_ = attachToTab(tabId)
 
     '4. メイン化する場合は、Excelに記録しておく
-    If setMain Then serializeForMainTab tabId, sessionID_
+    If setMain Then serializeForMainTab sessionID_, tabId
 
 
     '------ 5. 専用のクラスとして返却する準備 ------
@@ -887,7 +887,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     sessionID_ = attachToTab(tabId)
 
     '9. メイン化する場合は、Excelに記録しておく
-    If setMain Then serializeForMainTab tabId, sessionID_
+    If setMain Then serializeForMainTab sessionID_, tabId
 
 
     '------ 10.専用のクラスとして返却する準備 ------
