@@ -932,10 +932,12 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         'レスの確認
         Dim tmp As String: tmp = TakeCDPMessage
-        If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+        If StrPtr(tmp) Then
+            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
-        '受信データのチェックを行うプロシージャへ遷移します。
-        Call BrowserReceivedDataCheck(tmp)
+            '受信データのチェックを行うプロシージャへ遷移します。
+            Call BrowserReceivedDataCheck(tmp)
+        End If
 
         '受信データのチェックの間に来たPipeも取り出しておきます
         TakePipe StopPipeError, destruction
