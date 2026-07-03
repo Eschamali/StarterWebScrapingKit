@@ -1,0 +1,110 @@
+<h1>メソッド リファレンス：<span style="color:var(--accent-color)">WebDriverBiDiContext</span></h1>
+<p><code>WebDriverBiDiContext.cls</code> が公開する Public メソッド・Propertyの完全リファレンスです。<br>
+BiDi セッション上の1コンテキスト（タブ相当）を操作します。多くのデモは <code>設定シートからのBiDi起動ForTab</code> でこのクラスのインスタンスを取得します。</p>
+
+<div class="alert tip">
+  <div class="alert-icon">💡</div>
+  <div class="alert-content">
+    <strong>BiDiCDPJson の読み方</strong>
+    <p><code>ExecuteBiDi</code> の戻り値は <code>BiDiCDPJson</code> です。</p>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">Dim resultBiDi As BiDiCDPJson
+Set resultBiDi = ctx.ExecuteBiDi("goog:cdp.getSession")
+If Not resultBiDi Is Nothing Then Debug.Print resultBiDi.StringKey("session")</code></pre>
+  </div>
+</div>
+
+<div class="alert success">
+  <div class="alert-icon">🌉</div>
+  <div class="alert-content">
+    <strong><code>ConvertToCDPContext</code> — BiDi と CDP の橋渡し</strong>
+    <p>BiDi だけでは要素操作（<code>click</code>, <code>sendString</code> 等）ができません。詳細な DOM 操作が必要な場合は <code>ConvertToCDPContext()</code> で <code>CDPContext</code> に変換して CDP スタックの API を利用してください。</p>
+  </div>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<h2>🚀 ライフサイクル</h2>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>StartBiDiModeAndConnectTab</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
+  <p style="margin:0 0 1rem;">ブラウザ起動と BiDi コンテキスト接続を一括で行います。</p>
+  <table class="method-table">
+    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
+    <tbody>
+      <tr><td><code>Name</code></td><td><code>String</code></td><td>✔ (<code>"chrome"</code>)</td><td>ブラウザ種別</td></tr>
+      <tr><td><code>appUrl</code></td><td><code>String</code></td><td>✔</td><td>起動時URL</td></tr>
+      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✔</td><td>プロファイル名</td></tr>
+      <tr><td><code>addArgs</code></td><td><code>String</code></td><td>✔</td><td>追加起動引数</td></tr>
+      <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>✔</td><td>キオスクモード</td></tr>
+      <tr><td><code>sessionCapabilitiesRequest</code></td><td><code>Dictionary</code></td><td>✔</td><td>session.new の Capability</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>reattach</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Boolean</span></h3>
+  <p style="margin:0;">既存 BiDi セッションへ再接続。<code>userProfile</code>, <code>sessionCapabilitiesRequest</code> を指定。</p>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🌐 ナビゲーション</h2>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>navigate</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
+  <pre style="margin:0;"><code class="language-vbnet">Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)</code></pre>
+  <p style="margin:0.8rem 0 0;">URL 遷移と ReadyState 待機を行います。CDPContext の <code>navigate</code> と同様の <code>ReadyState</code> Enum を使用します。</p>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>⚡ BiDi コマンド</h2>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>ExecuteBiDi</code> / <code>ExecuteBiDiAsync</code></h3>
+  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long</code></pre>
+  <p style="margin:0;">コンテキストスコープの BiDi コマンド実行。ブラウザ単位の Property（<code>BiDiEvents</code>, <code>TakeResultBiDi</code> 等）は <code>InheritanceWebDriverBiDiMode</code> 経由でアクセスします。</p>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🌉 CDP への変換</h2>
+
+<div class="method-block" style="border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(16,185,129,0.04);">
+  <h3 style="margin:0 0 0.5rem;"><code>ConvertToCDPContext</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → CDPContext</span></h3>
+  <p style="margin:0 0 1rem;">現在の BiDi コンテキストに対応する <code>CDPContext</code> を生成します。同一ブラウザ・同一タブ上で CDP の要素操作 API を使えるようになります。</p>
+  <pre style="margin:0;"><code class="language-vbnet">Dim cdpCtx As CDPContext
+Set cdpCtx = bidiCtx.ConvertToCDPContext()
+cdpCtx.getElementByID("submit").click</code></pre>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>📦 Property</h2>
+
+<table class="method-table">
+  <thead><tr><th>名前</th><th>Get/Set</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>context</code></td><td>Get/Let</td><td>BiDi browsing context ID</td></tr>
+    <tr><td><code>isContextClosed</code></td><td>Get</td><td>コンテキストが閉じられたか</td></tr>
+    <tr><td><code>InheritanceWebDriverBiDiMode</code></td><td>Get/Set</td><td>親 <code>WebDriverBiDiMode</code>（<code>BiDiEvents</code>, <code>quit</code> 等）</td></tr>
+    <tr><td><code>InheritanceWebDriverBiDiCore</code></td><td>Get/Set</td><td>内部 <code>WebDriverBiDiCore</code></td></tr>
+  </tbody>
+</table>
+
+<div class="alert note">
+  <div class="alert-icon">📌</div>
+  <div class="alert-content">
+    <p>イベント操作の典型パターン:</p>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">Set ctx.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+Set ctx.InheritanceWebDriverBiDiMode.sessionSubscribe = eventsArray
+ctx.navigate "https://example.com"
+ctx.InheritanceWebDriverBiDiMode.TakeEvents</code></pre>
+  </div>
+</div>
+
+<p style="margin-top: 2rem; text-align: center;">
+  <a href="#bidi-methods" onclick="loadContent('bidi-methods')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">← WebDriverBiDiMode</a>
+  <a href="#bidi-intro" onclick="loadContent('bidi-intro')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">デモコードを見る →</a>
+</p>

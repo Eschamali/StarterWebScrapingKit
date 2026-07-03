@@ -1,0 +1,94 @@
+<h1>メソッド リファレンス：<span style="color:var(--accent-color)">CDPElement</span></h1>
+<p><code>CDPElement.cls</code> が公開する Public メソッド・Propertyの完全リファレンスです。<br>
+<code>objectId</code> ベースで DOM 要素を操作するラッパーです。通常は <code>CDPContext.getElementBy*</code> から取得します。</p>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<h2>🔧 初期化</h2>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>Init</code> / <code>ExposeDevTools</code></h3>
+  <p style="margin:0;"><code>Init</code> は内部生成用。<code>ExposeDevTools(varName)</code> で DevTools コンソールに要素を公開します。</p>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🖱️ 操作</h2>
+
+<table class="method-table">
+  <thead><tr><th>メソッド</th><th>戻り値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>click</code></td><td><code>Boolean</code></td><td>クリック（<code>till</code> で ReadyState 待機可）</td></tr>
+    <tr><td><code>submit</code></td><td><code>Boolean</code></td><td>フォーム送信</td></tr>
+    <tr><td><code>focus</code></td><td>—</td><td>フォーカス</td></tr>
+    <tr><td><code>fireEvent</code></td><td><code>Boolean</code></td><td>任意イベント発火</td></tr>
+    <tr><td><code>sendString</code></td><td><code>Boolean</code></td><td>テキスト入力（日本語・絵文字対応）</td></tr>
+    <tr><td><code>sendClick</code></td><td><code>Boolean</code></td><td>座標クリック</td></tr>
+    <tr><td><code>sendKey</code></td><td><code>Boolean</code></td><td>キー入力（<code>keyboardCode</code> Enum）</td></tr>
+    <tr><td><code>clearValue</code></td><td><code>Boolean</code></td><td>入力値クリア</td></tr>
+    <tr><td><code>selectText</code></td><td>—</td><td>テキスト選択</td></tr>
+    <tr><td><code>setSelection</code></td><td>—</td><td>select 要素の option 選択</td></tr>
+  </tbody>
+</table>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>📋 属性・内容</h2>
+
+<table class="method-table">
+  <thead><tr><th>名前</th><th>種別</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>value</code></td><td>Property Get/Let</td><td>input の value</td></tr>
+    <tr><td><code>innerText</code></td><td>Property Get/Let</td><td>表示テキスト</td></tr>
+    <tr><td><code>innerHTML</code></td><td>Property Get/Let</td><td>内部 HTML</td></tr>
+    <tr><td><code>checked</code></td><td>Property Get/Let</td><td>checkbox 状態</td></tr>
+    <tr><td><code>selected</code></td><td>Property Get/Let</td><td>select の選択値</td></tr>
+    <tr><td><code>getAttribute</code></td><td>Function</td><td>属性値取得</td></tr>
+    <tr><td><code>setAttribute</code></td><td>Function</td><td>属性値設定</td></tr>
+    <tr><td><code>CurrentObjectId</code></td><td>Property Get</td><td>CDP objectId</td></tr>
+  </tbody>
+</table>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>⏳ 存在確認・待機</h2>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>isExist</code> / <code>onExist</code> / <code>onExistNot</code></h3>
+  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function isExist() As Boolean
+Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raiseTimeoutError As Boolean = True) As CDPElement
+Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean</code></pre>
+  <p style="margin:0;"><code>onExist</code> は要素出現までポーリングし、見つかった <code>CDPElement</code> を返します。</p>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
+
+<h2>🌳 DOM ツリー・検索</h2>
+
+<table class="method-table">
+  <thead><tr><th>メソッド</th><th>戻り値</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>getParent</code></td><td><code>CDPElement</code></td><td>親要素</td></tr>
+    <tr><td><code>getNextSibling</code> / <code>getPrevSibling</code></td><td><code>CDPElement</code></td><td>兄弟要素</td></tr>
+    <tr><td><code>getFirstChild</code> / <code>getChildren</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>子要素</td></tr>
+    <tr><td><code>getElementByID</code></td><td><code>CDPElement</code></td><td>子孫を ID で検索</td></tr>
+    <tr><td><code>getElementByQuery</code> / <code>getElementsByQuery</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>CSS セレクタ</td></tr>
+    <tr><td><code>getElementByXPath</code> / <code>getElementsByXPath</code></td><td><code>CDPElement</code> / <code>Collection</code></td><td>XPath</td></tr>
+    <tr><td><code>getIFrame</code></td><td><code>CDPElement</code></td><td>iframe 要素</td></tr>
+    <tr><td><code>GetShadowRoot</code></td><td><code>CDPElement</code></td><td>Shadow DOM ルート（メソッドチェーン可）</td></tr>
+    <tr><td><code>GetShadowRoots</code></td><td><code>Collection</code></td><td>複数 Shadow Root</td></tr>
+  </tbody>
+</table>
+
+<div class="alert tip">
+  <div class="alert-icon">💡</div>
+  <div class="alert-content">
+    <strong>Shadow DOM の例</strong>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">ctx.getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click</code></pre>
+  </div>
+</div>
+
+<p style="margin-top: 2rem; text-align: center;">
+  <a href="#cdp-context-methods" onclick="loadContent('cdp-context-methods')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">← CDPContext</a>
+  <a href="#cdp-demos" onclick="loadContent('cdp-demos')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">デモコードを見る →</a>
+</p>

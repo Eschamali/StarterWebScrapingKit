@@ -21,7 +21,7 @@
 <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る</summary>
 <pre><code class="language-vbnet">Sub JapaneseElementTest()
     '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
-    Dim Demo_Japanese As CDPContext: Set Demo_Japanese = 設定シートからのCDP起動forTab("https://keisan.site/exec/system/1161228728")
+    Dim Demo_Japanese As CDPContext: Set Demo_Japanese = 設定シートからのCDP起動ForTab("https://keisan.site/exec/system/1161228728")
 
     ' 身長をセット
     Dim height As CDPElement
@@ -76,11 +76,10 @@ End Sub</code></pre>
 <summary style="font-weight: bold; padding: 0.5rem; background-color: rgba(255,255,255,0.05); border-radius: 4px;">Demoコードを見る</summary>
 <pre><code class="language-vbnet">Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-    Dim CharConvObj As New CharacterCodeConversion:
+    Dim CharConvObj As New CharacterCodeConversion
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim Demo_NetworkEvent As CDPContext: Set Demo_NetworkEvent = 設定シートからのCDP起動forTab
+    Dim Demo_NetworkEvent As CDPContext: Set Demo_NetworkEvent = 設定シートからのCDP起動ForTab
 
     '一部の非同期イベントのみキャプチャするようにフィルターを設定
     '※未設定の場合は、全キャプチャとなります。今回のDemoの場合は、下記2つをコメントアウトすると、全キャプチャとなります
@@ -92,7 +91,7 @@ End Sub</code></pre>
     Set Demo_NetworkEvent.BrowserEvents = New Dictionary        '`New Dictionary`を渡すことで、新規イベントキャプチャが可能になる。
 
     'ネットワークイベント受信を有効化する
-    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.ExecuteCDP("Network.enable")
+    Demo_NetworkEvent.ExecuteCDP "Network.enable"
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -101,7 +100,7 @@ End Sub</code></pre>
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -115,7 +114,7 @@ End Sub</code></pre>
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -129,7 +128,7 @@ End Sub</code></pre>
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了

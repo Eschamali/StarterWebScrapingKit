@@ -42,7 +42,7 @@ Demo_NetworkEvent.ExecuteCDP "Network.getCookies", ...</code></pre>
     <div class="alert-content">
         <strong>パフォーマンス最適化：イベントフィルタリング</strong>
         <p><code>Network</code> ドメインなどは大量の非同期イベントを発生させます。すべてのイベントを律儀に受信・解析していると、VBA側の処理がボトルネックになることがあります。</p>
-        <p><code>SetFilterEvents</code> プロパティを使用することで、<strong>「特定のイベントだけをJSONパース＆蓄積する」</strong>という、知的な省エネ運転が可能になります。</p>
+        <p><code>SetFilterEvents</code> プロパティ（<code>CDPContext</code> に実装）を使用することで、<strong>「特定のイベントだけをJSONパース＆蓄積する」</strong>という、知的な省エネ運転が可能になります。詳細は <a href="#cdp-context-methods" onclick="loadContent('cdp-context-methods')">CDPContext リファレンス</a> を参照。</p>
     </div>
 </div>
 
@@ -114,7 +114,7 @@ CDPで要素の、中心を、クリックする、VBAコードを、生成し�
     <div class="alert-icon">🤝</div>
     <div class="alert-content">
         <p>我々、ツール作成者の、"使命"は、<br>
-        "揺るぎない、最高の『土台（<code>ExecuteCDP</code>）』"を、磨き上げ、提供し続けること。</p>
+        "揺るぎない、最高の『土台（<code>ExecuteCDP</code> → <code>BiDiCDPJson</code>）』"を、磨き上げ、提供し続けること。</p>
         <p>And,<br>
         あなた、利用者の、"使命"は、<br>
         AIという、"翼"を、使いこなし、<br>

@@ -1,240 +1,216 @@
-<h1>メソッド リファレンス：<span style="color:var(--accent-color)">WebDriverBiDiCore</span></h1>
-<p><code>WebDriverBiDiCore.cls</code> が公開する Publicメソッド・Propertyの完全リファレンスです。</p>
+<h1>メソッド リファレンス：<span style="color:var(--accent-color)">WebDriverBiDiMode</span></h1>
+<p><code>WebDriverBiDiMode.cls</code> が公開する Public メソッド・Propertyの完全リファレンスです。<br>
+ブラウザ単位（<code>--user-data-dir</code> 相当）の BiDi 制御はこのクラスが担います。タブ単位の操作は <a href="#bidi-context-methods" onclick="loadContent('bidi-context-methods')">WebDriverBiDiContext</a> を参照してください。</p>
+
+<div class="alert tip">
+  <div class="alert-icon">💡</div>
+  <div class="alert-content">
+    <strong>BiDiCDPJson の読み方</strong>
+    <p><code>ExecuteBiDi</code> の戻り値は <code>BiDiCDPJson</code> です（旧 <code>Dictionary</code> ではありません）。</p>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">Dim resultBiDi As BiDiCDPJson
+Set resultBiDi = mode.ExecuteBiDi("browsingContext.getTree")
+If Not resultBiDi Is Nothing Then
+    Debug.Print resultBiDi.StringKey("context")          ' キー文字列
+    Set child = resultBiDi.NodeKey("result")             ' 子ノード
+End If
+' エラー時（StopBiDiError:=False）: Nothing → .LastBiDiJsonError で詳細確認</code></pre>
+  </div>
+</div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
 
-<!-- ===== Public Methods ===== -->
 <h2>🔧 Public メソッド</h2>
 
-<!-- start -->
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>start</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
-  <p style="margin:0 0 1rem;">ブラウザを起動し、BiDiマッパーの注入からセッション確立までを一括で行います。<br>
-  内部では <code>CDPBrowser.start</code> → <code>StartBiDiCDPMapper</code> → <code>session.new</code> の順に処理されます。</p>
-  <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>デフォルト</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>Name</code></td><td><code>String</code></td><td>✔</td><td><code>"chrome"</code></td><td>使用するブラウザ名。<code>"chrome"</code> または <code>"edge"</code></td></tr>
-      <tr><td><code>appUrl</code></td><td><code>String</code></td><td>✔</td><td>—</td><td>起動時に遷移するURL。省略時は空ページ</td></tr>
-      <tr><td><code>cleanActive</code></td><td><code>Boolean</code></td><td>✔</td><td><code>True</code></td><td><code>True</code>：既存のデバッグブラウザをKillして起動。<code>False</code>：チェックなしで新規起動</td></tr>
-      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✔</td><td>—</td><td><code>UserDataDir</code> のプロファイル名</td></tr>
-      <tr><td><code>addArgs</code></td><td><code>String</code></td><td>✔</td><td>—</td><td>追加の起動引数</td></tr>
-      <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>✔</td><td><code>0</code></td><td><code>0</code>:通常 / <code>1</code>:キオスク(サイネージ) / <code>2</code>:キオスク(パブリック)</td></tr>
-      <tr><td><code>sessionCapabilitiesRequest</code></td><td><code>Dictionary</code></td><td>✔</td><td>—</td><td><code>session.new</code> に渡すCapabilityパラメーター</td></tr>
-    </tbody>
-  </table>
-  <p style="margin:0.8rem 0 0; color:var(--text-dim); font-size:0.9rem;">戻り値：なし (Sub)</p>
-</div>
-
-<!-- reattach -->
-<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>reattach</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Boolean</span></h3>
-  <p style="margin:0 0 1rem;">すでに起動中のデバッグブラウザへ再接続し、BiDiセッションを再確立します。<br>
-  マッパーが生きているか・URLが適切かを自動判定してリカバリーします。</p>
+  <h3 style="margin:0 0 0.5rem;"><code>StartBiDiMode</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
+  <p style="margin:0 0 1rem;">ブラウザを起動し、BiDiマッパーの注入から <code>session.new</code> によるセッション確立までを一括で行います。</p>
   <table class="method-table">
     <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
     <tbody>
-      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✖</td><td>再接続するブラウザのプロファイル名</td></tr>
-      <tr><td><code>sessionCapabilitiesRequest</code></td><td><code>Dictionary</code></td><td>✔</td><td><code>session.new</code> のCapabilityパラメーター（再起動時のみ使用）</td></tr>
+      <tr><td><code>Name</code></td><td><code>String</code></td><td>✔ (<code>"chrome"</code>)</td><td><code>"chrome"</code> または <code>"edge"</code></td></tr>
+      <tr><td><code>appUrl</code></td><td><code>String</code></td><td>✔</td><td>起動時に遷移するURL</td></tr>
+      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✔</td><td>UserDataDir のプロファイル名</td></tr>
+      <tr><td><code>addArgs</code></td><td><code>String</code></td><td>✔</td><td>追加の起動引数</td></tr>
+      <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>✔</td><td>キオスクモード種別</td></tr>
+      <tr><td><code>sessionCapabilitiesRequest</code></td><td><code>Dictionary</code></td><td>✔</td><td><code>session.new</code> に渡す Capability</td></tr>
     </tbody>
   </table>
-  <p style="margin:0.8rem 0 0;"><strong>戻り値：</strong><code>True</code> = 再接続成功 / <code>False</code> = 失敗</p>
 </div>
 
-<!-- invokeMethod -->
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>invokeMethod</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Dictionary</span></h3>
+  <h3 style="margin:0 0 0.5rem;"><code>reattach</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Boolean</span></h3>
+  <p style="margin:0 0 1rem;">起動中のデバッグブラウザへ再接続し、BiDiセッションを再確立します。</p>
+  <table class="method-table">
+    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
+    <tbody>
+      <tr><td><code>userProfile</code></td><td><code>String</code></td><td>✖</td><td>再接続するプロファイル名</td></tr>
+      <tr><td><code>sessionCapabilitiesRequest</code></td><td><code>Dictionary</code></td><td>✔</td><td>再起動時の Capability</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:0.8rem 0 0;"><strong>戻り値：</strong><code>True</code> = 成功 / <code>False</code> = 失敗</p>
+</div>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>newTab</code> / <code>getTab</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → WebDriverBiDiContext</span></h3>
+  <p style="margin:0 0 1rem;">新規タブの生成、または既存コンテキストの取得。戻り値は <code>WebDriverBiDiContext</code> です。</p>
+  <p style="margin:0; color:var(--text-dim); font-size:0.9rem;"><code>getTab</code> は <code>Url</code>, <code>maxDepth</code>, <code>setMain</code>, <code>doRetrySecond</code> を指定できます。</p>
+</div>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>ExecuteBiDi</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → BiDiCDPJson</span></h3>
   <p style="margin:0 0 1rem;">BiDiコマンドを <strong>同期</strong> 送信します。ブラウザから結果が返るまで待機します。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function invokeMethod( _
+  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function ExecuteBiDi( _
     ByVal methodName As String, _
     Optional params As Dictionary, _
-    Optional StopError As Boolean = True _
-) As Dictionary</code></pre>
+    Optional StopBiDiError As Boolean = True _
+) As BiDiCDPJson</code></pre>
   <table class="method-table">
     <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>デフォルト</th><th>説明</th></tr></thead>
     <tbody>
       <tr><td><code>methodName</code></td><td><code>String</code></td><td>✖</td><td>—</td><td>BiDiメソッド名（例: <code>"browsingContext.navigate"</code>）</td></tr>
       <tr><td><code>params</code></td><td><code>Dictionary</code></td><td>✔</td><td>—</td><td>コマンドパラメーター</td></tr>
-      <tr><td><code>StopError</code></td><td><code>Boolean</code></td><td>✔</td><td><code>True</code></td><td><code>True</code>：失敗時に <code>Err.Raise</code> で停止。<code>False</code>：<code>Nothing</code> を返して処理継続</td></tr>
+      <tr><td><code>StopBiDiError</code></td><td><code>Boolean</code></td><td>✔</td><td><code>True</code></td><td><code>False</code> 時は <code>Nothing</code> を返して継続</td></tr>
     </tbody>
   </table>
-  <p style="margin:0.8rem 0 0;"><strong>戻り値：</strong>BiDi結果の <code>result</code> オブジェクト (<code>Dictionary</code>)。エラー時は <code>Nothing</code>（<code>StopError=False</code> の場合）</p>
   <div class="alert warning" style="margin-top:0.8rem;">
-    <div class="alert-content"><strong>⚠️ エラー時の確認先</strong>: <code>StopError:=False</code> で <code>Nothing</code> が返った場合は <code>.LastBiDiJsonError</code> でエラー詳細を確認してください。</div>
+    <div class="alert-content"><strong>⚠️ エラー時</strong>: <code>StopBiDiError:=False</code> で <code>Nothing</code> が返った場合は <code>.LastBiDiJsonError</code> を参照してください。</div>
   </div>
 </div>
 
-<!-- invokeMethodAsync -->
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>invokeMethodAsync</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Long</span></h3>
-  <p style="margin:0 0 1rem;">BiDiコマンドを <strong>非同期</strong> 送信します。結果を待たず即座に次の処理へ進みます。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Function invokeMethodAsync( _
-    ByVal methodName As String, _
-    Optional params As Dictionary _
-) As Long</code></pre>
-  <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>methodName</code></td><td><code>String</code></td><td>✖</td><td>BiDiメソッド名</td></tr>
-      <tr><td><code>params</code></td><td><code>Dictionary</code></td><td>✔</td><td>コマンドパラメーター</td></tr>
-    </tbody>
-  </table>
-  <p style="margin:0.8rem 0 0;"><strong>戻り値：</strong>コマンドID (<code>Long</code>)。後から <code>ResultBiDiForAsync</code> に渡すことで結果を取得できます。</p>
+  <h3 style="margin:0 0 0.5rem;"><code>ExecuteBiDiAsync</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Function → Long</span></h3>
+  <p style="margin:0 0 1rem;">BiDiコマンドを <strong>非同期</strong> 送信します。戻り値のコマンドIDで後から <code>TakeResultBiDi</code> により結果を取得します。</p>
 </div>
 
-<!-- TakeEvents -->
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
   <h3 style="margin:0 0 0.5rem;"><code>TakeEvents</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
-  <p style="margin:0 0 1rem;">受信バッファを空になるまで処理し、<code>BiDiEvents</code> への蓄積・非同期結果の回収を行います。<br>
-  <code>invokeMethod</code> の内部でも自動呼び出しされますが、イベント待ち受けのポーリングループでも手動使用します。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Sub TakeEvents(Optional destruction As Boolean)</code></pre>
-  <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>デフォルト</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>destruction</code></td><td><code>Boolean</code></td><td>✔</td><td><code>False</code></td><td><code>True</code>：中身を解析せず即破棄（高速クリア）。<code>False</code>：IDとイベントを解析・格納</td></tr>
-    </tbody>
-  </table>
-  <p style="margin:0.8rem 0 0; color:var(--text-dim); font-size:0.9rem;">戻り値：なし (Sub)</p>
+  <p style="margin:0 0 1rem;">受信バッファを処理し、<code>BiDiEvents</code> への蓄積・非同期結果の回収を行います。</p>
+  <pre style="margin:0;"><code class="language-vbnet">Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean = False)</code></pre>
 </div>
 
-<!-- sleep / quit -->
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
   <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; background:rgba(255,255,255,0.02);">
     <h3 style="margin:0 0 0.5rem;"><code>sleep</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
-    <p style="margin:0 0 0.8rem;">指定秒数だけ処理を一時停止します。</p>
-    <table class="method-table">
-      <thead><tr><th>引数名</th><th>型</th><th>省略</th><th>デフォルト</th><th>説明</th></tr></thead>
-      <tbody>
-        <tr><td><code>Seconds</code></td><td><code>Double</code></td><td>✔</td><td><code>1</code></td><td>待機する秒数（小数可）</td></tr>
-      </tbody>
-    </table>
+    <p style="margin:0;">指定秒数待機（デフォルト <code>0.5</code> 秒）。</p>
   </div>
   <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; background:rgba(255,255,255,0.02);">
     <h3 style="margin:0 0 0.5rem;"><code>quit</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Sub</span></h3>
-    <p style="margin:0 0 0.8rem;">ブラウザを正常に終了します。内部リソースもすべて解放されます。</p>
-    <p style="margin:0; color:var(--text-dim); font-size:0.9rem;">引数・戻り値：なし</p>
+    <p style="margin:0;">ブラウザを正常終了し、内部リソースを解放します。</p>
   </div>
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
-<!-- ===== Properties ===== -->
 <h2>📦 Property</h2>
 
-<!-- BiDiEvents -->
 <div class="method-block" style="border:1px solid rgba(59,130,246,0.2); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(59,130,246,0.04);">
   <h3 style="margin:0 0 0.5rem;"><code>BiDiEvents</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get / Set → Dictionary</span></h3>
-  <p style="margin:0 0 1rem;">非同期イベントのキャプチャ状態を制御します。渡す値によって動作が変わります。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Property Get BiDiEvents() As Dictionary
-Property Set BiDiEvents(ObjDic As Dictionary)</code></pre>
+  <p style="margin:0 0 1rem;">非同期イベントのキャプチャ状態を制御します。</p>
   <table class="method-table">
     <thead><tr><th>渡す値</th><th>動作</th></tr></thead>
     <tbody>
-      <tr><td><code>New Dictionary</code>（空）</td><td>イベントキャプチャを<strong>新規開始</strong>。内部で構造を自動初期化します</td></tr>
-      <tr><td>既存の <code>BiDiEvents</code> 値</td><td>セーブデータから<strong>再開</strong>。追記モードになります</td></tr>
-      <tr><td><code>Nothing</code></td><td>イベントキャプチャを<strong>停止</strong>・破棄します</td></tr>
+      <tr><td><code>New Dictionary</code></td><td>イベントキャプチャを<strong>新規開始</strong></td></tr>
+      <tr><td>既存の <code>BiDiEvents</code> 値</td><td>セーブデータから<strong>再開</strong></td></tr>
+      <tr><td><code>Nothing</code></td><td>イベントキャプチャを<strong>停止</strong></td></tr>
     </tbody>
   </table>
-  <p style="margin:0.8rem 0 0;"><strong>Getの戻り値：</strong>蓄積済みの <code>Dictionary</code>。キー構造：<code>TotalEvents</code> (Long) + <code>EventMethods</code> (Dictionary of Collections)</p>
 </div>
 
-<!-- LastBiDiJsonError -->
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;"><code>sessionSubscribe</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Set</span></h3>
+  <p style="margin:0 0 1rem;">購読するイベント名の <code>Collection</code> をセットします。内部で <code>session.subscribe</code> / <code>session.unsubscribe</code> を呼び出します。</p>
+  <pre style="margin:0;"><code class="language-vbnet">Dim eventsArray As New Collection
+eventsArray.Add "network.responseCompleted"
+Set mode.sessionSubscribe = eventsArray</code></pre>
+</div>
+
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
   <h3 style="margin:0 0 0.5rem;"><code>LastBiDiJsonError</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get → Dictionary</span></h3>
-  <p style="margin:0 0 0.8rem;">直前の <code>invokeMethod</code> が失敗したときのエラー詳細を返します。</p>
-  <table class="method-table">
-    <thead><tr><th>主なキー</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>"error"</code></td><td>エラー種別文字列（例: <code>"unknown command"</code>）</td></tr>
-      <tr><td><code>"message"</code></td><td>エラーメッセージ</td></tr>
-      <tr><td><code>"stacktrace"</code></td><td>スタックトレース（存在する場合のみ）</td></tr>
-    </tbody>
-  </table>
-  <div class="alert" style="margin-top:0.8rem;">
-    <div class="alert-content"><strong>💡 注意</strong>: 成功しても値はリセットされません（<code>Err.LastDllError</code> と同じ思想）。必ず <code>invokeMethod</code> の戻り値が <code>Nothing</code> のときのみ参照してください。</div>
-  </div>
+  <p style="margin:0;">直前の <code>ExecuteBiDi</code> 失敗時のエラー詳細。キー: <code>"error"</code>, <code>"message"</code>, <code>"stacktrace"</code></p>
 </div>
 
-<!-- ResultBiDiForAsync -->
 <div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
-  <h3 style="margin:0 0 0.5rem;"><code>ResultBiDiForAsync</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get → Dictionary</span></h3>
-  <p style="margin:0 0 1rem;"><code>invokeMethodAsync</code> で送信したコマンドの結果を、IDを指定して後から取り出します。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Property Get ResultBiDiForAsync( _
-    CommandID As Long, _
-    ErrorExist As Boolean _
-) As Dictionary</code></pre>
-  <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>説明</th></tr></thead>
-    <tbody>
-      <tr><td><code>CommandID</code></td><td><code>Long</code></td><td><code>invokeMethodAsync</code> が返した整理券番号</td></tr>
-      <tr><td><code>ErrorExist</code></td><td><code>Boolean</code>（参照渡し）</td><td><code>True</code> = IDが見つからない or エラー。実質的な第2戻り値</td></tr>
-    </tbody>
-  </table>
-  <p style="margin:0.8rem 0 0;"><strong>戻り値：</strong>成功時は <code>result</code> オブジェクト、エラー時はエラー情報の <code>Dictionary</code>。取り出し後はバッファから自動削除されます。</p>
+  <h3 style="margin:0 0 0.5rem;"><code>TakeResultBiDi</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get → String</span></h3>
+  <p style="margin:0 0 1rem;"><code>ExecuteBiDiAsync</code> で送信したコマンドIDの結果JSON文字列を取得します。取り出し後はバッファから削除されます。未着の場合は空文字列です。</p>
 </div>
 
-<!-- ResultAccumulatedLimitBiDiForAsync / TimeOutSecond -->
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
   <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; background:rgba(255,255,255,0.02);">
-    <h3 style="margin:0 0 0.5rem;"><code>ResultAccumulatedLimitBiDiForAsync</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get / Let → Long</span></h3>
-    <p style="margin:0 0 0.5rem;"><code>invokeMethodAsync</code> の結果バッファ上限件数を設定します。</p>
-    <table class="method-table">
-      <thead><tr><th>項目</th><th>値</th></tr></thead>
-      <tbody>
-        <tr><td>デフォルト</td><td><code>10</code></td></tr>
-        <tr><td>上限超過時</td><td>古いエントリから自動削除</td></tr>
-      </tbody>
-    </table>
+    <h3 style="margin:0 0 0.5rem;"><code>SetLimitBiDi</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Let → Long</span></h3>
+    <p style="margin:0;">非同期結果バッファの上限件数（デフォルト <code>10</code>）。</p>
   </div>
   <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; background:rgba(255,255,255,0.02);">
     <h3 style="margin:0 0 0.5rem;"><code>TimeOutSecond</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Get / Let → Long</span></h3>
-    <p style="margin:0 0 0.5rem;"><code>invokeMethod</code> がブラウザからの返答を待つタイムアウト時間（秒）を設定します。</p>
-    <table class="method-table">
-      <thead><tr><th>項目</th><th>値</th></tr></thead>
-      <tbody>
-        <tr><td>デフォルト</td><td><code>30</code>（秒）</td></tr>
-        <tr><td>超過時</td><td>エラーログ出力 → 強制終了</td></tr>
-      </tbody>
-    </table>
+    <p style="margin:0;">同期コマンドのタイムアウト秒数（デフォルト <code>30</code>）。</p>
   </div>
+</div>
+
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;">その他 Property</h3>
+  <table class="method-table">
+    <thead><tr><th>名前</th><th>説明</th></tr></thead>
+    <tbody>
+      <tr><td><code>serializeMainTab</code></td><td>メインタブの BiDi context ID をワークシートに記録/読取</td></tr>
+      <tr><td><code>EnableDiscoverContexts</code></td><td><code>contextCreated</code> / <code>contextDestroyed</code> イベントの購読と Context カウント</td></tr>
+      <tr><td><code>RunCollect_InfoList</code></td><td>Context 情報を格納する <code>Collection</code> への参照設定</td></tr>
+      <tr><td><code>InheritanceBiDiCore</code></td><td>内部の <code>WebDriverBiDiCore</code> へのアクセス</td></tr>
+    </tbody>
+  </table>
 </div>
 
 <hr style="border-color: rgba(255,255,255,0.08); margin: 2rem 0;">
 
-<!-- ===== Event ===== -->
-<h2>⚡ Event</h2>
+<h2>⚙️ WebDriverBiDiCore（低レベル）</h2>
+<p><code>WebDriverBiDiCore.cls</code> はパイプ通信・マッパー管理を担う内部層です。通常は <code>WebDriverBiDiMode</code> 経由で利用します。直接触るのは主に <strong>mapperTab.js 更新</strong> と <strong>WithEvents</strong> です。</p>
 
-<div class="method-block" style="border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(16,185,129,0.04);">
-  <h3 style="margin:0 0 0.5rem;"><code>detectionBiDiEvent</code></h3>
-  <p style="margin:0 0 1rem;">非同期イベントを受信したとき、VBAモジュール側でリアルタイムに反応できるイベントです。<br>
-  <code>WithEvents</code> 変数として宣言することで使用できます。</p>
-  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Event detectionBiDiEvent(methodName As String, EventRawJson As String)</code></pre>
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;">更新・メンテナンス</h3>
   <table class="method-table">
-    <thead><tr><th>引数名</th><th>型</th><th>説明</th></tr></thead>
+    <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
     <tbody>
-      <tr><td><code>methodName</code></td><td><code>String</code></td><td>受信したイベント名（例: <code>"network.responseCompleted"</code>）</td></tr>
-      <tr><td><code>EventRawJson</code></td><td><code>String</code></td><td>ブラウザから届いたイベントのRaw JSON文字列</td></tr>
+      <tr><td><code>UpdateCheckNPMVersion</code></td><td>jsDelivr から最新 npm バージョンを取得</td></tr>
+      <tr><td><code>UpdateFromNPMFile</code></td><td>npm 経由で <code>mapperTab.js</code> を更新</td></tr>
+      <tr><td><code>UpdateFromLocalFile</code></td><td>ローカル .js ファイルから更新</td></tr>
+      <tr><td><code>ReBootBiDiCDPMapper</code></td><td>マッパーの再起動</td></tr>
     </tbody>
   </table>
+  <p style="margin:0.8rem 0 0;">詳細手順は <a href="#bidi-update" onclick="loadContent('bidi-update')">mapperTab.js の更新方法</a> を参照。</p>
+</div>
+
+<div class="method-block" style="border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(16,185,129,0.04);">
+  <h3 style="margin:0 0 0.5rem;"><code>detectionBiDiEvent</code> <span style="font-size:0.8rem; color:var(--text-dim); font-weight:normal;">Event</span></h3>
+  <p style="margin:0 0 1rem;">非同期イベント受信時に発火。<code>WebDriverBiDiCore</code> に対して <code>WithEvents</code> で宣言します。</p>
+  <pre style="margin:0 0 1rem;"><code class="language-vbnet">Public Event detectionBiDiEvent(methodName As String, RawJson As String)</code></pre>
   <details style="margin-top:1rem;">
-    <summary style="font-weight:bold; padding:0.4rem; background:rgba(255,255,255,0.05); border-radius:4px; cursor:pointer;">使用例（WithEvents による宣言）</summary>
-    <pre><code class="language-vbnet">' モジュールレベルで宣言
-Private WithEvents m_Bidi As WebDriverBiDiCore
+    <summary style="font-weight:bold; padding:0.4rem; background:rgba(255,255,255,0.05); border-radius:4px; cursor:pointer;">使用例</summary>
+    <pre><code class="language-vbnet">Private WithEvents m_Core As WebDriverBiDiCore
 
 Sub StartAndListen()
-    Set m_Bidi = 設定シートからのBiDi起動
+    Dim mode As WebDriverBiDiMode
+    Set mode = 設定シートからのBiDi起動
+    Set m_Core = mode.InheritanceBiDiCore
 End Sub
 
-' イベントハンドラー（自動補完で出てきます）
-Private Sub m_Bidi_detectionBiDiEvent(methodName As String, EventRawJson As String)
-    If methodName = "network.responseCompleted" Then
-        Debug.Print "通信完了: " &amp; EventRawJson
-    End If
+Private Sub m_Core_detectionBiDiEvent(methodName As String, RawJson As String)
+    If methodName = "network.responseCompleted" Then Debug.Print RawJson
 End Sub</code></pre>
   </details>
 </div>
 
+<div class="method-block" style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:1.2rem; margin-bottom:1.5rem; background:rgba(255,255,255,0.02);">
+  <h3 style="margin:0 0 0.5rem;">その他（WebDriverBiDiCore）</h3>
+  <table class="method-table">
+    <thead><tr><th>名前</th><th>説明</th></tr></thead>
+    <tbody>
+      <tr><td><code>DirectControlCDP</code></td><td>内部で使用する <code>CDPBrowser</code> 参照</td></tr>
+      <tr><td><code>detectionBiDiID</code></td><td>BiDiコマンド結果受信イベント</td></tr>
+      <tr><td><code>InitBiDi</code></td><td>低レベル初期化（<code>StartBiDiMode</code> 内部で呼ばれる）</td></tr>
+      <tr><td><code>TakeEvents</code> / <code>sleep</code></td><td>Mode から委譲されるパイプ処理</td></tr>
+    </tbody>
+  </table>
+</div>
+
 <p style="margin-top: 2rem; text-align: center;">
-  <a href="#bidi-intro" onclick="loadContent('bidi-intro')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">← デモコードを見る</a>
-  <a href="#bidi-update" onclick="loadContent('bidi-update')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">更新方法を見る →</a>
+  <a href="#bidi-context-methods" onclick="loadContent('bidi-context-methods')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">WebDriverBiDiContext →</a>
+  <a href="#bidi-intro" onclick="loadContent('bidi-intro')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">デモコードを見る →</a>
 </p>

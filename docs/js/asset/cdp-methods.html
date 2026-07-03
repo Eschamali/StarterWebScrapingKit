@@ -1,141 +1,122 @@
-<h1>独自の、<span style="color:var(--accent-color)">追加メソッド</span></h1>
-<p>真の力は、主に8つの根源的なメソッド・プロパティに集約されています。これらをマスターした時、あなたはブラウザという「宇宙」の時間と空間を自在に支配するでしょう。</p>
+<h1>メソッド リファレンス：<span style="color:var(--accent-color)">CDPBrowser</span></h1>
+<p><code>CDPBrowser.cls</code> が公開する Public メソッド・Propertyのリファレンスです。<br>
+ブラウザ単位（<code>--user-data-dir</code> 相当）の制御を担います。タブ操作は <a href="#cdp-context-methods" onclick="loadContent('cdp-context-methods')">CDPContext</a>、要素操作は <a href="#cdp-element-methods" onclick="loadContent('cdp-element-methods')">CDPElement</a> を参照してください。</p>
 
-<h3>1. <code>ExecuteCDP</code> ― 同期的な、"神託"の要求</h3>
-<p>「答えが、"今"欲しい」あなたのための強力な呪文。<br>
-CDPコマンドを送信し、ブラウザからの<strong>「返事」が返ってくるまで"待機"</strong>します。</p>
+<div class="alert tip">
+  <div class="alert-icon">💡</div>
+  <div class="alert-content">
+    <strong>BiDiCDPJson の読み方</strong>
+    <p><code>ExecuteCDP</code> の戻り値は <code>BiDiCDPJson</code> です（旧 <code>Scripting.Dictionary</code> ではありません）。成功時は <code>result</code> ノードが返ります。</p>
+    <pre style="margin:0.5rem 0 0;"><code class="language-vbnet">Dim resultCDP As BiDiCDPJson
+Set resultCDP = browser.ExecuteCDP("Browser.getVersion")
+If Not resultCDP Is Nothing Then
+    Debug.Print resultCDP.StringKey("userAgent")
+End If
+' エラー時（StopCDPError:=False）: Nothing → .LastCDPJsonError</code></pre>
+  </div>
+</div>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<h2>🚀 ライフサイクル</h2>
+
+<h3>1. <code>start</code> ― ブラウザの起動</h3>
+<p>CDPパイプ通信を初期化し、Chromium 系ブラウザを起動します。</p>
+<pre><code class="language-vb">Public Sub start( _
+    Optional Name As String = "chrome", _
+    Optional appUrl As String, _
+    Optional userProfile As String, _
+    Optional addArgs As String, _
+    Optional KioskMode As edgeKioskType)</code></pre>
+<table class="method-table">
+  <thead><tr><th>引数</th><th>型</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td><code>String</code></td><td><code>"chrome"</code> または <code>"edge"</code></td></tr>
+    <tr><td><code>appUrl</code></td><td><code>String</code></td><td>起動時URL（省略時 <code>about:blank</code>）</td></tr>
+    <tr><td><code>userProfile</code></td><td><code>String</code></td><td>UserDataDir プロファイル名</td></tr>
+    <tr><td><code>addArgs</code></td><td><code>String</code></td><td>追加起動引数</td></tr>
+    <tr><td><code>KioskMode</code></td><td><code>edgeKioskType</code></td><td>キオスクモード</td></tr>
+  </tbody>
+</table>
+
+<h3>2. <code>reattach</code> / <code>quit</code></h3>
+<p><code>reattach(userProfile)</code> は既存セッションへの再接続（<code>Boolean</code> 返却）。<code>quit</code> はブラウザ終了とリソース解放です。</p>
+
+<h3>3. <code>newTab</code> / <code>getTab</code></h3>
+<p>タブの生成・取得。戻り値は <code>CDPContext</code> です。<code>getTab</code> は <code>tabName</code>, <code>Url</code>, <code>SearchTypeID</code>, <code>doRetrySecond</code> 等を指定できます。</p>
+
+<h3>4. <code>isLiveBrowser</code> / <code>tabCount</code> / <code>printTabs</code></h3>
+<p>ブラウザ生存確認、タブ数取得、タブ一覧のログ出力です。</p>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<h2>⚡ CDP コマンド</h2>
+
+<h3>5. <code>ExecuteCDP</code> ― 同期的な CDP 要求</h3>
+<p>CDPコマンドを送信し、ブラウザからの返事が返るまで待機します。</p>
 <pre><code class="language-vb">Public Function ExecuteCDP( _
     methodName As String, _
     Optional params As Scripting.Dictionary, _
     Optional StopCDPError As Boolean = True _
-) As Scripting.Dictionary</code></pre>
-
+) As BiDiCDPJson</code></pre>
 <table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>methodName</code></td><td><code>String</code></td><td><strong>【必須】</strong> 実行したいCDPメソッド名。（例： <code>"Browser.getVersion"</code>）</td></tr>
-        <tr><td><code>params</code></td><td><code>Dictionary</code></td><td><strong>【任意】</strong> メソッドに渡すパラメータを格納したDictionary。</td></tr>
-        <tr><td><code>StopCDPError</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> デフォルトは <code>True</code>。失敗時に <code>Err.Raise</code> で停止します。</td></tr>
-    </tbody>
+  <thead><tr><th>引数</th><th>型</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>methodName</code></td><td><code>String</code></td><td>CDPメソッド名（例: <code>"Browser.getVersion"</code>）</td></tr>
+    <tr><td><code>params</code></td><td><code>Dictionary</code></td><td>パラメータ Dictionary</td></tr>
+    <tr><td><code>StopCDPError</code></td><td><code>Boolean</code></td><td>失敗時 <code>Err.Raise</code>（デフォルト <code>True</code>）</td></tr>
+  </tbody>
 </table>
 
-<h3>2. <code>ExecuteCDPAsync</code> ― 非同期の、"未来"への問いかけ</h3>
-<p>コマンドの応答を待たずに、即座に次の処理へ進みます。引数は <code>ExecuteCDP</code> とほぼ共通です。</p>
+<h3>6. <code>ExecuteCDPAsync</code> ― 非同期 CDP 要求</h3>
 <pre><code class="language-vb">Public Function ExecuteCDPAsync( _
     methodName As String, _
     Optional params As Scripting.Dictionary, _
-    Optional StopError As Boolean = True _
+    Optional StopPipeError As Boolean = True _
 ) As Long</code></pre>
+<p>戻り値はコマンドID。<code>TakeResultCDP</code> で後から結果JSON文字列を取得します。</p>
 
-<h3>3. <code>LastCDPJsonError</code> ― "最後の悲劇"を記録する「石板」</h3>
-<p><code>ExecuteCDP</code> が <code>Nothing</code> を返した原因がここに記録されています。同期実行が最後に失敗したときのエラー情報(JSONを展開したDictionary)を取得します。</p>
+<h3>7. <code>LastCDPJsonError</code></h3>
+<p>直前の同期 <code>ExecuteCDP</code> 失敗時のエラー情報（Dictionary）。</p>
 
-<h3>4. <code>TakeEvents</code> ― "時"の川から、"出来事"をすくい上げる</h3>
-<p>受信バッファに溜まったすべてのメッセージを、<code>BrowserEvents</code> プロパティに蓄積します。通常、<code>CDPContext.InheritanceCDPBrowser.TakeEvents</code> を通じて呼び出します。</p>
+<h3>8. <code>TakeEvents</code></h3>
+<p>受信バッファを処理します。通常 <code>CDPContext.InheritanceCDPBrowser.TakeEvents</code> 経由で呼び出します。</p>
 <pre><code class="language-vb">Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean = False)</code></pre>
 
+<h3>9. <code>SetLimitCDPResult</code> / <code>TakeResultCDP</code></h3>
+<p>非同期結果バッファの上限設定と、コマンドIDによる結果取得（<code>String</code> 返却）です。</p>
+
+<h3>10. <code>TimeOutSecond</code></h3>
+<p>同期コマンドのタイムアウト秒数（<code>Double</code>、Get/Let）。</p>
+
+<hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+<h2>🔧 その他 Public API</h2>
 <table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>StopPipeError</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> デフォルトは <code>True</code>。パイプ読み取りエラー時に例外を発生させます。</td></tr>
-        <tr><td><code>destruction</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> <code>True</code>にすると、JSON解析を行わず、バッファを高速に空にします。</td></tr>
-    </tbody>
+  <thead><tr><th>名前</th><th>種別</th><th>説明</th></tr></thead>
+  <tbody>
+    <tr><td><code>openDevTools</code></td><td>Sub</td><td>指定 Target の DevTools を開く</td></tr>
+    <tr><td><code>attachToTab</code></td><td>Function</td><td>タブIDから sessionID を取得</td></tr>
+    <tr><td><code>DiscardSessionID</code></td><td>Function</td><td>セッションIDの破棄</td></tr>
+    <tr><td><code>checkURI</code></td><td>Function</td><td>URI の検証・正規化</td></tr>
+    <tr><td><code>serializeForMainTab</code></td><td>Sub</td><td>メインタブ情報をワークシートに記録</td></tr>
+    <tr><td><code>EnableDiscoverTargets</code></td><td>Property Let</td><td><code>Target.created</code> イベント購読の切替</td></tr>
+    <tr><td><code>RunCollect_TargetCreated</code></td><td>Property Set</td><td>Target 情報格納用 Collection</td></tr>
+    <tr><td><code>InheritanceCDPCore</code></td><td>Property Get</td><td>内部 <code>CDPCore</code> 参照</td></tr>
+    <tr><td><code>CurrentBrowserPath</code></td><td>Property Get</td><td>実行ファイルパス</td></tr>
+    <tr><td><code>CurrentBrowserUser</code></td><td>Property Get</td><td>プロファイル名</td></tr>
+    <tr><td><code>sleep</code> / <code>TimerCounter</code></td><td>Sub / Function</td><td>待機・タイマー</td></tr>
+  </tbody>
 </table>
 
-<h3>5. <code>SetLimitCDPResult</code> ― "未来"からの返事を受け取る「箱」の制限</h3>
-<p>非同期メソッドの結果を蓄積する内部バッファの最大件数を設定します。</p>
-<pre><code class="language-vb">Property Let SetLimitCDPResult(Number As Long)</code></pre>
-
-<h3>6. <code>TakeResultCDP</code> ― "整理券番号"で奇跡を手に入れる</h3>
-<p>非同期で実行したコマンドの整理券番号 (<code>CommandID</code>) を指定して、後からその結果を取り出します。</p>
-<pre><code class="language-vb">Property Get TakeResultCDP(commandID As Long) As String</code></pre>
-
-<table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>commandID</code></td><td><code>Long</code></td><td><strong>【必須】</strong> <code>ExecuteCDPAsync</code> が返した整理券番号。</td></tr>
-    </tbody>
-</table>
-
-<h3>7. <code>TimeOutSecond</code> ― "待つ"ことの限界を定義する</h3>
-<p>同期的なコマンドがブラウザからの応答を何秒間待つかを設定/取得します。データ型が実数（<code>Double</code>）になりました。</p>
-<pre><code class="language-vb">Property Get TimeOutSecond() As Double
-Property Let TimeOutSecond(TimeSec As Double)</code></pre>
-
-<h3>8. <code>BrowserEvents</code> ― ブラウザの"魂"を記録する「器」</h3>
-<p>非同期イベントを聴くか、聴かざるかを支配するプロパティです。</p>
-<pre><code class="language-vb">Property Get BrowserEvents() As Scripting.Dictionary
-Property Set BrowserEvents(ObjDic As Scripting.Dictionary)</code></pre>
-
-<table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>ObjDic</code></td><td><code>Dictionary</code></td><td>新しい <code>Dictionary</code> をセットすると記録開始、<code>Nothing</code> で停止します。</td></tr>
-    </tbody>
-</table>
-
-<h3>9. <code>SetFilterEvents</code> ― "必要な声"だけを聞き届ける、叡智の耳</h3>
-<p>非同期イベントのうち、特定のメソッド名のみを JSON パース・蓄積させる設定です。大量の <code>Network</code> イベントが発生する際の負荷を劇的に軽減します。</p>
-<pre><code class="language-vb">Property Let SetFilterEvents( _
-    Optional DelMode As Boolean = False, _
-    EventName As String _
-)</code></pre>
-
-<table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>DelMode</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> <code>True</code> でフィルター削除、<code>False</code> で追加。</td></tr>
-        <tr><td><code>EventName</code></td><td><code>String</code></td><td><strong>【必須】</strong> 対象のイベントメソッド名。空欄で <code>DelMode:=True</code> なら全削除。</td></tr>
-    </tbody>
-</table>
-
-<div class="alert tip">
-    <div class="alert-icon">💡</div>
-    <div class="alert-content">
-        <p>フィルター数が 0 の場合は、すべてのイベントをキャプチャします。必要なイベントが分かっている場合は、これらを明示的に登録することで、スクレイピングのパフォーマンスを最大限に引き出すことができます。</p>
-    </div>
+<div class="alert note">
+  <div class="alert-icon">📌</div>
+  <div class="alert-content">
+    <p><code>BrowserEvents</code> と <code>SetFilterEvents</code> は <strong><code>CDPContext</code></strong> に実装されています。<a href="#cdp-context-methods" onclick="loadContent('cdp-context-methods')">CDPContext リファレンス</a> を参照してください。</p>
+  </div>
 </div>
 
 <p style="margin-top: 2rem; text-align: center;">
-    <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">CDPの高度な制御へ →</a>
-</p>トすると記録開始、<code>Nothing</code> で停止します。</td></tr>
-    </tbody>
-</table>
-
-<h3>9. <code>SetFilterEvents</code> ― "必要な声"だけを聞き届ける、叡智の耳</h3>
-<p>非同期イベントのうち、特定のメソッド名のみを JSON パース・蓄積させる設定です。大量の <code>Network</code> イベントが発生する際の負荷を劇的に軽減します。</p>
-<pre><code class="language-vb">Property Let SetFilterEvents( _
-    Optional DelMode As Boolean = False, _
-    EventName As String _
-)</code></pre>
-
-<table class="method-table">
-    <thead>
-        <tr><th>引数</th><th>型</th><th>説明</th></tr>
-    </thead>
-    <tbody>
-        <tr><td><code>DelMode</code></td><td><code>Boolean</code></td><td><strong>【任意】</strong> <code>True</code> でフィルター削除、<code>False</code> で追加。</td></tr>
-        <tr><td><code>EventName</code></td><td><code>String</code></td><td><strong>【必須】</strong> 対象のイベントメソッド名。空欄で <code>DelMode:=True</code> なら全削除。</td></tr>
-    </tbody>
-</table>
-
-<div class="alert tip">
-    <div class="alert-icon">💡</div>
-    <div class="alert-content">
-        <p>フィルター数が 0 の場合は、すべてのイベントをキャプチャします。必要なイベントが分かっている場合は、これらを明示的に登録することで、スクレイピングのパフォーマンスを最大限に引き出すことができます。</p>
-    </div>
-</div>
-
-<p style="margin-top: 2rem; text-align: center;">
-    <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">CDPの高度な制御へ →</a>
+  <a href="#cdp-context-methods" onclick="loadContent('cdp-context-methods')" style="background:rgba(255,255,255,0.08); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; margin-right:1rem;">CDPContext →</a>
+  <a href="#cdp-advanced" onclick="loadContent('cdp-advanced')" style="background:var(--accent-color); color:#fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.3s; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">CDPの高度な制御へ →</a>
 </p>
