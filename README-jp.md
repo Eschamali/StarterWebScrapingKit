@@ -1,7 +1,7 @@
 # Excel VBA Web Automation Starter Kit
 ![Logo](doc/Logo.png)
 
-![イントロ画像](doc/Top.png)
+![イントロ画像](doc/Top_JP.png)
 
 ## インターネットの世界を、その手に
 

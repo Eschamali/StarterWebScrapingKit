@@ -62,7 +62,7 @@ Sub BiDiによる冒険の始まり()
     Dim HelloWorldAutomationBrowser As WebDriverBiDiContext: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動ForTab
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
-    HelloWorldAutomationBrowser.navigate "https://www.w3.org/TR/webdriver-bidi/"
+
 
 
 
@@ -82,7 +82,6 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion
 
     'WebDriverBiDiの初期化とブラウザ立ち上げ
@@ -111,7 +110,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -126,7 +125,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので破棄状態（0バイト等）になります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -139,7 +138,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -153,9 +152,6 @@ End Sub
 '* 注意事項：・このテストを行う際は、事前シート：ブラウザ起動設定 にて、`CDP-Jsonで拡張機能を制御` をONにしてください
 '***************************************************************************************************
 Sub UseExtensions()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(msoFileDialogFolderPicker)
@@ -194,7 +190,7 @@ Sub UseExtensions()
     paramsBiDi.Add "extensionData", extData
 
     ' 今回はエラー無視で設定 (StopError:=False)
-    Dim resultBiDi As Dictionary
+    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = controlExtensions.ExecuteBiDi("webExtension.install", paramsBiDi, False)
 
     '読み込まれたか確認する
@@ -211,7 +207,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & resultBiDi("extension")
 
     Else
-        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(resultBiDi), vbExclamation, "Not found id"
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & resultBiDi.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
         controlExtensions.InheritanceWebDriverBiDiMode.quit
@@ -242,9 +238,6 @@ End Sub
 '* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
 '***************************************************************************************************
 Sub TestAlert()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     'WebDriverBiDiの初期化とブラウザ立ち上げ
     Dim Demo_alerts As WebDriverBiDiContext
 
@@ -262,7 +255,7 @@ Sub TestAlert()
     Set Demo_alerts = 設定シートからのBiDi起動ForTab("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
     'テスト入力文字列
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
@@ -367,13 +360,12 @@ End Sub
 '*           トンネリング（中継）して呼び出す「BiDi+」の機能デモンストレーションです。
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
-    Dim JsonDicObj As New WebJsonConverter
     Dim bidiPlus As WebDriverBiDiContext
 
     ' ブラウザ起動
     Set bidiPlus = 設定シートからのBiDi起動ForTab
 
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
+    Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
     '-----------------------------------------------------------------------
     ' 1. CDPのセッションIDを取得する (goog:cdp.getSession)
@@ -383,7 +375,7 @@ Sub TestBiDiPlus_CDPTunnel()
 
     If Not resultBiDi Is Nothing Then
          MsgBox "現在のタブ(Context)に紐づく、裏側の『CDPセッションID』を取得しました！" & vbCrLf & vbCrLf & _
-                "【SessionID】" & resultBiDi("session"), vbInformation, "BiDi+ GetSession"
+                "【SessionID】" & resultBiDi.StringKey("session"), vbInformation, "BiDi+ GetSession"
 
          Dim cdpSessionId As String
          cdpSessionId = resultBiDi("session")
@@ -401,22 +393,22 @@ Sub TestBiDiPlus_CDPTunnel()
 
     If Not resultBiDi Is Nothing Then
         MsgBox "CDPコマンド(Browser.getVersion)をBiDi経由で実行できました！" & vbCrLf & vbCrLf & _
-               "【Browser】" & resultBiDi("result")("userAgent") & vbCrLf & _
-               "【Protocol-Version】" & resultBiDi("result")("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
+               "【Browser】" & resultBiDi.NodeKey("result").StringKey("userAgent") & vbCrLf & _
+               "【Protocol-Version】" & resultBiDi.NodeKey("result").StringKey("protocolVersion"), vbInformation, "BiDi+ CDP Tunnel"
     End If
 
     '終了
     bidiPlus.InheritanceWebDriverBiDiMode.quit
 End Sub
 
-Sub controlContextClassDemo()
+Sub ConvertToCDPContextDemo()
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
     Dim NewsSite As WebDriverBiDiMode
     Set NewsSite = 設定シートからのBiDi起動("https://news.google.com/home")
 
     'getタブでスマートにオブジェクト取得
     Dim BiDiTab As WebDriverBiDiContext
-    Set BiDiTab = NewsSite.getTab("https://news.google.com/")
+    Set BiDiTab = NewsSite.getTab("https://news.google.com/", setMain:=True)
 
     '別のURLへ遷移
     BiDiTab.navigate "https://m365.cloud.microsoft/chat"
@@ -426,7 +418,7 @@ Sub controlContextClassDemo()
     Set CDPTab = BiDiTab.ConvertToCDPContext
 
     'CDP実行してみる
-    CDPTab.notify "BiDiから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
+    CDPTab.notify "BiDiオブジェクトクラスから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
 End Sub
 
 
@@ -441,25 +433,20 @@ End Sub
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
-    Dim First As WebDriverBiDiMode
-    Set First = 設定シートからのBiDi起動
-
-    '現在のコンテキストIDを取得する
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = First.ExecuteBiDi("browsingContext.getTree")
-    Dim targetContext As String
-    If Not (resultBiDi Is Nothing) Then
-        targetContext = resultBiDi("contexts")(1)("context")    '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
-    End If
+    Dim First As WebDriverBiDiContext
+    Set First = 設定シートからのBiDi起動ForTab
 
     'GoogleTopページへ遷移
-    Set paramsBiDi = New Dictionary
-    paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://www.google.com/"
-    paramsBiDi.Add "wait", "complete"
-    First.ExecuteBiDi "browsingContext.navigate", paramsBiDi
+    First.navigate "https://www.google.com/"
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：WebDriverBiDi制御用タブの接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・あくまでも、WebDriverBiDi制御用のタブ接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
+'            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
+'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
+'***************************************************************************************************
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
     With ShSetting01_StartBrowser
@@ -467,28 +454,42 @@ Sub demoReattachmentPart2()
         UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
     End With
 
-    ' リアタッチとして起動
+    '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
-    Dim ResultReattach As Boolean
-    ResultReattach = Reattachment.reattach(UserName)
+    If Not Reattachment.reattach(UserName) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
-    If Not (ResultReattach) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+    '2. 未接続のタブに接続
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Dim ReattachmentTab As WebDriverBiDiContext
+    Set ReattachmentTab = Reattachment.getTab(setMain:=True)
+'    Set ReattachmentTab = Reattachment.newTab(setMain:=True)   '新しいタブ生成からでもOK
 
-    '現在のコンテキストIDを取得する
-    Dim paramsBiDi As Dictionary, resultBiDi As Dictionary
-    Set resultBiDi = Reattachment.ExecuteBiDi("browsingContext.getTree")
-    Dim targetContext As String
-    If Not (resultBiDi Is Nothing) Then
-        '※ここでエラーが起こる場合、ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。
-        targetContext = resultBiDi("contexts")(1)("context")     '一旦は、先頭タブで　※本来はURLcheckとかがいると思うが、低レベル制御の都合上、妥協
-    End If
+    '3. エラーチェック
+    '※特に`getTab`の場合は、0個で返ることがあるのでそのチェックを行います
+    If ReattachmentTab Is Nothing Then MsgBox "`browsingContext.getTree`の実行に成功しましたが、有効なタブが見つかりませんでした。" & vbCrLf & "ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。", vbCritical, "WebDriver BiDi": Exit Sub
+
+    '4．別ページに遷移して終了
+    ReattachmentTab.navigate "https://kemono-friends-20170110.jp/"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：最後にWebDriverBiDiで制御したタブの接続まで担うリアタッチです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
+'***************************************************************************************************
+Sub demoReattachmentPart2ForTab()
+    '設定セルから、ユーザ名を取得
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
+    End With
+
+    ' リアタッチとして起動
+    Dim Reattachment As New WebDriverBiDiContext
+    If Not Reattachment.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
     '別ページに遷移
-    Set paramsBiDi = New Dictionary
-    paramsBiDi.Add "context", targetContext
-    paramsBiDi.Add "url", "https://kemono-friends-20170110.jp/"
-    paramsBiDi.Add "wait", "complete"
-    Reattachment.ExecuteBiDi "browsingContext.navigate", paramsBiDi
+    Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
 End Sub
 
 
@@ -517,23 +518,23 @@ Private Sub ローカルファイルで更新()
 
     '4. 更新処理
     Dim UpdateBiDi As New WebDriverBiDiCore
-    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "アップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
+    If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
 
 Private Sub npm経由で更新()
     Dim UpdateBiDi As New WebDriverBiDiCore
     With ShLibrary01_JS
         '1. 現在のバージョン確認
-        Dim mapperTab_npmVersion        As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
-        Dim mapperTab_WorkSheetVersion  As Range: Set mapperTab_WorkSheetVersion = .Range(.UseRangeName(1, "Demo_WebDriverBiDi.npm経由で更新"))
-        If mapperTab_npmVersion = mapperTab_WorkSheetVersion.value Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetVersion & ")": Exit Sub
+        Dim mapperTab_npmVersion    As String: mapperTab_npmVersion = UpdateBiDi.UpdateCheckNPMVersion
+        Dim mapperTab_WorkSheetV    As String: mapperTab_WorkSheetV = ShLibrary01_JS.UseRangeID(1, "Demo_WebDriverBiDi.npm経由で更新")
+        If mapperTab_npmVersion = mapperTab_WorkSheetV Then MsgBox "すでに`mapperTab.js`は、最新バージョンです。", vbExclamation, "既に最新です(" & mapperTab_WorkSheetV & ")": Exit Sub
 
         '2. npmで更新
         Dim UpdateSuccess As Boolean: UpdateSuccess = UpdateBiDi.UpdateFromNPMFile
-        If UpdateSuccess Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetVersion & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。Excelに埋め込んだJavaScript文字列とnpm経由での一致が確認できませんでした。", vbCritical, "failure"
+        If UpdateSuccess Then MsgBox "npm経由で、アップデートに成功しました。", vbInformation, "Success(" & mapperTab_WorkSheetV & " → " & mapperTab_npmVersion & ")" Else MsgBox "npm経由での、アップデートに失敗しました。Excelに埋め込んだJavaScript文字列とnpm経由での一致が確認できませんでした。", vbCritical, "failure"
 
         '3. バージョンをワークシートに記録
         '※ミスの場合は、空欄にする
-        mapperTab_WorkSheetVersion.value = IIf(UpdateSuccess, mapperTab_npmVersion, "")
+        ShLibrary01_JS.UseRangeID(1, "Demo_WebDriverBiDi.npm経由で更新") = IIf(UpdateSuccess, mapperTab_npmVersion, vbNullString)
     End With
 End Sub

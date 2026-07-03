@@ -23,7 +23,7 @@ Attribute VB_Exposed = False
 ' [2018-08-17] Added declaration for 64-bit Office.
 ' [2026-01-15] 任意の変換元/変換先のコードページの設定ができるように改良。
 '              `BytesFromString`メソッドにて、終端null文字を保持するか除去するかのスイッチングを実装。
-'              シンプルなファイルの読み書き機能を追加(バイナリーモードのみ)
+'              シンプルなファイルの読み書き機能を追加(バイナリーモードのみ,2GBまで)
 '***************************************************************************************************
 Option Explicit
 
@@ -147,7 +147,6 @@ Public Function BytesFromString(strInput As String) As Byte()
     Dim InputSize As Long: InputSize = Len(strInput)
 
     ' Catch empty or null input string
-    BytesFromString = vbNullString
     If InputSize < 1 Then Exit Function
 
     ' Get length in bytes *including* terminating null
@@ -171,9 +170,6 @@ Public Function BytesToString(abArray() As Byte) As String
     Dim nChars As Long
     Dim strOut As String
 
-    '初期化
-    BytesToString = vbNullString
-
     ' Catch uninitialized input array
     nBytes = BytesLength(abArray)
     If nBytes < 1 Then Exit Function
@@ -182,9 +178,8 @@ Public Function BytesToString(abArray() As Byte) As String
     nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, 0&, 0&)
 
     ' Dimension output buffer to receive string
-    strOut = String(nChars, vbNullChar)
-    nChars = MultiByteToWideChar(UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, StrPtr(strOut), nChars)
-    BytesToString = Left$(strOut, nChars)
+    BytesToString = String(nChars, vbNullChar)
+    MultiByteToWideChar UseCharacterCode, 0&, VarPtr(abArray(LBound(abArray))), nBytes, StrPtr(BytesToString), nChars
 End Function
 
 
@@ -212,7 +207,7 @@ Sub BytesToSaveFile(abArray() As Byte, FolderPath As String, FileName As String,
     Dim FileFullpath As String: FileFullpath = FolderPath & "\" & FileName
 
     '追記じゃない場合は、パスにファイルがあったら削除するようにします
-    If Dir(FileFullpath) <> "" And Not (AddMode) Then Kill FileFullpath
+    If LenB(Dir(FileFullpath)) > 0 And Not (AddMode) Then Kill FileFullpath
 
     '書き込み準備
     Dim fNum As Integer: fNum = FreeFile
