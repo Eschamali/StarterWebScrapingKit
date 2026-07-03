@@ -99,7 +99,7 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. 引数から設定を適用し、まずはCDPとして起動
+    '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
     m_CDPBrowser.start Name, appUrl, userProfile, addArgs, KioskMode
 
@@ -114,11 +114,62 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`BiDi-CDP Mapper`を始動させます
-'* 引数　　：ReConnect  Excelテーブルにある`targetID`に対して再度、`BiDi-CDP Mapper`を再始動する際は、`True`にします
+'* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・`CDPBrowser`を`New`してからご利用ください
-'            ・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
+'* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
+'            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
+'***************************************************************************************************
+Private Sub newTabForBiDi()
+    Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
+
+
+    '1. BiDi用に、各種パラメータ運用
+    Dim params As New Dictionary
+    params.Add "url", MapperURL     '目印用のURLを付与
+    params.Add "background", True   'フォアグランドさせない
+    If Not (BiDiDebug.ViewDebugTab) Then params.Add "hidden", Not (BiDiDebug.ViewDebugTab)  'タブを見せないか？
+
+    With m_CDPBrowser
+        '2. そのパラメータで、新しいタブを開き、`targetId`を取得
+        Dim tabId As String
+        tabId = .ExecuteCDP("Target.createTarget", params).StringKey("targetId")
+
+        '3. 得た`targetId`に対して、JavaScriptによるCDP制御の許可を与える
+        params.RemoveAll
+        params.Add "bindingName", "cdp"
+        params.Add "targetId", tabId
+        params.Add "inheritPermissions", True
+        .ExecuteCDP "Target.exposeDevToolsProtocol", params
+
+        '4. 得た`targetId`で、`sessionId`を取得
+        Dim sessionID As String
+        sessionID = .attachToTab(tabId)
+
+        '5. Excelに、BiDiMapperTab情報を記録してメイン化しておく
+        .serializeForMainTab sessionID, tabId
+    End With
+
+    '6. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    With WebDriverBiDi_mapperTab
+        '6-1. このブラウザのパイプハンドル情報を渡す
+        Set .InheritanceCDPCore = m_CDPBrowser.InheritanceCDPCore
+
+        '6-2. このブラウザ情報を渡す
+        Set .InheritanceCDPBrowser = m_CDPBrowser
+
+        '6-3. 先ほど得た`sessionId`を渡す
+        .CurrentSessionID = sessionID
+    End With
+
+    '7. ログ化
+    printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`BiDi-CDP Mapper`を始動させます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '***************************************************************************************************
 Private Sub StartBiDiCDPMapper()
     Const FromProcedureName As String = ThisClassName & ".StartBiDiCDPMapper"
@@ -130,69 +181,13 @@ Private Sub StartBiDiCDPMapper()
     'タブ単位実行
     With WebDriverBiDi_mapperTab
         '2. パースしたJavaScript - mapperTab.js をブラウザ上で実行
-        .jsEval Take_mapperTabJSstring
+        .jsEval ShLibrary01_JS.TableMapperTabJS
 
         '3. ブートストラップ（初期化）JSの実行
-        .jsEval "window.runMapperInstance('" & WebDriverBiDi_mapperTab.CurrentTargetID & "')"
+        .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
     End With
 
     printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
-'            ・普通の新しいタブOpenとは別の手法を用いるため、別プロシージャにて用意します
-'***************************************************************************************************
-Private Sub newTabForBiDi()
-    Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
-
-
-    '1. 各種パラメータ運用
-    Dim params As New Dictionary
-    params.Add "url", MapperURL     '目印用のURLを付与
-    params.Add "background", True   'フォアグランドさせない
-    If Not (BiDiDebug.ViewDebugTab) Then params.Add "hidden", Not (BiDiDebug.ViewDebugTab)  'タブを見せないか？
-
-    With m_CDPBrowser
-        '2. そのパラメータで、新しいタブを開き、`targetId`を取得
-        Dim tabId As String
-        tabId = .ExecuteCDP("Target.createTarget", params)("targetId")
-
-        '3. 得た`targetId`に対して、JavaScriptで、CDP制御の許可を与える
-        params.RemoveAll
-        params.Add "bindingName", "cdp"
-        params.Add "targetId", tabId
-        params.Add "inheritPermissions", True
-        .ExecuteCDP "Target.exposeDevToolsProtocol", params
-
-        '4. 得た`targetId`で、`sessionId`を取得
-        Dim sessionID As String
-        sessionID = .attachToTab(tabId)
-    End With
-
-    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
-    Set WebDriverBiDi_mapperTab = New CDPContext
-    With WebDriverBiDi_mapperTab
-        '5-1. このブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = m_CDPBrowser.InheritanceCDPCore
-
-        '5-2. このブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = m_CDPBrowser
-
-        '5-3. 先ほど得た`sessionId`を渡す
-        .id = sessionID
-
-        '5-4. ステータスの更新
-        .getSessionInfo
-
-        '5-5. Excelに、BiDiMapperTab情報を記録しておく
-        m_CDPBrowser.serializeForMainTab .id, .CurrentTargetID
-    End With
-
-    '6. ログ化
-    printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -260,7 +255,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
         printMsg info_, LogID, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
         '4. そのタブURLは、このクラスで用意した専用URLか？
-        If LCase(MapperURL) = LCase(WebDriverBiDi_mapperTab.Url) Then
+        If StrComp(MapperURL, WebDriverBiDi_mapperTab.Url, vbTextCompare) = 0 Then
             '5. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
             '→ typeof window.onBidiMessage === 'function' かどうかを調べる
             Dim isMapperRunning As Boolean
@@ -330,126 +325,39 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
 
 
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
-    If sessionID <> WebDriverBiDi_mapperTab.id Then Exit Sub
+    If sessionID <> WebDriverBiDi_mapperTab.CurrentSessionID Then Exit Sub
 
     '2. 対象のイベント以外も即抜け
     If methodName <> BiDiForCDPEventName Then Exit Sub
 
     '3. PayloadのName部分を取得
-    Dim NamePayload As String: NamePayload = ExtractName(RawJson)
+    Dim CDPToBiDi As BiDiCDPJson: Set CDPToBiDi = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+    Dim bindingCalledName As String: bindingCalledName = CDPToBiDi.StringKey("name")
 
     '4. `Name`値に応じた処理
-    Dim tmp As String
-    Select Case NamePayload
+    Dim bindingCalledPayload As String
+    Select Case bindingCalledName
         'メインとなるWebDriverBiDiの結果
         Case BiDiResMain
-            '4-1. エスケープ解除済みのpayload 部分を抽出
-            tmp = ExtractPayload(RawJson, NamePayload)
-            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & tmp, FromProcedureName
+            '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
+            bindingCalledPayload = CDPToBiDi.StringKey("payload")
+            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
-            BiDiReceivedDataCheck tmp
+            BiDiReceivedDataCheck bindingCalledPayload
 
         'BiDi-Mapper 内部のデバッグログ用
         Case BiDiResDebug
             '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
-            tmp = ExtractPayload(RawJson, NamePayload)
-            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & tmp, FromProcedureName
+            bindingCalledPayload = CDPToBiDi.StringKey("payload")
+            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
         '※この場合は、追加処理しない
         Case Else
-            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & NamePayload, FromProcedureName
+            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & bindingCalledName, FromProcedureName
     End Select
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから name 部分を抜き出します
-'---------------------------------------------------------------------------------------------------
-'* 返値　　：`name`部分
-'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
-'***************************************************************************************************
-Private Function ExtractName(resCDP As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ExtractName"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '検索文字列
-    Const StartSearchPos    As Long = 1                                                                 'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
-
-    '2. 所定の位置にない場合は、存在しないとし、抜ける
-    '例：{"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","...
-    If StartPos = StartSearchPos Then
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName)
-
-        '4. name値の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, resCDP, """,""")
-
-        '5. name値を取り出す
-        ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
-    Else
-        'name値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-        printMsg ERROR_, LogID, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
-'---------------------------------------------------------------------------------------------------
-'* 返値　　：エスケープ解除済み`payload`部分
-'* 引数　　：resCDP             CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
-'            bindingCalledName  `Runtime.bindingCalled`の`Name`値を指定。抽出精度を高めるために使用します
-'***************************************************************************************************
-Private Function ExtractPayload(resCDP As String, bindingCalledName As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ExtractPayload"
-
-
-    '検索設定
-    Const SearchKeyName As String = """,""payload"":"""                                             '実際の検索文字列
-    Const FirstLetter   As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '先頭の固定文字列
-    Dim StartSearchPos As Long: StartSearchPos = Len(FirstLetter) + Len(bindingCalledName) + 1      '`payload`があるべき位置を動的に特定
-
-
-    '1. 文字列を探索
-    Dim StartPos As Long
-    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
-
-    '2. 所定の位置あるか確認する
-    If StartPos = StartSearchPos Then
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName)
-
-        '4. payloadの終了位置を探す。通常はexecutionContextIdの前
-        'https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#event-bindingCalled
-        Dim EndPos As Long: EndPos = InStrRev(resCDP, """,""executionContextId""")
-
-        '5. 取り出せる計算かチェック
-        If EndPos > StartPos Then
-            '6.payload値を取り出す
-            ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
-
-            '7.「JsonOfJson」の外殻だけ剥がすための、エスケープ（\" -> "）を復元
-            'これにより、`WebJsonConverter`クラスのパース処理に渡せれる形になります
-            ExtractPayload = Replace(ExtractPayload, "\""", """")
-            ExtractPayload = Replace(ExtractPayload, "\\", "\")
-        Else
-            'payload値が取れない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-            printMsg ERROR_, LogID, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
-        End If
-    Else
-        'payload値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-        printMsg ERROR_, LogID, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
-    End If
-End Function
 
 '***************************************************************************************************
 '* 機能　　：実際にCDPを実行します
@@ -461,13 +369,13 @@ End Function
 '***************************************************************************************************
 Private Sub RunCDP(strData As String, StopCDPError As Boolean)
     '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
-    Dim safeJson As String
-    safeJson = Replace(strData, "\", "\\")
-    safeJson = Replace(safeJson, "'", "\'")
+'    Dim safeJson As String
+'    safeJson = Replace(strData, "\", "\\")
+'    safeJson = Replace(safeJson, "'", "\'")
 
     '2. `expression`を組み立て
     Dim paramsCDP As New Dictionary
-    paramsCDP.Add "expression", "window." & BiDiSend & "('" & safeJson & "');"
+    paramsCDP.Add "expression", "window." & BiDiSend & "('" & strData & "');"
 
     '3. CDP実行
     '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
@@ -483,25 +391,25 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strMessage     BiDi-Jsonコマンド
+'* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
 '            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Sub ReadyRunBiDi(strMessage As String, StopCDPError As Boolean)
+Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
     Dim currentCommandID As Long: currentCommandID = IssuanceCommandID
 
-    '2. 末尾付与しやすいように、末尾1文字削減
-    strMessage = Left(strMessage, Len(strMessage) - 1)
+    '2. `id`を付与
+    dicMessage.Add "id", currentCommandID
 
-    '3. 末尾に`id`を付与
-    strMessage = strMessage & ", ""id"":" & currentCommandID & "}"
-
-    '4. 実際に実行
+    '3. 実際に実行
+    Dim strMessage As String
+'    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
+    strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
     RunCDP strMessage, StopCDPError
 End Sub
@@ -550,132 +458,23 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
 
 
     Dim ResultCommandID As Long, AsynchronousEventName As String
+    Dim BiDiNode As BiDiCDPJson: Set BiDiNode = BiDiCDPJson.Parse(BiDiJsonString)
 
     '--------- 1. BiDiからのイベントか？ ---------
-    If GetContentsMethod(BiDiJsonString, AsynchronousEventName) Then
+    If BiDiNode.StringKey("type") = "event" Then
         '非同期イベントとして発信
+        AsynchronousEventName = BiDiNode.StringKey("method")
         RaiseEvent detectionBiDiEvent(AsynchronousEventName, BiDiJsonString)
     Else
         '--------- 2. `id`項目があるか？ ---------
-        If GetContentsID(BiDiJsonString, ResultCommandID) Then
+        If BiDiNode.ExistsKey("id") Then
             'コマンド結果として発信
+            ResultCommandID = BiDiNode.NumberKey("id")
             RaiseEvent detectionBiDiID(ResultCommandID, BiDiJsonString)
         Else
             '`method`も`id`項目もない場合、BiDi-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
             printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteBiDi/ExecuteBiDiAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & BiDiJsonString, FromProcedureName, doRaiseError:=True
         End If
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：BiDiからの受信データの構造をチェックする際の1つ、`id`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：jsonString         BiDiのレスポンス(JSON文字列そのまま)
-'*            idValueContents   コマンド結果のID値を格納する変数(参照渡し)
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：コマンド結果のエラー、成功の区別はしません。
-'***************************************************************************************************
-Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
-
-
-    '検索設定
-    Const SearchKeyNameOK   As String = "success"       '検索文字列(コマンド成功時)
-    Const SearchKeyNameNG   As String = "error"         '検索文字列(コマンド失敗時)
-    Const SearchKeyid       As String = """,""id"":"    '検索文字列の末尾のID部分
-    Const StartSearchPos    As Long = 10                'あるべき位置
-
-
-    '1. 文字列を探索
-    Dim existenceSuccess As Boolean, existenceError As Boolean
-    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK & SearchKeyid) = StartSearchPos)
-    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG & SearchKeyid) = StartSearchPos)
-
-    '2. どっちも所定の位置にない場合は、存在しないとし、抜ける
-    '下記の例に基づき、10文字目にない場合は、コマンド結果ではないとして、扱います。
-    '・{"type":"success", "id":... （コマンドの成功）
-    '・{"type":"error", "id":... （コマンドの失敗）
-    '・{"type":"error","error":...(構文エラー)　※これは通さない
-    If existenceSuccess Or existenceError Then
-        GetContentsID = True
-
-        '3. 検索ワードを適用
-        Dim SearchKeyName As String
-        SearchKeyName = IIf(existenceSuccess, SearchKeyNameOK, SearchKeyNameNG)
-
-        '4. 開始位置をうまい具合にずらす
-        Dim StartPos As Long
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(SearchKeyid) '「","id":」分、ずらすイメージ
-
-        '5. ID値の終点を求める
-        Dim EndPos As Long
-        EndPos = InStr(StartPos, jsonString, ",")
-
-        '6. ID値を取り出す
-        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
-    Else
-        GetContentsID = False
-        printMsg Trace_, LogID, "This BiDi response does not have an `id`.", FromProcedureName
-    End If
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：存在有無論理値
-'* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
-'*            methodValueContents  非同期イベントのメソッド名(参照渡し)
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：前方一致、後方一致を確認します
-'***************************************************************************************************
-Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
-
-
-    '検索設定
-    Const SearchKeyName     As String = "event" '検索文字列
-    Const StartSearchPos    As Long = 10        'あるべき位置
-
-
-    '1. 前方文字列を探索
-    Dim StartPos As Long, EndPos As Long
-    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
-
-    '2. 所定の位置あるか確認する
-    '下記の例に基づき、10文字目にない場合は、次に後方一致を確認
-    '・{"type":"event","method":...
-    If StartPos = StartSearchPos Then
-        GetContentsMethod = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""method"":""") '「","method":"」分、ずらすイメージ
-
-        '4. method名の終点を求める
-        EndPos = InStr(StartPos, jsonString, """,")
-
-        '5. method名を取り出す
-        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
-    
-    '下記の例に基づき、後方にない場合は、非同期イベントではないとして、扱います。
-    '・{"method":"network.beforeRequestSent", ... (中略) ..., "type":"event"}
-    ElseIf Right(jsonString, Len(SearchKeyName) + Len("""}")) = SearchKeyName & """}" Then
-        GetContentsMethod = True
-
-        '3. 開始位置をうまい具合にずらす
-        StartPos = 1 + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
-
-        '4. method名の終点を求める
-        EndPos = InStr(StartPos, jsonString, """,")
-
-        '5. method名を取り出す
-        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
-    Else
-        GetContentsMethod = False
-        printMsg Trace_, LogID, "This BiDi response does not have an `method`.", FromProcedureName
     End If
 End Function
 
@@ -711,7 +510,7 @@ Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時の
     LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
 End Property
 
-Property Get LastCommandID() As Long    '最後に実行したcommandID値
+Property Get LastCommandID() As Long                    '最後に実行したcommandID値
     LastCommandID = m_MessageID
 End Property
 
@@ -725,116 +524,32 @@ End Property
 
 
 '***************************************************************************************************
-'                           ■■■ ワークシートからJS取得 ■■■
+'                            ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：指定のテーブルから、mapperTab.jsコードを取得します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：mapperTab.jsコード
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：テーブルに格納した分割文字列を結合して返却します
-'***************************************************************************************************
-Private Function Take_mapperTabJSstring() As String
-    Dim tmp2
-    Dim chunkNum As Long
+Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+End Sub
 
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.Take_mapperTabJSstring"))
-            'データがそもそもない場合は、エラーで止める
-            If .ListRows.Count = 0 Then
-                Err.Raise vbObjectError, , "mapperTab.js がセットされていません"
-                Exit Function
-            End If
+Public Sub sleep(Optional seconds As Double = 0.5)
+    m_CDPCore.sleep seconds
+End Sub
 
-            '一旦、2次元配列で受け取る
-            tmp2 = .DataBodyRange
-            chunkNum = UBound(tmp2)
-        End With
-    End With
+Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.TakeEvents StopPipeError, destruction
+End Sub
 
-    '1次元配列に変換
-    ReDim tmp1(1 To chunkNum)
-    Dim i As Long
-    For i = 1 To chunkNum
-        tmp1(i) = tmp2(i, 1)
-    Next
-
-    '返却
-    Take_mapperTabJSstring = Join(tmp1, "")
+Public Function TimerCounter() As Double
+    TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
-
-
-'***************************************************************************************************
-'                               ■■■ 更新関連 ■■■
-'***************************************************************************************************
-'* 機能　　：受け取った`mapperTab.js`のコードを、32,767文字ごとに分割し、テーブルに格納します
-'***************************************************************************************************
-Private Sub InsertMapperTab(Code As String)
-    '1セルごとの格納文字数上限
-    Const LimitCellCharacter As Long = 32767
-
-    'テーブル追加時のアニメーション動作を止める
-    Application.ScreenUpdating = False
-
-
-    '1. 分割数を確認
-    Dim NumberOfSplit As Long: NumberOfSplit = Len(Code) / LimitCellCharacter
-
-    '2. 配列確保
-    ReDim JsCodeChunk(NumberOfSplit, 0)
-
-    '3. 分割して格納する
-    Dim i As Long
-    For i = 0 To NumberOfSplit
-        JsCodeChunk(i, 0) = Mid(Code, LimitCellCharacter * i + 1, LimitCellCharacter)
-    Next
-
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.InsertMapperTab"))
-
-            '4. テーブルの中身を全消去
-            If .ListRows.Count Then .DataBodyRange.Delete
-            
-            '5. 挿入範囲の確定
-            Dim TargetRange As Range
-            Set TargetRange = .ListColumns(1).Range(2).Resize(NumberOfSplit + 1, 1)
-
-            '6. 挿入前に書式を「文字列(@)」に設定
-            TargetRange.NumberFormatLocal = "@"
-
-            '7. 挿入
-            TargetRange.value = JsCodeChunk
-        End With
-    End With
-
-
-    '元に戻す
-    Application.ScreenUpdating = True
+Public Sub CloseHandleBrowser()
+    m_CDPCore.CloseHandleBrowser
 End Sub
 
+
+
 '***************************************************************************************************
-'* 機能　　：`mapperTab.js`置き場のExcelテーブルの中身を削除します
-'***************************************************************************************************
-Private Sub DeleteMapperTab()
-    'テーブル削除時のアニメーション動作を止める
-    Application.ScreenUpdating = False
-
-
-    'JS置き場のワークシート制御へ
-    With ShLibrary01_JS
-        With .ListObjects(.UseTableName(1, "WebDriverBiDiCore.DeleteMapperTab"))
-            'テーブルの中身を全消去
-            If .ListRows.Count Then .DataBodyRange.Delete
-        End With
-    End With
-
-
-    '元に戻す
-    Application.ScreenUpdating = True
-End Sub
-
+'                               ■■■ `mapperTab.js`更新関連 ■■■
 '***************************************************************************************************
 '* 機能　　：ローカルファイルから、JSコードを取得します
 '---------------------------------------------------------------------------------------------------
@@ -845,27 +560,30 @@ End Sub
 '* 機能説明：読み取ったファイルと、Excelテーブルに挿入した文字列との一致確認も行っていきます
 '***************************************************************************************************
 Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As String = MapperJSName) As Boolean
-    'ファイルから、Jsコードを取得
-    '※Windows方式の改行コード(CRLF)だと、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
+    Const FromProcedureName As String = ThisClassName & ".UpdateFromLocalFile"
+
+
+    '1. ファイルから、Jsコードを取得
+    '※Windows方式の改行コード(CRLF)だと、テーブル挿入時の分割にて、`CR`と`LF`での分割が起こって不整合になる可能性があるため、Linux方式(LF)に統一させます
     Dim m_CharConv As New CharacterCodeConversion
     Dim JsCode As String
     With m_CharConv
         JsCode = Replace(.BytesToString(.BytesFromSavedFile(FolderPath, FileName)), vbCrLf, vbLf)
     End With
 
-    'テーブルに置く作業
-    InsertMapperTab JsCode
-
-    '正しく置けてるか確認
-    UpdateFromLocalFile = (Take_mapperTabJSstring = JsCode)
-
-    'ミスの場合はテーブルの中身を削除
-    If Not (UpdateFromLocalFile) Then DeleteMapperTab
-
-    'ローカルファイルで更新した旨を記録
-    '※ミスの場合は、空欄にする
     With ShLibrary01_JS
-        .Range(.UseRangeName(1, "WebDriverBiDiCore.UpdateFromLocalFile")).value = IIf(UpdateFromLocalFile, " Local", "")
+        '2. 専用のテーブルに配置
+        .TableMapperTabJS = JsCode
+
+        '3. 正しく置けてるか確認
+        UpdateFromLocalFile = (JsCode = .TableMapperTabJS)
+
+        '4. ミスの場合はテーブルの中身を削除
+        If Not (UpdateFromLocalFile) Then .DeleteMapperTabJS
+
+        'ローカルファイルで更新した旨を記録
+        '※ミスの場合は、空欄にする
+        .UseRangeID(1, FromProcedureName) = IIf(UpdateFromLocalFile, " Local", "")
     End With
 End Function
 
@@ -879,8 +597,6 @@ End Function
 '            `chromium-bidi`の`mapperTab.js`を更新させます
 '***************************************************************************************************
 Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
-    Dim ResultResponse As WebResponse
-
     'リクエストパラメーターを設定する
     Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
     With リクエスト情報一式
@@ -900,13 +616,13 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
         '200確認
         If .StatusCode = vbWebStatusOk Then
             'テーブルに置く作業
-            InsertMapperTab .Content
+            ShLibrary01_JS.TableMapperTabJS = .Content
 
             '正しく置けてるか確認
-            UpdateFromNPMFile = (Take_mapperTabJSstring = .Content)
+            UpdateFromNPMFile = (.Content = ShLibrary01_JS.TableMapperTabJS)
 
             'ミスの場合はテーブルの中身を削除
-            If Not (UpdateFromNPMFile) Then DeleteMapperTab
+            If Not (UpdateFromNPMFile) Then ShLibrary01_JS.DeleteMapperTabJS
 
         Else
             MsgBox "npm経由による`" & MapperJSName & "`の取得に失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .Content, vbCritical, "ErrorCode:" & .StatusCode
@@ -974,31 +690,6 @@ End Function
 
 
 '***************************************************************************************************
-'                            ■■■ CDPCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
-End Sub
-
-Public Sub sleep(Optional seconds As Double = 0.5)
-    m_CDPCore.sleep seconds
-End Sub
-
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_CDPCore.TakeEvents StopPipeError, destruction
-End Sub
-
-Public Function TimerCounter() As Double
-    TimerCounter = m_CDPCore.GetTicksMs
-End Function
-
-Public Sub CloseHandleBrowser()
-    m_CDPCore.CloseHandleBrowser
-End Sub
-
-
-
-'***************************************************************************************************
 '                               ■■■ 初期化処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
@@ -1015,3 +706,213 @@ Private Sub Class_Initialize()
         BiDiDebug.DiagnosticLog = .Range(.UseRangeName(13, FromProcedureName)).value   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ HISTORICAL ARCHIVE ■■■
+'***************************************************************************************************
+' かつて、VBAのJSONパース制限と戦うため、極限の位置計算によって
+' 巨大データから必要項目を1ミリ秒で撃ち抜いていた伝説のロマンコード。
+' ゼロコピーパーサー(vbacollective/json)の導入に伴い、ここに栄誉を称え封印する。
+' 2026/06/28 退役
+'
+' 消すのがなんかもったいないので、残しておきます。※`Github`に残るだろ、というクレームは受け付けません
+'***************************************************************************************************
+'* 機能　　：`Runtime.bindingCalled` のCDPメッセージから name 部分を抜き出します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`name`部分
+'* 引数　　：resCDP     CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+'***************************************************************************************************
+'Private Function ExtractName(resCDP As String) As String
+'    Const FromProcedureName As String = ThisClassName & ".ExtractName"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '検索文字列
+'    Const StartSearchPos    As Long = 1                                                                 'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+'
+'    '2. 所定の位置にない場合は、存在しないとし、抜ける
+'    '例：{"method":"Runtime.bindingCalled","params":{"name":"sendBidiResponse","...
+'    If StartPos = StartSearchPos Then
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName)
+'
+'        '4. name値の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, resCDP, """,""")
+'
+'        '5. name値を取り出す
+'        ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
+'    Else
+'        'name値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'        printMsg ERROR_, LogID, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：`Runtime.bindingCalled` のCDPメッセージから payload 部分を高速に抜き出します
+''---------------------------------------------------------------------------------------------------
+''* 返値　　：エスケープ解除済み`payload`部分
+''* 引数　　：resCDP             CDPからの非同期イベント:`Runtime.bindingCalled`の内容そのまんま
+''            bindingCalledName  `Runtime.bindingCalled`の`Name`値を指定。抽出精度を高めるために使用します
+''***************************************************************************************************
+'Private Function ExtractPayload(resCDP As String, bindingCalledName As String) As String
+'    Const FromProcedureName As String = ThisClassName & ".ExtractPayload"
+'
+'
+'    '検索設定
+'    Const SearchKeyName As String = """,""payload"":"""                                             '実際の検索文字列
+'    Const FirstLetter   As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":""" '先頭の固定文字列
+'    Dim StartSearchPos As Long: StartSearchPos = Len(FirstLetter) + Len(bindingCalledName) + 1      '`payload`があるべき位置を動的に特定
+'
+'
+'    '1. 文字列を探索
+'    Dim StartPos As Long
+'    StartPos = InStr(StartSearchPos, resCDP, SearchKeyName)
+'
+'    '2. 所定の位置あるか確認する
+'    If StartPos = StartSearchPos Then
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName)
+'
+'        '4. payloadの終了位置を探す。通常はexecutionContextIdの前
+'        'https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#event-bindingCalled
+'        Dim EndPos As Long: EndPos = InStrRev(resCDP, """,""executionContextId""")
+'
+'        '5. 取り出せる計算かチェック
+'        If EndPos > StartPos Then
+'            '6.payload値を取り出す
+'            ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+'
+'            '7.「JsonOfJson」の外殻だけ剥がすための、エスケープ（\" -> "）を復元
+'            'これにより、`WebJsonConverter`クラスのパース処理に渡せれる形になります
+'            ExtractPayload = Replace(ExtractPayload, "\""", """")
+'            ExtractPayload = Replace(ExtractPayload, "\\", "\")
+'        Else
+'            'payload値が取れない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'            printMsg ERROR_, LogID, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'        End If
+'    Else
+'        'payload値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
+'        printMsg ERROR_, LogID, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'    End If
+'End Function
+''***************************************************************************************************
+''* 機能　　：BiDiからの受信データの構造をチェックする際の1つ、`id`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：jsonString         BiDiのレスポンス(JSON文字列そのまま)
+''*            idValueContents   コマンド結果のID値を格納する変数(参照渡し)
+''---------------------------------------------------------------------------------------------------
+''* 注意事項：コマンド結果のエラー、成功の区別はしません。
+''***************************************************************************************************
+'Private Function GetContentsID(jsonString As String, ByRef idValueContents As Long) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsID"
+'
+'
+'    '検索設定
+'    Const SearchKeyNameOK   As String = "success"       '検索文字列(コマンド成功時)
+'    Const SearchKeyNameNG   As String = "error"         '検索文字列(コマンド失敗時)
+'    Const SearchKeyid       As String = """,""id"":"    '検索文字列の末尾のID部分
+'    Const StartSearchPos    As Long = 10                'あるべき位置
+'
+'
+'    '1. 文字列を探索
+'    Dim existenceSuccess As Boolean, existenceError As Boolean
+'    existenceSuccess = (InStr(StartSearchPos, jsonString, SearchKeyNameOK & SearchKeyid) = StartSearchPos)
+'    existenceError = (InStr(StartSearchPos, jsonString, SearchKeyNameNG & SearchKeyid) = StartSearchPos)
+'
+'    '2. どっちも所定の位置にない場合は、存在しないとし、抜ける
+'    '下記の例に基づき、10文字目にない場合は、コマンド結果ではないとして、扱います。
+'    '・{"type":"success", "id":... （コマンドの成功）
+'    '・{"type":"error", "id":... （コマンドの失敗）
+'    '・{"type":"error","error":...(構文エラー)　※これは通さない
+'    If existenceSuccess Or existenceError Then
+'        GetContentsID = True
+'
+'        '3. 検索ワードを適用
+'        Dim SearchKeyName As String
+'        SearchKeyName = IIf(existenceSuccess, SearchKeyNameOK, SearchKeyNameNG)
+'
+'        '4. 開始位置をうまい具合にずらす
+'        Dim StartPos As Long
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(SearchKeyid) '「","id":」分、ずらすイメージ
+'
+'        '5. ID値の終点を求める
+'        Dim EndPos As Long
+'        EndPos = InStr(StartPos, jsonString, ",")
+'
+'        '6. ID値を取り出す
+'        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
+'    Else
+'        GetContentsID = False
+'        printMsg Trace_, LogID, "This BiDi response does not have an `id`.", FromProcedureName
+'    End If
+'End Function
+'
+''***************************************************************************************************
+''* 機能　　：ブラウザからの受信データの構造をチェックする際の1つ、`method`チェックを行います
+''---------------------------------------------------------------------------------------------------
+''* 返り値  ：存在有無論理値
+''* 引数　　：jsonString             BiDiのレスポンス(JSON文字列そのまま)
+''*            methodValueContents  非同期イベントのメソッド名(参照渡し)
+''---------------------------------------------------------------------------------------------------
+''* 詳細説明：前方一致、後方一致を確認します
+''***************************************************************************************************
+'Private Function GetContentsMethod(jsonString As String, ByRef methodValueContents As String) As Boolean
+'    Const FromProcedureName As String = ThisClassName & ".GetContentsMethod"
+'
+'
+'    '検索設定
+'    Const SearchKeyName     As String = "event" '検索文字列
+'    Const StartSearchPos    As Long = 10        'あるべき位置
+'
+'
+'    '1. 前方文字列を探索
+'    Dim StartPos As Long, EndPos As Long
+'    StartPos = InStr(StartSearchPos, jsonString, SearchKeyName)
+'
+'    '2. 所定の位置あるか確認する
+'    '下記の例に基づき、10文字目にない場合は、次に後方一致を確認
+'    '・{"type":"event","method":...
+'    If StartPos = StartSearchPos Then
+'        GetContentsMethod = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = StartSearchPos + Len(SearchKeyName) + Len(""",""method"":""") '「","method":"」分、ずらすイメージ
+'
+'        '4. method名の終点を求める
+'        EndPos = InStr(StartPos, jsonString, """,")
+'
+'        '5. method名を取り出す
+'        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'
+'    '下記の例に基づき、後方にない場合は、非同期イベントではないとして、扱います。
+'    '・{"method":"network.beforeRequestSent", ... (中略) ..., "type":"event"}
+'    ElseIf Right(jsonString, Len(SearchKeyName) + Len("""}")) = SearchKeyName & """}" Then
+'        GetContentsMethod = True
+'
+'        '3. 開始位置をうまい具合にずらす
+'        StartPos = 1 + Len("{""method"":""") '「{"method":"」分、ずらすイメージ
+'
+'        '4. method名の終点を求める
+'        EndPos = InStr(StartPos, jsonString, """,")
+'
+'        '5. method名を取り出す
+'        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
+'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'    Else
+'        GetContentsMethod = False
+'        printMsg Trace_, LogID, "This BiDi response does not have an `method`.", FromProcedureName
+'    End If
+'End Function

@@ -29,7 +29,6 @@ Private Const ThisClassName As String = "WebDriverBiDiContext" 'ログのトレ�
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore    'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
 Private m_BiDiMode              As WebDriverBiDiMode    'BiDi全体
-Attribute m_BiDiMode.VB_VarHelpID = -1
 
 '各種ステータス
 Private Type browsingContextInfo
@@ -80,6 +79,51 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ 再接続処理系 ■■■
+'***************************************************************************************************
+'* 機能　　：Excelテーブルにある既存のBiDi-contextタブ情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
+'            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
+'***************************************************************************************************
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
+
+    '1. 新オブジェクトを用意
+    Set m_BiDiMode = New WebDriverBiDiMode
+
+    '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
+    If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+
+    '3. タブ情報を再セット
+    InfoList.context = m_BiDiMode.serializeMainTab
+
+    '4. 生存確認
+    Dim BiDiparams As New Dictionary, BiDiResult As BiDiCDPJson
+    BiDiparams.Add "root", InfoList.context
+    BiDiparams.Add "maxDepth", 0
+    Set BiDiResult = m_BiDiMode.ExecuteBiDi("browsingContext.getTree", BiDiparams, False)
+
+    '5. 判定
+    If BiDiResult Is Nothing Then
+        '6. エラーログを出す
+        printMsg ERROR_, "Failed to reattach to Previous BiDi-context.", FromProcedureName: Exit Function
+        reattach = False
+    Else
+        '6. 購読処理
+        m_BiDiMode.EnableDiscoverContexts = True
+        reattach = True
+    End If
+End Function
+
+
+
+'***************************************************************************************************
 '                              ■■■ BiDi非同期イベント関連 ■■■
 '***************************************************************************************************
 '* 機能　　：BiDiの非同期イベント
@@ -91,15 +135,14 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
 
 
     '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
-    Dim tmp As Dictionary
+    Dim BiDiEventNode As BiDiCDPJson
     Dim StartPos As Long, SearchWord As String
     Select Case methodName
         '`context`が消えた
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
-            SearchWord = "{""type"":""event"",""method"":""browsingContext.contextDestroyed"",""params"":{""context"":"""
-            StartPos = Len(SearchWord) + 1
-            If InStr(StartPos, RawJson, InfoList.context) = StartPos Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson)
+            If BiDiEventNode.NodeKey("params").StringKey("context") = InfoList.context Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
     End Select
 End Sub
@@ -114,11 +157,12 @@ End Sub
 '* 引数　　：methodName    メソッド名 (例: "browsingContext.navigate")
 '*           params        引数を持ったDictionary (省略時、`context`の付与)
 '*           StopBiDiError 実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
+'
 '* 返値    ：ブラウザから返却されたBiDi結果 (パースされたDictionary)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`params`に、`context`を付け足した上で実行されます
 '***************************************************************************************************
-Public Function ExecuteBiDi(ByVal methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As Dictionary
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
     '`context`情報の追加
     If params Is Nothing Then Set params = New Dictionary
     params.Add "context", InfoList.context
@@ -132,12 +176,13 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "browsingContext.navigate")
 '*           params        引数を持ったDictionary (省略時、`context`の付与)
-'*           StopError     実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
+'*           StopError     内部エラーで停止し、以降の処理を止めるか
+'
 '* 返値    ：送信したメッセージの ID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`params`に、`context`を付け足した上で実行し、結果の待機は行いません。
 '***************************************************************************************************
-Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
     '`context`情報の追加
     If params Is Nothing Then Set params = New Dictionary
     params.Add "context", InfoList.context
@@ -152,7 +197,7 @@ End Function
 '                              ■■■ JavaScript コア機能 ■■■
 '***************************************************************************************************
 '                                           工事中...
-
+    
 
 
 
@@ -197,15 +242,15 @@ Private Sub attachToContext()
 
     '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
     Dim tmp
-    Dim FirstTab As Dictionary
+    Dim FirstTab As BiDiCDPJson
     For Each tmp In FirstTabs
         '4-1. Jsonパース処理
-        Set FirstTab = m_BiDiMode.jsConverter.ParseJson(tmp)("params")
+        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
 
         '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
         If IsNull(FirstTab("parent")) Then
             With InfoList
-                .context = FirstTab("context")
+                .context = FirstTab.StringKey("context")
                 .Url = FirstTab("url")
             End With
 
@@ -257,7 +302,7 @@ Public Function ConvertToCDPContext() As CDPContext
         Set .InheritanceCDPBrowser = m_BiDiCore.DirectControlCDP
 
         '6. 先ほど発行したSessionIDを渡す
-        .id = newSessionID
+        .CurrentSessionID = newSessionID
 
         '7. ステータスの更新
         .getSessionInfo

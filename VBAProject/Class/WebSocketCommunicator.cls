@@ -59,16 +59,16 @@ Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFre
 '                            ■■■ コールバック受信管理用 ■■■
 '***************************************************************************************************
 'Websocket蓄積受信状況把握に使用
-Private Const BufferToAllocate      As Long = 2 ^ 14 '初期バッファー上限
+Private Const BufferToAllocate      As Long = 2 ^ 20   '初期バッファー上限
 Private Type WebSocketReceiveManage
-    Buffer(BufferToAllocate - 1)    As Byte         '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
-    BufferLength                    As Long         '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
-    ReceiveBytes                    As Long         '第3引数        `WinHttpWebSocketReceive`から受信できたサイズ
-    Status                          As Long         '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
-    CurrentPointer                  As Long         '第5引数        カーソル位置　※`UpdateBufferInfo`内で計算します
-    collect                         As Collection   'チャンク収集   バラバラのデータを蓄積させる用
+    Buffer()        As Byte         '第1引数        `WinHttpWebSocketReceive`からの受信バイトデータ
+    BufferLength    As Long         '第2引数        バッファー残量　※`UpdateBufferInfo`内で計算します
+    ReceiveBytes    As Long         '第3引数        `WinHttpWebSocketReceive`から受信できたサイズ
+    Status          As Long         '第4引数        WINHTTP_WEB_SOCKET_STATUS.eBufferType
+    CurrentPointer  As Long         '第5引数        カーソル位置　※`UpdateBufferInfo`内で計算します
 End Type
-Private m_res   As WebSocketReceiveManage
+Private m_res       As WebSocketReceiveManage
+Private WebSocketStream As Object   'WebSocketバイトストリームを蓄積するオブジェクト
 
 
 
@@ -116,10 +116,10 @@ Private Const TIMEOUT_DEFAULT As Double = 30  '初期タイムアウト秒数
 '                                  ■■■ グローバル変数 ■■■
 '***************************************************************************************************
 '内部使用用オブジェクト
-Private WithEvents WebSocket        As WebSocketHTTPCommunicator    'SafeTimer の WithEvents st As SafeTimer 相当。WebSocketハンドルもここに格納されてる
+Private WithEvents WebSocket    As WebSocketHTTPCommunicator    'SafeTimer の WithEvents st As SafeTimer 相当。WebSocketハンドルもここに格納されてる
 Attribute WebSocket.VB_VarHelpID = -1
-Private CharConv                    As New CharacterCodeConversion  'バイト配列←→UTF-8変換用
-Private ViewLog                     As New Logger                   'ログ用
+Private CharConv                As New CharacterCodeConversion  'バイト配列←→UTF-8変換用
+Private ViewLog                 As New Logger                   'ログ用
 
 '--- WebSokect関連の補助ステータス ---
 Private Type StateWebSocket
@@ -145,6 +145,9 @@ Private timerOut   As Long
 
 'その他
 Private m_Frequency As Currency '実行マシンでの周波数記録用
+
+'WebSocket受信発信機
+Public Event WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
 
 
 
@@ -605,82 +608,20 @@ End Function
 '***************************************************************************************************
 '                                ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：バッファ初期化
+'* 機能　　：cursor管理情報の初期化
 '***************************************************************************************************
-Private Sub InitializeBuffer(responseBuffer() As Byte, CurrentPointer As Long, BufferLength As Long)
-    'Erase responseBuffer   'カーソル管理があるので、わざわざ空処理する必要はなし。※Windowsのゴミ箱を空にする時のロジックを模倣
+Private Sub InitializeBuffer(CurrentPointer As Long, BufferLength As Long)
     CurrentPointer = 0
-    BufferLength = UBound(responseBuffer) + 1
+    BufferLength = BufferToAllocate
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：バッファ管理情報更新
+'* 機能　　：cursor管理情報更新
 '***************************************************************************************************
-Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes)
+Private Sub UpdateBufferInfo(CurrentPointer As Long, BufferLength As Long, ReceiveBytes As Long)
     CurrentPointer = CurrentPointer + ReceiveBytes
     BufferLength = BufferLength - ReceiveBytes
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：チャンクごとに区切られたコレクションバイト配列を一気にバイト配列変換します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：collect  コレクションバイト配列
-'* 返り値  ：合体したバイト配列
-'***************************************************************************************************
-Private Function MakeResponseFullBytes(collect As Collection) As Byte()
-    Dim totalSize As Long
-    Dim chunk As Variant
-    Dim fullBytes() As Byte
-    Dim currentPos As Long
-    Dim i As Long
-    
-    ' 1. まず合計サイズを計算する
-    totalSize = 0
-    For Each chunk In collect
-        ' 配列のサイズを加算（UBound+1）
-        totalSize = totalSize + (UBound(chunk) + 1)
-    Next chunk
-    
-    If totalSize <= 0 Then
-        Dim emptyBytes() As Byte
-        MakeResponseFullBytes = emptyBytes
-        Exit Function
-    End If
-
-    ' 2. 巨大な配列を確保
-    ReDim fullBytes(0 To totalSize - 1)
-
-    ' 3. バイトデータをコピーして結合
-    currentPos = 0
-    For Each chunk In collect
-        For i = 0 To UBound(chunk)
-            fullBytes(currentPos) = chunk(i)
-            currentPos = currentPos + 1
-        Next
-    Next
-
-    '4. 返却
-    MakeResponseFullBytes = fullBytes
-End Function
-
-'***************************************************************************************************
-'* 機能　　：先頭から指定サイズ分だけ切り出したバイト配列を返します
-'***************************************************************************************************
-Private Function SliceBytes(ByRef Source() As Byte, ByVal dataSize As Long) As Byte()
-    Dim clipped() As Byte
-    Dim i As Long
-
-    If dataSize <= 0 Then
-        SliceBytes = clipped
-        Exit Function
-    End If
-
-    ReDim clipped(0 To dataSize - 1)
-    For i = 0 To dataSize - 1
-        clipped(i) = Source(i)
-    Next
-    SliceBytes = clipped
-End Function
 
 '***************************************************************************************************
 '* 機能　　：WinHttpWebSocketReceive のバッファー管理を担います
@@ -713,34 +654,34 @@ Private Sub BufferManagement()
     '※4種類 + 1 のタイプが出ますが、処理の仕方は2種類のため、統一します。
     Select Case m_res.Status
         Case WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_MESSAGE
-            '1. 今のCollectionに、既に貯まっている状態か？
-            If m_res.collect.Count Then
-                printMsg Debug_, "全ての" & IIf(m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, "バイナリ", "UTF-8") & "データが届きました。", FromProcedureName
+            With WebSocketStream
+                '1. 最後のパケットデータを追加
+                .Write m_res.Buffer
 
-                '1-1. 最後のパケットデータを追加（未使用領域を含めない）
-                m_res.collect.Add SliceBytes(m_res.Buffer, m_res.CurrentPointer)
-                printMsg Debug_, "最後のバッファーを一時Collectionキューに追加しました。", FromProcedureName
+                '2. 未使用領域分ずらす
+                .Position = .Position - (BufferToAllocate - m_res.CurrentPointer)
 
-                '1-2. 全てのチャンクを結合して、完成データ用変数に適用
-                Content_WinHttpWebSocketReceive = MakeResponseFullBytes(m_res.collect)
-                printMsg Debug_, "チャンクを全て結合し、バイト配列として返却しました。", FromProcedureName
+                '3. この位置を終端（EOS）としてマークする
+                .SetEOS
 
-                '1-3. 次のためにCollectionを空にする
-                Set m_res.collect = New Collection
-                printMsg Debug_, "新規Collectionを確保しました。", FromProcedureName
+                '4. `WithEvents`用にここに来た受信分まで調整し発信
+                .Position = .Position - m_res.CurrentPointer
+                Dim tmp() As Byte: tmp = .Read
+                RaiseEvent WebSocketReceive(tmp, m_res.CurrentPointer, True)
 
-            Else
-                printMsg Debug_, "1回のバッファーで収まる" & IIf(m_res.Status = WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_MESSAGE, "バイナリ", "UTF-8") & "データが届きました。", FromProcedureName
+                '5. カーソル位置リセット
+                .Position = 0
 
-                '1-1. 最後のパケットデータを直接返却（未使用領域を含めない）
-                Content_WinHttpWebSocketReceive = SliceBytes(m_res.Buffer, m_res.CurrentPointer)
-                printMsg Debug_, "そのバイト配列を、直返却しました。", FromProcedureName
+                '6. 出来上がった1件データを反映
+                Content_WinHttpWebSocketReceive = .Read
 
-            End If
+                '7. 再度カーソル位置リセット ※読み終わった後は、Position は自動的に末尾（.Size と同じ位置）に移動するため
+                .Position = 0
+            End With
 
-                '2. 全てを受信し終えたステータスなので、初期化処理
-                InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
-                printMsg Debug_, "バッファーを確保しました。", FromProcedureName
+            '8. 全てを受信し終えたステータスなので、リセット
+            InitializeBuffer m_res.CurrentPointer, m_res.BufferLength
+            printMsg Debug_, "バッファー情報をリセットしました。", FromProcedureName
 
         Case WINHTTP_WEB_SOCKET_BUFFER_TYPE.BINARY_FRAGMENT, WINHTTP_WEB_SOCKET_BUFFER_TYPE.UTF8_FRAGMENT
             '1. バッファー残量確認
@@ -748,13 +689,14 @@ Private Sub BufferManagement()
             If m_res.BufferLength <= 0 Then
                 printMsg Debug_, "バッファーを使い果たしました。", FromProcedureName
 
-                '2. 満たしたパケットをコレクションへ直追加
-                m_res.collect.Add m_res.Buffer
-                printMsg Debug_, "満たしたバッファーを、Collectionキューに追加しました。", FromProcedureName
+                '2. 満たしたパケットをストリームへ追加し、イベント発信
+                WebSocketStream.Write m_res.Buffer
+                printMsg Debug_, "満たしたバッファーを、`WebSocketStream`に追加しました。", FromProcedureName
+                RaiseEvent WebSocketReceive(m_res.Buffer, BufferToAllocate, False)
 
-                '3. バッファー初期化して、空きを確保
-                InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
-                printMsg Debug_, "バッファーを確保しました。", FromProcedureName
+                '3. バッファー情報をリセット
+                InitializeBuffer m_res.CurrentPointer, m_res.BufferLength
+                printMsg Debug_, "バッファー情報をリセットしました。", FromProcedureName
             Else
                 printMsg Debug_, "まだバッファーに空きがあるため、次の受信処理に持ち越します。", FromProcedureName
             End If
@@ -773,6 +715,9 @@ End Sub
 
 
 
+'***************************************************************************************************
+'                               ■■■ 初期化/後始末処理 ■■■
+'***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = "WebSocketCommunicator.Class_Initialize"
 
@@ -795,17 +740,32 @@ Private Sub Class_Initialize()
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     'バッファー情報を初期化
-    InitializeBuffer m_res.Buffer, m_res.CurrentPointer, m_res.BufferLength
-    Set m_res.collect = New Collection
+    '  WebSocketから直接受け取る側の初期化
+    ReDim m_res.Buffer(BufferToAllocate - 1)
+    InitializeBuffer m_res.CurrentPointer, m_res.BufferLength
+
+    '  蓄積用バイト配列バッファーの初期化
+    Set WebSocketStream = CreateObject("ADODB.Stream")
+    With WebSocketStream
+        .Open
+        .Type = 1           ' adTypeBinary
+        .Write m_res.Buffer ' 疑似的に大きめのバッファーを確保
+        .Position = 0       ' カーソルだけ先頭に戻す
+        .SetEOS             ' 終端（EOS）としてマークする
+    End With
 
     '実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
     Call QueryPerformanceFrequency(m_Frequency)
 End Sub
 
 Private Sub Class_Terminate()
+    On Error Resume Next
+
     'WebSocketを閉じます
     CloseWebSocket
+    WebSocketStream.Close
 
     'オブジェクト破棄
     Set WebSocket = Nothing
+    Set WebSocketStream = Nothing
 End Sub

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiDi Alert Race Test</title>
+  <style>
+    body { font-family: "Segoe UI", system-ui, sans-serif; padding: 16px; }
+    button { padding: 8px 12px; }
+    #status { margin-top: 8px; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <h3>WebDriverBiDi race test page</h3>
+  <button type="button" id="btn-bidi-alert">open alert</button>
+  <div id="status">idle</div>
+
+  <script>
+    (function () {
+      let n = 0;
+      const btn = document.getElementById("btn-bidi-alert");
+      const status = document.getElementById("status");
+
+      window.__bidi_last_alert = "";
+      window.__bidi_closed_count = 0;
+
+      btn.addEventListener("click", function () {
+        n += 1;
+        const msg = "BIDI_RACE_" + n;
+        window.__bidi_last_alert = msg;
+        alert(msg);
+        window.__bidi_closed_count += 1;
+        status.textContent = msg + "_closed";
+      });
+    })();
+  </script>
+</body>
+</html>
+
