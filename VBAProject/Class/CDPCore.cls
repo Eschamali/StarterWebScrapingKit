@@ -748,30 +748,34 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：ストリームからテキスト変換したのを`responseCDP.strBuffer`に反映して、メッセージ取り出しの準備を行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：これを呼び出す際は`ADODB.Stream`の有効な`Stream`範囲の末尾が`vbnullchar`になってることを前提とします
 '***************************************************************************************************
 Private Sub ReadyCDPMessage()
+    Const FromProcedureName As String = ThisClassName & ".ReadyCDPMessage"
+
+
     With CDPPipeStream
-        '1. 追加するバイト数を確定
+        '1. 取り出すバイト数を確定
         .SetEOS
 
-        '2. 先頭に巻き戻す
+        '2. CDPメッセージを取り出すため、先頭に巻き戻す
         '※既に0の場合(メッセージが空)は即抜け
-        If .Position Then .Position = 0 Else Exit Sub
+        If .Position Then .Position = 0 Else printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
 
-        '3. 指定の文字コードに一括変換させる
-        'バイト配列をUTF-8に変換するか？
+        '3. UTF-16変数に格納する準備
         If Utf8Converter Is Nothing Then
-            'そのまんま返却
+            'そのまんまUTF-16変数に格納
             Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = StrConv((.Read), vbUnicode)
         Else
-            '変換した上で、返却
+            'UTF-8に変換した上で、UTF-16変数に格納
             Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = Utf8Converter.BytesToString((.Read))
         End If
 
-        '3. 次の蓄積位置を記録
+        '4. 次の蓄積位置を記録
         responseCDP.AddCursor = responseCDP.EndCursor
 
-        '4 .追加出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
+        '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
         .Position = 0
     End With
 End Sub
