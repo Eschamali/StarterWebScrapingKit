@@ -785,7 +785,7 @@ Private Function TakeCDPMessage() As String
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .EndCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
+        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
