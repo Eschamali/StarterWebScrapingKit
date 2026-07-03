@@ -1121,8 +1121,8 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
         Select Case LogLevel_
             Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
             Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.info_:   .LogInfo strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.WARN_:   .LogWarn strFormattedMsg, From, currentLog.logPath, logName
             Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
             Case Else: 'ログ出力無効化
         End Select
