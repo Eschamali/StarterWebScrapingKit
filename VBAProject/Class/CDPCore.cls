@@ -792,13 +792,15 @@ Private Function TakeCDPMessage() As String
         '3. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
 
-        '4. 次の検索開始位置を更新
-        If .EndCursor = EndPos Then
-            '次に蓄積し始める位置にたどり着いちゃったら、リセットしておく
-            .StartCursor = 0
+        '5. 次の検索開始位置を更新
+        If .AddCursor = EndPos Then
+            '次に蓄積し始める位置にたどり着いちゃったら、カーソル情報をリセットしておく
+            .EndCursor = .EndCursor - .AddCursor
             .AddCursor = 0
-            .EndCursor = 0
+            .StartCursor = 0
             .ExistsNewRes = False
+
+            printMsg Debug_, LogID, "All accumulated CDPmessages have been processed. Resetting cursor information.", FromProcedureName
         Else
             '次の取り出しに備えて更新
             .StartCursor = EndPos
