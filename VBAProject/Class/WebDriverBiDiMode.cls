@@ -161,7 +161,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserHandle(BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BiDiUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
