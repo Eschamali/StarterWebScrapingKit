@@ -659,14 +659,15 @@ Private Sub BufferManagement()
                 .Write m_res.Buffer
 
                 '2. 未使用領域分ずらす
-                .Position = .Position - (BufferToAllocate - m_res.ReceiveBytes)
+                .Position = .Position - (BufferToAllocate - m_res.CurrentPointer)
 
                 '3. この位置を終端（EOS）としてマークする
                 .SetEOS
 
-                '4. `WithEvents`用に受信分まで調整
-                .Position = .Position - m_res.ReceiveBytes
-                RaiseEvent WebSocketReceive((.Read), m_res.ReceiveBytes, True)
+                '4. `WithEvents`用にここに来た受信分まで調整し発信
+                .Position = .Position - m_res.CurrentPointer
+                Dim tmp() As Byte: tmp = .Read
+                RaiseEvent WebSocketReceive(tmp, m_res.CurrentPointer, True)
 
                 '5. カーソル位置リセット
                 .Position = 0
