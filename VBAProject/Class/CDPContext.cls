@@ -1426,7 +1426,7 @@ Public Sub closeTab()
     'Get the original serialized tab ID
     Dim MainTargetID As String, tmp As Scripting.Dictionary
     Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-    If Not tmp Is Nothing Then MainTargetID = ("targetID")
+    If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
     'メインタブは閉じないように仕向ける
     If brTab.targetID = MainTargetID Then
@@ -2499,7 +2499,7 @@ Property Let CurrentSessionID(newSessionID As String)
     With ShSetting01_StartBrowser
         Dim MainTargetID As String, tmp As Scripting.Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-        If Not tmp Is Nothing Then MainTargetID = ("targetID")
+        If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
         If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
