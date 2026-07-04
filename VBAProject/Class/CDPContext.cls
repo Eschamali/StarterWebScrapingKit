@@ -301,7 +301,7 @@ Private Sub attachToSession()
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 
     'JavaScript関連機能を有効化
-    Dim CDPcommand As New Scripting.Dictionary, results_ As BiDiCDPJson
+    Dim results_ As BiDiCDPJson
 3   Set results_ = ExecuteCDP("Runtime.enable")
 4   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
