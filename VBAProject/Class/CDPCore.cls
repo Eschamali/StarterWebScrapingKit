@@ -186,6 +186,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 'その他
 Private Const ThisClassName     As String = "CDPCore"
 Private Const InitialBuffer     As Long = 2 ^ 20        '初期バッファー上限
+Private Const RunDoEventsCount  As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
 Private Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値
 
 
@@ -859,8 +860,14 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     printMsg Trace_, LogID, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
+    Dim LoopCounter As Long
     Dim EOvbNullChar As Boolean: EOvbNullChar = True  '初期化
     Do
+        '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
+        If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
+        LoopCounter = LoopCounter + 1
+
+
         'std系の中身を出力
         viewStdoutAndStderr
 
@@ -948,9 +955,6 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
         '受信データのチェックの間に来たPipeも取り出しておきます
         TakePipe StopPipeError, destruction
-
-        '応答なし防止するため、一定間隔で呼び出す
-        If ResCounter Mod 2 ^ 10 = 0 Then DoEvents
     Loop
 
     'CDPメッセージ処理件数をログ化
