@@ -1866,13 +1866,9 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     End If
 
    'If not yet then do navigate
-    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
-    CDPcommand.Add "method", "Page.navigate"
-
+    Dim CDPparams As New Scripting.Dictionary
     CDPparams.Add "url", strURL
-    CDPcommand.Add "params", CDPparams
-
-    SendMessage CDPcommand
+    ExecuteCDP "Page.navigate", CDPparams
 
     'should also add a maxTimeLimit to Wait
     wait till:=till
