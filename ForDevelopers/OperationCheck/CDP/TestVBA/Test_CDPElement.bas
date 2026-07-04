@@ -84,8 +84,8 @@ Private Sub Test01_Value(br As CDPContext)
     AssertEq "sendString後のvalue", el.value, "sendStringで入力"
     br.jsEval "updateStatus('s-value','sendString: ' + document.getElementById('testInput').value, true)"
 
-    ' --- varPath / varResult (Basic Properties) ---
-    AssertNotEmpty "varPath プロパティ取得", el.varPath
+    ' --- UseSearchJS / varResult (Basic Properties) ---
+    AssertNotEmpty "UseSearchJS プロパティ取得", el.UseSearchJS
     AssertEq "varResult プロパティ取得(vbString=8)", CStr(el.varResult), "8"
 End Sub
 
@@ -270,9 +270,9 @@ Private Sub Test11_Traversal(br As CDPContext)
     Set child2 = br.getElementByID("traversalChild2")
 
     ' getParent
-    Dim parent As CDPElement
-    Set parent = child2.getParent()
-    AssertEq "getParent → id", parent.getAttribute("id"), "traversalParent"
+    Dim Parent As CDPElement
+    Set Parent = child2.getParent()
+    AssertEq "getParent → id", Parent.getAttribute("id"), "traversalParent"
 
     ' getNextSibling
     Dim nextEl As CDPElement
@@ -286,7 +286,7 @@ Private Sub Test11_Traversal(br As CDPContext)
 
     ' getFirstChild (parentから)
     Dim firstEl As CDPElement
-    Set firstEl = parent.getFirstChild()
+    Set firstEl = Parent.getFirstChild()
     AssertEq "getFirstChild → id", firstEl.getAttribute("id"), "traversalChild1"
 
     br.jsEval "updateStatus('s-traversal','トラバーサル テスト完了 " & ECheck() & "', true)"
