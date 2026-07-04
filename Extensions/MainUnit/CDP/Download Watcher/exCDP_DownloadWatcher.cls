@@ -102,7 +102,6 @@ Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
-Private mJson                       As New WebJsonConverter
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean
@@ -175,7 +174,7 @@ Public Property Let EnableEvents(Optional DownloadDir As String, Optional AllowA
     If BrowserDomain Then params.Add "eventsEnabled", v
 
     '5. CDPに設定を反映（イベント有効/無効の切り替え）
-    invokeMethod UserMethod, params, True
+    ExecuteCDP UserMethod, params, True
 
     '6. 無効化する場合は、内部状態もクリア
     If v Then
@@ -356,8 +355,8 @@ Private Sub EventCapture(methodName As String, RawJson As String)
             printMsg Trace_, "`" & methodName & "` detected. Raw=" & RawJson, FromProcedureName
 
             '① CDPの生params を丸ごと取得 → UDT/中間変換なし
-            Dim wbParams As Scripting.Dictionary
-            Set wbParams = mJson.ParseJson(RawJson)("params")
+            Dim wbParams As BiDiCDPJson
+            Set wbParams = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
             Dim guid As String: guid = CStr(wbParams(WB_GUID))
 
@@ -388,7 +387,7 @@ Private Sub EventCapture(methodName As String, RawJson As String)
 
             '① CDPの生params を丸ごと取得
             Dim pgParams As Scripting.Dictionary
-            Set pgParams = mJson.ParseJson(RawJson)("params")
+            Set pgParams = WebJsonConverter.Parse(RawJson).value("params")
 
             Dim evGuid As String: evGuid = CStr(pgParams(PROG_GUID))
 
@@ -708,7 +707,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：指定 GUID の WillBegin params を返します（CDPの生データ）
 '***************************************************************************************************
-Public Function GetWillBeginParams(guid As String) As Scripting.Dictionary
+Public Function GetWillBeginParams(guid As String) As BiDiCDPJson
     If Not downloadInfos.Exists(guid) Then Set GetWillBeginParams = Nothing: Exit Function
     Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
     If Not entryD.Exists(KEY_WILL_BEGIN) Then Set GetWillBeginParams = Nothing: Exit Function
@@ -857,7 +856,7 @@ Public Sub ThrottleNetwork(Optional DownloadKBps As Long = 300)
 
     printMsg info_, "Throttling network to " & DownloadKBps & " KB/s...", FromProcedureName
 
-    invokeMethod "Network.enable"
+    ExecuteCDP "Network.enable"
 
     Dim params As New Scripting.Dictionary
     params.Add "offline", False
@@ -865,7 +864,7 @@ Public Sub ThrottleNetwork(Optional DownloadKBps As Long = 300)
     params.Add "downloadThroughput", CLng(DownloadKBps * 1024)
     params.Add "uploadThroughput", CLng(500& * 1024)
 
-    invokeMethod "Network.emulateNetworkConditions", params
+    ExecuteCDP "Network.emulateNetworkConditions", params
     printMsg info_, "Network throttled to " & DownloadKBps & " KB/s " _
                   & "(" & Format(DownloadKBps / 1024#, "0.0") & " Mbps approx.)", FromProcedureName
 
@@ -884,7 +883,7 @@ Public Sub UnthrottleNetwork()
     params.Add "downloadThroughput", CLng(-1)
     params.Add "uploadThroughput", CLng(-1)
 
-    invokeMethod "Network.emulateNetworkConditions", params
+    ExecuteCDP "Network.emulateNetworkConditions", params
     printMsg info_, "Network throttle removed. Full speed restored.", FromProcedureName
 
 End Sub
@@ -902,7 +901,7 @@ Private Function GetWillBeginField(guid As String, FieldKey As String) As String
     If Not downloadInfos.Exists(guid) Then Exit Function
     Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
     If Not entryD.Exists(KEY_WILL_BEGIN) Then Exit Function
-    Dim wbD As Scripting.Dictionary: Set wbD = entryD(KEY_WILL_BEGIN)
+    Dim wbD As BiDiCDPJson: Set wbD = entryD(KEY_WILL_BEGIN)
     If Not wbD.Exists(FieldKey) Then Exit Function
     GetWillBeginField = CStr(wbD(FieldKey))
 End Function
@@ -1009,11 +1008,11 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As BiDiCDPJson
     If alwaysBrowserContext Then
-        Set invokeMethod = ex_CDPBrowser.ExecuteCDP(methodName, params, StopError)
+        Set ExecuteCDP = ex_CDPBrowser.ExecuteCDP(methodName, params, StopError)
     Else
-        Set invokeMethod = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
+        Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
     End If
 End Function
 
@@ -1034,7 +1033,7 @@ Friend Sub Init(Inheritance As CDPContext)
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.id
+    CurrentSessionId = ex_CDPContext.CurrentSessionId
     printMsg Debug_, "exCDP_DownloadWatcher initialized.", FromProcedureName
 End Sub
 
@@ -1050,9 +1049,7 @@ Private Sub Class_Initialize()
     Set downloadInfos = New Scripting.Dictionary
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'rawJSONをデバッグ出力するか
-    End With
+    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'rawJSONをデバッグ出力するか
 
 End Sub
 

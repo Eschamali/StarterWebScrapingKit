@@ -95,7 +95,7 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
         Dim allGuids As Collection: Set allGuids = dw.GetAllGuids()
         Dim latestGuid As String: latestGuid = CStr(allGuids(allGuids.Count))
 
-        Dim wbP As Scripting.Dictionary: Set wbP = dw.GetWillBeginParams(latestGuid)
+        Dim wbP As BiDiCDPJson: Set wbP = dw.GetWillBeginParams(latestGuid)
         Dim pgP As Scripting.Dictionary: Set pgP = dw.GetProgressParams(latestGuid)
         Debug.Print "[Demo01]   [生params] url      : " & wbP("url")
         Debug.Print "[Demo01]   [生params] totalBytes: " & pgP("totalBytes")
@@ -442,7 +442,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
             Dim info As Scripting.Dictionary: Set info = dw.GetInfo(CStr(guid))
 
             '-- WillBegin サブ辞書を直接参照 --
-            Dim wbParams As Scripting.Dictionary: Set wbParams = info("WillBegin")
+            Dim wbParams As BiDiCDPJson:          Set wbParams = info("WillBegin")
             Dim pgParams As Scripting.Dictionary: Set pgParams = info("Progress")
 
             Debug.Print "[Demo05]   ┌─ guid: " & Left(CStr(guid), 8) & "..."
@@ -454,7 +454,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
             Debug.Print ""
 
             '-- GetWillBeginParams / GetProgressParams での個別取得 --
-            Dim wb2 As Scripting.Dictionary: Set wb2 = dw.GetWillBeginParams(CStr(guid))
+            Dim wb2 As BiDiCDPJson:          Set wb2 = dw.GetWillBeginParams(CStr(guid))
             Dim pg2 As Scripting.Dictionary: Set pg2 = dw.GetProgressParams(CStr(guid))
             Debug.Print "[Demo05]   ※ GetWillBeginParams / GetProgressParams でも同一データ取得可"
             Debug.Print "[Demo05]      wb2(""suggestedFilename"") = " & wb2("suggestedFilename")
@@ -703,7 +703,7 @@ Sub Demo_DownloadWatcher_07_直リンク型_複数ファイル同時DL()
         For Each guid In guids
             Dim pgP As Scripting.Dictionary
             Set pgP = dw.GetProgressParams(CStr(guid))
-            Dim wbP As Scripting.Dictionary
+            Dim wbP As BiDiCDPJson
             Set wbP = dw.GetWillBeginParams(CStr(guid))
             summary = summary & wbP("suggestedFilename") _
                     & " (" & Format(CDbl(pgP("totalBytes")) / 1024 / 1024, "0.0") & "MB)" _
