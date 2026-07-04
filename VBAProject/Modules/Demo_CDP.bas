@@ -58,7 +58,7 @@ Public Function 設定シートからのCDP起動ForTab(Optional StartURL As Str
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForTab = New CDPContext
-        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
+        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 
@@ -85,7 +85,7 @@ Public Function 設定シートからのCDP起動ForBrowser(Optional StartURL As
 
         'ブラウザ起動
         Set 設定シートからのCDP起動ForBrowser = New CDPBrowser
-        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動ForTab")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
+        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
     End With
 End Function
 
@@ -113,7 +113,6 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
     Dim CharConvObj As New CharacterCodeConversion:
 
     '設定シートに基づくブラウザ立ち上げ
@@ -130,7 +129,7 @@ Sub ネットワークイベントの確認()
 
 
     'ネットワークイベント受信を有効化する
-    Dim ResultCDP As Dictionary: Set ResultCDP = Demo_NetworkEvent.ExecuteCDP("Network.enable")
+    Demo_NetworkEvent.ExecuteCDP "Network.enable"
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -139,7 +138,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
@@ -154,7 +153,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
@@ -168,7 +167,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(JsonDicObj.ConvertToJson(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
@@ -229,9 +228,6 @@ End Sub
 '            ・`Extensions`は実験的ドメインですが、Class内Err.Raiseでは止めずに、ここの自力判定でエラーハンドリングします
 '***************************************************************************************************
 Sub UseExtensions()
-    '必要な変換オブジェクトを用意
-    Dim JsonDicObj As New WebJsonConverter
-
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     '参考 → https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
     Dim ExtensionsFolderPath As String
@@ -250,7 +246,7 @@ Sub UseExtensions()
     controlExtensions.navigate "edge://extensions/"
 
     '拡張機能を読み込む
-    Dim CDPparams As Dictionary, ResultCDP As Dictionary
+    Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
     Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
@@ -269,7 +265,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & ResultCDP("id")
 
     Else
-        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & JsonDicObj.ConvertToJson(ResultCDP), vbExclamation, "Not found id"
+        MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
         controlExtensions.InheritanceCDPBrowser.quit
@@ -308,7 +304,7 @@ Sub TestAlert()
 
     '必要な変数を用意
     Dim paramsCDP As New Scripting.Dictionary
-    Dim resCDP As Scripting.Dictionary
+    Dim resCDP As BiDiCDPJson
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double
@@ -343,7 +339,7 @@ Sub TestAlert()
             paramsCDP.RemoveAll
             paramsCDP.Add "query", TargetXpath  '先頭のリンクを対象に
             Set resCDP = .ExecuteCDP("DOM.performSearch", paramsCDP)
-            searchId = resCDP("searchId")
+            searchId = resCDP.StringKey("searchId")
 
 
             ' --- 4. nodeIdを取得 ---
@@ -352,7 +348,7 @@ Sub TestAlert()
             paramsCDP.Add "fromIndex", 0   '先頭の件数から
             paramsCDP.Add "toIndex", 1     '1件分のみ
             Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP("nodeIds")(1)  '配列の先頭を取得
+            nodeId = resCDP.NodeKey("nodeIds").NumberAt(0) '配列の先頭を取得
 
 
             ' --- 5. nodeId を objectId に変換 ---
@@ -364,7 +360,7 @@ Sub TestAlert()
             ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
             Dim AsyncID As Long
-            AsyncID = .jsEval("function() { this.click(); }", CStr(resCDP("object")("objectId")), RunAsyncCDP:=True)
+            AsyncID = .jsEval("function() { this.click(); }", resCDP.NodeKey("object").StringKey("objectId"), RunAsyncCDP:=True)
 
 
             ' --- 7. イベントキャプチャを有効化 ---
@@ -397,7 +393,7 @@ Sub TestAlert()
             paramsCDP.RemoveAll
             paramsCDP.Add "accept", True
             paramsCDP.Add "promptText", 入力文字内容
-            Set resCDP = .ExecuteCDP("Page.handleJavaScriptDialog", paramsCDP)
+            .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
 
 
             ' --- 10. 以前、非同期で実行した結果も拝見する ---
@@ -463,7 +459,7 @@ Sub SimpleShadowRootTest()
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
         '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行(先述にて、直で`.click`をしないのはこのため)
-        .jsEval "function() { this.click(); }", JavaScriptAlertButton.getObjectId, RunAsyncCDP:=True
+        .jsEval "function() { this.click(); }", JavaScriptAlertButton.CurrentObjectId, RunAsyncCDP:=True
 
         ' --- 6. 特定のイベント名が出るまでループ ---
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
@@ -491,6 +487,7 @@ Sub SimpleShadowRootTest()
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "accept", True
         .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
+        .InheritanceCDPBrowser.sleep
 
         '8. ブラウザを正常に閉じる
         .InheritanceCDPBrowser.quit
@@ -508,7 +505,7 @@ Sub iframeShadowRootTest()
     With captchaDemo
         '2. cloudflare 用のiframeにアタッチする
         Dim CloudflareTurnstile As CDPContext
-        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame, doRetry:=True)    '※見つかるまで、内部でループされます
+        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame, doRetrySecond:=5)     '※見つかるまで、5秒間内部でループされます
 
         '3. そのiframe内にあるチェックBoxをクリックする
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
@@ -903,7 +900,7 @@ End Function
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
 '***************************************************************************************************
 Sub demoReattachmentPart1()
-    
+
     Dim c As CDPContext
     Set c = 設定シートからのCDP起動ForTab
     c.navigate "https://google.com"
@@ -928,7 +925,7 @@ Sub demoReattachmentPart2ForBrowser()
     End With
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
-    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical: Exit Sub
+    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -954,8 +951,8 @@ Sub demoReattachmentPart2ForTab()
     End With
 
     '1. Excelに記録されてる`TargetID`の生存確認
-    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です
-    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical: Exit Sub
+    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"

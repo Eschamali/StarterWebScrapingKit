@@ -22,8 +22,8 @@ Private Declare PtrSafe Sub sleep3 Lib "kernel32" Alias "Sleep" ( _
 
 '変数,オブジェクトの使い回し/保持用に、public化
 Private g_WebsocketObj  As WebSocketCommunicator
-Private ErrorMes        As New WinApiError
 Private SendCount       As Long
+Private wsForChromiumobj As WebSocketCommunicator
 
 
 
@@ -91,9 +91,9 @@ Sub WebSocketDemoASync_初期化_wss()
     Dim ResultCode As Long
     ResultCode = g_WebsocketObj.RequestWebSocketReceive
     If ResultCode Then
-        Debug.Print "受信予約エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "受信予約エラー。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "受信予約結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
 
 End Sub
@@ -119,18 +119,18 @@ Sub WebSocketDemoASync_初期化_ws()
     ' その後、http://127.0.0.1:9222/json を開いて webSocketDebuggerUrl の page id を確認し、
     ' CDP_TARGET_PATH の REPLACE_WITH_TARGET_ID を置き換えてください。
 
-    Set g_WebsocketObj = New WebSocketCommunicator
-    g_WebsocketObj.connectionWebSocket CDP_HOST, CDP_TARGET_PATH, CDP_PORT, False
+    Set wsForChromiumobj = New WebSocketCommunicator
+    wsForChromiumobj.connectionWebSocket CDP_HOST, CDP_TARGET_PATH, CDP_PORT, False
     SendCount = 0
 
     Debug.Print "CDP WebSocket connect is success. AsyncMode."
 
     ' 接続直後に受信予約だけ張っておく
-    ResultCode = g_WebsocketObj.RequestWebSocketReceive
+    ResultCode = wsForChromiumobj.RequestWebSocketReceive
     If ResultCode Then
-        Debug.Print "受信予約エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "受信予約エラー。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "受信予約結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
@@ -153,9 +153,9 @@ Sub WebSocketDemoASync_受信予約()
     ResultCode = g_WebsocketObj.RequestWebSocketReceive
 
     If ResultCode Then
-        Debug.Print "受信予約エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "受信予約エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "受信予約結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
 End Sub
 
@@ -174,10 +174,10 @@ Sub WebSocketDemoASync_受信データを取得()
 
     '3. エラーがなければ、受信内容をプロパティメソッドから内容を、取得します
     If ResultCode Then
-        Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "受信エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
-        Debug.Print "受信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp"), "Demo"
-        g_WebsocketObj.printMsg info_, "受信内容：" & g_WebsocketObj.LastReceiveContentUTF8, "Demo"
+        Debug.Print "受信結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "受信内容：" & g_WebsocketObj.LastReceiveContentUTF8
     End If
 End Sub
 
@@ -195,10 +195,10 @@ Sub WebSocketDemoASync_送信()
 
     '3. 送信実行結果
     If ResultCode Then
-        Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "送信エラー発生。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
         Exit Sub
     Else
-        Debug.Print "送信結果：" & ErrorMes.GetMessage(ResultCode, "WinHttp")
+        Debug.Print "送信結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
 
     '4. 送信がうまくいったかを確認(任意)
@@ -326,17 +326,17 @@ Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
     Dim ResultCode As Long
     Dim Payload As String
 
-    If g_WebsocketObj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+    If wsForChromiumobj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Runtime.evaluate"",""params"":{""expression"":""document.title"",""returnByValue"":true}}"
 
-    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
+    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
-        Debug.Print "CDP送信エラー。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "CDP送信エラー。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print "CDP送信OK(id=" & SendCount & ", Runtime.evaluate) → 別途受信Demoプロシージャを実行してください"
     End If
@@ -347,16 +347,16 @@ Sub WebSocketDemoASync2_5_CDP_Network_GetAllCookies()
     Dim ResultCode As Long
     Dim Payload As String
 
-    If g_WebsocketObj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+    If wsForChromiumobj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Network.getAllCookies"",""params"":{}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
+    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
-        Debug.Print "CDP送信エラー(Network.getAllCookies)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "CDP送信エラー(Network.getAllCookies)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print "CDP送信OK(id=" & SendCount & ", Network.getAllCookies) → 別途受信Demoプロシージャを実行してください"
     End If
@@ -367,10 +367,9 @@ Sub WebSocketDemoASync2_6_CDP_Page_Navigate(Optional ByVal TargetUrl As String)
     Dim ResultCode As Long
     Dim Payload As String
     Dim esc As String
-    Dim ErrorMes As New WinApiError
 
-    If g_WebsocketObj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+    If wsForChromiumobj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
@@ -379,9 +378,9 @@ Sub WebSocketDemoASync2_6_CDP_Page_Navigate(Optional ByVal TargetUrl As String)
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.navigate"",""params"":{""url"":""" & esc & """}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
+    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
-        Debug.Print "CDP送信エラー(Page.navigate)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "CDP送信エラー(Page.navigate)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print "CDP送信OK(id=" & SendCount & ", Page.navigate url=" & TargetUrl & ") → ブラウザの表示を確認し、必要なら 別途受信Demoプロシージャを実行してください"
     End If
@@ -393,18 +392,17 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     Dim ReceiveCode As Long
     Dim ResponseText As String
     Dim Payload As String
-    Dim ErrorMes As New WinApiError
 
-    If g_WebsocketObj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws/wss を実行してください。"
+    If wsForChromiumobj Is Nothing Then
+        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
     SendCount = SendCount + 1
     Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.captureScreenshot"",""params"":{""format"":""png"",""fromSurface"":true}}"
-    ResultCode = g_WebsocketObj.SendAsyncMessageAsUTF8(Payload)
+    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
     If ResultCode Then
-        Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & ErrorMes.GetMessage(ResultCode, "winhttp")
+        Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
     Else
         Debug.Print "CDP送信OK(id=" & SendCount & ", Page.captureScreenshot) → 別途受信Demoプロシージャを実行してください"
     End If

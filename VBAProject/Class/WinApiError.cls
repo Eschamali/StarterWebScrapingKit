@@ -5,7 +5,7 @@ END
 Attribute VB_Name = "WinApiError"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = False
+Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '***************************************************************************************************
 '                    VBAから、WindowsAPI使用時のエラーコードを詳細情報を出力します
@@ -53,7 +53,7 @@ Public Function GetMessage(ByVal ErrorCode As Long, Optional ByVal DllName As St
     Flags = FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_IGNORE_INSERTS
     
     ' DLL指定がある場合
-    If DllName <> "" Then
+    If LenB(DllName) Then
         ' まずロード済みか探す
         hModule = GetModuleHandle(DllName)
         

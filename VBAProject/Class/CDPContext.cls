@@ -109,9 +109,9 @@ Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
 Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 
 'その他
-Private Const TIMEOUT_DEFAULT   As Double = 30          '初期タイムアウト秒数
+Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
-Private Const MaxStoreResultCDP As Long = 2 ^ 8         'ブラウザからのコマンド結果蓄積数
+Private Const MaxStoreResultCDP As Long = 2 ^ 16            'ブラウザからのコマンド結果蓄積数
 
 
 
@@ -125,8 +125,6 @@ Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 
 '各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
-Private DataConv    As New WebCrypto        'Base64のネイティブ制御用
-Private ErrorDetail As New WinApiError      'エラーコードから、詳細を取得するやつ
 
 '操作中のタブ情報一式
 Private Type StatebBrowserTab
@@ -138,10 +136,26 @@ Private Type StatebBrowserTab
 End Type
 Private br As StatebBrowserTab
 
+'操作中のタブセッションステータス
+Private Type sessionStatus
+    detachedFromTarget  As Boolean  'Issued when detached from target for any reason (including detachFromTarget command). Can be issued multiple times per target if multiple sessions have been attached to it.
+    targetCrashed       As Boolean  'Issued when a target has crashed.
+    targetDestroyed     As Boolean  'Issued when a target is destroyed. ※`Target.setDiscoverTargets`の購読必須
+End Type
+Private ControlStatus As sessionStatus
+
+'操作中のタブセッションエラー情報
+Private Type SessionErrorDetails
+    Status      As String
+    ErrorCode   As Long
+End Type
+Private ControlError As SessionErrorDetails
+
 '操作中のタブ情報一式
 Private Type StateTab
-    sessionID   As String   'The ID to the current session tab.
-    targetID    As String   'The targetID of the current tab for ExecuteCDP
+    sessionID           As String   'The ID to the current session tab.
+    targetID            As String   'The targetID of the current tab for ExecuteCDP
+    browserContextId    As String   'どの`Profile`に属してるか
 End Type
 Private brTab As StateTab
 
@@ -161,7 +175,7 @@ Private publicBrowserEvents As StateBrowserEvents   'bas側で使用する用
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
-Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後のエラー情報
+Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
 
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
@@ -178,7 +192,6 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
-'            cleanActive    `userProfile`で起動中のブラウザプロセスを落として起動させます
 '            addArgs        追加の起動引数
 '            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
@@ -186,13 +199,12 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '***************************************************************************************************
 Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
     '1. ブラウザ起動
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, cleanActive, userProfile, addArgs, KioskMode
+    BrowserCore.start Name, appUrl, userProfile, addArgs, KioskMode
 
     '2. WithEventsClassオブジェクトを受け取る
     Set PipeCore = BrowserCore.InheritanceCDPCore
@@ -207,10 +219,10 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
    '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
     Dim timerStart As Double, strLoc As String
-    If appUrl <> "" Then
+    If LenB(appUrl) Then
         timerStart = TimerCounter
         Do
-            If Me.Name <> "" Then Exit Do
+            If LenB(Me.Name) Then Exit Do
             If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
@@ -238,9 +250,6 @@ Private Sub attachToSession()
 
     Dim FirstTabs As Collection
     Dim result
-    Dim results_ As Scripting.Dictionary
-    Dim results__ As Scripting.Dictionary
-    Dim results___ As Scripting.Dictionary
 
     Dim strKey As Variant
 
@@ -250,6 +259,7 @@ Private Sub attachToSession()
     '`Target.targetCreated`を収集できるように初期化
     Set FirstTabs = New Collection
 1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
+    BrowserCore.EnableDiscoverTargets = True
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
    'Read message to confirm the requested url is found
@@ -257,25 +267,43 @@ Private Sub attachToSession()
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
-    Dim boolFound As Boolean
+    Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
-        Set results_ = BrowserCore.jsConverter.ParseJson(result).Item("params")
-        If results_.Exists("targetInfo") Then
-            Set results__ = results_.Item("targetInfo")
-            If results__.Item("attached") = False And results__.Item("type") = "page" Then
-                boolFound = True
-                Exit For
-            End If
+        ' 1. 文字列をパース
+        Set doc = BiDiCDPJson.Parse(CStr(result))
+
+        ' 2. 必要なノードを安全に辿る
+        If doc.ExistsKey("params") Then
+            ' NodeKey で階層を降り、targetInfo の存在を確認
+            With doc.NodeKey("params")
+                If .ExistsKey("targetInfo") Then
+                    ' targetInfo 内部を型指定アクセサで判定
+                    With .NodeKey("targetInfo")
+                        ' BoolKey と StringKey を使うことで高速に値を取得
+                        If .BoolKey("attached") = False And .StringKey("type") = "page" Then
+                            boolFound = True
+
+                            '制御パラメーターを付与
+                            brTab.targetID = .StringKey("targetId")
+                            brTab.browserContextId = .StringKey("browserContextId")
+                            Exit For
+                        End If
+                    End With
+                End If
+            End With
         End If
     Next
+
 2   If Not boolFound Then printMsg ERROR_, "Unable to find the browser session", FromProcedureName, doRaiseError:=True _
     Else printMsg info_, "Now attaching CDP pipes to the browser session", FromProcedureName
 
    'Establish connection with the CDP pipes
-3   brTab.targetID = results__.Item("targetId")
-4   brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
-5   Set results___ = SendMessage("{""method"":""Runtime.enable"",""params"":{}}")
-6   Set BrowserCore.RunCollect_TargetCreated = Nothing
+    brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
+
+    'JavaScript関連機能を有効化
+    Dim CDPcommand As New Scripting.Dictionary, results_ As BiDiCDPJson
+3   Set results_ = ExecuteCDP("Runtime.enable")
+4   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
@@ -288,9 +316,6 @@ ifError:
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
     printMsg Debug_, "result = " & result, FromProcedureName
-    printMsg Debug_, "results_ = " & BrowserCore.jsConverter.ConvertToJson(results_), FromProcedureName
-    printMsg Debug_, "results__ = " & BrowserCore.jsConverter.ConvertToJson(results__), FromProcedureName
-    printMsg Debug_, "results___ = " & BrowserCore.jsConverter.ConvertToJson(results___), FromProcedureName
     printMsg Debug_, ".start call string: " & BrowserCore.CurrentBrowserPath, FromProcedureName
 
     printParams
@@ -305,7 +330,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：成功可否論理値
+'* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
 '                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
 '---------------------------------------------------------------------------------------------------
@@ -341,18 +366,21 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     deserializeForTab reuseSession
 
     '5. `sessionId`が空欄の場合は、即抜け
-    If brTab.sessionID = "" Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
+    If LenB(brTab.sessionID) = 0 Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
     '6. sessionId生存check
-    If isLiveTab Then
+    If refreshTargetInfo Is Nothing Then
+        reattach = False
+        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
+    Else
         reattach = True
+
+        '`Context`(タブ等)の変化を捉えれるようにする
+        BrowserCore.EnableDiscoverTargets = True
 
         'ステータス更新
         getSessionInfo
         printParams
-    Else
-        reattach = False
-        printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
     End If
 
 End Function
@@ -369,16 +397,17 @@ Private Sub deserializeForTab(reuseSession As Boolean)
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim objSerialize As Scripting.Dictionary
-    Set objSerialize = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
+    Set objSerialize = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
 
     '2. そもそもない場合は即抜け
     If objSerialize Is Nothing Then Exit Sub
 
     '3. タブのTargetID情報を適用
     brTab.targetID = objSerialize.Item("targetID")
+    If LenB(brTab.targetID) = 0 Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
 
     '4. SessionIDの適用方法に応じた分岐を行う
-    If reuseSession And objSerialize.Item("sessionID") <> "" Then
+    If reuseSession And LenB(objSerialize.Item("sessionID")) Then
         '既存のSessionIDを適用
         '4-1. 古いSessionIDを適用
         brTab.sessionID = objSerialize.Item("sessionID")
@@ -387,32 +416,15 @@ Private Sub deserializeForTab(reuseSession As Boolean)
         '古いSessionIDを破棄してから、新しいSessionIDを付与
         '4-1. 新しい`sessionId`を発行し、失敗時はエラーログを出して抜ける
         Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
-        If newSessionID = "" Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
+        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
 
         '4-2. 一旦、古いSessionIDを適用
         brTab.sessionID = objSerialize.Item("sessionID")
 
         '4-3. 内部で、その古いSessionIDを破棄させ、新しいSessionIDを付与
-        Me.id = newSessionID
+        Me.CurrentSessionID = newSessionID
     End If
 End Sub
-
-Private Function isLiveTab() As Boolean
-'-----------------------------------------------------------------------------------
-' Check if there is ongoing connection with an attached instance
-' Original Name: connectionAlive
-'-----------------------------------------------------------------------------------
-
-    On Error GoTo iferr
-    Dim strLoc As String
-    strLoc = jsEval("window.location.href", dbgMsg:=False)
-    isLiveTab = True
-    Exit Function
-
-iferr:
-    isLiveTab = False
-
-End Function
 
 
 
@@ -454,8 +466,7 @@ End Function
 '                                           False：結果を待つCDPで実行します。基本はこれでOK
 '
 '            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
-'
-'            dbgMsg                         Allow the option to bypass error if intended
+'            StopPipeError                  `True`で、Pipeハンドルエラー時、エラーで停止します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：This function commands the attached browser instance to execute a Javascript expression to perform required tasks.
 '            Note: the original function has a bool retry variable which was removed for simplicity.
@@ -479,7 +490,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(strString As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
                        Optional objectArguments As Collection, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -489,13 +500,12 @@ Public Function jsEval(strString As String, Optional objectId As String, Optiona
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
-                       Optional dbgMsg As Boolean = True) As Variant
+                       Optional StopPipeError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
-    Dim CDPresults  As Scripting.Dictionary
-    Dim strMessage  As String
-    Dim objMessage  As New Scripting.Dictionary
+    Dim CDPresult   As String
+    Dim CDPcommand  As New Scripting.Dictionary
     Dim CDPparams   As New Scripting.Dictionary
 
 step1:
@@ -511,7 +521,7 @@ step1:
         UseJsMethod = "Runtime.callFunctionOn"
 
         '必要なパラメーターをセット
-        CDPparams.Add "functionDeclaration", strString
+        CDPparams.Add "functionDeclaration", JavaScriptStr
         If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
 
         'objectId があるので、場所(ContextID)を指定する必要はない
@@ -522,7 +532,7 @@ step1:
         UseJsMethod = "Runtime.callFunctionOn"
 
         '必要なパラメーターをセット
-        CDPparams.Add "functionDeclaration", strString
+        CDPparams.Add "functionDeclaration", JavaScriptStr
         CDPparams.Add "arguments", objectArguments
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
@@ -534,7 +544,7 @@ step1:
         UseJsMethod = "Runtime.evaluate"
 
         '必要なパラメーターをセット
-        CDPparams.Add "expression", strString
+        CDPparams.Add "expression", JavaScriptStr
         If contextId Then CDPparams.Add "contextId", contextId
     End If
 
@@ -548,30 +558,35 @@ step1:
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
     'CDP-Jsonを組み立て
-    objMessage.RemoveAll
-    objMessage.Add "method", UseJsMethod
-    objMessage.Add "params", CDPparams
+    CDPcommand.RemoveAll
+    CDPcommand.Add "method", UseJsMethod
+    CDPcommand.Add "params", CDPparams
 
-    strMessage = BrowserCore.jsConverter.ConvertToJson(objMessage)
    '----------------------------------------------------------------------------------------
 
     'Send and check CDPresult -------------------------------------------------------------------------------------------
     '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
-    Set CDPresults = SendMessage(strMessage, RunAsyncCDP, dbgMsg)
+    CDPresult = SendMessage(CDPcommand, RunAsyncCDP, StopPipeError)
     If RunAsyncCDP Then
         'ID返却して抜ける
         jsEval = PipeCore.LastCommandID
         Exit Function
     Else
-        If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & BrowserCore.jsConverter.ConvertToJson(CDPresults), FromProcedureName
-        If CDPresults Is Nothing Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
-        If Not CDPresults.Exists("error") Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
+        'タイムアウトやパイプハンドルの応答なしによる空文字判定
+        If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
+
+        'CDP自体の結果ログ表示
+        If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+
+        'エラーチェック
+        Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
+        If Not ExecuteError(Node_CDPresult) Then GoTo step2   'CDP自体のエラーがなければ、`step2`へ
     End If
     '-----------------------------------------------------------------------------------------------------------------
 
    'Handle errors ---------------------------------------------------------------------------------------------------
     Dim errMsg As String, retried As Boolean
-    errMsg = CDPresults("error")("message")
+    errMsg = lastErrorDetailsCDP("message")
     printMsg WARN_, "jsEval Error: " & errMsg, FromProcedureName
     If errMsg = "'" & UseJsMethod & "' wasn't found" Then printMsg WARN_, "Possibly the main session has been abruptly closed.", FromProcedureName
     If errMsg = "Session with given id not found." And Not retried Then
@@ -581,43 +596,48 @@ step1:
         Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
 
         '更新に失敗時はエラーで停止
-        If newSessionID = "" Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
+        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update SessionID." & vbCrLf & "> " & BrowserCore.LastCDPJsonError("message"), FromProcedureName, doRaiseError:=True
 
         '更新させて、リトライ
-        Me.id = newSessionID
+        Me.CurrentSessionID = newSessionID
         printMsg info_, "New Session ID obtained: " & brTab.sessionID, FromProcedureName
         retried = True: GoTo step1
     End If
 
     '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
     Dim strLogValue As String
-    strLogValue = LogFormat(strString, 100)
+    strLogValue = LogFormat(JavaScriptStr, 100)
     printMsg ERROR_, "The Browser was unable to evaluate the JS expression: " & strLogValue & vbCrLf & vbCrLf & "<ErrorDetail>" & vbCrLf & errMsg, FromProcedureName, doRaiseError:=True
    '-----------------------------------------------------------------------------------------------------------------
 
 step2:
 
     'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
-    Dim RemoteObject As Dictionary
-    Set RemoteObject = CDPresults.Item("result").Item("result")
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & BrowserCore.jsConverter.ConvertToJson(RemoteObject), FromProcedureName
+    '各種`Return Object`を取り出します
+    Dim Node_ReturnObject       As BiDiCDPJson: Set Node_ReturnObject = Node_CDPresult.NodeKey("result")
+
+    Dim Node_RemoteObject       As BiDiCDPJson: Set Node_RemoteObject = Node_ReturnObject.NodeKey("result")
+    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.Exists("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
+
+    '`RemoteObject`部分を文字ログ化
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If CDPresults.Item("result").Exists("exceptionDetails") Then
+    If Not Node_ExceptionDetails Is Nothing Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = CDPresults("result")("exceptionDetails")
+        Set lastExceptionDetailsJS = Node_ExceptionDetails
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
-        strLogValue = LogFormat(strString, 100)
+        strLogValue = LogFormat(JavaScriptStr, 100)
 
         '例外による`Err.Raise`で止めるか？
         If StopException Then
             '`StopException`が有効の場合は、ログ表示用に、詳細の方を文字列化
-            Dim exceptionDetails As String: exceptionDetails = BrowserCore.jsConverter.ConvertToJson(lastExceptionDetailsJS)
+            Dim exceptionDetails As String: exceptionDetails = lastExceptionDetailsJS.Stringify
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionType: " & RemoteObject("className") & " , " & "ExceptionDescription: " & RemoteObject("description"), FromProcedureName
+            printMsg WARN_, "ExceptionType: " & Node_RemoteObject.StringKey("className") & " , " & "ExceptionDescription: " & Node_RemoteObject.StringKey("description"), FromProcedureName
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
@@ -637,7 +657,7 @@ step2:
 
    'If the return type has a specific type we can return the result -------------------------------------------
     Dim tmp
-    If JSresultAnalysis(RemoteObject, serializationOptions, Not returnByValue, generatePreview, tmp) Then
+    If JSresultAnalysis(Node_RemoteObject, serializationOptions, Not returnByValue, generatePreview, tmp) Then
         Set jsEval = tmp
     Else
         jsEval = tmp
@@ -665,8 +685,8 @@ step3:
     'JavaScriptコードの実行結果の改行を消して、長すぎる場合はカットする（整形）
     strLogValue = LogFormat(strLogValue, 200)
 
-    ' 最終的なデバッグ出力
-    printMsg Debug_, "Script executed: " & strString & " | Returned: " & strLogValue, FromProcedureName
+    ' 最終的なデバッグ出力　※実行scriptも、100文字以内にしておく
+    printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
 End Function
@@ -683,7 +703,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：返す値は、`value` OR `objectId` OR `deepSerializedValue` に限ります。`description`等といった補助情報やエラー情報は返しません。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
     Const ErrorLandmark     As String = "error"
 
@@ -714,25 +734,25 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
         '`objectId`があるか？
         If RemoteObject.Exists("objectId") Then
             '見つかったので、`objectId`を返す
-            ReturnValue = CStr(RemoteObject("objectId"))
+            ReturnValue = RemoteObject.StringKey("objectId")
             printMsg info_, "JS-Return type: objectId", FromProcedureName
 
             '返ったObjectID情報を列挙する
-            Dim objectSubtype As String: objectSubtype = RemoteObject("subtype")
+            Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
             printMsg Debug_, String(100, "="), FromProcedureName
             printMsg Debug_, "objectId information", FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
+            printMsg Debug_, String(100, "-"), FromProcedureName
             printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-            printMsg Debug_, "objectType        : " & RemoteObject("type"), FromProcedureName
+            printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
             printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-            printMsg Debug_, "objectClassName   : " & RemoteObject("className"), FromProcedureName
-            printMsg Debug_, "objectDescription : " & RemoteObject("description"), FromProcedureName
-            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & BrowserCore.jsConverter.ConvertToJson(RemoteObject("preview")), FromProcedureName
+            printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
+            printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
+            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
             printMsg Debug_, String(100, "="), FromProcedureName
 
             'エラー情報があればそのログを出しておく
             '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
+            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
 
             Exit Function
         Else
@@ -750,9 +770,9 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
     'ObjectIDとして返そうとしたが`object-null`,`undefined`の場合もここを通って、返却します
 
     ' 格納型情報を取得
-    Dim ValueType       As String: ValueType = RemoteObject.Item("type")
+    Dim ValueType       As String: ValueType = RemoteObject.StringKey("type")
     Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
-    Dim ValueSubtype    As String: ValueSubtype = RemoteObject.Item("subtype")
+    Dim ValueSubtype    As String: If ExistsSubtype Then ValueSubtype = RemoteObject.StringKey("subtype")
     printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
     '型に応じた分岐処理
@@ -846,13 +866,12 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
                 Case Else
                     '"subtype"自体がない場合は、`array`として扱います
-                    '`array`,`typedarray`が機能してます。他は空({})です
                     If Not ExistsSubtype Then
-                        ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                        ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                        ' returnByValue=True なら value に Dictionary が入っているはず
+                        ' 配列やDOM要素(returnByValue時)は、valueの中にNode情報が入っている
+                        ' 配列の場合は`NodeIndex`が入ります
+                        ' returnByValue=True なら value に Node-Object が入っているはず
                         printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
-                        Set ReturnValue = RemoteObject.Item("value")
+                        Set ReturnValue = RemoteObject.NodeKey("value")
                         printMsg info_, "JS-Return type: object-array", FromProcedureName
 
                     Else
@@ -863,21 +882,21 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
                         If RemoteObject.Exists("value") Then
                             ' オブジェクト(Dictionary)を返す場合は Set が必要
                             If IsObject(RemoteObject.Item("value")) Then
-                                Set ReturnValue = RemoteObject.Item("value")
+                                Set ReturnValue = RemoteObject.NodeKey("value")
                             Else
                                 ReturnValue = RemoteObject.Item("value")
                             End If
                         ElseIf RemoteObject.Exists("unserializableValue") Then
-                            ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
+                            ReturnValue = RemoteObject.StringKey("unserializableValue")
                         Else
-                            ReturnValue = RemoteObject.Item("description")
+                            ReturnValue = RemoteObject.StringKey("description")
                         End If
                     End If
             End Select
 
         Case "function"
             ' 関数が返ってきた場合は、「{"type":"function","value":{}}」なので、`SET`
-            Set ReturnValue = RemoteObject.Item("value")
+            Set ReturnValue = RemoteObject.NodeKey("value")
             printMsg info_, "JS-Return type: function", FromProcedureName
 
         Case "undefined"
@@ -887,7 +906,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
         Case "string"
             ' 文字列として認識するように返す
-            ReturnValue = CStr(RemoteObject.Item("value"))
+            ReturnValue = RemoteObject.StringKey("value")
             printMsg info_, "JS-Return type: string", FromProcedureName
 
         Case "number"
@@ -899,14 +918,14 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             Else
                 ' Double型として認識するように返す
                 ' ※JavaScriptは、整数専用等の型がないため
-                ReturnValue = CDbl(RemoteObject.Item("value"))
+                ReturnValue = CDbl(RemoteObject.NumberKey("value"))
             End If
 
             printMsg info_, "JS-Return type: number", FromProcedureName
 
         Case "boolean"
             ' boolean型として認識するように返す
-            ReturnValue = CBool(RemoteObject.Item("value"))
+            ReturnValue = RemoteObject.BoolKey("value")
             printMsg info_, "JS-Return type: boolean", FromProcedureName
 
         Case "symbol"
@@ -916,7 +935,7 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
 
         Case "bigint"
             ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま返却します
-            ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
+            ReturnValue = RemoteObject.StringKey("unserializableValue")
             printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
             printMsg info_, "JS-Return type: bigint", FromProcedureName
 
@@ -928,14 +947,14 @@ Private Function JSresultAnalysis(RemoteObject As Dictionary, PriorityReturn_dee
             If RemoteObject.Exists("value") Then
                 ' オブジェクト(Dictionary)を返す場合は Set が必要
                 If IsObject(RemoteObject.Item("value")) Then
-                    Set ReturnValue = RemoteObject.Item("value")
+                    Set ReturnValue = RemoteObject.NodeKey("value")
                 Else
                     ReturnValue = RemoteObject.Item("value")
                 End If
             ElseIf RemoteObject.Exists("unserializableValue") Then
-                ReturnValue = CStr(RemoteObject.Item("unserializableValue"))
+                ReturnValue = RemoteObject.StringKey("unserializableValue")
             Else
-                ReturnValue = RemoteObject.Item("description")
+                ReturnValue = RemoteObject.StringKey("description")
             End If
     End Select
 
@@ -1079,33 +1098,37 @@ End Property
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As Scripting.Dictionary
+Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
-    Dim paramStr As String
-    Dim results As Scripting.Dictionary
+    'コマンド組み立て
+    Dim CDPcommand As New Scripting.Dictionary
+    CDPcommand.Add "method", methodName
+    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = BrowserCore.jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}", dbgMsg:=StopCDPError)
+    '送信して結果を受け取り、Node変換
+    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, StopPipeError:=StopCDPError)
+    Dim resultJson As BiDiCDPJson
+    Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
-   'Print error if there is
-    If ExecuteError(results) Then
+    'Print error if there is
+    If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
-        If results.Exists("result") Then Set ExecuteCDP = results.Item("result")
+        If resultJson.Exists("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & BrowserCore.jsConverter.ConvertToJson(results), FromProcedureName
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultStr, FromProcedureName
 
 End Function
 
@@ -1115,41 +1138,44 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
-    Dim paramStr As String
+    'コマンド組み立て
+    Dim CDPcommand As New Scripting.Dictionary
+    CDPcommand.Add "method", methodName
+    If Not params Is Nothing Then CDPcommand.Add "params", params
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = BrowserCore.jsConverter.ConvertToJson(params)
-    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True, StopError
+    '送信
+    SendMessage CDPcommand, True, StopPipeError
 
     '実行したIDを返却
     ExecuteCDPAsync = PipeCore.LastCommandID
-    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
+    printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
 '* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)
-'                      `True`  → 実行したコマンドIDと、WriteFile結果コードのペアーDictionary
+'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json文字列)
+'                      `True`  → `vbnullstring`
 '
-'* 引数　　：strMessage             Chromium ブラウザに送るCDP-Jsonコマンド(プレーンテキスト)
+'* 引数　　：DirMessage             Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
 '
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
-'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
+'            StopPipeError          `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
 '                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
 '            ・03/22/23 - Added error handling for better debugging
 '            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`nothing`で、返ります
+'* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Scripting.Dictionary
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopPipeError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -1158,11 +1184,11 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
    '--------------------------------------------------
     printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
 
-    PipeCore.ReadyRunCDP strMessage, brTab.sessionID                        'Send message to the browser instance
+    PipeCore.ReadyRunCDP DirMessage, brTab.sessionID                        'Send message to the browser instance
     Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & PipeCore.ErrorDetail.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
@@ -1177,16 +1203,16 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     Do
         '1. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
-        TakeEvents dbgMsg
+        TakeEvents StopPipeError
 
         '2. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = ResultCDPFromWithEvents(currentCommandID)
+        tmp = TakeResultCDP(currentCommandID)
         If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
-            Set SendMessage = BrowserCore.jsConverter.ParseJson(tmp)
+            '送ったコマンド結果であることを確認できたの結果を返す
+            SendMessage = tmp
             printMsg info_, "Tab have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
 
             'ループから抜ける
@@ -1256,8 +1282,8 @@ End Sub
 '            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
 '            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Property Get ResultCDPFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultCDPFromWithEvents"
+Property Get TakeResultCDP(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".TakeResultCDP"
 
 
     '1. 存在するか？
@@ -1267,7 +1293,7 @@ Property Get ResultCDPFromWithEvents(commandID As Long) As String
         printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
-        ResultCDPFromWithEvents = tmp
+        TakeResultCDP = tmp
 
         '4. 取り出したので消しておく
         ResultCDP_Tab.response.Remove commandID
@@ -1282,7 +1308,7 @@ End Property
 '* 機能　　：CDP-Jsonコマンド実行結果のエラーチェックを行い、最後のエラー記録も担います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：エラー有無論理値
-'* 引数　　：result         パース処理済みのCDP-Jsonコマンド実行結果
+'* 引数　　：result         パース済CDP-Jsonコマンド実行結果
 '            ErrorCode      エラーコード　      ※参照渡しにより返されます
 '            ErrorMessage   エラーメッセージ    ※参照渡しにより返されます
 '---------------------------------------------------------------------------------------------------
@@ -1293,16 +1319,17 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* Credit  ：https://github.com/PerditionC/VBAChromeDevProtocol
 '***************************************************************************************************
-Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
+Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long, Optional ErrorMessage As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
     Dim ErrorData As Variant
 
     'データの状態をチェック
-    If result Is Nothing Then
+    If result.Count = 0 Then
         'タイムアウトもしくは、パイプは生きてるが、応答なしによる結果無し
         ExecuteError = True
+
 
         'カスタムなエラー情報として記載
         ErrorCode = -1 'arbitrary nonzero value, may change in future
@@ -1315,33 +1342,43 @@ Private Function ExecuteError(result As Scripting.Dictionary, Optional ErrorCode
         lastErrorDetailsCDP.Add "code", ErrorCode
         lastErrorDetailsCDP.Add "message", ErrorMessage
 
-    ElseIf result.Exists("error") Then
-        'CDPコマンドエラー
-        ExecuteError = True
-
-        '`error`オブジェクトの中身で記録
-        Set lastErrorDetailsCDP = result("error")
-
-        '主要なエラー情報を抜き出す
-        ErrorCode = lastErrorDetailsCDP("code")
-        ErrorMessage = lastErrorDetailsCDP("message")
-        printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
-
-        '追加情報がある場合は、それもログ化
-        If lastErrorDetailsCDP.Exists("data") Then
-            ErrorData = lastErrorDetailsCDP("data")
-            printMsg WARN_, "       " & ErrorData, FromProcedureName
-        Else
-            ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
-        End If
     Else
-        'CDPコマンド正常終了
-        ExecuteError = False
+        If result.Exists("error") Then
+            'CDPコマンドエラー
+            ExecuteError = True
 
-        'クリアしておく
-        ErrorCode = 0
-        ErrorMessage = vbNullString
-        ErrorData = vbEmpty
+
+            '`error`オブジェクトの中身で記録
+            Dim errNode As BiDiCDPJson
+            Set errNode = result.NodeKey("error")
+
+            '主要なエラー情報を抜き出す
+            ErrorCode = errNode.NumberKey("code")
+            ErrorMessage = errNode.StringKey("message")
+            printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
+
+            '追加情報がある場合は、それもログ化
+            If errNode.Exists("data") Then
+                ErrorData = errNode("data")
+                printMsg WARN_, "       " & ErrorData, FromProcedureName
+            Else
+                ErrorData = vbEmpty ' vbNullString? is lastErrorDetailsCDP("data") a string or object?
+            End If
+
+            '最後のエラー情報を記録
+            Set lastErrorDetailsCDP = New Dictionary
+            lastErrorDetailsCDP.Add "code", ErrorCode
+            lastErrorDetailsCDP.Add "message", ErrorMessage
+        Else
+            'CDPコマンド正常終了
+            ExecuteError = False
+
+
+            'クリアしておく
+            ErrorCode = 0
+            ErrorMessage = vbNullString
+            ErrorData = vbEmpty
+        End If
     End If
 
 End Function
@@ -1363,10 +1400,9 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を蓄積させる上限を決めます
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中の上限数
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
 '***************************************************************************************************
 Property Let SetLimitCDPResult(Number As Long)
     ResultCDP_Tab.Limit = Number
@@ -1380,25 +1416,25 @@ End Property
 Public Sub closeTab()
 '------------------------------------------------------------------
 ' Close the current tab of the session. Requires targetId which can
-' be retrieved by using getTargetId. This is the targetId of the
+' be retrieved by using refreshTargetID. This is the targetId of the
 ' active tab under focus of the automation pipe.
 '------------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".closeTab"
 
 
-   'Get the original serialized tab ID
-    Dim mainID As String, serial As Dictionary
-    Set serial = ShSetting01_StartBrowser.deserializeFromTable(BrowserCore.CurrentBrowserUser, 2, FromProcedureName)
-    mainID = serial.Item("targetID")
+    'Get the original serialized tab ID
+    Dim MainTargetID As String, tmp As Scripting.Dictionary
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
+    If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
     'メインタブは閉じないように仕向ける
-    If brTab.targetID = mainID Then
+    If brTab.targetID = MainTargetID Then
         printMsg WARN_, "Unable to close this tab " & brTab.targetID & " as it is the main session tab", FromProcedureName
         Exit Sub
     End If
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(getTargetID)
+    params("targetId") = brTab.targetID
     ExecuteCDP "Target.closeTarget", params
     printMsg info_, brTab.targetID & " was closed", FromProcedureName
 
@@ -1414,27 +1450,72 @@ End Sub
 '* 引数　　：methodName 非同期イベントメソッド名
 '            RawJson    非同期イベントの生Json文字列　※As Is. メソッド名付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：非同期イベントキャプチャを行います
+'* 機能説明：非同期イベントキャプチャと、セッション状態の更新を行います
 '***************************************************************************************************
 Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
-    '------------------ 非同期イベントを収集します ------------------
-    '1. イベントキャプチャしない場合は、即抜け
+    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    Dim tmp As BiDiCDPJson
+    Select Case methodName
+        '`SessionID`が切れたが、`targetId`は生存
+        Case "Target.detachedFromTarget"
+            '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
+            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("sessionId") = brTab.sessionID Then ControlStatus.detachedFromTarget = True: printMsg WARN_, "Your session has expired. You need to renew it.", FromProcedureName
+
+        '`SessionID`は切れてないが、操作不能。ただし、`Page.reload`を使えば、息を吹き返す（復活する）かもしれない！状態
+        Case "Target.targetCrashed"
+            '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            If tmp.StringKey("targetId") = brTab.targetID Then
+                ControlStatus.targetCrashed = True
+
+                '1-2. エラー情報を格納
+                ControlError.Status = tmp.StringKey("status")
+                ControlError.ErrorCode = tmp.StringKey("errorCode")
+                printMsg WARN_, "The tab crashed. Using `Page.reload` might fix it. errorCode: " & ControlError.ErrorCode & " , status: " & ControlError.Status, FromProcedureName
+            End If
+
+        '`targetId`が消えて、`SessionID`も道ずれ破棄
+        Case "Target.targetDestroyed"
+            '1-1. 自分の`targetId`か確認し、そうであれば、フラグ更新
+            If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("targetId") = brTab.targetID Then ControlStatus.targetDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+
+        '一部のパラメーター(URL等)を更新します
+        Case "Target.targetInfoChanged"
+            '1-1. 自分の`targetId`か確認し、そうであれば、Jsonパース処理して項目ごとに分類
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
+            If tmp.StringKey("targetId") = brTab.targetID Then
+                '1-2. 各種パラメーター更新
+                With br
+                    .Name = tmp.StringKey("title")
+                    .Url = tmp.StringKey("url")
+                End With
+                brTab.browserContextId = tmp.StringKey("browserContextId")
+
+                printMsg info_, "The information on this tab has been updated.", FromProcedureName
+            End If
+
+    End Select
+
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '3. パース処理
+    '2-3. パース処理
+    Dim tmpDic As New Dictionary
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
+    Set tmpDic = WebJsonConverter.Parse(RawJson).value
 
-    '4. 専用のプロシージャにて、蓄積処理
+    '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
-    OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
+    OnNewEventReceived publicBrowserEvents.Queue, tmpDic, methodName
 End Sub
 
 '***************************************************************************************************
@@ -1453,6 +1534,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
+    
     '------------------ 2. 非同期イベントを収集します ------------------
     '2-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
@@ -1463,7 +1545,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
 
     '2-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim tmp As Dictionary: Set tmp = BrowserCore.jsConverter.ParseJson(RawJson)
+    Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
     '2-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
@@ -1531,7 +1613,7 @@ Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
 
 
     '1. イベント名が空欄か？
-    If EventName = "" Then
+    If LenB(EventName) = 0 Then
         '1-2. 削除モードか？
         If DelMode Then
             'LETのイベントメソッド名が空欄の場合は、全削除します
@@ -1699,17 +1781,21 @@ Public Sub getSessionInfo()
     Const FromProcedureName As String = ThisClassName & ".getSessionInfo"
 
 
-   'Get infos
-    br.Url = Url
-    br.Name = Name
+    'Get infos
+    Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
+    br.Url = TargetInfo.StringKey("url")
+    br.Name = TargetInfo.StringKey("title")
     br.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As Dictionary: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.Item("windowId")
+    Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
+    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.StringKey("windowId")
 
     'タブIDを記録
-    brTab.targetID = getTargetID
+    brTab.targetID = TargetInfo.StringKey("targetId")
+
+    'ProfileIDを記録
+    brTab.browserContextId = TargetInfo.StringKey("browserContextId")
 
 End Sub
 
@@ -1725,7 +1811,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", dbgMsg:=False, IFEXCEPTION:="about:blank")
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:="about:blank")
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
@@ -1736,7 +1822,7 @@ Private Function getHandle() As LongPtr
         GetWindowThreadProcessId hWnd, currentPID
 
         '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.ConnectionProcessId Then
+        If currentPID = PipeCore.Connection_dwProcessId Then
             '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
             getHandle = hWnd
 
@@ -1747,7 +1833,7 @@ Private Function getHandle() As LongPtr
             windowTitle = Left(bufferString, titleLen)
 
             'Verify if matching with the sessionTitle and is really an edge/chrome window
-            If windowTitle <> "" Then If InStr(windowTitle, sessionTitle) Then Exit Do
+            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
         End If
 
         'Continue with the next handle value
@@ -1772,15 +1858,20 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
    'Check if already navigated
     Dim curURL As String
-    curURL = jsEval("window.location.href", dbgMsg:=False)
+    curURL = jsEval("window.location.href")
     If curURL = checkURI(strURL) Then
         printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
     End If
 
    'If not yet then do navigate
-    Dim results As Scripting.Dictionary
-    Set results = SendMessage("{""method"":""Page.navigate"",""params"":{""url"":""" & strURL & """}}")
+    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
+    CDPcommand.Add "method", "Page.navigate"
+
+    CDPparams.Add "url", strURL
+    CDPcommand.Add "params", CDPparams
+
+    SendMessage CDPcommand
 
     'should also add a maxTimeLimit to Wait
     wait till:=till
@@ -1816,8 +1907,8 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
     strState = "loading"
 
     Do Until strState = targetState
-        strState = jsEval("document.readyState", dbgMsg:=False)                 'dbgMsg = False to not spam Immediate Window
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName 'option to print ReadyState info during iteration
+        strState = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
@@ -1852,7 +1943,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If br.WID = "" Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
         params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
@@ -1931,12 +2022,12 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 
     Dim params As New Scripting.Dictionary
-    Dim r As Scripting.Dictionary
+    Dim r As BiDiCDPJson
     Dim b64 As String, tmpPng As String
 
    'Verify if the page can be captured with screenshot
     Set r = ExecuteCDP("Page.getLayoutMetrics")
-    If ExecuteError(r) Then
+    If r Is Nothing Then
         printMsg WARN_, "Unable to perform snapPage on this screen as it has no layout metrics.", FromProcedureName
         Exit Sub
     End If
@@ -1946,8 +2037,8 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     Set r = ExecuteCDP("Page.captureScreenshot", params)
 
    'Save to the same folder if not indicated
-    If Not ExecuteError(r) Then
-        b64 = r("data")
+    If Not r Is Nothing Then
+        b64 = r.StringKey("data")
         SaveBase64ToFile b64, FolderPath, FileName
         printMsg info_, "Screenshot saved to: " & FolderPath & "\" & FileName, FromProcedureName
     End If
@@ -1961,7 +2052,7 @@ Public Sub activate(Optional focus As Boolean = True)
 '----------------------------------------------------------------------------------
 
     Dim params As New Scripting.Dictionary
-    params("targetId") = CStr(getTargetID)
+    params("targetId") = brTab.targetID
     If focus Then ExecuteCDP "Target.activateTarget", params
 
 End Sub
@@ -1994,17 +2085,33 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 
 End Sub
 
-Private Function getTargetID() As String
-'----------------------------------------------------------------------------------
-' Retrieve the targetId of the current tab (a.k.k "target" in CDP Documentation).
-' This targetId is useful for tab automation, such as the .closeTab method.
-'----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：`SessionID`に紐づく`Target.TargetInfo`オブジェクトを取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`Target.TargetInfo`オブジェクト。　※取得失敗時は、`Nothing`で返ります。大抵は、context(タブ等)が消えてることが多いです
+'***************************************************************************************************
+Private Function refreshTargetInfo() As BiDiCDPJson
+    '1. このClassで設定中の`SessionID`を基に情報取得を試みる
+    Dim TargetInfo As BiDiCDPJson
+    Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
-    Dim results As Scripting.Dictionary
-    Set results = ExecuteCDP("Target.getTargetInfo")
-    getTargetID = results("targetInfo").Item("targetId")
+    '2. エラーがなければ、返却
+    If TargetInfo.Count Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
 
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`targetId`に対する`DevTools`ウィンドウを開きます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：panelId    最初に開きたい項目があれば指定
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：F12が効かないページでも`DevTools`ウィンドウを開かせます
+'* 注意事項：WebView2,Electronの場合は、効かない場合があります
+'***************************************************************************************************
+Public Sub openDevTools(Optional panelId As String)
+    '`CDPBrowser`側で実行させる
+    BrowserCore.openDevTools brTab.targetID, panelId
+End Sub
 
 
 
@@ -2040,7 +2147,7 @@ End Function
 
 
 '***************************************************************************************************
-'                             ■■■ `CDPElement.cls`準備 ■■■
+'                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
 Public Function getElementByID(strID As String) As CDPElement
 '----------------------------------------------------------------------------------
@@ -2050,15 +2157,19 @@ Public Function getElementByID(strID As String) As CDPElement
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.getElementById(""" & strID & """)"
-    result = jsEval(varJS, returnByValue:=False)
+    '1. ID値で、検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.getElementById(""" & strID & """)"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '3. 結果を`CDPElement.cls`に格納
     Set getElementByID = New CDPElement
-    getElementByID.Init Me, varJS, VarType(result), oid
+    getElementByID.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2078,19 +2189,23 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
 '---------------------------------------------------------------------------------------
 
-   'Verify double slash syntax
-   'People normally get this wrong when using XPath
+    '1. Verify double slash syntax
+    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    result = jsEval(varJS, returnByValue:=False)
+    '2. Xpath方式で検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '3. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '4. 結果を`CDPElement.cls`に格納
     Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, varJS, VarType(result), oid
+    getElementByXPath.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2103,38 +2218,56 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Verify double slash syntax
-   'People normally get this wrong when using XPath
+    '1. Verify double slash syntax
+    'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-   'Get the XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE)
-    Dim collResult As Variant
-    collResult = jsEval("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", returnByValue:=False)
-    If VarType(collResult) <> vbString Then Exit Function
-    Dim collOid As String: collOid = CStr(collResult)
+    '2. 複数Xpath方式で検索実行
+    Dim SearchJS As String, resultsSearch As Variant
+    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)"
+    resultsSearch = jsEval(SearchJS)
 
-   'Get snapshotLength via callFunctionOn
-    Dim elements As Collection: Set elements = New Collection
+    '3. 結果を判定。文字型なら、ObjectIDを確保
+    Dim collOid As String
+    If VarType(resultsSearch) = vbString Then
+        collOid = resultsSearch
+    Else
+        'ない場合は、即抜け
+        Exit Function
+    End If
+
+    '4. Get snapshotLength via callFunctionOn
+    Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
     length_ = jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
 
-   'Get each item's objectId via callFunctionOn
+    '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
     Dim itemArgs As Collection, itemArg As Scripting.Dictionary
-    Dim itemResult As Variant, itemOid As String
+    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
+        '5-1. `callFunctionOn`に渡す引数を初期化
         Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
+
+        '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         itemArgs.Add itemArg
-        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
-        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
-        Set tElement = New CDPElement
-        tElement.Init Me, , VarType(itemResult), itemOid
-        elements.Add tElement
-    Next
 
-    Set getElementsByXPath = elements
+        '5-3. 引数付きで実行
+        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
+
+        '5-4. 念のため、有効な`ObjectID`かチェック
+        itemResultVarType = VarType(itemResult)
+        If itemResultVarType = vbString Then
+            itemObjectID = itemResult
+
+            '5-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
+            Set tElement = New CDPElement
+            tElement.Init Me, itemResultVarType, itemObjectID
+            getElementsByXPath.Add tElement
+        End If
+    Next
 
 End Function
 
@@ -2166,15 +2299,19 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 ' child's children for the first element with id containing 'invoiceno'.
 '----------------------------------------------------------------------------------
 
-   'Get the object (no global variable assignment - objectId only)
-    Dim varJS As String: Dim result As Variant
-    varJS = "document.querySelector(""" & strQuery & """)"
-    result = jsEval(varJS, returnByValue:=False)
+    '1. querySelector方式で検索実行
+    Dim SearchJS As String, resultSearch As Variant
+    SearchJS = "document.querySelector(""" & strQuery & """)"
+    resultSearch = jsEval(SearchJS)
 
-   'Return result
-    Dim oid As String: If VarType(result) = vbString Then oid = CStr(result)
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim objectId As String, JsResultVarType As VbVarType
+    JsResultVarType = VarType(resultSearch)
+    If JsResultVarType = vbString Then objectId = resultSearch
+
+    '3. 結果を`CDPElement.cls`に格納
     Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, varJS, VarType(result), oid
+    getElementByQuery.Init Me, JsResultVarType, objectId, SearchJS
 
 End Function
 
@@ -2186,34 +2323,52 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-   'Get the NodeList objectId
-    Dim collResult As Variant
-    collResult = jsEval("document.querySelectorAll(""" & strQuery & """)", returnByValue:=False)
-    If VarType(collResult) <> vbString Then Exit Function
-    Dim collOid As String: collOid = CStr(collResult)
+    '1. querySelectorAll方式で検索実行
+    Dim SearchJS As String, resultsSearch As Variant
+    SearchJS = "document.querySelectorAll(""" & strQuery & """)"
+    resultsSearch = jsEval(SearchJS)
 
-   'Get length via callFunctionOn
-    Dim result As Variant, elements As Collection: Set elements = New Collection
+    '2. 結果を判定。文字型なら、ObjectIDを確保
+    Dim collOid As String
+    If VarType(resultsSearch) = vbString Then
+        collOid = resultsSearch
+    Else
+        'ない場合は、即抜け
+        Exit Function
+    End If
+
+    '3. Get length via callFunctionOn
+    Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
     length_ = jsEval("function(){ return this.length }", objectId:=collOid)
 
-   'Get each item's objectId via callFunctionOn
+    '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
     Dim itemArgs As Collection, itemArg As Scripting.Dictionary
-    Dim itemResult As Variant, itemOid As String
+    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
+        '4-1. `callFunctionOn`に渡す引数を初期化
         Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
+
+        '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         itemArgs.Add itemArg
-        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs, returnByValue:=False)
-        itemOid = "": If VarType(itemResult) = vbString Then itemOid = CStr(itemResult)
-        Set tElement = New CDPElement
-        tElement.Init Me, , VarType(itemResult), itemOid
-        elements.Add tElement
-    Next
 
-    Set getElementsByQuery = elements
+        '4-3. 引数付きで実行
+        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+
+        '4-4. 念のため、有効な`ObjectID`かチェック
+        itemResultVarType = VarType(itemResult)
+        If itemResultVarType = vbString Then
+            itemObjectID = itemResult
+
+            '4-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
+            Set tElement = New CDPElement
+            tElement.Init Me, itemResultVarType, itemObjectID
+            getElementsByQuery.Add tElement
+        End If
+    Next
 
 End Function
 
@@ -2229,7 +2384,7 @@ Private Sub SaveBase64ToFile(strB64 As String, FolderPath As String, FileName As
 
     'Base64 から、バイト配列に変換
     Dim tmp() As Byte
-    tmp = DataConv.Decode(strB64, edfBase64)
+    tmp = WebCrypto.Decode(strB64, edfBase64)
 
     'そのバイト配列のまま、保存
     CharConv.BytesToSaveFile tmp, FolderPath, FileName
@@ -2271,7 +2426,6 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Url = jsEval("document.URL", dbgMsg:=False)
     Url = br.Url
 
 End Property
@@ -2293,9 +2447,10 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    br.Name = jsEval("document.title", dbgMsg:=False)
     Name = br.Name
 
+    '`--app`で起動した場合の対策
+    If LenB(Name) = 0 Then Name = jsEval("document.title")
 End Property
 
 Property Let Name(newName As String)
@@ -2306,23 +2461,23 @@ Property Let Name(newName As String)
     Const FromProcedureName As String = ThisClassName & ".Name"
 
 
-    jsEval "document.title = '" & newName & "'", dbgMsg:=False
+    jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
     br.Name = newName
 
 End Property
 
-Property Get id() As String
+Property Get CurrentSessionID() As String
 '------------------------------------------------------------
 ' Get the session ID of the current browser
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    id = brTab.sessionID
+    CurrentSessionID = brTab.sessionID
 
 End Property
 
-Property Let id(newID As String)
+Property Let CurrentSessionID(newSessionID As String)
 '------------------------------------------------------------
 ' Set the session ID of the current browser to a new value
 ' Added 02/03/2023
@@ -2332,15 +2487,21 @@ Property Let id(newID As String)
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
     If StrPtr(brTab.sessionID) Then
-        printMsg info_, "A property was called that receives a new SessionID (" & newID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
+        printMsg info_, "A property was called that receives a new SessionID (" & newSessionID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
 
     '渡されたIDで、再設定
-    brTab.sessionID = newID
+    brTab.sessionID = newSessionID
 
-    '新SessionIDを記録しておく
-    ShSetting01_StartBrowser.serializeSingleToBrowserInfoTable(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
+    'メインタブの場合は、新SessionIDも記録しておく
+    With ShSetting01_StartBrowser
+        Dim MainTargetID As String, tmp As Scripting.Dictionary
+        Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
+        If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
+
+        If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
+    End With
 
     getSessionInfo        'update all session infos
     printMsg info_, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
@@ -2418,6 +2579,39 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     End If
 End Property
 
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)が切断されたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`sessionId`に対する`Target.detachedFromTarget`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetDisconnected() As Boolean
+    isTargetDisconnected = ControlStatus.detachedFromTarget
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)がクラッシュされたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`targetId`に対する`Target.targetCrashed`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetCrashed() As Boolean
+    isTargetCrashed = ControlStatus.targetCrashed
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`targetId`(タブ等)が閉鎖されたか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返値    ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：このClassの`targetId`に対する`Target.targetDestroyed`を受け取ると、`True`になります
+'***************************************************************************************************
+Property Get isTargetClosed() As Boolean
+    isTargetClosed = ControlStatus.targetDestroyed
+End Property
+
 
 
 '***************************************************************************************************
@@ -2486,16 +2680,24 @@ Private Sub Class_Terminate()
     Const FromProcedureName As String = ThisClassName & ".Class_Terminate"
 
 
-    'SessionIDを保持するオプションになってるか確認
-    If KeepSession Then
-        printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+    '`Target.detachFromTarget`を送るか判定
+    If ControlStatus.detachedFromTarget Then
+        'もうすでに閉じてるので、わざわざ破棄コマンドは送らない
+        printMsg info_, "The session ID (" & brTab.sessionID & ") has been discarded.", FromProcedureName
     Else
-        printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
+        'SessionIDを保持するオプションになってるか確認
+        If KeepSession Then
+            printMsg Debug_, "The class object will be destroyed, but the `SessionID`(" & brTab.sessionID & ") will be preserved depending on the configuration.", FromProcedureName
+        Else
+            printMsg Debug_, "When the class object is destroyed, the `SessionID`(" & brTab.sessionID & ") is also destroyed.", FromProcedureName
 
-        'SessionIDを破棄しておく
-        BrowserCore.DiscardSessionID brTab.sessionID
+            'SessionIDを破棄しておく
+            BrowserCore.DiscardSessionID brTab.sessionID
+        End If
     End If
 
+    'カウントダウンはさせておく
+    BrowserCore.EnableDiscoverTargets = False
 End Sub
 '===============================================================================================
 ' Experimental Functions

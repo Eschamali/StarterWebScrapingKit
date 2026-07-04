@@ -10,6 +10,8 @@ Attribute VB_Exposed = False
 '==============================================================================================================
 '                    WebDriverBiDi制御モードとしてのメソッドやパラメータ運用を行います
 '                       このClassオブジェクトは、低レベル操作として運用します
+'
+'   `ExecuteBiDi`等で使用できるコマンド一覧は、右記にてアクセスして下さい → https://www.w3.org/TR/webdriver-bidi/
 '==============================================================================================================
 Option Explicit
 
@@ -25,7 +27,7 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 'その他
 Private Const TIMEOUT_DEFAULT       As Double = 30                  '初期タイムアウト秒数
 Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログのトレース用
-Private Const MaxStoreResultBiDi    As Long = 2 ^ 8                 'コマンド結果蓄積数
+Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマンド結果蓄積数
 
 
 
@@ -35,9 +37,6 @@ Private Const MaxStoreResultBiDi    As Long = 2 ^ 8                 'コマン�
 'WebDriverBiDi制御用コアクラスオブジェクト
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore      'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
-
-'各種便利クラスオブジェクト
-Public jsConverter              As New WebJsonConverter
 
 'BiDiコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)
 Private Type cacheResultBiDi
@@ -53,9 +52,11 @@ Private m_Events    As Dictionary
 Private m_ErrorDetails  As Dictionary
 
 'その他
-Private timerOut        As Double  'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private LogID           As String
-Private BiDiUserName    As String  'User-data-dir と同等
+Private BiDiUserName    As String       'User-data-dir と同等
+Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
+Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
 
 
 
@@ -66,9 +67,6 @@ Private BiDiUserName    As String  'User-data-dir と同等
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
 '            appUrl                         最初の起動時に遷移したいURL
-'            cleanActive                    `True` :デバッグブラウザを(あれば)Kill後、ブラウザを起動する
-'                                           `False`:起動チェックをせずに、ブラウザを起動します
-'
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
@@ -79,7 +77,6 @@ Private BiDiUserName    As String  'User-data-dir と同等
 '***************************************************************************************************
 Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional cleanActive As Boolean = True, _
     Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
@@ -89,15 +86,86 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.start Name, appUrl, cleanActive, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
 
     '3. BiDi との新しいセッションを確立する
-    Dim resultBiDi As Dictionary
+    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
     '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Sub
+
+'***************************************************************************************************
+'* 機能　　："browsingContext.contextCreated"による非同期イベント収集を有効/無効化します
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：格納させたいCollection変数。`Nothing`で渡せば、収集を無効化します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・タブやiframeが開いた際の非同期イベントを流すかの切り替えです。
+'            ・参照渡し方式により、わざわざ`Get`プロパティを介さず、取得可能です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：用が済んだら必ず、`Nothing`を渡して、参照カウンタを0にします
+'***************************************************************************************************
+Property Set RunCollect_InfoList(ArgCollect As Collection)
+    '引数のポインタCollectionを指定させる
+    Set InfoList = ArgCollect
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext.contextCreated/browsingContext.contextDestroyed`の2種の非同期イベントを流しつつ、Context のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：論理値
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・`WebDriverBiDiContext.cls`の生存状況把握に使います
+'            ・うまい具合に、`WebDriverBiDiContext.cls`確保中のカウントも行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`WebDriverBiDiContext.cls`を生成/破棄時に呼ぶ想定です。
+'***************************************************************************************************
+Property Let EnableDiscoverContexts(Flag As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".EnableDiscoverContexts"
+
+
+    '1. カウント
+    DefinitionBiDiContext = DefinitionBiDiContext + IIf(Flag, 1, -1)
+
+    '2. 実行判定
+    If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
+        '3. 購読準備
+        Dim ListenEventList As New Collection
+        ListenEventList.Add "browsingContext.contextCreated"
+        ListenEventList.Add "browsingContext.contextDestroyed"
+
+        '4. 実行
+        Set sessionSubscribe(Flag) = ListenEventList
+    End If
+
+    '5. 下限は、0にしておく
+    If DefinitionBiDiContext < 0 Then DefinitionBiDiContext = 0: printMsg WARN_, "`WebDriverBiDiContext.cls` no longer exists.", FromProcedureName
+
+    '6. ログ表示
+    printMsg info_, "Currently, " & DefinitionBiDiContext & " `WebDriverBiDiContext.cls` file is being defined.", FromProcedureName
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Excelテーブルに、BiDi-context情報を記録したり、読み取りを行います
+'***************************************************************************************************
+Public Property Let serializeMainTab(contextId As String)
+    Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
+
+
+    ShSetting01_StartBrowser.UpdateBrowserContext(BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+End Property
+Public Property Get serializeMainTab() As String
+    Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
+
+
+    '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
+    Dim tmp As Dictionary
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BiDiUserName, FromProcedureName)
+
+    '2. 返却
+    If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
+End Property
 
 
 
@@ -129,17 +197,181 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '3. セッション一覧を取得して、既存のものがあるか確認する
     ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Dim resultBiDi As Dictionary
+    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
     If resultBiDi.Exists("ready") Then
-        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi("message"), FromProcedureName
+        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
         reattach = True
     Else
         printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
         reattach = False
     End If
+End Function
+
+
+
+'***************************************************************************************************
+'                              ■■■ タブ操作関連 ■■■
+'***************************************************************************************************
+'* 機能　　：新規タブを返します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiContext
+'* 引数　　：newWindow      `True` ：新しいウィンドウを開く新規タブとして扱います
+'                           `False`：既存のウィンドウにて、タブを生成します
+'
+'            isBackground   `True` ：バックグラウンド（アクティブにしない）で開く
+'                           `False`：アクティブで開く
+'
+'            setMain        `True`で、Excelに`context`を記録し、リアタッチに備えます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebDriverBiDi では、いきなりURLで直遷移はできないようです
+'***************************************************************************************************
+Public Function newTab(Optional newWindow As Boolean, Optional isBackground As Boolean, Optional setMain As Boolean) As WebDriverBiDiContext
+    Const FromProcedureName As String = ThisClassName & ".newTab"
+
+
+    '1. パラメーター準備
+    Dim BiDiparams As New Scripting.Dictionary
+    BiDiparams.Add "type", IIf(newWindow, "window", "tab")
+    BiDiparams.Add "background", isBackground
+
+    '2.実行
+    Dim bidiRes As BiDiCDPJson
+    Set bidiRes = ExecuteBiDi("browsingContext.create", BiDiparams)
+
+    '3. 返却準備
+    Set newTab = New WebDriverBiDiContext
+    With newTab
+        '3-1. このBiDiのイベントオブジェクトを渡す
+        Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+
+        '4. このBiDi情報も渡す
+        Set .InheritanceWebDriverBiDiMode = Me
+
+        '5. 先ほど得た`context`を渡す
+        .context = bidiRes.StringKey("context")
+
+        '6. メイン化する場合は、Excelに記録しておく
+        If setMain Then serializeMainTab = .context
+    End With
+
+    printMsg info_, "newTab will now open a new BiDi instance", FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* 機能　　：既に開いているタブのセッションIDを、タブの名前またはURLに基づいて検索します。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiContext
+'* 引数　　：tabName        タブ名
+'            Url            URL
+'            maxDepth       Tree の深さレベル。基本は、0にすると子フレーム(iframe)を含まず、トップレベルのタブだけ取得となります
+'            setMain        `True`で、Excelに`context`を記録し、リアタッチに備えます
+'            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。maxDepth はデフォルトは、トップレベルのタブだけにしてます
+'* 注意事項：・url引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
+'            ・WebDriverBiDi では、タブ名での検索はできないようです
+'***************************************************************************************************
+Public Function getTab(Optional Url As String, Optional maxDepth As Long, Optional setMain As Boolean, Optional doRetrySecond As Double) As WebDriverBiDiContext
+    Const FromProcedureName As String = ThisClassName & ".getTab"
+
+
+    Dim startTime As Double
+    Dim bidiRes As BiDiCDPJson
+    Dim contexts As BiDiCDPJson
+    Dim matchData As BiDiCDPJson
+
+    'パラメーターを用意
+    Dim BiDiparams As New Scripting.Dictionary
+    BiDiparams.Add "maxDepth", maxDepth
+
+    'タイマースタート
+    If doRetrySecond Then startTime = TimerCounter
+    
+    'シンプルに、`Instr`方式の検索で行う
+    Do
+        ' 1. 指定した深さまでのツリーを取得
+        Set bidiRes = ExecuteBiDi("browsingContext.getTree", BiDiparams)
+
+        If Not bidiRes Is Nothing Then
+            Set contexts = bidiRes.NodeKey("contexts")
+
+            ' 2. 再帰関数を呼び出して全階層からマッチするものを探す
+            Set matchData = FindContextRecursive(contexts, Url)
+
+            ' 3. 見つかったらオブジェクト化して返す
+            If Not matchData Is Nothing Then
+                Set getTab = New WebDriverBiDiContext
+                With getTab
+                    '4. このこのBiDiのイベントオブジェクトを渡す
+                    Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+
+                    '5. このBiDi情報を渡す
+                    Set .InheritanceWebDriverBiDiMode = Me
+
+                    '6. 先ほど得た`context`を渡す
+                    .context = matchData("context")
+
+                    '7. メイン化する場合は、Excelに記録しておく
+                    If setMain Then serializeMainTab = matchData("context")
+                End With
+
+                Exit Do
+            End If
+        End If
+
+        If Not doRetrySecond Then Exit Do
+        If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
+        DoEvents
+    Loop
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext.getTree`の再帰処理による検索処理です
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：contexts   browsingContext.InfoList
+'* 引数　　：Url        URL
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：再帰処理のため、深すぎるとエラーになりますが多分問題ないはずです
+'***************************************************************************************************
+Private Function FindContextRecursive(contexts As BiDiCDPJson, Url As String) As BiDiCDPJson
+    Dim ctxData As BiDiCDPJson
+    Dim childMatch As BiDiCDPJson
+    Dim contextCount As Long
+
+    ' contextsはCollection（配列）としてループ
+    Dim i As Long
+    contextCount = contexts.Count
+    For i = 0 To contextCount
+        Set ctxData = contexts.NodeIndex(i)
+
+
+        ' A. このコンテキスト自体がマッチするかチェック
+        Dim isMatch As Boolean
+        If LenB(Url) = 0 Then
+            isMatch = True ' 空なら最初に見つかったヤツ
+        Else
+            If InStr(1, ctxData.StringKey("url"), Url) > 0 Then isMatch = True
+        End If
+
+        If isMatch Then
+            Set FindContextRecursive = ctxData
+            Exit Function
+        End If
+
+        ' B. 子要素（children）があれば、さらにその中を探索
+        If ctxData.NodeKey("children").Count > 0 Then
+            Set childMatch = FindContextRecursive(ctxData.NodeKey("children"), Url)
+            If Not childMatch Is Nothing Then
+                Set FindContextRecursive = childMatch
+                Exit Function
+            End If
+        End If
+    Next
+
+    Set FindContextRecursive = Nothing
 End Function
 
 
@@ -152,34 +384,45 @@ End Function
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
 '*           StopBiDiError 実行失敗時に`Err.Raise`で停止し、以降の処理を止めるか
+'
 '* 返値    ：ブラウザから返却されたBiDi結果 (パースされたDictionary)
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを送信後、ID返却されるまで待機します。
 '***************************************************************************************************
-Public Function ExecuteBiDi(ByVal methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As Dictionary
+Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopBiDiError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
-    Dim paramStr As String
-    Dim results As Dictionary
+    '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
+    If params Is Nothing Then Set params = New Dictionary
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    Set results = SendMessage("{""method"":""" & methodName & """,""params"":" & paramStr & "}")
+    'コマンド組み立て
+    Dim BiDiCommand As New Scripting.Dictionary
+    BiDiCommand.Add "method", methodName
+    BiDiCommand.Add "params", params
+
+    '送信して結果を受け取り、Node変換
+    Dim ResultStr As String: ResultStr = SendMessage(BiDiCommand, , StopBiDiError)
+    Dim resultJson As BiDiCDPJson
+    Set resultJson = BiDiCDPJson.Parse(ResultStr)
 
     'Print error if there is
-    If ExecuteError(results) Then
+    If ExecuteError(resultJson) Then
+        'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
-            printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & jsConverter.ConvertToJson(results), FromProcedureName, doRaiseError:=True
+            'エラーになったmethod名と、結果生responseを表示して停止
+            printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
+            'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to BiDi-invoke method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
-        If results.Exists("result") Then Set ExecuteBiDi = results.Item("result")
+        If resultJson.Exists("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
-    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & jsConverter.ConvertToJson(results), FromProcedureName
+    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultStr, FromProcedureName
 
 End Function
 
@@ -188,39 +431,48 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：methodName    メソッド名 (例: "session.new")
 '*           params        引数を持ったDictionary (省略可能)
+'            StopError     内部エラーがあったら止めるか？
+'
 '* 返値    ：送信したメッセージの ID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
 '***************************************************************************************************
-Public Function ExecuteBiDiAsync(ByVal methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
+Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDiAsync"
 
 
-    Dim paramStr As String
+    '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
+    If params Is Nothing Then Set params = New Dictionary
 
-    If params Is Nothing Then paramStr = "{}" Else paramStr = jsConverter.ConvertToJson(params)
-    SendMessage "{""method"":""" & methodName & """,""params"":" & paramStr & "}", True
+    'コマンド組み立て
+    Dim BiDiCommand As New Scripting.Dictionary
+    BiDiCommand.Add "method", methodName
+    BiDiCommand.Add "params", params
+
+    '送信
+    SendMessage BiDiCommand, True, StopError
 
     '実行したIDを返却
     ExecuteBiDiAsync = m_BiDiCore.LastCommandID
-    printMsg Debug_, "Async ExecuteCDP: " & methodName, FromProcedureName
+    printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
 '* 機能　　：`BiDiコマンド送信のコア処理
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strMessage             BiDi形式で送信するJsonプレーンテキスト
+'* 返り値　：Async が、`False` → BiDi-Jsonコマンド の実行結果(Json文字列)
+'                      `True`  → `vbnullstring`
+'
+'* 引数　　：DirMessage             BiDi形式で送信するJsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
 '            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
 '                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
 '
-'            dbgMsg                 `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
-'                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
-'
-'* 返値　　：Dictionary形式のBiDi結果
+'            StopError              `True` ：内部エラーがあったら止まります
+'                                   `False`：内部エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`nothing`で、返ります
+'* 注意事項：Async:=True の場合は常に`vbnullstring`で、返ります
 '***************************************************************************************************
-Private Function SendMessage(strMessage As String, Optional Async As Boolean, Optional dbgMsg As Boolean = True) As Dictionary
+Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".SendMessage"
 
 
@@ -229,11 +481,11 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
     '--------------------------------------------------
     printMsg Debug_, "runBiDi  - Async       = " & Async, FromProcedureName
 
-    m_BiDiCore.ReadyRunBiDi strMessage, dbgMsg                                  '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
+    m_BiDiCore.ReadyRunBiDi DirMessage, StopError                               '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
     Dim currentCommandID As Long: currentCommandID = m_BiDiCore.LastCommandID   '`ReadyRunBiDi`直後のcommandIDを取得
 
     'WriteFile にてエラーがあった場合
-    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & m_BiDiCore.ErrorDetail.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=dbgMsg: Exit Function
+    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
 
     '非同期(結果はいらない)モードなら、ここで抜けます
     If Async Then Exit Function
@@ -248,16 +500,16 @@ Private Function SendMessage(strMessage As String, Optional Async As Boolean, Op
 
     Do
         '1. 受信処理によるパイプを拝見する
-        m_BiDiCore.TakeEvents dbgMsg
+        m_BiDiCore.TakeEvents StopError
 
         '2. 受信処理にてエラーがあったら、即抜け
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = ResultBiDiFromWithEvents(currentCommandID)
+        tmp = TakeResultBiDi(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
-            Set SendMessage = jsConverter.ParseJson(tmp)
+            SendMessage = tmp
             printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
 
             'ループから抜ける
@@ -322,8 +574,8 @@ End Sub
 '            ・結果がない場合は、`vbnullstring`として返ります。`StrPtr`で判定可能です
 '            ・エラー判定、JsonDictionay化は別途行って下さい
 '***************************************************************************************************
-Property Get ResultBiDiFromWithEvents(commandID As Long) As String
-    Const FromProcedureName As String = ThisClassName & ".ResultBiDiFromWithEvents"
+Property Get TakeResultBiDi(commandID As Long) As String
+    Const FromProcedureName As String = ThisClassName & ".TakeResultBiDi"
 
 
     '1. 存在するか？
@@ -333,7 +585,7 @@ Property Get ResultBiDiFromWithEvents(commandID As Long) As String
         printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
-        ResultBiDiFromWithEvents = tmp
+        TakeResultBiDi = tmp
 
         '4. 取り出したので消しておく
         resultBiDi.response.Remove commandID
@@ -350,16 +602,17 @@ End Property
 '* 返り値　：エラー有無論理値
 '* 引数　　：ResultsObj         パース処理済みのCDP-Jsonコマンド実行結果
 '***************************************************************************************************
-Private Function ExecuteError(ResultsObj As Dictionary) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".invokeError"
+Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".ExecuteError"
 
 
     Dim ErrorType As String, ErrorMessage As String, ErrorStackTrace As String
 
     'データの状態をチェック
-    If ResultsObj Is Nothing Then
+    If ResultsObj.Count = 0 Then
         '結果が空っぽになってる場合は、タイムアウトエラーか、コードのミスの可能性
         ExecuteError = True
+
 
         'カスタムなエラー情報として記載し、ログに出す
         ErrorType = "error" 'arbitrary nonzero value, may change in future
@@ -371,23 +624,27 @@ Private Function ExecuteError(ResultsObj As Dictionary) As Boolean
         m_ErrorDetails.Add "type", ErrorType
         m_ErrorDetails.Add "message", ErrorMessage
 
-    ElseIf ResultsObj("type") = "error" Then
+    ElseIf ResultsObj.StringKey("type") = "error" Then
         'BiDiコマンドエラーは "type":"error" で返る
         ExecuteError = True
 
-        'エラーを残す
-        Set m_ErrorDetails = ResultsObj
 
         'ログを出しておく
-        ErrorType = ResultsObj("error")
-        ErrorMessage = ResultsObj("message")
+        ErrorType = ResultsObj.StringKey("error")
+        ErrorMessage = ResultsObj.StringKey("message")
         printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
 
         '`StackTrace`があったら別枠で表示
         If ResultsObj.Exists("stacktrace") Then
-            ErrorStackTrace = ResultsObj("stacktrace")
+            ErrorStackTrace = ResultsObj.StringKey("stacktrace")
             printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
         End If
+
+        '最後のエラー情報を記録
+        Set m_ErrorDetails = New Dictionary
+        m_ErrorDetails.Add "error", ErrorType
+        m_ErrorDetails.Add "message", ErrorMessage
+        If StrPtr(ErrorStackTrace) Then m_ErrorDetails.Add "stacktrace", ErrorStackTrace
     End If
 End Function
 
@@ -410,7 +667,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* LET引数 ：置き換える上限数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、256件です。
+'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
 '***************************************************************************************************
 Property Let SetLimitBiDi(Number As Long)
     resultBiDi.Limit = Number
@@ -427,11 +684,11 @@ Public Sub quit()
 
     '1. 終了コマンドを送る
     '※閉じると同時に、Pipeエラーが起こることがあるので、エラー無視しておく
-    SendMessage "{""method"":""browser.close"",""params"":{}}", dbgMsg:=False
+    ExecuteBiDi "browser.close", StopBiDiError:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    m_BiDiCore.ClosePipeCDP 'パイプハンドルを閉じる
-    deleteCDPID             'テーブルからも削除する
+    m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
+    deleteCDPID                     'テーブルからも削除する
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     sleep 1
@@ -446,8 +703,8 @@ Private Sub deleteCDPID()
 
 
     With ShSetting01_StartBrowser
-        .DeleteCDPToTable(1, FromProcedureName) = BiDiUserName  'パイプ通信Handle情報
-        .DeleteCDPToTable(2, FromProcedureName) = BiDiUserName  'ブラウザセッション情報
+        .DeleteBrowserHandle(FromProcedureName) = BiDiUserName   'パイプ通信Handle情報
+        .DeleteBrowserContext(FromProcedureName) = BiDiUserName  'ブラウザセッション情報
     End With
 End Sub
 
@@ -468,15 +725,32 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiEvent"
 
 
-    '------------------ 非同期イベントを収集します ------------------
-    '1. イベントキャプチャしない場合は、即抜け
+    '------------------ 1. `Context`の生成情報を蓄積します ------------------
+    '1-1. Select Case でスマートに、method名ごとの独自処理を行う
+    Select Case methodName
+        Case "browsingContext.contextCreated"
+            '1-2. `InfoList`を収集するか判定
+            If Not InfoList Is Nothing Then
+                '1-3. そのまま、蓄積
+                printMsg Debug_, "Collecting `browsingContext.contextCreated`... → " & RawJson, FromProcedureName
+                InfoList.Add RawJson
+            End If
+
+        Case Else
+            'None
+
+    End Select
+
+
+    '------------------ 2. 非同期イベントを収集します ------------------
+    '2-1. イベントキャプチャしない場合は、即抜け
     If m_Events Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2. パース処理
+    '2-2. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
-    Dim tmp As Dictionary: Set tmp = jsConverter.ParseJson(RawJson)
+    Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '3. 専用のプロシージャにて、蓄積処理
+    '2-3. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived m_Events, tmp, methodName
 End Sub
@@ -602,13 +876,14 @@ End Sub
 '* 注意事項：・CDPのパイプ通信で1対1で直接繋がってしまっている都合上、一部項目は空となります
 '            ・ログレベル - DEBUG のみ表示します
 '***************************************************************************************************
-Private Sub ViewNewSession(ResultSessionNew As Dictionary)
+Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
 
     '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
-    Dim pfName As String: pfName = ResultSessionNew("capabilities")("platformName")
-    If pfName = "" Then pfName = Application.Name
+    Dim Node_capabilities As BiDiCDPJson: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
+    Dim pfName As String: pfName = Node_capabilities.StringKey("platformName")
+    If LenB(pfName) = 0 Then pfName = Application.Name
 
     'ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
@@ -616,14 +891,14 @@ Private Sub ViewNewSession(ResultSessionNew As Dictionary)
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
-    printMsg Debug_, "acceptInsecureCerts   | " & ResultSessionNew("capabilities")("acceptInsecureCerts"), FromProcedureName
-    printMsg Debug_, "browserName           | " & ResultSessionNew("capabilities")("browserName"), FromProcedureName
-    printMsg Debug_, "browserVersion        | " & ResultSessionNew("capabilities")("browserVersion"), FromProcedureName
+    printMsg Debug_, "acceptInsecureCerts   | " & Node_capabilities.StringKey("acceptInsecureCerts"), FromProcedureName
+    printMsg Debug_, "browserName           | " & Node_capabilities.StringKey("browserName"), FromProcedureName
+    printMsg Debug_, "browserVersion        | " & Node_capabilities.StringKey("browserVersion"), FromProcedureName
     printMsg Debug_, "platformName          | " & pfName, FromProcedureName
-    printMsg Debug_, "setWindowRect         | " & ResultSessionNew("capabilities")("setWindowRect"), FromProcedureName
-    printMsg Debug_, "webSocketUrl          | " & ResultSessionNew("capabilities")("webSocketUrl"), FromProcedureName
-    printMsg Debug_, "userAgent             | " & ResultSessionNew("capabilities")("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.Range(ShLibrary01_JS.UseRangeName(1, FromProcedureName)).value, FromProcedureName
+    printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
+    printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
+    printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.UseRangeID(1, FromProcedureName), FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
 
@@ -641,7 +916,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
-Private Function sessionNew(Optional params As Dictionary) As Dictionary
+Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
     '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
@@ -662,9 +937,27 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-status
 '***************************************************************************************************
-Private Function sessionStatus() As Dictionary
+Private Function sessionStatus() As BiDiCDPJson
     Set sessionStatus = ExecuteBiDi("session.status")
 End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.subscribe/unsubscribe`を実行します
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：`events`に渡すCollection変数
+'     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
+'                       `False`:`session.unsubscribe`として実行
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：何を購読中かは、ここでは管理しません
+'***************************************************************************************************
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+    'paramsに格納
+    Dim params As New Dictionary
+    params.Add "events", events
+
+    '実行
+    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
+End Property
 
 
 
@@ -688,14 +981,12 @@ End Property
 
 
 '***************************************************************************************************
-'                              ■■■ Cheat PROPERTIES ■■■
+'                              ■■■ 複製用プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取り、WebDriverBiDiモードでありつつ、直接CDP制御できる仕組みを提供します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：利用する際は、「BiDi-CDP Mapper」タブ自体を操作しないように気を付ける必要がある上級者向けです
+'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
 '***************************************************************************************************
-Property Get DirectControlCDP() As CDPBrowser
-    Set DirectControlCDP = m_BiDiCore.DirectControlCDP
+Property Get InheritanceBiDiCore() As WebDriverBiDiCore
+    Set InheritanceBiDiCore = m_BiDiCore
 End Property
 
 
