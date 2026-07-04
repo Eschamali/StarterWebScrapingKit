@@ -1457,7 +1457,7 @@ End Function
 '***************************************************************************************************
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
-    If LenB(elementObjectId) Then
+    If StrPtr(elementObjectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", elementObjectId
         ExecuteCDP "Runtime.releaseObject", paramsCDP, False
