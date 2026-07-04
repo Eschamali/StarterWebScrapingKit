@@ -82,6 +82,8 @@ Sub Demo_FileChooser_01_静的inputへ注入()
     Dim element As CDPElement
     Debug.Print "[Demo01] static-file-input をクリックします..."
     Set element = browserTab.getElementByID("static-file-input")
+    element.focus
+    element.click
 
     '--- 6. ★新API：パス引数なし、待機 & 注入 ---
     If Not fc.SetFiles(TimeoutSec:=10) Then
