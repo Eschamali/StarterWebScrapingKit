@@ -62,6 +62,9 @@ Private ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(http
 Private SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
 Private SearchObjectId  As String       ' このClass内で相対検索した際のObjectID（ポーリング用）。`CDPContext.cls`から使用した場合は、`vbnullstring`です
 
+'簡易check系
+Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
+
 'JavaScript実行オプション
 Public StopException    As Boolean      'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
 
@@ -165,6 +168,9 @@ Property Get value() As String
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     value = main.jsEval("function(){ return this.value }", elementObjectId, StopException:=StopException)
 
 End Property
@@ -180,6 +186,10 @@ Property Let value(strTextVal As String)
 '          12/12/23 - added checkExist
 '-----------------------------------------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".value"
+
+
+    'Gracefully exit the value input if the element is found not exist under isExist
+    If checkExist Then If Not isExist Then Exit Property
 
 
     Dim e1 As String
@@ -215,6 +225,9 @@ Property Get innerText() As String
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     innerText = main.jsEval("function(){ return this.innerText }", elementObjectId, StopException:=StopException)
 
 End Property
@@ -225,6 +238,9 @@ Property Let innerText(strTextVal As String)
 ' Note: objectArgumentsで安全に値を渡すのでエスケープ不要
 ' Updated: 02/03/2023
 '----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
 
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
 
@@ -242,6 +258,9 @@ Property Get innerHTML() As String
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     innerHTML = main.jsEval("function(){ return this.innerHTML }", elementObjectId, StopException:=StopException)
 
 End Property
@@ -252,6 +271,9 @@ Property Let innerHTML(strTextVal As String)
 ' Note: objectArgumentsで安全に値を渡すのでエスケープ不要
 ' Updated: 13/11/2023
 '----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
 
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
 
@@ -269,6 +291,9 @@ Property Let checked(boolChecked As Boolean)
 ' Updated: 04/12/2023
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
     arg.Add "value", CBool(boolChecked)
@@ -283,6 +308,9 @@ Property Get checked() As Boolean
 ' Updated: 04/12/2023
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     checked = main.jsEval("function(){ return this.checked }", elementObjectId, StopException:=StopException)
 
 End Property
@@ -293,6 +321,9 @@ Property Let selected(selectedOption As String)
 ' eg. br.getElementbyId("list").selected = 2
 ' Updated: 06/03/2025
 '----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
 
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
@@ -309,6 +340,9 @@ Property Get selected() As String
 ' Updated: 06/03/2025
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Property
+
+
     selected = main.jsEval("function(){ return this.selectedOptions[0] }", elementObjectId, StopException:=StopException)
 
 End Property
@@ -319,6 +353,10 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
 ' perform wait if necessary for the page to be refreshed.
 ' Updated: 12/12/2023
 '----------------------------------------------------------
+
+   'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then If Not isExist Then Exit Function
+
 
    'Scroll into the view for better visibility of the automation
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
@@ -342,6 +380,9 @@ Public Function submit(Optional till As ReadyState = isComplete) As Boolean
 ' Updated: 12/12/2023
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     main.jsEval "function(){ this.form.submit() }", elementObjectId, StopException:=StopException
     main.wait till:=till
     submit = True
@@ -353,6 +394,9 @@ Public Function getAttribute(strAttributeName As String) As String
 ' Get the value of an element attribute based on its name.
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
 
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
@@ -368,6 +412,9 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
 ' Updated: 12/12/23 - added checkExist
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     Dim args2 As New Collection
     Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   args2.Add a1
     Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           args2.Add a2
@@ -381,6 +428,9 @@ Public Function setSelection(strOptionName As String)
 ' Updated: 06/03/2025
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
     Me.value = strOptionName
     fireEvent "change"
@@ -393,6 +443,9 @@ Public Function selectText()
 ' Updated: 18/09/2025
 '----------------------------------------------------------
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     main.jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }", elementObjectId, StopException:=StopException
 
 End Function
@@ -402,6 +455,9 @@ Public Function focus()
 ' Set focus to an element.
 ' Updated: 18/09/2025
 '----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
 
     main.jsEval "function(){ this.focus() }", elementObjectId, StopException:=StopException
 
@@ -414,6 +470,9 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
 ' not start with "on" such as "onblur" but only "blur".
 ' Updated: 12/12/2023
 '------------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
 
    'Auto format some common event name mistakes
     strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
@@ -440,6 +499,9 @@ Public Function sendString(textToSend As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".sendString"
 
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     'First clear the current text of the field
     main.jsEval "function(){ this.value = '' }", elementObjectId, StopException:=StopException
 
@@ -464,6 +526,9 @@ Public Function sendClick() As Boolean
 ' DOM manipulation with JavaScript dispatchEvent method.
 '----------------------------------------------------------------
     Const FromProcedureName As String = ThisClassName & ".sendClick"
+
+
+    If checkExist Then If Not isExist Then Exit Function
 
 
     'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
@@ -502,6 +567,9 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     Const FromProcedureName As String = ThisClassName & ".sendKey"
 
 
+    If checkExist Then If Not isExist Then Exit Function
+
+
     'Set focus on the node
     Dim params As New Scripting.Dictionary
     params("objectId") = elementObjectId
@@ -530,6 +598,9 @@ Public Function clearValue() As Boolean
 '----------------------------------------------------------------
 ' Clear the value currently had by the input element
 '----------------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
 
     Dim e1 As String
     Dim isReact As Boolean
@@ -570,6 +641,27 @@ End Function
 '***************************************************************************************************
 Public Function isExist() As Boolean
     isExist = Not (ResultVarType = vbNull)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：メソッドチェーンを利用した存在チェック後の操作を提供します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このClass自身
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・When the element does not exist, it returns an empty CDPElement
+'               object with checkExist tag = False, effectively skipping
+'               all subsequent functions related to it.
+'
+'            ・わざわざ、`if X.isExist then X.focus`といったことをせず、`X.ifExist.focus`のように簡略化できます。お好みで
+'***************************************************************************************************
+Public Function ifExist() As CDPElement
+    Const FromProcedureName As String = ThisClassName & ".ifExist"
+
+
+    checkExist = True
+    Set ifExist = Me
+    printMsg info_, "ifExist returned " & isExist & " on [" & SearchJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
+
 End Function
 
 '***************************************************************************************************
@@ -653,6 +745,15 @@ Public Function getParent() As CDPElement
     Const ParentSearchJS As String = "function(){ return this.parentElement }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getParent = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. 現在の要素の親ノードを取得するJavaScriptコードを実行
     Dim resultSearch As Variant
     resultSearch = main.jsEval(ParentSearchJS, elementObjectId, StopException:=StopException)
@@ -675,6 +776,15 @@ End Function
 '***************************************************************************************************
 Public Function getNextSibling() As CDPElement
     Const NextSiblingSearchJS As String = "function(){ return this.nextElementSibling }"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getNextSibling = Me
+            Exit Function
+        End If
+    End If
 
 
     '1. 現在の要素の次の兄弟ノードを取得するJavaScriptコードを生成
@@ -701,6 +811,15 @@ Public Function getPrevSibling() As CDPElement
     Const PrevSiblingSearchJS As String = "function(){ return this.previousElementSibling }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getPrevSibling = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. 現在の要素の前の兄弟ノードを取得するJavaScriptコードを生成
     Dim resultSearch As Variant
     resultSearch = main.jsEval(PrevSiblingSearchJS, elementObjectId, StopException:=StopException)
@@ -723,6 +842,15 @@ End Function
 '***************************************************************************************************
 Public Function getFirstChild() As CDPElement
     Const FirstChildSearchJS As String = "function(){ return this.firstElementChild }"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getFirstChild = Me
+            Exit Function
+        End If
+    End If
 
 
     '1. 現在の要素の先頭の兄弟ノードを取得するJavaScriptコードを生成
@@ -751,6 +879,10 @@ End Function
 '***************************************************************************************************
 Public Function getChildren() As Collection
     Const ChildrenSearchJS As String = "function(){ return this.children }"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist And Not isExist Then Exit Function
 
 
     '1. 現在の要素の子要素を取得するJavaScriptコードを生成
@@ -809,6 +941,15 @@ Public Function getElementByID(strID As String) As CDPElement
     Const ElementByIDSearchJS As String = "function(id){ return this.querySelector('#' + CSS.escape(id)) }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getElementByID = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. `callFunctionOn`に渡す引数を準備
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
@@ -849,6 +990,15 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     Const ElementByQuerySearchJS As String = "function(sel){ return this.querySelector(sel) }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getElementByQuery = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. `callFunctionOn`に渡す引数を準備
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
@@ -880,6 +1030,10 @@ End Function
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Const ElementsByQuerySearchJS As String = "function(sel){ return this.querySelectorAll(sel) }"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist And Not isExist Then Exit Function
 
 
     '1. `callFunctionOn`に渡す引数を準備
@@ -958,6 +1112,15 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     Const ElementByXPathSearchJS    As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getElementByXPath = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. Verify double slash syntax
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
@@ -1004,6 +1167,10 @@ End Function
 Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
     Const ChildrenSearchJS  As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null) }"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist And Not isExist Then Exit Function
 
 
     '1. Verify double slash syntax
@@ -1098,6 +1265,15 @@ Public Function getIFrame() As CDPElement
     Const getIFrameSearchJS As String = "function(){ return this.contentDocument }"
 
 
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set getIFrame = Me
+            Exit Function
+        End If
+    End If
+
+
     '1. Check if the iFrame is hosted on a different domain
     Dim src As String: src = getAttribute("src")
     If InStr(src, "http") Then printMsg WARN_, "This iFrame may not be hosted in the same domain. src=""" & src & """", FromProcedureName
@@ -1135,6 +1311,15 @@ End Function
 '***************************************************************************************************
 Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then
+        If Not isExist Then
+            Set GetShadowRoot = Me
+            Exit Function
+        End If
+    End If
 
 
     '1. `objectId`に対して、直下のNode情報を取得
@@ -1184,6 +1369,10 @@ End Function
 '***************************************************************************************************
 Public Function GetShadowRoots() As Collection
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoots"
+
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist And Not isExist Then Exit Function
 
 
     '1. `objectId`に対して、直下のNode情報を取得
