@@ -342,7 +342,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
-        If LenB(.Range(.UseRangeName(1, FromProcedureName)).value) = 0 Then
+        If LenB(.UseRangeID(1, FromProcedureName)) = 0 Then
             '1. 必要な変数を用意
             Dim strKeyPath      As String   'ベースパス
             Dim ValueSize       As Long     '値の大きさ
@@ -362,7 +362,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
             End If
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
+            getBrowserPath = .UseRangeID(1, FromProcedureName)
         End If
     End With
 
@@ -1731,13 +1731,13 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '1. Edgeウィンドウの表示モードの設定
-        br.setShowWindow = .Range(.UseRangeName(12, FromProcedureName)).value
+        br.setShowWindow = .UseRangeID(12, FromProcedureName)
 
         '2. 文字コード設定
-        UseConverterUtf8FromString = .Range(.UseRangeName(10, FromProcedureName)).value
+        UseConverterUtf8FromString = .UseRangeID(10, FromProcedureName)
 
         '3. ブラウザの使用タイプ
-        UseChrome = .Range(.UseRangeName(4, FromProcedureName)).value
+        UseChrome = .UseRangeID(4, FromProcedureName)
     End With
 
     'タイムアウト設定(デフォルトで、30s)

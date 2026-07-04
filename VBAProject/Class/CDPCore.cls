@@ -1205,10 +1205,10 @@ Private Sub Class_Initialize()
     '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '2-1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value           'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
+        currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
         '2-2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
+        Dim LogFolderPath As String: LogFolderPath = .UseRangeID(9, FromProcedureName)
         If LenB(LogFolderPath) > 0 Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定

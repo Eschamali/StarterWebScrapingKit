@@ -30,14 +30,14 @@ Public Function 設定シートからのBiDi起動(Optional StartURL As String, 
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.UseRangeID(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), SwitchUser)
 
         'ブラウザ起動
         Set 設定シートからのBiDi起動 = New WebDriverBiDiMode
-        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, UseDataDir, .UseRangeID(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), KioskMode, sessionCapabilitiesRequest
     End With
 End Function
 
@@ -46,14 +46,14 @@ Public Function 設定シートからのBiDi起動ForTab(Optional StartURL As St
     With ShSetting01_StartBrowser
         '起動ブラウザ種類の設定
         '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+        Dim ブラウザ名 As String: ブラウザ名 = IIf(.UseRangeID(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), SwitchUser)
 
         'ブラウザ起動
         Set 設定シートからのBiDi起動ForTab = New WebDriverBiDiContext
-        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
+        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, UseDataDir, .UseRangeID(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), KioskMode, sessionCapabilitiesRequest
     End With
 End Function
 
@@ -449,10 +449,8 @@ End Sub
 '***************************************************************************************************
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
-    With ShSetting01_StartBrowser
-        Dim UserName As String
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
-    End With
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.demoReattachmentPart2")
 
     '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
@@ -479,10 +477,8 @@ End Sub
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
     '設定セルから、ユーザ名を取得
-    With ShSetting01_StartBrowser
-        Dim UserName As String
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2")).value
-    End With
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.demoReattachmentPart2ForTab")
 
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiContext

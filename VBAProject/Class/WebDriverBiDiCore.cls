@@ -700,9 +700,9 @@ Private Sub Class_Initialize()
 
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser
-        BiDiDebug.ViewDebugTab = .Range(.UseRangeName(11, FromProcedureName)).value    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
-        BiDiDebug.seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-        BiDiDebug.DiagnosticLog = .Range(.UseRangeName(13, FromProcedureName)).value   'Mapper内部のデバッグログを記録するか？
+        BiDiDebug.ViewDebugTab = .UseRangeID(11, FromProcedureName)    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
+        BiDiDebug.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
 
