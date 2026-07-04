@@ -96,7 +96,7 @@ Public Function PrintToPDF( _
 
     '--- 2. CDP コマンド発行 ---
     printMsg Trace_, "Sending `Page.printToPDF` command...", FromProcedureName
-    Dim result As Scripting.Dictionary
+    Dim result As BiDiCDPJson
     Set result = ExecuteCDP("Page.printToPDF", params, False)   'StopError:=False でエラー時もNothingで返す
 
     '--- 3. エラー確認 ---
@@ -137,12 +137,8 @@ Public Function PrintToPDF( _
     If LCase(Right(FileName, 4)) <> ".pdf" Then FileName = FileName & ".pdf"
 
     'Base64 → バイナリ変換（MSXML2 DOM経由 ／ CDPBrowser.SaveBase64ToFileと同方式）
-    Dim dom As Object, el As Object, Bytes() As Byte
-    Set dom = CreateObject("MSXML2.DOMDocument")
-    Set el = dom.createElement("pdfnode")
-    el.DataType = "bin.base64"
-    el.Text = b64
-    Bytes = el.nodeTypedValue
+    Dim Bytes() As Byte
+    Bytes = WebCrypto.Decode(b64, edfBase64)
 
     'CharacterCodeConversion 経由でファイル書き出し
     Dim CharConv As New CharacterCodeConversion
@@ -211,7 +207,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
