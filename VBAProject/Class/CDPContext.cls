@@ -1940,7 +1940,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
         params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
