@@ -90,10 +90,13 @@ I express my heartfelt respect and gratitude for the wisdom and code of my great
 * **WinHTTP 5.1 Wrapper**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
     * Original Author: Tim Hall
-* **High-performance JSON Parser**
-  * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-    * Improved by GCuser99
-    * Replaced the existing JsonConverter with this for better maintainability
+* **Ultra-high-performance JSON parser specialized for CDP/WebDriverBiDi responses**
+  * [vbacollective-json](https://github.com/vbacollective/json)
+    * Original Author: Ueslei Paim
+    * Modified version: Optimized for reliability by removing `CopyMemory` dependency
+* **High-performance JSON parser (Upward compatible with `VBA-JSON`)**
+  * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+    * Author: Ion Cristian Buse
 * **Fast Character Code Conversion Wrapper**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland, DI Management Services Pty

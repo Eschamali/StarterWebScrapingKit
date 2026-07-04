@@ -729,7 +729,7 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '1. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
+        Dim LogFolderPath As String: LogFolderPath = .UseRangeID(9, FromProcedureName)
         If LenB(LogFolderPath) Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
