@@ -110,14 +110,14 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
             If seeRawSendMsgDbg Then
-                Dim DialogInfos As Dictionary: Set DialogInfos = ex_CDPBrowser.jsConverter.ParseJson(RawJson)("params")
+                Dim DialogInfos As BiDiCDPJson: Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "javascriptDialogOpening information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
-                printMsg Debug_, "url           : " & DialogInfos("url"), FromProcedureName
-                printMsg Debug_, "message       : " & DialogInfos("message"), FromProcedureName
-                printMsg Debug_, "type          : " & DialogInfos("type"), FromProcedureName
-                printMsg Debug_, "defaultPrompt : " & DialogInfos("defaultPrompt"), FromProcedureName
+                printMsg Debug_, "url           : " & DialogInfos.StringKey("url"), FromProcedureName
+                printMsg Debug_, "message       : " & DialogInfos.StringKey("message"), FromProcedureName
+                printMsg Debug_, "type          : " & DialogInfos.StringKey("type"), FromProcedureName
+                printMsg Debug_, "defaultPrompt : " & DialogInfos.StringKey("defaultPrompt"), FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
@@ -167,7 +167,7 @@ Friend Sub Init(Inheritance As CDPContext)
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.id
+    CurrentSessionId = ex_CDPContext.CurrentSessionId
 
     'Pageドメインの有効化
     ex_CDPContext.pageEnable
@@ -187,9 +187,7 @@ Private Sub Class_Initialize()
     JavaScriptDialogClose.Accept = True
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    End With
+    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
 End Sub
 
 

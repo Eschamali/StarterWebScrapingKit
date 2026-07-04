@@ -61,34 +61,34 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
 
         'button の objectId
         Dim btnOid As Variant
-        btnOid = br.jsEval("document.getElementById('btn')", returnByValue:=False, dbgMsg:=False)
+        btnOid = br.jsEval("document.getElementById('btn')", returnByValue:=False, StopPipeError:=False)
 
         If VarType(btnOid) <> vbString Or Len(btnOid) = 0 Then Err.Raise 5, , "btn objectId が取得できませんでした"
 
         'RunAsyncCDP=true のクリック（async command result を取り出したい）
         Dim asyncClickId As Variant
-        asyncClickId = br.jsEval("function(){ this.click(); }", CStr(btnOid), RunAsyncCDP:=True, dbgMsg:=False)
+        asyncClickId = br.jsEval("function(){ this.click(); }", CStr(btnOid), RunAsyncCDP:=True, StopPipeError:=False)
         If Not IsNumeric(asyncClickId) Or CLng(asyncClickId) <= 0 Then Err.Raise 6, , "asyncClickId が不正です: " & CStr(asyncClickId)
 
         'さらに async を1個足して、受信バッチの混雑を増やす
         Dim asyncTitleId As Variant
-        asyncTitleId = br.jsEval("document.title", RunAsyncCDP:=True, dbgMsg:=False)
+        asyncTitleId = br.jsEval("document.title", RunAsyncCDP:=True, StopPipeError:=False)
         If Not IsNumeric(asyncTitleId) Or CLng(asyncTitleId) <= 0 Then Err.Raise 7, , "asyncTitleId が不正です: " & CStr(asyncTitleId)
 
         '同期 jsEval を1回挟んで、SendMessage(同期待ち) の受信処理中に
         '拡張のイベント→同期 invokeMethod が入り込む確率を上げる
         Dim dummy As Variant
-        dummy = br.jsEval("document.body.clientHeight", returnByValue:=True, dbgMsg:=False)
+        dummy = br.jsEval("document.body.clientHeight", returnByValue:=True, StopPipeError:=False)
 
         'alert が閉じた後に状態が更新される想定
         Dim expectMsg As String
         expectMsg = "RACE_ALERT_" & iter
 
         Dim statusTxt As String
-        statusTxt = CStr(br.jsEval("document.getElementById('status').textContent", returnByValue:=True, dbgMsg:=False))
+        statusTxt = CStr(br.jsEval("document.getElementById('status').textContent", returnByValue:=True, StopPipeError:=False))
 
         Dim lastMsg As String
-        lastMsg = CStr(br.jsEval("window.__lastAlertMsg", returnByValue:=True, dbgMsg:=False))
+        lastMsg = CStr(br.jsEval("window.__lastAlertMsg", returnByValue:=True, StopPipeError:=False))
 
         If InStr(1, statusTxt, expectMsg, vbTextCompare) = 0 Then
             failCount = failCount + 1
@@ -103,8 +103,8 @@ Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30
 
         'ここが「競合ズレ」検出ポイント:
         ' - asyncClickId の結果が AccumulatedAsyncResults に残っているか？
-        Dim boxClick As Scripting.Dictionary
-        Dim boxTitle As Scripting.Dictionary
+        Dim boxClick As BiDiCDPJson
+        Dim boxTitle As BiDiCDPJson
         Dim okClick As Boolean, okTitle As Boolean
 
         okClick = TryResultCDPForAsync(br, CLng(asyncClickId), boxClick, 2#)
@@ -140,12 +140,14 @@ Iter_Next:
     br.InheritanceCDPBrowser.quit
 End Sub
 
-Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByRef box As Scripting.Dictionary, ByVal timeoutSec As Double) As Boolean
+Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByRef box As BiDiCDPJson, ByVal timeoutSec As Double) As Boolean
     Dim t0 As Double: t0 = Timer
 
     Do
         On Error Resume Next
-        Set box = br.InheritanceCDPBrowser.jsConverter.ParseJson(br.ResultCDPFromWithEvents(cmdId))
+        Dim tmp As String
+        tmp = br.TakeResultCDP(cmdId)
+        If StrPtr(tmp) Then Set box = BiDiCDPJson.Parse(tmp)
         
         On Error GoTo 0
 

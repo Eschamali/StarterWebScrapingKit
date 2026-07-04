@@ -19,7 +19,7 @@ Sub TestAlertWithExpansion()
 
     '必要な変数を用意
     Dim paramsCDP As New Scripting.Dictionary
-    Dim resCDP As Scripting.Dictionary
+    Dim resCDP As BiDiCDPJson
     Dim searchId As String
     Dim nodeId As Long
     Dim x As Double, y As Double
@@ -65,7 +65,7 @@ Sub TestAlertWithExpansion()
             paramsCDP.Add "fromIndex", 0   '先頭の件数から
             paramsCDP.Add "toIndex", 1     '1件分のみ
             Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP("nodeIds")(1)  '配列の先頭を取得
+            nodeId = resCDP.NodeKey("nodeIds").NumberAt(0) '配列の先頭を取得
     
     
             ' --- 5. nodeId を objectId に変換 ---
@@ -77,7 +77,7 @@ Sub TestAlertWithExpansion()
             ' --- 6. あえて、同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されますが、先頭に記述した拡張機能によるイベントキャッチで、
             '同期モードにもかかわらず、JavaScriptアラートが自動で閉じられ、処理が続行されます
-            .jsEval "function() { this.click(); }", CStr(resCDP("object")("objectId"))
+            .jsEval "function() { this.click(); }", resCDP.NodeKey("object").StringKey("objectId")
         Next
 
 
