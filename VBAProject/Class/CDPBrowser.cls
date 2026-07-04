@@ -292,14 +292,12 @@ Property Let EnableDiscoverTargets(Flag As Boolean)
     '1. カウント
     DefinitionCDPContext = DefinitionCDPContext + IIf(Flag, 1, -1)
 
-    '2. コマンド準備
-    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
-    CDPcommand.Add "method", "Target.setDiscoverTargets"
-
-    CDPparams.Add "discover", Flag
-    CDPcommand.Add "params", CDPparams
-
-    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage CDPcommand, , False
+    '2. パラメータ準備
+    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then
+        Dim CDPparams As New Scripting.Dictionary
+        CDPparams.Add "discover", Flag
+        ExecuteCDP "Target.setDiscoverTargets", CDPparams, False
+    End If
 
     '3. 下限は、0にしておく
     If DefinitionCDPContext < 0 Then DefinitionCDPContext = 0: printMsg WARN_, "`CDPContext.cls` no longer exists.", FromProcedureName
@@ -616,9 +614,7 @@ End Sub
 Public Function isLiveBrowser() As Boolean
     '1. バージョン確認CDPを送る
     '※生存確認なので、内部でのエラーは無視する
-    Dim CDPcommand As New Scripting.Dictionary
-    CDPcommand.Add "method", "Browser.getVersion"
-    SendMessage CDPcommand, StopPipeError:=False
+    ExecuteCDP "Browser.getVersion", StopCDPError:=False
 
     '2. いずれもパイプエラーコードがなければ、`True`とします
     If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
@@ -1532,20 +1528,16 @@ End Sub
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
     '1. コマンド準備
-    Dim CDPcommand As New Dictionary
     Dim CDPparams As New Dictionary
-    CDPcommand.Add "method", "Target.attachToTarget"
-
     CDPparams.Add "targetId", tabId
     CDPparams.Add "flatten", True
-    CDPcommand.Add "params", CDPparams
 
     '2. 実行
     Dim tmp As BiDiCDPJson
-    Set tmp = BiDiCDPJson.Parse(SendMessage(CDPcommand))
+    Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
-    '2. 結果があれば、返却
-    If Not ExecuteError(tmp) Then attachToTab = tmp.NodeKey("result").StringKey("sessionId")
+    '3. 結果があれば、返却
+    If Not tmp Is Nothing Then attachToTab = tmp.StringKey("sessionId")
 End Function
 
 '***************************************************************************************************
