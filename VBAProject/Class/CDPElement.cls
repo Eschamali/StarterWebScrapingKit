@@ -1058,7 +1058,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '3. Get length and each item's objectId
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", elementObjectId)
+    length_ = main.jsEval("function(){ return this.length }", collOid)
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
