@@ -55,7 +55,6 @@ Private ex_CDPContext               As CDPContext   '継承元のブラウザ
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_FileChooser"  'ログのトレース用
 Private Const MaxTimeOut            As Long = 10
-Private mJson                       As New WebJsonConverter
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'rawJSONをデバッグログに出すかの調整
@@ -195,20 +194,20 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
 
             '4. デバッグログ用に、Jsonパース処理
-            Dim ev As Dictionary: Set ev = mJson.ParseJson(RawJson)("params")
+            Dim ev As BiDiCDPJson: Set ev = BiDiCDPJson.Parse(RawJson).NodeKey("params")
             If seeRawSendMsgDbg Then
                 printMsg Debug_, String(80, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened - detail", FromProcedureName
                 printMsg Debug_, String(80, "="), FromProcedureName
-                printMsg Debug_, "  frameId       : " & ev("frameId"), FromProcedureName
-                printMsg Debug_, "  mode          : " & ev("mode"), FromProcedureName
-                printMsg Debug_, "  backendNodeId : " & ev("backendNodeId"), FromProcedureName
+                printMsg Debug_, "  frameId       : " & ev.StringKey("frameId"), FromProcedureName
+                printMsg Debug_, "  mode          : " & ev.StringKey("mode"), FromProcedureName
+                printMsg Debug_, "  backendNodeId : " & ev.NumberKey("backendNodeId"), FromProcedureName
                 printMsg Debug_, String(80, "="), FromProcedureName
             End If
 
             '5. JSONをパースしてbackendNodeId と mode を取り出す
-            FileChooserEvent.backendNodeId = CLng(ev("backendNodeId"))
-            FileChooserEvent.mode = CStr(ev("mode"))
+            FileChooserEvent.backendNodeId = ev.NumberKey("backendNodeId")
+            FileChooserEvent.mode = ev.StringKey("mode")
 
             '6. 「ファイルダイアログが開いたよ！」というフラグを立てる
             FileChooserEvent.FileChooserDetected = True
@@ -367,7 +366,7 @@ Private Function WaitAndInject(filesCol As Collection, TimeoutSec As Long) As Bo
     injectParams.Add "backendNodeId", FileChooserEvent.backendNodeId
     injectParams.Add "files", filesCol
 
-    Dim injectResult As Scripting.Dictionary
+    Dim injectResult As BiDiCDPJson
     Set injectResult = ExecuteCDP("DOM.setFileInputFiles", injectParams)
     printMsg Trace_, "DOM.setFileInputFiles sent. files=" & filesCol.Count & " backendNodeId=" & FileChooserEvent.backendNodeId, FromProcedureName
 
@@ -391,7 +390,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
@@ -412,7 +411,7 @@ Friend Sub Init(Inheritance As CDPContext)
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.id
+    CurrentSessionId = ex_CDPContext.CurrentSessionId
 
     'Page ドメインを有効化（fileChooserOpened イベント受信に必要）
     ex_CDPContext.pageEnable
@@ -434,8 +433,8 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'rawJSONをデバッグ出力するか
-        LogLevel = .Range(.UseRangeName(5, FromProcedureName)).value            'ログレベルの設定
+        seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)    'rawJSONをデバッグ出力するか
+        LogLevel = .UseRangeID(5, FromProcedureName)          'ログレベルの設定
     End With
 
 End Sub
