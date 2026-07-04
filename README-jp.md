@@ -84,10 +84,13 @@
 * **WinHTTP 5.1 ラッパー**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
     * オリジナル製作者：Tim Hall氏
-* **高速・高機能なJSONパーサー**
-  * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-    * GCuser99氏による改良
-    * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
+* **CDP/WebDriverBiDiレスポンス専用の超高速JSONパーサー**
+  * [vbacollective-json](https://github.com/vbacollective/json)
+    * 製作者：Ueslei Paim
+    * `CopyMemory`不使用版に改良
+* **`VBA-JSON`の上位互換の高速JSONパーサー**
+  * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+    * 製作者：Cristian Buse
 * **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland DI Management Services Pty
