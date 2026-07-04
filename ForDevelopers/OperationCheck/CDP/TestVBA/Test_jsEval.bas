@@ -28,9 +28,21 @@ End Function
 Private Function DictArrItem(d As Object, idx As Long) As Variant
     Dim ks As String
 
+    ' TypeName で新しいクラス名を判定に追加します
     Select Case TypeName(d)
+        Case "BiDiCDPJson", "JSON"
+            ' JSON.cls/BiDiCDPJson は一貫して 0 始まりです
+            ' ExistsIndex で範囲内かチェックし、ValueAt で値を取り出します
+            If d.ExistsIndex(idx) Then
+                DictArrItem = d.ValueAt(idx)
+            Else
+                DictArrItem = Empty
+            End If
+
         Case "Collection"
+            ' Collection は 1 始まりなので +1 が必要です
             DictArrItem = d.Item(idx + 1)
+
         Case "Dictionary"
             ks = CStr(idx)
             If d.Exists(ks) Then
@@ -40,6 +52,7 @@ Private Function DictArrItem(d As Object, idx As Long) As Variant
             Else
                 DictArrItem = Empty
             End If
+
         Case Else
             Err.Raise vbObjectError + 513, "Test_jsEval.DictArrItem", "配列要素の型が未対応です: " & TypeName(d)
     End Select
@@ -47,40 +60,38 @@ End Function
 
 ' serializationOptions: deep 時の DeepSerializedValue（type + value のペア配列）と、
 ' 通常の入れ子 Dictionary の両方から子を辿る。
-Private Function DsvChildObject(ByVal parent As Object, ByVal Key As String) As Object
-    If parent Is Nothing Then Exit Function
-    On Error Resume Next
-    If parent.Exists(Key) Then
-        Set DsvChildObject = parent(Key)
-        If Err.Number = 0 Then Exit Function
+Private Function DsvChildObject(ByVal Parent As BiDiCDPJson, ByVal Key As String) As BiDiCDPJson
+    If Parent Is Nothing Then Exit Function
+
+    ' 1. 通常の入れ子構造（キーが直接存在する場合）
+    ' ExistsKey で爆速判定し、NodeKey で軽量ノードを返します
+    If Parent.ExistsKey(Key) Then
+        Set DsvChildObject = Parent.NodeKey(Key)
+        Exit Function
     End If
-    Err.Clear
-    If Not parent.Exists("type") Then Exit Function
-    If parent("type") <> "object" Then Exit Function
-    If Not parent.Exists("value") Then Exit Function
-    Dim pairs As Object
-    Set pairs = parent("value")
-    Dim pair As Variant
-    If TypeName(pairs) = "Collection" Then
-        For Each pair In pairs
-            If TypeName(pair) = "Collection" Then
-                If pair(1) = Key Then
-                    Set DsvChildObject = pair(2)
+
+    ' 2. DeepSerializedValue (DSV) 構造の判定
+    ' {"type": "object", "value": [ ["k1", v1], ["k2", v2] ]} のような形を想定
+    If Parent.StringKey("type") = "object" Then
+        Dim pairs As BiDiCDPJson: Set pairs = Parent.NodeKey("value")
+        
+        ' value が配列であることを確認してループ
+        If pairs.IsArray Then
+            Dim i As Long
+            Dim pair As BiDiCDPJson
+            
+            ' 0始まりのインデックスでループを回します
+            For i = 0 To pairs.Count - 1
+                Set pair = pairs.NodeIndex(i) ' 1つのペア [key, value] を取得
+                
+                ' pair(0) が Key と一致するか判定
+                If pair.StringAt(0) = Key Then
+                    ' pair(1) をオブジェクト（ノード）として返却
+                    Set DsvChildObject = pair.NodeAt(1)
                     Exit Function
                 End If
-            End If
-        Next
-    ElseIf TypeName(pairs) = "Dictionary" Then
-        Dim pk As Variant
-        For Each pk In pairs
-            Set pair = pairs(pk)
-            If TypeName(pair) = "Collection" Then
-                If pair(1) = Key Then
-                    Set DsvChildObject = pair(2)
-                    Exit Function
-                End If
-            End If
-        Next
+            Next i
+        End If
     End If
 End Function
 
@@ -97,17 +108,17 @@ Private Function DsvNodeAsDouble(ByVal Node As Variant) As Double
     DsvNodeAsDouble = CDbl(Node)
 End Function
 
-Private Function DsvGetPropertyNumber(ByVal parent As Object, ByVal Key As String) As Double
+Private Function DsvGetPropertyNumber(ByVal Parent As Object, ByVal Key As String) As Double
     Dim ch As Variant
     On Error Resume Next
-    If parent.Exists(Key) Then
-        ch = parent(Key)
+    If Parent.Exists(Key) Then
+        ch = Parent(Key)
         DsvGetPropertyNumber = DsvNodeAsDouble(ch)
         Exit Function
     End If
     Err.Clear
     Dim o As Object
-    Set o = DsvChildObject(parent, Key)
+    Set o = DsvChildObject(Parent, Key)
     DsvGetPropertyNumber = DsvNodeAsDouble(o)
 End Function
 
@@ -143,7 +154,7 @@ Public Sub RunAll_jsEval_Tests()
 
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
-    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopPipeError:=True
 
     br.InheritanceCDPBrowser.quit
 End Sub
@@ -156,19 +167,19 @@ Private Sub Test01_Evaluate_primitives(br As CDPContext)
 
     Dim v As Variant
 
-    v = br.jsEval("2 + 40", dbgMsg:=False)
+    v = br.jsEval("2 + 40", StopPipeError:=False)
     AssertEq "数値 42", v, 42#
 
-    v = br.jsEval("'hello-jsEval'", dbgMsg:=False)
+    v = br.jsEval("'hello-jsEval'", StopPipeError:=False)
     AssertEq "文字列", CStr(v), "hello-jsEval"
 
-    v = br.jsEval("true", dbgMsg:=False)
+    v = br.jsEval("true", StopPipeError:=False)
     AssertEq "真偽 True", CStr(v), "True"
 
-    v = br.jsEval("false", dbgMsg:=False)
+    v = br.jsEval("false", StopPipeError:=False)
     AssertEq "真偽 False", CStr(v), "False"
 
-    br.jsEval "updateStatus('s-js01','① 完了 " & EOk() & " | 数値・文字列・真偽', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js01','① 完了 " & EOk() & " | 数値・文字列・真偽', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -179,21 +190,21 @@ Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPContext)
 
     Dim o As Object, a As Object
 
-    Set o = br.jsEval("({ alpha: 1, beta: 'z', gamma: true })", returnByValue:=True, dbgMsg:=False)
+    Set o = br.jsEval("({ alpha: 1, beta: 'z', gamma: true })", returnByValue:=True, StopPipeError:=False)
     AssertEq "obj.alpha", CDbl(o("alpha")), 1#
     AssertEq "obj.beta", CStr(o("beta")), "z"
     AssertEq "obj.gamma", CStr(o("gamma")), "True"
 
-    Set a = br.jsEval("[10, 20, 30]", returnByValue:=True, dbgMsg:=False)
+    Set a = br.jsEval("[10, 20, 30]", returnByValue:=True, StopPipeError:=False)
     AssertEq "arr[0]", CDbl(DictArrItem(a, 0)), 10#
     AssertEq "arr[1]", CDbl(DictArrItem(a, 1)), 20#
     AssertEq "arr[2]", CDbl(DictArrItem(a, 2)), 30#
 
-    Set o = br.jsEval("window.__JSEVAL_GLOBAL", returnByValue:=True, dbgMsg:=False)
+    Set o = br.jsEval("window.__JSEVAL_GLOBAL", returnByValue:=True, StopPipeError:=False)
     AssertEq "global.num", CDbl(o("num")), 7#
     AssertEq "global.text", CStr(o("text")), "グローバル文字列"
 
-    br.jsEval "updateStatus('s-js02','② 完了 " & EOk() & " | obj / arr / global', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js02','② 完了 " & EOk() & " | obj / arr / global', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -204,7 +215,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
 
     Dim v As Variant
 
-    v = br.jsEval("void 0", returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("void 0", returnByValue:=True, StopPipeError:=False)
     If IsEmpty(v) Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | undefined → Empty"
@@ -213,7 +224,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
         Debug.Print "  FAIL | undefined 期待 Empty 実際: " & TypeName(v) & " " & VarType(v)
     End If
 
-    v = br.jsEval("null", returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("null", returnByValue:=True, StopPipeError:=False)
     If IsNull(v) Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | null → Null"
@@ -222,7 +233,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
         Debug.Print "  FAIL | null 期待 Null"
     End If
 
-    br.jsEval "updateStatus('s-js03','③ 完了 " & EOk() & " | Empty / Null', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js03','③ 完了 " & EOk() & " | Empty / Null', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -232,10 +243,10 @@ Private Sub Test04_Evaluate_unicode(br As CDPContext)
     PrintSection "④ evaluate - Unicode"
 
     Dim v As Variant
-    v = br.jsEval("'" & "日本語_VBA連結" & "'", dbgMsg:=False)
+    v = br.jsEval("'" & "日本語_VBA連結" & "'", StopPipeError:=False)
     AssertEq "日本語リテラル", CStr(v), "日本語_VBA連結"
 
-    br.jsEval "updateStatus('s-js04','④ 完了 " & EOk() & " | 日本語リテラル', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js04','④ 完了 " & EOk() & " | 日本語リテラル', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -245,10 +256,10 @@ Private Sub Test05_Evaluate_promise_br(br As CDPContext)
     PrintSection "⑤ evaluate - awaitPromise"
 
     Dim v As Variant
-    v = br.jsEval("Promise.resolve(123)", awaitPromise:=True, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("Promise.resolve(123)", awaitPromise:=True, returnByValue:=True, StopPipeError:=False)
     AssertEq "Promise.resolve(123)", CDbl(v), 123#
 
-    br.jsEval "updateStatus('s-js05','⑤ 完了 " & EOk() & " | Promise.resolve(123)', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js05','⑤ 完了 " & EOk() & " | Promise.resolve(123)', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -258,7 +269,7 @@ Private Sub Test06_callFunctionOn_get_objectId(br As CDPContext)
     PrintSection "⑥ objectId 取得"
 
     Dim oid As Variant
-    oid = br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False)
+    oid = br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False)
 
     If VarType(oid) = vbString And Len(CStr(oid)) > 0 Then
         passCount = passCount + 1
@@ -268,7 +279,7 @@ Private Sub Test06_callFunctionOn_get_objectId(br As CDPContext)
         Debug.Print "  FAIL | objectId が取得できません"
     End If
 
-    br.jsEval "updateStatus('s-js06','⑥ 完了 " & EOk() & " | objectId 文字列取得', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js06','⑥ 完了 " & EOk() & " | objectId 文字列取得', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -278,16 +289,16 @@ Private Sub Test07_callFunctionOn_no_args(br As CDPContext)
     PrintSection "⑦ callFunctionOn - 引数なし"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
     Dim v As Variant
-    v = br.jsEval("function(){ return this.id }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(){ return this.id }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
     AssertEq "this.id", CStr(v), "jseval-box"
 
-    v = br.jsEval("function(){ return this.dataset.tag }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(){ return this.dataset.tag }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
     AssertEq "dataset.tag", CStr(v), "jseval-data"
 
-    br.jsEval "updateStatus('s-js07','⑦ 完了 " & EOk() & " | this.id / dataset', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js07','⑦ 完了 " & EOk() & " | this.id / dataset', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -297,7 +308,7 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     PrintSection "⑧ callFunctionOn - 多引数"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
     Dim args As New Collection
     Dim i As Long
@@ -306,10 +317,10 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     Next i
 
     Dim v As Variant
-    v = br.jsEval("function(a,b,c,d,e,f,g,h,i,j){ return a+b+c+d+e+f+g+h+i+j }", objectId:=oid, objectArguments:=args, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(a,b,c,d,e,f,g,h,i,j){ return a+b+c+d+e+f+g+h+i+j }", objectId:=oid, objectArguments:=args, returnByValue:=True, StopPipeError:=False)
     AssertEq "1..10 の和", CDbl(v), 55#
 
-    br.jsEval "updateStatus('s-js08','⑧ 完了 " & EOk() & " | 10 引数 → 和 55', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js08','⑧ 完了 " & EOk() & " | 10 引数 → 和 55', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -319,16 +330,16 @@ Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPContext)
     PrintSection "⑨ callFunctionOn - アポストロフィ文字列"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
     Dim args As New Collection
     args.Add ArgVal("It's " & "OK " & "日本語")
 
     Dim v As Variant
-    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=args, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=args, returnByValue:=True, StopPipeError:=False)
     AssertEq "エコー", CStr(v), "ECHO:It's OK 日本語"
 
-    br.jsEval "updateStatus('s-js09','⑨ 完了 " & EOk() & " | objectArguments（引用符含む）エコー OK', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js09','⑨ 完了 " & EOk() & " | objectArguments（引用符含む）エコー OK', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -338,16 +349,16 @@ Private Sub Test10_callFunctionOn_nested(br As CDPContext)
     PrintSection "⑩ callFunctionOn - 子要素"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, dbgMsg:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
     Dim v As Variant
-    v = br.jsEval("function(){ return this.querySelector('#jseval-target').textContent }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(){ return this.querySelector('#jseval-target').textContent }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
     AssertNotEmpty "子 span.textContent", CStr(v)
 
-    v = br.jsEval("function(){ return this.querySelector('#jseval-input').value }", objectId:=oid, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("function(){ return this.querySelector('#jseval-input').value }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
     AssertEq "input.value 初期", CStr(v), "初期値"
 
-    br.jsEval "updateStatus('s-js10','⑩ 完了 " & EOk() & " | 子 span / input', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js10','⑩ 完了 " & EOk() & " | 子 span / input', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -357,7 +368,7 @@ Private Sub Test11_exception_stopException_off(br As CDPContext)
     PrintSection "⑪ 例外 - StopException=False"
 
     Dim r As Variant
-    r = br.jsEval("(function(){ throw new Error('jsEval-test'); })()", StopException:=False, dbgMsg:=False)
+    r = br.jsEval("(function(){ throw new Error('jsEval-test'); })()", StopException:=False, StopPipeError:=False)
 
     If IsError(r) Then
         passCount = passCount + 1
@@ -367,7 +378,7 @@ Private Sub Test11_exception_stopException_off(br As CDPContext)
         Debug.Print "  FAIL | 例外時に Error 型でない: " & TypeName(r)
     End If
 
-    br.jsEval "updateStatus('s-js11','⑪ 完了 " & EOk() & " | 例外 → IsError', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js11','⑪ 完了 " & EOk() & " | 例外 → IsError', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -377,11 +388,11 @@ Private Sub Test12_exception_IFEXCEPTION(br As CDPContext)
     PrintSection "⑫ 例外 - IFEXCEPTION"
 
     Dim r As Variant
-    r = br.jsEval("(function(){ throw new Error('x'); })()", StopException:=False, IFEXCEPTION:="fallback-ok", dbgMsg:=False)
+    r = br.jsEval("(function(){ throw new Error('x'); })()", StopException:=False, IFEXCEPTION:="fallback-ok", StopPipeError:=False)
 
     AssertEq "IFEXCEPTION 文字列", CStr(r), "fallback-ok"
 
-    br.jsEval "updateStatus('s-js12','⑫ 完了 " & EOk() & " | IFEXCEPTION フォールバック', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js12','⑫ 完了 " & EOk() & " | IFEXCEPTION フォールバック', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -391,7 +402,7 @@ Private Sub Test13_long_string(br As CDPContext)
     PrintSection "⑬ 長い文字列 returnByValue"
 
     Dim v As Variant
-    v = br.jsEval("'x'.repeat(2500)", returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("'x'.repeat(2500)", returnByValue:=True, StopPipeError:=False)
 
     If Len(CStr(v)) = 2500 Then
         passCount = passCount + 1
@@ -401,7 +412,7 @@ Private Sub Test13_long_string(br As CDPContext)
         Debug.Print "  FAIL | 長さ期待 2500 実際 " & Len(CStr(v))
     End If
 
-    br.jsEval "updateStatus('s-js13','⑬ 完了 " & EOk() & " | 長さ 2500 文字', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js13','⑬ 完了 " & EOk() & " | 長さ 2500 文字', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -414,7 +425,7 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
 
     br.ExecuteCDP "Page.enable", Nothing
 
-    Dim ftRes As Scripting.Dictionary
+    Dim ftRes As BiDiCDPJson
     Set ftRes = br.ExecuteCDP("Page.getFrameTree", Nothing)
 
     Dim rootFrameId As String
@@ -424,18 +435,18 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
     pCW.Add "frameId", rootFrameId
     pCW.Add "worldName", "jsEvalTestIsolated"
 
-    Dim cwRes As Scripting.Dictionary
+    Dim cwRes As BiDiCDPJson
     Set cwRes = br.ExecuteCDP("Page.createIsolatedWorld", pCW)
 
     Dim execCtx As Long
     execCtx = CLng(cwRes("executionContextId"))
 
     Dim v As Variant
-    v = br.jsEval("window.__JSEVAL_ISO = 'ctx-ok'; window.__JSEVAL_ISO", contextId:=execCtx, returnByValue:=True, dbgMsg:=False)
+    v = br.jsEval("window.__JSEVAL_ISO = 'ctx-ok'; window.__JSEVAL_ISO", contextId:=execCtx, returnByValue:=True, StopPipeError:=False)
     AssertEq "isolated で代入→取得", CStr(v), "ctx-ok"
 
     Dim vMain As Variant
-    vMain = br.jsEval("window.__JSEVAL_ISO", returnByValue:=True, dbgMsg:=False)
+    vMain = br.jsEval("window.__JSEVAL_ISO", returnByValue:=True, StopPipeError:=False)
     If IsEmpty(vMain) Or VarType(vMain) = vbNull Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | メイン context では __JSEVAL_ISO 未定義（Empty/Null）"
@@ -444,14 +455,14 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
         Debug.Print "  FAIL | メイン context に隔離値が見えている: " & CStr(vMain)
     End If
 
-    br.jsEval "updateStatus('s-js14','⑭ 完了 " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js14','⑭ 完了 " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", StopPipeError:=False
     Exit Sub
 
 Test14_Err:
     failCount = failCount + 1
     Debug.Print "  FAIL | ⑭ " & Err.Description
     On Error Resume Next
-    br.jsEval "updateStatus('s-js14','⑭ FAIL', false)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js14','⑭ FAIL', false)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -465,7 +476,7 @@ Private Sub Test15_serializationOptions_deep(br As CDPContext)
     serOpts.Add "maxDepth", 8
 
     Dim resObj As Object
-    Set resObj = br.jsEval("({ top: 1, nest: { mid: 2, deep: { leaf: 3 } } })", returnByValue:=True, serializationOptions:=serOpts, dbgMsg:=False)
+    Set resObj = br.jsEval("({ top: 1, nest: { mid: 2, deep: { leaf: 3 } } })", returnByValue:=True, serializationOptions:=serOpts, StopPipeError:=False)
 
     If resObj Is Nothing Then
         failCount = failCount + 1
@@ -492,7 +503,7 @@ Test15_Err:
 Test15_Done:
     End If
 
-    br.jsEval "updateStatus('s-js15','⑮ 完了 " & EOk() & " | serialization=deep', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js15','⑮ 完了 " & EOk() & " | serialization=deep', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
@@ -506,17 +517,17 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
     br.ExecuteCDP "Page.enable", Nothing
 
     Dim oid As Variant
-    oid = br.jsEval("document.getElementById('btn-async-alert')", returnByValue:=False, dbgMsg:=False)
+    oid = br.jsEval("document.getElementById('btn-async-alert')", returnByValue:=False, StopPipeError:=False)
 
     If VarType(oid) <> vbString Or Len(oid) = 0 Then
         failCount = failCount + 1
         Debug.Print "  FAIL | ⑯ ボタン objectId 取得失敗"
-        br.jsEval "updateStatus('s-js16','⑯ FAIL ボタンなし', false)", dbgMsg:=False
+        br.jsEval "updateStatus('s-js16','⑯ FAIL ボタンなし', false)", StopPipeError:=False
         Exit Sub
     End If
 
     Dim asyncCmdId As Variant
-    asyncCmdId = br.jsEval("function(){ this.click(); }", CStr(oid), RunAsyncCDP:=True, dbgMsg:=False)
+    asyncCmdId = br.jsEval("function(){ this.click(); }", CStr(oid), RunAsyncCDP:=True, StopPipeError:=False)
 
     If IsNumeric(asyncCmdId) And CLng(asyncCmdId) > 0 Then
         passCount = passCount + 1
@@ -554,7 +565,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
 
     Set br.BrowserEvents = Nothing
 
-    br.jsEval "updateStatus('s-js16','⑯ 完了 " & EOk() & " | Async+alert+handleDialog', true)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js16','⑯ 完了 " & EOk() & " | Async+alert+handleDialog', true)", StopPipeError:=False
     Exit Sub
 
 Test16_Err:
@@ -562,7 +573,7 @@ Test16_Err:
     Debug.Print "  FAIL | ⑯ " & Err.Description
     On Error Resume Next
     Set br.BrowserEvents = Nothing
-    br.jsEval "updateStatus('s-js16','⑯ FAIL', false)", dbgMsg:=False
+    br.jsEval "updateStatus('s-js16','⑯ FAIL', false)", StopPipeError:=False
 End Sub
 
 '==============================================================================
