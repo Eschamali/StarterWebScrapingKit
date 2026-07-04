@@ -16,14 +16,14 @@ Option Explicit
 '***************************************************************************************************
 Sub StartDoLoopVer()
     '設定シートに基づくブラウザ立ち上げ
-    Dim WebSocketDemo_doLoop As CDPBrowser: Set WebSocketDemo_doLoop = 設定シートからのCDP起動
+    Dim WebSocketDemo_doLoop As CDPContext: Set WebSocketDemo_doLoop = 設定シートからのCDP起動ForTab
 
     '拡張機能側へ継承
     Dim d As New exCDP_WebSocketEvents
     d.Init WebSocketDemo_doLoop
 
     'ネットワーク非同期イベントを有効化
-    WebSocketDemo_doLoop.invokeMethod "Network.enable"
+    WebSocketDemo_doLoop.ExecuteCDP "Network.enable"
 
     'WebSocketを扱ってるDemoページへ遷移
     WebSocketDemo_doLoop.navigate "https://echo.websocket.org/.ws"
@@ -31,8 +31,8 @@ Sub StartDoLoopVer()
     '非同期イベント監視を開始
     Debug.Print "`Do-Loop`が始動しました。"; "Demo画面にて適当に文字を入力してみてください。"
     Do
-        WebSocketDemo_doLoop.sleep 0.05  '50ms間隔で監視
-        WebSocketDemo_doLoop.TakeEvents
+        WebSocketDemo_doLoop.InheritanceCDPBrowser.sleep 0.05  '50ms間隔で監視
+        WebSocketDemo_doLoop.InheritanceCDPBrowser.TakeEvents
     Loop
 
 
@@ -46,7 +46,7 @@ End Sub
 '***************************************************************************************************
 Sub StartSetTimerVer()
     '設定シートに基づくブラウザ立ち上げ
-    Dim WebSocketDemo_SafeTimer As CDPBrowser: Set WebSocketDemo_SafeTimer = 設定シートからのCDP起動
+    Dim WebSocketDemo_SafeTimer As CDPContext: Set WebSocketDemo_SafeTimer = 設定シートからのCDP起動ForTab
 
     'このプロシージャが終了しても、このクラスオブジェクトは保持するように組む
     Static d As New exCDP_WebSocketEvents
@@ -55,7 +55,7 @@ Sub StartSetTimerVer()
     d.Init WebSocketDemo_SafeTimer
 
     'ネットワーク非同期イベントを有効化
-    WebSocketDemo_SafeTimer.invokeMethod "Network.enable"
+    WebSocketDemo_SafeTimer.ExecuteCDP "Network.enable"
 
     'WebSocketを扱ってるDemoページへ遷移
     WebSocketDemo_SafeTimer.navigate "https://echo.websocket.org/.ws"
@@ -93,14 +93,12 @@ Sub ShowFrameSent(requestid As String, timestamp As Long, payloadData As String)
     テーブルへ追加 "送信", requestid, payloadData
 End Sub
 
-Sub ShowHandshakeResponseReceived(requestid As String, timestamp As Long, response As Dictionary)
-    Dim JsonConv As New WebJsonConverter
-    Debug.Print "←webSocketが受理されました。　requestId: " & requestid & " , timestamp: " & timestamp & " , RawResponse : " & JsonConv.ConvertToJson(response)
+Sub ShowHandshakeResponseReceived(requestid As String, timestamp As Long, response As BiDiCDPJson)
+    Debug.Print "←webSocketが受理されました。　requestId: " & requestid & " , timestamp: " & timestamp & " , RawResponse : " & response.Stringify
 End Sub
 
-Sub ShowWillSendHandshakeRequest(requestid As String, timestamp As Long, response As Dictionary)
-    Dim JsonConv As New WebJsonConverter
-    Debug.Print "→webSocketリクエスト検知。　　requestId: " & requestid & " , timestamp: " & timestamp & " , RawResponse : " & JsonConv.ConvertToJson(response)
+Sub ShowWillSendHandshakeRequest(requestid As String, timestamp As Long, response As BiDiCDPJson)
+    Debug.Print "→webSocketリクエスト検知。　　requestId: " & requestid & " , timestamp: " & timestamp & " , RawResponse : " & response.Stringify
 End Sub
 
 

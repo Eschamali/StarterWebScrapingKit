@@ -18,11 +18,10 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
+Private WithEvents ex_CDPCore       As CDPCore
+Private ex_CDPBrowser               As CDPBrowser
+Private ex_CDPContext               As CDPContext
 Private WithEvents st               As SafeTimer
-Attribute st.VB_VarHelpID = -1
-Private JsonConv                    As New WebJsonConverter
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_NetworkEvents"             'ログのトレース用
@@ -30,6 +29,7 @@ Private Const ThisClassName         As String = "exCDP_NetworkEvents"           
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
+Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
 
 
 
@@ -55,7 +55,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
 '***************************************************************************************************
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
@@ -67,43 +67,46 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
-    '2. WebSocket関連の非同期イベント名を、各Case に沿ったDemoプロシージャ実行
-    Dim tmp As Dictionary
+    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If CurrentSessionId <> sessionID Then Exit Sub
+
+    '3. WebSocket関連の非同期イベント名を、各Case に沿ったDemoプロシージャ実行
+    Dim tmp As BiDiCDPJson
     Select Case methodName
         Case "Network.webSocketClosed"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowClosed(tmp("requestId"), tmp("timestamp"))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowClosed(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"))
 
         Case "Network.webSocketCreated"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowCreated(tmp("requestId"), tmp("url"))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowCreated(tmp.StringKey("requestId"), tmp("url"))
 
         Case "Network.webSocketFrameError"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowFrameError(tmp("requestId"), tmp("timestamp"), tmp("errorMessage"))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowFrameError(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"), tmp.StringKey("errorMessage"))
 
         Case "Network.webSocketFrameReceived"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowFrameReceived(tmp("requestId"), tmp("timestamp"), CStr(tmp("response")("payloadData")))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowFrameReceived(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"), tmp.NodeKey("response").StringKey("payloadData"))
 
         Case "Network.webSocketFrameSent"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowFrameSent(tmp("requestId"), tmp("timestamp"), CStr(tmp("response")("payloadData")))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowFrameSent(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"), tmp.NodeKey("response").StringKey("payloadData"))
 
         Case "Network.webSocketHandshakeResponseReceived"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowHandshakeResponseReceived(tmp("requestId"), tmp("timestamp"), tmp("response"))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowHandshakeResponseReceived(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"), tmp.NodeKey("response"))
 
         Case "Network.webSocketWillSendHandshakeRequest"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
-            Set tmp = JsonConv.ParseJson(EventRawJson)("params")
-            Call ShowWillSendHandshakeRequest(tmp("requestId"), tmp("timestamp"), tmp("request"))
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            Call ShowWillSendHandshakeRequest(tmp.StringKey("requestId"), tmp.NumberKey("timestamp"), tmp.NodeKey("request"))
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
@@ -156,13 +159,13 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 End Sub
 
 'CDP実行に必要です
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As BiDiCDPJson
+    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 
 '非同期イベント発火(RaiseEvent)に必要です
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_CDPBrowser.TakeEvents destruction
+    ex_CDPBrowser.TakeEvents , destruction
 End Sub
 
 
@@ -172,9 +175,14 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
 '***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
     '継承
-    Set ex_CDPBrowser = Inheritance
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+
+    'SessionIdを取得
+    CurrentSessionId = ex_CDPContext.CurrentSessionId
 End Sub
 
 '***************************************************************************************************
@@ -188,7 +196,5 @@ Private Sub Class_Initialize()
     EnableBrowserEvents = True
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    End With
+    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
 End Sub
