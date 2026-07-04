@@ -46,31 +46,42 @@ Private Const BrowserContextNum As Long = 3 '1ユーザーにつき、2つ分の
 
 
 '***************************************************************************************************
-'                             ■■■ 数値からセル名取得 ■■■
+'                             ■■■ 数値でセルの中身取得/反映 ■■■
 '***************************************************************************************************
-'* 機能　　：数値で特定のセルの中身を取得します
+'* 機能　　：このシートのみ定義されてるセル名称を設定/取得します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：IDに紐づくセル名称
+'* GET返値 ：セルの中身(`.Value`のみ)
+'* LET引数 ：更新させたい値
 '* 引数　　：RangeID        セルID
-'            ErrorSource    この関数を呼び出したソース
+'            ErrorSource    この関数を呼び出したソース。※デバック用
 '***************************************************************************************************
-Property Get UseRangeName(RangeID As Long, ErrorSource As String) As String
+Property Let UseRangeID(RangeID As Long, ErrorSource As String, SetValue As Variant)
+    Me.Range(RangeMapping(RangeID, ErrorSource)).value = SetValue
+End Property
+Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
+    UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
+End Property
+
+'***************************************************************************************************
+'* 機能　　：数値を基にセル名をマッピングします
+'***************************************************************************************************
+Private Function RangeMapping(RangeID As Long, ErrorSource) As String
     Select Case RangeID
-        Case 1: UseRangeName = "ブラウザexeパス"
-        Case 2: UseRangeName = "ユーザーデータフォルダ名"
-        Case 3: UseRangeName = "追加の起動引数一式"
-        Case 4: UseRangeName = "Chromeで使用"
-        Case 5: UseRangeName = "LogLevel"
-        Case 7: UseRangeName = "イミディエイトに表示"
-        Case 8: UseRangeName = "ブラウザから受信した生のJSONをイミディエイトに表示"
-        Case 9: UseRangeName = "ログファイル保存"
-        Case 10: UseRangeName = "常にUTF8で送受信"
-        Case 11: UseRangeName = "BiDi_CDP_Mapperタブを表示"
-        Case 12: UseRangeName = "起動モード"
-        Case 13: UseRangeName = "BiDi_CDP_Mapperの診断ログ表示"
+        Case 1:  RangeMapping = "ブラウザexeパス"
+        Case 2:  RangeMapping = "ユーザーデータフォルダ名"
+        Case 3:  RangeMapping = "追加の起動引数一式"
+        Case 4:  RangeMapping = "Chromeで使用"
+        Case 5:  RangeMapping = "LogLevel"
+        Case 7:  RangeMapping = "イミディエイトに表示"
+        Case 8:  RangeMapping = "ブラウザから受信した生のJSONをイミディエイトに表示"
+        Case 9:  RangeMapping = "ログファイル保存"
+        Case 10: RangeMapping = "常にUTF8で送受信"
+        Case 11: RangeMapping = "BiDi_CDP_Mapperタブを表示"
+        Case 12: RangeMapping = "起動モード"
+        Case 13: RangeMapping = "BiDi_CDP_Mapperの診断ログ表示"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
-End Property
+End Function
 
 
 
@@ -231,7 +242,7 @@ End Property
 Private Sub Worksheet_Change(ByVal Target As Range)
     ' --- チェック対象のセルとデフォルト値を用意 ---
     Const checkCell1_DefaultValue As String = "Automation Data"
-    Dim checkCell1 As Range: Set checkCell1 = Me.Range(Me.UseRangeName(2, "ShSetting01_StartBrowser.Worksheet_Change"))
+    Dim checkCell1 As Range: Set checkCell1 = Me.Range(RangeMapping(2, "ShSetting01_StartBrowser.Worksheet_Change"))
 
 
     ' --- 変更されたセル(Target)が、チェック対象セルと重なっているか判定 ---

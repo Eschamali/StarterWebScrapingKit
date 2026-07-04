@@ -161,7 +161,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserHandle(BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BiDiUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
@@ -1022,7 +1022,7 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set resultBiDi.response = New Dictionary
     resultBiDi.Limit = MaxStoreResultBiDi
 End Sub

@@ -301,7 +301,7 @@ Private Sub attachToSession()
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 
     'JavaScript関連機能を有効化
-    Dim CDPcommand As New Scripting.Dictionary, results_ As BiDiCDPJson
+    Dim results_ As BiDiCDPJson
 3   Set results_ = ExecuteCDP("Runtime.enable")
 4   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
@@ -698,6 +698,7 @@ End Function
 '            PriorityReturn_deepSerializedValue `deepSerializedValue`があったら、そっちを最優先 に返すようにします。`serializationOptions`に依存します。
 '            PriorityReturn_objectId            `objectId`           があったら、そっちを第2優先に返すようにします。`returnByValue`に依存します。
 '            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'            ObjectPreview                      オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
 '---------------------------------------------------------------------------------------------------
@@ -786,7 +787,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
 
                 Case "array"
                     ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
+                    ' 配列の場合は BiDiJson (Node) が入ります
                     '※誇らしげに説明してますが、`returnByValue:=True`で、`array`だと、subtype そのものがなくなります...が一応書いておきます。
                     Set ReturnValue = RemoteObject.Item("value")
                     printMsg info_, "JS-Return type: object-array", FromProcedureName
@@ -866,11 +867,10 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
 
                 Case Else
                     '"subtype"自体がない場合は、`array`として扱います
-                    '`array`,`typedarray`が機能してます。他は空({})です
                     If Not ExistsSubtype Then
-                        ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                        ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                        ' returnByValue=True なら value に Dictionary が入っているはず
+                        ' 配列やDOM要素(returnByValue時)は、valueの中にNode情報が入っている
+                    ' 配列の場合は BiDiJson (Node) が入ります
+                        ' returnByValue=True なら value に Node-Object が入っているはず
                         printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
                         Set ReturnValue = RemoteObject.NodeKey("value")
                         printMsg info_, "JS-Return type: object-array", FromProcedureName
@@ -881,7 +881,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
     
                         '返せる物があれば、返しておく
                         If RemoteObject.Exists("value") Then
-                            ' オブジェクト(Dictionary)を返す場合は Set が必要
+                            ' オブジェクト(BiDiJson)を返す場合は Set が必要
                             If IsObject(RemoteObject.Item("value")) Then
                                 Set ReturnValue = RemoteObject.NodeKey("value")
                             Else
@@ -1426,7 +1426,7 @@ Public Sub closeTab()
     'Get the original serialized tab ID
     Dim MainTargetID As String, tmp As Scripting.Dictionary
     Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-    If Not tmp Is Nothing Then MainTargetID = ("targetID")
+    If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
     'メインタブは閉じないように仕向ける
     If brTab.targetID = MainTargetID Then
@@ -1866,13 +1866,9 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     End If
 
    'If not yet then do navigate
-    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
-    CDPcommand.Add "method", "Page.navigate"
-
+    Dim CDPparams As New Scripting.Dictionary
     CDPparams.Add "url", strURL
-    CDPcommand.Add "params", CDPparams
-
-    SendMessage CDPcommand
+    ExecuteCDP "Page.navigate", CDPparams
 
     'should also add a maxTimeLimit to Wait
     wait till:=till
@@ -1944,7 +1940,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
         params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
@@ -2499,7 +2495,7 @@ Property Let CurrentSessionID(newSessionID As String)
     With ShSetting01_StartBrowser
         Dim MainTargetID As String, tmp As Scripting.Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-        If Not tmp Is Nothing Then MainTargetID = ("targetID")
+        If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
         If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
@@ -2668,7 +2664,7 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set ResultCDP_Tab.response = New Dictionary
     ResultCDP_Tab.Limit = MaxStoreResultCDP
 
