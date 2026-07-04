@@ -698,6 +698,7 @@ End Function
 '            PriorityReturn_deepSerializedValue `deepSerializedValue`があったら、そっちを最優先 に返すようにします。`serializationOptions`に依存します。
 '            PriorityReturn_objectId            `objectId`           があったら、そっちを第2優先に返すようにします。`returnByValue`に依存します。
 '            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'            ObjectPreview                      オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
 '---------------------------------------------------------------------------------------------------
@@ -786,7 +787,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
 
                 Case "array"
                     ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
+                    ' 配列の場合は BiDiJson (Node) が入ります
                     '※誇らしげに説明してますが、`returnByValue:=True`で、`array`だと、subtype そのものがなくなります...が一応書いておきます。
                     Set ReturnValue = RemoteObject.Item("value")
                     printMsg info_, "JS-Return type: object-array", FromProcedureName
@@ -868,7 +869,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
                     '"subtype"自体がない場合は、`array`として扱います
                     If Not ExistsSubtype Then
                         ' 配列やDOM要素(returnByValue時)は、valueの中にNode情報が入っている
-                        ' 配列の場合は`NodeIndex`が入ります
+                    ' 配列の場合は BiDiJson (Node) が入ります
                         ' returnByValue=True なら value に Node-Object が入っているはず
                         printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
                         Set ReturnValue = RemoteObject.NodeKey("value")
@@ -880,7 +881,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
     
                         '返せる物があれば、返しておく
                         If RemoteObject.Exists("value") Then
-                            ' オブジェクト(Dictionary)を返す場合は Set が必要
+                            ' オブジェクト(BiDiJson)を返す場合は Set が必要
                             If IsObject(RemoteObject.Item("value")) Then
                                 Set ReturnValue = RemoteObject.NodeKey("value")
                             Else
