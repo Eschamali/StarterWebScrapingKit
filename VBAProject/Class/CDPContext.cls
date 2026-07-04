@@ -866,11 +866,10 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
 
                 Case Else
                     '"subtype"自体がない場合は、`array`として扱います
-                    '`array`,`typedarray`が機能してます。他は空({})です
                     If Not ExistsSubtype Then
-                        ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                        ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                        ' returnByValue=True なら value に Dictionary が入っているはず
+                        ' 配列やDOM要素(returnByValue時)は、valueの中にNode情報が入っている
+                        ' 配列の場合は`NodeIndex`が入ります
+                        ' returnByValue=True なら value に Node-Object が入っているはず
                         printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
                         Set ReturnValue = RemoteObject.NodeKey("value")
                         printMsg info_, "JS-Return type: object-array", FromProcedureName
