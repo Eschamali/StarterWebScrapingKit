@@ -920,40 +920,42 @@ Public Sub openDevTools(TrgetID As String, Optional panelId As String)
     ExecuteCDP "Target.openDevTools", params
 End Sub
 
-Public Sub printTabs()
-'------------------------------------------------------------------
-' Print all current tabs info. Useful for debugging.
-'------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".printTabs"
+'***************************************************************************************************
+'* 機能　　：現時点で開いている全てのターゲット情報をログに表示します
+'***************************************************************************************************
+Public Sub printTargetInfos()
+    Const FromProcedureName As String = ThisClassName & ".printTargetInfos"
 
 
-    Dim results As Scripting.Dictionary, target_ As Scripting.Dictionary
-    Dim i As Long
-    Dim targets As Collection
-    Set results = ExecuteCDP("Target.getTargets")
-    Set targets = results("targetInfos")
+    Dim NodeToken As Long
+    Dim TabCount As Long
+    Dim targets As BiDiCDPJson
+    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "Tabs Information", FromProcedureName
+    printMsg Debug_, "targetInfos Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    i = 1
-    For Each target_ In targets
-        If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
-                        "type: " & target_("type") & " | " & _
-                        "attached: " & target_("attached") & " | " & _
-                        "title: " & target_("title") & " | " & _
-                        "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId"), FromProcedureName
-            i = i + 1
-        End If
-    Next
+    With targets
+        NodeToken = .FirstChildToken  ' 配列の先頭トークン
+        Do While NodeToken > 0
+            TabCount = TabCount + 1
 
+            printMsg Debug_, "#" & TabCount & vbTab & _
+                        "type: " & .TokenString(NodeToken, "type") & " | " & _
+                        "attached: " & .TokenString(NodeToken, "attached") & " | " & _
+                        "title: " & .TokenString(NodeToken, "title") & " | " & _
+                        "url: " & .TokenString(NodeToken, "url") & " | " & _
+                        "target ID: " & .TokenString(NodeToken, "targetId"), FromProcedureName
+
+            '次の`Target.TargetInfo`へ
+            NodeToken = .NextToken(NodeToken)
+        Loop
+    End With
 End Sub
 
-Public Function tabCount() As Long
+Public Function TabCount() As Long
 '------------------------------------------------------------------------------
 ' Print all current tabs info. Useful for debugging.
 ' Updated : 05/02/25 - changed from printTabs to tabCount to get the count too
@@ -961,32 +963,34 @@ Public Function tabCount() As Long
     Const FromProcedureName As String = ThisClassName & ".tabCount"
 
 
-    Dim results, targets, target_ As Scripting.Dictionary
-    Dim i As Integer
-
-    Set results = ExecuteCDP("Target.getTargets")
-    Set targets = results("targetInfos")
+    Dim NodeToken As Long
+    Dim targets As BiDiCDPJson
+    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
     printMsg Debug_, "Tabs Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    i = 0
-    For Each target_ In targets
-        If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
-                        "type: " & target_("type") & " | " & _
-                        "attached: " & target_("attached") & " | " & _
-                        "title: " & target_("title") & " | " & _
-                        "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId"), FromProcedureName
-            i = i + 1
-        End If
-    Next
+    With targets
+        NodeToken = .FirstChildToken  ' 配列の先頭トークン
+        Do While NodeToken > 0
+            If .TokenString(NodeToken, "type") = "page" Then
+                TabCount = TabCount + 1
 
-    tabCount = i
+                printMsg Debug_, "#" & TabCount & vbTab & _
+                            "type: " & .TokenString(NodeToken, "type") & " | " & _
+                            "attached: " & .TokenString(NodeToken, "attached") & " | " & _
+                            "title: " & .TokenString(NodeToken, "title") & " | " & _
+                            "url: " & .TokenString(NodeToken, "url") & " | " & _
+                            "target ID: " & .TokenString(NodeToken, "targetId"), FromProcedureName
+    
+            End If
 
+            '次の`Target.TargetInfo`へ
+            NodeToken = .NextToken(NodeToken)
+        Loop
+    End With
 End Function
 
 
