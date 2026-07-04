@@ -1743,7 +1743,7 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set ResultCDP_Browser.response = New Dictionary
     ResultCDP_Browser.Limit = MaxStoreResultCDP
     '------------------------------------------------------------------------------
