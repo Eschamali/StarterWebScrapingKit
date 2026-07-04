@@ -135,7 +135,6 @@ Private UseChrome     As Boolean
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
-Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後のエラー情報
 
 'その他
 Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
