@@ -944,21 +944,45 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     End If
 End Sub
 
-Private Sub TakeWebSocketReceive()
+'***************************************************************************************************
+'* 機能　　：WebSocketから、データ欠損がなくなるまで、ループして取り出していきます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopWebSocketError `True` ：WebSocketに、エラーがあったら停止します
+'                               `False`：WebSocketに、エラーがあっても停止しません
+'                                        別途、`LastError○○`で後で確認可能です。統合の都合上、エラー変数名はPipe準拠です
+'
+'            destruction        `True` :ストリームに蓄積しません。破棄用にどうぞ
+'                               `False`:ストリームに蓄積し、ID、イベント解析に備えます
+'***************************************************************************************************
+Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeWebSocket"
+
+
     Do
         '予約して...
-        viaWebSocket.RequestWebSocketReceive
+        LastPipeError.PeekNamedPipe = viaWebSocket.RequestWebSocketReceive
 
+        'WebSocket側のコールバックを処理させる
         DoEvents
 
         '受信開始
-        viaWebSocket.GetAsyncMessage
+        LastPipeError.ReadFile = viaWebSocket.GetAsyncMessage
     Loop Until viaWebSocket.isWaitingReceiveResponse And Not viaWebSocket.LastReceiveExisting
 
-    
+    '破棄モードか？
+    If destruction Or Not responseCDP.ExistsNewRes Then
+        printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
+    Else
+        '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
     Call ReadyCDPMessage
+        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
+    End If
 End Sub
 
+
+
+'***************************************************************************************************
+'                               ■■■ レスポンス捌き ■■■
 '***************************************************************************************************
 '* 機能　　：メッセージ解析を行い、イベント発火まで行います
 '---------------------------------------------------------------------------------------------------
