@@ -986,6 +986,14 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
         '受信開始
         LastPipeError.ReadFile = viaWebSocket.GetAsyncMessage
+
+        '一部エラーコードは、正常としてオーバーライドする
+        Select Case LastPipeError.PeekNamedPipe
+            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.PeekNamedPipe = 0
+        End Select
+        Select Case LastPipeError.ReadFile
+            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.ReadFile = 0
+        End Select
     Loop Until viaWebSocket.isWaitingReceiveResponse And Not viaWebSocket.LastReceiveExisting
 
     '破棄モードか？
