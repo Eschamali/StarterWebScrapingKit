@@ -23,7 +23,7 @@ Private Declare PtrSafe Sub sleep3 Lib "kernel32" Alias "Sleep" ( _
 '変数,オブジェクトの使い回し/保持用に、public化
 Private g_WebsocketObj  As WebSocketCommunicator
 Private SendCount       As Long
-Public wsForChromiumobj As WebSocketCommunicator
+Private wsForChromiumobj As WebSocketCommunicator
 
 
 
@@ -101,12 +101,9 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP（Chrome DevTools Protocol）を WebSocket 経由で叩くデモ
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：
-'*   2_1 初期化 / 2_2 Runtime.evaluate / 2_3 受信 / 2_4 後始末
-'*   2_5 Network.getAllCookies（長文レスポンス）→ 続けて 2_3 で受信
-'*   2_6 Page.navigate（ブラウザが遷移する）
-'*   2_7 Page.captureScreenshot（スクリーンショット。忘れがちなコマンドはこれ）
-'*   2_8 シナリオ：遷移 → 少し待機 → スクショ（中身は 2_3 で受信）
+'* 詳細説明：1. `--remote-debugging-Port=9222`付きでChromium起動か、「edge://inspect/#remote-debugging」で「Allow remote debugging for this browser instance」を有効化
+'            2. 「http://127.0.0.1:9222/json/version」にアクセスか、Environ("UserProfile") & "\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort"で、接続先WebSocketURLを特定
+'            3. このプロシージャを実行。ブラウザから案内が出たら「許可」を選択
 '***************************************************************************************************
 Sub WebSocketModeForCDP()
     Const CDP_HOST As String = "127.0.0.1"
@@ -135,10 +132,10 @@ Sub WebSocketModeForCDP()
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketModeForCDP")
 
-    'データ枠のみ確保
-    Dim hoge1 As New CDPCore:    hoge1.serialize UserName
+    'データ枠のみ確保 ※Pipe版ロジックとの互換性を保つため
+    Dim hoge1 As New CDPCore: hoge1.serialize UserName
     '1. 必要なデータを`Dictionary`に詰める
     Dim BrowserInfo As New Dictionary
     BrowserInfo.Add "BiDi-context", vbNullString
@@ -146,7 +143,7 @@ Sub WebSocketModeForCDP()
     BrowserInfo.Add "targetID", vbNullString
 
     '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "Demo_CDP.demoReattachmentPart2ForBrowser") = BrowserInfo
+    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "Demo_WebSocket.WebSocketModeForCDP") = BrowserInfo
 
 End Sub
 
