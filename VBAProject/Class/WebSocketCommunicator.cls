@@ -90,7 +90,7 @@ End Enum
 
 '主要なエラーコード
 '※一旦は、送受信関連のみ。不整合な処理を防ぐ際の辻褄のあうエラー番号を用意してます
-Private Enum WINHTTP_WEB_SOCKET_ERROR
+Public Enum WINHTTP_WEB_SOCKET_ERROR
     INVALID_OPERATION = 4317                '今の状態でその命令は無理
     WINHTTP_OPERATION_CANCELLED = 12017     '操作が取り消された
 End Enum
