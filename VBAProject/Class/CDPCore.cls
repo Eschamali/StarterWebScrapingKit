@@ -267,6 +267,7 @@ Private DictionarySessionID As Dictionary
 Private LastCommandID_Pipe  As Long     '現在のコマンドID
 Private m_Frequency         As Currency '実行マシンでの周波数記録用
 Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
+Private destructionWebSocket As Boolean 'WebSocketからのResponse蓄積させないかのフラグ
 
 
 
@@ -454,7 +455,7 @@ End Sub
 '* 引数　　：UserName   読み取る識別名称
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
-    'WebSocketModeの場合は即抜け
+    'WebSocketModeの場合は、仮で`True`として、即抜け
     If Not viaWebSocket Is Nothing Then deserialize = True: Exit Function
 
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
@@ -727,9 +728,10 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
     Dim strMessage As String
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
-
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
-    If viaWebSocket Is Nothing Then writeProcCDP strMessage Else viaWebSocket_WebSocketSend strMessage
+
+    '5. 通信モードに応じてPipe/WebSocket分岐
+    If viaWebSocket Is Nothing Then writeProcCDP strMessage Else writeWebSocketCDP strMessage
 End Sub
 
 '***************************************************************************************************
@@ -991,7 +993,7 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
         printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
     Else
         '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
-    Call ReadyCDPMessage
+        Call ReadyCDPMessage
         printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
     End If
 End Sub
@@ -1014,8 +1016,8 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
 
-    'パイプから、バイト配列を取り出します
-    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocketReceive
+    '通信モードに応じてPipe/WebSocket分岐
+    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket
 
     '破棄モード or 新規受信なし ならここで抜ける
     If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
@@ -1036,8 +1038,8 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
             Call BrowserReceivedDataCheck(tmp)
         End If
 
-        '受信データのチェックの間に来たPipeも取り出しておきます
-        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocketReceive
+        '受信データのチェックの間に来たPipe/WebSocketも取り出しておきます
+        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket
     Loop
 
     'CDPメッセージ処理件数をログ化
