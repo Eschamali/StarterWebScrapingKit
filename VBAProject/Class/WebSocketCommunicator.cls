@@ -431,11 +431,9 @@ Public Function RequestWebSocketReceive() As Long
         RequestWebSocketReceive = WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION            '前回のデータがあるのに、また予約しようとして、不整合の基になるため、「そんな状態で予約は無理だよ」サインを返す
         Exit Function
 
-    '1-3. 全てのチェックをパス出来たら、受信予約としてフラグ付け
+    '1-3. 全てのチェックをパス出来たら、受信予約を試みる
     Else
         printMsg Debug_, "`WinHttpWebSocketReceive`で、受信予約を行います...", FromProcedureName
-        currentebWebSocket.isReserved = True
-
     End If
 
     '2. このクラスオブジェクトの変数に格納するように受信リクエストし、実行結果を返却
@@ -444,6 +442,9 @@ Public Function RequestWebSocketReceive() As Long
                                 WebSocket.websockethandle, .Buffer(m_res.CurrentPointer), .BufferLength, _
                                 .ReceiveBytes, .Status)
     End With
+
+    '3. フラグ付け。※0なら、`True`にします
+    currentebWebSocket.isReserved = (RequestWebSocketReceive = 0)
 End Function
 
 '***************************************************************************************************
