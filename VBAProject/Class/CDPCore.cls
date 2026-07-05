@@ -957,7 +957,7 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     Else
         '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
         Call ReadyCDPMessage
-        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete..", FromProcedureName
+        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
     End If
 End Sub
 
