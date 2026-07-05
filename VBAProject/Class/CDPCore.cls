@@ -654,11 +654,22 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ WebSocketの読み書き ■■■
 '***************************************************************************************************
-'* 機能　　：WinHttpWebSocketReceive から得たデータをPipe処理ロジックで扱えるように変換します
+'* 機能　　：WinHttpWebSocketReceive から得たデータを`--remote-debugging-pipe`処理ロジックで扱えるように蓄積します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：WebSocketCommunicator-GetAsyncMessage を行うことで内部で`RaiseEvents`が起こり、ここのプロシージャが呼ばれます
 '***************************************************************************************************
 Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".viaWebSocket_WebSocketReceive"
+
+
+    printMsg Trace_, LogID, "ResSize = " & resSize, FromProcedureName
+
+    '破棄モードなら即抜け
+    If destructionWebSocket Then printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName: Exit Sub
+
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
     CDPPipeStream.Write res
+    printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
 
     'メッセージの終わりであれば、その目印も追記
     If EOS Then CDPPipeStream.Write m_NullTerminator
@@ -667,7 +678,13 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
     StrBufferCheck resSize + EOS * -1
 End Sub
 
-Private Sub viaWebSocket_WebSocketSend(strData As String)
+'***************************************************************************************************
+'* 機能　　：WebSocket経由で、ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strData    完成したCDP-Json文字列コマンド
+'***************************************************************************************************
+Private Sub writeWebSocketCDP(strData As String)
+    'WebSocketオブジェクト経由で送信処理を委ねる
     LastPipeError.WriteFile = viaWebSocket.SendAsyncMessageAsUTF8(strData)
 End Sub
 
