@@ -823,8 +823,8 @@ Private Function TakeCDPMessage() As String
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
-        '3. 見つからないあるいは、`.EndCursor`を超える場合は欠け判定とする
-        If EndPos = 0 Or EndPos > .EndCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
+        '3. 見つからないあるいは、`.AddCursor`を超える場合は欠け判定とする
+        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
 
         '4. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
