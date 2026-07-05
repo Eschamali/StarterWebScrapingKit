@@ -987,12 +987,19 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
         '受信開始
         LastPipeError.ReadFile = viaWebSocket.GetAsyncMessage
 
-        '一部エラーコードは、正常としてオーバーライドする
+        '各種エラーコードの処理
+        ' 予約リクエスト
         Select Case LastPipeError.PeekNamedPipe
-            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.PeekNamedPipe = 0
+            Case 0  '正常は当然、そのまま
+            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.PeekNamedPipe = 0  '一部エラーコードも正常とする
+            Case Else: printMsg ERROR_, LogID, "Error WinHttpWebSocketReceive in RequestWebSocketReceive. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "WinHttp"), FromProcedureName, doRaiseError:=StopWebSocketError: Exit Sub 'それ以外のエラーコードが来たら抜ける
         End Select
+
+        ' 受信リクエスト
         Select Case LastPipeError.ReadFile
-            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.ReadFile = 0
+            Case 0  '正常は当然、そのまま
+            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.ReadFile = 0       '一部エラーコードも正常とする
+            Case Else: printMsg ERROR_, LogID, "Error WinHttpWebSocketReceive in GetAsyncMessage. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "WinHttp"), FromProcedureName, doRaiseError:=StopWebSocketError: Exit Sub              'それ以外のエラーコードが来たら抜ける
         End Select
     Loop Until viaWebSocket.isWaitingReceiveResponse And Not viaWebSocket.LastReceiveExisting
 
