@@ -335,7 +335,7 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ WebSocket経由でのCDP制御Demo ■■■
 '***************************************************************************************************
-Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
+Sub WebSocketDemoASync_CDP送信_PageNavigate()
     If wsForChromiumobj Is Nothing Then
         Debug.Print "先に WebSocketModeForCDP を実行してください。"
         Exit Sub
@@ -349,88 +349,67 @@ Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
     UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
-    If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
     Set r = c.getTab(setMain:=True)
 '    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
 
+
     '3．別ページに遷移して終了
     r.navigate "https://kemono-friends.jp/"
-
 End Sub
 
 '* Network.getAllCookies → クッキー一覧の長い JSON（長文レスポンスの負荷テスト向け）
 Sub WebSocketDemoASync2_5_CDP_Network_GetAllCookies()
-    Dim ResultCode As Long
-    Dim Payload As String
-
     If wsForChromiumobj Is Nothing Then
         Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
-    SendCount = SendCount + 1
-    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Network.getAllCookies"",""params"":{}}"
-    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
-    If ResultCode Then
-        Debug.Print "CDP送信エラー(Network.getAllCookies)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
-    Else
-        Debug.Print "CDP送信OK(id=" & SendCount & ", Network.getAllCookies) → 別途受信Demoプロシージャを実行してください"
-    End If
+
+    '設定セルから、ユーザ名を取得
+    Dim c As New CDPBrowser
+    Dim r As CDPContext
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+
+    '1. Excelに記録されてるパイプハンドル情報の生存確認
+    If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '2. 未接続のタブに接続
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Set r = c.getTab(setMain:=True)
+'    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+
+    Debug.Print "接続先のブラウザから、cookieを出力します..." & vbCrLf & r.ExecuteCDP("Network.getAllCookies").Stringify
 End Sub
 
-'* Page.navigate → 実際にタブの URL が変わる
-Sub WebSocketDemoASync2_6_CDP_Page_Navigate(Optional ByVal TargetUrl As String)
-    Dim ResultCode As Long
-    Dim Payload As String
-    Dim esc As String
-
-    If wsForChromiumobj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
-        Exit Sub
-    End If
-
-    If Len(TargetUrl) = 0 Then TargetUrl = "https://www.wikipedia.org/"
-    esc = CdpJsonEscape(TargetUrl)
-
-    SendCount = SendCount + 1
-    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.navigate"",""params"":{""url"":""" & esc & """}}"
-    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
-    If ResultCode Then
-        Debug.Print "CDP送信エラー(Page.navigate)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
-    Else
-        Debug.Print "CDP送信OK(id=" & SendCount & ", Page.navigate url=" & TargetUrl & ") → ブラウザの表示を確認し、必要なら 別途受信Demoプロシージャを実行してください"
-    End If
-End Sub
-
-'* Page.captureScreenshot → result.data に base64 PNG（長文になりがち）
+'* Page.captureScreenshot 保存
 Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
-    Dim ResultCode As Long
-    Dim ReceiveCode As Long
-    Dim ResponseText As String
-    Dim Payload As String
-
     If wsForChromiumobj Is Nothing Then
         Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
         Exit Sub
     End If
 
-    SendCount = SendCount + 1
-    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Page.captureScreenshot"",""params"":{""format"":""png"",""fromSurface"":true}}"
-    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
-    If ResultCode Then
-        Debug.Print "CDP送信エラー(Page.captureScreenshot)。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
-    Else
-        Debug.Print "CDP送信OK(id=" & SendCount & ", Page.captureScreenshot) → 別途受信Demoプロシージャを実行してください"
-    End If
+
+    '設定セルから、ユーザ名を取得
+    Dim c As New CDPBrowser
+    Dim r As CDPContext
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+
+    '1. Excelに記録されてるパイプハンドル情報の生存確認
+    If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '2. 未接続のタブに接続
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Set r = c.getTab(setMain:=True)
+'    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+
+    r.snapPage Environ("UserProfile") & "\Downloads", "test.png"
+    r.notify "WebSocket経由で、スクショ保存しました" & WorksheetFunction.Unichar(129418)
 End Sub
-
-
-Private Function CdpJsonEscape(ByVal s As String) As String
-    Dim t As String
-    t = Replace(s, "\", "\\")
-    t = Replace(t, """", "\""")
-    CdpJsonEscape = t
-End Function
