@@ -346,7 +346,7 @@ Sub WebSocketDemoASync_CDP送信_PageNavigate()
     Dim c As New CDPBrowser
     Dim r As CDPContext
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketDemoASync_CDP送信_PageNavigate")
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
     If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
@@ -373,7 +373,7 @@ Sub WebSocketDemoASync2_5_CDP_Network_GetAllCookies()
     Dim c As New CDPBrowser
     Dim r As CDPContext
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketDemoASync2_5_CDP_Network_GetAllCookies")
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
     If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
@@ -399,7 +399,7 @@ Sub WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot()
     Dim c As New CDPBrowser
     Dim r As CDPContext
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.demoReattachmentPart2ForBrowser")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketDemoASync2_7_CDP_Page_CaptureScreenshot")
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
     If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
