@@ -331,8 +331,11 @@ End Sub
 '* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
-'* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True` ：Excelに記録中のsessionIdを流用します
 '                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
+'
+'            WebSocketMode  WebSocketでCDP制御する場合は、指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
