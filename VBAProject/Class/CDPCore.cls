@@ -1017,7 +1017,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
 
 
     '通信モードに応じてPipe/WebSocket分岐
-    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket
+    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket StopPipeError, destruction
 
     '破棄モード or 新規受信なし ならここで抜ける
     If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
@@ -1039,7 +1039,7 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
         End If
 
         '受信データのチェックの間に来たPipe/WebSocketも取り出しておきます
-        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket
+        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket StopPipeError, destruction
     Loop
 
     'CDPメッセージ処理件数をログ化
