@@ -484,12 +484,17 @@ End Function
 '* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
 Public Sub CloseHandleBrowser()
-    CloseHandle hStdOutRd
-    CloseHandle hStdInWr
-    CloseHandle hCDPOutRd
-    CloseHandle hCDPInWr
-    CloseHandle hStderrOutRd
-    CloseHandle hProcess
+    'WebSocketモードならそっち側のClose処理を行う
+    If viaWebSocket Is Nothing Then
+        CloseHandle hStdOutRd
+        CloseHandle hStdInWr
+        CloseHandle hCDPOutRd
+        CloseHandle hCDPInWr
+        CloseHandle hStderrOutRd
+        CloseHandle hProcess
+    Else
+        viaWebSocket.DisconnectCDP
+    End If
 End Sub
 
 
