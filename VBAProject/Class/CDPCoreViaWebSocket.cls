@@ -89,7 +89,7 @@ End Type
 'WINHTTP_WEB_SOCKET_BUFFER_TYPE
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
 Public Enum WS_BUFFER_TYPE
-    WS_NOT_MESSAGE = -1       ' 一度も受信処理してない場合
+    WS_NOT_MESSAGE = -1       ' 一度も受信メッセージを受け取ってない場合
     WS_UTF8_MESSAGE = 0       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
     WS_UTF8_FRAGMENT = 1      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
     WS_BINARY_MESSAGE = 2     ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
