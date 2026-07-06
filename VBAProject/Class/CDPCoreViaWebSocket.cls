@@ -480,6 +480,9 @@ End Function
 '* 機能　　：実際に、WinSockによる確実な分割/一括送信を行います
 '***************************************************************************************************
 Private Function RawSend(ByRef Data() As Byte) As Long
+    Const FromProcedureName As String = ThisClassName & ".RawSend"
+
+
     Dim totalSent As Long
     Dim toSend As Long
     Dim ret As Long
