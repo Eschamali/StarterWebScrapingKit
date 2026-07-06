@@ -1016,8 +1016,12 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
                 printMsg ERROR_, LogID, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
+            ElseIf viaWebSocket.LastBufferType = WS_CLOSE_MESSAGE Then
+                '切断要求が来た場合
+                printMsg ERROR_, LogID, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
+                Exit Sub
             Else
-                'パイプ内は空
+                'パイプ内は空あるいは、WebSocketフレーム単位としてまだ届いていない
                 printMsg Trace_, LogID, "The WebSocket is currently empty.", FromProcedureName
 
             End If
