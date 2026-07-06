@@ -252,13 +252,10 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     '7. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
 
-    '8. 接続完了後に非ブロッキングモードへ移行
-    Call ioctlsocket(m_hSocket, FIONBIO, 1)
-
-    '9. 設定情報を記録
+    '8. 設定情報を記録
     serialize UserName
 
-    '10. 各種ステータスを更新
+    '9. 各種ステータスを更新
     m_IsConnected = True
     ConnectCDP = True
     printMsg info_, "The `Chrome DevTools Protocol` control is ready. - " & Path, FromProcedureName
