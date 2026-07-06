@@ -571,14 +571,31 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean) As Long
 
     Dim TextType As Boolean
     TextType = (opcode = &H1 Or opcode = &H0) ' テキストまたは継続テキスト
-    
-    ' 3. ペイロード長さの抽出
+
+    ' 3. 覗き見たバッファから、今回の「完全なWebSocketフレームサイズ」を計算
+    '[!NOTE] WebSocketの仕様を決めた偉い人たちは、「送るデータのサイズに合わせて、ヘッダーの大きさを自動的に変化させて、通信量を1バイトでも節約しよう」と考えました。
+    'これが < 126、= 126、= 127 という3分岐の儀式の正体です。
+    '
+    '小箱（125バイト以下）：
+    '短いテキストチャットなどを送る際、ヘッダーが無駄に大きいと邪魔です。そのため、最初の1バイト（指示子）だけでサイズを表現します。ヘッダーはわずか 2バイト で済みます。
+    '
+    '中箱（126バイト ~ 65535バイト）：
+    '指示子に 126 と書かれていたら、それは「中箱」の合図です。
+    '「サイズは、この直後に続く 2バイト（16bit） を見てね」という意味になり、ヘッダーは 4バイト に伸びます。
+    '
+    '大箱（65536バイト以上）：
+    '指示子に 127 と書かれていたら、それは「大箱」の合図です。
+    '「サイズは、この直後に続く 8バイト（64bit） を見てね」という意味になり、ヘッダーは最大で 10バイト まで巨大化します。
+    'VBA側としては、相手がどの箱で送ってきたかに合わせて、ソケットから「追加で2バイト読み取るか、8バイト読み取るか」を変えなければならないため、この儀式が必要になります。
     Dim lenIndicator As Byte
     lenIndicator = (header(1) And &H7F)
-    
+
     Dim payloadLen As Long
     If lenIndicator < 126 Then
         payloadLen = lenIndicator
+        printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
+
+
     ElseIf lenIndicator = 126 Then
         Dim extLen16(0 To 1) As Byte
         ret = recv(m_hSocket, extLen16(0), 2, 0)
