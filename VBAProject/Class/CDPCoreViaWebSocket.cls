@@ -713,7 +713,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                            ■■■ 設定情報保存処理 ■■■
+'                            ■■■ 設定情報読み書き処理 ■■■
 '***************************************************************************************************
 '* 機能　　：接続情報をExcelテーブルに残します
 '---------------------------------------------------------------------------------------------------
@@ -749,6 +749,30 @@ Private Sub serialize(UserName As String)
     'Excelテーブルに、タブ情報欄を確保する
     Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "CDPCoreViaWebSocket.serialize") = tmp
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：接続情報をExcelテーブルから取得し、クラス内変数に適用します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   利用者識別名称
+'* 返り値  ：ハンドル生存可否   ※0で生きてます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebSocketへの再接続の手間を飛ばす時にご利用ください
+'***************************************************************************************************
+Public Function deserialize(UserName As String) As Long
+    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    Dim PipeInfo As Dictionary
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.deserialize")
+
+    '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
+    If PipeInfo Is Nothing Then deserialize = -1: Exit Function
+
+    'ハンドルに適用
+    m_hSocket = PipeInfo("hCDPOutRd")
+
+    '生存確認
+    Dim tmp As Long
+    If ioctlsocket(m_hSocket, FIONREAD, tmp) <> 0 Then deserialize = Err.LastDllError
+End Function
 
 
 
