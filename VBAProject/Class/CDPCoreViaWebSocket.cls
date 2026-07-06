@@ -1,0 +1,788 @@
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "CDPCoreViaWebSocket"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+'***************************************************************************************************
+'   `WebSocket`経由での、`Chrome DevTools Protocol`のやり取りに特化した専用Classモジュールです。
+'                                  基本的には、ローカル専用です。
+'   もし、LANを超えたネットを介した制御もしたい場合は、「edge://inspect/#devices」や、SSH、VPN(Tailscale等)側で設定して下さい。
+'
+'                    `CDPCore.cls`とやり取りしやすいように、工夫して組んでます。
+'***************************************************************************************************
+Option Explicit
+
+
+
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+' --- WinSock 2 API 宣言 ---
+#If VBA7 Then
+    Private Declare PtrSafe Function WSAStartup Lib "ws2_32.dll" (ByVal wVersionRequired As Integer, ByRef lpWSAData As WSAData) As Long
+    Private Declare PtrSafe Function WSACleanup Lib "ws2_32.dll" () As Long
+    Private Declare PtrSafe Function WSAGetLastError Lib "ws2_32.dll" () As Long
+    Private Declare PtrSafe Function socket Lib "ws2_32.dll" (ByVal af As Long, ByVal socktype As Long, ByVal Protocol As Long) As LongPtr
+    Private Declare PtrSafe Function closesocket Lib "ws2_32.dll" (ByVal s As LongPtr) As Long
+    Private Declare PtrSafe Function Connect Lib "ws2_32.dll" Alias "connect" (ByVal s As LongPtr, ByRef Name As sockaddr_in, ByVal namelen As Long) As Long
+    Private Declare PtrSafe Function Send Lib "ws2_32.dll" Alias "send" (ByVal s As LongPtr, ByRef buf As Any, ByVal buflen As Long, ByVal Flags As Long) As Long
+    Private Declare PtrSafe Function recv Lib "ws2_32.dll" (ByVal s As LongPtr, ByRef buf As Any, ByVal buflen As Long, ByVal Flags As Long) As Long
+    Private Declare PtrSafe Function inet_addr Lib "ws2_32.dll" (ByVal cp As String) As Long
+    Private Declare PtrSafe Function ioctlsocket Lib "ws2_32.dll" (ByVal s As LongPtr, ByVal cmd As Long, ByRef argp As Long) As Long
+#Else
+    Private Declare Function WSAStartup Lib "ws2_32.dll" (ByVal wVersionRequired As Integer, ByRef lpWSAData As WSAData) As Long
+    Private Declare Function WSACleanup Lib "ws2_32.dll" () As Long
+    Private Declare Function WSAGetLastError Lib "ws2_32.dll" () As Long
+    Private Declare Function socket Lib "ws2_32.dll" (ByVal af As Long, ByVal socktype As Long, ByVal protocol As Long) As Long
+    Private Declare Function closesocket Lib "ws2_32.dll" (ByVal s As Long) As Long
+    Private Declare Function connect Lib "ws2_32.dll" (ByVal sID As Long, ByRef Name As sockaddr_in, ByVal namelen As Long) As Long
+    Private Declare Function send Lib "ws2_32.dll" (ByVal s As Long, ByRef buf As Any, ByVal buflen As Long, ByVal flags As Long) As Long
+    Private Declare Function recv Lib "ws2_32.dll" (ByVal s As Long, ByRef buf As Any, ByVal buflen As Long, ByVal flags As Long) As Long
+    Private Declare Function inet_addr Lib "ws2_32.dll" (ByVal cp As String) As Long
+    Private Declare Function ioctlsocket Lib "ws2_32.dll" (ByVal s As Long, ByVal cmd As Long, ByRef argp As Long) As Long
+#End If
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種構造体 ■■■
+'***************************************************************************************************
+' --- WinSock 2 構造体定義 ---
+#If VBA7 And Win64 Then
+    Private Type WSAData
+        wVersion As Integer
+        wHighVersion As Integer
+        szDescription(0 To 256) As Byte
+        szSystemStatus(0 To 128) As Byte
+        iMaxSockets As Integer
+        iMaxUdpDg As Integer
+        lpVendorInfo As LongPtr
+    End Type
+#Else
+    Private Type WSAData
+        wVersion As Integer
+        wHighVersion As Integer
+        szDescription(0 To 256) As Byte
+        szSystemStatus(0 To 128) As Byte
+        iMaxSockets As Integer
+        iMaxUdpDg As Integer
+        lpVendorInfo As Long
+    End Type
+#End If
+
+Private Type sockaddr_in
+    sin_family As Integer
+    sin_port As Integer
+    sin_addr As Long
+    sin_zero(0 To 7) As Byte
+End Type
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
+'WINHTTP_WEB_SOCKET_BUFFER_TYPE
+'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
+Public Enum WS_BUFFER_TYPE
+    WS_NOT_MESSAGE = -1       ' 一度も受信処理してない場合
+    WS_UTF8_MESSAGE = 0       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
+    WS_UTF8_FRAGMENT = 1      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
+    WS_BINARY_MESSAGE = 2     ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
+    WS_BINARY_FRAGMENT = 3    ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
+    WS_CLOSE_MESSAGE = 4      ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
+End Enum
+
+'主要な、winsock定数
+Private Const AF_INET       As Long = 2
+Private Const SOCK_STREAM   As Long = 1
+Private Const IPPROTO_TCP   As Long = 6
+Private Const FIONBIO       As Long = &H8004667E ' 非ブロッキング
+Private Const FIONREAD      As Long = &H4004667F ' 受信可能バイト数
+
+'その他
+Private Const ThisClassName As String = "CDPCoreViaWebSocket"
+
+
+
+'***************************************************************************************************
+'                                   ■■■ イベント定義 ■■■
+'***************************************************************************************************
+'WebSocket受信発信機
+Public Event WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'--- 状態管理 ---
+#If VBA7 Then
+    Private m_hSocket As LongPtr    'WinSockハンドル
+#Else
+    Private m_hSocket As Long       'WinSockハンドル
+#End If
+Private m_WSAInitialized    As Boolean          'WinSockの初期化成功可否
+Private m_IsConnected       As Boolean          '既にWebSocketに接続済みか？
+Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
+Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
+
+'--- ログ設定状況 ---
+Private Type StateLog
+    id                  As String   'ユニーク名
+    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
+    logPath             As String   'ログファイルの保存フォルダパス
+End Type
+Private currentLog As StateLog
+
+'--- Pipe版に合わせたエラー有無判定 ---
+Private StyleErrPeekNamedPipe   As Long  'データ存在有無(ioctlsocket)の確認でエラーになったか？
+Private StyleErrReadFile        As Long  'データを取り出してる最中(recv)にエラーになったか？
+
+'--- 各種クラスオブジェクト ---
+Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
+Private Utf8Converter           As New CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
+Private ViewLog                 As New Logger                   'ログ用
+
+
+
+'***************************************************************************************************
+'                                ■■■ check用プロパティ ■■■
+'***************************************************************************************************
+'* 機能    ：最後に受信したパケットのバッファタイプを確認します（WinHTTP仕様に準拠）
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：初回は、`-1`とします。`GetAsyncMessage`を呼ばないと更新されません
+'***************************************************************************************************
+Public Property Get LastBufferType() As WS_BUFFER_TYPE
+    LastBufferType = m_LastBufferType
+End Property
+
+'***************************************************************************************************
+'* 機能    ：このClassオブジェトが既に、WebSocketによる接続中かを確認します
+'***************************************************************************************************
+Public Property Get Connected() As Boolean
+    Connected = m_IsConnected
+End Property
+
+'***************************************************************************************************
+'* 機能    ：`GetAsyncMessage`プロシージャ使用時、`ioctlsocket`でエラーが起こった際のエラーコード
+'***************************************************************************************************
+Public Property Get IsErrorStylePeekNamedPipe() As Long
+    IsErrorStylePeekNamedPipe = StyleErrPeekNamedPipe
+End Property
+
+'***************************************************************************************************
+'* 機能    ：`GetAsyncMessage`プロシージャ使用時、`recv`でエラーが起こった際のエラーコード
+'***************************************************************************************************
+Public Property Get IsErrorStyleReadFile() As Long
+    IsErrorStyleReadFile = StyleErrReadFile
+End Property
+
+
+
+'***************************************************************************************************
+'                          ■■■ 受信データ取得用プロパティ ■■■
+'***************************************************************************************************
+'* 機能    ：最後の受信データをバイト配列として、取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：最後の1件分しか保持しません
+'***************************************************************************************************
+Public Property Get LastReceiveContentBINARY() As Byte()
+    LastReceiveContentBINARY = m_LastReceiveContentBINARY
+End Property
+
+'***************************************************************************************************
+'* 機能    ：最後の受信データをUTF-8文字列として、取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・最後の1件分しか保持しません
+'            ・命名規則の都合上、`UTF8`とありますが実際は、VBAで扱える`String`型となります
+'***************************************************************************************************
+Public Property Get LastReceiveContentUTF8() As String
+    LastReceiveContentUTF8 = Utf8Converter.BytesToString(m_LastReceiveContentBINARY)
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ 新規接続関連 ■■■
+'***************************************************************************************************
+'* 機能　　：`WebSocket`方式としてCDP制御できる準備を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   利用者識別名称
+'            Path       接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C
+'            port       接続先ポート    例：9222
+'            Host       接続先IP        例：127.0.0.1
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：CDP準拠の引数構造です。基本は、`Path`のみで十分です
+'* 注意事項：既存の接続がある場合は、切断されます
+'***************************************************************************************************
+Public Function ConnectCDP(UserName As String, Path As String, Optional port As Long = 9222, Optional Host As String = "127.0.0.1") As Boolean
+    Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
+
+
+    '1. winsock自体が生きてない場合は即抜け
+    If Not m_WSAInitialized Then Exit Function
+
+    '2. 既に接続済みの場合は切断後、再開
+    If m_IsConnected Then printMsg WARN_, "This Class object already has a connection assigned to it. Disconnect the existing connection.", FromProcedureName: DisconnectCDP
+
+    '3. ソケット生成
+    m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+    If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+
+    '4. アドレス構造体の設定
+    Dim addr As sockaddr_in
+    addr.sin_family = AF_INET
+    addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
+    addr.sin_addr = inet_addr(Host)
+    If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+
+    '5. 接続実行 (TCPコネクションの確立)
+    Dim ret As Long
+    ret = Connect(m_hSocket, addr, LenB(addr))
+    If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+
+    '6. WebSocketハンドシェイクの実行
+    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+
+    '7. WebSocketハンドシェイクの実行結果確認
+    If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+
+    '8. 接続完了後に非ブロッキングモードへ移行
+    Call ioctlsocket(m_hSocket, FIONBIO, 1)
+
+    '9. 設定情報を記録
+    serialize UserName
+
+    '10. 各種ステータスを更新
+    m_IsConnected = True
+    ConnectCDP = True
+    printMsg info_, "The `Chrome DevTools Protocol` control is ready. - " & Path, FromProcedureName
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ポート番号のバイトスワップ (16bit)を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：Value  ポート番号
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：htonsを使用した場合の32bit/64bitや符号付き整数のオーバーフロー問題を避けるために行います
+'***************************************************************************************************
+Private Function SwapBytes16(ByVal value As Long) As Integer
+    Dim hi As Byte, lo As Byte
+    lo = value And &HFF
+    hi = (value And &HFF00) \ &H100
+
+    Dim temp As Long
+    temp = (lo * &H100) Or hi
+
+    ' 32768 (16進数で &H8000&) 以上の場合は、Integerの負数範囲にマッピング
+    If temp >= 32768 Then
+        SwapBytes16 = CInt(temp - 65536)
+    Else
+        SwapBytes16 = CInt(temp)
+    End If
+End Function
+
+
+
+'***************************************************************************************************
+'                              ■■■ WebSocket Upgrade関連 ■■■
+'***************************************************************************************************
+'* 機能　　：`WebSocket`方式として扱うフォーマットとして組み立てて、送信します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：引数は`ConnectWebSocket`と一緒なので省略します
+'***************************************************************************************************
+Private Function SendHandshake(Host As String, port As Long, Path As String) As Boolean
+    Dim req As String
+    req = "GET " & Path & " HTTP/1.1" & vbCrLf & _
+          "Host: " & Host & ":" & port & vbCrLf & _
+          "Upgrade: websocket" & vbCrLf & _
+          "Connection: Upgrade" & vbCrLf & _
+          "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" & vbCrLf & _
+          "Sec-WebSocket-Version: 13" & vbCrLf & vbCrLf
+
+    'ASCIIバイト列に変換して送信
+    Dim reqBytes() As Byte
+    reqBytes = StrConv(req, vbFromUnicode)
+
+    Dim sentBytes As Long
+    sentBytes = Send(m_hSocket, reqBytes(0), UBound(reqBytes) + 1, 0)
+
+    SendHandshake = (sentBytes > 0)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：前述の`SendHandshake`の応答結果を待ちます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：「edge://inspect/#remote-debugging」への接続の場合は、ダイアログに応答しないと一生フリーズします
+'***************************************************************************************************
+Private Function ReadHandshakeResponse() As Boolean
+    Dim response As String
+    Dim buf(0 To 511) As Byte
+    Dim bytesRead As Long
+    Dim i As Long
+
+    ' ハンドシェイク応答が終わる(CRLF * 2)まで、またはタイムアウトするまでブロッキングで読み取る
+    Do
+        bytesRead = recv(m_hSocket, buf(0), 512, 0)
+        If bytesRead <= 0 Then Exit Do
+
+        ' バイト配列を文字列に安全に復元
+        Dim chunk As String
+        chunk = Space$(bytesRead)
+        For i = 1 To bytesRead
+            Mid$(chunk, i, 1) = Chr$(buf(i - 1))
+        Next i
+        response = response & chunk     '文字列結合のアンチパターンではあるが、精々最初の接続1回しか使わないのでここは、妥協
+
+        ' HTTPヘッダーの終端を検知
+        If InStr(response, vbCrLf & vbCrLf) > 0 Then
+            Exit Do
+        End If
+    Loop
+
+    ' 「101 Switching Protocols」が含まれていればハンドシェイク成功
+    If InStr(response, "HTTP/1.1 101") > 0 Then
+        ReadHandshakeResponse = True
+    End If
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ 送信関連 ■■■
+'***************************************************************************************************
+'* 機能    ：テキストデータで、WebSocketへ送信を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：SendData           String 型
+'* 返り値  ：実行結果コード     ※成功時は、0です
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：テキストもWideCharToMultiByte を介したバイト配列変換を使用し、送信を行います
+'* 注意事項：テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
+'***************************************************************************************************
+Public Function SendCommandCDP(SendData As String) As Long
+    SendCommandCDP = SendMessageAsBINARY(Utf8Converter.BytesFromString(SendData), True)
+End Function
+
+'***************************************************************************************************
+'* 機能    ：バイト配列データで、WebSocketへ送信を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：SendData           Byte 型の配列
+'            TextType           True  : UTF-8テキスト送信 (Opcode: 0x01)
+'                               False : バイナリ送信 (Opcode: 0x02)
+'
+'* 返り値  ：実行結果コード     ※成功時は、0です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：CDPでは、直バイナリとして送ることはないので、`Private`化してます
+'***************************************************************************************************
+Private Function SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
+    ' 1. 送信Opcodeの決定 (テキスト=0x01, バイナリ=0x02)
+    Dim opcode As Byte
+    opcode = IIf(TextType, &H1, &H2)
+
+    ' 2. WebSocketの仕様(RFC 6455)に準拠したマスク付きフレームを構築
+    Dim wsFrame() As Byte
+    wsFrame = BuildFrame(SendData, opcode)
+
+    ' 3. WinSock経由でデータを全て送信
+    SendMessageAsBINARY = RawSend(wsFrame)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WebSocketフレームの構築（マスク処理含む）を行います
+'***************************************************************************************************
+Private Function BuildFrame(Payload() As Byte, opcode As Byte) As Byte()
+    Dim payloadLen As Long
+    On Error Resume Next
+    payloadLen = UBound(Payload) - LBound(Payload) + 1
+    If Err.Number <> 0 Then
+        payloadLen = 0
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+    ' ヘッダーサイズの計算
+    ' 基本ヘッダー(2バイト) + 拡張サイズ領域(0/2/8バイト) + マスクキー(4バイト)
+    Dim headerSize As Long
+    Dim lenIndicator As Byte
+
+    If payloadLen < 126 Then
+        headerSize = 2 + 4
+        lenIndicator = CByte(payloadLen)
+    ElseIf payloadLen <= 65535 Then
+        headerSize = 2 + 2 + 4
+        lenIndicator = 126
+    Else
+        headerSize = 2 + 8 + 4
+        lenIndicator = 127
+    End If
+
+    Dim frame() As Byte
+    ReDim frame(0 To headerSize + payloadLen - 1)
+
+    ' Byte 0: FIN (1) + RSV (000) + Opcode
+    frame(0) = &H80 Or opcode
+
+    ' Byte 1: MASK (1) + Length Indicator
+    ' ※クライアントからサーバーへのフレームはMASKビット（&H80）が必須です
+    frame(1) = &H80 Or lenIndicator
+
+    Dim Offset As Long
+    Offset = 2
+
+    ' 拡張サイズ領域の書き込み（ビッグエンディアン）
+    If lenIndicator = 126 Then
+        frame(2) = CByte((payloadLen And &HFF00&) \ &H100&)
+        frame(3) = CByte(payloadLen And &HFF&)
+        Offset = 4
+    ElseIf lenIndicator = 127 Then
+        ' 32bitを超える長大なペイロード対応用（VBAのDouble/Long計算を安全に行う）
+        Dim tempLen As Double
+        tempLen = payloadLen
+        frame(2) = 0: frame(3) = 0: frame(4) = 0: frame(5) = 0 ' 上位4バイトは0
+        frame(6) = CByte(Int(tempLen / 16777216) And &HFF)
+        frame(7) = CByte(Int(tempLen / 65536) And &HFF)
+        frame(8) = CByte(Int(tempLen / 256) And &HFF)
+        frame(9) = CByte(tempLen And &HFF)
+        Offset = 10
+    End If
+
+    ' 4バイトのランダムなマスクキーの生成
+    Dim maskKey(0 To 3) As Byte
+    Dim i As Long
+    Static seeded As Boolean
+    If Not seeded Then
+        Randomize
+        seeded = True
+    End If
+
+    For i = 0 To 3
+        maskKey(i) = CByte(Int(Rnd * 256))
+        frame(Offset + i) = maskKey(i)
+    Next i
+    Offset = Offset + 4
+
+    ' ペイロードデータのマスク処理（XOR演算）をしながらコピー
+    If payloadLen > 0 Then
+        For i = 0 To payloadLen - 1
+            frame(Offset + i) = Payload(i) Xor maskKey(i Mod 4)
+        Next i
+    End If
+
+    BuildFrame = frame
+End Function
+
+'***************************************************************************************************
+'* 機能　　：実際に、WinSockによる確実な分割/一括送信を行います
+'***************************************************************************************************
+Private Function RawSend(ByRef Data() As Byte) As Long
+    Dim totalSent As Long
+    Dim toSend As Long
+    Dim ret As Long
+
+    '送信サイズを求める
+    toSend = UBound(Data) - LBound(Data) + 1
+
+    ' 大容量データを送信する際、TCPの送信ウィンドウ制限による「分割送信」に対処するため
+    ' 全バイトが完全にソケットに乗り切るまでループで送信を継続します
+    Do While totalSent < toSend
+        ret = Send(m_hSocket, Data(totalSent), toSend - totalSent, 0)
+        If ret = -1 Then
+            ' SOCKET_ERRORが発生した場合、エラーコードを返却
+            RawSend = WSAGetLastError()
+            printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & RawSend & " - Detail: " & WinApiError.GetMessage(RawSend, "ws2_32"), FromProcedureName
+            Exit Function
+        End If
+        totalSent = totalSent + ret
+    Loop
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ 受信関連 ■■■
+'***************************************************************************************************
+'* 機能    ：WebSocketからの非同期受信を行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：読み取ったペイロードバイト数を返します。
+'* 引数　　：EndOfData  `True` ：メッセージ全体またはその最後の部分
+'                       `False`：メッセージの一部のみが含まれます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：エラーコードは別途プロパティメソッドで取得してください
+'***************************************************************************************************
+Public Function GetAsyncMessage(ByRef EndOfData As Boolean) As Long
+    Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
+
+
+    ' 0. ioctlsocket の実行結果をチェック
+    Dim bytesAvailable As Long
+    Dim retIoctl As Long
+    retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
+    If retIoctl <> 0 Then
+        ' ソケットがすでに死んでいる場合、エラー情報を記録して抜ける
+        StyleErrPeekNamedPipe = Err.LastDllError
+        printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
+        Exit Function
+    End If
+
+    ' 1. 受信可能バッファの確認
+    '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
+    'WebSocketから送られてくるデータの先頭2バイトには、以下のような「このパケットが何者なのか」を示す超重要データがぎっしり詰まっています。
+    '
+    '---【1バイト目（8ビット）】── データの「状態」と「種類」---
+    '・FINフラグ（先頭1ビット）：「これが最後のパケットだよ！（1）」か「まだ続きがあるよ！（0）」か。
+    '・Opcode（後半4ビット）   ：「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類。
+    '
+    '---【2バイト目（8ビット）】── データの「長さのヒント」---
+    '・MASKフラグ（先頭1ビット）：マスク処理されているか
+    '・長さ指示子（後半7ビット）：「本体のサイズ」または「中箱・大箱の指示フラグ」
+    If bytesAvailable < 2 Then
+        '必要なタグ情報が不足してる場合は、ここで抜ける。この場合、サイズ0、エラーなしとなります。
+        printMsg Trace_, "We haven't received the data from CDP yet.", FromProcedureName
+        Exit Function
+    End If
+
+    ' 2. 先頭の基本ヘッダー2バイトを受信
+    Dim header(0 To 1) As Byte
+    Dim ret As Long
+    ret = recv(m_hSocket, header(0), 2, 0)
+    If ret <= 0 Then
+        '取り出しに失敗したら、エラー情報を記録して抜ける
+        StyleErrReadFile = Err.LastDllError
+        printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+        Exit Function
+    End If
+
+    Dim opcode As Byte
+    EndOfData = ((header(0) And &H80) <> 0)
+    opcode = (header(0) And &HF)
+
+    ' --- 切断要求 (Opcode: 8) のハンドリング ---
+    If opcode = 8 Then
+        Call DisconnectCDP
+        m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に
+        printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
+        Exit Function
+    End If
+
+    Dim TextType As Boolean
+    TextType = (opcode = &H1 Or opcode = &H0) ' テキストまたは継続テキスト
+    
+    ' 3. ペイロード長さの抽出
+    Dim lenIndicator As Byte
+    lenIndicator = (header(1) And &H7F)
+    
+    Dim payloadLen As Long
+    If lenIndicator < 126 Then
+        payloadLen = lenIndicator
+    ElseIf lenIndicator = 126 Then
+        Dim extLen16(0 To 1) As Byte
+        ret = recv(m_hSocket, extLen16(0), 2, 0)
+        If ret <= 0 Then GetAsyncMessage = Err.LastDllError: Exit Function
+        payloadLen = (CLng(extLen16(0)) * &H100&) Or extLen16(1)
+    ElseIf lenIndicator = 127 Then
+        Dim extLen64(0 To 7) As Byte
+        ret = recv(m_hSocket, extLen64(0), 8, 0)
+        If ret <= 0 Then GetAsyncMessage = Err.LastDllError: Exit Function
+        Dim tempLen As Double
+        tempLen = (CDbl(extLen64(4)) * 2 ^ 24) + _
+                  (CDbl(extLen64(5)) * 2 ^ 16) + _
+                  (CDbl(extLen64(6)) * 2 ^ 8) + _
+                  CDbl(extLen64(7))
+        payloadLen = CLng(tempLen)
+    End If
+    
+    ' 4. ペイロード本体を受信して書き込み
+    If payloadLen > 0 Then
+        Dim payloadBuffer() As Byte
+        ReDim payloadBuffer(payloadLen - 1)
+
+        Dim totalRead As Long
+        Do While totalRead < payloadLen
+            ret = recv(m_hSocket, payloadBuffer(totalRead), payloadLen - totalRead, 0)
+            If ret <= 0 Then
+                '取り出しに失敗したら、エラー情報を記録して抜ける
+                StyleErrReadFile = Err.LastDllError
+                printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+                Exit Function
+            End If
+            totalRead = totalRead + ret
+        Loop
+
+        'ストリームに書き込み、ついでにイベント発信する
+        WebSocketReceiveStream.Write payloadBuffer
+        RaiseEvent WebSocketReceive(payloadBuffer, payloadLen, EndOfData)
+    End If
+
+    ' 5. メッセージ完了 or 継続状態をプロパティに反映
+    If EndOfData Then
+        With WebSocketReceiveStream
+            'メッセージが完全に揃ったので、取り出す末尾位置を設定する
+            .SetEOS
+
+            '先頭に戻して、`SetEOS`分まで読み込む
+            .Position = 0
+            m_LastReceiveContentBINARY = .Read
+
+            'ペイロード本体サイズ情報を返却
+            GetAsyncMessage = .Position
+
+            'ストリーム位置のリセット
+            .Position = 0
+        End With
+
+        ' 完了メッセージのタイプを設定
+        m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_MESSAGE, WS_BUFFER_TYPE.WS_BINARY_MESSAGE)
+    Else
+        ' まだ分割データの受信中
+        m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_FRAGMENT, WS_BUFFER_TYPE.WS_BINARY_FRAGMENT)
+    End If
+End Function
+
+
+
+'***************************************************************************************************
+'                                    ■■■ 切断関連 ■■■
+'***************************************************************************************************
+Public Sub DisconnectCDP()
+    Const FromProcedureName As String = ThisClassName & ".DisconnectCDP"
+
+
+    If m_hSocket <> -1 And m_hSocket <> 0 Then
+        Call closesocket(m_hSocket)
+        m_hSocket = -1
+    End If
+    m_IsConnected = False
+
+
+    printMsg info_, "It was cut off.", FromProcedureName
+End Sub
+
+
+
+'***************************************************************************************************
+'                                  ■■■ ログヘルパー ■■■
+'***************************************************************************************************
+Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+'----------------------------------------------------------------------------------
+' A custom printMsg that besides printing to the Immediate Window, it will
+' also print to a dated log file. This is useful at user level where
+' the Immediate Window is not easily accessible. doRaiseError will also raise an
+' error aside from printing the error message to the log file.
+' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
+'                            spamming info. This can be turned on by setting globally
+'                            noDbgMsg = False or noLogging = False
+'----------------------------------------------------------------------------------
+
+    Dim logName As String, strFormattedMsg As String
+
+    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
+    Else strFormattedMsg = " | " & currentLog.id & " | " & strMsg
+
+   'Perform msg logging if needed
+    If currentLog.doLog Then
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebSokect.log"
+        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
+    End If
+
+   'Perform msg output to Immediate Window if needed
+    With ViewLog
+        Select Case LogLevel_
+            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
+            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
+            Case Else: 'ログ出力無効化
+        End Select
+    End With
+
+
+    'エラー時に止まります
+    If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                            ■■■ 設定情報保存処理 ■■■
+'***************************************************************************************************
+'* 機能　　：接続情報をExcelテーブルに残します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   利用者識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
+'            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
+'***************************************************************************************************
+Private Sub serialize(UserName As String)
+    '------------------ 1. パイプ情報の記録準備 ------------------
+    '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
+    Dim tmp As New Dictionary
+    tmp.Add "hStdOutRd", 0
+    tmp.Add "hStderrOutRd", 0
+    tmp.Add "hStdInWr", 0
+    tmp.Add "hCDPOutRd", (m_hSocket)
+    tmp.Add "hCDPInWr", (m_hSocket)
+    tmp.Add "hProcess", 0
+    tmp.Add "dwProcessId", 0
+
+    'Excelテーブルに、ハンドル情報を記録する
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
+
+
+    '------------------ 2. タブ情報の記録準備 ------------------
+    '※一律空欄とし、必要なデータを`Dictionary`に詰める
+    tmp.RemoveAll
+    tmp.Add "BiDi-context", vbNullString
+    tmp.Add "sessionID", vbNullString
+    tmp.Add "targetID", vbNullString
+
+    'Excelテーブルに、タブ情報欄を確保する
+    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "CDPCoreViaWebSocket.serialize") = tmp
+End Sub
+
+
+
+'***************************************************************************************************
+'                         ■■■ クラスオブジェトの初期化と破棄時の処理 ■■■
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    ' WinSock 2.2 の初期化
+    Dim wsaDat As WSAData
+    If WSAStartup(&H202, wsaDat) = 0 Then
+        m_WSAInitialized = True
+    Else
+        Err.Raise vbObjectError + 1001, "CDPWSClient", "WSAStartup の初期化に失敗しました。"
+    End If
+
+    '各種ステータスを初期化
+    m_hSocket = -1
+    m_LastBufferType = WS_NOT_MESSAGE
+    currentLog.id = "WSID" & Format(Rnd * 1000, "000")
+
+    '蓄積用バイト配列バッファーの初期化
+    Set WebSocketReceiveStream = CreateObject("ADODB.Stream")
+    With WebSocketReceiveStream
+        .Open
+        .Type = 1           ' adTypeBinary
+    End With
+End Sub
+
+Private Sub Class_Terminate()
+    '切断して...
+    DisconnectCDP
+    If m_WSAInitialized Then
+        Call WSACleanup
+        m_WSAInitialized = False
+    End If
+
+    'ストリームもClose
+    WebSocketReceiveStream.Close
+    Set WebSocketReceiveStream = Nothing
+End Sub

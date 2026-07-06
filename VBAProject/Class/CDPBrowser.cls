@@ -565,7 +565,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：パイプが生きてない場合は、このメソッドから再開できません
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional WebSocketMode As WebSocketCommunicator) As Boolean
+Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 

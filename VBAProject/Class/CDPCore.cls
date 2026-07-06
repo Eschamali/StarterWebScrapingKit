@@ -211,7 +211,7 @@ Public Event ResetCommandID()
 '各種クラスオブジェクト
 Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private LogControl              As New Logger               'ログレベルの制御
-Private WithEvents viaWebSocket As WebSocketCommunicator    'WebSocket経由でCDP制御したい場合のオブジェクト用
+Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
 
 'バッファー管理
@@ -686,7 +686,7 @@ End Sub
 '***************************************************************************************************
 Private Sub writeWebSocketCDP(strData As String)
     'WebSocketオブジェクト経由で送信処理を委ねる
-    LastPipeError.WriteFile = viaWebSocket.SendAsyncMessageAsUTF8(strData)
+    LastPipeError.WriteFile = viaWebSocket.SendCommandCDP(strData)
 End Sub
 
 
@@ -977,37 +977,58 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeWebSocket"
 
 
+    Dim intRes As Long
+    printMsg Trace_, LogID, "Starts retrieving data from the WebSocket...", FromProcedureName
+
+    '破棄モードの設定
+    destructionWebSocket = destruction
+
+    '終了サインかつ、受信データなしになるまで、ループ受信を行います
+    Dim LoopCounter As Long
+    Dim isFIN As Boolean: isFIN = True  '初期化
     Do
-        '予約して...
-        LastPipeError.PeekNamedPipe = viaWebSocket.RequestWebSocketReceive
+        '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
+        If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
+        LoopCounter = LoopCounter + 1
 
-        'WebSocket側のコールバックを処理させる
-        DoEvents
+        '受信処理
+        intRes = viaWebSocket.GetAsyncMessage(isFIN)
 
-        '受信開始
-        LastPipeError.ReadFile = viaWebSocket.GetAsyncMessage
+        '返り値チェック
+        If intRes > 0 Then
+            '破棄モードかの判定
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                printMsg Trace_, LogID, "Discarding data in WebSocket...", FromProcedureName
+            Else
+                '中身の解析に備えて、`WithEvents`側で蓄積します
+                printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
+            End If
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If viaWebSocket.IsErrorStylePeekNamedPipe Then
+                'ioctlsocket にてエラーがあった場合
+                printMsg ERROR_, LogID, "Error ioctlsocket in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStylePeekNamedPipe, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
+                Exit Sub
 
-        '各種エラーコードの処理
-        ' 予約リクエスト
-        Select Case LastPipeError.PeekNamedPipe
-            Case 0  '正常は当然、そのまま
-            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.PeekNamedPipe = 0  '一部エラーコードも正常とする
-            Case Else: printMsg ERROR_, LogID, "Error WinHttpWebSocketReceive in RequestWebSocketReceive. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "WinHttp"), FromProcedureName, doRaiseError:=StopWebSocketError: Exit Sub 'それ以外のエラーコードが来たら抜ける
-        End Select
+            ElseIf viaWebSocket.IsErrorStyleReadFile Then
+                'recv にてエラーがあった場合
+                printMsg ERROR_, LogID, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
+                Exit Sub
 
-        ' 受信リクエスト
-        Select Case LastPipeError.ReadFile
-            Case 0  '正常は当然、そのまま
-            Case WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION, WINHTTP_WEB_SOCKET_ERROR.WINHTTP_OPERATION_CANCELLED: LastPipeError.ReadFile = 0       '一部エラーコードも正常とする
-            Case Else: printMsg ERROR_, LogID, "Error WinHttpWebSocketReceive in GetAsyncMessage. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "WinHttp"), FromProcedureName, doRaiseError:=StopWebSocketError: Exit Sub              'それ以外のエラーコードが来たら抜ける
-        End Select
-    Loop Until viaWebSocket.isWaitingReceiveResponse And Not viaWebSocket.LastReceiveExisting
+            Else
+                'パイプ内は空
+                printMsg Trace_, LogID, "The WebSocket is currently empty.", FromProcedureName
+
+            End If
+        End If
+    Loop Until isFIN And intRes < 1
 
     '破棄モードか？
     If destruction Or Not responseCDP.ExistsNewRes Then
         printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
     Else
-        '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
+        '`WebSocket`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
         Call ReadyCDPMessage
         printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
     End If
@@ -1196,7 +1217,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
 '***************************************************************************************************
-Property Set WebSocketMode(ws As WebSocketCommunicator)
+Property Set WebSocketMode(ws As CDPCoreViaWebSocket)
     Set viaWebSocket = ws
 End Property
 

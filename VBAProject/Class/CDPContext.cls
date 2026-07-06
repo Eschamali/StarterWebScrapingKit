@@ -351,7 +351,7 @@ End Sub
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As WebSocketCommunicator) As Boolean
+Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
