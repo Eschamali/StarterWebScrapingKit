@@ -218,7 +218,7 @@ End Property
 '* 機能　　：`WebSocket`方式としてCDP制御できる準備を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：UserName   利用者識別名称
-'            Path       接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C
+'            Path       接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
 '            port       接続先ポート    例：9222
 '            Host       接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
@@ -302,6 +302,9 @@ End Function
 '* 機能説明：引数は`ConnectWebSocket`と一緒なので省略します
 '***************************************************************************************************
 Private Function SendHandshake(Host As String, port As Long, Path As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".SendHandshake"
+
+
     Dim req As String
     req = "GET " & Path & " HTTP/1.1" & vbCrLf & _
           "Host: " & Host & ":" & port & vbCrLf & _
@@ -316,6 +319,7 @@ Private Function SendHandshake(Host As String, port As Long, Path As String) As 
 
     Dim sentBytes As Long
     sentBytes = Send(m_hSocket, reqBytes(0), UBound(reqBytes) + 1, 0)
+    printMsg Debug_, "SendHandshake: " & Replace(req, vbCrLf, Chr(30)), FromProcedureName
 
     SendHandshake = (sentBytes > 0)
 End Function
@@ -326,6 +330,9 @@ End Function
 '* 注意事項：「edge://inspect/#remote-debugging」への接続の場合は、ダイアログに応答しないと一生フリーズします
 '***************************************************************************************************
 Private Function ReadHandshakeResponse() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".ReadHandshakeResponse"
+
+
     Dim response As String
     Dim buf(0 To 511) As Byte
     Dim bytesRead As Long
@@ -342,7 +349,7 @@ Private Function ReadHandshakeResponse() As Boolean
         For i = 1 To bytesRead
             Mid$(chunk, i, 1) = Chr$(buf(i - 1))
         Next i
-        response = response & chunk     '文字列結合のアンチパターンではあるが、精々最初の接続1回しか使わないのでここは、妥協
+        response = response & chunk     '文字列結合のアンチパターンではあるが、精々最初の接続1回しか使わないし、そこまで大きいサイズではないのでここは、妥協
 
         ' HTTPヘッダーの終端を検知
         If InStr(response, vbCrLf & vbCrLf) > 0 Then
@@ -351,6 +358,7 @@ Private Function ReadHandshakeResponse() As Boolean
     Loop
 
     ' 「101 Switching Protocols」が含まれていればハンドシェイク成功
+    printMsg Debug_, "Result-Handshake: " & Replace(response, vbCrLf, Chr(30)), FromProcedureName
     If InStr(response, "HTTP/1.1 101") > 0 Then
         ReadHandshakeResponse = True
     End If
