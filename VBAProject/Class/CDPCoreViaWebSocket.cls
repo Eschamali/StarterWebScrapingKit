@@ -828,14 +828,13 @@ Private Sub Class_Initialize()
 End Sub
 
 Private Sub Class_Terminate()
-    '切断して...
-    DisconnectCDP
+    'クリーンして...
     If m_WSAInitialized Then
         Call WSACleanup
         m_WSAInitialized = False
     End If
 
-    'ストリームもClose
+    'ストリームをClose
     WebSocketReceiveStream.Close
     Set WebSocketReceiveStream = Nothing
 End Sub
