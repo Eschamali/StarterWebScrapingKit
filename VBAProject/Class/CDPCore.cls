@@ -267,7 +267,6 @@ Private DictionarySessionID As Dictionary
 Private LastCommandID_Pipe  As Long     '現在のコマンドID
 Private m_Frequency         As Currency '実行マシンでの周波数記録用
 Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
-Private destructionWebSocket As Boolean 'WebSocketからのResponse蓄積させないかのフラグ
 
 
 
@@ -668,12 +667,8 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
     Const FromProcedureName As String = ThisClassName & ".viaWebSocket_WebSocketReceive"
 
 
-    printMsg Trace_, LogID, "ResSize = " & resSize, FromProcedureName
-
-    '破棄モードなら即抜け
-    If destructionWebSocket Then printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName: Exit Sub
-
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+    printMsg Trace_, LogID, "ResSize = " & resSize, FromProcedureName
     CDPPipeStream.Write res
     printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
 
@@ -985,9 +980,6 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
     Dim intRes As Long
     printMsg Trace_, LogID, "Starts retrieving data from the WebSocket...", FromProcedureName
 
-    '破棄モードの設定
-    destructionWebSocket = destruction
-
     '終了サインかつ、受信データなしになるまで、ループ受信を行います
     Dim LoopCounter As Long
     Dim isFIN As Boolean: isFIN = True  '初期化
@@ -997,7 +989,7 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
         LoopCounter = LoopCounter + 1
 
         '受信処理
-        intRes = viaWebSocket.GetAsyncMessage(isFIN)
+        intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)
 
         '返り値チェック
         If intRes > 0 Then
