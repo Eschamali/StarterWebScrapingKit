@@ -580,7 +580,10 @@ Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCor
     '3. 1を基に、Excelテーブルからハンドル情報を取得
     deserializeForPipe
 
-    '4. バージョン確認CDPコマンドを打ってパイプ生存確認
+    '4. 不整合を防ぐため、Pipeに残存しているデータを破棄しておく
+    TakeEvents False, True
+
+    '5. バージョン確認CDPコマンドを打ってパイプ生存確認
     If isLiveBrowser Then
         reattach = True
 
