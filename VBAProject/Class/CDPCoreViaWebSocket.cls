@@ -33,6 +33,7 @@ Option Explicit
     Private Declare PtrSafe Function recv Lib "ws2_32.dll" (ByVal s As LongPtr, ByRef buf As Any, ByVal buflen As Long, ByVal Flags As Long) As Long
     Private Declare PtrSafe Function inet_addr Lib "ws2_32.dll" (ByVal cp As String) As Long
     Private Declare PtrSafe Function ioctlsocket Lib "ws2_32.dll" (ByVal s As LongPtr, ByVal cmd As Long, ByRef argp As Long) As Long
+    Private Declare PtrSafe Function setsockopt Lib "ws2_32.dll" (ByVal s As LongPtr, ByVal Level As Long, ByVal optname As Long, ByRef optval As Long, ByVal optlen As Long) As Long
 #Else
     Private Declare Function WSAStartup Lib "ws2_32.dll" (ByVal wVersionRequired As Integer, ByRef lpWSAData As WSAData) As Long
     Private Declare Function WSACleanup Lib "ws2_32.dll" () As Long
@@ -44,6 +45,7 @@ Option Explicit
     Private Declare Function recv Lib "ws2_32.dll" (ByVal s As Long, ByRef buf As Any, ByVal buflen As Long, ByVal flags As Long) As Long
     Private Declare Function inet_addr Lib "ws2_32.dll" (ByVal cp As String) As Long
     Private Declare Function ioctlsocket Lib "ws2_32.dll" (ByVal s As Long, ByVal cmd As Long, ByRef argp As Long) As Long
+    Private Declare Function setsockopt Lib "ws2_32.dll" (ByVal s As Long, ByVal level As Long, ByVal optname As Long, ByRef optval As Long, ByVal optlen As Long) As Long
 #End If
 
 
@@ -98,14 +100,17 @@ Public Enum WS_BUFFER_TYPE
 End Enum
 
 '主要な、winsock定数
-Private Const AF_INET       As Long = 2
-Private Const SOCK_STREAM   As Long = 1
-Private Const IPPROTO_TCP   As Long = 6
-Private Const FIONBIO       As Long = &H8004667E ' 非ブロッキング
-Private Const FIONREAD      As Long = &H4004667F ' 受信可能バイト数
+Private Const AF_INET       As Long = 2             ' 【住所の形式】IPv4アドレス形式（「127.0.0.1」などのお馴染みのIPアドレス形式）を使用する宣言
+Private Const SOCK_STREAM   As Long = 1             ' 【データの送り方】データの順序と到着が確実に保証される「コネクション型（ストリーム）」を使用する宣言
+Private Const IPPROTO_TCP   As Long = 6             ' 【通信プロトコル】世界標準の信頼性の高い「TCP/IPプロトコル」を使用する宣言
+Private Const FIONREAD      As Long = &H4004667F    ' 受信可能バイト数
+Private Const SOL_SOCKET    As Long = 65535         ' ソケットレベルのオプション
+Private Const SO_RCVBUF     As Long = &H1002&       ' 受信バッファサイズ設定フラグ
+Private Const MSG_WAITALL   As Long = &H8           ' 要求したバイト数のデータがすべて揃うか、エラーや接続終了が発生するまで関数の処理をブロック（待機）する上級者向け。いわゆる、Pipe版と同等の挙動
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
+Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限
 
 
 
@@ -234,28 +239,31 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
 
-    '4. アドレス構造体の設定
+    '4. 丁度良いパフォーマンスとなるバッファーを設定
+    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
+
+    '5. アドレス構造体の設定
     Dim addr As sockaddr_in
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
     If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
 
-    '5. 接続実行 (TCPコネクションの確立)
+    '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
     If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
 
-    '6. WebSocketハンドシェイクの実行
+    '7. WebSocketハンドシェイクの実行
     If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
 
-    '7. WebSocketハンドシェイクの実行結果確認
-    If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+    '8. WebSocketハンドシェイクの実行結果確認
+    If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
-    '8. 設定情報を記録
+    '9. 設定情報を記録
     serialize UserName
 
-    '9. 各種ステータスを更新
+    '10. 各種ステータスを更新
     m_IsConnected = True
     ConnectCDP = True
     printMsg info_, "The `Chrome DevTools Protocol` control is ready. - " & Path, FromProcedureName
@@ -799,7 +807,7 @@ Private Sub Class_Initialize()
     If WSAStartup(&H202, wsaDat) = 0 Then
         m_WSAInitialized = True
     Else
-        Err.Raise vbObjectError + 1001, "CDPWSClient", "WSAStartup の初期化に失敗しました。"
+        Err.Raise vbObjectError + 1001, "CDPCoreViaWebSocket.Class_Initialize", "WSAStartup の初期化に失敗しました。"
     End If
 
     '各種ステータスを初期化
@@ -808,10 +816,14 @@ Private Sub Class_Initialize()
     currentLog.id = "WSID" & Format(Rnd * 1000, "000")
 
     '蓄積用バイト配列バッファーの初期化
+    ReDim binBuffer(InitialBuffer - 1) As Byte
     Set WebSocketReceiveStream = CreateObject("ADODB.Stream")
     With WebSocketReceiveStream
         .Open
         .Type = 1           ' adTypeBinary
+        .Write binBuffer    ' 疑似的に大きめのバッファーを確保
+        .Position = 0       ' カーソルだけ先頭に戻す
+        .SetEOS             ' 終端（EOS）としてマークする
     End With
 End Sub
 
