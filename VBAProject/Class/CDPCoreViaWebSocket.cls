@@ -793,6 +793,9 @@ End Sub
 '* 注意事項：うまくいかない場合は、新規接続からやり直して下さい
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Long
+    Const FromProcedureName As String = ThisClassName & ".UpdateFrameHeader"
+
+
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.deserialize")
@@ -806,6 +809,7 @@ Public Function deserialize(UserName As String) As Long
     '生存確認
     Dim tmp As Long
     If ioctlsocket(m_hSocket, FIONREAD, tmp) <> 0 Then deserialize = Err.LastDllError
+    printMsg Debug_, WinApiError.GetMessage(deserialize, "ws2_32"), FromProcedureName
 End Function
 
 
