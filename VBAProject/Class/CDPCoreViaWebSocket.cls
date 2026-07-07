@@ -83,6 +83,17 @@ Private Type sockaddr_in
     sin_zero(0 To 7) As Byte
 End Type
 
+'WebSocketのFrame単位を管理する独自構造体
+Private Type WebSocketReceiveFrameManage
+    PayloadLength   As Long     'Chromium側から実際に送られるサイズ
+    CurrentCursor   As Long     '`PayloadLength`のうち、どこまで書き込んだ？
+    ValidTags       As Boolean  '有効なタグ中か？ペイロードデータ自体の欠け対策です
+    isFIN           As Boolean  'FINフラグ
+    opcode          As Long     '「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類
+    FrameHeaderSize As Long     '今回のフレームヘッダーサイズ
+End Type
+Private m_WebSocketFrame As WebSocketReceiveFrameManage
+
 
 
 '***************************************************************************************************
@@ -91,11 +102,13 @@ End Type
 'WINHTTP_WEB_SOCKET_BUFFER_TYPE
 'https://learn.microsoft.com/ja-jp/windows/win32/api/winhttp/ne-winhttp-winhttp_web_socket_buffer_type
 Public Enum WS_BUFFER_TYPE
-    WS_NOT_MESSAGE = -1       ' 一度も受信メッセージを受け取ってない場合
-    WS_UTF8_MESSAGE = 0       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
-    WS_UTF8_FRAGMENT = 1      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
-    WS_BINARY_MESSAGE = 2     ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
-    WS_BINARY_FRAGMENT = 3    ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
+    WS_NOT_MESSAGE = -3       ' 一度も受信してません            ※一度も`GetAsyncMessage`を呼び出してない初期値
+    WS_PAYLOAD_FRAGMENT = -2  ' ペイロード自体が欠けてる場合    ※フレームヘッダー情報に載ってるペイロードデータサイズが、WinSockPipeに入ってない理不尽パターン
+    WS_PAYLOAD_EMPTY = -1     ' ペイロード自体がない　          ※フレームヘッダー情報は届いたのに、ペイロードデータが届いてない理不尽パターン
+    WS_BINARY_MESSAGE = 0     ' WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE
+    WS_BINARY_FRAGMENT = 1    ' WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE
+    WS_UTF8_MESSAGE = 2       ' WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE
+    WS_UTF8_FRAGMENT = 3      ' WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE
     WS_CLOSE_MESSAGE = 4      ' WINHTTP_WEB_SOCKET_CLOSE_BUFFER_TYPE
 End Enum
 
@@ -160,7 +173,7 @@ Private ViewLog                 As New Logger                   'ログ用
 '***************************************************************************************************
 '* 機能    ：最後に受信したパケットのバッファタイプを確認します（WinHTTP仕様に準拠）
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：初回は、`-1`とします。`GetAsyncMessage`を呼ばないと更新されません
+'* 注意事項：初回は、`-3`とします。`GetAsyncMessage`を呼ばないと更新されません
 '***************************************************************************************************
 Public Property Get LastBufferType() As WS_BUFFER_TYPE
     LastBufferType = m_LastBufferType
@@ -205,6 +218,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・最後の1件分しか保持しません
 '            ・命名規則の都合上、`UTF8`とありますが実際は、VBAで扱える`String`型となります
+'            ・ロジックの仕組み上、デバッグ用になると思います
 '***************************************************************************************************
 Public Property Get LastReceiveContentUTF8() As String
     LastReceiveContentUTF8 = Utf8Converter.BytesToString(m_LastReceiveContentBINARY)
@@ -525,16 +539,22 @@ End Function
 '* 機能    ：WebSocketからの非同期受信を行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：読み取ったペイロードバイト数を返します。
-'* 引数　　：EndOfData  `True` ：メッセージ全体またはその最後の部分
-'                       `False`：メッセージの一部のみが含まれます
+'* 引数　　：EndOfData      `True` ：メッセージ全体またはその最後の部分
+'                           `False`：メッセージの一部のみが含まれます
+'
+'            destruction    ストリーム蓄積させるか？`True`で、蓄積させません
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：エラーコードは別途プロパティメソッドで取得してください
+'* 詳細説明：必要に応じて、`WithEvents`による受け取りもご利用できます
+'* 注意事項：・エラーコードは別途プロパティメソッドで取得してください
+'            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
+'            　処理の途中でVBE停止させると、ハンドルの使いまわし時に上手く機能しない場合があります。
+'              その場合は、WebSocket接続からやり直すことをおすすめします。
 '***************************************************************************************************
-Public Function GetAsyncMessage(ByRef EndOfData As Boolean) As Long
+Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
 
 
-    ' 0. ioctlsocket の実行結果をチェック
+    '1. 実際に届いてるデータサイズを確認
     Dim bytesAvailable As Long
     Dim retIoctl As Long
     retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
@@ -544,136 +564,245 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean) As Long
         printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
         Exit Function
     End If
+    printMsg Trace_, "WinSockResSize: " & bytesAvailable, FromProcedureName
 
-    ' 1. 受信可能バッファの確認
-    '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
-    'WebSocketから送られてくるデータの先頭2バイトには、以下のような「このパケットが何者なのか」を示す超重要データがぎっしり詰まっています。
-    '
-    '---【1バイト目（8ビット）】── データの「状態」と「種類」---
-    '・FINフラグ（先頭1ビット）：「これが最後のパケットだよ！（1）」か「まだ続きがあるよ！（0）」か。
-    '・Opcode（後半4ビット）   ：「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類。
-    '
-    '---【2バイト目（8ビット）】── データの「長さのヒント」---
-    '・MASKフラグ（先頭1ビット）：マスク処理されているか
-    '・長さ指示子（後半7ビット）：「本体のサイズ」または「中箱・大箱の指示フラグ」
-    If bytesAvailable < 2 Then
-        '必要なタグ情報が不足してる場合は、ここで抜ける。この場合、サイズ0、エラーなしとなります。
-        printMsg Trace_, "We haven't received the data from CDP yet.", FromProcedureName
-        Exit Function
+    '2. フレームヘッダーが無効(古い)状態なら更新させる。
+    If Not m_WebSocketFrame.ValidTags Then
+        printMsg Debug_, "This is not a valid frame header, so we will update it.", FromProcedureName
+
+        '必要なフレームヘッダー情報が不足してる場合は、ここで抜ける
+        'この場合、サイズ0、エラーなしとなります。
+        If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
+
+        '更新後の、切断要求チェック (Opcode: 8)
+        If m_WebSocketFrame.opcode = 8 Then
+            Call DisconnectCDP
+            m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に
+            printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
+            Exit Function
+        End If
     End If
 
-    ' 2. 先頭の基本ヘッダー2バイトを受信
-    Dim header(0 To 1) As Byte
-    Dim ret As Long
-    ret = recv(m_hSocket, header(0), 2, 0)
-    If ret <= 0 Then
-        '取り出しに失敗したら、エラー情報を記録して抜ける
-        StyleErrReadFile = Err.LastDllError
-        printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
-        Exit Function
+    '3. 必要な取り出しサイズを計算
+    Dim TakePayloadSize As Long
+    With m_WebSocketFrame
+        If bytesAvailable <= 0 Then
+            '`UpdateFrameHeader`プロシージャの減算処理過程で0以下になった場合。つまり、フレームヘッダー情報しか届かなかった場合
+            TakePayloadSize = 0
+            printMsg info_, "Only the frame header information was received. A request for further reception is required. TakeSize: " & TakePayloadSize, FromProcedureName
+
+        ElseIf bytesAvailable >= .PayloadLength - .CurrentCursor Then
+            'ペイロードサイズを超える受信データサイズを確認した場合は、不整合を防ぐため、ペイロードサイズのうち、未受信分のみに制限
+            TakePayloadSize = m_WebSocketFrame.PayloadLength - .CurrentCursor
+            printMsg Debug_, "I confirmed that the received data fit within the payload in a single reception. TakeSize: " & TakePayloadSize, FromProcedureName
+
+        Else
+            'ペイロードサイズに満たない場合は、そのまま適用
+            TakePayloadSize = bytesAvailable
+            printMsg info_, "The received data could not be confirmed to fit into the Payload in a single reception. A request for further reception is required. TakeSize: " & TakePayloadSize, FromProcedureName
+        End If
+    End With
+
+    '4. 取り出せる状態であれば、実際に取り出します　※ここのフェーズで、`EndOfData`の更新を行います
+    If TakePayloadSize > 0 Then
+        Dim bSuccess As Long
+        ReDim payloadBuffer(TakePayloadSize - 1) As Byte
+        bSuccess = recv(m_hSocket, payloadBuffer(0), TakePayloadSize, MSG_WAITALL)
+
+        '4-1. 0より大きければ、成功です
+        If bSuccess > 0 Then
+            '受信サイズを記録
+            m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.CurrentCursor + TakePayloadSize
+
+            '全てのペイロードを受信出来たかを確認
+            Dim AllPayloadReceive As Boolean
+            AllPayloadReceive = (m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.PayloadLength)
+
+            'デバッグ調査用
+'            Debug.Assert bSuccess = TakePayloadSize
+'            Debug.Assert m_WebSocketFrame.CurrentCursor <= m_WebSocketFrame.PayloadLength
+
+            'ストリームに書き込み、イベント発信　※破棄モードじゃない場合
+            If Not destruction Then
+                WebSocketReceiveStream.Write payloadBuffer
+                RaiseEvent WebSocketReceive(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
+            End If
+        Else
+            '取り出しに失敗したら、エラー情報を記録して抜ける
+            StyleErrReadFile = Err.LastDllError
+            printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+            Exit Function
+        End If
+
+        '4-2. 全てのペイロードを受信出来た場合の仕上げ
+        If AllPayloadReceive Then
+            'ペイロード自体は全て取り出せたので、いくつかリセットする
+            With m_WebSocketFrame
+                .ValidTags = False  'タグを無効化
+                .CurrentCursor = 0  'カーソル位置をリセット
+            End With
+            printMsg Debug_, "All payloads were received.", FromProcedureName
+
+            'テキストとして送られた物か確認
+            Dim TextType As Boolean
+            TextType = (m_WebSocketFrame.opcode = &H1 Or m_WebSocketFrame.opcode = &H0) ' テキストまたは継続テキスト
+
+            '`Base Header`としての、`FINフラグ`チェック
+            If m_WebSocketFrame.isFIN Then
+                '破棄モードじゃない場合は、完成メッセージを取り出す
+                If Not destruction Then
+                    With WebSocketReceiveStream
+                        'メッセージが完全に揃ったので、取り出す末尾位置を設定する
+                        .SetEOS
+
+                        '先頭に戻して、`SetEOS`分まで読み込む
+                        .Position = 0
+                        m_LastReceiveContentBINARY = .Read
+
+                        'ストリーム位置のリセット
+                        .Position = 0
+                    End With
+                End If
+
+                ' 完了メッセージのタイプを設定
+                m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_MESSAGE, WS_BUFFER_TYPE.WS_BINARY_MESSAGE)
+                EndOfData = True
+            Else
+                ' まだ分割データの受信中
+                m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_FRAGMENT, WS_BUFFER_TYPE.WS_BINARY_FRAGMENT)
+                EndOfData = False
+            End If
+        Else
+            ' ペイロード自体が欠けてます
+            m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_FRAGMENT
+            printMsg Debug_, "Not all payloads have been received yet.", FromProcedureName
+            EndOfData = False
+        End If
+    Else
+        'ペイロードデータが届いてない
+        m_LastBufferType = WS_BUFFER_TYPE.WS_PAYLOAD_EMPTY
+        printMsg Debug_, "Payload data has not been received.", FromProcedureName
+        EndOfData = False
     End If
 
-    Dim opcode As Byte
-    EndOfData = ((header(0) And &H80) <> 0)
-    opcode = (header(0) And &HF)
+    '5. 取り出したペイロードサイズとして、返却
+    GetAsyncMessage = TakePayloadSize
+End Function
 
-    ' --- 切断要求 (Opcode: 8) のハンドリング ---
-    If opcode = 8 Then
-        Call DisconnectCDP
-        m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に
-        printMsg WARN_, "A disconnection request has been received from `Chrome DevTools Protocol`.", FromProcedureName
-        Exit Function
-    End If
-
-    Dim TextType As Boolean
-    TextType = (opcode = &H1 Or opcode = &H0) ' テキストまたは継続テキスト
-
-    ' 3. 覗き見たバッファから、今回の「完全なWebSocketフレームサイズ」を計算
-    '[!NOTE] WebSocketの仕様を決めた偉い人たちは、「送るデータのサイズに合わせて、ヘッダーの大きさを自動的に変化させて、通信量を1バイトでも節約しよう」と考えました。
-    'これが < 126、= 126、= 127 という3分岐の儀式の正体です。
-    '
-    '小箱（125バイト以下）：
-    '短いテキストチャットなどを送る際、ヘッダーが無駄に大きいと邪魔です。そのため、最初の1バイト（指示子）だけでサイズを表現します。ヘッダーはわずか 2バイト で済みます。
-    '
-    '中箱（126バイト ~ 65535バイト）：
-    '指示子に 126 と書かれていたら、それは「中箱」の合図です。
-    '「サイズは、この直後に続く 2バイト（16bit） を見てね」という意味になり、ヘッダーは 4バイト に伸びます。
-    '
-    '大箱（65536バイト以上）：
-    '指示子に 127 と書かれていたら、それは「大箱」の合図です。
-    '「サイズは、この直後に続く 8バイト（64bit） を見てね」という意味になり、ヘッダーは最大で 10バイト まで巨大化します。
-    'VBA側としては、相手がどの箱で送ってきたかに合わせて、ソケットから「追加で2バイト読み取るか、8バイト読み取るか」を変えなければならないため、この儀式が必要になります。
-    Dim lenIndicator As Byte
-    lenIndicator = (header(1) And &H7F)
-
-    Dim payloadLen As Long
-    If lenIndicator < 126 Then
-        payloadLen = lenIndicator
-        printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
+'***************************************************************************************************
+'* 機能　　：フレームヘッダー情報を更新します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：ResSize    `ioctlsocket`でチェックした受信サイズ。タグチェックに使い、追加受信分の減算処理もして、ペイロードサイズ分だけにするように調整します。参照渡しの恩恵です
+'* 返り値  ：フレームヘッダーの読み取りに成功すれば`True`です。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ペイロードを全て読み終わった後にこれを呼び出すこと。ペイロードの欠け状態でこれを呼び出すと、バグります
+'***************************************************************************************************
+Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".UpdateFrameHeader"
 
 
-    ElseIf lenIndicator = 126 Then
-        Dim extLen16(0 To 1) As Byte
-        ret = recv(m_hSocket, extLen16(0), 2, 0)
-        If ret <= 0 Then GetAsyncMessage = Err.LastDllError: Exit Function
-        payloadLen = (CLng(extLen16(0)) * &H100&) Or extLen16(1)
-    ElseIf lenIndicator = 127 Then
-        Dim extLen64(0 To 7) As Byte
-        ret = recv(m_hSocket, extLen64(0), 8, 0)
-        If ret <= 0 Then GetAsyncMessage = Err.LastDllError: Exit Function
-        Dim tempLen As Double
-        tempLen = (CDbl(extLen64(4)) * 2 ^ 24) + _
-                  (CDbl(extLen64(5)) * 2 ^ 16) + _
-                  (CDbl(extLen64(6)) * 2 ^ 8) + _
-                  CDbl(extLen64(7))
-        payloadLen = CLng(tempLen)
-    End If
-    
-    ' 4. ペイロード本体を受信して書き込み
-    If payloadLen > 0 Then
-        Dim payloadBuffer() As Byte
-        ReDim payloadBuffer(payloadLen - 1)
+    '1. 最低限必要なフレームヘッダー情報が不足してる場合は、ここで抜ける。
+    If resSize < 2 Then printMsg Trace_, "Frame header information has not been received.", FromProcedureName: Exit Function
 
-        Dim totalRead As Long
-        Do While totalRead < payloadLen
-            ret = recv(m_hSocket, payloadBuffer(totalRead), payloadLen - totalRead, 0)
+    '2. フレームヘッダーを解析
+    With m_WebSocketFrame
+        '有効なフラグとして適用
+        .ValidTags = True
+
+        '2-2. 先頭の基本ヘッダー2バイトを受信
+        '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
+        'WebSocketから送られてくるデータの先頭2バイトには、以下のような「このパケットが何者なのか」を示す超重要データがぎっしり詰まっています。
+        '
+        '---【1バイト目（8ビット）】── データの「状態」と「種類」---
+        '・FINフラグ（先頭1ビット）：「これが最後のパケットだよ！（1）」か「まだ続きがあるよ！（0）」か。
+        '・Opcode（後半4ビット）   ：「これはテキストだよ（1）」「バイナリだよ（2）」「切断要求だよ（8）」などのデータ種類。
+        '
+        '---【2バイト目（8ビット）】── データの「長さのヒント」---
+        '・MASKフラグ（先頭1ビット）：マスク処理されているか
+        '・長さ指示子（後半7ビット）：「本体のサイズ」または「中箱・大箱の指示フラグ」
+        Dim header(0 To 1) As Byte
+        Dim ret As Long
+        ret = recv(m_hSocket, header(0), 2, MSG_WAITALL): .FrameHeaderSize = 2: resSize = resSize - 2
+        If ret <= 0 Then
+            '取り出しに失敗したら、エラー情報を記録して抜ける
+            StyleErrReadFile = Err.LastDllError
+            printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+            Exit Function
+        End If
+
+        '2-3. データの「状態」と「種類」を取り出す
+        .isFIN = ((header(0) And &H80) <> 0)
+        .opcode = (header(0) And &HF)
+
+        '2-4. 今回の「完全なWebSocketフレームサイズ」を計算
+        '[!NOTE] WebSocketの仕様を決めた偉い人たちは、「送るデータのサイズに合わせて、ヘッダーの大きさを自動的に変化させて、通信量を1バイトでも節約しよう」と考えました。
+        'これが < 126、= 126、= 127 という3分岐の儀式の正体です。
+        '
+        '小箱（125バイト以下）：
+        '短いテキストチャットなどを送る際、ヘッダーが無駄に大きいと邪魔です。そのため、最初の1バイト（指示子）だけでサイズを表現します。ヘッダーはわずか 2バイト で済みます。
+        '
+        '中箱（126バイト ~ 65535バイト）：
+        '指示子に 126 と書かれていたら、それは「中箱」の合図です。
+        '「サイズは、この直後に続く 2バイト（16bit） を見てね」という意味になり、ヘッダーは 4バイト に伸びます。
+        '
+        '大箱（65536バイト以上）：
+        '指示子に 127 と書かれていたら、それは「大箱」の合図です。
+        '「サイズは、この直後に続く 8バイト（64bit） を見てね」という意味になり、ヘッダーは最大で 10バイト まで巨大化します。
+        'VBA側としては、相手がどの箱で送ってきたかに合わせて、ソケットから「追加で2バイト読み取るか、8バイト読み取るか」を変えなければならないため、この儀式が必要になります。
+        Dim lenIndicator As Byte
+        lenIndicator = (header(1) And &H7F)
+        If lenIndicator < 126 Then
+            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
+
+
+            '最初の1バイト（指示子）だけで、これからの受信サイズを表現してるので、そのまんま適用
+            .PayloadLength = lenIndicator
+
+        ElseIf lenIndicator = 126 Then
+            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 4 bytes.", FromProcedureName
+
+
+            '次の2バイト（16bit）に、これからの受信サイズを表現してるので、その分を追加で、取り出す
+            Dim extLen16(0 To 1) As Byte
+            ret = recv(m_hSocket, extLen16(0), 2, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 2: resSize = resSize - 2
             If ret <= 0 Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
                 StyleErrReadFile = Err.LastDllError
-                printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+                printMsg WARN_, "An error occurred while retrieving the payload size from the following 2 bytes using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
                 Exit Function
             End If
-            totalRead = totalRead + ret
-        Loop
 
-        'ストリームに書き込み、ついでにイベント発信する
-        WebSocketReceiveStream.Write payloadBuffer
-        RaiseEvent WebSocketReceive(payloadBuffer, payloadLen, EndOfData)
-    End If
+            'うまいぐあいに、これからの受信サイズを取得
+            .PayloadLength = (CLng(extLen16(0)) * &H100&) Or extLen16(1)
 
-    ' 5. メッセージ完了 or 継続状態をプロパティに反映
-    If EndOfData Then
-        With WebSocketReceiveStream
-            'メッセージが完全に揃ったので、取り出す末尾位置を設定する
-            .SetEOS
+        ElseIf lenIndicator = 127 Then
+            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 10 bytes.", FromProcedureName
 
-            '先頭に戻して、`SetEOS`分まで読み込む
-            .Position = 0
-            m_LastReceiveContentBINARY = .Read
 
-            'ペイロード本体サイズ情報を返却
-            GetAsyncMessage = .Position
+            '次の8バイト（64bit） に、これからの受信サイズを表現してるので、その分を追加で、取り出す
+            Dim extLen64(0 To 7) As Byte
+            ret = recv(m_hSocket, extLen64(0), 8, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 8: resSize = resSize - 8
+            If ret <= 0 Then
+                '取り出しに失敗したら、エラー情報を記録して抜ける
+                StyleErrReadFile = Err.LastDllError
+                printMsg WARN_, "An error occurred while retrieving the payload size from the following 8 bytes using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+                Exit Function
+            End If
 
-            'ストリーム位置のリセット
-            .Position = 0
-        End With
+            'エンディアン変換儀式
+            Dim tempLen As Double
+            tempLen = (CDbl(extLen64(4)) * 2 ^ 24) + _
+                      (CDbl(extLen64(5)) * 2 ^ 16) + _
+                      (CDbl(extLen64(6)) * 2 ^ 8) + _
+                      CDbl(extLen64(7))
 
-        ' 完了メッセージのタイプを設定
-        m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_MESSAGE, WS_BUFFER_TYPE.WS_BINARY_MESSAGE)
-    Else
-        ' まだ分割データの受信中
-        m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_FRAGMENT, WS_BUFFER_TYPE.WS_BINARY_FRAGMENT)
-    End If
+            'これからの受信サイズを取得
+            .PayloadLength = CLng(tempLen)
+        End If
+    End With
+
+    '3. 全て更新し終えたので、成功フラグを返す
+    UpdateFrameHeader = True
 End Function
 
 
