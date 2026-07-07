@@ -185,7 +185,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
 'その他
 Private Const ThisClassName     As String = "CDPCore"
-Private Const InitialBuffer     As Long = 2 ^ 20        '初期バッファー上限
+Private Const InitialBuffer     As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
 Private Const RunDoEventsCount  As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
 Private Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値
 
