@@ -314,6 +314,7 @@ End Function
 '* 機能　　：`WebSocket`方式として扱うフォーマットとして組み立てて、送信します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：引数は`ConnectWebSocket`と一緒なので省略します
+'* 注意事項：ローカルIP運用を想定してるため、Keyは固定とします
 '***************************************************************************************************
 Private Function SendHandshake(Host As String, port As Long, Path As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".SendHandshake"
@@ -814,13 +815,17 @@ Public Sub DisconnectCDP()
     Const FromProcedureName As String = ThisClassName & ".DisconnectCDP"
 
 
+    '1. 有効なハンドル値か確認
     If m_hSocket <> -1 And m_hSocket <> 0 Then
+        '1-1. 切断処理
         Call closesocket(m_hSocket)
+
+        '1-2. ハンドル値を無力化
         m_hSocket = -1
     End If
+
+    '2. 接続フラグもリセット
     m_IsConnected = False
-
-
     printMsg info_, "It was cut off.", FromProcedureName
 End Sub
 
@@ -918,8 +923,8 @@ End Sub
 '                0:成功
 '               >0:WinSockエラー
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebSocketへの再接続の手間を飛ばす時にご利用ください
-'* 注意事項：うまくいかない場合は、新規接続からやり直して下さい
+'* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください
+'* 注意事項：うまくいかない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Long
     Const FromProcedureName As String = ThisClassName & ".deserialize"
