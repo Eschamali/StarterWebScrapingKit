@@ -988,6 +988,7 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
         If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
         LoopCounter = LoopCounter + 1
 
+
         '受信処理
         intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)
 
