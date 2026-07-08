@@ -594,7 +594,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
         ElseIf bytesAvailable >= .PayloadLength - .CurrentCursor Then
             'ペイロードサイズを超える受信データサイズを確認した場合は、不整合を防ぐため、ペイロードサイズのうち、未受信分のみに制限
-            TakePayloadSize = m_WebSocketFrame.PayloadLength - .CurrentCursor
+            TakePayloadSize = .PayloadLength - .CurrentCursor
             printMsg Debug_, "I confirmed that the received data fit within the payload in a single reception. TakeSize: " & TakePayloadSize, FromProcedureName
 
         Else
