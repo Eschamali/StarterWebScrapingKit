@@ -290,7 +290,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：htonsを使用した場合の32bit/64bitや符号付き整数のオーバーフロー問題を避けるために行います
 '***************************************************************************************************
-Private Function SwapBytes16(ByVal value As Long) As Integer
+Private Function SwapBytes16(value As Long) As Integer
     Dim hi As Byte, lo As Byte
     lo = value And &HFF
     hi = (value And &HFF00) \ &H100
