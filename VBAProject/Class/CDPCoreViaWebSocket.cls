@@ -797,6 +797,13 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
                       (CDbl(extLen64(6)) * 2 ^ 8) + _
                       CDbl(extLen64(7))
 
+            ' 上位4バイト（extLen64の0~3）が0以外、または計算結果がVBAのLongの上限(約21億)を超えている場合は、VBAの制限仕様なので停止
+            If extLen64(0) <> 0 Or extLen64(1) <> 0 Or extLen64(2) <> 0 Or extLen64(3) <> 0 Or tempLen > 2147483647# Then
+                Call DisconnectCDP
+                printMsg ERROR_, "Payload size is too large to handle in VBA (exceeds 2GB). Disconnected", FromProcedureName, doRaiseError:=True
+                Exit Function
+            End If
+
             'これからの受信サイズを取得
             .PayloadLength = CLng(tempLen)
         End If
