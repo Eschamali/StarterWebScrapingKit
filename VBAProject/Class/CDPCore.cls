@@ -1305,7 +1305,18 @@ End Function
 '* 注意事項：`ReadyCDPMessage`を行うたびに上書きする点に注意。Public的には、`TakeEvents`で上書きします
 '***************************************************************************************************
 Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
-    CDPPipeStream.SaveToFile FolderPath & "\" & FileName, 2
+    With CDPPipeStream
+        '1, 今の位置を記録
+        Dim tmp As Long: tmp = .Position
+        .SetEOS
+
+        '2. 保存
+        .Position = 0
+        .SaveToFile FolderPath & "\" & FileName, 2
+
+        '3. 元に戻す
+        .Position = tmp
+    End With
 End Sub
 
 
