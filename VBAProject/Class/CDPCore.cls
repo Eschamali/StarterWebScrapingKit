@@ -669,7 +669,6 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
 
 
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
-    printMsg Trace_, LogID, "ResSize = " & resSize, FromProcedureName
     CDPPipeStream.Write res
     printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
 
@@ -678,6 +677,7 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
 
     '取得サイズをcursor管理へ反映
     StrBufferCheck resSize + EOS * -1
+    printMsg Trace_, LogID, "ResSize = " & resSize & " , EOS: " & EOS, FromProcedureName
 End Sub
 
 '***************************************************************************************************
