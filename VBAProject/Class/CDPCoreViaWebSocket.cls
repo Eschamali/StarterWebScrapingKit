@@ -180,7 +180,7 @@ Public Property Get LastBufferType() As WS_BUFFER_TYPE
 End Property
 
 '***************************************************************************************************
-'* 機能    ：このClassオブジェトが既に、WebSocketによる接続中かを確認します
+'* 機能    ：このClassオブジェクトが既に、WebSocketによる接続中かを確認します
 '***************************************************************************************************
 Public Property Get Connected() As Boolean
     Connected = m_IsConnected
