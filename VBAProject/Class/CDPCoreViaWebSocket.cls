@@ -922,12 +922,12 @@ End Sub
 '* 注意事項：うまくいかない場合は、新規接続からやり直して下さい
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Long
-    Const FromProcedureName As String = ThisClassName & ".UpdateFrameHeader"
+    Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.deserialize")
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
     If PipeInfo Is Nothing Then deserialize = -1: Exit Function
