@@ -543,19 +543,20 @@ End Function
 '* 引数　　：EndOfData      `True` ：メッセージ全体またはその最後の部分
 '                           `False`：メッセージの一部のみが含まれます
 '
-'            destruction    ストリーム蓄積させるか？`True`で、蓄積させません
+'            destruction    `True`で、フレームヘッダー情報を解析せずに、データを即破棄します。通常は、省略して下さい
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：必要に応じて、`WithEvents`による受け取りもご利用できます
 '* 注意事項：・エラーコードは別途プロパティメソッドで取得してください
+'            ・このプロシージャは、内部でループ処理は行いません。呼び出し側にて、引数やGETプロパティから状況を判断して、ループ処理を継続するかのロジックで組んでます
 '            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
 '            　処理の途中でVBE停止させると、ハンドルの使いまわし時に上手く機能しない場合があります。
-'              その場合は、WebSocket接続からやり直すことをおすすめします。
+'              その場合は、新規WebSocket接続からやり直すことをおすすめします。
 '***************************************************************************************************
 Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
 
 
-    '1. 実際に届いてるデータサイズを確認
+    '1. 今届いてるデータサイズを確認
     Dim bytesAvailable As Long
     Dim retIoctl As Long
     retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
@@ -567,8 +568,31 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     End If
     printMsg Trace_, "WinSockResSize: " & bytesAvailable, FromProcedureName
 
-    '2. フレームヘッダーが無効(古い)状態なら更新させる。
-    If Not m_WebSocketFrame.ValidTags Then
+    '2. 状況に応じた分岐処理
+    If bytesAvailable <= 0 Then
+        '受信サイズ0以下なら即抜け
+        printMsg Trace_, "The received data is empty.", FromProcedureName
+
+        'ペイロード処理中の場合は、`False`に上書きしておきます
+        '※破棄モードの場合は、スルー
+        If Not destruction Then EndOfData = Not m_WebSocketFrame.ValidTags
+        Exit Function
+
+    ElseIf destruction Then
+        '破棄モードの場合は、受信サイズ分を即取り出し
+        Dim dSuccess As Long
+        ReDim destructionData(bytesAvailable - 1) As Byte
+        dSuccess = recv(m_hSocket, destructionData(0), bytesAvailable, MSG_WAITALL)
+
+        '0以下の場合は失敗なので、エラー情報を記録
+        If dSuccess <= 0 Then StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+
+        '破棄したサイズを返却して、抜ける
+        GetAsyncMessage = dSuccess
+        Exit Function
+
+    ElseIf Not m_WebSocketFrame.ValidTags Then
+        'フレームヘッダーが無効(古い)状態なら更新させる
         printMsg Debug_, "This is not a valid frame header, so we will update it.", FromProcedureName
 
         '必要なフレームヘッダー情報が不足してる場合は、ここで抜ける
@@ -584,7 +608,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         End If
     End If
 
-    '3. 必要な取り出しサイズを計算
+    '3. 必要な取り出しペイロードデータサイズを計算
     Dim TakePayloadSize As Long
     With m_WebSocketFrame
         If bytesAvailable <= 0 Then
@@ -623,11 +647,9 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 '            Debug.Assert bSuccess = TakePayloadSize
 '            Debug.Assert m_WebSocketFrame.CurrentCursor <= m_WebSocketFrame.PayloadLength
 
-            'ストリームに書き込み、イベント発信　※破棄モードじゃない場合
-            If Not destruction Then
-                WebSocketReceiveStream.Write payloadBuffer
-                RaiseEvent WebSocketReceive(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
-            End If
+            'ストリームに書き込み、イベント発信
+            WebSocketReceiveStream.Write payloadBuffer
+            RaiseEvent WebSocketReceive(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
         Else
             '取り出しに失敗したら、エラー情報を記録して抜ける
             StyleErrReadFile = Err.LastDllError
@@ -650,20 +672,18 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
             '`Base Header`としての、`FINフラグ`チェック
             If m_WebSocketFrame.isFIN Then
-                '破棄モードじゃない場合は、完成メッセージを取り出す
-                If Not destruction Then
-                    With WebSocketReceiveStream
-                        'メッセージが完全に揃ったので、取り出す末尾位置を設定する
-                        .SetEOS
+                '完成メッセージを取り出す
+                With WebSocketReceiveStream
+                    'メッセージが完全に揃ったので、取り出す末尾位置を設定する
+                    .SetEOS
 
-                        '先頭に戻して、`SetEOS`分まで読み込む
-                        .Position = 0
-                        m_LastReceiveContentBINARY = .Read
+                    '先頭に戻して、`SetEOS`分まで読み込む
+                    .Position = 0
+                    m_LastReceiveContentBINARY = .Read
 
-                        'ストリーム位置のリセット
-                        .Position = 0
-                    End With
-                End If
+                    'ストリーム位置のリセット
+                    .Position = 0
+                End With
 
                 ' 完了メッセージのタイプを設定
                 m_LastBufferType = IIf(TextType, WS_BUFFER_TYPE.WS_UTF8_MESSAGE, WS_BUFFER_TYPE.WS_BINARY_MESSAGE)
@@ -795,7 +815,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             tempLen = (CDbl(extLen64(4)) * 2 ^ 24) + _
                       (CDbl(extLen64(5)) * 2 ^ 16) + _
                       (CDbl(extLen64(6)) * 2 ^ 8) + _
-                      CDbl(extLen64(7))
+                       CDbl(extLen64(7))
 
             ' 上位4バイト（extLen64の0~3）が0以外、または計算結果がVBAのLongの上限(約21億)を超えている場合は、VBAの制限仕様なので停止
             If extLen64(0) <> 0 Or extLen64(1) <> 0 Or extLen64(2) <> 0 Or extLen64(3) <> 0 Or tempLen > 2147483647# Then
