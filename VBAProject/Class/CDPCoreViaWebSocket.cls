@@ -676,11 +676,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
         '4-2. 全てのペイロードを受信出来た場合の仕上げ
         If AllPayloadReceive Then
-            'ペイロード自体は全て取り出せたので、いくつかリセットする
-            With m_WebSocketFrame
-                .ValidTags = False  'タグを無効化
-                .CurrentCursor = 0  'カーソル位置をリセット
-            End With
+            'ペイロード自体は全て取り出せたので、タグを無効化させて次回の取り出し時は、タグ情報を見るようにする
+            m_WebSocketFrame.ValidTags = False
             printMsg Debug_, "All payloads were received.", FromProcedureName
 
             'テキストとして送られた物か確認
@@ -746,6 +743,9 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
     With m_WebSocketFrame
         '有効なフラグとして適用
         .ValidTags = True
+
+        'カーソル位置をリセット
+        .CurrentCursor = 0
 
         '2-2. 先頭の基本ヘッダー2バイトを受信
         '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
