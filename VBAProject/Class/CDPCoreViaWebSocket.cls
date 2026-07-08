@@ -42,7 +42,6 @@ Option Explicit
 #If VBA7 Then
     Private Declare PtrSafe Function WSAStartup Lib "ws2_32.dll" (ByVal wVersionRequired As Integer, ByRef lpWSAData As WSAData) As Long
     Private Declare PtrSafe Function WSACleanup Lib "ws2_32.dll" () As Long
-    Private Declare PtrSafe Function WSAGetLastError Lib "ws2_32.dll" () As Long
     Private Declare PtrSafe Function socket Lib "ws2_32.dll" (ByVal af As Long, ByVal socktype As Long, ByVal Protocol As Long) As LongPtr
     Private Declare PtrSafe Function closesocket Lib "ws2_32.dll" (ByVal s As LongPtr) As Long
     Private Declare PtrSafe Function Connect Lib "ws2_32.dll" Alias "connect" (ByVal s As LongPtr, ByRef Name As sockaddr_in, ByVal namelen As Long) As Long
@@ -54,7 +53,6 @@ Option Explicit
 #Else
     Private Declare Function WSAStartup Lib "ws2_32.dll" (ByVal wVersionRequired As Integer, ByRef lpWSAData As WSAData) As Long
     Private Declare Function WSACleanup Lib "ws2_32.dll" () As Long
-    Private Declare Function WSAGetLastError Lib "ws2_32.dll" () As Long
     Private Declare Function socket Lib "ws2_32.dll" (ByVal af As Long, ByVal socktype As Long, ByVal protocol As Long) As Long
     Private Declare Function closesocket Lib "ws2_32.dll" (ByVal s As Long) As Long
     Private Declare Function connect Lib "ws2_32.dll" (ByVal sID As Long, ByRef Name As sockaddr_in, ByVal namelen As Long) As Long
@@ -268,7 +266,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
 
     '3. ソケット生成
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-    If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+    If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '4. 丁度良いパフォーマンスとなるバッファーを設定
     Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
@@ -278,15 +276,15 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
-    If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+    If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
-    If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+    If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '7. WebSocketハンドシェイクの実行
-    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & WSAGetLastError, FromProcedureName, doRaiseError:=True
+    If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '8. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
@@ -541,7 +539,7 @@ Private Function RawSend(ByRef Data() As Byte) As Long
         ret = Send(m_hSocket, Data(totalSent), toSend - totalSent, 0)
         If ret = -1 Then
             ' SOCKET_ERRORが発生した場合、エラーコードを返却
-            RawSend = WSAGetLastError()
+            RawSend = Err.LastDllError
             printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & RawSend & " - Detail: " & WinApiError.GetMessage(RawSend, "ws2_32"), FromProcedureName
             Exit Function
         End If
