@@ -674,7 +674,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
         '4-2. 全てのペイロードを受信出来た場合の仕上げ
         If AllPayloadReceive Then
-            'ペイロード自体は全て取り出せたので、タグを無効化させて次回の取り出し時は、タグ情報を見るようにする
+            'ペイロード自体は全て取り出せたので、タグを無効化させて次回の取り出し時は、タグ情報を更新するようにする
             m_WebSocketFrame.ValidTags = False
             printMsg Debug_, "All payloads were received.", FromProcedureName
 
