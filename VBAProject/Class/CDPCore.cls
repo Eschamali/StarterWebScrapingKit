@@ -954,14 +954,6 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
     Loop Until EOvbNullChar And intRes < 1
     printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
 
-    '破棄モード or 新規受信判定
-    If destruction Or Not responseCDP.ExistsNewRes Then
-        printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
-    Else
-        '`ReadFile`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
-        Call ReadyCDPMessage
-        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
-    End If
 End Sub
 
 '***************************************************************************************************
@@ -1027,14 +1019,6 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
         End If
     Loop Until isFIN And intRes < 1
 
-    '破棄モードか？
-    If destruction Or Not responseCDP.ExistsNewRes Then
-        printMsg Trace_, LogID, "The received CDPmessage was empty.", FromProcedureName
-    Else
-        '`WebSocket`で得たバイト配列をテキストに変換させ、メッセージ処理を準備
-        Call ReadyCDPMessage
-        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
-    End If
 End Sub
 
 
@@ -1055,20 +1039,24 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
 
-    '通信モードに応じてPipe/WebSocket分岐
+    '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージの取り出し
     If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket StopPipeError, destruction
 
-    '破棄モード or 新規受信なし ならここで抜ける
+    '2. 破棄モード or 新規受信なし ならここで抜ける
     If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
 
-    '解析を始めます
+    '3. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備
+    Call ReadyCDPMessage
+    printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
+
+    '4. 解析を始めます
     Dim ResCounter As Long
     If responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "Analyzing the data in the responseCDP.strBuffer...", FromProcedureName
     Do While responseCDP.ExistsNewRes
-        'カウント
+        '4-1. カウント
         ResCounter = ResCounter + 1
 
-        'レスの確認
+        '4-2. レスの確認
         Dim tmp As String: tmp = TakeCDPMessage
         If StrPtr(tmp) Then
             If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
@@ -1077,12 +1065,19 @@ Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruc
             Call BrowserReceivedDataCheck(tmp)
         End If
 
-        '受信データのチェックの間に来たPipe/WebSocketも取り出しておきます
-        If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket StopPipeError, destruction
+        '4-3. 受信データのチェックの間に来たPipe/WebSocketも取り出しておき、リアルタイム性を確保
+        If viaWebSocket Is Nothing Then TakePipe StopPipeError, False Else TakeWebSocket StopPipeError, False
+
+        '4-4. バイト配列をテキストに変換させ、メッセージ処理を準備
+        Call ReadyCDPMessage
     Loop
 
-    'CDPメッセージ処理件数をログ化
-    printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
+    '5. CDPメッセージ処理件数をログ化
+    If ResCounter Then
+        printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
+    Else
+        printMsg Trace_, LogID, "There were no messages received this time.", FromProcedureName
+    End If
 End Sub
 
 '***************************************************************************************************
