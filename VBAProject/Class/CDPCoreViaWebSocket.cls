@@ -311,7 +311,7 @@ Private Function SwapBytes16(value As Long) As Integer
     hi = (value And &HFF00) \ &H100
 
     Dim temp As Long
-    temp = (lo * &H100) Or hi
+    temp = (lo * &H100&) Or hi
 
     ' 32768 (16進数で &H8000&) 以上の場合は、Integerの負数範囲にマッピング
     If temp >= 32768 Then
