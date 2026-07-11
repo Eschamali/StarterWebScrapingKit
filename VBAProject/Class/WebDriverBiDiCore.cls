@@ -227,6 +227,7 @@ End Sub
 '* 機能　　：Excelに記録してるタブ情報を基に、既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebSocketMode              WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '* 返値    ：再始動したか論理値 `True` ：`BiDi-CDP Mapper`を再始動しました。`WebDriverBiDiMode.cls`側で、`session.new`する必要があります
 '                               `False`：既存の`BiDi-CDP Mapper`を流用できたので、`session.new`は不要です
 '---------------------------------------------------------------------------------------------------
@@ -234,7 +235,7 @@ End Sub
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
 '***************************************************************************************************
-Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
+Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
@@ -243,7 +244,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
 
     '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
     Dim mapperTabConnection As Boolean
-    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(userProfile)
+    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(userProfile, WebSocketMode:=WebSocketMode)
 
     '3. 各種オブジェクトを継承
     Set m_CDPCore = WebDriverBiDi_mapperTab.InheritanceCDPCore
