@@ -335,7 +335,7 @@ End Sub
 '            reuseSession   `True` ：Excelに記録中のsessionIdを流用します
 '                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
 '
-'            WebSocketMode  WebSocketでCDP制御する場合は、指定します
+'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
