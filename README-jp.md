@@ -304,3 +304,68 @@ Sub BiDiによる冒険の始まり()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 新機能：WebSocket（Port）接続でのブラウザ操作デモ
+
+V2.3.0より、すでに起動しているEdgeやChromeなどの既存ブラウザセッションにExcelからアタッチ（制御を乗っ取る）できる「WebSocket（Port）ルート」が正式に解禁されました。
+
+標準モジュール `Demo_CDP` の中に、この機能を試すためのシンプルなデモコード **`SetupWebSocketMode`** が同梱されています。
+
+---
+
+> [!CAUTION]
+> このポート接続デモを動かすためには、あらかじめ対象のブラウザを**リモートデバッグポートを有効にした状態で起動しておく**必要があります。  
+> コマンドプロンプトやショートカットのプロパティ等から、以下の引数を付けてEdgeまたはChromeをあらかじめ起動しておいてください。
+
+```bash
+# デフォルトポート 9222 を開いてブラウザを起動する
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 デモコード：`SetupWebSocketMode`
+
+このマクロを実行すると、ポートフォワード経由で既存のブラウザを乗っ取り、指定のタブ（または新規タブ）から目的のページへ遷移します。
+
+```vb
+Sub SetupWebSocketMode()
+    ' 1. 設定シート（ShSetting01_StartBrowser）から、ユーザー名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    ' 2. 指定のデバッグポートを開いているブラウザ（WebSocket）へ接続
+    ' ※ 引数: ConnectCDP(ユーザー名, エンドポイント名, [ポート番号: デフォルトは9222])
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
+
+    ' 3. 接続したWebSocketオブジェクトを、ブラウザメインクラスの `reattach` メソッドにバトンタッチ
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then 
+        MsgBox "「" & UserName & "」に接続できませんでした。ブラウザ側が起動していないか、WebSocket情報が消失しています。", vbCritical, "Chrome DevTools Protocol"
+        Exit Sub
+    End If
+
+    ' 4. アタッチしたブラウザ上で、タブを制御する
+    Dim t As CDPContext
+    ' ※ 既存のタブを取得して操作する場合は、必ず `setMain:=True` を指定してください
+    ' Set t = b.getTab(setMain:=True)
+    
+    ' 新しいタブを生成して操作を開始する場合はこちら（どちらでもOKです）
+    Set t = b.newTab(setMain:=True) 
+
+    ' 5. 目的のページへ、お馴染みのインターフェースで同期・遷移！
+    'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 6. 処理が完了したら、安全にWebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 応用と設定のカスタマイズ
+
+* **ポート番号を変更したい場合**：
+  `WebSocketCDP.ConnectCDP` の第3引数に、任意のポート番号（例：`9222` 以外に指定したポート）を渡すことで、特定のポートで待機しているブラウザや、Android等の実機内のブラウザにも柔軟に接続できます。
+* **このコードを基にして**：
+  面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
