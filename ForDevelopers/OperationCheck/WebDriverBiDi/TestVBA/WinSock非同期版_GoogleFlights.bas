@@ -75,6 +75,18 @@ Public Sub BiDiによる冒険の始まり_GoogleFlights非同期版()
 
     Set g_GF_Browser = 設定シートからのBiDi起動ForTab
 
+    '-----WebSocketルート-----
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+'
+'    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+'    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser/00db52b3-1ade-4291-aae6-dcec17d463cb"
+'
+'    Dim b As New WebDriverBiDiMode
+'    b.reattach UserName, WebSocketMode:=WebSocketBiDi
+'    Set g_GF_Browser = b.newTab(setMain:=True)
+    '-------------------------
+
     'Enable event accumulation before subscribing, so no responseCompleted event is discarded.
     Set g_GF_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
 

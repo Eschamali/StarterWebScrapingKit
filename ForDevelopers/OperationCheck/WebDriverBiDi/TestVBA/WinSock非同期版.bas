@@ -44,6 +44,18 @@ Public Sub BiDiによる冒険の始まり_非同期版()
 
     Set g_Main10Browser = 設定シートからのBiDi起動ForTab
 
+    '-----WebSocketルート-----
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+'
+'    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+'    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser/1ee505aa-2eaf-4b0e-874b-c9a8ae154442"
+'
+'    Dim b As New WebDriverBiDiMode
+'    b.reattach UserName, WebSocketMode:=WebSocketBiDi
+'    Set g_Main10Browser = b.newTab(setMain:=True)
+    '-------------------------
+
     'Navigation remains the existing synchronous helper.
     'The Main10 click-and-wait operations below use ExecuteBiDiAsync.
     g_Main10Browser.navigate _
