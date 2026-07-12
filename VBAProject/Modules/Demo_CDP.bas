@@ -957,6 +957,38 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ WebSocket経由版Demo ■■■
+'***************************************************************************************************
+Sub SetupWebSocketMode()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
+'    WebSocketCDP.deserialize UserName
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います

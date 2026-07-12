@@ -491,6 +491,36 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ WebSocket経由版Demo ■■■
+'***************************************************************************************************
+Sub SetupWebSocketMode()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser"
+'    WebSocketBiDi.deserialize UserName
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim m As New WebDriverBiDiMode
+    If Not m.reattach(UserName, WebSocketMode:=WebSocketBiDi) Then Debug.Print "Failed to reattach. ブラウザの起動が必要です": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim c As WebDriverBiDiContext
+    Set c = m.newTab(setMain:=True)
+
+    '5．別ページに遷移して終了
+    c.navigate "https://www.youtube.com/@islandfox6864"
+
+    '6. WebSocketから切断
+    WebSocketBiDi.DisconnectCDP
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ アップデートDemo ■■■
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです
