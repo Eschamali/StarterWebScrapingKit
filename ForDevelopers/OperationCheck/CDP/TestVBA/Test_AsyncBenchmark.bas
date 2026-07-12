@@ -450,6 +450,7 @@ Sub Test_AsyncBenchmark_Cookies()
                     End If
                 End If
             End If
+        DoEvents
         Next i
         
         DoEvents
