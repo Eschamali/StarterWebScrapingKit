@@ -72,6 +72,18 @@ Public Sub BiDiによる冒険の始まり_ServiceNow非同期版()
 
     Set g_SN_Browser = 設定シートからのBiDi起動ForTab
 
+    '-----WebSocketルート-----
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+'
+'    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+'    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser/c0b11c73-c215-4515-b90a-4a9c231c6021"
+'
+'    Dim b As New WebDriverBiDiMode
+'    b.reattach UserName, WebSocketMode:=WebSocketBiDi
+'    Set g_SN_Browser = b.newTab(setMain:=True)
+    '-------------------------
+
     'Enable event accumulation before subscription.
     Set g_SN_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
 
