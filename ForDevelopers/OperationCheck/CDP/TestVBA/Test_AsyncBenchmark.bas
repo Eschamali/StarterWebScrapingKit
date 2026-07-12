@@ -452,6 +452,7 @@ Sub Test_AsyncBenchmark_Cookies()
             End If
         Next i
         
+        DoEvents
         If Not allSaved Then chrome.sleep 0.1
     Loop Until allSaved
 
