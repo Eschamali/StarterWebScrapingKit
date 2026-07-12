@@ -561,10 +561,11 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：パイプ生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：パイプが生きてない場合は、このメソッドから再開できません
 '***************************************************************************************************
-Public Function reattach(userProfile As String) As Boolean
+Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -574,11 +575,15 @@ Public Function reattach(userProfile As String) As Boolean
     '2. パイプハンドル制御するための初期化
     Set PipeCore = New CDPCore
     PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
+    Set PipeCore.WebSocketMode = WebSocketMode
 
     '3. 1を基に、Excelテーブルからハンドル情報を取得
     deserializeForPipe
 
-    '4. バージョン確認CDPコマンドを打ってパイプ生存確認
+    '4. 不整合を防ぐため、Pipeに残存しているデータを破棄しておく
+    TakeEvents False, True
+
+    '5. バージョン確認CDPコマンドを打ってパイプ生存確認
     If isLiveBrowser Then
         reattach = True
 

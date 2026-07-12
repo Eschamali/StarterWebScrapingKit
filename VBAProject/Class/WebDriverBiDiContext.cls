@@ -85,11 +85,12 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -97,7 +98,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     Set m_BiDiMode = New WebDriverBiDiMode
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
-    If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+    If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest, WebSocketMode) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
     Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
 
     '3. タブ情報を再セット
