@@ -1059,6 +1059,9 @@ End Function
 '* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
 Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
+
+
     '1. リクエストパラメーターを設定する
     Dim RequestParams As New WebRequest
     With RequestParams
@@ -1072,19 +1075,32 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long 
         .Resource = "/json/version"
     End With
 
-    '2. リクエストして、`webSocketDebuggerUrl`を取得
-    Dim webSocketDebuggerUrl As String
-    webSocketDebuggerUrl = RequestHost(RequestParams, "http://" & Host & ":" & port).Data("webSocketDebuggerUrl")
+    '2. リクエストして、結果を取得
+    Dim ResultRequest As WebResponse
+    Set ResultRequest = RequestHost(RequestParams, "http://" & Host & ":" & port)
 
-    '3. 末尾の"/"の位置を探索
+    '3. ステータスチェック
+    With ResultRequest
+        If .StatusCode = vbWebStatusOk Then
+            '成功したら、`webSocketDebuggerUrl`を取得
+            Dim webSocketDebuggerUrl As String
+            webSocketDebuggerUrl = .Data("webSocketDebuggerUrl")
+            printMsg info_, "Successfully retrieved Browser information.", FromProcedureName
+        Else
+            '正常以外はエラーで停止
+            printMsg ERROR_, .StatusDescription & " - HttpStatus: " & .StatusCode, FromProcedureName, doRaiseError:=True
+        End If
+    End With
+
+    '4. 末尾の"/"の位置を探索
     Dim StartPos As Long
     StartPos = InStrRev(webSocketDebuggerUrl, "/")
 
-    '4. うまいぐあいに、接続パラメーターを取り出す
+    '5. うまいぐあいに、接続パラメーターを取り出す
     Dim browserID As String
     browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
 
-    '5. そのパラメーターで接続
+    '6. そのパラメーターで接続
     AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID)
 End Function
 
@@ -1107,6 +1123,20 @@ Private Function RequestHost(RequestParams As WebRequest, EndPointURL As String)
 
     '事前設定と共通設定を使ってリクエストし、結果を返します
     Set RequestHost = EndPointAPI.Execute(RequestParams)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：接続成功可否
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
+'* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
+'            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
+'***************************************************************************************************
+Public Function AutoConnectDevToolsActivePort() As Boolean
+    '1.
+    
 End Function
 
 
