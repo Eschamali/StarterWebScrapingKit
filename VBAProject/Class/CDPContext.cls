@@ -2486,7 +2486,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
-    If StrPtr(brTab.sessionID) Then
+    If LenB(brTab.sessionID) Then
         printMsg info_, "A property was called that receives a new SessionID (" & newSessionID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
