@@ -961,17 +961,38 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`WebSocket`という「後付け」特性上、接続を確立後、`reattach`に渡す方式をとってます。
+'* 詳細説明：タブ/ブラウザ/今目の前のブラウザ の3種のDemoをご用意しております
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます。
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
-Sub SetupWebSocketMode()
+Sub AutoConnectTab()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectTab")
 
     '2. 指定のWebSocketForCDPへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
-'    WebSocketCDP.deserialize UserName
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. ページ遷移
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '5. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+Sub AutoConnectBrowser()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectBrowser")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
     '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
     Dim b As New CDPBrowser
@@ -984,11 +1005,38 @@ Sub SetupWebSocketMode()
     Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
 
     '5. ページ遷移
-    t.navigate "https://www.youtube.com/@islandfox6864"
+    t.navigate "https://www.youtube.com/@direwolf8958/"
 
     '6. WebSocketから切断
     WebSocketCDP.DisconnectCDP
 End Sub
+
+Sub AutoConnectDevToolsActivePort()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectDevToolsActivePort")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
 
 
 
