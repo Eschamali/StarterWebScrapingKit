@@ -1126,9 +1126,43 @@ End Function
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort() As Boolean
-    '1.
-    
+Public Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
+
+
+    '1. `DevToolsActivePort`のファイルパスを特定
+    Dim FilePath_DevToolsActivePort As String
+    If ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName) Then
+        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Google\Chrome\User Data\DevToolsActivePort"
+    Else
+        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\DevToolsActivePort"
+    End If
+
+    '2. そのファイルがあるか？
+    If LenB(Dir(FilePath_DevToolsActivePort)) Then
+        'そのパスを読み込んで、接続情報を取得する
+        '3. ファイルOpen
+        Dim intFree As Integer
+        intFree = FreeFile
+        Open FilePath_DevToolsActivePort For Input As #intFree
+
+        '4. 中身を全部読む
+        Dim tmp
+        tmp = Input(LOF(intFree), #intFree)
+
+        '5. 閉じる
+        Close #intFree
+
+        '6. 分割
+        '※最初にポート番号、その次にURLパスが記述されてます
+        tmp = Split(tmp, vbLf)
+
+        '7. 接続
+        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , CLng(tmp(0)))
+    Else
+        'エラーで終了
+        printMsg ERROR_, "Connection information is missing." & vbCrLf & "> " & FilePath_DevToolsActivePort, FromProcedureName, doRaiseError:=True
+    End If
 End Function
 
 
