@@ -136,6 +136,10 @@ Private Const SOL_SOCKET    As Long = 65535         ' ソケットレベルの�
 Private Const SO_RCVBUF     As Long = &H1002&       ' 受信バッファサイズ設定フラグ
 Private Const MSG_WAITALL   As Long = &H8           ' 要求したバイト数のデータがすべて揃うか、エラーや接続終了が発生するまで関数の処理をブロック（待機）する上級者向け。いわゆる、Pipe版と同等の挙動
 
+'デフォルト値
+Private Const D_port        As Long = 9222
+Private Const D_host        As String = "127.0.0.1"
+
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
 Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限
@@ -248,14 +252,16 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName   利用者識別名称
+'            targetId   `Target.TargetInfo`の`targetId`
 '            Path       接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
 '            port       接続先ポート    例：9222
 '            Host       接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：CDP準拠の引数構造です。基本は、`Path`のみで十分です
-'* 注意事項：既存の接続がある場合は、切断されます
+'* 注意事項：・既存の接続がある場合は、切断されます
+'            ・`targetId`を指定した場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい。省略時は、`CDPBrowser.cls`から
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Path As String, Optional port As Long = 9222, Optional Host As String = "127.0.0.1") As Boolean
+Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -291,7 +297,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional port As 
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
     '9. 設定情報を記録
-    serialize UserName
+    serialize UserName, targetID
 
     '10. 各種ステータスを更新
     m_IsConnected = True
@@ -920,17 +926,151 @@ End Sub
 
 
 '***************************************************************************************************
+'                                 ■■■ 接続アシスト ■■■
+'***************************************************************************************************
+'* 機能　　：「/json/list」へアクセスして、利用可能なすべてのウェブソケットターゲットのリストのうち、引数に基づいた`Page`接続のWebSocket接続まで行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：接続成功可否
+'* 引数    ：UserName   利用者識別名称
+'            url        URL
+'            title      ページ名
+'            port       接続先ポート    例：9222
+'            Host       接続先IP        例：127.0.0.1
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・必須引数以外、全て省略すると、type=page の先頭タブに繋ぎに行きます
+'            ・内部で「見つかるまでループ」と言ったことはしません。呼び出し側にて別途実装してください
+'            ・このメソッドで接続する場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい
+'***************************************************************************************************
+Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, Optional Title As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".AutoConnectPageCDP"
+
+
+    '1. リクエストパラメーターを設定する
+    Dim RequestParams As New WebRequest
+    With RequestParams
+        'GET
+        .Method = vbWebHttpGet
+
+        'レスポンスのデータ形式を指定
+        .ResponseFormat = vbWebFormatJson
+
+        'パスパラメーターを指定(ホスト名に続くURL)。これが、コンテキスト情報単位となります
+        .Resource = "/json/list"
+    End With
+
+    '2. リクエストして、結果を取得
+    Dim websocketTargets As Collection
+    Set websocketTargets = RequestHost(RequestParams, "http://" & Host & ":" & port).Data
+
+    '3. スコア方式で目的のタブを見つける
+    '「https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA/blob/main/Class%20Modules/CDPBrowser.cls#L667」のロジックを流用します
+    Dim Obj
+    Dim bestScore As Long, score As Long
+    Dim candidateTabId  As String, tabId  As String, tabfound As Boolean
+    For Each Obj In websocketTargets
+        '3-1. タブの種類があってるか？
+        If Obj("type") = "page" Then
+            '3-2. 現スコアをリセット
+            score = -1
+
+            '3-3. 入力した引数に応じた確認
+            Select Case True
+                '第一優先：タブ名
+                Case StrPtr(Title)
+                    If Obj("title") = Title Then
+                        score = 100
+                    ElseIf InStr(Obj("title"), Title) Then
+                        score = 50
+                    Else
+                        printMsg WARN_, "with name containing """ & Title & """", FromProcedureName
+                    End If
+
+                '第二優先：URL
+                Case StrPtr(Url)
+                    '一致位置検査
+                    Dim StartPos As Long: StartPos = InStr(1, Obj("uri"), Url)
+
+                    '先頭一致
+                    If StartPos = 1 Then
+                        score = 90
+                    '部分一致
+                    ElseIf StartPos Then
+                        score = 40
+                    '一致せず
+                    Else
+                        printMsg WARN_, "with url containing """ & Url & """", FromProcedureName
+                    End If
+
+                '第三優先：直近の未接続タブ
+                Case Else
+                    score = 80
+            End Select
+
+            '3-4. 記録中のベストスコアを上回ったら更新
+            If score > bestScore Then
+                bestScore = score
+                candidateTabId = Obj("id")
+            End If
+        End If
+    Next
+
+    '4. 目的の物っぽいのがあったら見つけたとします
+    If bestScore >= 0 Then
+        tabfound = True
+        tabId = candidateTabId
+    End If
+
+    '5. Returns nothing if not found
+    'Nothing is preferred over throwing error
+    Dim info As String
+    If Not tabfound Then
+        info = IIf(LenB(Title), Title, IIf(LenB(Url), Url, "(no new tab found)"))
+        printMsg WARN_, "Unable to find the tab: " & info, FromProcedureName
+        Exit Function
+    Else
+        printMsg info_, "Found the tab with ID: " & tabId, FromProcedureName
+    End If
+
+    '6. 見つけたパラメーターで、接続
+    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, port, Host)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：事前に設定したパラメーターを元に、共通設定を施して、ws情報を取得するAPIアクセスを行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスオブジェクト - WebResponse    ここに結果が格納されます
+'* 引数　　：クラスオブジェクト - WebRequest     事前に設定したリクエストパラメーター一式
+'***************************************************************************************************
+Private Function RequestHost(RequestParams As WebRequest, EndPointURL As String) As WebResponse
+    '通信の設定
+    Dim EndPointAPI As New WebClient
+    With EndPointAPI
+        'ホスト名URL
+        .BaseUrl = EndPointURL
+
+        'タイムアウト設定(5s程度)
+        .TimeoutMS = 5000
+    End With
+
+    '事前設定と共通設定を使ってリクエストし、結果を返します
+    Set RequestHost = EndPointAPI.Execute(RequestParams)
+End Function
+
+
+
+'***************************************************************************************************
 '                            ■■■ 設定情報読み書き処理 ■■■
 '***************************************************************************************************
 '* 機能　　：接続情報をExcelテーブルに残します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName   利用者識別名称
+'            targetId   `Target.TargetInfo`の`targetId`
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String)
+Private Sub serialize(UserName As String, targetID As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
     '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
     Dim tmp As New Dictionary
@@ -947,11 +1087,11 @@ Private Sub serialize(UserName As String)
 
 
     '------------------ 2. タブ情報の記録準備 ------------------
-    '※一律空欄とし、必要なデータを`Dictionary`に詰める
+    '※基本空欄とし、必要なデータを`Dictionary`に詰める
     tmp.RemoveAll
     tmp.Add "BiDi-context", vbNullString
     tmp.Add "sessionID", vbNullString
-    tmp.Add "targetID", vbNullString
+    tmp.Add "targetID", targetID
 
     'Excelテーブルに、タブ情報欄を確保する
     Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "CDPCoreViaWebSocket.serialize") = tmp
