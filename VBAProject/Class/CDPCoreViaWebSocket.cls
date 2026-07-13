@@ -1036,6 +1036,46 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
 End Function
 
 '***************************************************************************************************
+'* 機能　　：「/json/version」へアクセスして、ブラウザ接続のWebSocket接続まで行います
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：接続成功可否
+'* 引数    ：UserName   利用者識別名称
+'            port       接続先ポート    例：9222
+'            Host       接続先IP        例：127.0.0.1
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
+'***************************************************************************************************
+Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+    '1. リクエストパラメーターを設定する
+    Dim RequestParams As New WebRequest
+    With RequestParams
+        'GET
+        .Method = vbWebHttpGet
+
+        'レスポンスのデータ形式を指定
+        .ResponseFormat = vbWebFormatJson
+
+        'パスパラメーターを指定(ホスト名に続くURL)。これが、ブラウザ情報となります
+        .Resource = "/json/version"
+    End With
+
+    '2. リクエストして、`webSocketDebuggerUrl`を取得
+    Dim webSocketDebuggerUrl As String
+    webSocketDebuggerUrl = RequestHost(RequestParams, "http://" & Host & ":" & port).Data("webSocketDebuggerUrl")
+
+    '3. 末尾の"/"の位置を探索
+    Dim StartPos As Long
+    StartPos = InStrRev(webSocketDebuggerUrl, "/")
+
+    '4. うまいぐあいに、接続パラメーターを取り出す
+    Dim browserID As String
+    browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
+
+    '5. そのパラメーターで接続
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID)
+End Function
+
+'***************************************************************************************************
 '* 機能　　：事前に設定したパラメーターを元に、共通設定を施して、ws情報を取得するAPIアクセスを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスオブジェクト - WebResponse    ここに結果が格納されます
