@@ -926,7 +926,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                                 ■■■ 接続アシスト ■■■
+'                                 ■■■ 新規接続アシスト ■■■
 '***************************************************************************************************
 '* 機能　　：「/json/list」へアクセスして、利用可能なすべてのウェブソケットターゲットのリストのうち、引数に基づいた`Page`接続のWebSocket接続まで行います
 '---------------------------------------------------------------------------------------------------
@@ -959,21 +959,34 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
     End With
 
     '2. リクエストして、結果を取得
-    Dim websocketTargets As Collection
-    Set websocketTargets = RequestHost(RequestParams, "http://" & Host & ":" & port).Data
+    Dim ResultRequest As WebResponse
+    Set ResultRequest = RequestHost(RequestParams, "http://" & Host & ":" & port)
 
-    '3. スコア方式で目的のタブを見つける
+    '3. ステータスチェック
+    Dim websocketTargets As Collection
+    With ResultRequest
+        If .StatusCode = vbWebStatusOk Then
+            '成功したら、タブ情報を取得
+            Set websocketTargets = .Data
+            printMsg info_, "Successfully retrieved tab information.", FromProcedureName
+        Else
+            '正常以外はエラーで停止
+            printMsg ERROR_, .StatusDescription & " - HttpStatus: " & .StatusCode, FromProcedureName, doRaiseError:=True
+        End If
+    End With
+
+    '4. スコア方式で目的のタブを見つける
     '「https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA/blob/main/Class%20Modules/CDPBrowser.cls#L667」のロジックを流用します
     Dim Obj
     Dim bestScore As Long, score As Long
     Dim candidateTabId  As String, tabId  As String, tabfound As Boolean
     For Each Obj In websocketTargets
-        '3-1. タブの種類があってるか？
+        '4-1. タブの種類があってるか？
         If Obj("type") = "page" Then
-            '3-2. 現スコアをリセット
+            '4-2. 現スコアをリセット
             score = -1
 
-            '3-3. 入力した引数に応じた確認
+            '4-3. 入力した引数に応じた確認
             Select Case True
                 '第一優先：タブ名
                 Case StrPtr(Title)
@@ -1006,7 +1019,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
                     score = 80
             End Select
 
-            '3-4. 記録中のベストスコアを上回ったら更新
+            '4-4. 記録中のベストスコアを上回ったら更新
             If score > bestScore Then
                 bestScore = score
                 candidateTabId = Obj("id")
@@ -1014,13 +1027,13 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         End If
     Next
 
-    '4. 目的の物っぽいのがあったら見つけたとします
+    '5. 目的の物っぽいのがあったら見つけたとします
     If bestScore >= 0 Then
         tabfound = True
         tabId = candidateTabId
     End If
 
-    '5. Returns nothing if not found
+    '6. Returns nothing if not found
     'Nothing is preferred over throwing error
     Dim info As String
     If Not tabfound Then
@@ -1031,7 +1044,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         printMsg info_, "Found the tab with ID: " & tabId, FromProcedureName
     End If
 
-    '6. 見つけたパラメーターで、接続
+    '7. 見つけたパラメーターで、接続
     AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, port, Host)
 End Function
 
