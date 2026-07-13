@@ -988,7 +988,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
                 '第二優先：URL
                 Case StrPtr(Url)
                     '一致位置検査
-                    Dim StartPos As Long: StartPos = InStr(1, Obj("uri"), Url)
+                    Dim StartPos As Long: StartPos = InStr(1, Obj("url"), Url)
 
                     '先頭一致
                     If StartPos = 1 Then
