@@ -818,7 +818,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 50
                         '一致せず
                         Else
-                            printMsg Debug_, "with name containing """ & tabName & """", FromProcedureName
+                            printMsg WARN_, "with name containing """ & tabName & """", FromProcedureName
                         End If
 
                     '第二優先：URL
@@ -836,7 +836,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 40
                         '一致せず
                         Else
-                            printMsg Debug_, "with url containing """ & Url & """", FromProcedureName
+                            printMsg WARN_, "with url containing """ & Url & """", FromProcedureName
                         End If
 
                     '第三優先：直近の未接続タブ
