@@ -945,24 +945,11 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
     Const FromProcedureName As String = ThisClassName & ".AutoConnectPageCDP"
 
 
-    '1. リクエストパラメーターを設定する
-    Dim RequestParams As New WebRequest
-    With RequestParams
-        'GET
-        .Method = vbWebHttpGet
-
-        'レスポンスのデータ形式を指定
-        .ResponseFormat = vbWebFormatJson
-
-        'パスパラメーターを指定(ホスト名に続くURL)。これが、コンテキスト情報単位となります
-        .Resource = "/json/list"
-    End With
-
-    '2. リクエストして、結果を取得
+    '1. タブ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
-    Set ResultRequest = RequestHost(RequestParams, "http://" & Host & ":" & port)
+    Set ResultRequest = checkDebugWs(True, Host, port)
 
-    '3. ステータスチェック
+    '2. ステータスチェック
     Dim websocketTargets As Collection
     With ResultRequest
         If .StatusCode = vbWebStatusOk Then
@@ -975,18 +962,18 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         End If
     End With
 
-    '4. スコア方式で目的のタブを見つける
+    '3. スコア方式で目的のタブを見つける
     '「https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA/blob/main/Class%20Modules/CDPBrowser.cls#L667」のロジックを流用します
     Dim Obj
     Dim bestScore As Long, score As Long
     Dim candidateTabId  As String, tabId  As String, tabfound As Boolean
     For Each Obj In websocketTargets
-        '4-1. タブの種類があってるか？
+        '3-1. タブの種類があってるか？
         If Obj("type") = "page" Then
-            '4-2. 現スコアをリセット
+            '3-2. 現スコアをリセット
             score = -1
 
-            '4-3. 入力した引数に応じた確認
+            '3-3. 入力した引数に応じた確認
             Select Case True
                 '第一優先：タブ名
                 Case StrPtr(Title)
@@ -1019,7 +1006,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
                     score = 80
             End Select
 
-            '4-4. 記録中のベストスコアを上回ったら更新
+            '3-4. 記録中のベストスコアを上回ったら更新
             If score > bestScore Then
                 bestScore = score
                 candidateTabId = Obj("id")
@@ -1027,13 +1014,13 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         End If
     Next
 
-    '5. 目的の物っぽいのがあったら見つけたとします
+    '4. 目的の物っぽいのがあったら見つけたとします
     If bestScore >= 0 Then
         tabfound = True
         tabId = candidateTabId
     End If
 
-    '6. Returns nothing if not found
+    '5. Returns nothing if not found
     'Nothing is preferred over throwing error
     Dim info As String
     If Not tabfound Then
@@ -1044,7 +1031,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         printMsg info_, "Found the tab with ID: " & tabId, FromProcedureName
     End If
 
-    '7. 見つけたパラメーターで、接続
+    '6. 見つけたパラメーターで、接続
     AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, port, Host)
 End Function
 
@@ -1062,24 +1049,11 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long 
     Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
 
 
-    '1. リクエストパラメーターを設定する
-    Dim RequestParams As New WebRequest
-    With RequestParams
-        'GET
-        .Method = vbWebHttpGet
-
-        'レスポンスのデータ形式を指定
-        .ResponseFormat = vbWebFormatJson
-
-        'パスパラメーターを指定(ホスト名に続くURL)。これが、ブラウザ情報となります
-        .Resource = "/json/version"
-    End With
-
-    '2. リクエストして、結果を取得
+    '1. ブラウザ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
-    Set ResultRequest = RequestHost(RequestParams, "http://" & Host & ":" & port)
+    Set ResultRequest = checkDebugWs(False, Host, port)
 
-    '3. ステータスチェック
+    '2. ステータスチェック
     With ResultRequest
         If .StatusCode = vbWebStatusOk Then
             '成功したら、`webSocketDebuggerUrl`を取得
@@ -1092,23 +1066,20 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long 
         End If
     End With
 
-    '4. 末尾の"/"の位置を探索
+    '3. 末尾の"/"の位置を探索
     Dim StartPos As Long
     StartPos = InStrRev(webSocketDebuggerUrl, "/")
 
-    '5. うまいぐあいに、接続パラメーターを取り出す
+    '4. うまいぐあいに、接続パラメーターを取り出す
     Dim browserID As String
     browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
 
-    '6. そのパラメーターで接続
+    '5. そのパラメーターで接続
     AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID)
 End Function
 
 '***************************************************************************************************
 '* 機能　　：事前に設定したパラメーターを元に、共通設定を施して、ws情報を取得するAPIアクセスを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスオブジェクト - WebResponse    ここに結果が格納されます
-'* 引数　　：クラスオブジェクト - WebRequest     事前に設定したリクエストパラメーター一式
 '***************************************************************************************************
 Private Function RequestHost(RequestParams As WebRequest, EndPointURL As String) As WebResponse
     '通信の設定
@@ -1123,6 +1094,27 @@ Private Function RequestHost(RequestParams As WebRequest, EndPointURL As String)
 
     '事前設定と共通設定を使ってリクエストし、結果を返します
     Set RequestHost = EndPointAPI.Execute(RequestParams)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：タブ or ブラウザ単位でのws情報を取得する際のリクエストパラメータを生成し、リクエストします
+'***************************************************************************************************
+Private Function checkDebugWs(TabMode As Boolean, Host As String, port As Long) As WebResponse
+    '1. リクエストパラメーターを設定する
+    Dim RequestParams As New WebRequest
+    With RequestParams
+        'GET
+        .Method = vbWebHttpGet
+
+        'レスポンスのデータ形式を指定
+        .ResponseFormat = vbWebFormatJson
+
+        'パスパラメーターを指定
+        .Resource = "/json/" & IIf(TabMode, "list", "version")
+    End With
+
+    '2. リクエストして、結果を返却
+    Set checkDebugWs = RequestHost(RequestParams, "http://" & Host & ":" & port)
 End Function
 
 '***************************************************************************************************
