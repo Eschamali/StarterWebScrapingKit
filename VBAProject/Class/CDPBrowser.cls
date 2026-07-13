@@ -864,7 +864,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         Loop
 
         '5. 目的の物っぽいのがあったら見つけたとします
-        If bestScore >= 0 Then
+        If bestScore > 0 Then
             tabfound = True
             tabId = candidateTabId
         End If

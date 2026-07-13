@@ -1015,7 +1015,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
     Next
 
     '4. 目的の物っぽいのがあったら見つけたとします
-    If bestScore >= 0 Then
+    If bestScore > 0 Then
         tabfound = True
         tabId = candidateTabId
     End If
