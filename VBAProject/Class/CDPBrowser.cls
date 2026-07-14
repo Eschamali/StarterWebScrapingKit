@@ -708,7 +708,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
-    If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
+    If LenB(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
     '2. 実行
