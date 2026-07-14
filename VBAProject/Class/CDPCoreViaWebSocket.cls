@@ -494,9 +494,9 @@ Private Function BuildFrame(Payload() As Byte, opcode As Byte) As Byte()
         Dim tempLen As Double
         tempLen = payloadLen
         frame(2) = 0: frame(3) = 0: frame(4) = 0: frame(5) = 0 ' 上位4バイトは0
-        frame(6) = CByte(Int(tempLen / 16777216) And &HFF)
-        frame(7) = CByte(Int(tempLen / 65536) And &HFF)
-        frame(8) = CByte(Int(tempLen / 256) And &HFF)
+        frame(6) = CByte(Int(tempLen / 2 ^ 24) And &HFF)
+        frame(7) = CByte(Int(tempLen / 2 ^ 16) And &HFF)
+        frame(8) = CByte(Int(tempLen / 2 ^ 8) And &HFF)
         frame(9) = CByte(tempLen And &HFF)
         Offset = 10
     End If
