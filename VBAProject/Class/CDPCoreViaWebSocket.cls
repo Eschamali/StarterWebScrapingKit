@@ -845,11 +845,16 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             If extLen64(0) <> 0 Or extLen64(1) <> 0 Or extLen64(2) <> 0 Or extLen64(3) <> 0 Or tempLen > 2147483647# Then
                 Call DisconnectCDP
                 printMsg ERROR_, "Payload size is too large to handle in VBA (exceeds 2GB). Disconnected", FromProcedureName, doRaiseError:=True
-                Exit Function
             End If
 
             'これからの受信サイズを取得
             .PayloadLength = CLng(tempLen)
+
+        Else
+            '念のため、用意
+            Call DisconnectCDP
+            printMsg ERROR_, "An invalid `Payload len` has been detected: " & lenIndicator, FromProcedureName, doRaiseError:=True
+
         End If
     End With
 
