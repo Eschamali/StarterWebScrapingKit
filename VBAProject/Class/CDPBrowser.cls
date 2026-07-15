@@ -938,16 +938,16 @@ Public Sub printTargetInfos()
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "targetInfos Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "targetInfos Information", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
 
     With targets
         NodeToken = .FirstChildToken  ' 配列の先頭トークン
         Do While NodeToken > 0
             TabCount = TabCount + 1
 
-            printMsg Debug_, "#" & TabCount & vbTab & _
+            printMsg info_, "#" & TabCount & vbTab & _
                         "type: " & .TokenString(NodeToken, "type") & " | " & _
                         "attached: " & .TokenString(NodeToken, "attached") & " | " & _
                         "title: " & .TokenString(NodeToken, "title") & " | " & _
