@@ -2081,7 +2081,7 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    ExecuteCDP IIf(enable, "Page.enable", "Page.disable")
+    ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
 
 End Sub
 
