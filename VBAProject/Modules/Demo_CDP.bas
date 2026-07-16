@@ -964,7 +964,7 @@ End Sub
 '* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：タブ/ブラウザ/今目の前のブラウザ の3種のDemoをご用意しております
-'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます。
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
 '            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
 Sub AutoConnectTab()
@@ -1071,7 +1071,6 @@ Sub OpenExcelWebView2()
 
     '6. 新しいタブに接続
     Dim t As CDPContext
-    '※この時、必ず`setMain:=True`とすること。
     Set t = b.newTab(setMain:=True)
 
     '7. ページ遷移
@@ -1114,7 +1113,7 @@ Function OneDrivePathToLocalPath(Path As String, Optional UsePrivateOneDrive As 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：WebView2のデバッグポートを開く際に使います
+'* 機能　　：Excel内WebView2のデバッグポートを開く際に使います
 '***************************************************************************************************
 Sub WebView2のクイックデバッグ切り替え(Optional port As Long = 9222)
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
