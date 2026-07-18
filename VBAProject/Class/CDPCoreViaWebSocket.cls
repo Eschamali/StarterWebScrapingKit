@@ -1042,20 +1042,21 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
     End If
 
     '6. 見つけたパラメーターで、接続
-    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, port, Host)
+    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, , , port, Host)
 End Function
 
 '***************************************************************************************************
 '* 機能　　：「/json/version」へアクセスして、ブラウザ接続のWebSocket接続まで行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName   利用者識別名称
-'            port       接続先ポート    例：9222
-'            Host       接続先IP        例：127.0.0.1
+'* 引数    ：UserName       利用者識別名称
+'            ReuseContext   Excelテーブルにあるメインタブ情報を流用します
+'            port           接続先ポート    例：9222
+'            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
-Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext As Boolean, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
 
 
@@ -1085,7 +1086,7 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long 
     browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
 
     '5. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID)
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , , D_port, D_host)
 End Function
 
 '***************************************************************************************************
@@ -1131,12 +1132,14 @@ End Function
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
+'* 引数    ：UserName       利用者識別名称
+'            ReuseContext   Excelテーブルにあるメインタブ情報を流用します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
+Public Function AutoConnectDevToolsActivePort(UserName As String, Optional ReuseContext As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
@@ -1168,7 +1171,7 @@ Public Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
         tmp = Split(tmp, vbLf)
 
         '7. 接続
-        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , CLng(tmp(0)))
+        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , , , CLng(tmp(0)))
     Else
         'エラーで終了
         printMsg ERROR_, "Connection information is missing." & vbCrLf & "> " & FilePath_DevToolsActivePort, FromProcedureName, doRaiseError:=True
