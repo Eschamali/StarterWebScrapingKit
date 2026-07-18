@@ -1977,6 +1977,7 @@ Public Sub notify(msg)
 
    'Make sure backslash if any is escaped
     msg = Replace(msg, "\", "\\")
+    msg = Replace(msg, "'", "\'")
 
     jsEval "function showStatus(msg, duration = 10000) {" & _
                 "let c = document.getElementById('statusContainer');" & _
