@@ -497,6 +497,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
 '            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
 '***************************************************************************************************
 Sub SetupWebSocketMode()
     '1. 設定セルから、ユーザ名を取得
@@ -505,13 +506,14 @@ Sub SetupWebSocketMode()
 
     '2. 指定のWebSocketForBiDiへ接続
     Dim WebSocketBiDi As New CDPCoreViaWebSocket
-    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName)
+    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName)          '基本はこっち
+'    Debug.Print WebSocketBiDi.AutoConnectDevToolsActivePort(UserName) '今、目の前のブラウザを制御する場合
 
     '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
     Dim m As New WebDriverBiDiMode
     If Not m.reattach(UserName, WebSocketMode:=WebSocketBiDi) Then Debug.Print "Failed to reattach. ブラウザの起動が必要です": Exit Sub
 
-    '4. 未接続のタブに接続
+    '4. 新しいタブに接続
     Dim c As WebDriverBiDiContext
     Set c = m.newTab(setMain:=True)
 
