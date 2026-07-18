@@ -11,5 +11,6 @@ git subtree pull --prefix=Original/VBA-FastJSON https://github.com/cristianbuse/
 git subtree pull --prefix=Original/vbacollective-json https://github.com/vbacollective/json.git main
 
 REM asset“à‚ÌXV
-curl https://cdn.jsdelivr.net/npm/chromium-bidi@latest/lib/iife/mapperTab.js > assset\mapperTab.js
+REM curl https://cdn.jsdelivr.net/npm/chromium-bidi@latest/lib/iife/mapperTab.js > assset\mapperTab.js	16.0.1‚Ü‚Å
+curl https://cdn.jsdelivr.net/npm/chromium-bidi@latest/out/Default/gen/src/mapperTab.js > assset\mapperTab.js
 curl https://data.jsdelivr.com/v1/package/npm/chromium-bidi

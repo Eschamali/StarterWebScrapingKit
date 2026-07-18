@@ -26,6 +26,8 @@ Attribute VB_Name = "Demo_CDP"
 Option Explicit
 Option Private Module
 
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'プロセス内環境変数用API
+
 
 
 '***************************************************************************************************
@@ -957,6 +959,131 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ WebSocket経由版Demo ■■■
+'***************************************************************************************************
+'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：タブ/ブラウザ/今目の前のブラウザ の3種のDemoをご用意しております
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'***************************************************************************************************
+Sub AutoConnectTab()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectTab")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. ページ遷移
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '5. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+Sub AutoConnectBrowser()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectBrowser")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@direwolf8958/"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+Sub AutoConnectDevToolsActivePort()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.AutoConnectDevToolsActivePort")
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このExcelで起動中のWebView2を乗っ取って、新規タブからスクレイピング操作を開始します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・Excelの一部の操作はWebView2が動いてます。この仕様を利用して、デバッグポートを開けてそこから制御を行います
+'            ・ここからの制御の場合、「RemoteDebuggingAllowed」のポリシー規制をスルー出来るようです
+'
+'* 注意事項：・VBEからの起動では失敗します。ワークシート上にある図形に「マクロの登録」でこのプロシージャを登録して、その図形から起動しないと機能しません
+'            ・裏技チックのため、いつか使えなくなるかもしれません
+'            ・起動に失敗する場合は、該当のWebView2プロセスをKillして下さい
+'            ・既存タブではURL遷移に制限があるため、新しいタブを生成しそこからスクレイピングを始めれば今まで通りのスクレイピングが可能です
+'***************************************************************************************************
+Sub OpenExcelWebView2()
+    '1. デバッグ用のポートをOpen
+    WebView2のクイックデバッグ切り替え
+
+    '2. Helpを開いて、疑似的にWebView2を始動させる
+    CommandBars.ExecuteMso "Help"
+
+    '3. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.OpenExcelWebView2")
+
+    '4. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '6. 新しいタブに接続
+    Dim t As CDPContext
+    Set t = b.newTab(setMain:=True)
+
+    '7. ページ遷移
+    t.navigate "https://www.youtube.com/@humboldtpenguin2619"
+
+    '8. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+    WebView2のクイックデバッグ切り替え 0
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
@@ -984,3 +1111,19 @@ Function OneDrivePathToLocalPath(Path As String, Optional UsePrivateOneDrive As 
         OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：Excel内WebView2のデバッグポートを開く際に使います
+'***************************************************************************************************
+Sub WebView2のクイックデバッグ切り替え(Optional port As Long = 9222)
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If port > 0 Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
+        Debug.Print "WebView2のデバッグポートを開けました: " & port
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        Debug.Print "WebView2のデバッグポートを閉じました"
+    End If
+End Sub

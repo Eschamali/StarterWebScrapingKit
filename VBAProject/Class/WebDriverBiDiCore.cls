@@ -227,6 +227,7 @@ End Sub
 '* 機能　　：Excelに記録してるタブ情報を基に、既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebSocketMode              WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '* 返値    ：再始動したか論理値 `True` ：`BiDi-CDP Mapper`を再始動しました。`WebDriverBiDiMode.cls`側で、`session.new`する必要があります
 '                               `False`：既存の`BiDi-CDP Mapper`を流用できたので、`session.new`は不要です
 '---------------------------------------------------------------------------------------------------
@@ -234,7 +235,7 @@ End Sub
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
 '***************************************************************************************************
-Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
+Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
@@ -243,7 +244,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String) As Boolean
 
     '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
     Dim mapperTabConnection As Boolean
-    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(userProfile)
+    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(userProfile, WebSocketMode:=WebSocketMode)
 
     '3. 各種オブジェクトを継承
     Set m_CDPCore = WebDriverBiDi_mapperTab.InheritanceCDPCore
@@ -594,6 +595,33 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`https://www.jsdelivr.com/`というオープンソースファイル向けの無料のCDN(コンテンツ配信ネットワーク)を利用して、
 '            `chromium-bidi`の`mapperTab.js`を更新させます
+'
+'* 注意事項：chromium-bidi v17 以降は、ビルドシステムが GN (Generate Ninja) に移行しました。
+'
+'            その影響で､npm に公開されるファイル構成が大きく変更され､
+'            従来の「lib/iife/mapperTab.js」ではなく、
+'            GN が生成するビルド成果物のディレクトリ
+'                out/Default/gen/src/
+'            配下に mapperTab.js が配置されるようになりました。
+'
+'            ＜背景＞
+'            ・v16 までは rollup ベースの IIFE ビルドが npm にそのまま含まれていた
+'            ・v17 で GN ベースのビルドに統合され、出力ディレクトリが再編成された
+'            ・そのため jsDelivr 経由で取得するパスも変更が必要になった
+'
+'            ＜注意＞
+'            ・v16 以前と v17 以降で mapperTab.js の場所が異なるため、
+'            　必要に応じて URL を切り替えてください。
+'            ・将来のバージョンでさらに構成が変わる可能性があります。
+'            　（GN 移行期のため、ディレクトリ構造が安定していない可能性あり）
+'
+'            ＜旧構成（v16 以前）＞
+'               npm/chromium-bidi@{Version}/lib/iife/mapperTab.js
+'
+'            ＜新構成（v17 以降）＞
+'               npm/chromium-bidi@{Version}/out/Default/gen/src/mapperTab.js
+'
+'            この変更はライブラリの不具合ではなく､公式ビルドシステムの移行による仕様変更です｡
 '***************************************************************************************************
 Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
     'リクエストパラメーターを設定する
@@ -606,7 +634,8 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
         .ResponseFormat = vbWebFormatPlainText
 
         '`chromium-bidi`のnpmパスパラメーターを指定(ホスト名に続くURL)
-        .Resource = "npm/" & npmName & "@{Version}/lib/iife/" & MapperJSName
+'        .Resource = "npm/" & npmName & "@{Version}/lib/iife/" & MapperJSName   '※v16.0.1以下を使いたい場合はこちらをご利用ください。文字列同士では数値の大小の比較ができないため、ユーザー側の明示的な切り替えが必要です。
+        .Resource = "npm/" & npmName & "@{Version}/out/Default/gen/src/" & MapperJSName
         .AddUrlSegment "Version", Version
     End With
 

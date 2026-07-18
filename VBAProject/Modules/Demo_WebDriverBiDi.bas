@@ -491,6 +491,42 @@ End Sub
 
 
 '***************************************************************************************************
+'                               ■■■ WebSocket経由版Demo ■■■
+'***************************************************************************************************
+'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
+'***************************************************************************************************
+Sub SetupWebSocketMode()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.SetupWebSocketMode")
+
+    '2. 指定のWebSocketForBiDiへ接続
+    Dim WebSocketBiDi As New CDPCoreViaWebSocket
+    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName, True)         '基本はこっち。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
+'    Debug.Print WebSocketBiDi.AutoConnectDevToolsActivePort(UserName,True) '今、目の前のブラウザを制御する場合。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim m As New WebDriverBiDiMode
+    If Not m.reattach(UserName, WebSocketMode:=WebSocketBiDi) Then Debug.Print "Failed to reattach. ブラウザの起動が必要です": Exit Sub
+
+    '4. 新しいタブに接続
+    Dim c As WebDriverBiDiContext
+    Set c = m.newTab(setMain:=True)
+
+    '5．別ページに遷移して終了
+    c.navigate "https://www.youtube.com/@islandfox6864"
+
+    '6. WebSocketから切断
+    WebSocketBiDi.DisconnectCDP
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ アップデートDemo ■■■
 '***************************************************************************************************
 '* 機能　　：ChromiumをBiDi制御する際の核となる`mapperTab.js`の更新Demoです

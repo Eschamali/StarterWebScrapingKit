@@ -101,14 +101,11 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP（Chrome DevTools Protocol）を WebSocket 経由で叩くデモ
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：
-'*   2_1 初期化 / 2_2 Runtime.evaluate / 2_3 受信 / 2_4 後始末
-'*   2_5 Network.getAllCookies（長文レスポンス）→ 続けて 2_3 で受信
-'*   2_6 Page.navigate（ブラウザが遷移する）
-'*   2_7 Page.captureScreenshot（スクリーンショット。忘れがちなコマンドはこれ）
-'*   2_8 シナリオ：遷移 → 少し待機 → スクショ（中身は 2_3 で受信）
+'* 詳細説明：1. `--remote-debugging-Port=9222`付きでChromium起動か、「edge://inspect/#remote-debugging」で「Allow remote debugging for this browser instance」を有効化
+'            2. 「http://127.0.0.1:9222/json/version」にアクセスか、Environ("UserProfile") & "\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort"で、接続先WebSocketURLを特定
+'            3. このプロシージャを実行。ブラウザから案内が出たら「許可」を選択
 '***************************************************************************************************
-Sub WebSocketDemoASync_初期化_ws()
+Sub WebSocketModeForCDP()
     Const CDP_HOST As String = "127.0.0.1"
     Const CDP_PORT As Long = 9222
     Const CDP_TARGET_PATH As String = "/devtools/browser/f7a90a36-75b5-4fb7-90dc-c8b871f6cbe2"
@@ -132,6 +129,22 @@ Sub WebSocketDemoASync_初期化_ws()
     Else
         Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
+
+    '設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketModeForCDP")
+
+    'データ枠のみ確保 ※Pipe版ロジックとの互換性を保つため
+    Dim hoge1 As New CDPCore: hoge1.serialize UserName
+    '1. 必要なデータを`Dictionary`に詰める
+    Dim BrowserInfo As New Dictionary
+    BrowserInfo.Add "BiDi-context", vbNullString
+    BrowserInfo.Add "sessionID", vbNullString
+    BrowserInfo.Add "targetID", vbNullString
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "Demo_WebSocket.WebSocketModeForCDP") = BrowserInfo
+
 End Sub
 
 
@@ -320,26 +333,32 @@ End Sub
 
 
 '***************************************************************************************************
-'                   ■■■ chrome devtools Protocol 用の簡易コマンド ※送信のみ ■■■
+'                           ■■■ WebSocket経由でのCDP制御Demo ■■■
 '***************************************************************************************************
 Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
-    Dim ResultCode As Long
-    Dim Payload As String
-
     If wsForChromiumobj Is Nothing Then
-        Debug.Print "先に WebSocketDemoASync_初期化_ws を実行してください。"
+        Debug.Print "先に WebSocketModeForCDP を実行してください。"
         Exit Sub
     End If
 
-    SendCount = SendCount + 1
-    Payload = "{""id"":" & CStr(SendCount) & ",""method"":""Runtime.evaluate"",""params"":{""expression"":""document.title"",""returnByValue"":true}}"
 
-    ResultCode = wsForChromiumobj.SendAsyncMessageAsUTF8(Payload)
-    If ResultCode Then
-        Debug.Print "CDP送信エラー。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
-    Else
-        Debug.Print "CDP送信OK(id=" & SendCount & ", Runtime.evaluate) → 別途受信Demoプロシージャを実行してください"
-    End If
+    '設定セルから、ユーザ名を取得
+    Dim c As New CDPBrowser
+    Dim r As CDPContext
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketDemoASync_CDP送信_PageNavigate")
+
+    '1. Excelに記録されてるパイプハンドル情報の生存確認
+    If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '2. 未接続のタブに接続
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Set r = c.getTab(setMain:=True)
+'    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '3．別ページに遷移して終了
+    r.navigate "https://kemono-friends.jp/"
+
 End Sub
 
 '* Network.getAllCookies → クッキー一覧の長い JSON（長文レスポンスの負荷テスト向け）
