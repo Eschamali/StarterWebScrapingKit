@@ -251,17 +251,19 @@ End Property
 '* 機能　　：`WebSocket`方式としてCDP制御できる準備を行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName   利用者識別名称
-'            targetId   `Target.TargetInfo`の`targetId`
-'            Path       接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
-'            port       接続先ポート    例：9222
-'            Host       接続先IP        例：127.0.0.1
+'* 引数    ：UserName       利用者識別名称
+'            Path           接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
+'            targetId       `Target.TargetInfo`の`targetId` ※既存のタブ情報を流用する場合は指定すること
+'            sessionID      `targetId`に対する`sessionID`   ※既存のタブ情報を流用する場合は指定すること
+'            BiDiContext    WebDriverBiDiでのメインタブ情報 ※既存のタブ情報を流用する場合は指定すること
+'            port           接続先ポート    例：9222
+'            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：CDP準拠の引数構造です。基本は、`Path`のみで十分です
 '* 注意事項：・既存の接続がある場合は、切断されます
 '            ・`targetId`を指定した場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい。省略時は、`CDPBrowser.cls`から
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional sessionID As String, Optional BiDiContext As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -297,7 +299,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
     '9. 設定情報を記録
-    serialize UserName, targetID
+    serialize UserName, targetID, sessionID, BiDiContext
 
     '10. 各種ステータスを更新
     m_IsConnected = True
@@ -1180,14 +1182,16 @@ End Function
 '***************************************************************************************************
 '* 機能　　：接続情報をExcelテーブルに残します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   利用者識別名称
-'            targetId   `Target.TargetInfo`の`targetId`
+'* 引数　　：UserName       利用者識別名称
+'            targetId       `Target.TargetInfo`の`targetId`
+'            sessionID      `targetId`に対する`sessionID`
+'            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String, targetID As String)
+Private Sub serialize(UserName As String, targetID As String, sessionID As String, BiDiContext As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
     '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
     Dim tmp As New Dictionary
@@ -1204,10 +1208,9 @@ Private Sub serialize(UserName As String, targetID As String)
 
 
     '------------------ 2. タブ情報の記録準備 ------------------
-    '※基本空欄とし、必要なデータを`Dictionary`に詰める
     tmp.RemoveAll
-    tmp.Add "BiDi-context", vbNullString
-    tmp.Add "sessionID", vbNullString
+    tmp.Add "BiDi-context", BiDiContext
+    tmp.Add "sessionID", sessionID
     tmp.Add "targetID", targetID
 
     'Excelテーブルに、タブ情報欄を確保する
