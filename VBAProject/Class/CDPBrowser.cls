@@ -708,7 +708,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
-    If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
+    If LenB(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
     '2. 実行
@@ -818,7 +818,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 50
                         '一致せず
                         Else
-                            printMsg Debug_, "with name containing """ & tabName & """", FromProcedureName
+                            printMsg WARN_, "with name containing """ & tabName & """", FromProcedureName
                         End If
 
                     '第二優先：URL
@@ -836,7 +836,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 40
                         '一致せず
                         Else
-                            printMsg Debug_, "with url containing """ & Url & """", FromProcedureName
+                            printMsg WARN_, "with url containing """ & Url & """", FromProcedureName
                         End If
 
                     '第三優先：直近の未接続タブ
@@ -864,7 +864,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         Loop
 
         '5. 目的の物っぽいのがあったら見つけたとします
-        If bestScore >= 0 Then
+        If bestScore > 0 Then
             tabfound = True
             tabId = candidateTabId
         End If
@@ -938,16 +938,16 @@ Public Sub printTargetInfos()
     Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "targetInfos Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "targetInfos Information", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
 
     With targets
         NodeToken = .FirstChildToken  ' 配列の先頭トークン
         Do While NodeToken > 0
             TabCount = TabCount + 1
 
-            printMsg Debug_, "#" & TabCount & vbTab & _
+            printMsg info_, "#" & TabCount & vbTab & _
                         "type: " & .TokenString(NodeToken, "type") & " | " & _
                         "attached: " & .TokenString(NodeToken, "attached") & " | " & _
                         "title: " & .TokenString(NodeToken, "title") & " | " & _

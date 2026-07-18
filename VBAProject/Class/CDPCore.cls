@@ -454,9 +454,6 @@ End Sub
 '* 引数　　：UserName   読み取る識別名称
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
-    'WebSocketModeの場合は、仮で`True`として、即抜け
-    If Not viaWebSocket Is Nothing Then deserialize = True: Exit Function
-
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.deserialize")

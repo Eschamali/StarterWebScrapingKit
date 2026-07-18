@@ -1977,6 +1977,7 @@ Public Sub notify(msg)
 
    'Make sure backslash if any is escaped
     msg = Replace(msg, "\", "\\")
+    msg = Replace(msg, "'", "\'")
 
     jsEval "function showStatus(msg, duration = 10000) {" & _
                 "let c = document.getElementById('statusContainer');" & _
@@ -2081,7 +2082,7 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    ExecuteCDP IIf(enable, "Page.enable", "Page.disable")
+    ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
 
 End Sub
 
@@ -2486,7 +2487,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
-    If StrPtr(brTab.sessionID) Then
+    If LenB(brTab.sessionID) Then
         printMsg info_, "A property was called that receives a new SessionID (" & newSessionID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
