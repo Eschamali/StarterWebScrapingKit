@@ -506,8 +506,8 @@ Sub SetupWebSocketMode()
 
     '2. 指定のWebSocketForBiDiへ接続
     Dim WebSocketBiDi As New CDPCoreViaWebSocket
-    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName)          '基本はこっち
-'    Debug.Print WebSocketBiDi.AutoConnectDevToolsActivePort(UserName) '今、目の前のブラウザを制御する場合
+    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName, True)         '基本はこっち。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
+'    Debug.Print WebSocketBiDi.AutoConnectDevToolsActivePort(UserName,True) '今、目の前のブラウザを制御する場合。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
 
     '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
     Dim m As New WebDriverBiDiMode
