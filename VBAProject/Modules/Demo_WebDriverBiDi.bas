@@ -495,17 +495,17 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`WebSocket`という「後付け」特性上、接続を確立後、`reattach`に渡す方式をとってます。
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
 Sub SetupWebSocketMode()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.SetupWebSocketMode")
 
-    '2. 指定のWebSocketForCDPへ接続
+    '2. 指定のWebSocketForBiDiへ接続
     Dim WebSocketBiDi As New CDPCoreViaWebSocket
-    WebSocketBiDi.ConnectCDP UserName, "/devtools/browser"
-'    WebSocketBiDi.deserialize UserName
+    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName)
 
     '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
     Dim m As New WebDriverBiDiMode
