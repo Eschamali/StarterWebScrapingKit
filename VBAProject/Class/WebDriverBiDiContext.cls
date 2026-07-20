@@ -365,13 +365,14 @@ Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef Return
 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
-    Dim tmpType As String: tmpType = scriptRemoteValue.StringKey("type")
+    ' 格納型情報を取得
+    Dim ValueType   As String: ValueType = scriptRemoteValue.StringKey("type")
 
     '`script.Handle`があったらそれを優先に返します。
     '※type=object系で、`resultOwnership`:="root"時、ここを通ります
     If scriptRemoteValue.ExistsKey("handle") Then
         ReturnValue = scriptRemoteValue.StringKey("handle")
-        printMsg info_, "JS-Return type: " & tmpType, FromProcedureName
+        printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
         printMsg info_, "It is returned as script.Handle.", FromProcedureName
         printMsg Debug_, "handle: " & ReturnValue, FromProcedureName
 
@@ -382,13 +383,13 @@ Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef Return
     '------------------------ 2. JsonNodeの取得を試みる ------------------------
     '参考：https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue
     '以降は、`resultOwnership:="none"`でないと通りません
-    printMsg info_, "JS-Return type: " & tmpType, FromProcedureName
+    printMsg info_, "JS-Return type: " & ValueType, FromProcedureName
 
-    Select Case tmpType
+    Select Case ValueType
         Case "symbol", "function", "weakmap", "weakset", "generator", "error", "proxy", "promise", "typedarray", "arraybuffer"
             '`value`がないので、`Nothing`として返却
             Set ReturnValue = Nothing
-            printMsg WARN_, "`" & tmpType & "` cannot be returned as a `value`.", FromProcedureName
+            printMsg WARN_, "`" & ValueType & "` cannot be returned as a `value`.", FromProcedureName
 
         Case "array", "object", "map", "set", "nodelist", "htmlcollection", "window", "regexp", "node"
             'Json文字列として生成されるので、Node形式のObjectとして返却
