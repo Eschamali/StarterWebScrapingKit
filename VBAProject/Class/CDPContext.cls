@@ -2059,7 +2059,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '1. Verify double slash syntax
     'People normally get this wrong when using XPath
-    strXPath = Replace(strXPath, "\", "/")
+    If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
     '2. Xpath方式で検索実行
     Dim SearchJS As String, resultSearch As Variant
