@@ -41,6 +41,9 @@ Private contextDestroyed As Boolean       'お亡くなりサイン
 Private LogID  As String
 
 
+Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
+
+
 
 '***************************************************************************************************
 '                              ■■■ ブラウザ起動関連処理 ■■■
@@ -197,8 +200,267 @@ End Function
 '***************************************************************************************************
 '                              ■■■ JavaScript コア機能 ■■■
 '***************************************************************************************************
-'                                           工事中...
-    
+Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional RealmTarget As String, Optional IFEXCEPTION As Variant, _
+                       Optional objectArguments As Collection, _
+                       Optional Ownership As Boolean, _
+                       Optional awaitPromise As Boolean, _
+                       Optional userActivation As Boolean, _
+                       Optional serializationOptions As Dictionary, _
+                       Optional RunAsyncBiDi As Boolean, _
+                       Optional StopException As Boolean, _
+                       Optional StopBiDiError As Boolean = True) As Variant
+    Const FromProcedureName As String = ThisClassName & ".jsEval"
+
+    Dim scriptEvaluateResult As BiDiCDPJson
+    Dim BiDiCommand  As New Scripting.Dictionary
+    Dim BiDiparams   As New Scripting.Dictionary, scriptTarget As New Dictionary
+
+
+    'Construct message for sending ----------------------------------------------------------
+    '`callFunction`か`evaluate`を決める判定に入ります
+    Dim UseJsMethod As String
+
+    ' 【パターン1】特定の要素を操作する場合
+    Dim RemoteReference As New Dictionary:
+    If StrPtr(scriptHandle) Then
+        UseJsMethod = "script.callFunction"
+
+        '必要なパラメーターをセット
+        BiDiparams.Add "functionDeclaration", JavaScriptStr
+        If Not objectArguments Is Nothing Then BiDiparams.Add "arguments", objectArguments   '引数があったら適用しておく
+        RemoteReference.Add "handle", scriptHandle: BiDiparams.Add "this", RemoteReference
+
+    ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
+    ElseIf Not objectArguments Is Nothing Then
+        UseJsMethod = "script.callFunction"
+
+        '必要なパラメーターをセット
+        BiDiparams.Add "functionDeclaration", JavaScriptStr
+        BiDiparams.Add "arguments", objectArguments
+
+    ' 【パターン3】引数も要素指定もない、ただのコード実行
+    Else
+        ' 最もシンプルな evaluate を使う
+        UseJsMethod = "script.evaluate"
+
+        '必要なパラメーターをセット
+        BiDiparams.Add "expression", JavaScriptStr
+    End If
+
+    '以降は、共通設定を施す
+    If StrPtr(RealmTarget) Then scriptTarget.Add "realm", RealmTarget Else scriptTarget.Add "context", InfoList.context
+    BiDiparams.Add "target", scriptTarget
+    BiDiparams.Add "awaitPromise", awaitPromise
+
+    '文字数節約により、IF文をかます
+    If Ownership Then BiDiparams.Add "resultOwnership", "root"
+    If Not serializationOptions Is Nothing Then BiDiparams.Add "serializationOptions", serializationOptions
+    If userActivation Then BiDiparams.Add "userActivation", userActivation
+    '----------------------------------------------------------------------------------------
+
+
+    'Send and check BiDiResult -------------------------------------------------------------------------------------------
+    '引数に応じて、BiDi自体を同期/非同期で実行し、分岐します
+    If RunAsyncBiDi Then
+        '非同期の場合は、実行IDを返して、即抜け
+        jsEval = m_BiDiMode.ExecuteBiDiAsync(UseJsMethod, BiDiparams, StopBiDiError)
+        Exit Function
+    Else
+        'BiDiエラー判定
+        Set scriptEvaluateResult = m_BiDiMode.ExecuteBiDi(UseJsMethod, BiDiparams, StopBiDiError)
+        If scriptEvaluateResult Is Nothing Then
+            '「機能しないコマンド」という意味合いでエラー返却
+            jsEval = CVErr(xlErrNA)
+            Exit Function
+        End If
+    End If
+    '----------------------------------------------------------------------------------------
+
+
+    'JavaScript実行結果部分の解析フェーズに移ります -------------------------------------------------------------------------------------------
+    Dim strLogValue As String
+
+    '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
+    If scriptEvaluateResult.StringKey("type") = "exception" Then
+        '最後の詳細例外情報を記録
+        Set lastExceptionDetailsJS = scriptEvaluateResult.NodeKey("exceptionDetails")
+
+        '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
+        strLogValue = LogFormat(JavaScriptStr, 100)
+
+        '例外による`Err.Raise`で止めるか？
+        If StopException Then
+            '`StopException`が有効の場合は、ログ表示用に、詳細の方を文字列化
+            Dim exceptionDetails As String: exceptionDetails = lastExceptionDetailsJS.Stringify
+            printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
+        Else
+            '`StopException`が無効の場合は、簡易部分の例外内容を出す
+            printMsg WARN_, "ExceptionDescription: " & lastExceptionDetailsJS.StringKey("text"), FromProcedureName
+
+            '返り値判定
+            If IsMissing(IFEXCEPTION) Then
+                '省略時は、エラー型として返します。https://learn.microsoft.com/ja-jp/office/vba/excel/Concepts/Cells-and-Ranges/cell-error-values
+                '※例外の種類は一律「#VALUE!」扱いとします。あくまでも「JavaScript実行中に例外が起きた」という目印として判断してください
+                jsEval = CVErr(xlErrValue)
+                printMsg WARN_, "An exception occurred while executing JavaScript: " & strLogValue & "　It was returned as an error type.", FromProcedureName
+            Else
+                '引数:IFEXCEPTION が指定されてる場合はそっちを優先して返します
+                If IsObject(IFEXCEPTION) Then Set jsEval = IFEXCEPTION Else jsEval = IFEXCEPTION
+                printMsg WARN_, "An exception occurred while executing JavaScript: " & strLogValue & "　The argument `IFEXCEPTION` was specified, so it was returned.", FromProcedureName
+            End If
+        End If
+
+        Exit Function
+    End If
+
+    'If the return type has a specific type we can return the result -------------------------------------------
+    Dim tmp
+    If JSresultAnalysis(scriptEvaluateResult.NodeKey("result"), tmp) Then
+        Set jsEval = tmp
+    Else
+        jsEval = tmp
+    End If
+    '-----------------------------------------------------------------------------------------------------------
+
+    'Output to Immediate Window if enabled -------------------------------------------------------------------
+    ' VarTypeを使って型ごとにログ用の文字列を作る
+    Select Case VarType(jsEval)
+        Case vbDouble
+            strLogValue = "[Double] " & jsEval
+
+        Case vbString
+            strLogValue = "[String] " & jsEval
+
+        Case vbBoolean
+            strLogValue = "[Boolean] " & jsEval
+
+        Case vbDate
+            strLogValue = "[Date] " & jsEval
+
+        Case Else
+            strLogValue = "[" & TypeName(jsEval) & "]"
+    End Select
+
+    'JavaScriptコードの実行結果の改行を消して、長すぎる場合はカットする（整形）
+    strLogValue = LogFormat(strLogValue, 200)
+
+    ' 最終的なデバッグ出力　※実行scriptも、100文字以内にしておく
+    printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
+   '---------------------------------------------------------------------------------------------------------
+
+End Function
+
+'***************************************************************************************************
+'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：scriptRemoteValue  `script.RemoteValue`でのJson-Nodeを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
+'            ReturnValue        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'
+'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：返す優先順位は、`script.Handle` > `value`です
+'***************************************************************************************************
+Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef ReturnValue As Variant) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
+
+
+    '------------------------ 1. 特定項目有無チェック ------------------------
+    Dim tmpType As String: tmpType = scriptRemoteValue.StringKey("type")
+
+    '`script.Handle`があったらそれを優先に返します。
+    '※type=object系で、`resultOwnership`:="root"時、ここを通ります
+    If scriptRemoteValue.ExistsKey("handle") Then
+        ReturnValue = scriptRemoteValue.StringKey("handle")
+        printMsg info_, "JS-Return type: " & tmpType, FromProcedureName
+        printMsg info_, "It is returned as script.Handle.", FromProcedureName
+        printMsg Debug_, "handle: " & ReturnValue, FromProcedureName
+
+        Exit Function
+    End If
+
+
+    '------------------------ 2. JsonNodeの取得を試みる ------------------------
+    '参考：https://w3c.github.io/webdriver-bidi/#type-script-RemoteValue
+    '以降は、`resultOwnership:="none"`でないと通りません
+    printMsg info_, "JS-Return type: " & tmpType, FromProcedureName
+
+    Select Case tmpType
+        Case "symbol", "function", "weakmap", "weakset", "generator", "error", "proxy", "promise", "typedarray", "arraybuffer"
+            '`value`がないので、`Nothing`として返却
+            Set ReturnValue = Nothing
+            printMsg WARN_, "`" & tmpType & "` cannot be returned as a `value`.", FromProcedureName
+
+        Case "array", "object", "map", "set", "nodelist", "htmlcollection", "window", "regexp", "node"
+            'Json文字列として生成されるので、Node形式のObjectとして返却
+            Set ReturnValue = scriptRemoteValue.NodeKey("value")
+
+        Case "undefined"
+            ' JSの undefined は VBAでは Empty が一番近い
+            ReturnValue = Empty
+
+        Case "null"
+            ReturnValue = Null
+
+        Case "string"
+            ' 文字列として認識するように返す
+            ReturnValue = scriptRemoteValue.StringKey("value")
+
+        Case "number"
+            '1. 一旦おまかせで取る
+            ReturnValue = scriptRemoteValue("value")
+
+            '2. VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します
+            If VarType(ReturnValue) = vbString Then
+                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & ReturnValue, FromProcedureName
+                ReturnValue = CVErr(xlErrNum)
+            Else
+                ReturnValue = CDbl(ReturnValue)
+            End If
+
+        Case "boolean"
+            ' boolean型として認識するように返す
+            ReturnValue = scriptRemoteValue.BoolKey("value")
+
+        Case "bigint"
+            ' BigInt は JSON に変換できない巨大整数のため、値を文字列としてそのまんま返却します
+            ReturnValue = scriptRemoteValue.StringKey("value")
+            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
+
+        Case "date"
+            'BiDiの場合、`date`は文字列として返却されるため、VBAの`date`として返してあげる
+            ReturnValue = UtcConverter.ParseIso(scriptRemoteValue.StringKey("value"))
+
+    End Select
+
+    'SETステートメントするかの判定を用意する
+    JSresultAnalysis = IsObject(ReturnValue)
+
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ログメッセージ用に整形を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：logMes     整形したいログメッセージ
+'            lengthMes  メインメッセージの上限文字数
+'
+'* 返り値　：lengthMes を超える場合　：「[上限文字数までのメッセージ内容]...  (Total: [文字数] chars)」。例：neko!umineko!ki... (Total: 1000 chars)
+'                      を超えない場合：基本、logMes のまんまですが、改行コードは半角スペースに変換します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：下記の整形を行います
+'            ・改行コードを半角スペースに変換
+'            ・`lengthMes`を超える文字数が来たら、合計文字数情報を付与して、返却
+'
+'* 注意事項：`lengthMes`が長すぎると、一部の箇所で使用する際、エラーになることがあります。
+'            ・`Err.Raise`の`description`に長文を渡すと、「スタック領域不足」エラーになります
+'***************************************************************************************************
+Private Function LogFormat(ByVal logMes As String, lengthMes As Long) As String
+    '1. 改行コードを半角スペースに置換
+    logMes = Replace(logMes, vbNewLine, " ")
+
+    '2. 指定文字数オーバーの場合はカットし、カット前の文字数情報を付与して返却
+    Dim originalLength As Long: originalLength = Len(logMes)
+    If originalLength > lengthMes Then LogFormat = Left(logMes, lengthMes) & "... (Total: " & originalLength & " chars)" Else LogFormat = logMes
+End Function
 
 
 
