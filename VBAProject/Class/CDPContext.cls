@@ -669,7 +669,7 @@ step2:
 
 step3:
 
-'Output to Immediate Window if enabled -------------------------------------------------------------------
+    'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
     Select Case VarType(jsEval)
         Case vbDouble
