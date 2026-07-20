@@ -660,7 +660,7 @@ step2:
 
    'If the return type has a specific type we can return the result -------------------------------------------
     Dim tmp
-    If JSresultAnalysis(Node_RemoteObject, serializationOptions, Not returnByValue, generatePreview, tmp) Then
+    If JSresultAnalysis(Node_RemoteObject, generatePreview, tmp) Then
         Set jsEval = tmp
     Else
         jsEval = tmp
@@ -697,74 +697,56 @@ End Function
 '***************************************************************************************************
 '* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：RemoteObject                       `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            PriorityReturn_deepSerializedValue `deepSerializedValue`があったら、そっちを最優先 に返すようにします。`serializationOptions`に依存します。
-'            PriorityReturn_objectId            `objectId`           があったら、そっちを第2優先に返すようにします。`returnByValue`に依存します。
-'            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
-'            ObjectPreview                      オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
+'* 引数　　：RemoteObject   `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
+'            ObjectPreview  オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
+'            ReturnValue    結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：返す値は、`value` OR `objectId` OR `deepSerializedValue` に限ります。`description`等といった補助情報やエラー情報は返しません。
+'* 注意事項：・返す優先順位は、`deepSerializedValue` > `objectId` > `value`です
+'            ・`description`等といった補助情報やエラー情報は返しません。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
     Const ErrorLandmark     As String = "error"
 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
-    '`serializationOptions`が指定されてたら、`deepSerializedValue`を最優先に返します
-    If Not PriorityReturn_deepSerializedValue Is Nothing Then
-        printMsg info_, "The parameter `serializationOptions` is specified. Check if `deepSerializedValue` exists.", FromProcedureName
+    '`deepSerializedValue`があったらそれを最優先に返します
+    If RemoteObject.Exists("deepSerializedValue") Then
+        '見つかったので、`deepSerializedValue`を返して、ここで抜ける
+        Set ReturnValue = RemoteObject("deepSerializedValue")
+        printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
 
-        '`deepSerializedValue`があるか？
-        If RemoteObject.Exists("deepSerializedValue") Then
-            '見つかったので、`deepSerializedValue`を返して、ここで抜ける
-            Set ReturnValue = RemoteObject("deepSerializedValue")
-            printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
+        'Objectで返したのでその目印もつけておく
+        JSresultAnalysis = True
+        Exit Function
 
-            'Objectで返したのでその目印もつけておく
-            JSresultAnalysis = True
-            Exit Function
-        Else
-            printMsg WARN_, "`The parameter `serializationOptions` was specified, but `deepSerializedValue` was missing.", FromProcedureName
-        End If
-    End If
+    '`objectId`があったら、こっちを返します
+    '※type=objectで、`returnByValue:=False`なら`null`以外、ここを通ります
+    ElseIf RemoteObject.Exists("objectId") Then
+        '見つかったので、`objectId`を返す
+        ReturnValue = RemoteObject.StringKey("objectId")
+        printMsg info_, "JS-Return type: objectId", FromProcedureName
 
-    '`objectId`を返す優先になってたら、こっちを返します
-    If PriorityReturn_objectId Then
-        printMsg Trace_, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
+        '返ったObjectID情報を列挙する
+        Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
+        printMsg Debug_, String(100, "="), FromProcedureName
+        printMsg Debug_, "objectId information", FromProcedureName
+        printMsg Debug_, String(100, "-"), FromProcedureName
+        printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
+        printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
+        printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
+        printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
+        printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
+        If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
+        printMsg Debug_, String(100, "="), FromProcedureName
 
-        '`objectId`があるか？
-        If RemoteObject.Exists("objectId") Then
-            '見つかったので、`objectId`を返す
-            ReturnValue = RemoteObject.StringKey("objectId")
-            printMsg info_, "JS-Return type: objectId", FromProcedureName
+        'エラー情報があればそのログを出しておく
+        '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
+        If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
 
-            '返ったObjectID情報を列挙する
-            Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
-            printMsg Debug_, String(100, "="), FromProcedureName
-            printMsg Debug_, "objectId information", FromProcedureName
-            printMsg Debug_, String(100, "-"), FromProcedureName
-            printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-            printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
-            printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-            printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
-            printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
-            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
-
-            'エラー情報があればそのログを出しておく
-            '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
-
-            Exit Function
-        Else
-            'primitive values OR `object-null` OR `undefined` の可能性あり
-            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `object-null` or `undefined`, so we will try to retrieve it.", FromProcedureName
-        End If
-    Else
-        printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
+        Exit Function
     End If
 
 
