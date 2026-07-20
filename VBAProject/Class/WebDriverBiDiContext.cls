@@ -431,6 +431,10 @@ Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef Return
             'BiDiの場合、`date`は文字列として返却されるため、VBAの`date`として返してあげる
             ReturnValue = UtcConverter.ParseIso(scriptRemoteValue.StringKey("value"))
 
+        Case Else
+            'ドキュメント化されてない型があったら、安全のため。止めておく
+            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
+
     End Select
 
     'SETステートメントするかの判定を用意する
