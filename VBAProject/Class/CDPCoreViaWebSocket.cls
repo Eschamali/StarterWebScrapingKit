@@ -449,13 +449,7 @@ End Function
 '***************************************************************************************************
 Private Function BuildFrame(Payload() As Byte, opcode As Byte) As Byte()
     Dim payloadLen As Long
-    On Error Resume Next
     payloadLen = UBound(Payload) - LBound(Payload) + 1
-    If Err.Number <> 0 Then
-        payloadLen = 0
-        Err.Clear
-    End If
-    On Error GoTo 0
 
     ' ヘッダーサイズの計算
     ' 基本ヘッダー(2バイト) + 拡張サイズ領域(0/2/8バイト) + マスクキー(4バイト)
