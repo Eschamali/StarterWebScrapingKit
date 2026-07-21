@@ -176,14 +176,17 @@ Property Let UpdateBrowserContext(UserName As String, ReplaceName As String, Err
     '1. 操作するテーブルオブジェクトの基準セルを取得
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName02, UserName)
 
-    '2. 存在したら、対象ユーザー先頭セルを基準にデータ名を探す
+    '2. 存在したら、対象ユーザーセルを基準にデータ名を探す
     If Not StartPos Is Nothing Then
-        '2-1. match関数で書き換えデータ名位置を特定
-        Dim RawPos As Long
-        RawPos = WorksheetFunction.Match(ReplaceName, StartPos.Offset(0, Table02ColumnID.DataName - 1).Resize(BrowserContextNum, 1), 0)   '※オフセットは、0始まりなので補正しておく
+        '2-1. ヘッダー情報を取得
+        Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName02).HeaderRowRange
 
-        '2-2. 実際のデータ値を書き換え
-        StartPos.Offset(RawPos - 1, Table02ColumnID.DataValue - 1).value = SetValue       '※オフセットは、0始まりなので補正しておく
+        '2-2. match関数で書き換えデータ列位置を特定
+        Dim ColumnPos As Long
+        ColumnPos = WorksheetFunction.Match(ReplaceName, HeaderColumn, 0)   '※ここでエラーになる場合は、渡したReplaceName名が間違ってる可能性あり
+
+        '2-3. 実際のデータ値を書き換え
+        StartPos.Offset(0, ColumnPos - 1).value = SetValue                  '※オフセットは、0始まりなので補正しておく
     End If
 End Property
 
@@ -286,7 +289,7 @@ Private Sub serializeToTable(TableName As String, UserName As String, ErrorSourc
     ReDim SetArray(InputData.Count)
 
     '2. データ行数と列数を取得
-    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray) + 1   '列数 ※0始まりなので補正
+    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray) + 1   '列数 ※主キーを含めるので補正
     Const InsertDataRows    As Long = 1                                         '行数 ※1件ずつ追加のため
 
     '3. UserName(主キー)を指定
