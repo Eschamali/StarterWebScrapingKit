@@ -88,7 +88,10 @@ Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDi
     If SetDictionary Is Nothing Then Err.Raise 1 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    If Not SetDictionary.Count = BrowserHandleNum Then Err.Raise 2 + vbObjectError, ErrorSource, "入力データサイズが合いません"
+    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName01)
+    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
+
+    If Not SetDictionary.Count = HeaderColumn Then Err.Raise 2 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
     '2. 記録ヘルパーメソッドを呼び出す
@@ -115,7 +118,10 @@ Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetD
     If SetDictionary Is Nothing Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    If Not SetDictionary.Count = BrowserContextNum Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データサイズが合いません"
+    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName02)
+    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
+
+    If Not SetDictionary.Count = HeaderColumn Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
     '2. 記録ヘルパーメソッドを呼び出す
