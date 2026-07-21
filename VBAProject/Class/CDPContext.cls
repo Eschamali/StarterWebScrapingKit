@@ -126,16 +126,6 @@ Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 '各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
 
-'操作中のタブ情報一式
-Private Type StatebBrowserTab
-    hWnd        As LongPtr  'Browser object window handle
-    WID         As String   'Useful for windows repositioning
-    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
-    Name        As String   'The focused tab name / window name of the active CDPBrowser
-    Url         As String   'The focused tab url of the active CDPBrowser
-End Type
-Private br As StatebBrowserTab
-
 '操作中のタブセッションステータス
 Private Type sessionStatus
     detachedFromTarget  As Boolean  'Issued when detached from target for any reason (including detachFromTarget command). Can be issued multiple times per target if multiple sessions have been attached to it.
@@ -153,9 +143,17 @@ Private ControlError As SessionErrorDetails
 
 '操作中のタブ情報一式
 Private Type StateTab
+    'コアとなる情報
     sessionID           As String   'The ID to the current session tab.
     targetID            As String   'The targetID of the current tab for ExecuteCDP
     browserContextId    As String   'どの`Profile`に属してるか
+
+    '補助情報
+    hWnd        As LongPtr  'Browser object window handle
+    WID         As String   'Useful for windows repositioning
+    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
+    Name        As String   'The focused tab name / window name of the active CDPBrowser
+    Url         As String   'The focused tab url of the active CDPBrowser
 End Type
 Private brTab As StateTab
 
@@ -1359,7 +1357,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 '1-2. 各種パラメーター更新
-                With br
+                With brTab
                     .Name = tmp.StringKey("title")
                     .Url = tmp.StringKey("url")
                 End With
@@ -1631,14 +1629,14 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, br.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, brTab.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Window Handle     | brHWnd       | " & br.hWnd, FromProcedureName
-    printMsg Debug_, "Window ID         | brWId        | " & br.WID, FromProcedureName
-    printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
+    printMsg Debug_, "Window Handle     | brHWnd       | " & brTab.hWnd, FromProcedureName
+    printMsg Debug_, "Window ID         | brWId        | " & brTab.WID, FromProcedureName
+    printMsg Debug_, "Tab URL           | brUrl        | " & brTab.Url, FromProcedureName
+    printMsg Debug_, "Tab Title         | brName       | " & brTab.Name, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
@@ -1654,13 +1652,13 @@ Public Sub getSessionInfo()
 
     'Get infos
     Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
-    br.Url = TargetInfo.StringKey("url")
-    br.Name = TargetInfo.StringKey("title")
-    br.hWnd = getHandle
+    brTab.Url = TargetInfo.StringKey("url")
+    brTab.Name = TargetInfo.StringKey("title")
+    brTab.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
     Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.StringKey("windowId")
+    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else brTab.WID = tmp.StringKey("windowId")
 
     'タブIDを記録
     brTab.targetID = TargetInfo.StringKey("targetId")
@@ -1799,9 +1797,9 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
 ' Updated: 02/03/23 - Changed CInt to Int to prevent Overflow error.
 '-----------------------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    ShowWindow br.hWnd, doShow 'Make visible
-    ShowWindow br.hWnd, state
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    ShowWindow brTab.hWnd, doShow 'Make visible
+    ShowWindow brTab.hWnd, state
 
    'Resize to specific position and size
    'Will not work properly if window is currently maximized
@@ -1810,8 +1808,8 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
-        params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
+        If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+        params("windowId") = Int(brTab.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
         Dim x As Long, y As Long, w As Long, h As Long
@@ -1992,8 +1990,8 @@ Public Sub hide()
 ' added to make it easy to access and use the same feature.
 '------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    ShowWindow br.hWnd, asHidden
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    ShowWindow brTab.hWnd, asHidden
 
 End Sub
 
@@ -2003,11 +2001,11 @@ Public Function bringToForeground()
 ' Updated: Long Vh - 06/01/26 should be a function like others
 '------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    If br.hWnd <> 0 Then
-        ShowWindow br.hWnd, doShow
-        BringWindowToTop br.hWnd
-        SetForegroundWindow br.hWnd
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    If brTab.hWnd <> 0 Then
+        ShowWindow brTab.hWnd, doShow
+        BringWindowToTop brTab.hWnd
+        SetForegroundWindow brTab.hWnd
     End If
 
 End Function
@@ -2294,7 +2292,7 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    Url = br.Url
+    Url = brTab.Url
 
 End Property
 
@@ -2305,7 +2303,7 @@ Property Let Url(newURL As String)
 '------------------------------------------------------------
 
     navigate newURL
-    br.Url = newURL
+    brTab.Url = newURL
 
 End Property
 
@@ -2315,7 +2313,7 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    Name = br.Name
+    Name = brTab.Name
 
     '`--app`で起動した場合の対策
     If LenB(Name) = 0 Then Name = jsEval("document.title")
@@ -2331,7 +2329,7 @@ Property Let Name(newName As String)
 
     jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
-    br.Name = newName
+    brTab.Name = newName
 
 End Property
 
@@ -2372,7 +2370,7 @@ Property Let CurrentSessionID(newSessionID As String)
     End With
 
     getSessionInfo        'update all session infos
-    printMsg info_, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, brTab.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -2425,7 +2423,7 @@ Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
         BrowserWindowHandle = getHandle
     Else
         '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If br.hWnd Then BrowserWindowHandle = br.hWnd Else BrowserWindowHandle = getHandle
+        If brTab.hWnd Then BrowserWindowHandle = brTab.hWnd Else BrowserWindowHandle = getHandle
     End If
 End Property
 
@@ -2443,7 +2441,7 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
         BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     Else
         '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If br.WID Then BrowserWindowID = br.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If brTab.WID Then BrowserWindowID = brTab.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     End If
 End Property
 
@@ -2486,7 +2484,7 @@ End Property
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
+    PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
 Private Sub sleep(Optional seconds As Double = 0.5)
@@ -2527,7 +2525,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.LogID = "TBID" & Format(Rnd * 1000, "000")
+    brTab.LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
