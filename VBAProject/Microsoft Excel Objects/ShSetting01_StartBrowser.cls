@@ -52,18 +52,18 @@ End Property
 '***************************************************************************************************
 Private Function RangeMapping(RangeID As Long, ErrorSource) As String
     Select Case RangeID
-        Case 1:  RangeMapping = "ブラウザexeパス"
-        Case 2:  RangeMapping = "ユーザーデータフォルダ名"
-        Case 3:  RangeMapping = "追加の起動引数一式"
-        Case 4:  RangeMapping = "Chromeで使用"
+        Case 1:  RangeMapping = "BrowserPath"
+        Case 2:  RangeMapping = "UserDataDirName"
+        Case 3:  RangeMapping = "AddArguments"
+        Case 4:  RangeMapping = "UseChrome"
         Case 5:  RangeMapping = "LogLevel"
-        Case 7:  RangeMapping = "イミディエイトに表示"
-        Case 8:  RangeMapping = "ブラウザから受信した生のJSONをイミディエイトに表示"
-        Case 9:  RangeMapping = "ログファイル保存"
-        Case 10: RangeMapping = "常にUTF8で送受信"
-        Case 11: RangeMapping = "BiDi_CDP_Mapperタブを表示"
-        Case 12: RangeMapping = "起動モード"
-        Case 13: RangeMapping = "BiDi_CDP_Mapperの診断ログ表示"
+        Case 7:  RangeMapping = "DisplayImmediate"
+        Case 8:  RangeMapping = "ViewBrowserResponse"
+        Case 9:  RangeMapping = "LogFileFolderPath"
+        Case 10: RangeMapping = "AlwaysSendAndReceiveUTF8"
+        Case 11: RangeMapping = "ViewTab_BiDiCDPMapper"
+        Case 12: RangeMapping = "StartWindowMode"
+        Case 13: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
         Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
     End Select
 End Function
