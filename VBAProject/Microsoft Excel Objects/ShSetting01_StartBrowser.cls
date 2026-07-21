@@ -20,13 +20,7 @@ Option Explicit
 '                              ■■■ テーブルの列操作用 ■■■
 '***************************************************************************************************
 Private Const TableName01 As String = "BrowserHandleInfo"
-
 Private Const TableName02 As String = "BrowserContextInfo"
-Public Enum Table02ColumnID
-    UserName = 1
-    DataName
-    DataValue
-End Enum
 
 Private Const TableName03 As String = "ProtocolWhiteList"
 Public Enum Table03ColumnID
@@ -34,15 +28,6 @@ Public Enum Table03ColumnID
     階層
     接頭辞
 End Enum
-
-
-
-'***************************************************************************************************
-'                          ■■■ 各ユーザごとの記録データ数設定 ■■■
-'***************************************************************************************************
-Private Const BrowserHandleNum  As Long = 7 '1ユーザーにつき、6つ分のハンドル情報       + プロセスID
-Private Const BrowserContextNum As Long = 3 '1ユーザーにつき、2つ分のブラウザセッション + BiDi-context情報
-
 
 
 '***************************************************************************************************
@@ -111,7 +96,7 @@ Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDi
 End Property
 Property Get TableBrowserHandle(UserName As String, ErrorSource As String) As Scripting.Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
-    Set TableBrowserHandle = deserializeFromTable(TableName01, UserName, ErrorSource, BrowserHandleNum)
+    Set TableBrowserHandle = deserializeFromTable(TableName01, UserName, ErrorSource)
 End Property
 
 '***************************************************************************************************
@@ -138,7 +123,7 @@ Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetD
 End Property
 Property Get TableBrowserContext(UserName As String, ErrorSource As String) As Scripting.Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
-    Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource, BrowserContextNum)
+    Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource)
 End Property
 
 '***************************************************************************************************
@@ -349,22 +334,27 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：記録されてない`UserName`を指定すると、`Nothing`が返ります
 '***************************************************************************************************
-Private Function deserializeFromTable(TableName As String, UserName As String, ErrorSource As String, TakeRow As Long) As Dictionary
-    '操作するテーブルオブジェクトの基準セルを取得
+Private Function deserializeFromTable(TableName As String, UserName As String, ErrorSource As String) As Dictionary
+    '1. 操作するテーブルオブジェクトの基準セルを取得
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName)
 
-    '基準セルがない場合は、即抜け
+    '2. 基準セルがない場合は、即抜け
     If StartPos Is Nothing Then Exit Function
 
-    '取得するテーブルに応じて、取得行数を変えてデータ取得
-    Dim DataSet
-    DataSet = StartPos.Offset(0, 1).Resize(TakeRow, 2)  '`UserName`情報は不要なので、1列分右へシフト後、リサイズ
+    '3. ヘッダー情報を取得し、格納データ数を取り出す
+    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName).HeaderRowRange
+    Dim TakeColumn As Long: TakeColumn = UBound(HeaderColumn, 2)
 
-    'データ名と値の紐づけを行い、Dictionaryで返却
+    '4. ヘッダー情報分、列から取り出す
+    Dim DataSet
+    DataSet = StartPos.Resize(1, TakeColumn)
+
+    '5. データ名と値の紐づけを行い、Dictionaryで返却
+    '※`UserName`情報は不要なので、2列目から始める
     Dim i As Long
     Set deserializeFromTable = New Dictionary
-    For i = 1 To TakeRow
-        deserializeFromTable.Add DataSet(i, 1), DataSet(i, 2)
+    For i = 2 To TakeColumn
+        deserializeFromTable.Add HeaderColumn(1, i), DataSet(1, i)
     Next
 End Function
 
