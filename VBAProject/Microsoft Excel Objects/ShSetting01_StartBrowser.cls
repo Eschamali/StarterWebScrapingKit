@@ -279,7 +279,7 @@ End Sub
 '* 機能　　：指定テーブル名へデータ追加/上書きを一括で行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：TableName      追加/上書き先テーブル名
-'            UserName       識別名称
+'            UserName       識別名称(主キー)
 '            ErrorSource    この関数を呼び出したソース　※デバック用
 '            InputData      追加するデータ(Dictionary形式)
 '---------------------------------------------------------------------------------------------------
@@ -292,29 +292,35 @@ Private Sub serializeToTable(TableName As String, UserName As String, ErrorSourc
 
 
     '1. Dictionary の`.Count`から、2次元配列の枠を用意
-    ReDim SetArray(InputData.Count - 1, 3 - 1)  '※0始まりなので補正
+    ReDim SetArray(InputData.Count)
 
     '2. データ行数と列数を取得
-    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray, 2) + 1    '列数 ※0始まりなので補正
-    Dim InsertDataRows      As Long: InsertDataRows = UBound(SetArray, 1) + 1       '行数 ※0始まりなので補正
+    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray) + 1   '列数 ※0始まりなので補正
+    Const InsertDataRows    As Long = 1                                         '行数 ※1件ずつ追加のため
 
-    '3. Dictionary から、2次元配列へ変換
-    Dim i As Long, PipeKeys As Variant
+    '3. UserName(主キー)を指定
+    SetArray(0) = UserName
+
+    '4. ヘッダー情報を取得
+    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
+    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
+
+    '5. Dictionary から、1次元配列へ変換
+    Dim i As Long, PipeKeys As Variant, columnIndex As Long
     PipeKeys = InputData.keys
-    For i = LBound(SetArray) To UBound(SetArray)
-        SetArray(i, 0) = UserName                   '識別名称
-        SetArray(i, 1) = PipeKeys(i)                'データ名 or ハンドル名
-        SetArray(i, 2) = InputData(PipeKeys(i)) '実際の値
+    For i = LBound(PipeKeys) To UBound(PipeKeys)
+        '5-1. Keyから列位置を特定
+        columnIndex = WorksheetFunction.Match(PipeKeys(i), HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
+
+        '5-2. その位置の配列に適用
+        SetArray(columnIndex - 1) = InputData(PipeKeys(i)) '※0始まりなので補正
     Next
 
-    '4. 操作するテーブルオブジェクトの基準セルを取得
+    '6. 操作するテーブルオブジェクトの基準セルを取得
     Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName)
 
-    '5. データ挿入方式判定
+    '7. データ挿入方式判定
     If StartPos Is Nothing Then
-        'テーブルオブジェクトそのものを取得
-        Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
-
         'テーブルに格納してるデータ数を取得
         Dim DataRows As Long: DataRows = TargetTableObj.ListRows.Count
 
