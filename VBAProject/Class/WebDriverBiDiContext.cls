@@ -625,9 +625,6 @@ Public Function ConvertToCDPContext() As CDPContext
 
         '6. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
-
-        '7. ステータスの更新
-        .getSessionInfo
     End With
 End Function
 
