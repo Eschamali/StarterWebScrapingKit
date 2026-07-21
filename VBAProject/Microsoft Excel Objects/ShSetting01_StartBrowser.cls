@@ -88,10 +88,10 @@ Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDi
     If SetDictionary Is Nothing Then Err.Raise 1 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName01)
-    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
+    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName01).HeaderRowRange
+    Dim RequiredCount: RequiredCount = UBound(HeaderColumn, 2) - 1  '※主キー分、減算
 
-    If Not SetDictionary.Count = HeaderColumn Then Err.Raise 2 + vbObjectError, ErrorSource, "入力データサイズが合いません"
+    If Not SetDictionary.Count = RequiredCount Then Err.Raise 2 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
     '2. 記録ヘルパーメソッドを呼び出す
@@ -118,10 +118,10 @@ Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetD
     If SetDictionary Is Nothing Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName02)
-    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
+    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName02).HeaderRowRange
+    Dim RequiredCount: RequiredCount = UBound(HeaderColumn, 2) - 1  '※主キー分、減算
 
-    If Not SetDictionary.Count = HeaderColumn Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データサイズが合いません"
+    If Not SetDictionary.Count = RequiredCount Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
     '2. 記録ヘルパーメソッドを呼び出す
