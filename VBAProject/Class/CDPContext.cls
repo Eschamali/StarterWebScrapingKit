@@ -493,8 +493,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
-                       Optional objectArguments As Collection, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+                       Optional contextId As Long, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userGesture As Boolean, _
