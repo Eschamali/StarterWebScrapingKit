@@ -200,8 +200,62 @@ End Function
 '***************************************************************************************************
 '                              ■■■ JavaScript コア機能 ■■■
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional RealmTarget As String, Optional IFEXCEPTION As Variant, _
-                       Optional objectArguments As Collection, _
+'* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
+'            Webスクレイピングに関わる引数は全て設けています。
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：value属性の中身を評価して、Variant型で返却。実行したJavaScriptコード、引数:Ownership や、IFEXCEPTION に依存します。
+'* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
+'
+'            scriptHandle                   実行の基準`Handle ID`を指定します。これを指定すると`script.callFunction`として優先実行されます。
+'
+'            objectArguments                これを指定すると`script.callFunction`として優先実行されます。
+'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           参考となる組み立て手法：https://w3c.github.io/webdriver-bidi/#cddl-type-scriptlocalvalue
+'
+'            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
+'            RealmTarget                    `iframe`内で、JavaScript実行をしたいときに指定します。
+'
+'            Ownership                      True ：script.ResultOwnership = "root"として扱い、type:"object" 等の場合は、`{"handle": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`scriptHandle`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'                                           False：script.ResultOwnership = "none"として扱い、type:"object" 等の場合でも、`value`で受け取れるように試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`True`に切り替えてください。
+'
+'            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
+'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
+'
+'            userActivation                 True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'                                           False：特に施しません
+'
+'            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
+'
+'            RunAsyncBiDi                   True ：結果を待たないBiDiで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
+'                                           False：結果を待つCDPで実行します。基本はこれでOK
+'
+'            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
+'            StopBiDiError                  `True`で、BiDiエラー時、エラーで停止します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：This function commands the attached browser instance to execute a Javascript expression to perform required tasks.
+'            Note: the original function has a bool retry variable which was removed for simplicity.
+'            Added dbgMsg to read debug line on the go when needed.
+'
+'* 注意事項：・利用時は、「名前付き引数`xxx:=yyy`」として運用することをお勧めします
+'            ・JavaScript実行中の例外確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFEXCEPTION`を活用してください。
+'            ・`Ownership:=true` の場合は、SET or LET で受け取る意識が必要になります。結果によって、`SET`or`LET`が変わって静的にできない場合は、Array関数で一旦受け止めて、VarType(hoge(0))で`SET`or`LET`判定することも可能です
+'
+'            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
+'               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
+'
+'            ・`scriptHandle`や`objectArguments`を指定する`script.callFunction`方式の場合は、`JavaScriptStr`を 「function() { this... }」 形式で記述する必要があります
+'
+'            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`scriptHandle`の設定問わずそのプリミティブ型の中身が返ります。
+'              常に`scriptHandle`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
+'
+'            ・JavaScriptの場合、例外を利用した処理が多々あるため、運用時は`StopException`を省略しておくことを推奨します
+'            ・BiDi実行自体のエラーキャッチは常に`True`となります
+'            ・`IFEXCEPTION`はあくまでも、「例外」時のみ機能します。JavaScript自体は成功してるけど、結果がエラーの場合はISERROR関数で対処する必要があります。
+'---------------------------------------------------------------------------------------------------
+'* 参考URL ：https://w3c.github.io/webdriver-bidi/#command-script-evaluate
+'***************************************************************************************************
+Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+                       Optional RealmTarget As String, _
                        Optional Ownership As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userActivation As Boolean, _
