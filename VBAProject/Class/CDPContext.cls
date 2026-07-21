@@ -157,6 +157,15 @@ Private Type StateTab
 End Type
 Private brTab As StateTab
 
+'操作中のメインタブとしてのJavaScript環境情報
+Private Type StateTabForJavaScript
+    ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
+    origin              As String   '実行範囲
+    Name                As String   '意味のある名称
+    uniqueId            As String   'より厳格な実行コンテキスト情報。現時点では、実験的扱い
+End Type
+Private brTabRuntime As StateTabForJavaScript
+
 'CDPコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
 Private Type cacheResultCDP
     response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
@@ -298,10 +307,8 @@ Private Sub attachToSession()
    'Establish connection with the CDP pipes
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 
-    'JavaScript関連機能を有効化
-    Dim results_ As BiDiCDPJson
-3   Set results_ = ExecuteCDP("Runtime.enable")
-4   Set BrowserCore.RunCollect_TargetCreated = Nothing
+    '自動蓄積機能を無効化
+3   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
@@ -435,18 +442,19 @@ End Sub
 '* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
 '            Webスクレイピングに関わる引数は全て設けています。
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
-'* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
+'* 返り値　：value属性の中身を評価して、Variant型で返却。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
+'* 引数　　：JavaScriptStr                  実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
-'            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
+'            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '
-'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
+'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
 '                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -475,12 +483,12 @@ End Sub
 '
 '* 注意事項：・利用時は、「名前付き引数`xxx:=yyy`」として運用することをお勧めします
 '            ・JavaScript実行中の例外確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFEXCEPTION`を活用してください。
-'            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります
+'            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります。結果によって、`SET`or`LET`が変わって静的にできない場合は、Array関数で一旦受け止めて、VarType(hoge(0))で`SET`or`LET`判定することも可能です
 '
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
+'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`JavaScriptStr`を 「function() { this... }」 のような形式で記述する必要があります
 '
 '            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
 '              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
@@ -489,7 +497,7 @@ End Sub
 '            ・CDP実行自体のエラーキャッチは常に`True`となります
 '            ・`IFEXCEPTION`はあくまでも、「例外」時のみ機能します。JavaScript自体は成功してるけど、結果がエラーの場合はISERROR関数で対処する必要があります。
 '---------------------------------------------------------------------------------------------------
-'* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
+'* 参考URL ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
 Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
                        Optional contextId As Long, _
@@ -537,7 +545,8 @@ step1:
         CDPparams.Add "arguments", objectArguments
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
-        If contextId Then CDPparams.Add "executionContextId", contextId
+        '任意指定あるいは、`Runtime.executionContextCreated`で来た情報を基に指定します
+        CDPparams.Add "executionContextId", IIf(contextId, contextId, brTabRuntime.ExecutionContextId)
 
     ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
@@ -1403,20 +1412,39 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
-    
-    '------------------ 2. 非同期イベントを収集します ------------------
-    '2-1. イベントキャプチャしない場合は、即抜け
+    '2. このタブクラス独自のイベント処理を行う
+    Dim tmpNode As BiDiCDPJson
+    Select Case methodName
+        'JavaScript実行環境情報の更新を行います
+        Case "Runtime.executionContextCreated"
+            '2-1. このタブクラスのTargetIDと一致するか？
+            Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
+            If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
+                '2-2. 各種statusを上書き
+                brTabRuntime.ExecutionContextId = tmpNode.NumberKey("id")
+                brTabRuntime.origin = tmpNode.StringKey("origin")
+                brTabRuntime.Name = tmpNode.StringKey("name")
+                brTabRuntime.uniqueId = tmpNode.StringKey("uniqueId")
+
+                '2-3. ログ化
+                printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
+            End If
+    End Select
+
+
+    '------------------ 3. 非同期イベントを収集します ------------------
+    '3-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '3-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '2-3. パース処理
+    '3-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '2-4. 専用のプロシージャにて、蓄積処理
+    '3-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
@@ -1666,6 +1694,10 @@ Public Sub getSessionInfo()
     'ProfileIDを記録
     brTab.browserContextId = TargetInfo.StringKey("browserContextId")
 
+    'JavaScript関連の変化も捉えれるようにする
+    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、`Runtime.executionContextCreated`等が飛んでくれます
+    runtimeEnable False
+    runtimeEnable True
 End Sub
 
 Private Function getHandle() As LongPtr
@@ -1740,7 +1772,6 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
     'should also add a maxTimeLimit to Wait
     wait till:=till
-    getSessionInfo 'update new session info for printParams
     printMsg info_, "Navigated to: " & strURL, FromProcedureName
 
 End Sub
@@ -1949,6 +1980,13 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 
     ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
 
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`Runtime`系のイベント機能を有効/無効化を行います
+'***************************************************************************************************
+Public Sub runtimeEnable(Optional enable As Boolean = True)
+    ExecuteCDP IIf(enable, "Runtime.enable", "Runtime.disable"), , False
 End Sub
 
 '***************************************************************************************************
@@ -2303,7 +2341,7 @@ Property Let Url(newURL As String)
 '------------------------------------------------------------
 
     navigate newURL
-    brTab.Url = newURL
+'    brTab.Url = newURL     ※実際のURL適用は、イベント側で更新させます
 
 End Property
 
@@ -2329,7 +2367,7 @@ Property Let Name(newName As String)
 
     jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
-    brTab.Name = newName
+'    brTab.Name = newName   ※実際のname適用は、イベント側で更新させます
 
 End Property
 
