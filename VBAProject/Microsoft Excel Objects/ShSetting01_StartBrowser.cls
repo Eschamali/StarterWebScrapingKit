@@ -206,7 +206,7 @@ End Property
 '***************************************************************************************************
 Property Let DeleteBrowserHandle(ErrorSource As String, UserName As String)
     '1. 削除ヘルパーメソッドを呼び出す
-    DeleteTableData TableName01, UserName, ErrorSource, BrowserHandleNum
+    DeleteTableData TableName01, UserName, ErrorSource
 End Property
 
 '***************************************************************************************************
@@ -221,7 +221,7 @@ End Property
 '***************************************************************************************************
 Property Let DeleteBrowserContext(ErrorSource As String, UserName As String)
     '1. 削除ヘルパーメソッドを呼び出す
-    DeleteTableData TableName02, UserName, ErrorSource, BrowserContextNum
+    DeleteTableData TableName02, UserName, ErrorSource
 End Property
 
 
@@ -378,7 +378,7 @@ End Function
 '            ・`UserName`を`vbnullstring`で指定すると、全データ消去として動作します
 '            ・handle解放等は別途行う必要があります
 '***************************************************************************************************
-Private Sub DeleteTableData(TableName As String, UserName As String, ErrorSource As String, DeleteRow As Long)
+Private Sub DeleteTableData(TableName As String, UserName As String, ErrorSource As String)
     'テーブル削除時のアニメーション動作を止める
     Application.ScreenUpdating = False
 
@@ -392,9 +392,13 @@ Private Sub DeleteTableData(TableName As String, UserName As String, ErrorSource
         '基準セルがない場合は、即抜け
         If StartPos Is Nothing Then Application.ScreenUpdating = True: Exit Sub
 
+        'データ数をチェック
+        Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName).HeaderRowRange
+        Dim DropColumn As Long: DropColumn = UBound(HeaderColumn, 2)
+
         '対象のテーブルに応じて、消去行数をリサイズ
         Dim DataSet As Range
-        Set DataSet = StartPos.Resize(DeleteRow, 3)
+        Set DataSet = StartPos.Resize(1, DropColumn)
 
         '消去
         DataSet.Delete
