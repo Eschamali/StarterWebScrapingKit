@@ -304,14 +304,13 @@ Private Sub serializeToTable(TableName As String, UserName As String, ErrorSourc
     Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
 
     '5. Dictionary から、1次元配列へ変換
-    Dim i As Long, PipeKeys As Variant, columnIndex As Long
-    PipeKeys = InputData.keys
-    For i = LBound(PipeKeys) To UBound(PipeKeys)
+    Dim i As Long, KeyName, columnIndex As Long
+    For Each KeyName In InputData.keys
         '5-1. Keyから列位置を特定
-        columnIndex = WorksheetFunction.Match(PipeKeys(i), HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
+        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
 
         '5-2. その位置の配列に適用
-        SetArray(columnIndex - 1) = InputData(PipeKeys(i)) '※0始まりなので補正
+        SetArray(columnIndex - 1) = InputData(KeyName) '※0始まりなので補正
     Next
 
     '6. 操作するテーブルオブジェクトの基準セルを取得
