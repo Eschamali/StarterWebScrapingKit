@@ -259,52 +259,23 @@ Sub TestAlert()
 
     With Demo_alerts
         ' --- 1. 必要なドメインを有効化 ---
-        .ExecuteCDP ("DOM.enable")
         .ExecuteCDP ("Page.enable")
-
-
-        ' --- 2. DOMツリーを同期させ、ID割り振りを行う ---
-        paramsCDP.RemoveAll
-        paramsCDP.Add "depth", 0        '返却時のDOM情報は不要なので、0にしておく
-        paramsCDP.Add "pierce", True    'Shadow DOMの中まで貫通させる
-        .ExecuteCDP "DOM.getDocument", paramsCDP
-        ' これでブラウザ内の全ノードにIDが割り振られます
 
         Dim i As Long
         For i = 1 To 3
             Dim TargetXpath As String
             Select Case i
-                Case 1: TargetXpath = "//*[@id='alert']"
-                Case 2: TargetXpath = "//*[@id='empty-alert']"
-                Case 3: TargetXpath = "//*[@id='prompt']"
+                Case 1: TargetXpath = "alert"
+                Case 2: TargetXpath = "empty-alert"
+                Case 3: TargetXpath = "prompt"
             End Select
-
-            ' --- 3. XPathで検索 (Shadow DOMの貫通も可) ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "query", TargetXpath  '先頭のリンクを対象に
-            Set resCDP = .ExecuteCDP("DOM.performSearch", paramsCDP)
-            searchId = resCDP.StringKey("searchId")
-
-
-            ' --- 4. nodeIdを取得 ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "searchId", searchId
-            paramsCDP.Add "fromIndex", 0   '先頭の件数から
-            paramsCDP.Add "toIndex", 1     '1件分のみ
-            Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP.NodeKey("nodeIds").NumberAt(0) '配列の先頭を取得
-
-
-            ' --- 5. nodeId を objectId に変換 ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "nodeId", nodeId
-            Set resCDP = .ExecuteCDP("DOM.resolveNode", paramsCDP)
 
 
             ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
+            '※非同期処理を行うため、`CDPElement.cls`を使わない形で取ります
             Dim AsyncID As Long
-            AsyncID = .jsEval("function() { this.click(); }", resCDP.NodeKey("object").StringKey("objectId"), RunAsyncCDP:=True)
+            AsyncID = .jsEval("document.getElementById('" & TargetXpath & "').click()", RunAsyncCDP:=True)
 
 
             ' --- 7. イベントキャプチャを有効化 ---
