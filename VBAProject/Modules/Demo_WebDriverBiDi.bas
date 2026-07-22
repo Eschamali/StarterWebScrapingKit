@@ -235,17 +235,9 @@ Sub TestAlert()
 
             ' --- 3. 非同期でコマンド準備/実行(Jsのクリック処理) ---
             ' 対象の要素をクリックするJSを評価する
-            Set paramsBiDi = New Dictionary
-            paramsBiDi.Add "expression", "document.getElementById('" & targetID & "').click()"
-            Dim targetDict As Dictionary
-            Set targetDict = New Dictionary
-            targetDict.Add "context", .context
-            paramsBiDi.Add "target", targetDict
-            paramsBiDi.Add "awaitPromise", False
-
-            Dim AsyncID As Long
             'この瞬間、JavaScriptの`alert`関数が非同期で発動されます
-            AsyncID = .InheritanceWebDriverBiDiMode.ExecuteBiDiAsync("script.evaluate", paramsBiDi)
+            Dim AsyncID As Long
+            AsyncID = .jsEval("document.getElementById('" & targetID & "').click()", RunAsyncBiDi:=True)
 
             ' --- 4. 特定のイベント名が出るまでループ ---
             Const SearchEventName As String = "browsingContext.userPromptOpened"
@@ -286,20 +278,8 @@ Sub TestAlert()
 
         ' --- 7. ブラウザを閉じる ---
         ' DOM経由のテキスト取得を、script.evaluateで代替
-        Set paramsBiDi = New Dictionary
-        paramsBiDi.Add "expression", "document.querySelector('#text > p') ? document.querySelector('#text > p').innerText : 'Not Found'"
-        Set targetDict = New Dictionary
-        targetDict.Add "context", .context
-        paramsBiDi.Add "target", targetDict
-        paramsBiDi.Add "awaitPromise", True
-        Set resultBiDi = .ExecuteBiDi("script.evaluate", paramsBiDi)
-
         Dim Htmlの表示内容 As String
-        If Not (resultBiDi Is Nothing) Then
-            If resultBiDi.Exists("result") Then
-                If resultBiDi("result").Exists("value") Then Htmlの表示内容 = resultBiDi("result")("value")
-            End If
-        End If
+        Htmlの表示内容 = .jsEval("document.querySelector('#text > p') ? document.querySelector('#text > p').innerText : 'Not Found'")
 
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
