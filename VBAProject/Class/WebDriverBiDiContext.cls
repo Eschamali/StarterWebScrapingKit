@@ -34,14 +34,13 @@ Private m_BiDiMode              As WebDriverBiDiMode    'BiDi全体
 Private Type browsingContextInfo
     context          As String   '現在、制御中のContext(タブ)パラメーター
     Url              As String   '現時点でのURL
+    contextDestroyed As Boolean  'お亡くなりサイン
 End Type
 Private InfoList As browsingContextInfo
-Private contextDestroyed As Boolean       'お亡くなりサイン
 
-Private LogID  As String
-
-
+'その他
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
+Private LogID                   As String
 
 
 
@@ -146,7 +145,7 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
             Set BiDiEventNode = BiDiCDPJson.Parse(RawJson)
-            If BiDiEventNode.NodeKey("params").StringKey("context") = InfoList.context Then contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            If BiDiEventNode.NodeKey("params").StringKey("context") = InfoList.context Then InfoList.contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
 
     End Select
 End Sub
@@ -640,7 +639,7 @@ End Function
 '* 機能説明：このClassの`targetId`に対する`browsingContext.contextDestroyed`を受け取ると、`True`になります
 '***************************************************************************************************
 Property Get isContextClosed() As Boolean
-    isContextClosed = contextDestroyed
+    isContextClosed = InfoList.contextDestroyed
 End Property
 
 
