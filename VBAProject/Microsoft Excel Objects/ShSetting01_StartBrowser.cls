@@ -8,11 +8,20 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = True
 '***************************************************************************************************
-'                   CDP経由で、ブラウザ操作する際の準備関連のシートです
-'               パイプハンドルのセッション、ブラウザセッション管理を担います
-'                   これにより、リアタッチ機能が使えるようになります
+'                   CDP/WebDriverBiDi経由で、ブラウザ操作する際の準備関連のシートです
+'                   パイプハンドルのセッション、ブラウザセッション管理を担います
+'                       これにより、リアタッチ機能が使えるようになります
+'
+'                       また、複雑な設定周りを簡略化させるためでもあります
 '***************************************************************************************************
 Option Explicit
+
+
+
+'***************************************************************************************************
+'                              ■■■ WebView2用設定API ■■■
+'***************************************************************************************************
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'プロセス内環境変数用API
 
 
 
@@ -28,6 +37,129 @@ Public Enum Table03ColumnID
     階層
     接頭辞
 End Enum
+
+
+
+'***************************************************************************************************
+'                           ■■■ 簡易起動メソッド - CDP編 ■■■
+'***************************************************************************************************
+'* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでタブ制御ができるところまで準備します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPContext
+'* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
+'
+'            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します。省略時は設定シートに記載されてる名称になります
+'            KioskMode  0(省略)：通常モード(キオスクモードは使いません)
+'                       1      ：キオスクモード デジタル/対話型サイネージ
+'                       2      ：キオスクモード パブリック ブラウジング
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：Chromeにもキオスクモードはありますが、Edgeほど引数での調整はありません
+'***************************************************************************************************
+Friend Function StartCDPModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPContext
+    '設定シートの各セルから設定値を取得し、適用
+    With Me
+        '起動ブラウザ種類の設定
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext"), SwitchUser)
+
+        'ブラウザ起動
+        Set StartCDPModeContext = New CDPContext
+        StartCDPModeContext.StartAndConnectTab BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPModeContext"), KioskMode
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでのパイプ通信確保まで準備します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - CDPBrowser
+'* 引数　　：前述と一緒なので省略
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
+'              `StartCDPModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
+'              この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
+'            ・Demoプロシージャ：`runTabsAsMany`が分かりやすいと思います
+'***************************************************************************************************
+Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
+    '設定シートの各セルから設定値を取得し、適用
+    With Me
+        '起動ブラウザ種類の設定
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode"), SwitchUser)
+
+        'ブラウザ起動
+        Set StartCDPMode = New CDPBrowser
+        StartCDPMode.start BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode"), KioskMode
+    End With
+End Function
+
+
+
+'***************************************************************************************************
+'                           ■■■ 簡易起動メソッド - WebDriverBiDi編 ■■■
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、WebDriverBiDiモードでタブ制御ができるところまで準備します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiContext
+'* 引数　　：StartURL                       ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
+'            SwtchUser                      マルチインスタンス用に別ユーザーを指定するときに使用します。省略時は設定シートに記載されてる名称になります
+'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
+'                                           1      ：キオスクモード デジタル/対話型サイネージ
+'                                           2      ：キオスクモード パブリック ブラウジング
+'
+'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'***************************************************************************************************
+Friend Function StartBiDiModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
+    '設定シートの各セルから設定値を取得し、適用
+    With Me
+        '起動ブラウザ種類の設定
+        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiModeContext"), "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext"), SwitchUser)
+
+        'ブラウザ起動
+        Set StartBiDiModeContext = New WebDriverBiDiContext
+        StartBiDiModeContext.StartBiDiModeAndConnectTab BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiModeContext"), KioskMode, sessionCapabilitiesRequest
+    End With
+End Function
+
+'***************************************************************************************************
+'* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：クラスモジュール - WebDriverBiDiMode
+'* 引数　　：前述と一緒なので省略
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
+'             `StartBiDiModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
+'             この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
+'***************************************************************************************************
+Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+    '設定シートの各セルから設定値を取得し、適用
+    With Me
+        '起動ブラウザ種類の設定
+        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiMode"), "chrome", "edge")
+
+        '第2引数が省略ならシート側の設定を適用
+        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode"), SwitchUser)
+
+        'ブラウザ起動
+        Set StartBiDiMode = New WebDriverBiDiMode
+        StartBiDiMode.StartBiDiMode BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), KioskMode, sessionCapabilitiesRequest
+    End With
+End Function
+
 
 
 '***************************************************************************************************
@@ -444,3 +576,32 @@ Private Function GetReferenceRange(TableName As String, SearchUser As String) As
         If Not IsError(StartRowPos) Then Set GetReferenceRange = .Cells(StartRowPos, 1)
     End With
 End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ ヘルパープロシージャ ■■■
+'***************************************************************************************************
+'* 機能　　：実行プロセス内のWebView2デバッグポートを開く際に使います。迷ったら、`9222`に設定して下さい
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：閉じる場合は、`0`にしてください
+'***************************************************************************************************
+Property Let EnsureWebView2Debug(port As Long)
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If port > 0 Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
+        Debug.Print "WebView2のデバッグポートを開けました: " & port
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        Debug.Print "WebView2のデバッグポートを閉じました"
+    End If
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在設定中の識別名称を取得します
+'***************************************************************************************************
+Property Get CurrentUserName() As String
+    CurrentUserName = Me.UseRangeID(2, "ShSetting01_StartBrowser.CurrentUserName")
+End Property

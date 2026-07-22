@@ -8,58 +8,12 @@ Option Private Module
 
 
 '***************************************************************************************************
-'                               ■■■ 設定プロシージャ ■■■
+'                                  ■■■ 全ての始まり ■■■
 '***************************************************************************************************
-'* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - WebDriverBiDiCore
-'* 引数　　：StartURL                       ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
-'            SwtchUser                      マルチインスタンス用に別ユーザーを指定するときに使用します
-'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
-'                                           1      ：キオスクモード デジタル/対話型サイネージ
-'                                           2      ：キオスクモード パブリック ブラウジング
-'
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
-'            ・現時点では、タブへの接続まで自動で行いません
-'***************************************************************************************************
-Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.UseRangeID(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのBiDi起動 = New WebDriverBiDiMode
-        設定シートからのBiDi起動.StartBiDiMode ブラウザ名, StartURL, UseDataDir, .UseRangeID(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動"), KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
-Public Function 設定シートからのBiDi起動ForTab(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.UseRangeID(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのBiDi起動ForTab = New WebDriverBiDiContext
-        設定シートからのBiDi起動ForTab.StartBiDiModeAndConnectTab ブラウザ名, StartURL, UseDataDir, .UseRangeID(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動ForTab"), KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
 Sub BiDiによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動ForTab
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -86,7 +40,7 @@ Sub ネットワークイベントの確認()
 
     'WebDriverBiDiの初期化とブラウザ立ち上げ
     Dim Demo_NetworkEvent As WebDriverBiDiContext
-    Set Demo_NetworkEvent = 設定シートからのBiDi起動ForTab
+    Set Demo_NetworkEvent = ShSetting01_StartBrowser.StartBiDiModeContext
 
 
     '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
@@ -154,7 +108,7 @@ End Sub
 Sub UseExtensions()
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     Dim ExtensionsFolderPath As String
-    With Application.FileDialog(msoFileDialogFolderPicker)
+    With Application.FileDialog(4)  'msoFileDialogFolderPicker
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
         .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
 
@@ -175,7 +129,7 @@ Sub UseExtensions()
     '-------------------------------------------------
 
     ' 起動
-    Set controlExtensions = 設定シートからのBiDi起動ForTab(sessionCapabilitiesRequest:=caps)
+    Set controlExtensions = ShSetting01_StartBrowser.StartBiDiModeContext(sessionCapabilitiesRequest:=caps)
 
     '拡張機能のテストページ（もしくは任意のページ）へ遷移
     controlExtensions.navigate "edge://extensions/"
@@ -252,7 +206,7 @@ Sub TestAlert()
     '---------------------------------------------------------------------
 
     'オプションを適用させて、指定URLから直接起動
-    Set Demo_alerts = 設定シートからのBiDi起動ForTab("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
+    Set Demo_alerts = ShSetting01_StartBrowser.StartBiDiModeContext("https://www.selenium.dev/selenium/web/alerts.html", sessionCapabilitiesRequest:=caps)
 
     '結果とBiDiパラメーター変数を用意
     Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
@@ -363,7 +317,7 @@ Sub TestBiDiPlus_CDPTunnel()
     Dim bidiPlus As WebDriverBiDiContext
 
     ' ブラウザ起動
-    Set bidiPlus = 設定シートからのBiDi起動ForTab
+    Set bidiPlus = ShSetting01_StartBrowser.StartBiDiModeContext
 
     Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
@@ -404,7 +358,7 @@ End Sub
 Sub ConvertToCDPContextDemo()
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
     Dim NewsSite As WebDriverBiDiMode
-    Set NewsSite = 設定シートからのBiDi起動("https://news.google.com/home")
+    Set NewsSite = ShSetting01_StartBrowser.StartBiDiMode("https://news.google.com/home")
 
     'getタブでスマートにオブジェクト取得
     Dim BiDiTab As WebDriverBiDiContext
@@ -434,7 +388,7 @@ End Sub
 Sub demoReattachmentPart1()
     ' 起動
     Dim First As WebDriverBiDiContext
-    Set First = 設定シートからのBiDi起動ForTab
+    Set First = ShSetting01_StartBrowser.StartBiDiModeContext
 
     'GoogleTopページへ遷移
     First.navigate "https://www.google.com/"
