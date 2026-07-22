@@ -33,16 +33,12 @@ End Enum
 '***************************************************************************************************
 '                             ■■■ 数値でセルの中身取得/反映 ■■■
 '***************************************************************************************************
-'* 機能　　：このシートのみ定義されてるセル名称を設定/取得します
+'* 機能　　：このシートのみ定義されてるセル名称を取得します
 '---------------------------------------------------------------------------------------------------
 '* GET返値 ：セルの中身(`.Value`のみ)
-'* LET引数 ：更新させたい値
 '* 引数　　：RangeID        セルID
 '            ErrorSource    この関数を呼び出したソース。※デバック用
 '***************************************************************************************************
-Property Let UseRangeID(RangeID As Long, ErrorSource As String, SetValue As Variant)
-    Me.Range(RangeMapping(RangeID, ErrorSource)).value = SetValue
-End Property
 Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
     UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
 End Property
