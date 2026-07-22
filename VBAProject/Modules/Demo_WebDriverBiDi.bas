@@ -536,8 +536,20 @@ End Sub
 Private Sub ローカルファイルで更新()
     '1. ファイルパスを、ダイアログで指定
     Dim UpdateFilePath As String
-    UpdateFilePath = Application.GetOpenFilename("mapperTab File, *.js", , "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください")
-    If UpdateFilePath = CStr(False) Then Exit Sub
+    With Application.FileDialog(3)  'msoFileDialogFilePicker
+        ' 1-1. ダイアログのタイトルを設定
+        .Title = "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください"
+        
+        ' 1-2. フィルターをクリアし、*.jsファイルだけを選択できるように設定
+        .Filters.Clear
+        .Filters.Add "mapperTab File", "*.js"
+        
+        ' 1-3. 複数選択を禁止（単一ファイルのみ）
+        .AllowMultiSelect = False
+        
+        ' 1-4. ダイアログを表示して、ファイルが選択されたら（-1が返ってきたら）パスを回収
+        If .show = -1 Then UpdateFilePath = .SelectedItems(1) Else Exit Sub
+    End With
 
     '2. 一旦、パスごとに分割
     Dim tmp: tmp = Split(UpdateFilePath, "\")
