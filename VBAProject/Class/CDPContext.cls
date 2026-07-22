@@ -1862,7 +1862,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
 
 End Sub
 
-Public Sub notify(msg)
+Public Sub notify(msg As String, Optional ViewSecond As Long = 10)
 '----------------------------------------------------------------------------------
 ' Send a custom notification message on the bottom right corner of the screen. This
 ' popup message is nicer than alert() and it is not modal: ie. does not the user to
@@ -1871,11 +1871,14 @@ Public Sub notify(msg)
 ' Updated: 01/12/2025
 '----------------------------------------------------------------------------------
 
-   'Make sure backslash if any is escaped
-    msg = Replace(msg, "\", "\\")
-    msg = Replace(msg, "'", "\'")
+    ' 1. 引数をパッキング（CDPの仕様に合わせた形）
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  args.Add arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    args.Add arg2
 
-    jsEval "function showStatus(msg, duration = 10000) {" & _
+    ' 2. JS関数本体（無名関数として定義し、その場で実行させる）
+    Dim funcJS As String
+    funcJS = "function(msg, duration) {" & _
                 "let c = document.getElementById('statusContainer');" & _
                 "if (!c) {" & _
                     "c = document.createElement('div');" & _
@@ -1895,7 +1898,8 @@ Public Sub notify(msg)
                 "}, duration);" & _
             "}"
 
-    jsEval "showStatus('" & msg & "')"
+    '3. Run!
+    jsEval funcJS, objectArguments:=args
 
 End Sub
 
