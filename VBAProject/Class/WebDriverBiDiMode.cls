@@ -899,7 +899,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
     printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
     printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.UseRangeID(1, FromProcedureName), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.VersionMapperTabJS, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
 
