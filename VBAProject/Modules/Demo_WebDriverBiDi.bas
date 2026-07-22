@@ -404,7 +404,7 @@ End Sub
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.demoReattachmentPart2")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
@@ -432,7 +432,7 @@ End Sub
 Sub demoReattachmentPart2ForTab()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.demoReattachmentPart2ForTab")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiContext
@@ -456,7 +456,7 @@ End Sub
 Sub SetupWebSocketMode()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebDriverBiDi.SetupWebSocketMode")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. 指定のWebSocketForBiDiへ接続
     Dim WebSocketBiDi As New CDPCoreViaWebSocket
