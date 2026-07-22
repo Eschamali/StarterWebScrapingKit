@@ -155,7 +155,7 @@ End Type
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'ウィンドウ表示設定値一式
+'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
 Public Enum WinState
     asHidden = 0            'Hides the window and activates another window.
     asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
