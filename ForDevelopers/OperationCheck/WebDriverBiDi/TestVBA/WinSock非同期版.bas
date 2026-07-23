@@ -42,7 +42,7 @@ Public Sub BiDiによる冒険の始まり_非同期版()
 
     On Error GoTo ErrorHandler
 
-    Set g_Main10Browser = 設定シートからのBiDi起動ForTab
+    Set g_Main10Browser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     '-----WebSocketルート-----
 '    Dim UserName As String
@@ -124,29 +124,13 @@ Public Function Main10_ArmContentSignalAndClickAsync( _
             "completionTimeoutMs must be greater than minStableMs."
     End If
 
-    Dim paramsBiDi As Dictionary
-    Set paramsBiDi = New Dictionary
-
-    paramsBiDi.Add "expression", BuildMain10AsyncExpression( _
-        signalXPath, _
-        clickXPath, _
-        searchTimeoutMs, _
-        minStableMs, _
-        completionTimeoutMs)
-
-    Dim target As Dictionary
-    Set target = New Dictionary
-    target.Add "context", browser.context
-
-    paramsBiDi.Add "target", target
-    paramsBiDi.Add "awaitPromise", True
-
-    'Use WebDriverBiDiMode directly because script.evaluate requires context inside target.
-    Main10_ArmContentSignalAndClickAsync = _
-        browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
-            "script.evaluate", _
-            paramsBiDi, _
-            True)
+    'RunAsyncJavScript
+    Main10_ArmContentSignalAndClickAsync = browser.jsEval(BuildMain10AsyncExpression( _
+                                                            signalXPath, _
+                                                            clickXPath, _
+                                                            searchTimeoutMs, _
+                                                            minStableMs, _
+                                                            completionTimeoutMs), awaitPromise:=True, RunAsyncBiDi:=True)
 
     If Main10_ArmContentSignalAndClickAsync <= 0 Then
         Err.Raise vbObjectError + 2201, PROC, _
@@ -468,5 +452,3 @@ Private Function JsStringLiteralForKit(ByVal value As String) As String
 
     JsStringLiteralForKit = """" & escaped & """"
 End Function
-
-

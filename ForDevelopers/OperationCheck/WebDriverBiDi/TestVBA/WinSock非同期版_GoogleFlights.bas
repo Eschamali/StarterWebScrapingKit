@@ -73,7 +73,7 @@ Public Sub BiDiによる冒険の始まり_GoogleFlights非同期版()
 
     On Error GoTo ErrorHandler
 
-    Set g_GF_Browser = 設定シートからのBiDi起動ForTab
+    Set g_GF_Browser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     '-----WebSocketルート-----
 '    Dim UserName As String
@@ -324,24 +324,8 @@ Private Sub GF_SubmitScript( _
 
     Const PROC As String = "Demo_GoogleFlights_Async.GF_SubmitScript"
 
-    Dim paramsBiDi As Dictionary
-    Set paramsBiDi = New Dictionary
-
-    paramsBiDi.Add "expression", expression
-
-    Dim target As Dictionary
-    Set target = New Dictionary
-    target.Add "context", g_GF_Browser.context
-
-    paramsBiDi.Add "target", target
-    paramsBiDi.Add "awaitPromise", True
-
-    'Use WebDriverBiDiMode directly because script.evaluate requires context in target.context.
-    g_GF_CommandId = _
-        g_GF_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
-            "script.evaluate", _
-            paramsBiDi, _
-            True)
+    'RunAsyncJavScript
+    g_GF_CommandId = g_GF_Browser.jsEval(expression, awaitPromise:=True, RunAsyncBiDi:=True)
 
     If g_GF_CommandId <= 0 Then
         Err.Raise vbObjectError + 2403, PROC, _
@@ -827,5 +811,3 @@ Private Function GF_JsString(ByVal value As String) As String
 
     GF_JsString = """" & escaped & """"
 End Function
-
-

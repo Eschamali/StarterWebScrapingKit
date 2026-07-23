@@ -70,7 +70,7 @@ Public Sub BiDiによる冒険の始まり_ServiceNow非同期版()
 
     On Error GoTo ErrorHandler
 
-    Set g_SN_Browser = 設定シートからのBiDi起動ForTab
+    Set g_SN_Browser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     '-----WebSocketルート-----
 '    Dim UserName As String
@@ -358,24 +358,8 @@ Private Sub SN_SubmitScript( _
     Const PROC As String = _
         "Demo_ServiceNow_Async.SN_SubmitScript"
 
-    Dim paramsBiDi As Dictionary
-    Set paramsBiDi = New Dictionary
-
-    paramsBiDi.Add "expression", expression
-
-    Dim target As Dictionary
-    Set target = New Dictionary
-    target.Add "context", g_SN_Browser.context
-
-    paramsBiDi.Add "target", target
-    paramsBiDi.Add "awaitPromise", True
-
-    'script.evaluate requires context under target.context.
-    g_SN_CommandId = _
-        g_SN_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
-            "script.evaluate", _
-            paramsBiDi, _
-            True)
+    'RunAsyncJavScript
+    g_SN_CommandId = g_SN_Browser.jsEval(expression, awaitPromise:=True, RunAsyncBiDi:=True)
 
     If g_SN_CommandId <= 0 Then
         Err.Raise vbObjectError + 2503, PROC, _
@@ -921,5 +905,3 @@ Private Function SN_JsString(ByVal value As String) As String
 
     SN_JsString = """" & escaped & """"
 End Function
-
-
