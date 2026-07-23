@@ -126,7 +126,7 @@ End Function
 ' エントリ
 '==============================================================================
 Public Sub RunAll_jsEval_Tests()
-    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
+    Dim br As CDPContext: Set br = ShSetting01_StartBrowser.StartCDPModeContext
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_jsEval\Test_jsEval.html", "\", "/")
     br.wait

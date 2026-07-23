@@ -247,25 +247,10 @@ In that case, your automation journey begins with just one line.
 ### In Case of CDP Control
 
 ```bas
-Public Function StartCDPFromSettingsSheet(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
-    ' Get and apply settings from each cell of the settings sheet
-    With ShSetting01_StartBrowser
-        ' Setting the type of browser to start
-        ' Since it is operated by CDP-Json commands, I think it can be used for things other than Edge and Chrome if it is Chromium-based, but for now, only the major ones.
-        Dim BrowserName As String: BrowserName = IIf(.Range(.UseRangeName(4, "Demo_CDP.StartCDPFromSettingsSheet")).Value, "chrome", "edge")
-
-        ' If the 2nd argument is omitted, apply the settings from the sheet side
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.StartCDPFromSettingsSheet")).Value, SwitchUser)
-
-        ' Start browser
-        Set StartCDPFromSettingsSheet = New CDPBrowser
-        StartCDPFromSettingsSheet.start BrowserName, StartURL, .Range(.UseRangeName(6, "Demo_CDP.StartCDPFromSettingsSheet")).Value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.StartCDPFromSettingsSheet")).Value, KioskMode
-    End With
-End Function
-
 Sub BeginningOfAdventureByCDP()
     ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = StartCDPFromSettingsSheet
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
 
     ' ↓ From here, turn your image into code ↓
 
@@ -280,25 +265,10 @@ End Sub
 ### In Case of BiDi Control
 
 ```bas
-Public Function StartBiDiFromSettingsSheet(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
-    ' Get and apply settings from each cell of the settings sheet
-    With ShSetting01_StartBrowser
-        ' Setting the type of browser to start
-        ' Since it is operated by BiDi-Json commands specialized for Chromium, I think it can be used for things other than Edge and Chrome if it is Chromium-based, but for now, only the major ones.
-        Dim BrowserName As String: BrowserName = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, "chrome", "edge")
-
-        ' If the 2nd argument is omitted, apply the settings from the sheet side
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, SwitchUser)
-
-        ' Start browser
-        Set StartBiDiFromSettingsSheet = New WebDriverBiDiCore
-        StartBiDiFromSettingsSheet.start BrowserName, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
 Sub BeginningOfAdventureByBiDi()
     ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = StartBiDiFromSettingsSheet
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     ' ↓ From here, turn your image into code ↓
 

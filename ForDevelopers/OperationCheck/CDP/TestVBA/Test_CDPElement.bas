@@ -26,7 +26,7 @@ End Function
 ' Main: 全テスト実行
 '==============================================================================
 Public Sub RunAll_CDPElement_Tests()
-    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
+    Dim br As CDPContext: Set br = ShSetting01_StartBrowser.StartCDPModeContext
 
     '--- ブラウザ起動 & HTMLページへナビゲート ---
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")

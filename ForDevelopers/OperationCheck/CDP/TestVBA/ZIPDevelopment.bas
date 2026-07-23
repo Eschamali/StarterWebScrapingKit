@@ -9,7 +9,7 @@ Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
 
 Sub Webブラウザ操作でZIPテスト()
     '設定シートに基づくブラウザ立ち上げ
-    Dim ZIPテスト As CDPContext: Set ZIPテスト = 設定シートからのCDP起動ForTab
+    Dim ZIPテスト As CDPContext: Set ZIPテスト = ShSetting01_StartBrowser.StartCDPModeContext
 
 
     ' 1. zip.js (UMD版) を動的にロードするJSを実行

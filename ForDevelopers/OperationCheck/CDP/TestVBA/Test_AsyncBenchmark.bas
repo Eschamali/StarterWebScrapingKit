@@ -75,7 +75,7 @@ Sub Test_AsyncBenchmark_Main()
 
     ' 1. ブラウザの起動とタブの用意
     Debug.Print "ブラウザを起動しています..."
-    Set chrome = 設定シートからのCDP起動ForBrowser
+    Set chrome = ShSetting01_StartBrowser.StartCDPMode
 
     '------- リアタッチ用 -------
     'Set chrome = New CDPBrowser
@@ -291,7 +291,7 @@ Sub Test_AsyncBenchmark_Cookies()
 
     ' 1. ブラウザの起動とタブの用意
     Debug.Print "ブラウザを起動しています..."
-    Set chrome = 設定シートからのCDP起動ForBrowser
+    Set chrome = ShSetting01_StartBrowser.StartCDPMode
 
     '------- リアタッチ用 -------
     'Set chrome = New CDPBrowser

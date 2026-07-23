@@ -61,7 +61,7 @@ Private Const URL_5 As String = "https://twitter.com"
 Sub Test_strBuffer_Main()
 
     ' ① ブラウザ起動（設定シート準拠）
-    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
+    Dim br As CDPContext: Set br = ShSetting01_StartBrowser.StartCDPModeContext
 
     ' ② 統計カウンタの初期化
     Dim countSnap        As Long    ' snapPage 実行回数
