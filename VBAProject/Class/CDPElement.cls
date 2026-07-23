@@ -142,7 +142,7 @@ Public Sub ExposeDevTools(varName As String)
     args.Add arg
 
     ' 2. 実行
-    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", elementObjectId, args, StopException:=StopException
     printMsg info_, "In the DevTools console tab, `" & varName & "` was assigned.", FromProcedureName
 End Sub
 
@@ -208,10 +208,10 @@ Property Let value(strTextVal As String)
 
     'Perform inputing using all the methods
     If Not isReact Then
-        main.jsEval "function(v){ this.value = v }", elementObjectId, objectArguments:=args, StopException:=StopException
+        main.jsEval "function(v){ this.value = v }", elementObjectId, args, StopException:=StopException
     Else
-        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, v) }", elementObjectId, objectArguments:=args, StopException:=StopException
-        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, v) }", elementObjectId, objectArguments:=args, StopException:=StopException
+        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, v) }", elementObjectId, args, StopException:=StopException
+        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, v) }", elementObjectId, args, StopException:=StopException
     End If
 
     'Most input elements need this
@@ -248,7 +248,7 @@ Property Let innerText(strTextVal As String)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
     args.Add arg
-    main.jsEval "function(v){ this.innerText = v }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(v){ this.innerText = v }", elementObjectId, args, StopException:=StopException
 
 End Property
 
@@ -281,7 +281,7 @@ Property Let innerHTML(strTextVal As String)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
     args.Add arg
-    main.jsEval "function(v){ this.innerHTML = v }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(v){ this.innerHTML = v }", elementObjectId, args, StopException:=StopException
 
 End Property
 
@@ -298,7 +298,7 @@ Property Let checked(boolChecked As Boolean)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", CBool(boolChecked)
     args.Add arg
-    main.jsEval "function(v){ this.checked = v }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(v){ this.checked = v }", elementObjectId, args, StopException:=StopException
 
 End Property
 
@@ -329,7 +329,7 @@ Property Let selected(selectedOption As String)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", selectedOption
     args.Add arg
-    main.jsEval "function(v){ this.selectedIndex = v }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(v){ this.selectedIndex = v }", elementObjectId, args, StopException:=StopException
     fireEvent "change"
 
 End Property
@@ -402,7 +402,7 @@ Public Function getAttribute(strAttributeName As String) As String
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strAttributeName
     args.Add arg
-    getAttribute = main.jsEval("function(name){ return this.getAttribute(name) || '' }", elementObjectId, objectArguments:=args, StopException:=StopException)
+    getAttribute = main.jsEval("function(name){ return this.getAttribute(name) || '' }", elementObjectId, args, StopException:=StopException)
 
 End Function
 
@@ -418,7 +418,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     Dim args2 As New Collection
     Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   args2.Add a1
     Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           args2.Add a2
-    main.jsEval "function(name, val){ this.setAttribute(name, val) }", elementObjectId, objectArguments:=args2, StopException:=StopException
+    main.jsEval "function(name, val){ this.setAttribute(name, val) }", elementObjectId, args2, StopException:=StopException
 
 End Function
 
@@ -482,7 +482,7 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strEventName
     args.Add arg
-    main.jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", elementObjectId, objectArguments:=args, StopException:=StopException
+    main.jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", elementObjectId, args, StopException:=StopException
 
    'Wait till applied
     main.wait till:=till
@@ -959,7 +959,7 @@ Public Function getElementByID(strID As String) As CDPElement
     '2. 現在の要素配下での、指定ID属性値を持つ子要素を取得するJavaScriptコードを生成
     '※getElementById は Document のみ。要素配下の ID 探索は querySelector + CSS.escape を使用。これにより、`ShadowRoot`内検索も可能になります
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByIDSearchJS, elementObjectId, objectArguments:=args, StopException:=StopException)
+    resultSearch = main.jsEval(ElementByIDSearchJS, elementObjectId, args, StopException:=StopException)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1007,7 +1007,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
     '2. QuerySelector を使用した現在の要素の子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByQuerySearchJS, elementObjectId, objectArguments:=args, StopException:=StopException)
+    resultSearch = main.jsEval(ElementByQuerySearchJS, elementObjectId, args, StopException:=StopException)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1044,7 +1044,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '2. QuerySelectorAll を使用して、現在の要素の子要素のコレクションを取得するJavaScriptコードを生成
     Dim collResult As Variant
-    collResult = main.jsEval(ElementsByQuerySearchJS, elementObjectId, objectArguments:=args, StopException:=StopException)
+    collResult = main.jsEval(ElementsByQuerySearchJS, elementObjectId, args, StopException:=StopException)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim collOid As String
@@ -1139,7 +1139,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '4. 現在の要素配下での､指定Xpath持つ子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByXPathSearchJS, elementObjectId, objectArguments:=args, StopException:=StopException)
+    resultSearch = main.jsEval(ElementByXPathSearchJS, elementObjectId, args, StopException:=StopException)
 
     '5. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1190,7 +1190,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '4. Get XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE) using callFunctionOn (this as contextNode)
     Dim collResult As Variant
-    collResult = main.jsEval(ChildrenSearchJS, elementObjectId, objectArguments:=xpArgs, StopException:=StopException)
+    collResult = main.jsEval(ChildrenSearchJS, elementObjectId, xpArgs, StopException:=StopException)
 
     '5. 結果を判定。文字型なら、ObjectIDを確保
     Dim collOid As String

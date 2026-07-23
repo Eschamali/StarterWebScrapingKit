@@ -30,13 +30,15 @@ Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal l
 '***************************************************************************************************
 Private Const TableName01 As String = "BrowserHandleInfo"
 Private Const TableName02 As String = "BrowserContextInfo"
-
 Private Const TableName03 As String = "ProtocolWhiteList"
-Public Enum Table03ColumnID
-    ProtocolName = 1
-    階層
-    接頭辞
-End Enum
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
+Private Const Column_SettingUserName    As String = "UserDataDirName"
+Private Const PrimaryKeyName            As String = "UserName"
 
 
 
@@ -163,16 +165,75 @@ End Function
 
 
 '***************************************************************************************************
-'                             ■■■ 数値でセルの中身取得/反映 ■■■
+'                             ■■■ 数値でDBの中身取得/反映 ■■■
 '***************************************************************************************************
-'* 機能　　：このシートのみ定義されてるセル名称を取得します
+'* 機能　　：このシートのみ定義されてるセル名称を設定/取得します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：セルの中身(`.Value`のみ)
+'* GET返値 ：RangeID に紐づく設定値
 '* 引数　　：RangeID        セルID
 '            ErrorSource    この関数を呼び出したソース。※デバック用
 '***************************************************************************************************
 Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
-    UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
+    Const SettingNameTableName As String = "BrowserLaunchSettings"
+
+
+    '1. デフォルトのUserNameを取得
+    Dim targetUser As String: targetUser = CurrentUserName
+    If LenB(targetUser) = 0 Then Err.Raise 4 + vbObjectError, ErrorSource, "デフォルトの`" & Column_SettingUserName & "`が指定されてません"
+
+    '2. 列名を取得
+    Dim colName As String
+    colName = RangeMapping(RangeID, ErrorSource)
+
+    '3. DLookupで生データを取得
+    UseRangeID = DLookup(RangeMapping(RangeID, ErrorSource), SettingNameTableName, Column_SettingUserName & " = '" & targetUser & "'")
+
+    '4. Nullの場合は、空文字列で代用
+    If IsNull(UseRangeID) Then UseRangeID = vbNullString: Exit Property
+
+    '5. 型情報を取得
+    Dim colType As Integer
+    colType = CurrentDb.TableDefs(SettingNameTableName).Fields(colName).Type
+
+    '6. 列の型に応じて、VBAの最適なデータ型にキャストして返す！
+    Select Case colType
+        ' ----------------------------------------------------
+        ' ■ Boolean（はい/いいえ型）
+        ' ----------------------------------------------------
+        Case dbBoolean ' 1
+            UseRangeID = CBool(UseRangeID)
+
+        ' ----------------------------------------------------
+        ' ■ 数値型（整数系：Byte, Integer, Long, BigInt）
+        ' ----------------------------------------------------
+        Case dbByte, dbInteger, dbLong, dbBigInt ' 2, 3, 4, 16
+            UseRangeID = CLng(UseRangeID) ' 整数（Long）に変換
+
+        ' ----------------------------------------------------
+        ' ■ 数値型（実数・通貨系：Single, Double, Decimal, Currency）
+        ' ----------------------------------------------------
+        Case dbSingle, dbDouble, dbDecimal, dbNumeric, dbCurrency ' 5, 6, 7, 19, 20
+            UseRangeID = CDbl(UseRangeID) ' 実数（Double）に変換
+
+        ' ----------------------------------------------------
+        ' ■ 日付/時刻型
+        ' ----------------------------------------------------
+        Case dbDate ' 8
+            UseRangeID = CDate(UseRangeID) ' 日付型（Date）に変換
+
+        ' ----------------------------------------------------
+        ' ■ 文字列型（テキスト型、メモ型、固定幅テキスト型）
+        ' ----------------------------------------------------
+        Case dbText, dbMemo, dbChar ' 10, 12, 18
+            UseRangeID = CStr(UseRangeID) ' 文字列型（String）に変換
+
+        ' ----------------------------------------------------
+        ' ■ その他（バイナリ等、基本は安全のため生のまま返す）
+        ' ----------------------------------------------------
+        Case Else
+            'UseRangeID = UseRangeID
+
+    End Select
 End Property
 
 '***************************************************************************************************
@@ -216,9 +277,7 @@ Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDi
     If SetDictionary Is Nothing Then Err.Raise 1 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName01).HeaderRowRange
-    Dim RequiredCount: RequiredCount = UBound(HeaderColumn, 2) - 1  '※主キー分、減算
-
+    Dim RequiredCount: RequiredCount = CurrentDb.TableDefs(TableName01).Fields.Count - 1 '※主キー分、減算
     If Not SetDictionary.Count = RequiredCount Then Err.Raise 2 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
@@ -246,9 +305,7 @@ Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetD
     If SetDictionary Is Nothing Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データがありません"
 
     '1-2. データ個数をチェック
-    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName02).HeaderRowRange
-    Dim RequiredCount: RequiredCount = UBound(HeaderColumn, 2) - 1  '※主キー分、減算
-
+    Dim RequiredCount: RequiredCount = CurrentDb.TableDefs(TableName02).Fields.Count - 1 '※主キー分、減算
     If Not SetDictionary.Count = RequiredCount Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データサイズが合いません"
     '----------------------------------------------
 
@@ -270,26 +327,36 @@ End Property
 '            ・1件以上ある前提です
 '***************************************************************************************************
 Property Get TableProtocolWhiteList()
-    '1. 指定のデータテーブル、列配列を取得
-    Dim WhiteList: WhiteList = Me.ListObjects(TableName03).DataBodyRange.Columns(Table03ColumnID.接頭辞)
+    'DB操作用オブジェクトを用意
+    Dim db As DAO.Database: Set db = CurrentDb
+    Dim rs As DAO.Recordset
+    Dim rawArray As Variant
 
-    '2. 配列か？
-    If IsArray(WhiteList) Then
-        '1次元配列に変換して返却
-        ReDim tmp(1 To UBound(WhiteList))
-        Dim i As Long
-        For i = 1 To UBound(WhiteList)
-            tmp(i) = WhiteList(i, 1)
-        Next
 
-        TableProtocolWhiteList = tmp
-    Else
-        '配列じゃない場合は1次元配列にしておく
-        ReDim tmp(1 To 1)
-        tmp(1) = WhiteList
+    '1. DCountで、テーブル全体のレコード数を動的に、100%正確に数え上げる
+    Dim targetCount As Long
+    targetCount = DCount("*", TableName03)
 
-        TableProtocolWhiteList = tmp
-    End If
+    '2. SQLで「CheckInstr」列（またはそれに相当するフィールド名）だけをピンポイントで取得
+    Set rs = db.OpenRecordset("SELECT CheckInstr FROM " & TableName03, dbOpenSnapshot)
+
+    '3. GetRowsで一瞬で二次元配列（0始まり・列と行が逆転した状態）として取得
+    ' ※rawArrayは (0, 0 To 行数-1) という構造の2次元配列になります
+    rawArray = rs.GetRows(targetCount)
+
+    '4. データ数取得
+    Dim rowCount As Long
+    rowCount = UBound(rawArray, 2) + 1
+
+    '5. 1次元配列に変換させる
+    ReDim tmp(1 To rowCount)
+    Dim i As Long
+    For i = 1 To rowCount
+        tmp(i) = rawArray(0, i - 1)
+    Next
+
+    '6. 返却
+    TableProtocolWhiteList = tmp
 End Property
 
 
@@ -309,20 +376,22 @@ End Property
 '            ・ハンドル情報管理テーブルは対象外です
 '***************************************************************************************************
 Property Let UpdateBrowserContext(UserName As String, ReplaceName As String, ErrorSource As String, SetValue As String)
-    '1. 操作するテーブルオブジェクトの基準セルを取得
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName02, UserName)
+    'DB操作用オブジェクトを用意
+    Dim db As DAO.Database: Set db = CurrentDb
+    Dim rs As DAO.Recordset
+    Dim sql As String
 
-    '2. 存在したら、対象ユーザーセルを基準にデータ名を探す
-    If Not StartPos Is Nothing Then
-        '2-1. ヘッダー情報を取得
-        Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName02).HeaderRowRange
 
-        '2-2. match関数で書き換えデータ列位置を特定
-        Dim ColumnPos As Long
-        ColumnPos = WorksheetFunction.Match(ReplaceName, HeaderColumn, 0)   '※ここでエラーになる場合は、渡したReplaceName名が間違ってる可能性あり
+    ' 1. 対象ユーザーのレコードをSQLでピンポイントに1行取得
+    sql = "SELECT * FROM " & TableName02 & " WHERE " & PrimaryKeyName & " = '" & UserName & "'"
+    Set rs = db.OpenRecordset(sql, dbOpenDynaset)
 
-        '2-3. 実際のデータ値を書き換え
-        StartPos.Offset(0, ColumnPos - 1).value = SetValue                  '※オフセットは、0始まりなので補正しておく
+    ' 2. レコードが存在したら更新
+    If Not rs.EOF Then
+        '引数で受け取った「ReplaceName（列名）」をそのまま指定して上書き
+        rs.Edit
+        rs.Fields(ReplaceName).value = SetValue
+        rs.Update
     End If
 End Property
 
@@ -363,47 +432,6 @@ End Property
 
 
 '***************************************************************************************************
-'                           ■■■ イベントプロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：入力規則チェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：エラー時は、デフォルト値に書き換えます。前回の値には戻せません。
-'***************************************************************************************************
-Private Sub Worksheet_Change(ByVal Target As Range)
-    ' --- チェック対象のセルとデフォルト値を用意 ---
-    Const checkCell1_DefaultValue As String = "Automation Data"
-    Dim checkCell1 As Range: Set checkCell1 = Me.Range(RangeMapping(2, "ShSetting01_StartBrowser.Worksheet_Change"))
-
-
-    ' --- 変更されたセル(Target)が、チェック対象セルと重なっているか判定 ---
-    Application.EnableEvents = False
-    Select Case True
-        '1. ユーザーデータディレクトリ の設定チェック
-        Case Not (Intersect(Target, checkCell1) Is Nothing)
-            '値を確認します
-            Select Case checkCell1.value
-                ' 条件1: セルが空っぽ（空文字列）の場合
-                Case ""
-                    MsgBox "この項目は、入力必須です。デフォルト値に戻します。", vbExclamation, "入力エラー"
-                    checkCell1.value = checkCell1_DefaultValue
-
-                ' 条件2: 特定の禁止文字列が入力された場合
-                Case "User Data"
-                    MsgBox "セキュリティ対策のため、標準のデータディレクトリの指定はできません。" & vbCrLf & "詳細は下記をご覧ください。" & vbCrLf & "https://developer.chrome.com/blog/remote-debugging-port?hl=ja" & vbCrLf & vbCrLf & "デフォルト値に戻します。", vbCritical, "入力エラー"
-                    checkCell1.value = checkCell1_DefaultValue
-
-            End Select
-
-        '他のセルをチェックする場合に追加する...
-        Case Else
-
-    End Select
-    Application.EnableEvents = True
-End Sub
-
-
-
-'***************************************************************************************************
 '                         ■■■ テーブル操作ヘルパーメソッド ■■■
 '***************************************************************************************************
 '* 機能　　：指定テーブル名へデータ追加/上書きを一括で行います
@@ -417,56 +445,37 @@ End Sub
 '* 注意事項：同名ユーザーの場合は、上書きします
 '***************************************************************************************************
 Private Sub serializeToTable(TableName As String, UserName As String, ErrorSource As String, InputData As Dictionary)
-    'テーブル追加時のアニメーション動作を止める
-    Application.ScreenUpdating = False
+    'DB操作用オブジェクトを用意
+    Dim db As DAO.Database: Set db = CurrentDb
+    Dim rs As DAO.Recordset
+    Dim sql As String
 
 
-    '1. Dictionary の`.Count`から、2次元配列の枠を用意
-    ReDim SetArray(InputData.Count)
+    ' 1. 対象のUserNameのレコードを、SQLでピンポイントに取得する
+    ' （すでに登録されていれば1行取得でき、未登録なら空のレコードセットが返ります）
+    sql = "SELECT * FROM " & TableName & " WHERE " & PrimaryKeyName & " = '" & UserName & "'"
+    Set rs = db.OpenRecordset(sql, dbOpenDynaset)
 
-    '2. データ行数と列数を取得
-    Dim InsertDataColumns   As Long: InsertDataColumns = UBound(SetArray) + 1   '列数 ※主キーを含めるので補正
-    Const InsertDataRows    As Long = 1                                         '行数 ※1件ずつ追加のため
-
-    '3. UserName(主キー)を指定
-    SetArray(0) = UserName
-
-    '4. ヘッダー情報を取得
-    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
-    Dim HeaderColumn: HeaderColumn = TargetTableObj.HeaderRowRange
-
-    '5. Dictionary から、1次元配列へ変換
-    Dim i As Long, KeyName, columnIndex As Long
-    For Each KeyName In InputData.keys
-        '5-1. Keyから列位置を特定
-        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
-
-        '5-2. その位置の配列に適用
-        SetArray(columnIndex - 1) = InputData(KeyName) '※0始まりなので補正
-    Next
-
-    '6. 操作するテーブルオブジェクトの基準セルを取得
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName)
-
-    '7. データ挿入方式判定
-    If StartPos Is Nothing Then
-        'テーブルに格納してるデータ数を取得
-        Dim DataRows As Long: DataRows = TargetTableObj.ListRows.Count
-
-        'テーブル自体が確保してる行数を取得
-        Dim TableRows As Long: TableRows = TargetTableObj.ListColumns(1).Range.Count
-
-        '存在しないので、テーブル末尾に追加します。
-        '※右記のテクニックを参考にした追加方式です → http://officetanaka.net/excel/vba/table/08.htm
-        TargetTableObj.ListColumns(1).Range(TableRows + 1 + (DataRows = 0)).Resize(InsertDataRows, InsertDataColumns) = SetArray
+    ' 2. データ挿入方式の判定（新規追加か、編集か）
+    If rs.EOF Then
+        ' レコードが存在しない? 新規追加モードを起動
+        rs.AddNew
+        rs.Fields(PrimaryKeyName).value = UserName ' 主キーをセット
     Else
-        '存在するので、先頭セルを基準にリサイズして上書き
-        StartPos.Resize(InsertDataRows, InsertDataColumns) = SetArray
+        ' レコードが存在する? 編集（上書き）モードを起動
+        rs.Edit
     End If
 
+    ' 3. Dictionaryから、各フィールドへループで一括代入
+    ' ★重要：Accessが列名（キー名）を自動で名前解決してくれるため、
+    '   Excel版にあった「Match関数による列位置の特定」は完全に不要になります！
+    Dim KeyName As Variant
+    For Each KeyName In InputData.keys
+        rs.Fields(KeyName).value = InputData(KeyName)
+    Next
 
-    '元に戻す
-    Application.ScreenUpdating = True
+    ' 4. データベースへの書き込みを確定（コミット）
+    rs.Update
 End Sub
 
 '***************************************************************************************************
@@ -479,27 +488,28 @@ End Sub
 '* 注意事項：記録されてない`UserName`を指定すると、`Nothing`が返ります
 '***************************************************************************************************
 Private Function deserializeFromTable(TableName As String, UserName As String, ErrorSource As String) As Dictionary
-    '1. 操作するテーブルオブジェクトの基準セルを取得
-    Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName)
+    'DB操作用オブジェクトを用意
+    Dim db As DAO.Database: Set db = CurrentDb
+    Dim rs As DAO.Recordset
+    Dim sql As String
 
-    '2. 基準セルがない場合は、即抜け
-    If StartPos Is Nothing Then Exit Function
+    
+    '1. 対象のUserNameのレコードをSQLで1行だけピンポイントに取得
+    sql = "SELECT * FROM " & TableName & " WHERE " & PrimaryKeyName & " = '" & UserName & "'"
+    Set rs = db.OpenRecordset(sql, dbOpenSnapshot)
 
-    '3. ヘッダー情報を取得し、格納データ数を取り出す
-    Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName).HeaderRowRange
-    Dim TakeColumn As Long: TakeColumn = UBound(HeaderColumn, 2)
+    '2. レコードが存在しない（登録がない）場合は、`Nothing`を返して終了
+    If rs.EOF Then Exit Function
 
-    '4. ヘッダー情報分、列から取り出す
-    Dim DataSet
-    DataSet = StartPos.Resize(1, TakeColumn)
-
-    '5. データ名と値の紐づけを行い、Dictionaryで返却
-    '※`UserName`情報は不要なので、2列目から始める
-    Dim i As Long
+    '3. 返却用のDictionaryを作成
     Set deserializeFromTable = New Dictionary
-    For i = 2 To TakeColumn
-        deserializeFromTable.Add HeaderColumn(1, i), DataSet(1, i)
-    Next
+
+    '4. ★ここが真骨頂：レコードセットの全列（Fields）をオブジェクト指向のループでスキャン
+    Dim fld As DAO.Field
+    For Each fld In rs.Fields
+        ' 「UserName」の情報は不要なので、それ以外の列をDictionaryに格納
+        If Not fld.Name = PrimaryKeyName Then deserializeFromTable.Add fld.Name, fld.value
+    Next fld
 End Function
 
 '***************************************************************************************************
@@ -514,68 +524,24 @@ End Function
 '            ・handle解放等は別途行う必要があります
 '***************************************************************************************************
 Private Sub DeleteTableData(TableName As String, UserName As String, ErrorSource As String)
-    'テーブル削除時のアニメーション動作を止める
-    Application.ScreenUpdating = False
+    'DB操作用オブジェクトを用意
+    Dim db As DAO.Database: Set db = CurrentDb
+    Dim sql As String
 
 
-    '文字列が格納されているか？
-    If StrPtr(UserName) Then
-        '`UserName`をキーに、操作するテーブルオブジェクトの基準セルを取得
-        Dim GetTakeNum As Long
-        Dim StartPos As Range: Set StartPos = GetReferenceRange(TableName, UserName)
-
-        '基準セルがない場合は、即抜け
-        If StartPos Is Nothing Then Application.ScreenUpdating = True: Exit Sub
-
-        'データ数をチェック
-        Dim HeaderColumn: HeaderColumn = Me.ListObjects(TableName).HeaderRowRange
-        Dim DropColumn As Long: DropColumn = UBound(HeaderColumn, 2)
-
-        '対象のテーブルに応じて、消去行数をリサイズ
-        Dim DataSet As Range
-        Set DataSet = StartPos.Resize(1, DropColumn)
-
-        '消去
-        DataSet.Delete
+    ' 1. UserNameの有無によって、削除用SQL文を分岐させる
+    If StrPtr(UserName) > 0 Then
+        ' 個別削除：UserNameが一致するレコードだけをピンポイントで削除
+        sql = "DELETE * FROM " & TableName & " WHERE " & PrimaryKeyName & " = '" & UserName & "'"
     Else
-        '1件以上あったら、全消去します
-        With Me.ListObjects(TableName)
-            If .ListRows.Count Then .DataBodyRange.Delete
-        End With
+        ' 全削除：テーブル内のすべてのレコードを根こそぎ削除
+        sql = "DELETE * FROM " & TableName
     End If
 
-
-    '元に戻す
-    Application.ScreenUpdating = True
+    ' 2. SQLを「一撃」で実行！
+    ' ※dbFailOnErrorを指定しておくと、もし万が一ロックなどで失敗した際にエラーを検知できます [1.1.2]
+    db.Execute sql, dbFailOnError
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：テーブル操作の基準セルを取得します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：基準セルオブジェクト
-'* 引数　　：TableName      このワークシート上のテーブル名
-'            SearchUser     検索ユーザー名
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・基準セルがない場合は、`Nothing`となります
-'            ・存在しないテーブル名はエラーです
-'***************************************************************************************************
-Private Function GetReferenceRange(TableName As String, SearchUser As String) As Range
-    '1. このワークシート上にあるテーブルオブジェクトを取得
-    Dim TargetTableObj As ListObject: Set TargetTableObj = Me.ListObjects(TableName)
-
-    '2. データがそもそもない場合は即抜け
-    If TargetTableObj.DataBodyRange Is Nothing Then Exit Function
-
-    'データ操作の基準となるセルを取得する
-    Dim StartRowPos As Variant  'エラー値に備えて`Variant`にしておく
-    With TargetTableObj.DataBodyRange
-        '1. 基準となる位置を取得
-        StartRowPos = Application.Match(SearchUser, .Columns(1), 0)  '`IsError`で判定させたいので、`Application`を使用。UserName判定なので、列番号は常に1
-
-        '2. 見つけた位置を基に、RangeObjectとして返す
-        If Not IsError(StartRowPos) Then Set GetReferenceRange = .Cells(StartRowPos, 1)
-    End With
-End Function
 
 
 
@@ -600,8 +566,24 @@ Property Let EnsureWebView2Debug(port As Long)
 End Property
 
 '***************************************************************************************************
-'* 機能　　：現在設定中の識別名称を取得します
+'* 機能　　：現在設定中の識別名称を取得/設定します
 '***************************************************************************************************
 Property Get CurrentUserName() As String
-    CurrentUserName = Me.UseRangeID(2, "ShSetting01_StartBrowser.CurrentUserName")
+    '1. 現在の利用ユーザーを取得
+    Dim tmp
+    tmp = TempVars(Column_SettingUserName)
+
+    '2. Nullの場合は止める
+    If IsNull(tmp) Then
+        MsgBox "ブラウザの自動操作を開始する前に、設定情報を読み込む必要があります。設定後、再度初めから処理を始めてください。", vbExclamation, "利用ユーザーを確認できません"
+
+        ' ★これだけで、あなたが作った設定画面（フォーム）が一瞬でポップアップします
+        DoCmd.OpenForm "ブラウザ起動設定", WindowMode:=acDialog
+        End
+    Else
+        CurrentUserName = tmp
+    End If
+End Property
+Property Let CurrentUserName(DefaultUserName As String)
+    TempVars(Column_SettingUserName) = DefaultUserName
 End Property

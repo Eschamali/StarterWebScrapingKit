@@ -137,11 +137,11 @@ Private UseChrome     As Boolean
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
 
 'その他
-Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
+Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
 
 
 
@@ -1605,22 +1605,19 @@ Public Function checkURI(URI As String) As String
         Exit Function
     End If
 
-    '1. ホワイトリストのプロトコルを取得
-    Dim WhiteList: WhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
-
-    '2. 先頭始まりかチェック
+    '1. 先頭始まりかチェック
     Dim i As Long
-    For i = 1 To UBound(WhiteList)
+    For i = LBound(ProtocolWhiteList) To UBound(ProtocolWhiteList)
         '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
+        If InStr(1, URI, ProtocolWhiteList(i)) = 1 Then
+            printMsg Debug_, "Protocol check passed：" & ProtocolWhiteList(i), FromProcedureName
 
             checkURI = URI
             Exit Function
         End If
     Next
 
-    '3. プロトコル名をチェック
+    '2. プロトコル名をチェック
     Dim ProtocolName, ErrorMes As String
     ProtocolName = Split(URI, ":")
     If UBound(ProtocolName) = 0 Then
@@ -1738,6 +1735,9 @@ Private Sub Class_Initialize()
 
         '3. ブラウザの使用タイプ
         UseChrome = .UseRangeID(4, FromProcedureName)
+        
+        '4. ホワイトプロトコルリストを取得
+        ProtocolWhiteList = .TableProtocolWhiteList
     End With
 
     'タイムアウト設定(デフォルトで、30s)
@@ -1747,14 +1747,4 @@ Private Sub Class_Initialize()
     Set ResultCDP_Browser.response = New Dictionary
     ResultCDP_Browser.Limit = MaxStoreResultCDP
     '------------------------------------------------------------------------------
-
-
-    'Determine project host type for compatibility
-    '※このフォークツールは、Excel特化に改良してるため、Excel以外は動作しません
-    Select Case True
-        Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
-        'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
-        'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
-    End Select
-
 End Sub

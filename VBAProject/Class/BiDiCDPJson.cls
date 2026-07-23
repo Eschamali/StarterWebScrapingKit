@@ -6,7 +6,7 @@ Attribute VB_Name = "BiDiCDPJson"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = False
+Attribute VB_Exposed = True
 '==============================================================================================================
 '                   主に、Chrome DevTools Protocol のメッセージ解析として使うコアクラスです
 '                      オリジナルライブラリから、`CopyMemory`依存を除去した物になります

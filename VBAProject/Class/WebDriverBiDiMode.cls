@@ -412,10 +412,10 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
         'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to ExecuteBiDi method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to BiDi-invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, "Failed to ExecuteBiDi method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
@@ -899,7 +899,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
     printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
     printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.UseRangeID(1, FromProcedureName), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.VersionMapperTabJS, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
 
