@@ -132,7 +132,7 @@ Sub WebSocketModeForCDP()
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketModeForCDP")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     'データ枠のみ確保 ※Pipe版ロジックとの互換性を保つため
     Dim hoge1 As New CDPCore: hoge1.serialize UserName
@@ -346,7 +346,7 @@ Sub WebSocketDemoASync_CDP送信_RuntimeEvaluate()
     Dim c As New CDPBrowser
     Dim r As CDPContext
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_WebSocket.WebSocketDemoASync_CDP送信_PageNavigate")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
     If Not c.reattach(UserName, wsForChromiumobj) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub

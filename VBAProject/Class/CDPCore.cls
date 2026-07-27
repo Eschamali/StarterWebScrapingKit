@@ -155,7 +155,7 @@ End Type
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'ウィンドウ表示設定値一式
+'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
 Public Enum WinState
     asHidden = 0            'Hides the window and activates another window.
     asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
@@ -454,9 +454,15 @@ End Sub
 '* 引数　　：UserName   読み取る識別名称
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".deserialize"
+
+
+    'WebSocketモードの場合は、パイプ用変数に適用する意味がないので`True`で返して即抜け
+    If Not viaWebSocket Is Nothing Then printMsg info_, LogID, "As WebSocket mode is in use, this does not apply to pipe variables.", FromProcedureName: deserialize = True: Exit Function
+
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.deserialize")
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
     If PipeInfo Is Nothing Then Exit Function

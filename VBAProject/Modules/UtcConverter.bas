@@ -298,23 +298,34 @@ End Function
 ''
 Public Function ParseUnix(UnixDate As Double) As Date
     On Error GoTo utc_ErrorHandling
-    
-    Dim utc_LongMax As Double
+
+    Const utc_LongMax As Double = 2147483647
+    Dim remainingSeconds As Double
     Dim utc_Step As Long
-    
-    utc_LongMax = 2147483647
+
+    remainingSeconds = UnixDate
     utc_Step = 0
-        
-    ' Although VBA's `DateAdd` function takes a {Double} variable for the `Number` parameter, it returns a `6 - Overflow` error
-    ' if any value higher than 2147483647 (which is the maximum value of a {Long} data type) is passed. To avoid an overflow error,
-    ' we recursively loop in increments of 2147483647.
+
+    ' 1970/1/1を初期値とする
     ParseUnix = VBA.DateSerial(1970, 1, 1)
-    Do Until (UnixDate - (utc_LongMax * utc_Step)) < 0
-        ParseUnix = VBA.DateAdd("s", Application.Min((UnixDate - (utc_LongMax * utc_Step)), 2147483647), ParseUnix)
+
+    ' 残りの秒数を、2,147,483,647秒ずつ削りながら足し込んでいく
+    Do While remainingSeconds > 0
+        If remainingSeconds >= utc_LongMax Then
+            ' 21億秒以上残っている場合は、21億秒分を足して、残りを引き算する
+            ParseUnix = VBA.DateAdd("s", utc_LongMax, ParseUnix)
+            remainingSeconds = remainingSeconds - utc_LongMax
+        Else
+            ' 21億秒未満になったら、最後の端数秒を一気に足して、残りを 0 にして終了
+            ParseUnix = VBA.DateAdd("s", remainingSeconds, ParseUnix)
+            remainingSeconds = 0
+        End If
+
+        ' 無限ループ防止用のカウンター
         utc_Step = utc_Step + 1
-        If utc_Step > 10 Then Err.Raise 6 ' To prevent infinite loop... 10 loops would be circa 2650.
+        If utc_Step > 10 Then Err.Raise 6 ' 約2650年まで対応
     Loop
-    
+
     ParseUnix = ParseUtc(ParseUnix)
     Exit Function
 

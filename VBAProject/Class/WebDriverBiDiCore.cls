@@ -583,7 +583,7 @@ Public Function UpdateFromLocalFile(FolderPath As String, Optional FileName As S
 
         'ローカルファイルで更新した旨を記録
         '※ミスの場合は、空欄にする
-        .UseRangeID(1, FromProcedureName) = IIf(UpdateFromLocalFile, " Local", "")
+        .VersionMapperTabJS = IIf(UpdateFromLocalFile, " Local", "")
     End With
 End Function
 
