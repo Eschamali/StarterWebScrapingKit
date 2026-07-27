@@ -540,7 +540,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
 
             '中身が空の場合は、`User Data`配下として返します
             '※厳密には、`vbnullchar`が、先頭にある時
-            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Split(ValueContents_String, vbNullChar)(0))
+            currentPolicy.UserDataDir.Contents = IIf(Left$(ValueContents_String, 1) = vbNullChar, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Split(ValueContents_String, vbNullChar)(0))
 
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
@@ -1609,7 +1609,7 @@ Public Function checkURI(URI As String) As String
     Dim i As Long
     For i = LBound(ProtocolWhiteList) To UBound(ProtocolWhiteList)
         '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, ProtocolWhiteList(i)) = 1 Then
+        If Left$(URI, Len(ProtocolWhiteList(i))) = ProtocolWhiteList(i) Then
             printMsg Debug_, "Protocol check passed：" & ProtocolWhiteList(i), FromProcedureName
 
             checkURI = URI
