@@ -279,3 +279,68 @@ Sub BeginningOfAdventureByBiDi()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 New Feature: Browser Operation Demo via WebSocket (Port) Connection
+
+From V2.3.0, the "WebSocket (Port) Route" is officially released, allowing Excel to attach to (take control of) an existing browser session (such as Edge or Chrome) that is already running.
+
+A simple demo code named **`SetupWebSocketMode`** is provided in the standard module `Demo_CDP` for you to try out this feature.
+
+---
+
+> [!CAUTION]
+> To run this port connection demo, you must start the target browser with the **remote debugging port enabled** beforehand.  
+> Please launch Edge or Chrome in advance with the following argument from the command prompt or your shortcut properties.
+
+```bash
+# Launch the browser with the default port 9222 open
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 Demo Code: `SetupWebSocketMode`
+
+Running this macro will attach to the existing browser via the port, and navigate to the target page from either the specified tab or a new tab.
+
+```vb
+Sub SetupWebSocketMode()
+    ' 1. Retrieve the username from the setting sheet (ShSetting01_StartBrowser)
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    ' 2. Connect to the browser (WebSocket) that has the specified debugging port open
+    ' * Arguments: ConnectCDP(Username, EndpointName, [PortNumber: Default is 9222])
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
+
+    ' 3. Pass the connected WebSocket object to the `reattach` method of the main browser class
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then 
+        MsgBox "Could not connect to '" & UserName & "'. Either the browser is not running, or the WebSocket info is no longer valid.", vbCritical, "Chrome DevTools Protocol"
+        Exit Sub
+    End If
+
+    ' 4. Control tabs on the attached browser
+    Dim t As CDPContext
+    ' * Note: Be sure to specify `setMain:=True` when retrieving and operating an existing tab.
+    ' Set t = b.getTab(setMain:=True)
+    
+    ' You can also start by creating a new tab instead (either way is fine)
+    Set t = b.newTab(setMain:=True) 
+
+    ' 5. Navigate to the target page using the familiar interface!
+    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 6. Once processing is complete, safely disconnect from the WebSocket
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 Application and Customization of Settings
+
+* **Changing the port number**:
+  By passing any port number as the third argument of `WebSocketCDP.ConnectCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
+* **Building on this code**:
+  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.

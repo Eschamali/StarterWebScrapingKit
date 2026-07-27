@@ -274,3 +274,58 @@ Sub BiDiによる冒険の始まり()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 新機能：WebSocket（Port）接続でのブラウザ操作デモ
+
+V2.3.0より、すでに起動しているEdgeやChromeなどの既存ブラウザセッションにExcelからアタッチ（制御を乗っ取る）できる「WebSocket（Port）ルート」が正式に解禁されました。
+
+標準モジュール `Demo_CDP` の中に、この機能を試すためのシンプルなデモコード `WebSocket経由版Demo` セクションが同梱されています。
+
+---
+
+> [!CAUTION]
+> このポート接続デモを動かすためには、あらかじめ対象のブラウザを**リモートデバッグポートを有効にした状態で起動しておく**必要があります。  
+> コマンドプロンプトやショートカットのプロパティ等から、以下の引数を付けてEdgeまたはChromeをあらかじめ起動しておいてください。
+
+```bash
+# デフォルトポート 9222 を開いてブラウザを起動する
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 デモコード：`SetupWebSocketMode`
+
+このマクロを実行すると、ポートフォワード経由で既存のブラウザを乗っ取り、タブから目的のページへ遷移します。
+
+```vb
+Sub SetupWebSocketMode()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. ページ遷移
+    'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '5. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 応用と設定のカスタマイズ
+
+* **ポート番号を変更したい場合**：
+  `WebSocketCDP.AutoConnectPageCDP` の第4引数に、任意のポート番号（例：`9222` 以外に指定したポート）を渡すことで、特定のポートで待機しているブラウザや、Android等の実機内のブラウザにも柔軟に接続できます。
+* **このコードを基にして**：
+  面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
+* **接続の種類について**：
+  特定のページ、ブラウザそのもの、今目の前のブラウザ　の３種類をご用意しております。この辺の使い方も`WebSocket経由版Demo` セクションにありますので参考に。

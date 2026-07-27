@@ -578,7 +578,7 @@ Property Get CurrentUserName() As String
         MsgBox "ブラウザの自動操作を開始する前に、設定情報を読み込む必要があります。設定後、再度初めから処理を始めてください。", vbExclamation, "利用ユーザーを確認できません"
 
         ' ★これだけで、あなたが作った設定画面（フォーム）が一瞬でポップアップします
-        DoCmd.OpenForm "ブラウザ起動設定", WindowMode:=acDialog
+        DoCmd.OpenForm "SettingRunBrowser", WindowMode:=acDialog
         End
     Else
         CurrentUserName = tmp
