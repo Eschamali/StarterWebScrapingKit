@@ -18,7 +18,10 @@ Option Explicit
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
 '内部参照用オブジェクト
-Private WithEvents ex_WebDriverBiDi As WebDriverBiDiCore
+Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
+Attribute ex_BiDiCore.VB_VarHelpID = -1
+Private ex_BiDiContext          As WebDriverBiDiContext
+Attribute ex_BiDiContext.VB_VarHelpID = -1
 
 '内部使用用
 Private Const ThisClassName         As String = "exBiDi_Template.cls"             'ログのトレース用
@@ -46,14 +49,16 @@ End Property
 
 
 
-
 '***************************************************************************************************
 '                     ■■■ メインとなる機能拡張部分 非同期イベント編 ■■■
 '***************************************************************************************************
 '* 機能　　：非同期イベントを処理したいときにご利用ください。あなたのイメージをコードに落とし込む場所の1つです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`ex_BiDiContext.cls`から受け取った`Context`だけ処理を通す場合はその判定処理を別途、case内に記述して下さい。
+'            なお、CDP版と違って、イベント内容によって`Context`の記載情報位置が異なるため、イベントmethod名ごとにcontext判定というフローにして下さい
 '***************************************************************************************************
-Private Sub ex_WebDriverBiDi_detectionBiDiEvent(methodName As String, EventRawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_WebDriverBiDi_detectionBiDiEvent"
+Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".ex_BiDiCore_detectionBiDiEvent"
 
 
     '1. 非同期イベント処理自体が無効状態なら、即抜け
@@ -108,29 +113,29 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ `WebDriverBiDi`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
+'* 機能　　：いちいち、`○○.ExecuteBiDi`といった記述を防ぐ措置となります。
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・メインの`WebDriverBiDiCore`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくことをお勧めします
+'* 注意事項：・前後の処理等も出来ますが基本は、1行だけに留めておくことをお勧めします
 '            ・各詳細は、`WebDriverBiDi`の方をご覧ください
 '***************************************************************************************************
 '負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_WebDriverBiDi.sleep seconds
+    ex_BiDiCore.sleep seconds
 End Sub
 
 'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_WebDriverBiDi.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    ex_BiDiContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
 'BiDi実行に必要です
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_WebDriverBiDi.invokeMethod(methodName, params, StopError)
+Private Function ExecuteBiDi(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+    Set ExecuteBiDi = ex_BiDiContext.ExecuteBiDi(methodName, params, StopError)
 End Function
 
 '非同期イベント発火(RaiseEvent)に必要です
 Private Sub TakeEvents(Optional destruction As Boolean)
-    ex_WebDriverBiDi.TakeEvents destruction
+    ex_BiDiCore.TakeEvents , destruction
 End Sub
 
 
@@ -138,11 +143,15 @@ End Sub
 '***************************************************************************************************
 '                             ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：WebDriverBiDi制御のベースとなる`WebDriverBiDiCore.cls`を継承させます
+'* 機能　　：情報継承を行います
 '***************************************************************************************************
-Friend Sub Init(Inheritance As WebDriverBiDiCore)
+Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
-    Set ex_WebDriverBiDi = Inheritance
+    Set ex_BiDiContext = Inheritance
+    Set ex_BiDiCore = Inheritance.InheritanceWebDriverBiDiCore
+    
+    'コンテキスト情報
+    m_context = Inheritance.context
 End Sub
 
 '***************************************************************************************************
@@ -157,6 +166,6 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
     End With
 End Sub
