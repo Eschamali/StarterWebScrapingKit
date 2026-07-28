@@ -275,6 +275,9 @@ End Function
 '            ・結果自体はこのメソッドでは受け取れません。次述の`ExecuteWebMCP`をご利用ください
 '***************************************************************************************************
 Public Function ExecuteWebMCPAsync(ToolName As String, Optional input_ As Dictionary) As String
+    Const FromProcedureName As String = ThisClassName & ".ExecuteWebMCPAsync"
+
+
     '1. parameters を作成
     Dim params As New Dictionary
     params.Add "frameId", toolsMap(ToolName)("frameId")
@@ -283,6 +286,7 @@ Public Function ExecuteWebMCPAsync(ToolName As String, Optional input_ As Dictio
 
     '2. 実行して、整理券IDを返却
     ExecuteWebMCPAsync = ExecuteCDP("WebMCP.invokeTool", params).StringKey("invocationId")
+    printMsg Debug_, "Async ExecuteWebMCPAsync: " & ToolName & " - invocationId: " & ExecuteWebMCPAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -313,16 +317,20 @@ Public Function ExecuteWebMCP(ToolName As String, Optional input_ As Dictionary,
         Dim tmp As String: tmp = TakeResultWebMCP(ResultInvocationId)
 
         '2-2. 取り出せたら、Node-Json形式にして返却後、抜ける
-        If StrPtr(tmp) Then Set ExecuteWebMCP = BiDiCDPJson.Parse(tmp).NodeKey("params"): Exit Function
+        If StrPtr(tmp) Then
+            Set ExecuteWebMCP = BiDiCDPJson.Parse(tmp).NodeKey("params")
+            If m_CDPCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteWebMCP `" & ToolName & "` with result: " & ExecuteWebMCP.Stringify, FromProcedureName
+            Exit Function
+        End If
 
         '2-3. イベント取り出し
         TakeEvents
     Loop Until TimerCounter - timerStart > TimeOutSecond * 1000
 
     '3. 見つからない旨を伝え、実行をキャンセルする
-    printMsg WARN_, "This WebMCP-invocationId: " & ResultInvocationId & " could not be verified within the given time.", FromProcedureName
+    printMsg WARN_, "This WebMCP(" & ToolName & ")-invocationId: " & ResultInvocationId & " could not be verified within the given time.", FromProcedureName
     CancelWebMCP ResultInvocationId
-    printMsg info_, "This WebMCP-invocationId: " & ResultInvocationId & " has been cancelled.", FromProcedureName
+    printMsg info_, "This WebMCP(" & ToolName & ")-invocationId: " & ResultInvocationId & " has been cancelled.", FromProcedureName
 End Function
 
 '***************************************************************************************************
