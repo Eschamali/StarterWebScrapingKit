@@ -1,0 +1,75 @@
+# WebDriverBiDiContext
+
+BiDi の browsing context（タブ／ページ）です。Playwright の **Page** に相当します。
+
+```vb
+Dim t As WebDriverBiDiContext
+Set t = ShSetting01_StartBrowser.StartBiDiModeContext
+t.navigate "https://example.com"
+t.InheritanceWebDriverBiDiMode.quit
+```
+
+親は `InheritanceWebDriverBiDiMode`（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）。
+
+## ナビ・JS
+
+### `navigate`
+
+```vb
+Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
+```
+
+### `jsEval`
+
+```vb
+Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, _
+    Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, ...) As Variant
+```
+
+[JavaScript 実行](/guides/javascript)
+
+要素のクリック／入力など高レベル API は CDP 側が充実しています。必要なら下記で変換してください。
+
+## CDP への橋渡し
+
+### `ConvertToCDPContext`
+
+```vb
+Public Function ConvertToCDPContext() As CDPContext
+```
+
+同じタブを [`CDPContext`](/api/cdp/CDPContext) として操作できます。`CDPElement` が使えます。
+
+```vb
+Dim cdp As CDPContext
+Set cdp = t.ConvertToCDPContext
+cdp.getElementByQuery("button").click
+```
+
+## プロトコル
+
+### `ExecuteBiDi` / `ExecuteBiDiAsync`
+
+コンテキスト／セッション向け BiDi コマンド。BiDi+（`goog:cdp.*`）もここから。[生プロトコル拡張](/guides/extend-raw-protocol)
+
+## 再接続
+
+### `reattach`
+
+```vb
+Public Function reattach(userProfile As String, _
+    Optional sessionCapabilitiesRequest As Dictionary, _
+    Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+```
+
+最後に操作した BiDi context への再接続。[再接続](/guides/reattach)
+
+### `StartBiDiModeAndConnectTab`
+
+低レベル起動＋タブ接続。
+
+## 関連
+
+- [`WebDriverBiDiMode`](./WebDriverBiDiMode)
+- [CDP と BiDi](/concepts/cdp-vs-bidi)
+- [要素の取得](/guides/selectors)（CDP 変換パターン）

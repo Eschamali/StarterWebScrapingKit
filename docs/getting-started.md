@@ -1,0 +1,101 @@
+# はじめに
+
+最短でブラウザを動かすまでの手順です。
+
+## 1. マクロブックを信頼する
+
+インターネットからダウンロードしたファイルには Mark of the Web (MOTW) が付きます。次を行ってください。
+
+1. Excel をすべて閉じる
+2. ファイルを右クリック → **プロパティ**
+![右クリックメニュー](/img/GettingStarted/FirstStep4.png)
+
+3. **許可する** にチェック → OK
+![プロパティウィンドウ](/img/GettingStarted/FirstStep5.png)
+
+4. 再度開き、「編集を有効にする」／マクロを許可
+![マクロ警告バー](/img/GettingStarted/FirstStep6.png)
+
+詳細な説明はリポジトリの [`README-jp.md`](https://github.com/Eschamali/StarterWebScrapingKit/blob/main/README-jp.md) を参照してください。
+
+## 2. ブラウザ起動設定シート
+
+ワークシート **ブラウザ起動設定ver2.X.X** で次を確認します。
+
+- ユーザーデータフォルダ名（`user-data-dir` 用）
+- 追加の起動引数（基本は、J13セル以降に記述）
+- 起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）
+![基本設定画面](/img/GettingStarted/SettingGUI1.png)
+
+
+こだわりがなければシートの初期値のままで問題ありません。
+
+## 3. Hello World
+
+標準モジュールのデモ、または新規モジュールに次を書いて実行します。
+
+::: code-group
+
+```vb [CDP]
+Sub CDPによる冒険の始まり()
+    Dim HelloWorld As CDPContext
+    Set HelloWorld = ShSetting01_StartBrowser.StartCDPModeContext
+
+    HelloWorld.navigate "https://kemono-friends.jp/"
+    HelloWorld.notify "あなたは、けものがお好きですか？"
+    HelloWorld.InheritanceCDPBrowser.sleep 3
+
+    HelloWorld.InheritanceCDPBrowser.quit
+End Sub
+```
+
+```vb [BiDi]
+Sub BiDiによる冒険の始まり()
+    Dim HelloWorld As WebDriverBiDiContext
+    Set HelloWorld = ShSetting01_StartBrowser.StartBiDiModeContext
+
+    HelloWorld.navigate "https://example.com"
+
+    HelloWorld.InheritanceWebDriverBiDiMode.quit
+End Sub
+```
+
+:::
+
+同梱デモ:
+
+- `Demo_CDP.CDPによる冒険の始まり`
+- `Demo_WebDriverBiDi.BiDiによる冒険の始まり`
+
+### 入口関数
+
+| 関数 | 戻り値 | 用途 |
+| --- | --- | --- |
+| `StartCDPModeContext` | `CDPContext` | タブ操作からすぐ始めたい（推奨） |
+| `StartCDPMode` | `CDPBrowser` | タブを自分で `newTab` / `getTab` したい |
+| `StartBiDiModeContext` | `WebDriverBiDiContext` | BiDi でタブ操作から始める（推奨） |
+| `StartBiDiMode` | `WebDriverBiDiMode` | BiDi でセッション／タブを細かく制御 |
+
+いずれも省略可能な引数:
+
+- `StartURL` — 起動直後に開く URL
+- `SwitchUser` — 別プロファイル名で起動（マルチインスタンス）
+- `KioskMode` — Edge キオスク／UserForm 埋め込み向け
+
+## 4. 終了時は必ず quit
+
+パイプ／マッパーを残さないよう、処理の最後でブラウザを閉じます。
+
+```vb
+' CDP
+t.InheritanceCDPBrowser.quit
+
+' BiDi
+t.InheritanceWebDriverBiDiMode.quit
+```
+
+## 次へ
+
+- [アーキテクチャ](/concepts/architecture)
+- [ページ遷移](/guides/navigation)
+- [要素の取得](/guides/selectors)
