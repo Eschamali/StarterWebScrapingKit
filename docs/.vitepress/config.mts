@@ -15,8 +15,8 @@ export default withMermaid(
 
     // 旧サイト #page-id リンク切れ対策（ハッシュはサーバーに届かないためクライアントで置換）
     head: [
-      ['script',
-        { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' } , `
+      // ① 旧サイトのハッシュリダイレクト用スクリプト
+      ['script', {}, `
         (function() {
           var hash = window.location.hash;
           var hashMap = {
@@ -26,7 +26,10 @@ export default withMermaid(
             window.location.replace(hashMap[hash]);
           }
         })();
-      `]
+      `],
+
+      // ② Twitter（X）埋め込み用スクリプト
+      ['script', { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' }]
     ],
 
     themeConfig: {
