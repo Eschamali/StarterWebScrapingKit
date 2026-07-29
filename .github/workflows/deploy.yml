@@ -40,6 +40,11 @@ jobs:
         with:
           path: docs/.vitepress/dist
 
+      - name: Install VitePress & Mermaid Plugin & Build
+        run: |
+          npm install vitepress vitepress-plugin-mermaid mermaid
+          npx vitepress build docs
+
   deploy:
     environment:
       name: github-pages
