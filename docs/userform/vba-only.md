@@ -6,8 +6,7 @@
 ついに辿り着きました。これが本プロジェクトの真の目的であり、到達点です。  
 **外部プロセス（PowerShellなど）に頼らず、Excel VBAのメモリ空間上だけで WebView2 を直接起動・制御します。**
 
-> ふはははははは！！！Excel VBAのユーザーフォーム上でWebView2を動作させて、イベントを検知することに成功したぞ  
-> — [たーぼー（インコ） @fenblen_puyo](https://twitter.com/fenblen_puyo/status/2032821182924468312)
+<blockquote class="twitter-tweet"><p lang="ja" dir="ltr">ふはははははは！！！Excel VBAのユーザーフォーム上でWebView2を動作させて、イベントを検知することに成功したぞ <a href="https://t.co/lwDDCylQYq">pic.twitter.com/lwDDCylQYq</a></p>&mdash; たーぼー（インコ） (@fenblen_puyo) <a href="https://x.com/fenblen_puyo/status/2032821182924468312?ref_src=twsrc%5Etfw">March 14, 2026</a></blockquote>
 
 一見するとLv.1（Edge埋め込み）と似ていますが、タスクマネージャーを見ればその違いは一目瞭然です。
 

@@ -15,7 +15,8 @@ export default withMermaid(
 
     // 旧サイト #page-id リンク切れ対策（ハッシュはサーバーに届かないためクライアントで置換）
     head: [
-      ['script', {}, `
+      ['script',
+        { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' } , `
         (function() {
           var hash = window.location.hash;
           var hashMap = {
