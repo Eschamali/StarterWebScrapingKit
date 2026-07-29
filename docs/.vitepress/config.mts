@@ -20,7 +20,7 @@ export default withMermaid(
         (function() {
           var hash = window.location.hash;
           var hashMap = {
-            "#userform-powershell": "/StarterWebScrapingKit/userform/powershell",
+            "#userform-powershell": "${base}userform/powershell",
           };
           if (hash && hashMap[hash]) {
             window.location.replace(hashMap[hash]);
