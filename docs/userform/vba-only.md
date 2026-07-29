@@ -83,3 +83,14 @@ End Sub
 - [総括：3つの手法の比較](./summary)
 - [PowerShell 経由](./powershell)
 - [はじめに](./intro)
+
+
+<script setup>
+import { onContentUpdated } from 'vitepress'
+
+onContentUpdated(() => {
+  if (typeof window !== 'undefined' && window.twttr) {
+    window.twttr.widgets.load()
+  }
+})
+</script>
