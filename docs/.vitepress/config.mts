@@ -29,7 +29,21 @@ export default withMermaid(
       `],
 
       // ② Twitter（X）埋め込み用スクリプト
-      ['script', { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' }]
+      ['script', { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' }],
+
+      // --- ③ OGP (SNSシェア画像) 設定 ----------------------------------
+      ['meta', { property: 'og:image', content: "${base}browser-control.png" }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }], // 画像を大きく表示させる指定
+
+      // --- ④ Google アナリティクス (GA4) 設定 --------------------------
+      ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-5CW3LKTJWH' }],
+      ['script', {}, `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-5CW3LKTJWH');
+      `]
     ],
 
     themeConfig: {
