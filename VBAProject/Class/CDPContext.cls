@@ -126,16 +126,6 @@ Private BrowserCore         As CDPBrowser   'Must be initialized for CDP engine
 '各種便利クラスオブジェクト
 Private CharConv    As New CharacterCodeConversion
 
-'操作中のタブ情報一式
-Private Type StatebBrowserTab
-    hWnd        As LongPtr  'Browser object window handle
-    WID         As String   'Useful for windows repositioning
-    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
-    Name        As String   'The focused tab name / window name of the active CDPBrowser
-    Url         As String   'The focused tab url of the active CDPBrowser
-End Type
-Private br As StatebBrowserTab
-
 '操作中のタブセッションステータス
 Private Type sessionStatus
     detachedFromTarget  As Boolean  'Issued when detached from target for any reason (including detachFromTarget command). Can be issued multiple times per target if multiple sessions have been attached to it.
@@ -153,11 +143,28 @@ Private ControlError As SessionErrorDetails
 
 '操作中のタブ情報一式
 Private Type StateTab
+    'コアとなる情報
     sessionID           As String   'The ID to the current session tab.
     targetID            As String   'The targetID of the current tab for ExecuteCDP
     browserContextId    As String   'どの`Profile`に属してるか
+
+    '補助情報
+    hWnd        As LongPtr  'Browser object window handle
+    WID         As String   'Useful for windows repositioning
+    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
+    Name        As String   'The focused tab name / window name of the active CDPBrowser
+    Url         As String   'The focused tab url of the active CDPBrowser
 End Type
 Private brTab As StateTab
+
+'操作中のメインタブとしてのJavaScript環境情報
+Private Type StateTabForJavaScript
+    ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
+    origin              As String   '実行範囲
+    Name                As String   '意味のある名称
+    uniqueId            As String   'より厳格な実行コンテキスト情報。現時点では、実験的扱い
+End Type
+Private brTabRuntime As StateTabForJavaScript
 
 'CDPコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
 Private Type cacheResultCDP
@@ -300,10 +307,8 @@ Private Sub attachToSession()
    'Establish connection with the CDP pipes
     brTab.sessionID = BrowserCore.attachToTab(brTab.targetID)
 
-    'JavaScript関連機能を有効化
-    Dim CDPcommand As New Scripting.Dictionary, results_ As BiDiCDPJson
-3   Set results_ = ExecuteCDP("Runtime.enable")
-4   Set BrowserCore.RunCollect_TargetCreated = Nothing
+    '自動蓄積機能を無効化
+3   Set BrowserCore.RunCollect_TargetCreated = Nothing
 
     printMsg info_, "Successfully attached to Session ID " & brTab.sessionID, FromProcedureName
     Exit Sub
@@ -331,8 +336,11 @@ End Sub
 '* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
-'* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True` ：Excelに記録中のsessionIdを流用します
 '                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
+'
+'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -348,7 +356,7 @@ End Sub
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional reuseSession As Boolean) As Boolean
+Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -356,7 +364,7 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
-    reattach = BrowserCore.reattach(userProfile)
+    reattach = BrowserCore.reattach(userProfile, WebSocketMode)
     Set PipeCore = BrowserCore.InheritanceCDPCore
 
     '3. パイプが生きてない場合は、VBAエラーで停止させる
@@ -434,18 +442,19 @@ End Sub
 '* 機能　　：記述したJavaScriptをブラウザ内で実行します。JavaScript版低レベル操作としての位置付けです。
 '            Webスクレイピングに関わる引数は全て設けています。
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Variant型。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
-'* 引数　　：strString                      実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
+'* 返り値　：value属性の中身を評価して、Variant型で返却。実行したJavaScriptコード、引数:returnByValue や、IFEXCEPTION に依存します。
+'* 引数　　：JavaScriptStr                  実行したいJavaScriptコードそのもの。`As Is`として実行されます。※ほとんどのエスケープ処理は、`WebJsonConverter`が担うため、ここでわざわざ手動エスケープの記述は必要ありません。
 '
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
-'            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
+'            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
 '
-'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、Dictionary or Collection形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
+'            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
 '                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
@@ -474,12 +483,12 @@ End Sub
 '
 '* 注意事項：・利用時は、「名前付き引数`xxx:=yyy`」として運用することをお勧めします
 '            ・JavaScript実行中の例外確認は、「IsError関数」で判断してください。詳細の確認は、`LastJavaScriptException`プロパティで確認できます。「IsError関数」での確認が面倒なら、引数`IFEXCEPTION`を活用してください。
-'            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります
+'            ・`returnByValue`=true の場合は、SET or LET で受け取る意識が必要になります。結果によって、`SET`or`LET`が変わって静的にできない場合は、Array関数で一旦受け止めて、VarType(hoge(0))で`SET`or`LET`判定することも可能です
 '
 '            ・「このJavaScriptコードの場合は、こういう返り値が来るな」といった知識がないと、返り値に困惑します。
 '               開発時は、デバッグログを活用した試行錯誤をすることをお勧めします。
 '
-'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`strString`を 「function() { ... }」 形式で記述する必要があります
+'            ・`objectId`や`objectArguments`を指定する`Runtime.callFunctionOn`方式の場合は、`JavaScriptStr`を 「function() { this... }」 のような形式で記述する必要があります
 '
 '            ・実行したJavaScriptコードの結果が、プリミティブ型の場合、`returnByValue`の設定問わずそのプリミティブ型の中身が返ります。
 '              常に`objectId`で返したい場合は、JavaScriptコードそのものを工夫する必要があります。
@@ -488,10 +497,10 @@ End Sub
 '            ・CDP実行自体のエラーキャッチは常に`True`となります
 '            ・`IFEXCEPTION`はあくまでも、「例外」時のみ機能します。JavaScript自体は成功してるけど、結果がエラーの場合はISERROR関数で対処する必要があります。
 '---------------------------------------------------------------------------------------------------
-'* 元URL   ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
+'* 参考URL ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional contextId As Long, Optional IFEXCEPTION As Variant, _
-                       Optional objectArguments As Collection, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+                       Optional contextId As Long, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userGesture As Boolean, _
@@ -536,7 +545,8 @@ step1:
         CDPparams.Add "arguments", objectArguments
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
-        If contextId Then CDPparams.Add "executionContextId", contextId
+        '任意指定あるいは、`Runtime.executionContextCreated`で来た情報を基に指定します
+        CDPparams.Add "executionContextId", IIf(contextId, contextId, brTabRuntime.ExecutionContextId)
 
     ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
@@ -657,7 +667,7 @@ step2:
 
    'If the return type has a specific type we can return the result -------------------------------------------
     Dim tmp
-    If JSresultAnalysis(Node_RemoteObject, serializationOptions, Not returnByValue, generatePreview, tmp) Then
+    If JSresultAnalysis(Node_RemoteObject, generatePreview, tmp) Then
         Set jsEval = tmp
     Else
         jsEval = tmp
@@ -666,7 +676,7 @@ step2:
 
 step3:
 
-'Output to Immediate Window if enabled -------------------------------------------------------------------
+    'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
     Select Case VarType(jsEval)
         Case vbDouble
@@ -694,80 +704,63 @@ End Function
 '***************************************************************************************************
 '* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：RemoteObject                       `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            PriorityReturn_deepSerializedValue `deepSerializedValue`があったら、そっちを最優先 に返すようにします。`serializationOptions`に依存します。
-'            PriorityReturn_objectId            `objectId`           があったら、そっちを第2優先に返すようにします。`returnByValue`に依存します。
-'            ReturnValue                        結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
+'* 引数　　：RemoteObject   `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
+'            ObjectPreview  オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
+'            ReturnValue    結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
 '
 '* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：返す値は、`value` OR `objectId` OR `deepSerializedValue` に限ります。`description`等といった補助情報やエラー情報は返しません。
+'* 注意事項：・返す優先順位は、`deepSerializedValue` > `objectId` > `value`です
+'            ・`description`等といった補助情報やエラー情報は返しません。
 '***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_deepSerializedValue As Dictionary, PriorityReturn_objectId As Boolean, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
+Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
     Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
     Const ErrorLandmark     As String = "error"
 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
-    '`serializationOptions`が指定されてたら、`deepSerializedValue`を最優先に返します
-    If Not PriorityReturn_deepSerializedValue Is Nothing Then
-        printMsg info_, "The parameter `serializationOptions` is specified. Check if `deepSerializedValue` exists.", FromProcedureName
+    '`deepSerializedValue`があったらそれを最優先に返します
+    If RemoteObject.Exists("deepSerializedValue") Then
+        '見つかったので、`deepSerializedValue`を返して、ここで抜ける
+        Set ReturnValue = RemoteObject("deepSerializedValue")
+        printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
 
-        '`deepSerializedValue`があるか？
-        If RemoteObject.Exists("deepSerializedValue") Then
-            '見つかったので、`deepSerializedValue`を返して、ここで抜ける
-            Set ReturnValue = RemoteObject("deepSerializedValue")
-            printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
+        'Objectで返したのでその目印もつけておく
+        JSresultAnalysis = True
+        Exit Function
 
-            'Objectで返したのでその目印もつけておく
-            JSresultAnalysis = True
-            Exit Function
-        Else
-            printMsg WARN_, "`The parameter `serializationOptions` was specified, but `deepSerializedValue` was missing.", FromProcedureName
-        End If
-    End If
+    '`objectId`があったら、こっちを返します
+    '※type=objectで、`returnByValue:=False`なら`null`以外、ここを通ります
+    ElseIf RemoteObject.Exists("objectId") Then
+        '見つかったので、`objectId`を返す
+        ReturnValue = RemoteObject.StringKey("objectId")
+        printMsg info_, "JS-Return type: objectId", FromProcedureName
 
-    '`objectId`を返す優先になってたら、こっちを返します
-    If PriorityReturn_objectId Then
-        printMsg Trace_, "Since `returnByValue` is `False`, we check for the existence of `objectId`.", FromProcedureName
+        '返ったObjectID情報を列挙する
+        Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
+        printMsg Debug_, String(100, "="), FromProcedureName
+        printMsg Debug_, "objectId information", FromProcedureName
+        printMsg Debug_, String(100, "-"), FromProcedureName
+        printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
+        printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
+        printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
+        printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
+        printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
+        If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
+        printMsg Debug_, String(100, "="), FromProcedureName
 
-        '`objectId`があるか？
-        If RemoteObject.Exists("objectId") Then
-            '見つかったので、`objectId`を返す
-            ReturnValue = RemoteObject.StringKey("objectId")
-            printMsg info_, "JS-Return type: objectId", FromProcedureName
+        'エラー情報があればそのログを出しておく
+        '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
+        If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
 
-            '返ったObjectID情報を列挙する
-            Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
-            printMsg Debug_, String(100, "="), FromProcedureName
-            printMsg Debug_, "objectId information", FromProcedureName
-            printMsg Debug_, String(100, "-"), FromProcedureName
-            printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-            printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
-            printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-            printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
-            printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
-            If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
-            printMsg Debug_, String(100, "="), FromProcedureName
-
-            'エラー情報があればそのログを出しておく
-            '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-            If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
-
-            Exit Function
-        Else
-            'primitive values OR `object-null` OR `undefined` の可能性あり
-            printMsg Debug_, "`objectId` was not found. It may be a primitive value or `object-null` or `undefined`, so we will try to retrieve it.", FromProcedureName
-        End If
-    Else
-        printMsg Trace_, "`returnByValue` is `True`. Attempting to retrieve the primitive value.", FromProcedureName
+        Exit Function
     End If
 
 
-    '------------------------ 2. primitive values OR JsonDictionaryの取得を試みる ------------------------
+    '------------------------ 2. primitive values OR JsonNodeの取得を試みる ------------------------
     'primitive values の可能性があるので、それの取得を試みます
-    '以降は基本的に、`returnByValue:=True`でないと通りません
-    'ObjectIDとして返そうとしたが`object-null`,`undefined`の場合もここを通って、返却します
+    '以降は、`returnByValue:=True`でないと通りません
+    '例外として、`object-null`の場合は`returnByValue:=False`でもここを通って、null返却します
 
     ' 格納型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.StringKey("type")
@@ -784,115 +777,12 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
                     ReturnValue = Null
                     printMsg info_, "JS-Return type: object-null", FromProcedureName
 
-                Case "array"
-                    ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                    ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                    '※誇らしげに説明してますが、`returnByValue:=True`で、`array`だと、subtype そのものがなくなります...が一応書いておきます。
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-array", FromProcedureName
-
-                Case "node"
-                    '多分、来ない...が一応書いておきます。
-                    '`returnByValue:=True`で、`node`も、subtype そのものがなくなります...
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-node", FromProcedureName
-
-                Case "regexp"
-                    '以下同文
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-regexp", FromProcedureName
-
-                Case "map"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-map", FromProcedureName
-
-                Case "date"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-date", FromProcedureName
-
-                Case "set"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-set", FromProcedureName
-
-                Case "weakmap"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-weakmap", FromProcedureName
-
-                Case "weakset"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-weakset", FromProcedureName
-
-                Case "iterator"     '※ObjectIDモードでも空欄です?!
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-iterator", FromProcedureName
-                
-                Case "generator"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-generator", FromProcedureName
-
-                Case "promise"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-promise", FromProcedureName
-
-                Case "proxy"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-proxy", FromProcedureName
-
-                Case "typedarray"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-typedarray", FromProcedureName
-
-                Case "arraybuffer"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-arraybuffer", FromProcedureName
-
-                Case "dataview"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-dataview", FromProcedureName
-
-                Case "webassemblymemory"
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-webassemblymemory", FromProcedureName
-
-                Case "trustedtype"  '※ObjectIDモードでも空欄です?!
-                    Set ReturnValue = RemoteObject.Item("value")
-                    printMsg info_, "JS-Return type: object-trustedtype", FromProcedureName
-
-                Case ErrorLandmark
-                    '`returnByValue:=True`では意味をなさないようです...が念のため
-                    printMsg WARN_, "This value contains an error. ErrorType: " & RemoteObject("className") & " , " & "ErrorDescription: " & RemoteObject("description"), FromProcedureName
-                    ReturnValue = CVErr(xlErrValue)
-                    printMsg info_, "JS-Return type: object-error", FromProcedureName
-
                 Case Else
-                    '"subtype"自体がない場合は、`array`として扱います
-                    '`array`,`typedarray`が機能してます。他は空({})です
-                    If Not ExistsSubtype Then
-                        ' 配列やDOM要素(returnByValue時)は、valueの中に中身が入っている
-                        ' 配列の場合は Scripting.Dictionary (連番) が入ります
-                        ' returnByValue=True なら value に Dictionary が入っているはず
-                        printMsg WARN_, "It's of type Object, but no `subtype` was found. It will be treated as an `array`.", FromProcedureName
-                        Set ReturnValue = RemoteObject.NodeKey("value")
-                        printMsg info_, "JS-Return type: object-array", FromProcedureName
+                    '`returnByValue:=True`の場合は`null`以外全て、Json文字列として生成されます
+                    'よって、Node形式として返却します
+                    Set ReturnValue = RemoteObject.NodeKey("value")
+                    printMsg info_, "JS-Return type: object(returnByValue:=True)", FromProcedureName
 
-                    Else
-                        'ドキュメント化されてない型にも備えておく
-                        printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
-    
-                        '返せる物があれば、返しておく
-                        If RemoteObject.Exists("value") Then
-                            ' オブジェクト(Dictionary)を返す場合は Set が必要
-                            If IsObject(RemoteObject.Item("value")) Then
-                                Set ReturnValue = RemoteObject.NodeKey("value")
-                            Else
-                                ReturnValue = RemoteObject.Item("value")
-                            End If
-                        ElseIf RemoteObject.Exists("unserializableValue") Then
-                            ReturnValue = RemoteObject.StringKey("unserializableValue")
-                        Else
-                            ReturnValue = RemoteObject.StringKey("description")
-                        End If
-                    End If
             End Select
 
         Case "function"
@@ -935,28 +825,15 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, PriorityReturn_de
             printMsg info_, "JS-Return type: symbol", FromProcedureName
 
         Case "bigint"
-            ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま返却します
+            ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま文字列として、返却します
             ReturnValue = RemoteObject.StringKey("unserializableValue")
             printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
             printMsg info_, "JS-Return type: bigint", FromProcedureName
 
         Case Else
-            'ドキュメント化されてない型にも備えておく
-            printMsg WARN_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName
+            'ドキュメント化されてない型があったら、安全のため。止めておく
+            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
 
-            '返せる物があれば、返しておく
-            If RemoteObject.Exists("value") Then
-                ' オブジェクト(Dictionary)を返す場合は Set が必要
-                If IsObject(RemoteObject.Item("value")) Then
-                    Set ReturnValue = RemoteObject.NodeKey("value")
-                Else
-                    ReturnValue = RemoteObject.Item("value")
-                End If
-            ElseIf RemoteObject.Exists("unserializableValue") Then
-                ReturnValue = RemoteObject.StringKey("unserializableValue")
-            Else
-                ReturnValue = RemoteObject.StringKey("description")
-            End If
     End Select
 
     'SETステートメントするかの判定を用意する
@@ -1426,7 +1303,7 @@ Public Sub closeTab()
     'Get the original serialized tab ID
     Dim MainTargetID As String, tmp As Scripting.Dictionary
     Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-    If Not tmp Is Nothing Then MainTargetID = ("targetID")
+    If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
     'メインタブは閉じないように仕向ける
     If brTab.targetID = MainTargetID Then
@@ -1489,7 +1366,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
             If tmp.StringKey("targetId") = brTab.targetID Then
                 '1-2. 各種パラメーター更新
-                With br
+                With brTab
                     .Name = tmp.StringKey("title")
                     .Url = tmp.StringKey("url")
                 End With
@@ -1535,20 +1412,39 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '1. このタブクラスで設定中の`SessionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
-    
-    '------------------ 2. 非同期イベントを収集します ------------------
-    '2-1. イベントキャプチャしない場合は、即抜け
+    '2. このタブクラス独自のイベント処理を行う
+    Dim tmpNode As BiDiCDPJson
+    Select Case methodName
+        'JavaScript実行環境情報の更新を行います
+        Case "Runtime.executionContextCreated"
+            '2-1. このタブクラスのTargetIDと一致するか？
+            Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
+            If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
+                '2-2. 各種statusを上書き
+                brTabRuntime.ExecutionContextId = tmpNode.NumberKey("id")
+                brTabRuntime.origin = tmpNode.StringKey("origin")
+                brTabRuntime.Name = tmpNode.StringKey("name")
+                brTabRuntime.uniqueId = tmpNode.StringKey("uniqueId")
+
+                '2-3. ログ化
+                printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
+            End If
+    End Select
+
+
+    '------------------ 3. 非同期イベントを収集します ------------------
+    '3-1. イベントキャプチャしない場合は、即抜け
     If publicBrowserEvents.Queue Is Nothing Then printMsg Trace_, "The current process has asynchronous event capture mode disabled. Performance is prioritized, so the JSON parser is not used.", FromProcedureName: Exit Sub
 
-    '2-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
+    '3-2. その非同期イベント名称は、フィルターに含まれない場合も即抜け
     printMsg Trace_, "Checking public event filter settings...", FromProcedureName
     If Not checkFilterEvent(publicBrowserEvents.Filter, methodName) Then Exit Sub
 
-    '2-3. パース処理
+    '3-3. パース処理
     printMsg Trace_, "A JSON parser is used for processing that requires asynchronous event information.", FromProcedureName
     Dim tmp As Dictionary: Set tmp = WebJsonConverter.Parse(RawJson).value
 
-    '2-4. 専用のプロシージャにて、蓄積処理
+    '3-4. 専用のプロシージャにて、蓄積処理
     printMsg Trace_, "The module is requesting the accumulation of event information. Saving...", FromProcedureName
     OnNewEventReceived publicBrowserEvents.Queue, tmp, methodName
 End Sub
@@ -1761,14 +1657,14 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, br.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, brTab.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Window Handle     | brHWnd       | " & br.hWnd, FromProcedureName
-    printMsg Debug_, "Window ID         | brWId        | " & br.WID, FromProcedureName
-    printMsg Debug_, "Tab URL           | brUrl        | " & br.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & br.Name, FromProcedureName
+    printMsg Debug_, "Window Handle     | brHWnd       | " & brTab.hWnd, FromProcedureName
+    printMsg Debug_, "Window ID         | brWId        | " & brTab.WID, FromProcedureName
+    printMsg Debug_, "Tab URL           | brUrl        | " & brTab.Url, FromProcedureName
+    printMsg Debug_, "Tab Title         | brName       | " & brTab.Name, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
@@ -1784,13 +1680,13 @@ Public Sub getSessionInfo()
 
     'Get infos
     Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
-    br.Url = TargetInfo.StringKey("url")
-    br.Name = TargetInfo.StringKey("title")
-    br.hWnd = getHandle
+    brTab.Url = TargetInfo.StringKey("url")
+    brTab.Name = TargetInfo.StringKey("title")
+    brTab.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
     Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else br.WID = tmp.StringKey("windowId")
+    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else brTab.WID = tmp.StringKey("windowId")
 
     'タブIDを記録
     brTab.targetID = TargetInfo.StringKey("targetId")
@@ -1798,6 +1694,10 @@ Public Sub getSessionInfo()
     'ProfileIDを記録
     brTab.browserContextId = TargetInfo.StringKey("browserContextId")
 
+    'JavaScript関連の変化も捉えれるようにする
+    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、`Runtime.executionContextCreated`等が飛んでくれます
+    runtimeEnable False
+    runtimeEnable True
 End Sub
 
 Private Function getHandle() As LongPtr
@@ -1866,17 +1766,12 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     End If
 
    'If not yet then do navigate
-    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
-    CDPcommand.Add "method", "Page.navigate"
-
+    Dim CDPparams As New Scripting.Dictionary
     CDPparams.Add "url", strURL
-    CDPcommand.Add "params", CDPparams
-
-    SendMessage CDPcommand
+    ExecuteCDP "Page.navigate", CDPparams
 
     'should also add a maxTimeLimit to Wait
     wait till:=till
-    getSessionInfo 'update new session info for printParams
     printMsg info_, "Navigated to: " & strURL, FromProcedureName
 
 End Sub
@@ -1933,9 +1828,9 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
 ' Updated: 02/03/23 - Changed CInt to Int to prevent Overflow error.
 '-----------------------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    ShowWindow br.hWnd, doShow 'Make visible
-    ShowWindow br.hWnd, state
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    ShowWindow brTab.hWnd, doShow 'Make visible
+    ShowWindow brTab.hWnd, state
 
    'Resize to specific position and size
    'Will not work properly if window is currently maximized
@@ -1944,8 +1839,8 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Scripting.Dictionary
-        If LenB(br.WID) = 0 Then br.WID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
-        params("windowId") = Int(br.WID)     '02/03/23 CInt() will throw error, Int() is better
+        If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+        params("windowId") = Int(brTab.WID)     '02/03/23 CInt() will throw error, Int() is better
 
         Dim bounds As New Scripting.Dictionary
         Dim x As Long, y As Long, w As Long, h As Long
@@ -1967,7 +1862,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
 
 End Sub
 
-Public Sub notify(msg)
+Public Sub notify(msg As String, Optional ViewSecond As Long = 10)
 '----------------------------------------------------------------------------------
 ' Send a custom notification message on the bottom right corner of the screen. This
 ' popup message is nicer than alert() and it is not modal: ie. does not the user to
@@ -1976,10 +1871,14 @@ Public Sub notify(msg)
 ' Updated: 01/12/2025
 '----------------------------------------------------------------------------------
 
-   'Make sure backslash if any is escaped
-    msg = Replace(msg, "\", "\\")
+    ' 1. 引数をパッキング（CDPの仕様に合わせた形）
+    Dim args As New Collection
+    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  args.Add arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    args.Add arg2
 
-    jsEval "function showStatus(msg, duration = 10000) {" & _
+    ' 2. JS関数本体（無名関数として定義し、その場で実行させる）
+    Dim funcJS As String
+    funcJS = "function(msg, duration) {" & _
                 "let c = document.getElementById('statusContainer');" & _
                 "if (!c) {" & _
                     "c = document.createElement('div');" & _
@@ -1999,7 +1898,8 @@ Public Sub notify(msg)
                 "}, duration);" & _
             "}"
 
-    jsEval "showStatus('" & msg & "')"
+    '3. Run!
+    jsEval funcJS, objectArguments:=args
 
 End Sub
 
@@ -2082,8 +1982,15 @@ Public Sub pageEnable(Optional enable As Boolean = True)
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    ExecuteCDP IIf(enable, "Page.enable", "Page.disable")
+    ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
 
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`Runtime`系のイベント機能を有効/無効化を行います
+'***************************************************************************************************
+Public Sub runtimeEnable(Optional enable As Boolean = True)
+    ExecuteCDP IIf(enable, "Runtime.enable", "Runtime.disable"), , False
 End Sub
 
 '***************************************************************************************************
@@ -2125,8 +2032,8 @@ Public Sub hide()
 ' added to make it easy to access and use the same feature.
 '------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    ShowWindow br.hWnd, asHidden
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    ShowWindow brTab.hWnd, asHidden
 
 End Sub
 
@@ -2136,11 +2043,11 @@ Public Function bringToForeground()
 ' Updated: Long Vh - 06/01/26 should be a function like others
 '------------------------------------------------------------------
 
-    If br.hWnd = 0 Then br.hWnd = getHandle
-    If br.hWnd <> 0 Then
-        ShowWindow br.hWnd, doShow
-        BringWindowToTop br.hWnd
-        SetForegroundWindow br.hWnd
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    If brTab.hWnd <> 0 Then
+        ShowWindow brTab.hWnd, doShow
+        BringWindowToTop brTab.hWnd
+        SetForegroundWindow brTab.hWnd
     End If
 
 End Function
@@ -2192,7 +2099,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '1. Verify double slash syntax
     'People normally get this wrong when using XPath
-    strXPath = Replace(strXPath, "\", "/")
+    If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
     '2. Xpath方式で検索実行
     Dim SearchJS As String, resultSearch As Variant
@@ -2427,7 +2334,7 @@ Property Get Url() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    Url = br.Url
+    Url = brTab.Url
 
 End Property
 
@@ -2438,7 +2345,7 @@ Property Let Url(newURL As String)
 '------------------------------------------------------------
 
     navigate newURL
-    br.Url = newURL
+'    brTab.Url = newURL     ※実際のURL適用は、イベント側で更新させます
 
 End Property
 
@@ -2448,7 +2355,7 @@ Property Get Name() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    Name = br.Name
+    Name = brTab.Name
 
     '`--app`で起動した場合の対策
     If LenB(Name) = 0 Then Name = jsEval("document.title")
@@ -2464,7 +2371,7 @@ Property Let Name(newName As String)
 
     jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
-    br.Name = newName
+'    brTab.Name = newName   ※実際のname適用は、イベント側で更新させます
 
 End Property
 
@@ -2487,7 +2394,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
-    If StrPtr(brTab.sessionID) Then
+    If LenB(brTab.sessionID) Then
         printMsg info_, "A property was called that receives a new SessionID (" & newSessionID & "). The SessionID (" & brTab.sessionID & ") held by this class will now be discarded.", FromProcedureName
         BrowserCore.DiscardSessionID brTab.sessionID
     End If
@@ -2499,13 +2406,13 @@ Property Let CurrentSessionID(newSessionID As String)
     With ShSetting01_StartBrowser
         Dim MainTargetID As String, tmp As Scripting.Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
-        If Not tmp Is Nothing Then MainTargetID = ("targetID")
+        If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
         If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
 
     getSessionInfo        'update all session infos
-    printMsg info_, br.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, brTab.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -2558,7 +2465,7 @@ Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
         BrowserWindowHandle = getHandle
     Else
         '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If br.hWnd Then BrowserWindowHandle = br.hWnd Else BrowserWindowHandle = getHandle
+        If brTab.hWnd Then BrowserWindowHandle = brTab.hWnd Else BrowserWindowHandle = getHandle
     End If
 End Property
 
@@ -2576,7 +2483,7 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
         BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     Else
         '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If br.WID Then BrowserWindowID = br.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If brTab.WID Then BrowserWindowID = brTab.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     End If
 End Property
 
@@ -2619,7 +2526,7 @@ End Property
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
+    PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
 Private Sub sleep(Optional seconds As Double = 0.5)
@@ -2660,7 +2567,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.LogID = "TBID" & Format(Rnd * 1000, "000")
+    brTab.LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
@@ -2668,7 +2575,7 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set ResultCDP_Tab.response = New Dictionary
     ResultCDP_Tab.Limit = MaxStoreResultCDP
 

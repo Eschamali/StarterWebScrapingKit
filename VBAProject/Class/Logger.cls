@@ -294,8 +294,8 @@ Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        doPrintDbgMsg = .Range(.UseRangeName(7, "Logger.Class_Initialize")).value   'イミディエイトに表示させるか？
-        LogThreshold = .Range(.UseRangeName(5, "Logger.Class_Initialize")).value    'ログレベルの設定
+        doPrintDbgMsg = .UseRangeID(7, "Logger.Class_Initialize")   'イミディエイトに表示させるか？
+        LogThreshold = .UseRangeID(5, "Logger.Class_Initialize")    'ログレベルの設定
     End With
     '------------------------------------------------------------------------------
 End Sub

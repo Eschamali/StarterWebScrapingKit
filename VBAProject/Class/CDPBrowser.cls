@@ -135,14 +135,13 @@ Private UseChrome     As Boolean
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
-Private lastExceptionDetailsJS  As Dictionary  'JavaScript実行時の最後のエラー情報
 
 'その他
-Private thisApp     As Object                   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
 Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
+Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
 
 
 
@@ -293,14 +292,12 @@ Property Let EnableDiscoverTargets(Flag As Boolean)
     '1. カウント
     DefinitionCDPContext = DefinitionCDPContext + IIf(Flag, 1, -1)
 
-    '2. コマンド準備
-    Dim CDPcommand As New Scripting.Dictionary, CDPparams As New Scripting.Dictionary
-    CDPcommand.Add "method", "Target.setDiscoverTargets"
-
-    CDPparams.Add "discover", Flag
-    CDPcommand.Add "params", CDPparams
-
-    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then SendMessage CDPcommand, , False
+    '2. パラメータ準備
+    If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then
+        Dim CDPparams As New Scripting.Dictionary
+        CDPparams.Add "discover", Flag
+        ExecuteCDP "Target.setDiscoverTargets", CDPparams, False
+    End If
 
     '3. 下限は、0にしておく
     If DefinitionCDPContext < 0 Then DefinitionCDPContext = 0: printMsg WARN_, "`CDPContext.cls` no longer exists.", FromProcedureName
@@ -342,7 +339,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
 
     'カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
-        If LenB(.Range(.UseRangeName(1, FromProcedureName)).value) = 0 Then
+        If LenB(.UseRangeID(1, FromProcedureName)) = 0 Then
             '1. 必要な変数を用意
             Dim strKeyPath      As String   'ベースパス
             Dim ValueSize       As Long     '値の大きさ
@@ -362,7 +359,7 @@ Private Function getBrowserPath(strBrowserType As String) As String
             End If
         Else
             '1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .Range(.UseRangeName(1, FromProcedureName)).value
+            getBrowserPath = .UseRangeID(1, FromProcedureName)
         End If
     End With
 
@@ -543,7 +540,7 @@ Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
 
             '中身が空の場合は、`User Data`配下として返します
             '※厳密には、`vbnullchar`が、先頭にある時
-            currentPolicy.UserDataDir.Contents = IIf(InStr(1, ValueContents_String, vbNullChar) = 1, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Split(ValueContents_String, vbNullChar)(0))
+            currentPolicy.UserDataDir.Contents = IIf(Left$(ValueContents_String, 1) = vbNullChar, Environ("LOCALAPPDATA") & RegPathBrowser & "\User Data", Split(ValueContents_String, vbNullChar)(0))
 
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
@@ -564,10 +561,11 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：パイプ生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：パイプが生きてない場合は、このメソッドから再開できません
 '***************************************************************************************************
-Public Function reattach(userProfile As String) As Boolean
+Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -577,11 +575,15 @@ Public Function reattach(userProfile As String) As Boolean
     '2. パイプハンドル制御するための初期化
     Set PipeCore = New CDPCore
     PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
+    Set PipeCore.WebSocketMode = WebSocketMode
 
     '3. 1を基に、Excelテーブルからハンドル情報を取得
     deserializeForPipe
 
-    '4. バージョン確認CDPコマンドを打ってパイプ生存確認
+    '4. 不整合を防ぐため、Pipeに残存しているデータを破棄しておく
+    TakeEvents False, True
+
+    '5. バージョン確認CDPコマンドを打ってパイプ生存確認
     If isLiveBrowser Then
         reattach = True
 
@@ -617,9 +619,7 @@ End Sub
 Public Function isLiveBrowser() As Boolean
     '1. バージョン確認CDPを送る
     '※生存確認なので、内部でのエラーは無視する
-    Dim CDPcommand As New Scripting.Dictionary
-    CDPcommand.Add "method", "Browser.getVersion"
-    SendMessage CDPcommand, StopPipeError:=False
+    ExecuteCDP "Browser.getVersion", StopCDPError:=False
 
     '2. いずれもパイプエラーコードがなければ、`True`とします
     If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
@@ -708,7 +708,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
-    If StrPtr(browserContextId) Then params("browserContextId") = browserContextId
+    If LenB(browserContextId) Then params("browserContextId") = browserContextId
     If isBackground Then params("background") = isBackground
 
     '2. 実行
@@ -721,7 +721,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     sessionID_ = attachToTab(tabId)
 
     '4. メイン化する場合は、Excelに記録しておく
-    If setMain Then serializeForMainTab tabId, sessionID_
+    If setMain Then serializeForMainTab sessionID_, tabId
 
 
     '------ 5. 専用のクラスとして返却する準備 ------
@@ -818,7 +818,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 50
                         '一致せず
                         Else
-                            printMsg Debug_, "with name containing """ & tabName & """", FromProcedureName
+                            printMsg WARN_, "with name containing """ & tabName & """", FromProcedureName
                         End If
 
                     '第二優先：URL
@@ -836,7 +836,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                             score = 40
                         '一致せず
                         Else
-                            printMsg Debug_, "with url containing """ & Url & """", FromProcedureName
+                            printMsg WARN_, "with url containing """ & Url & """", FromProcedureName
                         End If
 
                     '第三優先：直近の未接続タブ
@@ -864,7 +864,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         Loop
 
         '5. 目的の物っぽいのがあったら見つけたとします
-        If bestScore >= 0 Then
+        If bestScore > 0 Then
             tabfound = True
             tabId = candidateTabId
         End If
@@ -887,7 +887,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     sessionID_ = attachToTab(tabId)
 
     '9. メイン化する場合は、Excelに記録しておく
-    If setMain Then serializeForMainTab tabId, sessionID_
+    If setMain Then serializeForMainTab sessionID_, tabId
 
 
     '------ 10.専用のクラスとして返却する準備 ------
@@ -925,40 +925,42 @@ Public Sub openDevTools(TrgetID As String, Optional panelId As String)
     ExecuteCDP "Target.openDevTools", params
 End Sub
 
-Public Sub printTabs()
-'------------------------------------------------------------------
-' Print all current tabs info. Useful for debugging.
-'------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".printTabs"
+'***************************************************************************************************
+'* 機能　　：現時点で開いている全てのターゲット情報をログに表示します
+'***************************************************************************************************
+Public Sub printTargetInfos()
+    Const FromProcedureName As String = ThisClassName & ".printTargetInfos"
 
 
-    Dim results As Scripting.Dictionary, target_ As Scripting.Dictionary
-    Dim i As Long
-    Dim targets As Collection
-    Set results = ExecuteCDP("Target.getTargets")
-    Set targets = results("targetInfos")
+    Dim NodeToken As Long
+    Dim TabCount As Long
+    Dim targets As BiDiCDPJson
+    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "Tabs Information", FromProcedureName
-    printMsg Debug_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "targetInfos Information", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
 
-    i = 1
-    For Each target_ In targets
-        If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
-                        "type: " & target_("type") & " | " & _
-                        "attached: " & target_("attached") & " | " & _
-                        "title: " & target_("title") & " | " & _
-                        "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId"), FromProcedureName
-            i = i + 1
-        End If
-    Next
+    With targets
+        NodeToken = .FirstChildToken  ' 配列の先頭トークン
+        Do While NodeToken > 0
+            TabCount = TabCount + 1
 
+            printMsg info_, "#" & TabCount & vbTab & _
+                        "type: " & .TokenString(NodeToken, "type") & " | " & _
+                        "attached: " & .TokenString(NodeToken, "attached") & " | " & _
+                        "title: " & .TokenString(NodeToken, "title") & " | " & _
+                        "url: " & .TokenString(NodeToken, "url") & " | " & _
+                        "target ID: " & .TokenString(NodeToken, "targetId"), FromProcedureName
+
+            '次の`Target.TargetInfo`へ
+            NodeToken = .NextToken(NodeToken)
+        Loop
+    End With
 End Sub
 
-Public Function tabCount() As Long
+Public Function TabCount() As Long
 '------------------------------------------------------------------------------
 ' Print all current tabs info. Useful for debugging.
 ' Updated : 05/02/25 - changed from printTabs to tabCount to get the count too
@@ -966,32 +968,34 @@ Public Function tabCount() As Long
     Const FromProcedureName As String = ThisClassName & ".tabCount"
 
 
-    Dim results, targets, target_ As Scripting.Dictionary
-    Dim i As Integer
-
-    Set results = ExecuteCDP("Target.getTargets")
-    Set targets = results("targetInfos")
+    Dim NodeToken As Long
+    Dim targets As BiDiCDPJson
+    Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
 
    'Read info
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
     printMsg Debug_, "Tabs Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    i = 0
-    For Each target_ In targets
-        If target_("type") = "page" Then
-            printMsg Debug_, "#" & i & vbTab & _
-                        "type: " & target_("type") & " | " & _
-                        "attached: " & target_("attached") & " | " & _
-                        "title: " & target_("title") & " | " & _
-                        "url: " & target_("url") & " | " & _
-                        "target ID: " & target_("targetId"), FromProcedureName
-            i = i + 1
-        End If
-    Next
+    With targets
+        NodeToken = .FirstChildToken  ' 配列の先頭トークン
+        Do While NodeToken > 0
+            If .TokenString(NodeToken, "type") = "page" Then
+                TabCount = TabCount + 1
 
-    tabCount = i
+                printMsg Debug_, "#" & TabCount & vbTab & _
+                            "type: " & .TokenString(NodeToken, "type") & " | " & _
+                            "attached: " & .TokenString(NodeToken, "attached") & " | " & _
+                            "title: " & .TokenString(NodeToken, "title") & " | " & _
+                            "url: " & .TokenString(NodeToken, "url") & " | " & _
+                            "target ID: " & .TokenString(NodeToken, "targetId"), FromProcedureName
+    
+            End If
 
+            '次の`Target.TargetInfo`へ
+            NodeToken = .NextToken(NodeToken)
+        Loop
+    End With
 End Function
 
 
@@ -1533,20 +1537,16 @@ End Sub
 '***************************************************************************************************
 Public Function attachToTab(tabId As String) As String
     '1. コマンド準備
-    Dim CDPcommand As New Dictionary
     Dim CDPparams As New Dictionary
-    CDPcommand.Add "method", "Target.attachToTarget"
-
     CDPparams.Add "targetId", tabId
     CDPparams.Add "flatten", True
-    CDPcommand.Add "params", CDPparams
 
     '2. 実行
     Dim tmp As BiDiCDPJson
-    Set tmp = BiDiCDPJson.Parse(SendMessage(CDPcommand))
+    Set tmp = ExecuteCDP("Target.attachToTarget", CDPparams, False)
 
-    '2. 結果があれば、返却
-    If Not ExecuteError(tmp) Then attachToTab = tmp.NodeKey("result").StringKey("sessionId")
+    '3. 結果があれば、返却
+    If Not tmp Is Nothing Then attachToTab = tmp.StringKey("sessionId")
 End Function
 
 '***************************************************************************************************
@@ -1605,22 +1605,19 @@ Public Function checkURI(URI As String) As String
         Exit Function
     End If
 
-    '1. ホワイトリストのプロトコルを取得
-    Dim WhiteList: WhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
-
-    '2. 先頭始まりかチェック
+    '1. 先頭始まりかチェック
     Dim i As Long
-    For i = 1 To UBound(WhiteList)
+    For i = LBound(ProtocolWhiteList) To UBound(ProtocolWhiteList)
         '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If InStr(1, URI, WhiteList(i, 1)) = 1 Then
-            printMsg Debug_, "Protocol check passed：" & WhiteList(i, 1), FromProcedureName
+        If Left$(URI, Len(ProtocolWhiteList(i))) = ProtocolWhiteList(i) Then
+            printMsg Debug_, "Protocol check passed：" & ProtocolWhiteList(i), FromProcedureName
 
             checkURI = URI
             Exit Function
         End If
     Next
 
-    '3. プロトコル名をチェック
+    '2. プロトコル名をチェック
     Dim ProtocolName, ErrorMes As String
     ProtocolName = Split(URI, ":")
     If UBound(ProtocolName) = 0 Then
@@ -1731,30 +1728,23 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '1. Edgeウィンドウの表示モードの設定
-        br.setShowWindow = .Range(.UseRangeName(12, FromProcedureName)).value
+        br.setShowWindow = .UseRangeID(12, FromProcedureName)
 
         '2. 文字コード設定
-        UseConverterUtf8FromString = .Range(.UseRangeName(10, FromProcedureName)).value
+        UseConverterUtf8FromString = .UseRangeID(10, FromProcedureName)
 
         '3. ブラウザの使用タイプ
-        UseChrome = .Range(.UseRangeName(4, FromProcedureName)).value
+        UseChrome = .UseRangeID(4, FromProcedureName)
+        
+        '4. ホワイトプロトコルリストを取得
+        ProtocolWhiteList = .TableProtocolWhiteList
     End With
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set ResultCDP_Browser.response = New Dictionary
     ResultCDP_Browser.Limit = MaxStoreResultCDP
     '------------------------------------------------------------------------------
-
-
-    'Determine project host type for compatibility
-    '※このフォークツールは、Excel特化に改良してるため、Excel以外は動作しません
-    Select Case True
-        Case InStr(Application.Name, "Excel"): Set thisApp = ThisWorkbook
-        'Case InStr(Application.Name, "Word"): Set thisApp = ThisDocument
-        'Case InStr(Application.Name, "Access"): Set thisApp = CurrentProject
-    End Select
-
 End Sub

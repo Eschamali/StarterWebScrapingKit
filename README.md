@@ -90,10 +90,13 @@ I express my heartfelt respect and gratitude for the wisdom and code of my great
 * **WinHTTP 5.1 Wrapper**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
     * Original Author: Tim Hall
-* **High-performance JSON Parser**
-  * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-    * Improved by GCuser99
-    * Replaced the existing JsonConverter with this for better maintainability
+* **Ultra-high-performance JSON parser specialized for CDP/WebDriverBiDi responses**
+  * [vbacollective-json](https://github.com/vbacollective/json)
+    * Original Author: Ueslei Paim
+    * Modified version: Optimized for reliability by removing `CopyMemory` dependency
+* **High-performance JSON parser (Upward compatible with `VBA-JSON`)**
+  * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+    * Author: Ion Cristian Buse
 * **Fast Character Code Conversion Wrapper**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland, DI Management Services Pty
@@ -244,25 +247,10 @@ In that case, your automation journey begins with just one line.
 ### In Case of CDP Control
 
 ```bas
-Public Function StartCDPFromSettingsSheet(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
-    ' Get and apply settings from each cell of the settings sheet
-    With ShSetting01_StartBrowser
-        ' Setting the type of browser to start
-        ' Since it is operated by CDP-Json commands, I think it can be used for things other than Edge and Chrome if it is Chromium-based, but for now, only the major ones.
-        Dim BrowserName As String: BrowserName = IIf(.Range(.UseRangeName(4, "Demo_CDP.StartCDPFromSettingsSheet")).Value, "chrome", "edge")
-
-        ' If the 2nd argument is omitted, apply the settings from the sheet side
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.StartCDPFromSettingsSheet")).Value, SwitchUser)
-
-        ' Start browser
-        Set StartCDPFromSettingsSheet = New CDPBrowser
-        StartCDPFromSettingsSheet.start BrowserName, StartURL, .Range(.UseRangeName(6, "Demo_CDP.StartCDPFromSettingsSheet")).Value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.StartCDPFromSettingsSheet")).Value, KioskMode
-    End With
-End Function
-
 Sub BeginningOfAdventureByCDP()
     ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = StartCDPFromSettingsSheet
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
 
     ' ↓ From here, turn your image into code ↓
 
@@ -277,25 +265,10 @@ End Sub
 ### In Case of BiDi Control
 
 ```bas
-Public Function StartBiDiFromSettingsSheet(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
-    ' Get and apply settings from each cell of the settings sheet
-    With ShSetting01_StartBrowser
-        ' Setting the type of browser to start
-        ' Since it is operated by BiDi-Json commands specialized for Chromium, I think it can be used for things other than Edge and Chrome if it is Chromium-based, but for now, only the major ones.
-        Dim BrowserName As String: BrowserName = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, "chrome", "edge")
-
-        ' If the 2nd argument is omitted, apply the settings from the sheet side
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, SwitchUser)
-
-        ' Start browser
-        Set StartBiDiFromSettingsSheet = New WebDriverBiDiCore
-        StartBiDiFromSettingsSheet.start BrowserName, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.StartBiDiFromSettingsSheet")).Value, KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
 Sub BeginningOfAdventureByBiDi()
     ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = StartBiDiFromSettingsSheet
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     ' ↓ From here, turn your image into code ↓
 
@@ -306,3 +279,68 @@ Sub BeginningOfAdventureByBiDi()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 New Feature: Browser Operation Demo via WebSocket (Port) Connection
+
+From V2.3.0, the "WebSocket (Port) Route" is officially released, allowing Excel to attach to (take control of) an existing browser session (such as Edge or Chrome) that is already running.
+
+A simple demo code named **`SetupWebSocketMode`** is provided in the standard module `Demo_CDP` for you to try out this feature.
+
+---
+
+> [!CAUTION]
+> To run this port connection demo, you must start the target browser with the **remote debugging port enabled** beforehand.  
+> Please launch Edge or Chrome in advance with the following argument from the command prompt or your shortcut properties.
+
+```bash
+# Launch the browser with the default port 9222 open
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 Demo Code: `SetupWebSocketMode`
+
+Running this macro will attach to the existing browser via the port, and navigate to the target page from either the specified tab or a new tab.
+
+```vb
+Sub SetupWebSocketMode()
+    ' 1. Retrieve the username from the setting sheet (ShSetting01_StartBrowser)
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    ' 2. Connect to the browser (WebSocket) that has the specified debugging port open
+    ' * Arguments: ConnectCDP(Username, EndpointName, [PortNumber: Default is 9222])
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
+
+    ' 3. Pass the connected WebSocket object to the `reattach` method of the main browser class
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then 
+        MsgBox "Could not connect to '" & UserName & "'. Either the browser is not running, or the WebSocket info is no longer valid.", vbCritical, "Chrome DevTools Protocol"
+        Exit Sub
+    End If
+
+    ' 4. Control tabs on the attached browser
+    Dim t As CDPContext
+    ' * Note: Be sure to specify `setMain:=True` when retrieving and operating an existing tab.
+    ' Set t = b.getTab(setMain:=True)
+    
+    ' You can also start by creating a new tab instead (either way is fine)
+    Set t = b.newTab(setMain:=True) 
+
+    ' 5. Navigate to the target page using the familiar interface!
+    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 6. Once processing is complete, safely disconnect from the WebSocket
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 Application and Customization of Settings
+
+* **Changing the port number**:
+  By passing any port number as the third argument of `WebSocketCDP.ConnectCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
+* **Building on this code**:
+  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.

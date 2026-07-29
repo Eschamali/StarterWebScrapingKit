@@ -29,71 +29,15 @@ Option Private Module
 
 
 '***************************************************************************************************
-'                               ■■■ 設定プロシージャ ■■■
+'                                  ■■■ 全ての始まり ■■■
 '***************************************************************************************************
-'* 機能　　：設定シートから、パラメーターを読み込んで、CDPモードでタブ制御ができるところまで準備します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - CDPContext
-'* 引数　　：StartURL   ブラウザ起動時にアクセスしたいURL。指定しない場合は、空ページ(abount:blank)になります。
-'                       未指定でも クラスメソッド：navigate で後から、URL遷移も可能です。
-'
-'            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します
-'            KioskMode  0(省略)：通常モード(キオスクモードは使いません)
-'                       1      ：キオスクモード デジタル/対話型サイネージ
-'                       2      ：キオスクモード パブリック ブラウジング
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：・Demoモジュールにあるコードですが、他の部分で共用してるため、消さずにどこかにカット&ペーストしておくとよいでしょう
-'            ・Chromeにもキオスクモードはありますが、Edgeほど引数での調整はありません
-'***************************************************************************************************
-Public Function 設定シートからのCDP起動ForTab(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPContext
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動ForTab")).value, "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動ForTab")).value, SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのCDP起動ForTab = New CDPContext
-        設定シートからのCDP起動ForTab.StartAndConnectTab ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
-    End With
-End Function
-
-'***************************************************************************************************
-'* 機能　　：設定シートから、パラメーターを読み込んで、CDPモードでのパイプ通信確保まで準備します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：クラスモジュール - CDPBrowser
-'* 引数　　：※`設定シートからのCDP起動ForTab`と一緒なので省略
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
-'            　`設定シートからのCDP起動ForTab`ではうまくいかず、手動でタブ制御確立するためのものです。
-'            　基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
-'            ・Demoプロシージャ：`runTabsAsMany`が分かりやすいと思います
-'***************************************************************************************************
-Public Function 設定シートからのCDP起動ForBrowser(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動ForTab")).value, "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動ForTab")).value, SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのCDP起動ForBrowser = New CDPBrowser
-        設定シートからのCDP起動ForBrowser.start ブラウザ名, StartURL, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動ForTab")).value, KioskMode
-    End With
-End Function
-
 Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPContext: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動ForTab
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
+
 
 
 
@@ -113,10 +57,10 @@ End Sub
 '***************************************************************************************************
 Sub ネットワークイベントの確認()
     '必要な変換オブジェクトを用意
-    Dim CharConvObj As New CharacterCodeConversion:
+    Dim CharConvObj As New CharacterCodeConversion
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim Demo_NetworkEvent As CDPContext: Set Demo_NetworkEvent = 設定シートからのCDP起動ForTab
+    Dim Demo_NetworkEvent As CDPContext: Set Demo_NetworkEvent = ShSetting01_StartBrowser.StartCDPModeContext
 
     '一部の非同期イベントのみキャプチャするようにフィルターを設定
     '※未設定の場合は、全キャプチャとなります。このDemoの場合は、下記2つをコメントアウトすると、全キャプチャとなります
@@ -182,7 +126,7 @@ End Sub
 '***************************************************************************************************
 Sub JapaneseElementTest()
     '設定シートに基づくブラウザ立ち上げ、体脂肪率計算サイトへアクセスします
-    Dim Demo_Japanese As CDPContext: Set Demo_Japanese = 設定シートからのCDP起動ForTab("https://keisan.site/exec/system/1161228728")
+    Dim Demo_Japanese As CDPContext: Set Demo_Japanese = ShSetting01_StartBrowser.StartCDPModeContext("https://keisan.site/exec/system/1161228728")
 
     ' 身長をセット
     Dim height As CDPElement
@@ -231,7 +175,7 @@ Sub UseExtensions()
     '拡張機能があるアンパックフォルダパスを、ダイアログで指定
     '参考 → https://qiita.com/studio_haneya/items/9f5141b667efc3bfa615
     Dim ExtensionsFolderPath As String
-    With Application.FileDialog(msoFileDialogFolderPicker)
+    With Application.FileDialog(4)  'msoFileDialogFolderPicker
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
         .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
 
@@ -240,7 +184,7 @@ Sub UseExtensions()
 
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim controlExtensions As CDPContext: Set controlExtensions = 設定シートからのCDP起動ForTab
+    Dim controlExtensions As CDPContext: Set controlExtensions = ShSetting01_StartBrowser.StartCDPModeContext
 
     '拡張機能のページへ遷移
     controlExtensions.navigate "edge://extensions/"
@@ -299,7 +243,7 @@ End Sub
 '***************************************************************************************************
 Sub TestAlert()
     '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
-    Dim Demo_alerts As CDPContext: Set Demo_alerts = 設定シートからのCDP起動ForTab("https://www.selenium.dev/selenium/web/alerts.html")
+    Dim Demo_alerts As CDPContext: Set Demo_alerts = ShSetting01_StartBrowser.StartCDPModeContext("https://www.selenium.dev/selenium/web/alerts.html")
 
 
     '必要な変数を用意
@@ -315,52 +259,23 @@ Sub TestAlert()
 
     With Demo_alerts
         ' --- 1. 必要なドメインを有効化 ---
-        .ExecuteCDP ("DOM.enable")
         .ExecuteCDP ("Page.enable")
-
-
-        ' --- 2. DOMツリーを同期させ、ID割り振りを行う ---
-        paramsCDP.RemoveAll
-        paramsCDP.Add "depth", 0        '返却時のDOM情報は不要なので、0にしておく
-        paramsCDP.Add "pierce", True    'Shadow DOMの中まで貫通させる
-        .ExecuteCDP "DOM.getDocument", paramsCDP
-        ' これでブラウザ内の全ノードにIDが割り振られます
 
         Dim i As Long
         For i = 1 To 3
             Dim TargetXpath As String
             Select Case i
-                Case 1: TargetXpath = "//*[@id='alert']"
-                Case 2: TargetXpath = "//*[@id='empty-alert']"
-                Case 3: TargetXpath = "//*[@id='prompt']"
+                Case 1: TargetXpath = "alert"
+                Case 2: TargetXpath = "empty-alert"
+                Case 3: TargetXpath = "prompt"
             End Select
-
-            ' --- 3. XPathで検索 (Shadow DOMの貫通も可) ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "query", TargetXpath  '先頭のリンクを対象に
-            Set resCDP = .ExecuteCDP("DOM.performSearch", paramsCDP)
-            searchId = resCDP.StringKey("searchId")
-
-
-            ' --- 4. nodeIdを取得 ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "searchId", searchId
-            paramsCDP.Add "fromIndex", 0   '先頭の件数から
-            paramsCDP.Add "toIndex", 1     '1件分のみ
-            Set resCDP = .ExecuteCDP("DOM.getSearchResults", paramsCDP)
-            nodeId = resCDP.NodeKey("nodeIds").NumberAt(0) '配列の先頭を取得
-
-
-            ' --- 5. nodeId を objectId に変換 ---
-            paramsCDP.RemoveAll
-            paramsCDP.Add "nodeId", nodeId
-            Set resCDP = .ExecuteCDP("DOM.resolveNode", paramsCDP)
 
 
             ' --- 6. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`関数が発動されます
+            '※非同期処理を行うため、`CDPElement.cls`を使わない形で取ります
             Dim AsyncID As Long
-            AsyncID = .jsEval("function() { this.click(); }", resCDP.NodeKey("object").StringKey("objectId"), RunAsyncCDP:=True)
+            AsyncID = .jsEval("document.getElementById('" & TargetXpath & "').click()", RunAsyncCDP:=True)
 
 
             ' --- 7. イベントキャプチャを有効化 ---
@@ -421,7 +336,7 @@ End Sub
 '***************************************************************************************************
 Sub ExcelのユーザーフォームにEdgeを埋め込む()
     '1. CDPでEdgeを起動
-    Dim 実質WebView2 As CDPContext: Set 実質WebView2 = 設定シートからのCDP起動ForTab(KioskMode:=fullscreen)
+    Dim 実質WebView2 As CDPContext: Set 実質WebView2 = ShSetting01_StartBrowser.StartCDPModeContext(KioskMode:=fullscreen)
     実質WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"      'このツールのリポジトリURLとして、遷移します
 
     '2. フォームをロード（まだ表示はしない）
@@ -445,7 +360,7 @@ End Sub
 '***************************************************************************************************
 Sub SimpleShadowRootTest()
     '1. ShadowRootページを開く
-    Dim ShadowRootTest As CDPContext: Set ShadowRootTest = 設定シートからのCDP起動ForTab("https://jec.fish/demo/shadow-open-close")
+    Dim ShadowRootTest As CDPContext: Set ShadowRootTest = ShSetting01_StartBrowser.StartCDPModeContext("https://jec.fish/demo/shadow-open-close")
     With ShadowRootTest
         '2. Shadow-Root(Open) 内のボタンをクリック
         .getElementByXPath("//*[@id='open']/open-dom").GetShadowRoot.getElementByQuery("div > button").click
@@ -501,7 +416,7 @@ End Sub
 '***************************************************************************************************
 Sub iframeShadowRootTest()
     '1. captchaDemoページを開く
-    Dim captchaDemo As CDPBrowser: Set captchaDemo = 設定シートからのCDP起動ForBrowser("https://2captcha.com/demo/cloudflare-turnstile")
+    Dim captchaDemo As CDPBrowser: Set captchaDemo = ShSetting01_StartBrowser.StartCDPMode("https://2captcha.com/demo/cloudflare-turnstile")
     With captchaDemo
         '2. cloudflare 用のiframeにアタッチする
         Dim CloudflareTurnstile As CDPContext
@@ -532,7 +447,7 @@ Sub runEdge()
    'If reAttach = False, .start will not automatically try to reattach
    'to previous instances open by CDP but will start a brand new instead.
     Dim edge As CDPContext
-    Set edge = 設定シートからのCDP起動ForTab
+    Set edge = ShSetting01_StartBrowser.StartCDPModeContext
 
    'Navigate and wait
    'If till argument is omitted, will by default wait until ReadyState = complete
@@ -565,7 +480,7 @@ Sub runHidden()
     Dim chrome As CDPContext
 
    'Start and hide
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.hide
 
    'Perform automation in the background
@@ -607,7 +522,7 @@ Sub runHiddenForJapan()
     Dim chrome As CDPContext
 
     'Start and hide
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.hide
 
     'Perform automation in the background
@@ -633,7 +548,7 @@ Sub runTabsAsOne()
 '--------------------------------------------------------------------------
 
     Dim chrome As CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.show
 
    'Automate Tabs
@@ -657,7 +572,7 @@ Sub runTabsAsMany()
 '-------------------------------------------------------------------------------
 
     Dim chrome As New CDPBrowser
-    Set chrome = 設定シートからのCDP起動ForBrowser
+    Set chrome = ShSetting01_StartBrowser.StartCDPMode
 
    'Create and assign tabs
     Dim tab1 As CDPContext
@@ -694,7 +609,7 @@ Sub runNewTab()
 
    'Init browser with custom arguments
     Dim chrome As CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
     chrome.show asMaximized
 
@@ -735,7 +650,7 @@ Sub runIFrame()
     demoUrl = "https://www.w3schools.com/html/tryit.asp?filename=tryhtml_iframe_height_width"
 
     Dim chrome As New CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab(demoUrl)
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext(demoUrl)
 
     Dim iFrame1 As CDPElement
     Dim iFrame2 As CDPElement
@@ -760,7 +675,7 @@ Sub getSnapShot()
     demoUrl = "https://www.google.com/search?q=1sgd+to+vnd"
 
     Dim chrome As CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab   'not App Mode as sometimes Chrome App Mode does not allow file downloading
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext   'not App Mode as sometimes Chrome App Mode does not allow file downloading
     chrome.navigate demoUrl
 
    'Snap a portion of the page based on the element indicator
@@ -790,7 +705,7 @@ Sub fillReactForm()
     demoUrl = "https://cdpn.io/gaearon/fullpage/VmmPgp?anon=true&editors=0010&view="
 
     Dim chrome As CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.navigate demoUrl
 
    'Get the target fields
@@ -827,7 +742,7 @@ Sub switchMain()
 '---------------------------------------------------------------
 
     Dim chrome As CDPContext
-    Set chrome = 設定シートからのCDP起動ForTab
+    Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.InheritanceCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
     chrome.InheritanceCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
@@ -867,7 +782,7 @@ Function execBot1()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 started."
 
     Dim e1 As CDPContext
-    Set e1 = 設定シートからのCDP起動ForTab
+    Set e1 = ShSetting01_StartBrowser.StartCDPModeContext
     e1.navigate "https://yahoo.com"
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot1 completed."
@@ -882,7 +797,7 @@ Function execBot2()
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 started."
 
     Dim e2 As CDPContext
-    Set e2 = 設定シートからのCDP起動ForTab(SwitchUser:="CDP2")
+    Set e2 = ShSetting01_StartBrowser.StartCDPModeContext(SwitchUser:="CDP2")
     e2.navigate "https://finance.yahoo.com"
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
@@ -902,7 +817,7 @@ End Function
 Sub demoReattachmentPart1()
 
     Dim c As CDPContext
-    Set c = 設定シートからのCDP起動ForTab
+    Set c = ShSetting01_StartBrowser.StartCDPModeContext
     c.navigate "https://google.com"
 
 '    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足して`demoReattachmentPart2ForTab`にてお試しください
@@ -920,9 +835,7 @@ Sub demoReattachmentPart2ForBrowser()
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2ForBrowser")).value
-    End With
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. Excelに記録されてるパイプハンドル情報の生存確認
     If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
@@ -946,9 +859,7 @@ Sub demoReattachmentPart2ForTab()
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_CDP.demoReattachmentPart2ForTab")).value
-    End With
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. Excelに記録されてる`TargetID`の生存確認
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
@@ -961,30 +872,124 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ ヘルパープロシージャ ■■■
+'                               ■■■ WebSocket経由版Demo ■■■
 '***************************************************************************************************
-'* 機能　　：このExcelが、OneDrive上で実行されてる場合のパス変換処理を行います
+'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：ローカルパス
-'* 引数　　：Path                   基本は、`thisworkbook.path`を指定
-'            UsePrivateOneDrive     社内個人OneDriveの場合は、`False`にしてください
+'* 詳細説明：タブ/ブラウザ/今目の前のブラウザ の3種のDemoをご用意しております
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'***************************************************************************************************
+Sub AutoConnectTab()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. ページ遷移
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '5. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+Sub AutoConnectBrowser()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@direwolf8958/"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+Sub AutoConnectDevToolsActivePort()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. 未接続のタブに接続
+    Dim t As CDPContext
+    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+'    Set t = b.getTab(setMain:=True)
+    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
+
+    '6. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このExcelで起動中のWebView2を乗っ取って、新規タブからスクレイピング操作を開始します
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：開いてるExcelがOneDriveにあると、`thisworkbook.path`がインターネット上のURLになってしまい、一部操作ができなくなる問題に対処した物となります。
-'            純ローカルなら、そのまま返します。
-'            個人向けOneDrive と ビジネス向け個人OneDrive に対応してます。先頭の定数で、スイッチングしてください
+'* 詳細説明：・Excelの一部の操作はWebView2が動いてます。この仕様を利用して、デバッグポートを開けてそこから制御を行います
+'            ・ここからの制御の場合、「RemoteDebuggingAllowed」のポリシー規制をスルー出来るようです
 '
-'* 注意事項：SharePointの場合は、自力でコードを書く必要があります
+'* 注意事項：・VBEからの起動では失敗します。ワークシート上にある図形に「マクロの登録」でこのプロシージャを登録して、その図形から起動しないと機能しません
+'            ・裏技チックのため、いつか使えなくなるかもしれません
+'            ・起動に失敗する場合は、該当のWebView2プロセスをKillして下さい
+'            ・既存タブではURL遷移に制限があるため、新しいタブを生成しそこからスクレイピングを始めれば今まで通りのスクレイピングが可能です
 '***************************************************************************************************
-Function OneDrivePathToLocalPath(Path As String, Optional UsePrivateOneDrive As Boolean = True) As String
-    'http始まりじゃないなら、そのまま返して終了
-    If Left(Path, 4) <> "http" Then OneDrivePathToLocalPath = Path: Exit Function
+Sub OpenExcelWebView2()
+    '1. デバッグ用のポートをOpen
+    ShSetting01_StartBrowser.EnsureWebView2Debug = 9222
 
-    '個人OneDriveモードなら識別番号分、ローカルパスに置き換えて結合
-    If UsePrivateOneDrive Then
-        OneDrivePathToLocalPath = Environ("OneDrive") & Mid(Path, 41)
+    '2. Helpを開いて、疑似的にWebView2を始動させる
+    CommandBars.ExecuteMso "Help"
 
-    '個人BusinessOneDriveモードなら"Documents"以降のパスを抜き出して、ローカルパスと結合
-    Else
-        OneDrivePathToLocalPath = Environ("OneDriveCommercial") & Evaluate("TEXTAFTER(""" & Path & """,""/Documents"")")
-    End If
-End Function
+    '3. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '4. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '6. 新しいタブに接続
+    Dim t As CDPContext
+    Set t = b.newTab(setMain:=True)
+
+    '7. ページ遷移
+    t.navigate "https://www.youtube.com/@humboldtpenguin2619"
+
+    '8. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+    ShSetting01_StartBrowser.EnsureWebView2Debug = 0
+End Sub

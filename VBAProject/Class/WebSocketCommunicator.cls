@@ -90,7 +90,7 @@ End Enum
 
 '主要なエラーコード
 '※一旦は、送受信関連のみ。不整合な処理を防ぐ際の辻褄のあうエラー番号を用意してます
-Private Enum WINHTTP_WEB_SOCKET_ERROR
+Public Enum WINHTTP_WEB_SOCKET_ERROR
     INVALID_OPERATION = 4317                '今の状態でその命令は無理
     WINHTTP_OPERATION_CANCELLED = 12017     '操作が取り消された
 End Enum
@@ -431,11 +431,9 @@ Public Function RequestWebSocketReceive() As Long
         RequestWebSocketReceive = WINHTTP_WEB_SOCKET_ERROR.INVALID_OPERATION            '前回のデータがあるのに、また予約しようとして、不整合の基になるため、「そんな状態で予約は無理だよ」サインを返す
         Exit Function
 
-    '1-3. 全てのチェックをパス出来たら、受信予約としてフラグ付け
+    '1-3. 全てのチェックをパス出来たら、受信予約を試みる
     Else
         printMsg Debug_, "`WinHttpWebSocketReceive`で、受信予約を行います...", FromProcedureName
-        currentebWebSocket.isReserved = True
-
     End If
 
     '2. このクラスオブジェクトの変数に格納するように受信リクエストし、実行結果を返却
@@ -444,6 +442,9 @@ Public Function RequestWebSocketReceive() As Long
                                 WebSocket.websockethandle, .Buffer(m_res.CurrentPointer), .BufferLength, _
                                 .ReceiveBytes, .Status)
     End With
+
+    '3. フラグ付け。※0なら、`True`にします
+    currentebWebSocket.isReserved = (RequestWebSocketReceive = 0)
 End Function
 
 '***************************************************************************************************
@@ -729,7 +730,7 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '1. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .Range(.UseRangeName(9, FromProcedureName)).value
+        Dim LogFolderPath As String: LogFolderPath = .UseRangeID(9, FromProcedureName)
         If LenB(LogFolderPath) Then
             currentLog.doLog = True                'ログファイルとして保存するか？
             currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定

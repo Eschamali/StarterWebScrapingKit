@@ -161,7 +161,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserHandle(BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BiDiUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
@@ -176,18 +176,19 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     '1. 「BiDi-CDP Mapper」への再接続処理
     BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
-    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName)
+    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName, WebSocketMode)
 
     '2. 結果に応じて`session.new`を行う
     If requestSessionNew Then
@@ -411,10 +412,10 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
         'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to BiDi-invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to ExecuteBiDi method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to BiDi-invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, "Failed to ExecuteBiDi method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
@@ -898,7 +899,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
     printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
     printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
-    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.UseRangeID(1, FromProcedureName), FromProcedureName
+    printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.VersionMapperTabJS, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
 
@@ -1022,7 +1023,7 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、256件)
+    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
     Set resultBiDi.response = New Dictionary
     resultBiDi.Limit = MaxStoreResultBiDi
 End Sub

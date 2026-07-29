@@ -84,10 +84,13 @@
 * **WinHTTP 5.1 ラッパー**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
     * オリジナル製作者：Tim Hall氏
-* **高速・高機能なJSONパーサー**
-  * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-    * GCuser99氏による改良
-    * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
+* **CDP/WebDriverBiDiレスポンス専用の超高速JSONパーサー**
+  * [vbacollective-json](https://github.com/vbacollective/json)
+    * 製作者：Ueslei Paim
+    * `CopyMemory`不使用版に改良
+* **`VBA-JSON`の上位互換の高速JSONパーサー**
+  * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+    * 製作者：Cristian Buse
 * **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland DI Management Services Pty
@@ -234,30 +237,15 @@ IEが消え、Driverのバージョン管理や環境構築の重圧に押し潰
 
 基本的な起動のテンプレートは下記になります。  
 ワークシート：ブラウザ起動設定　で設定した内容でブラウザが起動してくれるので、特にこだわりがなければこのテンプレートコードを推奨します。  
-その場合、たったの1行で、自動化の旅が始まります。
+その場合、たったの1,2行で、自動化の旅が始まります。
 
 ### CDP制御の場合
 
 ```bas
-Public Function 設定シートからのCDP起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動")).value, "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動")).value, SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのCDP起動 = New CDPBrowser
-        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
-    End With
-End Function
-
 Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからのCDP起動
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -272,25 +260,10 @@ End Sub
 ### BiDi制御の場合
 
 ```bas
-Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
-
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのBiDi起動 = New WebDriverBiDiCore
-        設定シートからのBiDi起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
 Sub BiDiによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
 
     '↓ここから、あなたのイメージをコードに落とし込む↓
 
@@ -301,3 +274,58 @@ Sub BiDiによる冒険の始まり()
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 新機能：WebSocket（Port）接続でのブラウザ操作デモ
+
+V2.3.0より、すでに起動しているEdgeやChromeなどの既存ブラウザセッションにExcelからアタッチ（制御を乗っ取る）できる「WebSocket（Port）ルート」が正式に解禁されました。
+
+標準モジュール `Demo_CDP` の中に、この機能を試すためのシンプルなデモコード `WebSocket経由版Demo` セクションが同梱されています。
+
+---
+
+> [!CAUTION]
+> このポート接続デモを動かすためには、あらかじめ対象のブラウザを**リモートデバッグポートを有効にした状態で起動しておく**必要があります。  
+> コマンドプロンプトやショートカットのプロパティ等から、以下の引数を付けてEdgeまたはChromeをあらかじめ起動しておいてください。
+
+```bash
+# デフォルトポート 9222 を開いてブラウザを起動する
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 デモコード：`SetupWebSocketMode`
+
+このマクロを実行すると、ポートフォワード経由で既存のブラウザを乗っ取り、タブから目的のページへ遷移します。
+
+```vb
+Sub SetupWebSocketMode()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '4. ページ遷移
+    'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '5. WebSocketから切断
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 応用と設定のカスタマイズ
+
+* **ポート番号を変更したい場合**：
+  `WebSocketCDP.AutoConnectPageCDP` の第4引数に、任意のポート番号（例：`9222` 以外に指定したポート）を渡すことで、特定のポートで待機しているブラウザや、Android等の実機内のブラウザにも柔軟に接続できます。
+* **このコードを基にして**：
+  面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
+* **接続の種類について**：
+  特定のページ、ブラウザそのもの、今目の前のブラウザ　の３種類をご用意しております。この辺の使い方も`WebSocket経由版Demo` セクションにありますので参考に。

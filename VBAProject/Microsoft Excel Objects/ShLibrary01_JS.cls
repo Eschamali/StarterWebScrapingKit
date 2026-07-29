@@ -117,31 +117,15 @@ Public Sub DeleteMapperTabJS()
     Application.ScreenUpdating = True
 End Sub
 
-
-
 '***************************************************************************************************
-'                             ■■■ プロパティメソッド ■■■
-'***************************************************************************************************
-'* 機能　　：このシートのみ定義されてるセル名称を設定/取得します
+'* 機能　　：`mapperTab.js`のバージョン取得/更新を行います
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：セルの中身(`.Value`のみ)
-'* LET引数 ：更新させたい値
-'* 引数　　：RangeID        セルID
-'            ErrorSource    この関数を呼び出したソース。※デバック用
+'* GET返値 ：テーブルに記録中のバージョン
+'* LET引数 ：更新させたいバージョン
 '***************************************************************************************************
-Property Let UseRangeID(RangeID As Long, ErrorSource As String, SetValue As Variant)
-    Me.Range(RangeMapping(RangeID, ErrorSource)).value = SetValue
+Property Get VersionMapperTabJS() As String
+    VersionMapperTabJS = Me.Range("Version_chromiumbidi").value
 End Property
-Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
-    UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
+Property Let VersionMapperTabJS(Version As String)
+    Me.Range("Version_chromiumbidi").value = Version
 End Property
-
-'***************************************************************************************************
-'* 機能　　：数値を基にセル名をマッピングします
-'***************************************************************************************************
-Private Function RangeMapping(RangeID As Long, ErrorSource) As String
-    Select Case RangeID
-        Case 1: RangeMapping = "Version_chromiumbidi"
-        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
-    End Select
-End Function
