@@ -30,25 +30,15 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Install VitePress & Build
+      - name: Install VitePress & Mermaid Plugin & Build
         run: |
-          npm install vitepress
+          npm install vitepress vitepress-plugin-mermaid mermaid
           npx vitepress build docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/.vitepress/dist
-
-      - name: Install VitePress & Mermaid Plugin & Build
-        run: |
-          npm install vitepress vitepress-plugin-mermaid mermaid
-          npx vitepress build docs
-
-      - name: Install Dependencies & Build
-        run: |
-          npm install vitepress vitepress-plugin-mermaid mermaid
-          npx vitepress build docs
 
   deploy:
     environment:
