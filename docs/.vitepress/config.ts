@@ -9,7 +9,7 @@ export default withMermaid(
     title: 'Starter Web Scraping Kit',
     description: 'Excel VBA で CDP / WebDriver BiDi によるブラウザ自動操作',
     lang: 'ja-JP',
-    base,base,
+    base: base,
     cleanUrls: true,
     lastUpdated: true,
 
