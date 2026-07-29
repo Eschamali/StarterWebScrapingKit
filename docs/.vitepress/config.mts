@@ -2,7 +2,9 @@ import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // GitHub Pages: https://eschamali.github.io/StarterWebScrapingKit/
+const domain = 'https://eschamali.github.io'
 const base = '/StarterWebScrapingKit/'
+const siteUrl = `${domain}${base}` // ➔ 'https://eschamali.github.io/StarterWebScrapingKit/'
 
 export default withMermaid(
   defineConfig({
@@ -32,7 +34,8 @@ export default withMermaid(
       ['script', { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' }],
 
       // --- ③ OGP (SNSシェア画像) 設定 ----------------------------------
-      ['meta', { property: 'og:image', content: "${base}browser-control.png" }],
+      ['meta', { property: 'og:image', content: `${siteUrl}browser-control.png` }],
+      ['meta', { property: 'og:url', content: siteUrl }], 
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }], // 画像を大きく表示させる指定
 
