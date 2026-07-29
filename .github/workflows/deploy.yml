@@ -45,6 +45,11 @@ jobs:
           npm install vitepress vitepress-plugin-mermaid mermaid
           npx vitepress build docs
 
+      - name: Install Dependencies & Build
+        run: |
+          npm install vitepress vitepress-plugin-mermaid mermaid
+          npx vitepress build docs
+
   deploy:
     environment:
       name: github-pages
