@@ -2389,7 +2389,7 @@ Property Let CurrentSessionID(newSessionID As String)
 ' Set the session ID of the current browser to a new value
 ' Added 02/03/2023
 '------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".id"
+    Const FromProcedureName As String = ThisClassName & ".CurrentSessionID"
 
 
     '再設定されるので、元のSessionIDがあれば、破棄させる
