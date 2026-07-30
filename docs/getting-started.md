@@ -25,6 +25,7 @@
 - ユーザーデータフォルダ名（`user-data-dir` 用）
 - 追加の起動引数（基本は、J13セル以降に記述）
 - 起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）
+- 特定のChromiumブラウザで自動化する場合はそのフルパス
 ![基本設定画面](/img/GettingStarted/SettingGUI1.png)
 
 
@@ -67,7 +68,10 @@ End Sub
 - `Demo_CDP.CDPによる冒険の始まり`
 - `Demo_WebDriverBiDi.BiDiによる冒険の始まり`
 
-### 入口関数
+### 起動ヘルパーメソッド
+
+シートオブジェクト：ShSetting01_StartBrowser を利用して少ない引数で直ぐに開始できるヘルパーメソッドです。  
+下記4種類を用意しております。
 
 | 関数 | 戻り値 | 用途 |
 | --- | --- | --- |
@@ -81,6 +85,35 @@ End Sub
 - `StartURL` — 起動直後に開く URL
 - `SwitchUser` — 別プロファイル名で起動（マルチインスタンス）
 - `KioskMode` — Edge キオスク／UserForm 埋め込み向け
+
+BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引数を用意しています。必要に応じて事前に `Dictionary` を組み立て、引数に渡してください。
+
+#### `sessionCapabilitiesRequest` とは
+
+BiDi セッション確立コマンド [`session.new`](https://w3c.github.io/webdriver-bidi/#command-session-new) に渡す **Parameters** です。ブラウザ起動後・コマンド実行前に、「このセッションではどう振る舞うか」を Capabilities として宣言します（WebDriver の Desired Capabilities に相当）。
+
+典型的な形は次のとおりです。
+
+```vb
+Dim caps As New Dictionary
+Dim alwaysMatch As New Dictionary
+
+' 例: 未処理の alert / confirm / prompt を自動で閉じず、イベントで扱う
+alwaysMatch.Add "unhandledPromptBehavior", "ignore"
+
+caps.Add "capabilities", New Dictionary
+caps("capabilities").Add "alwaysMatch", alwaysMatch
+
+Set t = ShSetting01_StartBrowser.StartBiDiModeContext( _
+    StartURL:="https://example.com", _
+    sessionCapabilitiesRequest:=caps)
+```
+
+- 省略時は `{ "capabilities": {} }` 相当の既定値で `session.new` します
+- `StartBiDiMode` / `StartBiDiModeContext` の両方で使えます
+- `reattach` でも渡せますが、**新規に BiDi-CDP Mapper が起動したときだけ** 適用されます
+
+詳細な Capabilities 一覧は [W3C WebDriver BiDi — session.new](https://w3c.github.io/webdriver-bidi/#command-session-new) を参照してください。
 
 ## 4. 終了時は必ず quit
 
@@ -97,5 +130,6 @@ t.InheritanceWebDriverBiDiMode.quit
 ## 次へ
 
 - [アーキテクチャ](/concepts/architecture)
+- [設計思想](/concepts/design-philosophy)
 - [ページ遷移](/guides/navigation)
 - [要素の取得](/guides/selectors)

@@ -178,4 +178,4 @@ WebDriver BiDi 自体はまだβ版。将来的には `mapperTab.js` が不要�
 
 - [アーキテクチャ](/concepts/architecture) — mapper が載る層の位置づけ
 - [CDP と BiDi](/concepts/cdp-vs-bidi) — どちらを使うか
-- [生プロトコル拡張](/guides/extend-raw-protocol) — `ExecuteBiDi` / BiDi+
+- [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) — `ExecuteBiDi` / BiDi+

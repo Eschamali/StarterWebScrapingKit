@@ -69,7 +69,7 @@ Public Function ExecuteBiDi(methodName As String, _
     Optional StopBiDiError As Boolean = True) As BiDiCDPJson
 ```
 
-[生プロトコル拡張](/guides/extend-raw-protocol)
+[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
 ### `sessionSubscribe` / `BiDiEvents` / `TakeEvents`
 
@@ -81,7 +81,9 @@ Public Function ExecuteBiDi(methodName As String, _
 
 ## ユーティリティ
 
-`sleep` / `TimerCounter` / `printMsg`
+`sleep` / `TimerCounter`（`Timer` 代替・自前ループ用） / `printMsg`
+
+詳細は [タイムアウト設定方法について](/guides/timeout)。
 
 ## 関連
 

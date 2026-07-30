@@ -2,10 +2,21 @@
 
 ネットワークやログなどの非同期イベントを VBA 側で受け取ります。デモは `Demo_CDP.ネットワークイベントの確認` / `Demo_WebDriverBiDi.ネットワークイベントの確認` が正本です。
 
-## CDP
+## 2 つの受け取り方
+
+一般的には、[拡張用テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/blob/dev/ForDevelopers/TemplateExtensions/CDP/Normal/exCDP_Template.cls) のように別途 Class オブジェクトを作り、`WithEvents` を定義して対象コンテキスト Class を渡し、非同期イベントごとの処理を書いて…といった儀式が必要です。
+
+一方、`.BrowserEvents`（BiDi なら `.BiDiEvents`）を使う場合は、**標準モジュール（`.bas`）上で直接**イベント処理を行えます。
+
+Demo には `Page.javascriptDialogOpening` を `.bas` 上で処理する例があるので、それを参考に実装してみるとよいでしょう（`Demo_CDP.TestAlert` など）。
+
+::: tip
+試作や短いデモでは `BrowserEvents` が手軽です。**長期運用**では、先の Class + `WithEvents` でイベント処理を行うのがベストです。
+:::
+
+## CDP（`BrowserEvents`）
 
 1. `BrowserEvents` に `New Dictionary` を渡して記録開始
-2. 必要に応じて、`○○.enable` でイベントを有効化
 2. 必要なら `SetFilterEvents` でイベント名を絞る
 3. ドメインを `ExecuteCDP` で enable
 4. 操作後、Dictionary を読む（必要ならファイルへ保存）
@@ -30,7 +41,7 @@ t.InheritanceCDPBrowser.quit
 
 フィルタ未設定時はキャプチャ対象が広くなります。本番では必要なイベントだけに絞ってください。
 
-## BiDi
+## BiDi（`BiDiEvents`）
 
 1. `BiDiEvents` に `New Dictionary`
 2. `sessionSubscribe` にイベント名の `Collection` を渡す
@@ -64,4 +75,5 @@ t.InheritanceWebDriverBiDiMode.quit
 
 - [`CDPContext`](/api/cdp/CDPContext)
 - [`WebDriverBiDiMode`](/api/bidi/WebDriverBiDiMode)
-- [生プロトコル拡張](/guides/extend-raw-protocol)
+- [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
+- [設計思想](/concepts/design-philosophy) — AI トッピング／拡張テンプレート

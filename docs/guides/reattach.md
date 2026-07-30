@@ -45,7 +45,66 @@ End If
 c.navigate "https://example.com"
 ```
 
-SessionId を保持したい場合は Part1 側で `KeepSession = True`（デモコメント参照）。
+SessionID を保持して引き継ぐ場合は、次節を参照してください。
+
+## SessionID の引き継ぎについて
+
+基本的には、SessionID は再更新して繋ぎ直すのが CDP のルールです。ただし次のようなシチュエーションでは、SessionID を保持しておくとよいでしょう。
+
+- **JavaScript 実行結果の ObjectID を次のプロシージャでも使いまわしたい場合**  
+  → SessionID を更新するとこれらが失われるため
+
+::: warning
+この SessionID 引き継ぎは、CDP の [`CDPContext.reattach`](/api/cdp/CDPContext) からのみ対応します。
+:::
+
+### Pipe 版
+
+1. 処理の最後に `CDPContext.KeepSession = True`
+2. 再開したいプロシージャで、タブ Class の `reattach` を `CDPContext.reattach(UserName, True)` として呼ぶ
+3. あとは今まで通り
+
+```vb
+' --- Part1 ---
+Dim c As CDPContext
+Set c = ShSetting01_StartBrowser.StartCDPModeContext
+' ... JavaScript 実行などで ObjectID を得る ...
+c.KeepSession = True
+
+' --- Part2（別プロシージャ）---
+Dim t As New CDPContext
+Dim UserName As String
+UserName = ShSetting01_StartBrowser.CurrentUserName
+
+If Not t.reattach(UserName, True) Then Exit Sub
+' 同じ SessionID 上で ObjectID を引き続き利用可能
+```
+
+### WebSocket 版
+
+1. 処理の最後に `CDPContext.KeepSession = True` にしつつ、`CDPCoreViaWebSocket.DisconnectCDP` などの**切断処理をしない**
+2. 利用者識別名称（`UserName`）で `CDPCoreViaWebSocket.deserialize(UserName)` し、WinSock ハンドルを復元
+3. 再開したいプロシージャで、タブ Class の `reattach` を `CDPContext.reattach(UserName, True, WebSocketCDP)` として呼ぶ
+4. あとは今まで通り
+
+```vb
+' --- Part1 ---
+' AutoConnectPageCDP → reattach 後の処理 ...
+t.KeepSession = True
+' ※ ここでは DisconnectCDP しない
+
+' --- Part2（別プロシージャ）---
+Dim UserName As String
+UserName = ShSetting01_StartBrowser.CurrentUserName
+
+Dim WebSocketCDP As New CDPCoreViaWebSocket
+If WebSocketCDP.deserialize(UserName) <> 0 Then Exit Sub
+
+Dim t As New CDPContext
+If Not t.reattach(UserName, True, WebSocketCDP) Then Exit Sub
+```
+
+詳細は [WebSocket モードでできること](/websocket/capabilities) も併せて参照してください。
 
 ## BiDi — Mode / Context
 
@@ -78,7 +137,7 @@ ctx.navigate "https://w3c.github.io/webdriver-bidi/"
 ::: warning 注意
 * パイプハンドルや Target / BiDi context が死んでいると失敗します。その場合は Part1 からやり直し
 * BiDi の mapper タブが消えても、`WebDriverBiDiMode.reattach` で再始動できる場合があります
-* 既存ブラウザ（デバッグポート）への接続は `CDPCoreViaWebSocket` を `reattach` に渡すパターン（`Demo_CDP.AutoConnect*`）
+* 既存ブラウザ（デバッグポート）への接続は `CDPCoreViaWebSocket` を `reattach` に渡すパターン（`Demo_CDP.AutoConnect*`）。詳しくは [WebSocket モード](/websocket/capabilities)
 :::
 
 ## 関連デモ

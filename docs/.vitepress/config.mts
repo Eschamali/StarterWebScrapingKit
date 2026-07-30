@@ -30,16 +30,19 @@ export default withMermaid(
         })();
       `],
 
-      // ② Twitter（X）埋め込み用スクリプト
+      // ② favicon
+      ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
+
+      // ③ Twitter（X）埋め込み用スクリプト
       ['script', { async: '', src: 'https://platform.twitter.com/widgets.js', charset: 'utf-8' }],
 
-      // --- ③ OGP (SNSシェア画像) 設定 ----------------------------------
+      // --- ④ OGP (SNSシェア画像) 設定 ----------------------------------
       ['meta', { property: 'og:image', content: `${siteUrl}browser-control.png` }],
       ['meta', { property: 'og:url', content: siteUrl }], 
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }], // 画像を大きく表示させる指定
 
-      // --- ④ Google アナリティクス (GA4) 設定 --------------------------
+      // --- ⑤ Google アナリティクス (GA4) 設定 --------------------------
       ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-5CW3LKTJWH' }],
       ['script', {}, `
         window.dataLayer = window.dataLayer || [];
@@ -50,7 +53,11 @@ export default withMermaid(
     ],
 
     themeConfig: {
-      logo: '/logo.svg',
+      logo: {
+        light: '/Logo_Light.png',
+        dark: '/Logo_Dark.png',
+        alt: 'Starter Web Scraping Kit'
+      },
       siteTitle: 'Starter Web Scraping Kit',
       nav: [
         { text: 'はじめに', link: '/intro' },
@@ -65,7 +72,15 @@ export default withMermaid(
             { text: '概要', link: '/intro' },
             { text: 'はじめに', link: '/getting-started' },
             { text: 'アーキテクチャ', link: '/concepts/architecture' },
+            { text: '設計思想', link: '/concepts/design-philosophy' },
             { text: 'CDP と BiDi', link: '/concepts/cdp-vs-bidi' }
+          ]
+        },
+        {
+          text: 'WebSocketモードでの制御について',
+          items: [
+            { text: '設計思想について', link: '/websocket/design' },
+            { text: 'WebSocketモードでできること', link: '/websocket/capabilities' }
           ]
         },
         {
@@ -77,9 +92,10 @@ export default withMermaid(
             { text: 'JavaScript 実行', link: '/guides/javascript' },
             { text: 'イベント購読', link: '/guides/events' },
             { text: 'マルチタブ', link: '/guides/multi-tab' },
+            { text: 'タイムアウト設定方法について', link: '/guides/timeout' },
             { text: '再接続 (reattach)', link: '/guides/reattach' },
             { text: 'スクリーンショット', link: '/guides/screenshots' },
-            { text: '生プロトコル拡張', link: '/guides/extend-raw-protocol' }
+            { text: '低レイヤーBiDi/CDPコマンドについて', link: '/guides/extend-raw-protocol' }
           ]
         },
         {

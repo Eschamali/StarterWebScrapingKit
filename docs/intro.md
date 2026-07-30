@@ -61,4 +61,5 @@ IE コントロールの代替として、Edge / WebView2 を UserForm に載せ
 
 1. [はじめに](/getting-started) — 保護ビュー解除と Hello World
 2. [アーキテクチャ](/concepts/architecture) — クラスの役割
-3. [ページ遷移](/guides/navigation) — 最初のガイド
+3. [設計思想](/concepts/design-philosophy) — povo 2.0 スタイル
+4. [ページ遷移](/guides/navigation) — 最初のガイド

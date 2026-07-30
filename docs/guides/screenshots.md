@@ -16,7 +16,7 @@ t.InheritanceCDPBrowser.quit
 
 デモ: `Demo_CDP.getSnapShot`
 
-BiDi 専用の高レベル API は未掲載です。必要な場合は [`ConvertToCDPContext`](/api/bidi/WebDriverBiDiContext#converttocdpcontext) 後に `snapPage` するか、[生プロトコル](/guides/extend-raw-protocol)で Page.captureScreenshot 相当を呼び出してください。
+BiDi 専用の高レベル API は未掲載です。必要な場合は [`ConvertToCDPContext`](/api/bidi/WebDriverBiDiContext#converttocdpcontext) 後に `snapPage` するか、[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)で Page.captureScreenshot 相当を呼び出してください。
 
 ## 関連
 

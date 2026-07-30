@@ -42,10 +42,10 @@ cdpTab.getElementByQuery("button").click
 
 ```vb
 ' goog:cdp.getSession / goog:cdp.sendCommand
-' 詳細は「生プロトコル拡張」ガイドへ
+' 詳細は「低レイヤー BiDi / CDP コマンドについて」ガイドへ
 ```
 
-→ [生プロトコル拡張](/guides/extend-raw-protocol)
+→ [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
 ## おすすめの始め方
 

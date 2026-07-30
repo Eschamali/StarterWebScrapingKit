@@ -50,7 +50,7 @@ cdp.getElementByQuery("button").click
 
 ### `ExecuteBiDi` / `ExecuteBiDiAsync`
 
-コンテキスト／セッション向け BiDi コマンド。BiDi+（`goog:cdp.*`）もここから。[生プロトコル拡張](/guides/extend-raw-protocol)
+コンテキスト／セッション向け BiDi コマンド。BiDi+（`goog:cdp.*`）もここから。[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
 ## 再接続
 
