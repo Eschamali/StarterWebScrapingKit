@@ -972,11 +972,11 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Long
-    TimeOutSecond = timerOut
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
 End Property
-Property Let TimeOutSecond(TimeSec As Long)
-    timerOut = TimeSec
+Property Let TimeOutSecond(TimeSec As Double)
+    timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
 
 
