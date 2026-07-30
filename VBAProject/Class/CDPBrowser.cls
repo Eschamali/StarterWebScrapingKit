@@ -46,14 +46,28 @@ Private Declare PtrSafe Function RegGetValueW Lib "Advapi32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種構造体 ■■■
 '***************************************************************************************************
-'タブの種類。一旦は2種類のみとする。
-'全容→https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
-Public Enum TargetgetTargetsType
-    Page
-    iFrame
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類。命名は右記に準拠します → https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_agent_host_impl.cc?ss=chromium&q=f:devtools%20-f:out%20%22::kTypeTab%5B%5D%22
+'---------------------------------------------------------------------------------------------------'
+Public Enum DevToolsAgentHost_KType
+    kTab = 1
+    kPage                   '普段目にするタブがこれ
+    kFrame                  'iFrameと同等
+    kDedicatedWorker
+    kSharedWorker
+    kServiceWorker
+    kWorklet
+    kBrowser
+    kGuest
+    kOther                  '非表示タブ
+    kAuctionWorklet
+    kAssistiveTechnology
+    kBrowserUI
 End Enum
 
-'EdgeをWebView2っぽく見せる専用引数
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] EdgeをWebView2っぽく見せる専用引数リスト
+'---------------------------------------------------------------------------------------------------'
 Public Enum edgeKioskType
     none            'キオスクモードなしの通常起動
     fullscreen      'キオスクモード デジタル/対話型サイネージ
@@ -142,6 +156,32 @@ Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際�
 Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
+
+
+
+'***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] タブの種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringDevToolsAgentHost_KType(param As DevToolsAgentHost_KType) As String
+    Select Case param
+        Case DevToolsAgentHost_KType.kTab:                  EnumToStringDevToolsAgentHost_KType = "tab"
+        Case DevToolsAgentHost_KType.kPage:                 EnumToStringDevToolsAgentHost_KType = "page"
+        Case DevToolsAgentHost_KType.kFrame:                EnumToStringDevToolsAgentHost_KType = "iframe"
+        Case DevToolsAgentHost_KType.kDedicatedWorker:      EnumToStringDevToolsAgentHost_KType = "worker"
+        Case DevToolsAgentHost_KType.kSharedWorker:         EnumToStringDevToolsAgentHost_KType = "shared_worker"
+        Case DevToolsAgentHost_KType.kServiceWorker:        EnumToStringDevToolsAgentHost_KType = "service_worker"
+        Case DevToolsAgentHost_KType.kWorklet:              EnumToStringDevToolsAgentHost_KType = "worklet"
+        Case DevToolsAgentHost_KType.kBrowser:              EnumToStringDevToolsAgentHost_KType = "browser"
+        Case DevToolsAgentHost_KType.kGuest:                EnumToStringDevToolsAgentHost_KType = "webview"
+        Case DevToolsAgentHost_KType.kOther:                EnumToStringDevToolsAgentHost_KType = "other"
+        Case DevToolsAgentHost_KType.kAuctionWorklet:       EnumToStringDevToolsAgentHost_KType = "auction_worklet"
+        Case DevToolsAgentHost_KType.kAssistiveTechnology:  EnumToStringDevToolsAgentHost_KType = "assistive_technology"
+        Case DevToolsAgentHost_KType.kBrowserUI:            EnumToStringDevToolsAgentHost_KType = "browser_ui"
+    End Select
+End Function
 
 
 
@@ -752,7 +792,7 @@ End Function
 '* 引数　　：tabName        タブ名  第一優先
 '            Url            URL     第二優先
 '            setMain        `True`で、Excelのタブ情報テーブルに上書きします。タブのリアタッチに利用します
-'            SearchType     "page","iframe" といった、セッションの種類を指定します
+'            SearchType     kPage,kFrame といった、タブの種類を指定します
 '            doRetrySecond  指定秒以内に出るまでリトライを繰り返します。0で、1回のみです
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴：06/06/23               - Added doRetry argument
@@ -766,7 +806,7 @@ End Function
 '* 機能説明：tabName引数とurl引数は部分的な指定(部分一致)が可能です。SearchType はデフォルトは、"page"にしてます。
 '* 注意事項：これらの引数を両方とも省略すると、getTabは最も近い未接続のタブに接続しようとします。
 '***************************************************************************************************
-Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As TargetgetTargetsType, Optional doRetrySecond As Double) As CDPContext
+Public Function getTab(Optional tabName As String, Optional Url As String, Optional setMain As Boolean, Optional SearchTypeID As DevToolsAgentHost_KType = kPage, Optional doRetrySecond As Double) As CDPContext
     Const FromProcedureName As String = ThisClassName & ".getTab"
 
 
@@ -780,12 +820,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
 
 
     '1. タブTypeを決める
-    Dim SearchType As String
-    Select Case SearchTypeID
-        Case TargetgetTargetsType.Page: SearchType = "page"
-        Case TargetgetTargetsType.iFrame: SearchType = "iframe"
-        Case Else: Err.Raise vbObjectError + 1, FromProcedureName, "This parameter is undefined."
-    End Select
+    Dim SearchType As String: SearchType = EnumToStringDevToolsAgentHost_KType(SearchTypeID)
 
     '2. タイマースタートして探索を開始する
     If doRetrySecond > 0 Then timerStart = TimerCounter
@@ -799,8 +834,8 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         bestScore = -1
         candidateTabId = ""
         Do While NodeToken > 0
-            '4-1. タブの種類があってるか？
-            If targets.TokenString(NodeToken, "type") = SearchType Then
+            '4-1. タブの種類があってるか？　※未指定の場合は、タブの種類を問わない検索で
+            If targets.TokenString(NodeToken, "type") = SearchType Or StrPtr(SearchType) = 0 Then
                 '4-2. 現スコアをリセット
                 score = -1
 
@@ -960,12 +995,12 @@ Public Sub printTargetInfos()
     End With
 End Sub
 
-Public Function TabCount() As Long
+Public Function PageCount() As Long
 '------------------------------------------------------------------------------
-' Print all current tabs info. Useful for debugging.
-' Updated : 05/02/25 - changed from printTabs to tabCount to get the count too
+' Print all current Pages info. Useful for debugging.
+' Updated : 05/02/25 - changed from printTabs to PageCount to get the count too
 '------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".tabCount"
+    Const FromProcedureName As String = ThisClassName & ".PageCount"
 
 
     Dim NodeToken As Long
@@ -974,16 +1009,16 @@ Public Function TabCount() As Long
 
    'Read info
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, "Tabs Information", FromProcedureName
+    printMsg Debug_, "Pages Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     With targets
         NodeToken = .FirstChildToken  ' 配列の先頭トークン
         Do While NodeToken > 0
             If .TokenString(NodeToken, "type") = "page" Then
-                TabCount = TabCount + 1
+                PageCount = PageCount + 1
 
-                printMsg Debug_, "#" & TabCount & vbTab & _
+                printMsg Debug_, "#" & PageCount & vbTab & _
                             "type: " & .TokenString(NodeToken, "type") & " | " & _
                             "attached: " & .TokenString(NodeToken, "attached") & " | " & _
                             "title: " & .TokenString(NodeToken, "title") & " | " & _
