@@ -589,6 +589,36 @@ Private Sub attachToContext()
     If StrPtr(InfoList.context) = 0 Then printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ページの読み込み状況を確認し、指定statusまで待機します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：一般的な読み込みステータスのみ対応してます。SPA等の特殊な待機はできません
+'***************************************************************************************************
+Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
+    Const FromProcedureName As String = ThisClassName & ".wait"
+
+
+    Dim strState As String, targetState As String
+    Select Case till
+        Case isLoading: targetState = "loading"
+        Case isInteractive: targetState = "interactive"
+        Case isComplete: targetState = "complete"
+    End Select
+
+    '初期値を設定しておく
+    '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
+    strState = "loading"
+
+    Do Until strState = targetState
+        strState = jsEval("document.readyState", StopException:=dbgState)
+        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
+        If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
+        sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+    Loop
+
+    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
+End Sub
+
 
 
 '***************************************************************************************************
@@ -649,6 +679,10 @@ End Property
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+End Sub
+
+Private Sub sleep(Optional seconds As Double = 0.5)
+    m_BiDiCore.sleep seconds
 End Sub
 
 
