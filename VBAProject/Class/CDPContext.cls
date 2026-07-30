@@ -1802,7 +1802,7 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
     strState = "loading"
 
     Do Until strState = targetState
-        strState = jsEval("document.readyState")
+        strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
         sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
