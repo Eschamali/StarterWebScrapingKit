@@ -1082,10 +1082,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         '※内部にて`DoEvents`が走ります
         TakeEvents StopPipeError
 
-        '2. 受信処理にてエラーがあったら、即抜け
-        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
-
-        '3. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
+        '2. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
         tmp = TakeResultCDP(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたの結果を返す
@@ -1097,6 +1094,9 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         Else
             printMsg Trace_, "Tab have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
         End If
+
+        '3. 受信処理にてエラーがあったら、即抜け
+        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '4. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
         If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName

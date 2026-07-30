@@ -503,10 +503,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         '1. 受信処理によるパイプを拝見する
         m_BiDiCore.TakeEvents StopError
 
-        '2. 受信処理にてエラーがあったら、即抜け
-        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
-
-        '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
+        '2. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
         tmp = TakeResultBiDi(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
@@ -518,6 +515,9 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         Else
             printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
         End If
+
+        '3. 受信処理にてエラーがあったら、即抜け
+        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '4. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
