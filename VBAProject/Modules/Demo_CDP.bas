@@ -205,7 +205,7 @@ Sub UseExtensions()
         controlExtensions.InheritanceCDPBrowser.quit
         Exit Sub
 
-    ElseIf ResultCDP.Exists("id") Then
+    ElseIf ResultCDP.ExistsKey("id") Then
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & ResultCDP("id")
 
     Else

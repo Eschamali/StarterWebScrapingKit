@@ -202,7 +202,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
-    If resultBiDi.Exists("ready") Then
+    If resultBiDi.ExistsKey("ready") Then
         printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
         reattach = True
     Else
@@ -419,7 +419,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
-        If resultJson.Exists("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
+        If resultJson.ExistsKey("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
@@ -636,7 +636,7 @@ Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
         printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
 
         '`StackTrace`があったら別枠で表示
-        If ResultsObj.Exists("stacktrace") Then
+        If ResultsObj.ExistsKey("stacktrace") Then
             ErrorStackTrace = ResultsObj.StringKey("stacktrace")
             printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
         End If

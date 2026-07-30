@@ -627,7 +627,7 @@ step2:
     Dim Node_ReturnObject       As BiDiCDPJson: Set Node_ReturnObject = Node_CDPresult.NodeKey("result")
 
     Dim Node_RemoteObject       As BiDiCDPJson: Set Node_RemoteObject = Node_ReturnObject.NodeKey("result")
-    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.Exists("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
+    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
 
     '`RemoteObject`部分を文字ログ化
     If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
@@ -720,7 +720,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As 
 
     '------------------------ 1. 特定項目有無チェック ------------------------
     '`deepSerializedValue`があったらそれを最優先に返します
-    If RemoteObject.Exists("deepSerializedValue") Then
+    If RemoteObject.ExistsKey("deepSerializedValue") Then
         '見つかったので、`deepSerializedValue`を返して、ここで抜ける
         Set ReturnValue = RemoteObject("deepSerializedValue")
         printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
@@ -731,7 +731,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As 
 
     '`objectId`があったら、こっちを返します
     '※type=objectで、`returnByValue:=False`なら`null`以外、ここを通ります
-    ElseIf RemoteObject.Exists("objectId") Then
+    ElseIf RemoteObject.ExistsKey("objectId") Then
         '見つかったので、`objectId`を返す
         ReturnValue = RemoteObject.StringKey("objectId")
         printMsg info_, "JS-Return type: objectId", FromProcedureName
@@ -764,7 +764,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As 
 
     ' 格納型情報を取得
     Dim ValueType       As String: ValueType = RemoteObject.StringKey("type")
-    Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.Exists("subtype")
+    Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.ExistsKey("subtype")
     Dim ValueSubtype    As String: If ExistsSubtype Then ValueSubtype = RemoteObject.StringKey("subtype")
     printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
 
@@ -802,7 +802,7 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As 
 
         Case "number"
             'VBAで扱える型か？
-            If RemoteObject.Exists("unserializableValue") Then
+            If RemoteObject.ExistsKey("unserializableValue") Then
                 'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
                 printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
                 ReturnValue = CVErr(xlErrNum)
@@ -940,9 +940,8 @@ End Sub
 '* 注意事項：・あくまでも、「最後」の例外情報なので、成功しても消滅しません。`Err.LastDllError`に準拠してます。
 '            ・これはあくまでも、`例外`のみ扱います。「try { ... } catch(e) { return e }」系統の取得は対象外です。
 '            ・非同期によるあとで取り出したパターンとは、連動しません。
-'            ・`Dictionary`オブジェクトとして得れるので必要に応じて`.RemoveAll`でエラークリアすることも可能です
 '***************************************************************************************************
-Property Get LastJavaScriptException() As Dictionary
+Property Get LastJavaScriptException() As BiDiCDPJson
     Set LastJavaScriptException = lastExceptionDetailsJS
 End Property
 
@@ -1002,7 +1001,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
         End If
     Else
         'Return result object
-        If resultJson.Exists("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
+        If resultJson.ExistsKey("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
@@ -1221,7 +1220,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
         lastErrorDetailsCDP.Add "message", ErrorMessage
 
     Else
-        If result.Exists("error") Then
+        If result.ExistsKey("error") Then
             'CDPコマンドエラー
             ExecuteError = True
 
@@ -1236,7 +1235,7 @@ Private Function ExecuteError(result As BiDiCDPJson, Optional ErrorCode As Long,
             printMsg WARN_, "ExecuteCDP Error: [" & ErrorCode & "] " & ErrorMessage, FromProcedureName
 
             '追加情報がある場合は、それもログ化
-            If errNode.Exists("data") Then
+            If errNode.ExistsKey("data") Then
                 ErrorData = errNode("data")
                 printMsg WARN_, "       " & ErrorData, FromProcedureName
             Else
