@@ -3,8 +3,14 @@
 ほとんどのブラウザ自動化は Pipe で十分ですが、以下のシチュエーションで自動化する場合は WebSocket モードを使うことになります。
 
 - [Android ブラウザ制御](https://developer.chrome.com/docs/devtools/remote-debugging?hl=ja)
+![Androidブラウザが制御されてる様子](../public/viaWebSocket/Android制御.gif)
+
 - [WebView2 制御](https://playwright.dokyumento.jp/docs/webview2)
+![WebView2 制御してる様子](../public/viaWebSocket/WebView2制御.avif)
+
 - [今目の前のブラウザを制御](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja)
+![今目の前のブラウザを制御してる様子](/viaWebSocket/目の前のブラウザ制御.gif)
+
 - Tailscale 等によるインターネットを介した制御
 
 ## 現時点での制限
