@@ -1945,7 +1945,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 End Sub
 
-Public Sub activate(Optional focus As Boolean = True)
+Public Sub activate()
 '----------------------------------------------------------------------------------
 ' Switch focus to the current tab being attached to under the current BRID.
 ' Updated: 02/03/2023
@@ -1953,7 +1953,7 @@ Public Sub activate(Optional focus As Boolean = True)
 
     Dim params As New Scripting.Dictionary
     params("targetId") = brTab.targetID
-    If focus Then ExecuteCDP "Target.activateTarget", params
+    ExecuteCDP "Target.activateTarget", params
 
 End Sub
 
