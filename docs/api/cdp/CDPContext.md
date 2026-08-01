@@ -398,7 +398,31 @@ End If
 
 ### `BrowserEvents` / `SetFilterEvents`
 
-イベント蓄積用 Dictionary とフィルタ。[イベント購読](/guides/events)
+```vb
+Property Get BrowserEvents() As Dictionary
+Property Set BrowserEvents(ObjDic As Dictionary)
+
+Property Let SetFilterEvents(Optional DelMode As Boolean, EventName As String)
+```
+
+標準モジュール上で CDP の非同期イベントを受け取るための蓄積口です。
+
+| メンバー | 役割 |
+| --- | --- |
+| `BrowserEvents` | `New Dictionary` を渡すと記録開始、`Nothing` で停止。退避した Dictionary を戻せば再開も可 |
+| `SetFilterEvents` | 蓄積するイベント名（例: `"Network.requestWillBeSent"`）を絞る。未設定時は広くキャプチャ |
+
+記録開始後は、対象ドメインを `ExecuteCDP` で enable してから操作します。
+
+```vb
+t.SetFilterEvents = "Network.requestWillBeSent"
+Set t.BrowserEvents = New Dictionary
+t.ExecuteCDP "Network.enable"
+' ... 操作後、t.BrowserEvents を参照 ...
+Set t.BrowserEvents = Nothing
+```
+
+手順・セーブ／再開・`WithEvents` との使い分けは [イベント購読](/guides/events) を参照してください。
 
 ### `pageEnable` / `runtimeEnable`
 

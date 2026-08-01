@@ -73,7 +73,7 @@ t.InheritanceWebDriverBiDiMode.quit
 
 ## 関連
 
-- [`CDPContext`](/api/cdp/CDPContext)
+- [`CDPContext.BrowserEvents` / `SetFilterEvents`](/api/cdp/CDPContext#browserevents--setfilterevents)
 - [`WebDriverBiDiMode`](/api/bidi/WebDriverBiDiMode)
 - [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 - [設計思想](/concepts/design-philosophy) — AI トッピング／拡張テンプレート
