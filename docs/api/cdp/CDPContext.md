@@ -453,6 +453,57 @@ t.TimeOutSecond = 60
 
 自前ループ用の経過ミリ秒は親の [`CDPBrowser.TimerCounter`](./CDPBrowser) を使います。詳細は [タイムアウト設定方法について](/guides/timeout)。
 
+## タブ情報
+
+### `Url`
+
+```vb
+Property Get Url() As String
+Property Let Url(newURL As String)
+```
+
+現在タブの URL です。代入すると内部で [`navigate`](#navigate) を呼びます。
+
+```vb
+Debug.Print t.Url
+t.Url = "https://example.com"   ' t.navigate "https://example.com" と同じ
+```
+
+### `Name`
+
+```vb
+Property Get Name() As String
+Property Let Name(newName As String)
+```
+
+タブのタイトル（`document.title` 相当）です。取得時に空なら `jsEval("document.title")` で補完します（`--app` 起動時など）。代入するとタイトルを書き換えます。
+
+```vb
+Debug.Print t.Name
+t.Name = "作業用タブ"
+```
+
+### `CurrentSessionID` / `CurrentTargetID`
+
+```vb
+Property Get CurrentSessionID() As String
+Property Get CurrentTargetID() As String
+```
+
+このタブ接続を識別する ID です。
+
+| プロパティ | 意味 |
+| --- | --- |
+| `CurrentSessionID` | CDP セッション ID。コマンド送信先のセッションを表す |
+| `CurrentTargetID` | ターゲット ID。「どのタブか」を特定するための専用 ID |
+
+```vb
+Debug.Print t.CurrentSessionID
+Debug.Print t.CurrentTargetID
+```
+
+[再接続 (reattach)](/guides/reattach) やメインタブ記録で Excel テーブルに残る値と対応します。日常のページ操作では意識不要です。
+
 ## 親ブラウザ
 
 ### `InheritanceCDPBrowser`
