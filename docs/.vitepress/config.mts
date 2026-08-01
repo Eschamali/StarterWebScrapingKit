@@ -94,7 +94,6 @@ export default withMermaid(
             { text: 'マルチタブ', link: '/guides/multi-tab' },
             { text: 'タイムアウト設定方法について', link: '/guides/timeout' },
             { text: '再接続 (reattach)', link: '/guides/reattach' },
-            { text: 'スクリーンショット', link: '/guides/screenshots' },
             { text: '低レイヤーBiDi/CDPコマンドについて', link: '/guides/extend-raw-protocol' }
           ]
         },
