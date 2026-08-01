@@ -149,9 +149,84 @@ t.wait isComplete, dbgState:=True   ' 状態遷移を見ながら待つ
 
 詳細は [ページ遷移](/guides/navigation)。
 
-### `show` / `hide` / `activate` / `bringToForeground`
+### `show`
 
-ウィンドウ表示制御。`show` は `xywh:="0 20 1000 700"` のような配置も可。
+```vb
+Public Sub show(Optional state As WinState = asNormal, Optional xywh As String = "0 0 0 0")
+```
+
+ブラウザウィンドウを表示し、必要ならサイズ／位置を変更します。[`WinState`](#winstate)（[ShowWindow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) 準拠）と、CDP の `Browser.setWindowBounds` を組み合わせています。reattach 後にウィンドウを前面へ出す用途にも使えます。
+
+| 引数 | 意味 |
+| --- | --- |
+| `state` | 表示状態。既定は `asNormal`（通常表示＋アクティブ化） |
+| `xywh` | `"left top width height"` 形式の文字列。省略時（`"0 0 0 0"`）はリサイズしない |
+
+```vb
+t.show asMaximized
+t.show asNormal, "100 50 1200 800"   ' 左上とサイズを指定
+t.show , "100 200"                  ' 位置だけ変更（幅・高さは据え置き）
+```
+
+::: tip 注意
+- 最大化中のリサイズは意図どおりに効かないことがあります。先に `asNormal` などで戻してから `xywh` を指定してください
+- `xywh` の各値が `0` の項目はスキップされます（例: `"100 200"` は left / top のみ）
+:::
+
+### `hide`
+
+```vb
+Public Sub hide()
+```
+
+ウィンドウを非表示にします（`ShowWindow` の `asHidden` 相当）。`show` で再度表示できます。
+
+```vb
+t.hide
+' ... 裏で処理 ...
+t.show
+```
+
+### `activate`
+
+```vb
+Public Sub activate()
+```
+
+**ブラウザ内のタブ**にフォーカスを移します（CDP の `Target.activateTarget`）。ウィンドウ全体を前面に出すわけではない点で、`show` / `bringToForeground` とは役割が違います。
+
+```vb
+Dim tab2 As CDPContext
+Set tab2 = t.InheritanceCDPBrowser.getTab(Url:="example.com")
+tab2.activate   ' そのタブを前面タブにする
+```
+
+### `bringToForeground`
+
+```vb
+Public Function bringToForeground()
+```
+
+ブラウザ**ウィンドウ**を最前面にします（`ShowWindow` → `BringWindowToTop` → `SetForegroundWindow`）。OS のフォーカス制限により、常に最前面になるとは限りません。
+
+```vb
+t.bringToForeground
+```
+
+### `WinState`
+
+`show` の第 1 引数に渡す列挙です。[ShowWindow の nCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) に準拠しています。よく使うのは次のとおりです。
+
+| 値 | 意味 |
+| --- | --- |
+| `asNormal` | 通常表示し、アクティブ化（既定）。最小化／最大化なら元のサイズへ |
+| `asMinimized` | 最小化してアクティブ化 |
+| `asMaximized` | 最大化してアクティブ化 |
+| `doShowNoActivate` | 表示するがアクティブ化しない |
+| `doShowMinNoActivate` | 最小化表示するがアクティブ化しない |
+| `asHidden` | 非表示（通常は [`hide`](#hide) を使う） |
+
+その他（`doShow` / `doRestore` / `doForceMin` など）も Enum に定義されています。起動時の初期表示モード設定でも同じ列挙を使います（[はじめに](/getting-started)）。
 
 ## JavaScript・通知
 
