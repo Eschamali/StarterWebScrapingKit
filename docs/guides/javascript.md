@@ -83,7 +83,7 @@ result = t.jsEval("1 + 1")
 | Promise 完了待ち | `awaitPromise` | 同左 |
 | 人間操作としての偽装 | `userGesture` | `userActivation` |
 | シリアライズ細調整 | `serializationOptions` | 同左 |
-| 結果を待たない実行 | `RunAsyncCDP`（戻り値は実行 id） | `RunAsyncBiDi` |
+| 結果を待たない実行 | `RunAsyncCDP`（戻り値は実行 id） | `RunAsyncBiDi`（戻り値は実行 id） |
 | JS 例外で VBE 停止 | `StopException`（開発時向け） | 同左 |
 | 通信エラーで停止 | `StopPipeError`（既定 `True`） | `StopBiDiError`（既定 `True`） |
 
@@ -129,7 +129,7 @@ result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
 | JS 実行中の例外 | `IsError(result)`。詳細は `LastJavaScriptException`。面倒なら `IFEXCEPTION` |
 | JS は成功したが結果がエラー値 | `IsError` で対処（`IFEXCEPTION` は「例外」時のみ機能） |
 | 運用時の `StopException` | JS は例外を処理に使うことが多いため、**省略（止めない）を推奨**。止めるのは開発時向け |
-| CDP / BiDi 通信自体のエラー | 既定で停止。第 3 引数系で制御 |
+| CDP / BiDi 通信自体のエラー | 既定で停止。最後の引数で制御 |
 
 「この JS ならこういう返り値」という感覚がないと戻り値に困惑しやすいです。開発時はデバッグログで試行錯誤してください。
 
