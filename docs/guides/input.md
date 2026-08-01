@@ -39,8 +39,8 @@ t.getElementByQuery("select#country").setSelection "JP"
 ## キー入力
 
 ```vb
-box.sendKey KeyEnter   ' keyboardCode 列挙を参照
-box.sendClick          ' 座標系クリック相当（実装はクラス参照）
+box.sendKey keyEnter   ' keyboardCode 列挙を参照
+box.sendClick          ' 座標系クリック相当
 ```
 
 ## React など仮想 DOM
