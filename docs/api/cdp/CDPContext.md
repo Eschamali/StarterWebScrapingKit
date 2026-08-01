@@ -98,13 +98,56 @@ Public Sub closeTab()
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 ```
 
-URL を開き、指定 ReadyState まで待ちます。
+URL を開き、指定の [`ReadyState`](#readystate) まで待ちます。内部では `Page.navigate` のあと [`wait`](#wait) を呼びます。
+
+| 引数 | 意味 |
+| --- | --- |
+| `strURL` | 遷移先 URL |
+| `till` | 待機する `document.readyState`。既定は `isComplete`（読み込み完了） |
+
+```vb
+t.navigate "https://example.com"                          ' 完了まで待つ（既定）
+t.navigate "https://example.com/heavy", isInteractive     ' interactive で先に進む
+```
+
+::: tip 注意
+すでに同じ URL にいる場合は遷移せず、警告ログを出して終了します。
+:::
 
 ### `wait`
 
 ```vb
 Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
 ```
+
+現在ページが指定の [`ReadyState`](#readystate) になるまで待ちます。`navigate` 後だけでなく、クリック後の再読み込み待ちなどにも使えます。
+
+| 引数 | 意味 |
+| --- | --- |
+| `till` | 待機する `document.readyState`。既定は `isComplete` |
+| `dbgState` | `True` で待機中の ReadyState を Immediate ウィンドウへ出し、`jsEval` の例外も止めずに継続 |
+
+```vb
+t.wait                              ' 完了待ち（既定）
+t.wait isInteractive                ' interactive で十分なら短縮できる
+t.wait isComplete, dbgState:=True   ' 状態遷移を見ながら待つ
+```
+
+::: tip
+`till:=isInteractive` のとき、すでに `complete` まで進んでいればそのまま成功扱いで抜けます（interactive を取りこぼしても止まらない）。
+:::
+
+### `ReadyState`
+
+`document.readyState` に対応する列挙です。`navigate` / `wait` / 一部の要素操作で使います。
+
+| 値 | ブラウザ側 | 意味 |
+| --- | --- | --- |
+| `isLoading` | `"loading"` | 読み込み中 |
+| `isInteractive` | `"interactive"` | DOM は操作可能だが、画像などの読み込みは未完了のことがある |
+| `isComplete` | `"complete"` | ドキュメント読み込み完了（既定）。要素が完了後にしか出ないページ向け |
+
+詳細は [ページ遷移](/guides/navigation)。
 
 ### `show` / `hide` / `activate` / `bringToForeground`
 
@@ -239,4 +282,5 @@ t.TimeOutSecond = 60
 - [`CDPBrowser`](./CDPBrowser)
 - [`CDPElement`](./CDPElement)
 - [はじめに](/getting-started)
+- [ページ遷移](/guides/navigation)
 - [タイムアウト設定方法について](/guides/timeout)
