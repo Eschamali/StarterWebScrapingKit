@@ -237,11 +237,21 @@ Public Function ExecuteCDPAsync(...) As Long
 
 ブラウザターゲット向け CDP コマンドです。結果を待つか（`ExecuteCDP`）、待たずに後で確認するか（`ExecuteCDPAsync`）の 2 種類を用意しています。
 
+`ExecuteCDPAsync` はコマンド実行時の **id（`Long`）のみ**を返し、結果は待ちません。結果の回収は [`TakeResultCDP`](#takeresultcdp) で行います。
+
 詳細は [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) で説明します。
 
 ### `TakeEvents`
 
-非同期応答／イベントの吸い上げ。
+非同期応答／イベントの吸い上げ。`TakeResultCDP` の前に呼び出す必要があります。
+
+### `TakeResultCDP`
+
+```vb
+Property Get TakeResultCDP(commandID As Long) As String
+```
+
+`ExecuteCDPAsync` が返した id をキーに、蓄積された実行結果（JSON 文字列）を取り出します。取り出し後は Dictionary から削除されます。結果がまだ無い場合は空文字を返します。
 
 ### `LastCDPJsonError`
 

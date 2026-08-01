@@ -165,7 +165,19 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
 
 ### `ExecuteCDP` / `ExecuteCDPAsync`
 
-ページ／セッション向け CDP。[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
+ページ／セッション向け CDP。結果を待つか（`ExecuteCDP`）、待たずに後で確認するか（`ExecuteCDPAsync`）の 2 種類があります。
+
+`ExecuteCDPAsync` はコマンド実行時の **id（`Long`）のみ**を返し、結果は待ちません。結果の回収は [`TakeResultCDP`](#takeresultcdp) で行います。
+
+詳細は [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) で説明します。
+
+### `TakeResultCDP`
+
+```vb
+Property Get TakeResultCDP(commandID As Long) As String
+```
+
+`ExecuteCDPAsync` が返した id をキーに、蓄積された実行結果（JSON 文字列）を取り出します。取り出し前に `TakeEvents` が必要です。取り出し後は Dictionary から削除され、結果がまだ無い場合は空文字を返します。
 
 ### `BrowserEvents` / `SetFilterEvents`
 
