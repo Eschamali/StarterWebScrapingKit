@@ -50,7 +50,24 @@ cdp.getElementByQuery("button").click
 
 ### `ExecuteBiDi` / `ExecuteBiDiAsync`
 
-コンテキスト／セッション向け BiDi コマンド。BiDi+（`goog:cdp.*`）もここから。[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
+コンテキスト／セッション向け BiDi コマンド。BiDi+（`goog:cdp.*`）もここから。
+
+`ExecuteBiDiAsync` の結果回収・蓄積上限は親の [`TakeResultBiDi`](./WebDriverBiDiMode#takeresultbidi) / [`SetLimitBiDi`](./WebDriverBiDiMode#setlimitbidi) で行います。
+
+```vb
+Dim cmdId As Long
+cmdId = t.ExecuteBiDiAsync("browsingContext.navigate", params)
+
+Do
+    t.InheritanceWebDriverBiDiMode.TakeEvents
+    Dim raw As String
+    raw = t.InheritanceWebDriverBiDiMode.TakeResultBiDi(cmdId)
+    If LenB(raw) Then Exit Do
+    DoEvents
+Loop
+```
+
+[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
 ## 再接続
 

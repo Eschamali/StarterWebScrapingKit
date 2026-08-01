@@ -115,6 +115,8 @@ Loop
 非同期でも、Pipe / WebSocket 自体にエラーがある場合はエラー停止します。
 :::
 
+蓄積件数の上限は `SetLimitCDPResult`（デフォルト 65536）です。上限超過やコマンド ID リセット時は結果履歴がすべて削除されます。
+
 関連: [イベント購読](/guides/events)
 
 ---
@@ -177,11 +179,13 @@ End If
 
 ## BiDi — 非同期（`ExecuteBiDiAsync`）
 
-CDP の `ExecuteCDPAsync` と同様、実行時 id を返し結果は待ちません。回収は `TakeEvents` などで行います。
+CDP の `ExecuteCDPAsync` と同様、実行時 id を返し結果は待ちません。自力で取り出す場合は `TakeEvents` / `TakeResultBiDi` を Do ループで呼び出します。
 
 向いている例も CDP と同じで、ダイアログ待ちや複数コンテキストへの一斉ナビゲートなどです。
 
 Pipe / WebSocket 自体の障害時はエラー停止します。
+
+蓄積件数の上限は `SetLimitBiDi`（デフォルト 65536）です。上限超過やコマンド ID リセット時は結果履歴がすべて削除されます。
 
 ---
 

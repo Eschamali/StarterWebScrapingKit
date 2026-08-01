@@ -253,6 +253,24 @@ Property Get TakeResultCDP(commandID As Long) As String
 
 `ExecuteCDPAsync` が返した id をキーに、蓄積された実行結果（JSON 文字列）を取り出します。取り出し後は Dictionary から削除されます。結果がまだ無い場合は空文字を返します。
 
+### `SetLimitCDPResult`
+
+```vb
+Property Let SetLimitCDPResult(Number As Long)
+```
+
+CDP コマンド結果を Dictionary に溜め込む件数の上限です。デフォルトは **65536 件**です。
+
+上限を超えると、パフォーマンス低下を防ぐため蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteCDPAsync` 結果も消える点に注意してください。
+
+```vb
+b.SetLimitCDPResult = 1000
+```
+
+::: tip
+コマンド ID がオーバーフロー対策でリセットされるとき（およそ 20 億到達時）も、結果履歴はすべてクリアされます。
+:::
+
 ### `LastCDPJsonError`
 
 直前エラー（Dictionary 風アクセス）。`StopCDPError:=False` 時に参照。

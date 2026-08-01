@@ -67,11 +67,47 @@ URL 部分一致などで検索。見つからない場合は `Nothing` にな�
 Public Function ExecuteBiDi(methodName As String, _
     Optional params As Dictionary, _
     Optional StopBiDiError As Boolean = True) As BiDiCDPJson
+
+Public Function ExecuteBiDiAsync(...) As Long
 ```
+
+BiDi コマンドです。結果を待つか（`ExecuteBiDi`）、待たずに後で確認するか（`ExecuteBiDiAsync`）の 2 種類があります。
+
+`ExecuteBiDiAsync` はコマンド実行時の **id（`Long`）のみ**を返し、結果は待ちません。結果の回収は [`TakeResultBiDi`](#takeresultbidi) で行います。
 
 [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
-### `sessionSubscribe` / `BiDiEvents` / `TakeEvents`
+### `TakeEvents`
+
+非同期応答／イベントの吸い上げ。`TakeResultBiDi` の前に呼び出す必要があります。
+
+### `TakeResultBiDi`
+
+```vb
+Property Get TakeResultBiDi(commandID As Long) As String
+```
+
+`ExecuteBiDiAsync` が返した id をキーに、蓄積された実行結果（JSON 文字列）を取り出します。取り出し後は Dictionary から削除されます。結果がまだ無い場合は空文字を返します。
+
+### `SetLimitBiDi`
+
+```vb
+Property Let SetLimitBiDi(Number As Long)
+```
+
+BiDi コマンド結果を Dictionary に溜め込む件数の上限です。デフォルトは **65536 件**です。
+
+上限を超えると、パフォーマンス低下を防ぐため蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteBiDiAsync` 結果も消える点に注意してください。
+
+```vb
+mode.SetLimitBiDi = 1000
+```
+
+::: tip
+コマンド ID がオーバーフロー対策でリセットされるとき（およそ 20 億到達時）も、結果履歴はすべてクリアされます。
+:::
+
+### `sessionSubscribe` / `BiDiEvents`
 
 イベント購読の中核。[イベント購読](/guides/events)
 
