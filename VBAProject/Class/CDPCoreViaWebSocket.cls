@@ -254,7 +254,6 @@ End Property
 '* 引数    ：UserName       利用者識別名称
 '            Path           接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
 '            targetId       `Target.TargetInfo`の`targetId` ※既存のタブ情報を流用する場合は指定すること
-'            sessionID      `targetId`に対する`sessionID`   ※既存のタブ情報を流用する場合は指定すること
 '            BiDiContext    WebDriverBiDiでのメインタブ情報 ※既存のタブ情報を流用する場合は指定すること
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
@@ -263,7 +262,7 @@ End Property
 '* 注意事項：・既存の接続がある場合は、切断されます
 '            ・`targetId`を指定した場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい。省略時は、`CDPBrowser.cls`から
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional sessionID As String, Optional BiDiContext As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional BiDiContext As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -299,7 +298,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
     '9. 設定情報を記録
-    serialize UserName, targetID, sessionID, BiDiContext
+    serialize UserName, targetID, BiDiContext
 
     '10. 各種ステータスを更新
     m_IsConnected = True
@@ -944,6 +943,7 @@ End Sub
 '* 注意事項：・必須引数以外、全て省略すると、type=page の先頭タブに繋ぎに行きます
 '            ・内部で「見つかるまでループ」と言ったことはしません。呼び出し側にて別途実装してください
 '            ・このメソッドで接続する場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい
+'            ・このメソッドでの接続は`type:="page"`のみに限ります。
 '***************************************************************************************************
 Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, Optional Title As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectPageCDP"
@@ -1036,7 +1036,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
     End If
 
     '6. 見つけたパラメーターで、接続
-    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, , , port, Host)
+    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, , port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1044,7 +1044,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
-'            ReuseContext   Excelテーブルにあるメインタブ情報を流用します
+'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
@@ -1088,13 +1088,13 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
         '5-2. データ有無チェック
         If Not tmp Is Nothing Then
             '6. あったらその情報を適用し、抜ける
-            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("sessionID"), tmp("BiDi-context"), D_port, D_host)
+            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), D_port, D_host)
             Exit Function
         End If
     End If
 
     '6. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , , D_port, D_host)
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , D_port, D_host)
 End Function
 
 '***************************************************************************************************
@@ -1141,7 +1141,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
-'            ReuseContext   Excelテーブルにあるメインタブ情報を流用します
+'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
@@ -1187,13 +1187,13 @@ Public Function AutoConnectDevToolsActivePort(UserName As String, Optional Reuse
             '7-2. データ有無チェック
             If Not tmpRe Is Nothing Then
                 '8. あったらその情報を適用し、抜ける
-                AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), tmpRe("targetID"), tmpRe("sessionID"), tmpRe("BiDi-context"), CLng(tmp(0)))
+                AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(tmp(0)))
                 Exit Function
             End If
         End If
 
         '8. 接続
-        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , , , CLng(tmp(0)))
+        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , , CLng(tmp(0)))
     Else
         'エラーで終了
         printMsg ERROR_, "Connection information is missing." & vbCrLf & "> " & FilePath_DevToolsActivePort, FromProcedureName, doRaiseError:=True
@@ -1209,14 +1209,13 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       利用者識別名称
 '            targetId       `Target.TargetInfo`の`targetId`
-'            sessionID      `targetId`に対する`sessionID`
 '            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String, targetID As String, sessionID As String, BiDiContext As String)
+Private Sub serialize(UserName As String, targetID As String, BiDiContext As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
     '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
     Dim tmp As New Dictionary
@@ -1235,7 +1234,7 @@ Private Sub serialize(UserName As String, targetID As String, sessionID As Strin
     '------------------ 2. タブ情報の記録準備 ------------------
     tmp.RemoveAll
     tmp.Add "BiDi-context", BiDiContext
-    tmp.Add "sessionID", sessionID
+    tmp.Add "sessionID", vbNullString   '新規でWebSocket接続する場合は、`SessionID`の使い回しができないので、未設定とする
     tmp.Add "targetID", targetID
 
     'Excelテーブルに、タブ情報欄を確保する
@@ -1251,7 +1250,7 @@ End Sub
 '                0:成功
 '               >0:WinSockエラー
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください
+'* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
 '* 注意事項：うまくいかない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Long

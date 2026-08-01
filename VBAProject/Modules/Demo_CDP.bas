@@ -205,7 +205,7 @@ Sub UseExtensions()
         controlExtensions.InheritanceCDPBrowser.quit
         Exit Sub
 
-    ElseIf ResultCDP.Exists("id") Then
+    ElseIf ResultCDP.ExistsKey("id") Then
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & ResultCDP("id")
 
     Else
@@ -420,7 +420,7 @@ Sub iframeShadowRootTest()
     With captchaDemo
         '2. cloudflare 用のiframeにアタッチする
         Dim CloudflareTurnstile As CDPContext
-        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=iFrame, doRetrySecond:=5)     '※見つかるまで、5秒間内部でループされます
+        Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=kFrame, doRetrySecond:=5)     '※見つかるまで、5秒間内部でループされます
 
         '3. そのiframe内にあるチェックBoxをクリックする
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します

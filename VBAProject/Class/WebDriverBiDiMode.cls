@@ -202,7 +202,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
-    If resultBiDi.Exists("ready") Then
+    If resultBiDi.ExistsKey("ready") Then
         printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
         reattach = True
     Else
@@ -419,7 +419,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
-        If resultJson.Exists("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
+        If resultJson.ExistsKey("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
@@ -503,10 +503,7 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         '1. 受信処理によるパイプを拝見する
         m_BiDiCore.TakeEvents StopError
 
-        '2. 受信処理にてエラーがあったら、即抜け
-        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
-
-        '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
+        '2. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
         tmp = TakeResultBiDi(currentCommandID)
         If StrPtr(tmp) Then
             '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
@@ -518,6 +515,9 @@ Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async 
         Else
             printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
         End If
+
+        '3. 受信処理にてエラーがあったら、即抜け
+        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
 
         '4. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
@@ -636,7 +636,7 @@ Private Function ExecuteError(ResultsObj As BiDiCDPJson) As Boolean
         printMsg WARN_, "BiDi-InvokeMethod Error: [" & ErrorType & "] " & ErrorMessage, FromProcedureName
 
         '`StackTrace`があったら別枠で表示
-        If ResultsObj.Exists("stacktrace") Then
+        If ResultsObj.ExistsKey("stacktrace") Then
             ErrorStackTrace = ResultsObj.StringKey("stacktrace")
             printMsg WARN_, "       " & ErrorStackTrace, FromProcedureName
         End If
@@ -972,11 +972,11 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Long
-    TimeOutSecond = timerOut
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
 End Property
-Property Let TimeOutSecond(TimeSec As Long)
-    timerOut = TimeSec
+Property Let TimeOutSecond(TimeSec As Double)
+    timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
 
 
