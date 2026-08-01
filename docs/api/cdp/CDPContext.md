@@ -202,7 +202,34 @@ alert / confirm / prompt への応答。
 Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPage As Boolean = False)
 ```
 
-[スクリーンショット](/guides/screenshots)
+現在のタブを PNG として保存します。内部では CDP の `Page.captureScreenshot` を使います（外部 JS ライブラリは不要です）。
+
+| 引数 | 意味 |
+| --- | --- |
+| `FolderPath` | 保存先フォルダ（例: `Environ("UserProfile") & "\Downloads"`） |
+| `FileName` | ファイル名（拡張子込み。例: `"shot.png"`） |
+| `getFullPage` | `False`（既定）で現在のビューポートのみ。`True` でページ全体（縦スクロール範囲を含む） |
+
+```vb
+Dim t As CDPContext
+Set t = ShSetting01_StartBrowser.StartCDPModeContext
+t.navigate "https://example.com"
+
+' ビューポートのみ
+t.snapPage Environ("UserProfile") & "\Downloads", "viewport.png"
+
+' フルページ
+t.snapPage Environ("UserProfile") & "\Downloads", "full.png", True
+
+t.InheritanceCDPBrowser.quit
+```
+
+::: tip 注意
+- レイアウト情報（`Page.getLayoutMetrics`）が取れない画面では警告を出して終了します
+- BiDi 専用の高レベル API はありません。BiDi 利用時は [`ConvertToCDPContext`](/api/bidi/WebDriverBiDiContext#converttocdpcontext) 後に `snapPage` するか、[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) で `Page.captureScreenshot` 相当を呼び出してください
+:::
+
+デモ: `Demo_CDP.getSnapShot`
 
 ## プロトコル・イベント
 
