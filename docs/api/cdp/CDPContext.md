@@ -215,6 +215,30 @@ Public Function bringToForeground()
 t.bringToForeground
 ```
 
+### `BrowserWindowHandle` / `BrowserWindowID`
+
+```vb
+Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
+Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
+```
+
+ウィンドウ操作の土台になる ID です。`show` / `hide` / `bringToForeground` は内部でこれらを使います。自前で WinAPI や CDP のウィンドウ調整をするときにも参照できます。
+
+| プロパティ | 意味 | 主な用途 |
+| --- | --- | --- |
+| `BrowserWindowHandle` | OS のウィンドウハンドル（`HWND`） | `ShowWindow` など WinAPI |
+| `BrowserWindowID` | CDP の `windowId`（`Browser.getWindowForTarget`） | `Browser.setWindowBounds` など CDP |
+
+どちらも `alwaysRequest:=False`（既定）ならキャッシュがあれば流用し、無ければ調査します。`True` なら毎回取り直します。
+
+```vb
+Dim hwnd As LongPtr
+hwnd = t.BrowserWindowHandle
+
+Dim wid As Long
+wid = t.BrowserWindowID
+```
+
 ### `WinState`
 
 `show` の第 1 引数に渡す列挙です。[ShowWindow の nCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) に準拠しています。よく使うのは次のとおりです。
