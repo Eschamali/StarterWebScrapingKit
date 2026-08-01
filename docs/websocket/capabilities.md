@@ -124,6 +124,8 @@ Public Function AutoConnectDevToolsActivePort( _
 ::: tip 注意
 - 接続後は **`CDPBrowser.reattach`** にこのオブジェクトを渡して使います
 - 現時点では Edge または Chrome の **安定版** への接続用に限ります
+- 実行直後は、ユーザーが、下記ダイアログに応答するまで、Excelがブロッキングされます
+![今目の前のブラウザに接続する際のダイアログ](../public/img/dialog.avif)
 :::
 
 ## 関連
