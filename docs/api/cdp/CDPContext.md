@@ -453,6 +453,29 @@ t.TimeOutSecond = 60
 
 自前ループ用の経過ミリ秒は親の [`CDPBrowser.TimerCounter`](./CDPBrowser) を使います。詳細は [タイムアウト設定方法について](/guides/timeout)。
 
+## 親ブラウザ
+
+### `InheritanceCDPBrowser`
+
+```vb
+Property Get InheritanceCDPBrowser() As CDPBrowser
+```
+
+`CDPContext` 上で、ブラウザ単位の制御もしたいときに使います。親の [`CDPBrowser`](./CDPBrowser) への参照です。
+
+タブ操作（`navigate` など）は Context 側、プロセス／タブ一覧／ブラウザ向け CDP（`quit` / `newTab` / `ExecuteCDP` など）はこちら経由、という使い分けになります。
+
+```vb
+' 別タブを開く
+t.InheritanceCDPBrowser.newTab "https://example.com"
+
+' ブラウザ向け CDP（拡張機能の読み込みなど）
+t.InheritanceCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
+
+' ブラウザ終了
+t.InheritanceCDPBrowser.quit
+```
+
 ## デバッグ
 
 `printParams` / `getSessionInfo` / `printMsg`
