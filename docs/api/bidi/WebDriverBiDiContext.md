@@ -68,8 +68,19 @@ Public Function reattach(userProfile As String, _
 
 低レベル起動＋タブ接続。
 
+## タイムアウト
+
+`TimeOutSecond` はこのクラス自体にはなく、親の [`WebDriverBiDiMode.TimeOutSecond`](./WebDriverBiDiMode#timeoutsecond) で設定します。
+
+```vb
+t.InheritanceWebDriverBiDiMode.TimeOutSecond = 60
+```
+
+詳細は [タイムアウト設定方法について](/guides/timeout)。
+
 ## 関連
 
 - [`WebDriverBiDiMode`](./WebDriverBiDiMode)
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
 - [要素の取得](/guides/selectors)（CDP 変換パターン）
+- [タイムアウト設定方法について](/guides/timeout)

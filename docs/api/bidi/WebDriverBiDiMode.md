@@ -79,14 +79,36 @@ Public Function ExecuteBiDi(methodName As String, _
 
 `StopBiDiError:=False` 時のエラー情報。
 
-## ユーティリティ
+## タイムアウト
 
-`sleep` / `TimerCounter`（`Timer` 代替・自前ループ用） / `printMsg`
+### `TimeOutSecond`
+
+```vb
+Property Get TimeOutSecond() As Double
+Property Let TimeOutSecond(TimeSec As Double)
+```
+
+BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**です。
+
+```vb
+mode.TimeOutSecond = 60
+```
+
+タブ側（[`WebDriverBiDiContext`](./WebDriverBiDiContext)）からは `InheritanceWebDriverBiDiMode.TimeOutSecond` で同じ値を触れます。
 
 詳細は [タイムアウト設定方法について](/guides/timeout)。
+
+## ユーティリティ
+
+| メンバー | 説明 |
+| --- | --- |
+| `sleep` | 秒待ち |
+| `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
+| `printMsg` | デバッグ出力 |
 
 ## 関連
 
 - [`WebDriverBiDiContext`](./WebDriverBiDiContext)
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
 - [マルチタブ](/guides/multi-tab)
+- [タイムアウト設定方法について](/guides/timeout)

@@ -257,6 +257,23 @@ Property Get TakeResultCDP(commandID As Long) As String
 
 直前エラー（Dictionary 風アクセス）。`StopCDPError:=False` 時に参照。
 
+## タイムアウト
+
+### `TimeOutSecond`
+
+```vb
+Property Get TimeOutSecond() As Double
+Property Let TimeOutSecond(TimeSec As Double)
+```
+
+CDP コマンド結果待ちなどの待機上限です。デフォルトは **30 秒**です。
+
+```vb
+b.TimeOutSecond = 60
+```
+
+詳細は [タイムアウト設定方法について](/guides/timeout)。
+
 ## その他
 
 | メンバー | 説明 |
@@ -264,10 +281,11 @@ Property Get TakeResultCDP(commandID As Long) As String
 | `openDevTools` | 指定ターゲットで DevTools を開く |
 | `printTargetInfos` / `printParams` | デバッグ出力 |
 | `sleep` | 秒待ち |
-| `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ |
+| `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
 | `serializeForMainTab` | メインタブの session/target を記録 |
 
 ## 関連
 
 - [マルチタブ](/guides/multi-tab)
+- [タイムアウト設定方法について](/guides/timeout)
 - [`CDPContext`](./CDPContext)

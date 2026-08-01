@@ -195,9 +195,26 @@ Property Get TakeResultCDP(commandID As Long) As String
 > WebView2/Electron製の場合は、うまくいかない場合があります
 
 
+## タイムアウト
+
+### `TimeOutSecond`
+
+```vb
+Property Get TimeOutSecond() As Double
+Property Let TimeOutSecond(TimeSec As Double)
+```
+
+タブ単位の CDP コマンド結果待ちや、起動直後の遷移完了判定などの待機上限です。デフォルトは **30 秒**です。
+
+```vb
+t.TimeOutSecond = 60
+```
+
+自前ループ用の経過ミリ秒は親の [`CDPBrowser.TimerCounter`](./CDPBrowser) を使います。詳細は [タイムアウト設定方法について](/guides/timeout)。
+
 ## デバッグ
 
-`printParams` / `getSessionInfo` / `printMsg` 
+`printParams` / `getSessionInfo` / `printMsg`
 
 ## 関連
 
