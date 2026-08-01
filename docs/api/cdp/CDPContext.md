@@ -504,6 +504,38 @@ Debug.Print t.CurrentTargetID
 
 [再接続 (reattach)](/guides/reattach) やメインタブ記録で Excel テーブルに残る値と対応します。日常のページ操作では意識不要です。
 
+## タブ生存について
+
+CDP のターゲット／セッションイベントを受けたあと、このタブがまだ使えるかを確認するフラグです。いずれも **Get 専用**で、該当イベントを受け取ると `True` になります。
+
+```vb
+Property Get isTargetDisconnected() As Boolean
+Property Get isTargetCrashed() As Boolean
+Property Get isTargetClosed() As Boolean
+```
+
+| プロパティ | 対応イベント | 意味 |
+| --- | --- | --- |
+| `isTargetDisconnected` | `Target.detachedFromTarget` | このタブの **セッション**が切れた。`targetId` 自体は残っていることがある。セッションの更新（再接続など）が必要 |
+| `isTargetCrashed` | `Target.targetCrashed` | タブがクラッシュした。`Page.reload` で復帰できる場合がある |
+| `isTargetClosed` | `Target.targetDestroyed` | タブが閉じられた。この `CDPContext` はもう使えないので破棄する |
+
+```vb
+If t.isTargetClosed Then
+    ' オブジェクトを捨てて、必要なら getTab / newTab で取り直す
+ElseIf t.isTargetDisconnected Then
+    ' reattach などでセッションを更新
+ElseIf t.isTargetCrashed Then
+    t.ExecuteCDP "Page.reload"   ' 復帰を試す例
+End If
+```
+
+::: tip 注意
+`isTargetClosed`（`Target.targetDestroyed`）の検知には、ブラウザ側で `Target.setDiscoverTargets` の購読が必要です。通常の起動フローでは内部で有効化されます。
+:::
+
+関連: [再接続 (reattach)](/guides/reattach)
+
 ## 親ブラウザ
 
 ### `InheritanceCDPBrowser`
