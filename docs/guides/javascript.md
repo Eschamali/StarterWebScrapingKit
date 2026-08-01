@@ -157,6 +157,7 @@ t.handleDialog False, "入力"   ' prompt 用テキスト
 ## 関連
 
 - [`CDPContext.jsEval`](/api/cdp/CDPContext#jseval) — [Runtime.evaluate](https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate)
+- [`CDPContext.LastJavaScriptException`](/api/cdp/CDPContext#lastjavascriptexception)
 - [`WebDriverBiDiContext.jsEval`](/api/bidi/WebDriverBiDiContext#jseval) — [script.evaluate](https://w3c.github.io/webdriver-bidi/#command-script-evaluate)
 - [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 - [イベント購読](/guides/events)

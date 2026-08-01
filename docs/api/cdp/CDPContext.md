@@ -239,7 +239,36 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, _
     Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, ...) As Variant
 ```
 
+ページ上で JavaScript を評価します。例外時は `IsError(result)` で判定し、詳細は [`LastJavaScriptException`](#lastjavascriptexception) を参照してください。代替値で済ませたい場合は `IFEXCEPTION` を使います。
+
 詳細は [JavaScript 実行](/guides/javascript)。
+
+### `LastJavaScriptException`
+
+```vb
+Property Get LastJavaScriptException() As BiDiCDPJson
+```
+
+同期の `jsEval` で起きた、**最後の JavaScript 例外**（CDP の `exceptionDetails`）です。`Err.LastDllError` と同様、成功しても消えません。
+
+```vb
+Dim result As Variant
+result = t.jsEval("notDefined.x")
+
+If IsError(result) Then
+    Debug.Print t.LastJavaScriptException.Stringify
+    ' 必要なら .StringKey / .NodeKey で個別フィールドも参照可
+End If
+
+' 詳細を見なくてよいなら代替値で済ませる
+result = t.jsEval("notDefined.x", IFEXCEPTION:="fallback")
+```
+
+::: tip 注意
+- 対象は **例外**のみです。`try { ... } catch (e) { return e }` のように JS 側で捕まえて返した値は対象外です
+- 非同期（`RunAsyncCDP:=True`）で後から取り出した結果とは連動しません
+- JS は成功したが戻り値がエラー値の場合は `IsError` で対処してください（`IFEXCEPTION` / 本プロパティは「例外」時のみ）
+:::
 
 ### `jsAddLib` / `jsAddScript`
 
