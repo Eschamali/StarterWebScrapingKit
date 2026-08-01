@@ -507,6 +507,20 @@ Debug.Print t.Name
 t.Name = "作業用タブ"
 ```
 
+### `html`
+
+```vb
+Property Get html() As String
+```
+
+ページ全体の HTML 文字列です。内部では `jsEval("document.documentElement.innerHTML")` を実行します（Get 専用）。
+
+```vb
+Debug.Print Left$(t.html, 200)   ' 先頭だけ確認する例
+```
+
+巨大なページでは文字列が長くなる点に注意してください。部分だけ欲しい場合は [`jsEval`](#jseval) でセレクタ付きに取る方が軽くて済みます。
+
 ### `CurrentSessionID` / `CurrentTargetID`
 
 ```vb
