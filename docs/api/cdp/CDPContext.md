@@ -226,7 +226,6 @@ t.InheritanceCDPBrowser.quit
 
 ::: tip 注意
 - レイアウト情報（`Page.getLayoutMetrics`）が取れない画面では警告を出して終了します
-- BiDi 専用の高レベル API はありません。BiDi 利用時は [`ConvertToCDPContext`](/api/bidi/WebDriverBiDiContext#converttocdpcontext) 後に `snapPage` するか、[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol) で `Page.captureScreenshot` 相当を呼び出してください
 :::
 
 デモ: `Demo_CDP.getSnapShot`
