@@ -372,6 +372,30 @@ t.SetLimitCDPResult = 1000
 コマンド ID がオーバーフロー対策でリセットされるとき（およそ 20 億到達時）も、結果履歴はすべてクリアされます。
 :::
 
+### `LastCDPJsonError`
+
+```vb
+Property Get LastCDPJsonError() As Dictionary
+```
+
+`ExecuteCDP` 経由で記録された、**最後の CDP コマンドエラー**です。`Err.LastDllError` と同様、成功しても消えません。
+
+`StopCDPError:=False` で例外停止を抑えたとき、戻り値が `Nothing` なら本プロパティで詳細を確認します。キーは主に `"code"` / `"message"` です。
+
+```vb
+Dim result As BiDiCDPJson
+Set result = t.ExecuteCDP("Page.navigate", params, False)
+
+If result Is Nothing Then
+    Debug.Print t.LastCDPJsonError("message")
+    ' 必要なら t.LastCDPJsonError.RemoveAll でクリア可
+End If
+```
+
+::: tip 注意
+`ExecuteError` を通らない経路では更新されません。目印は「`ExecuteCDP` の戻り値が `Nothing`」です。
+:::
+
 ### `BrowserEvents` / `SetFilterEvents`
 
 イベント蓄積用 Dictionary とフィルタ。[イベント購読](/guides/events)
