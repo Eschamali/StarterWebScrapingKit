@@ -90,7 +90,7 @@ Public Sub closeTab()
 メインタブ（Excel テーブルに記録されたセッションタブ）は閉じられません。
 :::
 
-## ナビ・待機・表示
+## ナビ・待機
 
 ### `navigate`
 
@@ -148,6 +148,8 @@ t.wait isComplete, dbgState:=True   ' 状態遷移を見ながら待つ
 | `isComplete` | `"complete"` | ドキュメント読み込み完了（既定）。要素が完了後にしか出ないページ向け |
 
 詳細は [ページ遷移](/guides/navigation)。
+
+## ウィンドウ制御
 
 ### `show`
 
