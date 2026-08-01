@@ -51,7 +51,7 @@ BiDi は内部的に CDP パイプ（または WebSocket）の上で動きます
 PipeルートとWebSocketルートの2種類に対応しております。  
 
 - **Pipeルート**: `--remote-debugging-pipe`として起動します。同一PCで自動化する場合はこれ1択です。
-- **WebSocketルート**: `--remote-debugging-port=9222` で起動しているブラウザに接続してから自動化を行います。[WebSocket モードでの制御について](/websocket/design) を参照。
+- **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。[WebSocket モードでの制御について](/websocket/design) を参照。
 
 ## 関連
 
