@@ -8,10 +8,11 @@
 
 ## できること
 
-- 設定シートの内容でブラウザを起動し、ナビ・入力・クリック・JS 実行
+- 設定シートの内容でブラウザを起動し、ナビ・入力・クリック・JS 実行といった基本機能
 - 既存セッションへの再接続（`reattach`）
 - イベント処理
-- `ExecuteCDP` / `ExecuteBiDi` で公式プロトコルを直接拡張
+- `ExecuteCDP` / `ExecuteBiDi` による低レベル実行
+- `--remote-debugging-pipe` , `--remote-debugging-port` 両対応
 
 ## オブジェクトモデル
 
