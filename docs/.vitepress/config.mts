@@ -15,6 +15,11 @@ export default withMermaid(
     cleanUrls: true,
     lastUpdated: true,
 
+    // サイトマップを自動生成！
+    sitemap: {
+        hostname: siteUrl
+    },
+
     // 旧サイト #page-id リンク切れ対策（ハッシュはサーバーに届かないためクライアントで置換）
     head: [
       // ① 旧サイトのハッシュリダイレクト用スクリプト
