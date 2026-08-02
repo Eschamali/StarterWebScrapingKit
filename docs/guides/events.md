@@ -1,3 +1,7 @@
+---
+description: ネットワークやログなどの非同期イベントを VBA で受け取る方法。BrowserEvents / BiDiEvents と WithEvents 拡張の使い分けを解説します。
+---
+
 # イベント購読
 
 ネットワークやログなどの非同期イベントを VBA 側で受け取ります。デモは `Demo_CDP.ネットワークイベントの確認` / `Demo_WebDriverBiDi.ネットワークイベントの確認` が正本です。

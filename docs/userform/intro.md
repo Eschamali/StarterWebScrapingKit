@@ -1,3 +1,7 @@
+---
+description: Excel UserForm に残る IE ベースの WebBrowser コントロール問題と、モダンブラウザ埋め込みへ向かう導入の背景を解説します。
+---
+
 # Excelに取り残された「負の遺産」
 
 Internet Explorer（IE）のサポートが完全終了して早数年。世の中のWeb技術は劇的に進化しましたが、Excel VBAのUserFormには、いまだに「Microsoft Web Browser」というIEベースの化石のようなコントロールが存在しています。

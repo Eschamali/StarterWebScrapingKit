@@ -1,3 +1,7 @@
+---
+description: Chrome DevTools Protocol（CDP）と WebDriver BiDi の違い・選び方・併用パターンを早見表付きで比較するガイドです。
+---
+
 # CDP と BiDi
 
 同じキットに **2 つのプロトコル面** があります。用途で選び、必要なら混ぜます。

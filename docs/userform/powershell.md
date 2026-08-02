@@ -1,3 +1,7 @@
+---
+description: PowerShell 経由で真の WebView2 を UserForm に召喚する Lv.10 手法。名前付きパイプ連携と追加 DL 不要の構成を解説します。
+---
+
 # PowerShell経由で「真のWebView2」を召喚する
 
 > ちゃんとしたWebView2じゃないと嫌だ？  

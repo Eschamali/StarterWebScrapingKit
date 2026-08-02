@@ -1,3 +1,7 @@
+---
+description: CDP / BiDi の jsEval でページ上の JavaScript を実行する方法。例外処理、handle / objectId、Promise 待ちなどの引数を整理します。
+---
+
 # JavaScript 実行
 
 ページ上で任意の JS を評価します。JavaScript 版の低レベル操作としての位置付けで、スクレイピングに関わる引数を一通り用意しています。

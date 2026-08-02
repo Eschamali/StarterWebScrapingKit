@@ -1,3 +1,7 @@
+---
+description: BiDi セッション起動・タブ管理・ExecuteBiDi・イベント購読など、ブラウザ単位の BiDi 制御を解説します。
+---
+
 # WebDriverBiDiMode
 
 BiDi セッション／ブラウザ相当です。Playwright の **Browser** に対応します。

@@ -1,3 +1,7 @@
+---
+description: Pipe 版に加えて WebSocket モードを増設した理由と設計。RFC 6455 ベースの拡張として Pipe ロジックとどう接続するかを説明します。
+---
+
 # 設計思想について
 
 このツールは元々、`--remote-debugging-pipe` 1本で研ぎ澄ましてきました。

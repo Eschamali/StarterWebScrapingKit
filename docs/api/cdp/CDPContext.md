@@ -1,3 +1,7 @@
+---
+description: タブ単位のナビ・ウィンドウ制御・jsEval・イベント・スクリーンショットなど、CDP のページ操作を網羅します。
+---
+
 # CDPContext
 
 1 つのタブ（ページ）を表します。Playwright の **Page** に相当します。

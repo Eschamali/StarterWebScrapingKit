@@ -1,3 +1,7 @@
+---
+description: CDPElement のクリック・フォーム送信・テキスト入力・キー送信・属性操作。React など仮想 DOM 向けの fireEvent パターンも紹介します。
+---
+
 # 入力とクリック
 
 `CDPElement` の操作メソッドです。BiDi のみのコンテキストでは [要素の取得](/guides/selectors) のとおり CDP に変換してから使います。

@@ -1,3 +1,7 @@
+---
+description: ExecuteCDP / ExecuteBiDi で公式プロトコルを直接呼ぶ低レイヤー操作。同期・非同期、エラー扱い、BiDi+ CDP トンネルまでを解説します。
+---
+
 # 低レイヤー BiDi / CDP コマンドについて
 
 高レベル API に無い操作は、公式プロトコルをそのまま呼び出せます。ここが Playwright / Puppeteer における「低レイヤー」と同じ立ち位置です。

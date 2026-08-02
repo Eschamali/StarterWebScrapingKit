@@ -1,3 +1,7 @@
+---
+description: Starter Web Scraping Kit の概要。Excel VBA 単体で CDP / WebDriver BiDi により Edge・Chrome を自動操作するキットの位置づけと特徴を紹介します。
+---
+
 # 概要
 
 **Starter Web Scraping Kit** は、Excel VBA だけで Chromium 系ブラウザ（Edge / Chrome）を自動操作するマクロブックです。Selenium の `chromedriver.exe` は不要です。  

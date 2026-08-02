@@ -1,3 +1,7 @@
+---
+description: クリック・入力・属性・存在待ち・ツリー走査・Shadow/iframe など、DOM 要素ハンドルの操作メソッドを解説します。
+---
+
 # CDPElement
 
 DOM 要素ハンドルです。Playwright の Locator / ElementHandle に近い役割です。[`CDPContext`](./CDPContext) の `getElementBy*` から取得します。

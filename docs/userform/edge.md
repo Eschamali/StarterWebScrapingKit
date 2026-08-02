@@ -1,3 +1,7 @@
+---
+description: msedge.exe を UserForm に直接埋め込む Lv.1 手法。起動引数と簡単な API で Edge をフォーム内に載せる手順を紹介します。
+---
+
 # msedge.exe を UserForm に直接埋め込む
 
 > WebView2は、極端な話、Edgeから、URLバーやウィンドウ枠がない状態にしたものみたいなもの。  

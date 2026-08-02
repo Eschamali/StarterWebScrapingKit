@@ -1,3 +1,7 @@
+---
+description: CDPElement による要素取得。ID / CSS / XPath、存在待ち、Shadow DOM・iframe、BiDi から CDP へ変換して操作する方法を解説します。
+---
+
 # 要素の取得
 
 CDP では `CDPElement` が中心です。BiDi 側に同等の高レベル要素 API はまだ薄いので、**要素操作が必要なら CDP**、または `ConvertToCDPContext` を使います。

@@ -1,3 +1,7 @@
+---
+description: Excel 単体・外部依存なしで真の WebView2 を UserForm に載せる Lv.99 手法。完全制御に至る最終形のアプローチを解説します。
+---
+
 # Excel単独で「真のWebView2」を完全制御する
 
 > さぁ、ここが本当の目的。  

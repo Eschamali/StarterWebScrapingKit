@@ -1,3 +1,7 @@
+---
+description: UserForm へのモダンブラウザ埋め込み 3 手法（Edge / PowerShell / Excel 単体）の比較総括。実務での選び方の指針をまとめます。
+---
+
 # UserFormへのモダンブラウザ埋め込み：3つの手法の総括
 
 本セクションでは、Excel VBAのUserFormにモダンなブラウザ（WebView2/Edge）を配置する3つのアプローチを紹介しました。  

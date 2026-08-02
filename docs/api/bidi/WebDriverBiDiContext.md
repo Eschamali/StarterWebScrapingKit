@@ -1,3 +1,7 @@
+---
+description: browsing context 単位の navigate・jsEval・ExecuteBiDi・CDP 変換など、BiDi のページ操作を解説します。
+---
+
 # WebDriverBiDiContext
 
 BiDi の browsing context（タブ／ページ）です。Playwright の **Page** に相当します。

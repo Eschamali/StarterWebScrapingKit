@@ -1,3 +1,7 @@
+---
+description: ブラウザ起動・再接続・タブ操作・ExecuteCDP など、プロセス単位の CDP 制御インターフェースを解説します。
+---
+
 # CDPBrowser
 
 ブラウザプロセス単位のエントリです。Playwright の **Browser** に相当します。
