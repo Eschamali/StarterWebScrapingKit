@@ -156,7 +156,7 @@ Sub UseExtensions()
         controlExtensions.InheritanceWebDriverBiDiMode.quit
         Exit Sub
 
-    ElseIf resultBiDi.Exists("extension") Then
+    ElseIf resultBiDi.ExistsKey("extension") Then
         ' BiDiの webExtension.install は `extension` キーで IDを返します。
         MsgBox "拡張機能のインストールに成功しました。ブラウザをご確認ください。" & vbCrLf & "なお、OKを押すと、アンインストールします。", vbInformation, "ExtensionsID：" & resultBiDi("extension")
 
