@@ -497,18 +497,18 @@ Debug.Print t.Url
 t.Url = "https://example.com"   ' t.navigate "https://example.com" と同じ
 ```
 
-### `Name`
+### `Title`
 
 ```vb
-Property Get Name() As String
-Property Let Name(newName As String)
+Property Get Title() As String
+Property Let Title(newName As String)
 ```
 
-タブのタイトル（`document.title` 相当）です。取得時に空なら `jsEval("document.title")` で補完します（`--app` 起動時など）。代入するとタイトルを書き換えます。
+タブのタイトル（`document.title` 相当）です。`jsEval("document.title")` で取得します。代入するとタイトルを書き換えます。
 
 ```vb
-Debug.Print t.Name
-t.Name = "作業用タブ"
+Debug.Print t.Title
+t.Title = "作業用タブ"
 ```
 
 ### `html`
