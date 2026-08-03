@@ -152,7 +152,7 @@ Private Type StateTab
     hWnd        As LongPtr  'Browser object window handle
     WID         As String   'Useful for windows repositioning
     LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
-    Name        As String   'The focused tab name / window name of the active CDPBrowser
+    Title       As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
 End Type
 Private brTab As StateTab
@@ -229,7 +229,7 @@ Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     If LenB(appUrl) Then
         timerStart = TimerCounter
         Do
-            If LenB(Me.Name) Then Exit Do
+            If LenB(Me.Title) Then Exit Do
             If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
@@ -1366,7 +1366,7 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
             If tmp.StringKey("targetId") = brTab.targetID Then
                 '1-2. 各種パラメーター更新
                 With brTab
-                    .Name = tmp.StringKey("title")
+                    .Title = tmp.StringKey("title")
                     .Url = tmp.StringKey("url")
                 End With
                 brTab.browserContextId = tmp.StringKey("browserContextId")
@@ -1663,7 +1663,7 @@ Public Sub printParams()
     printMsg Debug_, "Window Handle     | brHWnd       | " & brTab.hWnd, FromProcedureName
     printMsg Debug_, "Window ID         | brWId        | " & brTab.WID, FromProcedureName
     printMsg Debug_, "Tab URL           | brUrl        | " & brTab.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & brTab.Name, FromProcedureName
+    printMsg Debug_, "Tab Title         | brName       | " & brTab.Title, FromProcedureName
     printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
@@ -1680,7 +1680,7 @@ Public Sub getSessionInfo()
     'Get infos
     Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
     brTab.Url = TargetInfo.StringKey("url")
-    brTab.Name = TargetInfo.StringKey("title")
+    brTab.Title = TargetInfo.StringKey("title")
     brTab.hWnd = getHandle
 
     '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
@@ -2348,29 +2348,30 @@ Property Let Url(newURL As String)
 
 End Property
 
-Property Get Name() As String
+Property Get Title() As String
 '------------------------------------------------------------
 ' Get the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    Name = brTab.Name
+    'JavaScriptで今のタイトルを取得し、更新
+    '※`Target.targetInfoChanged`だけでは、最新の`Title`が取れないのでJavaScriptで取ってきます
+    brTab.Title = jsEval("document.title")
+    Title = brTab.Title
 
-    '`--app`で起動した場合の対策
-    If LenB(Name) = 0 Then Name = jsEval("document.title")
 End Property
 
-Property Let Name(newName As String)
+Property Let Title(newName As String)
 '------------------------------------------------------------
 ' Set the title of the current document/tab
 ' Added 02/03/2023
 '------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".Name"
+    Const FromProcedureName As String = ThisClassName & ".Title"
 
 
     jsEval "document.title = '" & newName & "'"
     printMsg info_, "Tab name changed to " & newName, FromProcedureName
-'    brTab.Name = newName   ※実際のname適用は、イベント側で更新させます
+    brTab.Title = newName    '※JavaScriptによる変更では、`Target.targetInfoChanged`が来ないので、手動で更新
 
 End Property
 
