@@ -670,7 +670,7 @@ step2:
     If JSresultAnalysis(Node_RemoteObject, generatePreview, tmp) Then
         Set jsEval = tmp
     Else
-        jsEval = tmp
+        Let jsEval = tmp
     End If
    '-----------------------------------------------------------------------------------------------------------
 

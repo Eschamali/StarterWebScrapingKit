@@ -371,7 +371,7 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     If JSresultAnalysis(scriptEvaluateResult.NodeKey("result"), tmp) Then
         Set jsEval = tmp
     Else
-        jsEval = tmp
+        Let jsEval = tmp
     End If
     '-----------------------------------------------------------------------------------------------------------
 
