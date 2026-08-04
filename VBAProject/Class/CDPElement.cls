@@ -535,8 +535,13 @@ Public Function sendClick() As Boolean
     Dim x As Double, y As Double
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
 
-    x = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().x }", elementObjectId))
-    y = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().y }", elementObjectId))
+    '中心座標として返却
+    x = CDbl(main.jsEval( _
+        "function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }", _
+        elementObjectId))
+    y = CDbl(main.jsEval( _
+        "function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }", _
+        elementObjectId))
 
     Dim params As New Scripting.Dictionary
     params("type") = "mousePressed"
