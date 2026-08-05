@@ -2,12 +2,12 @@
 layout: home
 
 title: Starter Web Scraping Kit - Excel VBAでブラウザを自動操作
-description: Driver不要！CDP (Chrome DevTools Protocol) と WebDriver BiDi を Excel VBA 単体で直接制御する次世代Webスクレイピングキットの公式ドキュメントです。
+description: WebDriver不要！CDP (Chrome DevTools Protocol) と WebDriver BiDi を Excel VBA 単体で直接ブラウザ(Edge/Chrome)制御する次世代Webスクレイピングキットの公式ドキュメントです。
 
 hero:
   name: Starter Web Scraping Kit
   text: Excel VBA でブラウザを操る
-  tagline: Driver 不要。CDP と WebDriver BiDi を VBA 単体で。
+  tagline: WebDriver 不要。CDP と WebDriver BiDi を VBA 単体で。
   image:
     light: /Top-light.png
     dark: /Top-Dark.png
