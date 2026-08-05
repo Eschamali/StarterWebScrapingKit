@@ -983,7 +983,7 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
                 Case StrPtr(Title)
                     If Obj("title") = Title Then
                         score = 100
-                    ElseIf InStr(Obj("title"), Title) Then
+                    ElseIf InStr(1, Obj("title"), Title) Then
                         score = 50
                     Else
                         printMsg WARN_, "with name containing """ & Title & """", FromProcedureName

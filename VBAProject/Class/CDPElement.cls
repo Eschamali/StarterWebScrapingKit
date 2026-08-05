@@ -151,7 +151,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClassで保持中の`ObjectId`
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：空の場合は、検索に引っかからなかったことを意味します。別途ポーリングメソッドで更新して下さい
+'* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval)をしたい場合にどうぞ
+'* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = elementObjectId
@@ -535,8 +536,9 @@ Public Function sendClick() As Boolean
     Dim x As Double, y As Double
     main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
 
-    x = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().x }", elementObjectId))
-    y = CDbl(main.jsEval("function(){ return this.getBoundingClientRect().y }", elementObjectId))
+    '中心座標として返却
+    x = main.jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }", elementObjectId)
+    y = main.jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }", elementObjectId)
 
     Dim params As New Scripting.Dictionary
     params("type") = "mousePressed"
@@ -723,7 +725,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
         Dim resultSearch As Variant
         resultSearch = main.jsEval(SearchJS, SearchObjectId)
 
-        '3. 結果を判定。Nullなら、ObjectIDを解放
+        '3. 結果を判定。Nullなら、ObjectIDをクリア
         ResultVarType = VarType(resultSearch)
         If ResultVarType = vbNull Then elementObjectId = vbNullString Else sleep 0.1
     Loop
@@ -1258,7 +1260,7 @@ End Property
 '              https://www.w3schools.com/jsref/prop_frame_contentdocument.asp
 '
 '* 注意事項：iframeのURLが親サイトと1文字でも違えば（例：Yahooに貼ってあるGoogleの広告など）、このメソッドは機能しません
-'            その場合は、`CDPBrowser - getTab`からご利用ください
+'            その場合は、`CDPBrowser - getTab`か`CDPContext - getIFrameContextID → getIFrame`からご利用ください
 '***************************************************************************************************
 Public Function getIFrame() As CDPElement
     Const FromProcedureName As String = ThisClassName & ".getIFrame"
