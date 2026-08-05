@@ -135,7 +135,8 @@ box.sendString "検索キーワード"
 Public Function sendClick() As Boolean
 ```
 
-座標ベースの物理クリック相当です（`Input.dispatchMouseEvent`）。JS の `dispatchEvent` では反応しない UI 向け。
+座標ベースの物理クリック相当です（`Input.dispatchMouseEvent`）。JS の `dispatchEvent` では反応しない UI 向け。  
+中心としてクリックします。
 
 ```vb
 t.getElementByQuery("canvas#map").sendClick
