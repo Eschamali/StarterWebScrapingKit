@@ -428,7 +428,7 @@ Set el = host.getElementByXPath(".//button[contains(.,'送信')]")
 Public Function getIFrame() As CDPElement
 ```
 
-`<iframe>` 要素の `contentDocument` を `CDPElement` として返します。**同一オリジン**の iframe 向けです。別ドメインの場合は機能しないため、[`CDPBrowser.getTab`](./CDPBrowser#gettab) でターゲット接続してください。
+`<iframe>` 要素の `contentDocument` を `CDPElement` として返します。**同一オリジン**の iframe 向けです。別ドメインの場合は機能しないため、[`CDPBrowser.getTab`](./CDPBrowser#gettab) でターゲット接続するか、Context 側の [`CDPContext.getIFrameContextID`](./CDPContext#getiframecontextid) / [`getIFrame`](./CDPContext#getiframe) を検討してください。
 
 ```vb
 Dim frame As CDPElement

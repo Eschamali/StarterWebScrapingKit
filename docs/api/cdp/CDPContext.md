@@ -1,5 +1,5 @@
 ---
-description: タブ単位のナビ・ウィンドウ制御・jsEval・イベント・スクリーンショットなど、CDP のページ操作を網羅します。
+description: タブ単位のナビ・ウィンドウ制御・jsEval・iframe・イベント・スクリーンショットなど、CDP のページ操作を網羅します。
 ---
 
 # CDPContext
@@ -328,6 +328,89 @@ alert / confirm / prompt への応答。
 
 戻り値は [`CDPElement`](./CDPElement)。詳細は [要素の取得](/guides/selectors)。
 
+## iframe
+
+ページに埋め込まれた iframe へ入るための一連の API です。流れは **一覧 → `executionContextId` 取得 → `CDPElement` 化** です。
+
+同一オリジンの `<iframe>` 要素から直接入りたい場合は、要素側の [`CDPElement.getIFrame`](./CDPElement#getiframe) もあります。
+
+### `printChildFrames`
+
+```vb
+Public Sub printChildFrames()
+```
+
+現時点で開いている **直下の子 iframe** 情報をログに出します（`Page.getFrameTree`）。名前・URL・frameID などを確認するときに使います。
+
+```vb
+t.printChildFrames
+' Immediate ウィンドウに title / url / frameID などが並ぶ
+```
+
+::: tip 注意
+検索範囲は **親の直下の子 iframe まで**です。子 iframe の中の iframe… といった多重ネスト表示には対応していません。
+:::
+
+### `getIFrameContextID`
+
+```vb
+Public Function getIFrameContextID( _
+    Optional iframeName As String, _
+    Optional Url As String, _
+    Optional doRetrySecond As Double _
+) As Long
+```
+
+埋め込み iframe の `executionContextId` を返します。[`jsEval`](#jseval) の `contextId` に渡せます。見つからない場合は `0` です。
+
+| 引数 | 意味 |
+| --- | --- |
+| `iframeName` | iframe 名（第一優先。`<iframe name="…">`。完全一致 → 部分一致） |
+| `Url` | URL（第二優先。先頭一致 → 部分一致） |
+| `doRetrySecond` | 指定秒以内に見つかるまでリトライ。`0`（既定）なら 1 回のみ |
+
+```vb
+' 名前で探す
+Dim ctxId As Long
+ctxId = t.getIFrameContextID(iframeName:="app-frame")
+
+' URL 部分一致 + 最大 5 秒リトライ
+ctxId = t.getIFrameContextID(Url:="https://example.com/embed", doRetrySecond:=5)
+
+' 両方省略 → 最初の iframe
+ctxId = t.getIFrameContextID()
+
+' jsEval で直接使う
+Debug.Print t.jsEval("document.title", contextId:=ctxId)
+```
+
+::: tip 注意
+- `iframeName` と `Url` を両方省略すると、最初の iframe の `executionContextId` を返します
+- `CDPElement` として扱いたい場合は [`getIFrame`](#getiframe) に渡してください
+- 検索範囲は **親の直下の子 iframe まで**です。多重ネストは非対応です。その場合は自力で `ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")` から目的の frame を取り出してください
+:::
+
+### `getIFrame`
+
+```vb
+Public Function getIFrame(ExecutionContextId As Long) As CDPElement
+```
+
+[`getIFrameContextID`](#getiframecontextid) で得た `executionContextId` を、[`CDPElement`](./CDPElement) として扱えるようにします（その context 上の `document`）。
+
+| 引数 | 意味 |
+| --- | --- |
+| `ExecutionContextId` | `getIFrameContextID` が返した `executionContextId` |
+
+```vb
+Dim ctxId As Long
+ctxId = t.getIFrameContextID(iframeName:="app-frame")
+
+Dim frame As CDPElement
+Set frame = t.getIFrame(ctxId)
+frame.getElementByQuery("button").click
+```
+
 ## スクリーンショット
 
 ### `snapPage`
@@ -611,4 +694,5 @@ t.InheritanceCDPBrowser.quit
 - [`CDPElement`](./CDPElement)
 - [はじめに](/getting-started)
 - [ページ遷移](/guides/navigation)
+- [要素の取得](/guides/selectors)
 - [タイムアウト設定方法について](/guides/timeout)

@@ -48,9 +48,23 @@ Dim root As CDPElement
 Set root = host.GetShadowRoot
 root.getElementByQuery("button").click
 
+' 同一オリジンの iframe 要素から入る
 Dim frame As CDPElement
 Set frame = t.getElementByQuery("iframe#app").getIFrame
 frame.getElementByID("inner").click
+```
+
+名前 / URL で iframe を探して `executionContextId` 経由で入る場合は、[`CDPContext.printChildFrames`](/api/cdp/CDPContext#printchildframes) → [`getIFrameContextID`](/api/cdp/CDPContext#getiframecontextid) → [`getIFrame`](/api/cdp/CDPContext#getiframe) です。
+
+```vb
+t.printChildFrames   ' 直下の子 iframe をログ確認
+
+Dim ctxId As Long
+ctxId = t.getIFrameContextID(iframeName:="app-frame")
+
+Dim frame As CDPElement
+Set frame = t.getIFrame(ctxId)
+frame.getElementByQuery("button").click
 ```
 
 ::: tip 💡TIP
