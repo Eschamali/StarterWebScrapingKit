@@ -1699,6 +1699,54 @@ Public Sub getSessionInfo()
     runtimeEnable True
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：現時点で開いている全てのiframe情報をログに表示します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：名前またはURLに基づいて検索しヒットしたら、`executionContextId`を返却します
+'* 注意事項：検索範囲は、親の子iframeまでです。親の子iframe内のiframe...といった多重ネスト表示は非対応です
+'***************************************************************************************************
+Public Sub printChildFrames()
+    Const FromProcedureName As String = ThisClassName & ".printChildFrames"
+
+
+    Dim NodeToken As Long
+    Dim iframeCount As Long
+    Dim childFrames As BiDiCDPJson
+
+    '1. 実行して、まずは結果を取得
+    Dim tmp As BiDiCDPJson
+    Set tmp = ExecuteCDP("Page.getFrameTree").NodeKey("frameTree")
+
+    '2. iframeがない場合は即抜け
+    If Not tmp.ExistsKey("childFrames") Then printMsg info_, "'" & brTab.Title & "' does not have an iframe.", FromProcedureName: Exit Sub
+
+    '3.Read info
+    printMsg info_, "---------------------------------------------------", FromProcedureName
+    printMsg info_, "childFrames Information", FromProcedureName
+    printMsg info_, "---------------------------------------------------", FromProcedureName
+
+    With tmp.NodeKey("childFrames")
+        NodeToken = .FirstChildToken  ' 配列の先頭トークン
+        Do While NodeToken > 0
+            '`childFrames`の各`frame`要素を取り出す
+            Dim childFrame As BiDiCDPJson
+            Set childFrame = .NodeFromToken(NodeToken).NodeKey("frame")
+            iframeCount = iframeCount + 1
+
+            With childFrame
+                printMsg info_, "#" & iframeCount & vbTab & _
+                            "type: " & .StringKey("mimeType") & " | " & _
+                            "title: " & .StringKey("name") & " | " & _
+                            "url: " & .StringKey("url") & " | " & _
+                            "frameID: " & .StringKey("id"), FromProcedureName
+            End With
+
+            '次の`Target.TargetInfo`へ
+            NodeToken = .NextToken(NodeToken)
+        Loop
+    End With
+End Sub
+
 Private Function getHandle() As LongPtr
 '-----------------------------------------------------------------------------------
 ' Added by Long: obtain the window handle of the current browser session
