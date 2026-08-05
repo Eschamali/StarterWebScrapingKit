@@ -157,7 +157,7 @@ Private Type StateTab
 End Type
 Private brTab As StateTab
 
-'操作中のメインタブとしてのJavaScript環境情報
+'操作中のTOP層タブとしてのJavaScript環境情報
 Private Type StateTabForJavaScript
     ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
     origin              As String   '実行範囲
