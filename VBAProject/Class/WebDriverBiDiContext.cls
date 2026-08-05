@@ -463,7 +463,7 @@ Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef Return
             '1. 一旦おまかせで取る
             ReturnValue = scriptRemoteValue("value")
 
-            '2. VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します
+            '2. VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で上書き
             If VarType(ReturnValue) = vbString Then
                 printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & ReturnValue, FromProcedureName
                 ReturnValue = CVErr(xlErrNum)
@@ -481,7 +481,7 @@ Private Function JSresultAnalysis(scriptRemoteValue As BiDiCDPJson, ByRef Return
             printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue, FromProcedureName
 
         Case "date"
-            'BiDiの場合、`date`は文字列として返却されるため、VBAの`date`として返してあげる
+            'BiDiの場合、`date`は文字列として返却されるため、VBAの`vbDate`として返してあげる
             ReturnValue = UtcConverter.ParseIso(scriptRemoteValue.StringKey("value"))
 
         Case Else
