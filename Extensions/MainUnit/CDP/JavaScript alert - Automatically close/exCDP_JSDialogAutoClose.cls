@@ -52,11 +52,12 @@ Private JavaScriptDialogClose As JavaScriptDialog
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：スコープ範囲の調整にどうぞ。名称は、「Application.EnableEvents」から取りました
 '***************************************************************************************************
-Public Property Get EnableEvents() As Boolean
-    EnableEvents = EnableBrowserEvents
-End Property
-Public Property Let EnableEvents(ByVal v As Boolean)
+Public Property Let EnableEvents(v As Boolean)
+    '1. VBA側のフィルター設定
     EnableBrowserEvents = v
+
+    '2. ブラウザ側からも調整
+    ex_CDPContext.pageEnable v
 End Property
 
 '***************************************************************************************************
