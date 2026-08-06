@@ -191,5 +191,5 @@ End Sub
 '***************************************************************************************************
 Private Sub Class_Terminate()
     'PageƒhƒƒCƒ“‚Ì–³Œø‰»
-    ex_CDPContext.pageEnable False
+    EnableEvents = False
 End Sub
