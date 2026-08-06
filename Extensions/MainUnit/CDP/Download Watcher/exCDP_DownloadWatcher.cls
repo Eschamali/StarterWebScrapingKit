@@ -555,7 +555,7 @@ End Function
 '***************************************************************************************************
 '* 機能   ：指定のステータスのGUIDを一括削除します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：state  Enum - downloadProgress_params_state
+'* 引数   ：state  Enum - downloadProgress_params_state
 '***************************************************************************************************
 Private Sub DeleteStatusGUID(state As downloadProgress_params_state)
     Const FromProcedureName As String = ThisClassName & ".DeleteStatusGUID"
@@ -566,14 +566,15 @@ Private Sub DeleteStatusGUID(state As downloadProgress_params_state)
     ClearState = EnumToStringDownloadProgressState(state)
 
     '2. 各`guid`情報を`downloadProgress`に照会
-    Dim DownloadGUID: DownloadGUID = DownloadProgress.keys
-    For Each DownloadGUID In DownloadGUID
+    Dim DownloadGUIDs: DownloadGUIDs = DownloadProgress.keys
+    Dim CurrentGUID
+    For Each CurrentGUID In DownloadGUIDs
         '3. 一致するstatusなら、削除
-        If DownloadProgress(DownloadGUID).StringKey("state") = ClearState Then
-            DownloadWillBegin.Remove (DownloadGUID)
-            DownloadProgress.Remove (DownloadGUID)
+        If DownloadProgress(CurrentGUID).StringKey("state") = ClearState Then
+            DownloadWillBegin.Remove (CurrentGUID)
+            DownloadProgress.Remove (CurrentGUID)
 
-            printMsg Debug_, "Removed from the status `" & ClearState & "` : " & DownloadGUID, FromProcedureName
+            printMsg Debug_, "Removed from the status `" & ClearState & "` : " & CurrentGUID, FromProcedureName
         End If
     Next
 End Sub
