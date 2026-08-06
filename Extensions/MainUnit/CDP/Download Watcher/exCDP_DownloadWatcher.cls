@@ -8,455 +8,315 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           `CDPBrowser.cls` に対する機能拡張 - ダウンロード監視・完了待ち
-'***************************************************************************************************
-'* 機能　　：ブラウザのファイルダウンロードを CDP 経由で監視し、
-'            複数同時ダウンロードも含めて完了まで VBA 側で待機します。
-'---------------------------------------------------------------------------------------------------
-'* 基本的な使い方（単一DL）：
-'    Dim dw As New exCDP_DownloadWatcher
-'    dw.Init browser
-'    dw.WatchStart "C:\download_dir"
-'    browser.getElementByID("dl-btn").click
-'    If dw.WaitCompleted(TimeoutSec:=30) Then
-'        Debug.Print "保存先: " & dw.DownloadedFilePath
-'    End If
-'---------------------------------------------------------------------------------------------------
-'* 複数同時DLの使い方（新API）：
-'    dw.WatchStart "C:\download_dir"
-'    ' ← 複数のダウンロードをトリガー
-'    If dw.WaitAllCompleted(TimeoutSec:=120) Then
-'        dw.PrintSummary
-'    End If
-'---------------------------------------------------------------------------------------------------
-'* 内部データ構造：
-'    downloadInfos (Scripting.Dictionary)
-'      Key   : Guid (String)
-'      Value : Scripting.Dictionary {
-'                KEY_WILL_BEGIN    → Dictionary  ← downloadWillBegin の params を丸ごと格納
-'                KEY_PROGRESS      → Dictionary  ← downloadProgress の params を丸ごと格納（最新上書き）
-'                KEY_IS_BROWSER    → Boolean     ← True=Browser / False=Page メソッド
-'              }
-'---------------------------------------------------------------------------------------------------
-'* この設計の利点：
-'    ① UDT や中間変換が不要 → mJson.ParseJson(RawJson)("params") をそのまま格納
-'    ② CDP プロトコルが将来フィールドを追加しても自動対応
-'    ③ GetWillBeginParams / GetProgressParams で生データへも直接アクセス可能
-'---------------------------------------------------------------------------------------------------
-'* 対応CDPイベント：
-'    - Browser.downloadWillBegin / Page.downloadWillBegin   (ダウンロード開始通知)
-'    - Browser.downloadProgress  / Page.downloadProgress    (進捗・完了・失敗通知)
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：
-'    - WatchStart の前にダウンロードをトリガーすると検出を逃す場合があります
-'    - ダウンロード先フォルダは WatchStart が自動作成します
-'    - .crdownload/.part 等の一時ファイルは完了とみなしません
+'                       ファイルのダウンロード監視のアシストを行います
+'   `Browser.downloadProgress`/`Browser.downloadWillBegin`の監視を利用して、スマートなDL監視を行います
+'
+'           このClassでは`Browser`のみ扱います。最新のブラウザではこれが推奨されています。
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                           ■■■ フォルダ一括作成用Windows API ■■■
-'***************************************************************************************************
-Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExA" (ByVal hwnd As LongPtr, ByVal pszPath As String, ByVal psa As LongPtr) As Long
-
-
-
-'***************************************************************************************************
-'           ■■■ Dictionary キー名 定数（タイプミス防止・補完サポート） ■■■
-'***************************************************************************************************
-
-'--- downloadInfos の各エントリ（第1層）のキー ---
-Private Const KEY_WILL_BEGIN    As String = "WillBegin"     'downloadWillBegin の生params
-Private Const KEY_PROGRESS      As String = "Progress"      'downloadProgress の生params（最新）
-Private Const KEY_IS_BROWSER    As String = "isBrowserMethod" 'True=Browser / False=Page
-
-'--- WillBegin params（第2層）のキー ←CDPの生フィールド名に合わせる ---
-'https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadWillBegin
-'https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-downloadWillBegin
-Private Const WB_GUID           As String = "guid"
-Private Const WB_URL            As String = "url"
-Private Const WB_SUGGESTED      As String = "suggestedFilename"
-Private Const WB_FRAME_ID       As String = "frameId"
-
-'--- Progress params（第2層）のキー ←CDPの生フィールド名に合わせる ---
-'https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-downloadProgress
-'https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadProgress
-Private Const PROG_GUID         As String = "guid"
-Private Const PROG_STATE        As String = "state"
-Private Const PROG_RECEIVED     As String = "receivedBytes"
-Private Const PROG_TOTAL        As String = "totalBytes"
-Private Const PROG_FILE_PATH    As String = "filePath"
-
-
-
-'***************************************************************************************************
 '                               ■■■ 共通定義変数/定数 ■■■
 '***************************************************************************************************
-'内部参照用オブジェクト
 'ブラウザ制御オブジェクト
 Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
-Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
-Private ex_CDPContext               As CDPContext   '継承元のブラウザ
+Attribute ex_CDPCore.VB_VarHelpID = -1
+Private ex_CDPBrowser               As CDPBrowser   '継承元のブラウザクラス
 
 '内部使用用
-Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
+Private Const ThisClassName         As String = "exCDP_DownloadWatcherForBrowser"
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean
-Private EnableBrowserEvents         As Boolean
-Private BrowserDomain               As Boolean    ' True="Browser"/False="Page" - WillBegin/Progress イベントのどちらを受けるか（両方受けることも可能）
-Private CurrentSessionId            As String     '継承時のSesssionID
+Private defaultBrowserContextId     As String       '継承時のブラウザコンテキスト
+Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
+Private downloadPathList            As Dictionary   '各`BrowserContextId`ごとの「downloadPath」情報
+
+'ダウンロードstatus管理
+'※`guid`をKeyに管理します
+Private DownloadProgress    As Dictionary   'ダウンロード進捗情報
+Private DownloadWillBegin   As Dictionary   'ダウンロード開始情報
 
 
 
 '***************************************************************************************************
-'* ★ 多重ダウンロード管理 Dictionary（2層構造）
+'                                   ■■■ 各種構造体 ■■■
+'***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
-'* downloadInfos
-'*   └─ Key: Guid (String)
-'*   └─ Value: Scripting.Dictionary {
-'*        KEY_WILL_BEGIN  → Scripting.Dictionary  ← WillBegin   の params を丸ごと格納
-'*        KEY_PROGRESS    → Scripting.Dictionary  ← Progress    の params を丸ごと格納（最新上書き）
-'*        KEY_IS_BROWSER  → Boolean
-'*      }
-'***************************************************************************************************
-Private downloadInfos               As Scripting.Dictionary
+' [ SECTION ] ダウンロード時の挙動設定一式
+'---------------------------------------------------------------------------------------------------'
+Public Enum setDownloadBehavior_behavior
+    behavior_deny
+    behavior_allow
+    behavior_allowAndName
+    behavior_Default
+End Enum
 
-'最後に開始したダウンロードの GUID（単一DL後方互換 API 向け）
-Private mLastGuid                   As String
-
-'監視設定
-Private mWatchDir                   As String
-Private mSnapshotFiles              As Dictionary   'WatchStart 時点のフォルダスナップショット
-
-
-
-'***************************************************************************************************
-'* 機能　　：非同期イベント処理を行うかのスイッチングです
-'            この拡張機能の場合はさらに、ダウンロード監視の有効/無効も合わせて、切り替えます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：DownloadDir    ダウンロード先フォルダのフルパス （省略時は一般的なDownloadフォルダ）
-'            AllowAndName   True: "allowAndName" / False: "allow"（通常はFalse）
-'            UsePageDomain  True: Pageドメインのイベントも受ける / False: Browserドメインのイベントを受ける（通常はFalse）
-'* 機能説明：呼ぶたびに downloadInfos をクリアし、フォルダスナップショットを更新します
-'***************************************************************************************************
-Public Property Let EnableEvents(Optional DownloadDir As String, Optional AllowAndName As Boolean, Optional UsePageDomain As Boolean, ByVal v As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".EnableEvents"
+' [ SECTION ] `downloadWillBegin`のparameter取得部分
+'---------------------------------------------------------------------------------------------------'
+Public Enum downloadWillBegin_parameters
+    downloadWillBegin_frameID
+    downloadWillBegin_Url
+    downloadWillBegin_suggestedFilename
+End Enum
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `downloadProgress`のparameter取得部分
+'---------------------------------------------------------------------------------------------------'
+Public Enum downloadProgress_parameters
+    downloadProgress_totalBytes
+    downloadProgress_receivedBytes
+    downloadProgress_state
+    downloadProgress_filePath
+End Enum
 
-    '1. `DownloadDir`が省略時は、一般的なDownloadフォルダに指定
-    If StrPtr(DownloadDir) = 0 Then DownloadDir = Environ("USERPROFILE") & "\Downloads"
-    SHCreateDirectoryEx 0, DownloadDir, 0 'フォルダが存在しない場合は作成（存在する場合は何もしない）
-
-    '2. クラスのイベント機能を有効にするか切り替え
-    EnableBrowserEvents = v
-
-    '3. 共通のパラメーターを付与
-    Dim behavior As String
-    '※`behavior`の場合、イベント発火が無効の場合は、`deny`として扱います
-    If v Then
-        behavior = IIf(AllowAndName, "allowAndName", "allow")
-    Else
-        behavior = "deny"
-    End If
-
-    Dim params As New Scripting.Dictionary
-    params.Add "behavior", behavior
-    params.Add "downloadPath", DownloadDir
-
-    '4. method名に応じたパラメーター適用
-    BrowserDomain = Not UsePageDomain
-    Dim UserMethod As String: UserMethod = IIf(BrowserDomain, "Browser.setDownloadBehavior", "Page.setDownloadBehavior")
-
-    'Browserドメインの場合は`eventsEnabled`も付与
-    If BrowserDomain Then params.Add "eventsEnabled", v
-
-    '5. CDPに設定を反映（イベント有効/無効の切り替え）
-    ExecuteCDP UserMethod, params, True
-
-    '6. 無効化する場合は、内部状態もクリア
-    If v Then
-        Set mSnapshotFiles = New Dictionary
-        SnapshotDirectory DownloadDir, mSnapshotFiles
-        printMsg Debug_, "Snapshot taken. Existing files: " & mSnapshotFiles.Count, FromProcedureName
-    Else
-        ClearDownloadHistory
-        Set mSnapshotFiles = Nothing
-    End If
-
-    printMsg info_, "Event handling " & IIf(v, "enabled", "disabled") & ". " _
-                  & "Method: " & UserMethod & " | behavior=" & behavior & " | DownloadDir=" & DownloadDir, FromProcedureName
-
-End Property
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `downloadProgress`の`state`部分
+'---------------------------------------------------------------------------------------------------'
+Public Enum downloadProgress_params_state
+    state_inProgress
+    state_completed
+    state_canceled
+    state_willBegin   '`downloadWillBegin`は来たが、`downloadProgress`が来てないパターン
+End Enum
 
 
 
 '***************************************************************************************************
-'                       ■■■ 公開プロパティ - 後方互換（単一DL用） ■■■
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
 '***************************************************************************************************
-'* 以下のプロパティはすべて「最後に開始したダウンロード」(mLastGuid) の情報を返します
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードの状態 ("" / "inProgress" / "completed" / "canceled")
-'***************************************************************************************************
-Public Property Get state() As String
-    state = GetState(mLastGuid)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードが完了しているか
-'***************************************************************************************************
-Public Property Get IsCompleted() As Boolean
-    IsCompleted = (GetState(mLastGuid) = "completed")
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードが開始済みか（downloadWillBegin 受信済みか）
-'***************************************************************************************************
-Public Property Get HasStarted() As Boolean
-    HasStarted = (Len(mLastGuid) > 0)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードの保存先フルパス
-'***************************************************************************************************
-Public Property Get DownloadedFilePath() As String
-    DownloadedFilePath = GetFilePath(mLastGuid)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードのブラウザ提案ファイル名
-'***************************************************************************************************
-Public Property Get SuggestedFilename() As String
-    SuggestedFilename = GetWillBeginField(mLastGuid, WB_SUGGESTED)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロード対象 URL
-'***************************************************************************************************
-Public Property Get DownloadUrl() As String
-    DownloadUrl = GetWillBeginField(mLastGuid, WB_URL)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードの受信済みバイト数
-'***************************************************************************************************
-Public Property Get ReceivedBytes() As Double
-    ReceivedBytes = GetProgressFieldDbl(mLastGuid, PROG_RECEIVED)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードの合計バイト数（0=不明）
-'***************************************************************************************************
-Public Property Get TotalBytes() As Double
-    TotalBytes = GetProgressFieldDbl(mLastGuid, PROG_TOTAL)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：最後のダウンロードの進捗率 0.0?1.0（合計不明の場合は -1）
-'***************************************************************************************************
-Public Property Get Progress() As Double
-    Progress = GetProgress(mLastGuid)
-End Property
-
-
-
-'***************************************************************************************************
-'                       ■■■ 公開プロパティ - 多重DL管理（新API） ■■■
-'***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：現在追跡しているダウンロードの件数
-'***************************************************************************************************
-Public Property Get DownloadCount() As Long
-    DownloadCount = downloadInfos.Count
-End Property
-
-'***************************************************************************************************
-'* 機能　　：完了したダウンロードの件数
-'***************************************************************************************************
-Public Function CompletedCount() As Long
-    Dim k As Variant
-    Dim cnt As Long
-    For Each k In downloadInfos.keys
-        If GetState(CStr(k)) = "completed" Then cnt = cnt + 1
-    Next k
-    CompletedCount = cnt
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ダウンロード時の挙動設定の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringSetDownloadBehavior_behavior(param As setDownloadBehavior_behavior) As String
+    Select Case param
+        Case setDownloadBehavior_behavior.behavior_deny:         EnumToStringSetDownloadBehavior_behavior = "deny"
+        Case setDownloadBehavior_behavior.behavior_allow:        EnumToStringSetDownloadBehavior_behavior = "allow"
+        Case setDownloadBehavior_behavior.behavior_allowAndName: EnumToStringSetDownloadBehavior_behavior = "allowAndName"
+        Case setDownloadBehavior_behavior.behavior_Default:      EnumToStringSetDownloadBehavior_behavior = "default"
+    End Select
 End Function
 
-'***************************************************************************************************
-'* 機能　　：進行中のダウンロードの件数
-'***************************************************************************************************
-Public Function InProgressCount() As Long
-    Dim k As Variant
-    Dim cnt As Long
-    For Each k In downloadInfos.keys
-        If GetState(CStr(k)) = "inProgress" Then cnt = cnt + 1
-    Next k
-    InProgressCount = cnt
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `downloadWillBegin`のparameter部分を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringDownloadWillBegin_parameters(param As downloadWillBegin_parameters) As String
+    Select Case param
+        Case downloadWillBegin_parameters.downloadWillBegin_frameID:            EnumToStringDownloadWillBegin_parameters = "frameId"
+        Case downloadWillBegin_parameters.downloadWillBegin_Url:                EnumToStringDownloadWillBegin_parameters = "url"
+        Case downloadWillBegin_parameters.downloadWillBegin_suggestedFilename:  EnumToStringDownloadWillBegin_parameters = "suggestedFilename"  '`behavior:=allowAndName`にした場合は、これを参考に元のファイル名に復元可能です
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `downloadProgress`のparameter部分を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringDownloadProgress_parameters(param As downloadProgress_parameters) As String
+    Select Case param
+        Case downloadProgress_parameters.downloadProgress_totalBytes:    EnumToStringDownloadProgress_parameters = "totalBytes"
+        Case downloadProgress_parameters.downloadProgress_receivedBytes: EnumToStringDownloadProgress_parameters = "receivedBytes"
+        Case downloadProgress_parameters.downloadProgress_state:         EnumToStringDownloadProgress_parameters = "state"
+        Case downloadProgress_parameters.downloadProgress_filePath:      EnumToStringDownloadProgress_parameters = "filePath"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `downloadProgress - state`部分を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringDownloadProgressState(param As downloadProgress_params_state) As String
+    Select Case param
+        Case downloadProgress_params_state.state_inProgress: EnumToStringDownloadProgressState = "inProgress"
+        Case downloadProgress_params_state.state_completed:  EnumToStringDownloadProgressState = "completed"
+        Case downloadProgress_params_state.state_canceled:   EnumToStringDownloadProgressState = "canceled"
+        Case downloadProgress_params_state.state_willBegin:  EnumToStringDownloadProgressState = vbNullString
+    End Select
 End Function
 
 
 
 '***************************************************************************************************
-'              ■■■ メインとなる機能拡張部分 非同期イベント編 ■■■
+'                  ■■■ ダウンロード情報取得プロパティ - Rawバージョン ■■■
 '***************************************************************************************************
-'* 機能　　：ダウンロード関連の CDP イベントを受け取り、downloadInfos に反映します
+'* 機能　　：`guid`を基に、`downloadWillBegin`情報を取り出します
 '---------------------------------------------------------------------------------------------------
-'* 内部処理（WillBegin）：
-'   mJson.ParseJson(RawJson)("params") を丸ごと KEY_WILL_BEGIN に格納
-'* 内部処理（Progress）：
-'   mJson.ParseJson(RawJson)("params") を丸ごと KEY_PROGRESS に格納（毎回最新で上書き）
+'* 返り値　：引数に応じた`downloadWillBegin`の`parameters`情報。存在しない場合は、`vbnullstring`で返ります
+'* 引数　　：guid   `DownloadGuidList`メソッドから得た`GUID`
+'            params `downloadWillBegin`のparameters - Enum
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadWillBegin
+'***************************************************************************************************
+Property Get DownloadWillBeginInfo(guid As String, params As downloadWillBegin_parameters) As String
+    If DownloadWillBegin.Exists(guid) Then DownloadWillBeginInfo = DownloadWillBegin(guid).StringKey(EnumToStringDownloadWillBegin_parameters(params))
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`guid`を基に、`downloadProgress`情報を取り出します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：引数に応じた`downloadProgress`の`parameters`情報
+'* 引数　　：guid   `DownloadGuidList`メソッドから得た`GUID`
+'            params `downloadProgress`のparameters - Enum
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：https://chromedevtools.github.io/devtools-protocol/tot/Browser/#event-downloadProgress
+'* 注意事項：`downloadWillBegin`は来たが、`downloadProgress`が一度も来てない場合は、`vbNull`で返ります
+'***************************************************************************************************
+Property Get DownloadProgressInfo(guid As String, params As downloadProgress_parameters)
+    '1. `downloadWillBegin`は来たが、`downloadProgress`が一度も来てない場合を確認
+    If DownloadProgress.Exists(guid) Then
+        '2. parameterに応じて、型指定させて取出し
+        Select Case params
+            Case downloadProgress_parameters.downloadProgress_totalBytes, downloadProgress_parameters.downloadProgress_receivedBytes
+                DownloadProgressInfo = DownloadProgress(guid).NumberKey(EnumToStringDownloadProgress_parameters(params))
+
+            Case downloadProgress_parameters.downloadProgress_state, downloadProgress_parameters.downloadProgress_filePath
+                DownloadProgressInfo = DownloadProgress(guid).StringKey(EnumToStringDownloadProgress_parameters(params))
+        End Select
+    Else
+        '2. `downloadProgress`が一度も来てない場合
+        DownloadProgressInfo = vbNull
+    End If
+End Property
+
+
+
+'***************************************************************************************************
+'                 ■■■ ダウンロード情報取得プロパティ - 便利メソッド版 ■■■
+'***************************************************************************************************
+'* 機能　　：現時点で届いてるダウンロード`guid`リストを返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`guid`のある1次元配列
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`downloadWillBegin`が届いた順に並んでいます。各種ダウンロード情報を参照するにはまず、これを使います
+'* 注意事項：要素は`0`始まりです
+'***************************************************************************************************
+Property Get DownloadGuidList()
+    DownloadGuidList = DownloadWillBegin.keys
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現時点で届いてるダウンロード`guid`数を返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：ダウンロード監視中の`guid`数
+'***************************************************************************************************
+Property Get DownloadGuidCount() As Long
+    DownloadGuidCount = DownloadWillBegin.Count
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`downloadProgress - state`の確認をします
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：引数に応じた`downloadProgress - state`の数
+'***************************************************************************************************
+Property Get DownloadStateCount(state As downloadProgress_params_state) As Long
+    '1. 確認するstatus文字列を取得
+    Dim FilterState As String
+    FilterState = EnumToStringDownloadProgressState(state)
+
+    '2. 全GUIDを取り出し、ForEachで回す
+    Dim DownloadGUID
+    For Each DownloadGUID In DownloadWillBegin.keys
+        '3. GUIDがあるか？
+        If DownloadProgress.Exists(DownloadGUID) Then
+            '3-1. 一致するstatusなら、カウント
+            If DownloadProgress(DownloadGUID).StringKey("state") = FilterState Then DownloadStateCount = DownloadStateCount + 1
+        Else
+            '3-1. `downloadWillBegin`しか来てないstatusならカウント
+            If state = downloadProgress_params_state.state_willBegin Then DownloadStateCount = DownloadStateCount + 1
+        End If
+    Next
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`downloadProgress - state`が、`completed`になってるリストのみ削除します
+'***************************************************************************************************
+Public Sub ClearDownloadCompleted()
+    DeleteStatusGUID downloadProgress_params_state.state_completed
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`downloadProgress - state`が、`canceled`になってるリストのみ削除します
+'***************************************************************************************************
+Public Sub ClearDownloadCanceled()
+    DeleteStatusGUID downloadProgress_params_state.state_canceled
+End Sub
+
+
+
+'***************************************************************************************************
+'                      ■■■ メインとなる機能拡張部分 - イベント処理 ■■■
+'---------------------------------------------------------------------------------------------------
+'* 機能   ：ダウンロード系のイベントのみ、パース処理したのをただただ、Dictionaryに蓄積していきます
 '***************************************************************************************************
 Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPBrowserEvent"
 
 
-    '1. 非同期イベント処理自体が無効状態なら、即抜け
-    If EnableBrowserEvents Then
-        printMsg Trace_, "Asynchronous event handling is enabled.", FromProcedureName
-    Else
-        printMsg Trace_, "Asynchronous event handling is disabled.", FromProcedureName
-        Exit Sub
-    End If
-
-    '2. 共通の処理ロジックへ
-    EventCapture methodName, RawJson
-End Sub
-
-Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
-    Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
-
-
-    '1. 非同期イベント処理自体が無効状態なら、即抜け
-    If EnableBrowserEvents Then
-        printMsg Trace_, "Asynchronous event handling is enabled.", FromProcedureName
-    Else
-        printMsg Trace_, "Asynchronous event handling is disabled.", FromProcedureName
-        Exit Sub
-    End If
-
-    '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionId <> sessionID Then Exit Sub
-
-    '3. 共通の処理ロジックへ
-    EventCapture methodName, RawJson
-End Sub
-
-Private Sub EventCapture(methodName As String, RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".EventCapture"
-
-
+    '1. 対象のダウンロードイベントを処理
     Select Case methodName
+        Dim downloadInfos   As BiDiCDPJson
+        Dim DownloadGUID    As String
 
-        '--- ダウンロード開始 ---
-        Case "Browser.downloadWillBegin", "Page.downloadWillBegin"
-            printMsg Trace_, "`" & methodName & "` detected. Raw=" & RawJson, FromProcedureName
+        'ダウンロード開始情報
+        Case "Browser.downloadWillBegin"
+            '1-1. Json解析
+            Set downloadInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-            '① CDPの生params を丸ごと取得 → UDT/中間変換なし
-            Dim wbParams As BiDiCDPJson
-            Set wbParams = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            '1-2. `GUID`を取り出す
+            DownloadGUID = downloadInfos.StringKey("guid")
 
-            Dim guid As String: guid = CStr(wbParams(WB_GUID))
+            '1-3. `GUID`をKeyとして登録
+            DownloadWillBegin.Add DownloadGUID, downloadInfos
 
-            '② エントリ作成（KEY_WILL_BEGIN に生params を格納）
-            Dim entry As New Scripting.Dictionary
-            entry.Add KEY_WILL_BEGIN, wbParams                                         '← 丸ごと格納！
-            entry.Add KEY_IS_BROWSER, CBool(methodName = "Browser.downloadWillBegin")
-            '   KEY_PROGRESS は最初の Progress イベントで追加
-
-            '③ downloadInfos に登録
-            If downloadInfos.Exists(guid) Then downloadInfos.Remove guid
-            downloadInfos.Add guid, entry
-            mLastGuid = guid
-
-            printMsg info_, "[" & methodName & "] Download started. " _
-                          & "guid=" & guid _
-                          & " | file=" & CStr(wbParams(WB_SUGGESTED)) _
-                          & " | url=" & CStr(wbParams(WB_URL)) _
-                          & " | Tracking: " & downloadInfos.Count, FromProcedureName
-
+            '1-4. デバッグ用メッセージ表示
             If seeRawSendMsgDbg Then
-                PrintParamsDebug wbParams, methodName, FromProcedureName
+                printMsg Debug_, String(100, "="), FromProcedureName
+                printMsg Debug_, "Download detected. information", FromProcedureName
+                printMsg Debug_, String(100, "="), FromProcedureName
+
+                printMsg Debug_, "guid              : " & downloadInfos.StringKey("guid"), FromProcedureName
+                printMsg Debug_, "frameId           : " & downloadInfos.StringKey("frameId"), FromProcedureName
+                printMsg Debug_, "url               : " & downloadInfos.StringKey("url"), FromProcedureName
+                printMsg Debug_, "suggestedFilename : " & downloadInfos.StringKey("suggestedFilename"), FromProcedureName
+
+                printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
-        '--- ダウンロード進捗 ---
-        Case "Browser.downloadProgress", "Page.downloadProgress"
-            printMsg Trace_, "`" & methodName & "` detected. Raw=" & RawJson, FromProcedureName
+        'ダウンロード進捗情報
+        Case "Browser.downloadProgress"
+            '1-1. Json解析
+            Set downloadInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-            '① CDPの生params を丸ごと取得
-            Dim pgParams As Scripting.Dictionary
-            Set pgParams = WebJsonConverter.Parse(RawJson).value("params")
+            '1-2. `GUID`を取り出す
+            DownloadGUID = downloadInfos.StringKey("guid")
 
-            Dim evGuid As String: evGuid = CStr(pgParams(PROG_GUID))
+            '1-3. `GUID`をKeyとして登録/更新
+            Set DownloadProgress(DownloadGUID) = downloadInfos
 
-            '② downloadInfos に対象エントリがなければ新規作成（Progress が先に来た稀なケース）
-            If Not downloadInfos.Exists(evGuid) Then
-                Dim newEntry As New Scripting.Dictionary
-                newEntry.Add KEY_IS_BROWSER, CBool(methodName = "Browser.downloadProgress")
-                downloadInfos.Add evGuid, newEntry
-                mLastGuid = evGuid
-                printMsg WARN_, "Progress received before WillBegin. New entry created. guid=" & evGuid, FromProcedureName
+            '1-4. デバッグ用メッセージ表示
+            If seeRawSendMsgDbg Then
+                printMsg Debug_, String(100, "="), FromProcedureName
+                printMsg Debug_, "`" & DownloadGUID & "` Download progress", FromProcedureName
+                printMsg Debug_, String(100, "="), FromProcedureName
+
+                printMsg Debug_, "state             : " & downloadInfos.StringKey("state"), FromProcedureName
+                printMsg Debug_, "filePath          : " & downloadInfos.StringKey("filePath"), FromProcedureName
+
+                '状況に応じた進捗表示
+                Dim totalBytes As Long:     totalBytes = downloadInfos.NumberKey("totalBytes")
+                Dim receivedBytes As Long:  receivedBytes = downloadInfos.NumberKey("receivedBytes")
+                If totalBytes > 0 Then
+                    ' 全体サイズが分かるとき、% 表示
+                    Dim progressStr As String
+                    progressStr = FormatPercent(receivedBytes / totalBytes, 2)
+                    printMsg Debug_, "progress          : " & progressStr & " (" & receivedBytes & " / " & totalBytes & ")", FromProcedureName
+                Else
+                    ' 全体サイズが分からないとき、受信バイト数だけ表示
+                    printMsg Debug_, "progress          : " & Format(receivedBytes / 1024, "#,##0") & " KB received", FromProcedureName
+                End If
+
+                printMsg Debug_, String(100, "="), FromProcedureName
             End If
-
-            Dim inner As Scripting.Dictionary
-            Set inner = downloadInfos(evGuid)
-
-            '③ KEY_PROGRESS を最新の params で上書き（毎 Progress イベントで最新状態に更新）
-            If inner.Exists(KEY_PROGRESS) Then inner.Remove KEY_PROGRESS
-            inner.Add KEY_PROGRESS, pgParams   '← 丸ごと格納！
-
-            '④ 状態別処理
-            Dim evState As String: evState = CStr(pgParams(PROG_STATE))
-
-            Select Case evState
-                Case "inProgress"
-                    Dim recv As Double: recv = CDbl(pgParams(PROG_RECEIVED))
-                    Dim total As Double: total = CDbl(pgParams(PROG_TOTAL))
-                    If total > 0 Then
-                        printMsg Debug_, "[" & Left(evGuid, 8) & "...] " _
-                                       & Format(recv / 1024 / 1024, "0.00") & " MB / " _
-                                       & Format(total / 1024 / 1024, "0.00") & " MB " _
-                                       & "(" & Format(recv / total * 100, "0.0") & "%)" _
-                                       & " | In-progress: " & InProgressCount(), FromProcedureName
-                    Else
-                        printMsg Debug_, "[" & Left(evGuid, 8) & "...] " _
-                                       & Format(recv / 1024 / 1024, "0.00") & " MB (total unknown)", FromProcedureName
-                    End If
-
-                Case "completed"
-                    '--- filePath を確定（Browser メソッドは params に含まれる / Page メソッドは要解決） ---
-                    Dim filePath As String: filePath = ""
-                    If pgParams.Exists(PROG_FILE_PATH) Then
-                        filePath = CStr(pgParams(PROG_FILE_PATH))
-                    End If
-
-                    If Len(filePath) = 0 Then
-                        '--- Page メソッドなどで filePath がない場合 → フォルダ差分から特定 ---
-                        Dim SuggestedName As String: SuggestedName = ""
-                        If inner.Exists(KEY_WILL_BEGIN) Then
-                            SuggestedName = CStr(inner(KEY_WILL_BEGIN)(WB_SUGGESTED))
-                        End If
-                        filePath = ResolveFilePathFromDir(SuggestedName)
-                        '--- 解決した filePath を Progress params に追記（GetFilePath で取得可能にする） ---
-                        pgParams.Add PROG_FILE_PATH, filePath
-                    End If
-
-                    printMsg info_, "[" & Left(evGuid, 8) & "...] completed! " _
-                                  & "path=" & filePath _
-                                  & " | Completed: " & CompletedCount() & "/" & downloadInfos.Count, FromProcedureName
-
-                Case "canceled"
-                    printMsg WARN_, "[" & Left(evGuid, 8) & "...] Download canceled.", FromProcedureName
-
-                Case Else
-                    printMsg Debug_, "[" & Left(evGuid, 8) & "...] Unknown state: " & evState, FromProcedureName
-            End Select
-
-        Case Else
-            printMsg Trace_, "Event not handled by this class: " & methodName, FromProcedureName
-            Exit Sub
 
     End Select
 End Sub
@@ -466,595 +326,303 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分 ■■■
 '***************************************************************************************************
-'* 機能　　：指定した GUID のダウンロードが完了するまで待機します（単一DL用）
+'* 機能   ：指定の数分、ダウンロードが終るまで待機し続けます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：True=完了 / False=タイムアウト or キャンセル
-'* 引数　　：Guid        対象の GUID（省略時は最後に開始したダウンロード）
-'            TimeoutSec  最大待機時間（秒）
+'* 返り値　：ダウンロード完了数
+'* 引数　　：CompleteCount  完了とみなす数
+'            TimeOutSecond  タイムアウト秒数
+'            ClearDLHistory `True`で、`downloadProgress - state`が、`completed`,`canceled`になってる`GUID`を削除してから、処理を開始します
 '---------------------------------------------------------------------------------------------------
-'* 2フェーズ設計：
-'*   Phase 1 : downloadWillBegin が来るまで待つ（fetch型サイトはサーバー生成に時間がかかるため）
-'*   Phase 2 : 受信した GUID の state が "completed" になるまで待つ
+'* 機能説明：・返り値と`CompleteCount`を比較して、ちゃんとDLが終えたかを確認できます
+'            ・この中身のロジックを参考に、bas側で自力で高度な待機も可能です
+'
+'* 注意事項：・タイムアウトになったら、エラーにはならず、この関数を抜けるだけです
+'            ・`TimeOutSecond`は、前回の進捗から変化がない秒数として機能します
+'            ・`ClearDLHistory`は、このメソッドを使うタイミングによっては、不整合になる場合があります。
+'              例えば、クリックによる並列DLをして、このメソッドを呼ぶ時点で既に、最初のクリックによるDLが終ってしまった場合です
+'              その場合は、bas側で適切なタイミング(DLが来るタイミングの前にクリア等)で手動クリアしてください
 '***************************************************************************************************
-Public Function WaitCompleted(Optional guid As String, Optional TimeoutSec As Long = 60) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".WaitCompleted"
+Public Function AutoWaitCompleted(CompleteCount As Long, Optional TimeOutSecond As Double = 30, Optional ClearDLHistory As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitCompleted"
 
 
-    If Len(guid) = 0 Then guid = mLastGuid
-
-    Dim t As Double: t = Timer
-
-    '--- Phase 1: downloadWillBegin（GUID）が来るまで待機 ---
-    '    fetch → Blob → <a click> 型のサイトでは、ボタンクリック後しばらく経って
-    '    イベントが発火するため、mLastGuid が空のまま待つ必要がある
-    If Len(guid) = 0 Then
-        printMsg info_, "Waiting for download to begin... (timeout: " & TimeoutSec & "s)", FromProcedureName
-        Do
-            ex_CDPBrowser.TakeEvents
-            DoEvents
-
-            If Len(mLastGuid) > 0 Then
-                guid = mLastGuid
-                printMsg info_, "Download began! guid=" & Left(guid, 8) & "... " _
-                              & "(elapsed: " & Format(Timer - t, "0.0") & "s)", FromProcedureName
-                Exit Do
-            End If
-
-            If (Timer - t) > TimeoutSec Then
-                printMsg WARN_, "Timed out waiting for download to begin. " _
-                              & "No downloadWillBegin event was received.", FromProcedureName
-                WaitCompleted = False
-                Exit Function
-            End If
-
-            ex_CDPBrowser.sleep 0.2
-        Loop
+    '1. `downloadProgress - state`が、`completed`,`canceled`になってる`GUID`を削除
+    If ClearDLHistory Then
+        Call ClearDownloadCompleted
+        Call ClearDownloadCanceled
     End If
 
-    '--- Phase 2: 受信した GUID の完了を待つ（残り時間内で） ---
-    Dim remaining As Double: remaining = TimeoutSec - (Timer - t)
-    printMsg info_, "Waiting for completion. guid=" & Left(guid, 8) & _
-                  "... (remaining: " & Format(remaining, "0") & "s)", FromProcedureName
+    '2. 現在の経過時間を取得
+    Dim timerStart As Double: timerStart = TimerCounter
 
-    Do
-        ex_CDPBrowser.TakeEvents
-        DoEvents
+    '3. `downloadWillBegin`が、指定の数になるまで待機
+    Dim CurrentDownloadGuidCount As Long: CurrentDownloadGuidCount = Me.DownloadGuidCount
+    Do Until CurrentDownloadGuidCount = CompleteCount
+        '3-1. メッセージ取り出し
+        TakeEvents  '内部で`DoEvents`が走ってくれます
 
-        Select Case GetState(guid)
-            Case "completed"
-                printMsg info_, "Download completed in " & Format(Timer - t, "0.0") & "s. " _
-                              & "file=" & GetFilePath(guid), FromProcedureName
-                WaitCompleted = True
-                Exit Function
-            Case "canceled"
-                printMsg WARN_, "Download was canceled by browser.", FromProcedureName
-                WaitCompleted = False
-                Exit Function
-        End Select
+        '3-2. 前回値に変化があったらタイマーリセットし、更新
+        If CurrentDownloadGuidCount < Me.DownloadGuidCount Then timerStart = TimerCounter: CurrentDownloadGuidCount = Me.DownloadGuidCount
 
-        If (Timer - t) > TimeoutSec Then
-            printMsg WARN_, "Timed out. State=" & GetState(guid), FromProcedureName
-            WaitCompleted = False
-            Exit Function
+        '3-3. 指定数が取り出せたら、タイムアウトチェックの前に抜ける
+        If Me.DownloadGuidCount = CompleteCount Then
+            printMsg info_, "I found " & CompleteCount & " instances of `downloadWillBegin`.", FromProcedureName
+            Exit Do
         End If
 
-        ex_CDPBrowser.sleep 0.2
-    Loop
+        '3-4. 指定秒数、数に変化なかったら、一旦抜けて、今ある数で次のStepへ
+        If TimerCounter - timerStart > TimeOutSecond * 1000 Then
+            printMsg WARN_, "We were unable to detect " & CompleteCount & " `downloadWillBegin` instances within the time limit. We will continue with " & CurrentDownloadGuidCount & " instances.", FromProcedureName
 
-End Function
-
-'***************************************************************************************************
-'* 機能　　：追跡中の全ダウンロードが完了するまで待機します（多重DL用）
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：True=全件完了 / False=タイムアウト
-'* 引数　　：ExpectedCount  完了待ちするダウンロードの期待件数（0=自動判定）
-'            TimeoutSec     最大待機時間（秒）
-'---------------------------------------------------------------------------------------------------
-'* 2フェーズ設計：
-'*   Phase 1 : 少なくとも 1件の downloadWillBegin が来るまで待つ
-'*   Phase 2 : 全件（ExpectedCount件 or 件数確定後）が完了するまで待つ
-'***************************************************************************************************
-Public Function WaitAllCompleted(Optional ExpectedCount As Long, Optional TimeoutSec As Long = 120) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".WaitAllCompleted"
-
-
-    Dim t As Double: t = Timer
-
-    '--- Phase 1: 少なくとも1件の downloadWillBegin が来るまで待つ ---
-    If downloadInfos.Count = 0 Then
-        printMsg info_, "Waiting for downloads to begin... (timeout: " & TimeoutSec & "s)", FromProcedureName
-        Do
-            ex_CDPBrowser.TakeEvents
-            DoEvents
-
-            If downloadInfos.Count > 0 Then
-                printMsg info_, "First download detected! " _
-                              & "(elapsed: " & Format(Timer - t, "0.0") & "s)", FromProcedureName
+            '0個なら、続行できないので関数から抜ける
+            If CurrentDownloadGuidCount Then
+                printMsg WARN_, "Since one or more instances of `downloadWillBegin` were detected, we will proceed to the next step.", FromProcedureName
                 Exit Do
-            End If
-
-            If (Timer - t) > TimeoutSec Then
-                printMsg WARN_, "Timed out waiting for any download to begin.", FromProcedureName
-                WaitAllCompleted = False
-                Exit Function
-            End If
-
-            ex_CDPBrowser.sleep 0.2
-        Loop
-    End If
-
-    printMsg info_, "Waiting for ALL downloads. " _
-                  & "Tracking: " & downloadInfos.Count _
-                  & IIf(ExpectedCount > 0, " (expecting " & ExpectedCount & ")", "") _
-                  & " | remaining: " & Format(TimeoutSec - (Timer - t), "0") & "s", FromProcedureName
-
-    '--- Phase 2: 全件完了を待つ ---
-    Do
-        ex_CDPBrowser.TakeEvents
-        DoEvents
-
-        '件数の確定チェック（ExpectedCount 指定時）
-        Dim countOk As Boolean
-        countOk = (ExpectedCount = 0) Or (downloadInfos.Count >= ExpectedCount)
-
-        If countOk And downloadInfos.Count > 0 Then
-            Dim allDone As Boolean: allDone = True
-            Dim k As Variant
-            For Each k In downloadInfos.keys
-                Dim s As String: s = GetState(CStr(k))
-                If s <> "completed" And s <> "canceled" Then
-                    allDone = False
-                    Exit For
-                End If
-            Next k
-
-            If allDone Then
-                printMsg info_, "All " & downloadInfos.Count & " downloads finished in " _
-                              & Format(Timer - t, "0.0") & "s. " _
-                              & "Completed: " & CompletedCount() & " | Canceled: " _
-                              & (downloadInfos.Count - CompletedCount()), FromProcedureName
-                WaitAllCompleted = True
+            Else
+                printMsg ERROR_, "The process will be interrupted because no `downloadWillBegin` requests have been received.", FromProcedureName
                 Exit Function
             End If
         End If
-
-        If (Timer - t) > TimeoutSec Then
-            printMsg WARN_, "Timed out. Completed: " & CompletedCount() _
-                          & "/" & downloadInfos.Count, FromProcedureName
-            WaitAllCompleted = False
-            Exit Function
-        End If
-
-        ex_CDPBrowser.sleep 0.2
     Loop
 
-End Function
+    '4. 現時点での、GUIDリストを取得しておく
+    Dim TargetDownloadGUIDs: TargetDownloadGUIDs = Me.DownloadGuidList
 
-'***************************************************************************************************
-'* 機能　　：全ダウンロードのサマリーをイミディエイトウィンドウに出力します
-'***************************************************************************************************
-Public Sub PrintSummary()
-    Const FromProcedureName As String = ThisClassName & ".PrintSummary"
-
-
-    printMsg info_, String(80, "="), FromProcedureName
-    printMsg info_, "Download Summary - " _
-                  & downloadInfos.Count & " total | " _
-                  & CompletedCount() & " completed | " _
-                  & InProgressCount() & " in-progress", FromProcedureName
-    printMsg info_, String(80, "-"), FromProcedureName
-
-    Dim k As Variant
-    Dim i As Long
-    For Each k In downloadInfos.keys
-        i = i + 1
-        Dim guid As String: guid = CStr(k)
-        Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-
-        '--- WillBegin 情報 ---
-        Dim FileName As String
-        If entryD.Exists(KEY_WILL_BEGIN) Then
-            FileName = CStr(entryD(KEY_WILL_BEGIN)(WB_SUGGESTED))
-        End If
-
-        '--- Progress 情報 ---
-        Dim stateStr As String
-        Dim recvMB As Double
-        Dim totalMB As Double
-        Dim pctStr As String
-        Dim pathStr As String
-
-        If entryD.Exists(KEY_PROGRESS) Then
-            Dim progD As Scripting.Dictionary: Set progD = entryD(KEY_PROGRESS)
-            stateStr = CStr(progD(PROG_STATE))
-            recvMB = CDbl(progD(PROG_RECEIVED)) / 1024 / 1024
-            totalMB = CDbl(progD(PROG_TOTAL)) / 1024 / 1024
-            If totalMB > 0 Then pctStr = Format(recvMB / totalMB * 100, "0.0") & "%"
-            If progD.Exists(PROG_FILE_PATH) Then pathStr = CStr(progD(PROG_FILE_PATH))
-        End If
-
-        printMsg info_, "  [" & i & "] " _
-                      & "state=" & Format(stateStr, "@@@@@@@@@@@") & " | " _
-                      & "file=" & FileName & " | " _
-                      & Format(recvMB, "0.00") & "/" & Format(totalMB, "0.00") & "MB" _
-                      & " (" & pctStr & ") | " _
-                      & "path=" & pathStr, FromProcedureName
+    '5. 各種初期化
+    '5-1. 各`receivedBytes`情報を初期化
+    Dim DownloadGUID
+    Dim DownloadGUIDs_receivedBytes As New Dictionary
+    For Each DownloadGUID In TargetDownloadGUIDs
+        DownloadGUIDs_receivedBytes.Add DownloadGUID, 0
     Next
-    printMsg info_, String(80, "="), FromProcedureName
 
-End Sub
+    '5-2. 各status情報を初期化
+    Dim CanceledGUIDs As New Dictionary
+    Dim CompletedGUIDs As New Dictionary
 
+    '6. メッセージを取り出しながら、1個1個、進捗をチェックする
+    timerStart = TimerCounter '次のセクションなので、リセット
+    Do
+        '6-1. 受信サイズとステータスチェック
+        For Each DownloadGUID In TargetDownloadGUIDs
+            'downloadProgress - state に応じた分岐
+            Select Case Me.DownloadProgressInfo(CStr(DownloadGUID), downloadProgress_state)
+                Case EnumToStringDownloadProgressState(state_inProgress)
+                    '進捗取り出し
+                    With Me
+                        Dim Progress_totalBytes     As Long:    Progress_totalBytes = .DownloadProgressInfo(CStr(DownloadGUID), downloadProgress_totalBytes)
+                        Dim Progress_receivedBytes  As Long:    Progress_receivedBytes = .DownloadProgressInfo(CStr(DownloadGUID), downloadProgress_receivedBytes)
+                    End With
+    
+                    '6-1-1. 前回値より変化してたらタイマーリセットし、進捗表示
+                    If DownloadGUIDs_receivedBytes(DownloadGUID) < Progress_receivedBytes Then
+                        'タイマーリセット
+                        timerStart = TimerCounter
+    
+                        '進捗計算し、表示
+                        If Progress_totalBytes > 0 Then
+                            ' 全体サイズが分かるとき、% 表示
+                            Dim progressStr As String
+                            progressStr = FormatPercent(Progress_receivedBytes / Progress_totalBytes, 2)
+                            printMsg info_, DownloadGUID & " - progress : " & progressStr & " (" & Progress_receivedBytes & " / " & Progress_totalBytes & ")", FromProcedureName
+                        Else
+                            ' 全体サイズが分からないとき、受信バイト数だけ表示
+                            printMsg info_, DownloadGUID & " - progress : " & Format(Progress_receivedBytes / 1024, "#,##0") & " KB received", FromProcedureName
+                        End If
+    
+                        '現時点での、`receivedBytes`情報を格納
+                        DownloadGUIDs_receivedBytes(DownloadGUID) = Progress_receivedBytes
+                    End If
 
+                Case EnumToStringDownloadProgressState(state_completed)
+                    '正常終了なら、正常終了リストに追加
+                    If Not CompletedGUIDs.Exists(DownloadGUID) Then
+                        CompletedGUIDs.Add DownloadGUID, True
+                        printMsg info_, CompletedGUIDs.Count + CanceledGUIDs.Count & "/" & CurrentDownloadGuidCount & " Download completed: " & DownloadGUID, FromProcedureName
+                    End If
 
-'***************************************************************************************************
-'                       ■■■ 公開メソッド - GUID 指定の個別取得 ■■■
-'***************************************************************************************************
-'* 機能　　：指定 GUID のエントリ辞書を返します（WillBegin/Progress/isBrowserMethod を含む）
-'---------------------------------------------------------------------------------------------------
-'* 使い方  ：
-'    Dim info As Scripting.Dictionary: Set info = dw.GetInfo(guid)
-'    Debug.Print info("WillBegin")("suggestedFilename")
-'    Debug.Print info("Progress")("state")
-'***************************************************************************************************
-Public Function GetInfo(guid As String) As Scripting.Dictionary
-    If downloadInfos.Exists(guid) Then
-        Set GetInfo = downloadInfos(guid)
-    Else
-        Set GetInfo = Nothing
-    End If
-End Function
+                Case EnumToStringDownloadProgressState(state_canceled)
+                    'ユーザーによるキャンセルあるいは、ウイルス判定による強制キャンセル時は、キャンセルリストに追加
+                    If Not CanceledGUIDs.Exists(DownloadGUID) Then
+                        CanceledGUIDs.Add DownloadGUID, True
+                        printMsg WARN_, CanceledGUIDs.Count + CompletedGUIDs.Count & "/" & CurrentDownloadGuidCount & " Download canceled : " & DownloadGUID, FromProcedureName
+                    End If
+            End Select
+        Next
 
-'***************************************************************************************************
-'* 機能　　：指定 GUID の WillBegin params を返します（CDPの生データ）
-'***************************************************************************************************
-Public Function GetWillBeginParams(guid As String) As BiDiCDPJson
-    If Not downloadInfos.Exists(guid) Then Set GetWillBeginParams = Nothing: Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_WILL_BEGIN) Then Set GetWillBeginParams = Nothing: Exit Function
-    Set GetWillBeginParams = entryD(KEY_WILL_BEGIN)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定 GUID の Progress params（最新）を返します（CDPの生データ）
-'***************************************************************************************************
-Public Function GetProgressParams(guid As String) As Scripting.Dictionary
-    If Not downloadInfos.Exists(guid) Then Set GetProgressParams = Nothing: Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_PROGRESS) Then Set GetProgressParams = Nothing: Exit Function
-    Set GetProgressParams = entryD(KEY_PROGRESS)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：全 GUID のコレクションを返します
-'***************************************************************************************************
-Public Function GetAllGuids() As Collection
-    Dim col As New Collection
-    Dim k As Variant
-    For Each k In downloadInfos.keys
-        col.Add k
-    Next k
-    Set GetAllGuids = col
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定 GUID の状態を返します
-'***************************************************************************************************
-Public Function GetState(guid As String) As String
-    If Not downloadInfos.Exists(guid) Then Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_PROGRESS) Then Exit Function
-    GetState = CStr(entryD(KEY_PROGRESS)(PROG_STATE))
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定 GUID の保存先ファイルパスを返します
-'***************************************************************************************************
-Public Function GetFilePath(guid As String) As String
-    If Not downloadInfos.Exists(guid) Then Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_PROGRESS) Then Exit Function
-    Dim progD As Scripting.Dictionary: Set progD = entryD(KEY_PROGRESS)
-    If Not progD.Exists(PROG_FILE_PATH) Then Exit Function
-    GetFilePath = CStr(progD(PROG_FILE_PATH))
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定 GUID の進捗率を 0.0~1.0 で返します（合計不明の場合は -1）
-'***************************************************************************************************
-Public Function GetProgress(guid As String) As Double
-    GetProgress = -1
-    If Not downloadInfos.Exists(guid) Then Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_PROGRESS) Then Exit Function
-    Dim progD As Scripting.Dictionary: Set progD = entryD(KEY_PROGRESS)
-    If Not progD.Exists(PROG_TOTAL) Then Exit Function
-    Dim total As Double: total = CDbl(progD(PROG_TOTAL))
-    If total <= 0 Then Exit Function
-    GetProgress = CDbl(progD(PROG_RECEIVED)) / total
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ダウンロード完了ファイルを別名・別フォルダへ移動保存します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：SaveDir      保存先フォルダ
-'            NewFileName  保存するファイル名（省略時は SuggestedFilename を使用）
-'            Guid         対象の GUID（省略時は最後に開始したダウンロード）
-'***************************************************************************************************
-Public Function SaveAs(saveDir As String, Optional NewFileName As String = "", Optional guid As String = "") As String
-    Const FromProcedureName As String = ThisClassName & ".SaveAs"
-
-
-    If Len(guid) = 0 Then guid = mLastGuid
-
-    Dim filePath As String: filePath = GetFilePath(guid)
-    If Len(filePath) = 0 Then
-        printMsg WARN_, "SaveAs: No completed file. guid=" & guid & " Call WaitCompleted first.", FromProcedureName
-        SaveAs = ""
-        Exit Function
-    End If
-
-    If Len(NewFileName) = 0 Then
-        NewFileName = GetWillBeginField(guid, WB_SUGGESTED)
-        If Len(NewFileName) = 0 Then NewFileName = Mid(filePath, InStrRev(filePath, "\") + 1)
-    End If
-
-    If Dir(saveDir, vbDirectory) = "" Then MkDir saveDir
-
-    Dim destPath As String: destPath = saveDir & "\" & NewFileName
-    printMsg Debug_, "SaveAs: " & filePath & " → " & destPath, FromProcedureName
-
-    On Error GoTo ErrHandler
-    FileCopy filePath, destPath
-    Kill filePath
-    printMsg info_, "File saved as: " & destPath, FromProcedureName
-    SaveAs = destPath
-    Exit Function
-
-ErrHandler:
-    printMsg WARN_, "SaveAs failed. Err=" & Err.Number & " " & Err.Description, FromProcedureName
-    SaveAs = ""
-
-End Function
-
-'***************************************************************************************************
-'* 機能　　：追跡中のダウンロード履歴をすべてクリアします（WatchStart でも自動呼び出し）
-'***************************************************************************************************
-Public Sub ClearDownloadHistory()
-    Const FromProcedureName As String = ThisClassName & ".ClearDownloadHistory"
-
-
-    Dim prev As Long: prev = downloadInfos.Count
-    Set downloadInfos = New Scripting.Dictionary
-    mLastGuid = ""
-    If prev > 0 Then
-        printMsg Debug_, "Download history cleared. (" & prev & " entries removed)", FromProcedureName
-    End If
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：後方互換 - ClearDownloadHistory の旧名称
-'***************************************************************************************************
-Public Sub ResetState()
-    ClearDownloadHistory
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：ネットワーク速度を意図的に制限します（テスト・デバッグ用）
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：DownloadKBps  ダウンロード速度の上限（KB/s）デフォルト: 300 KB/s
-'---------------------------------------------------------------------------------------------------
-'* 速度の目安（ファイルサイズと予想所要時間）：
-'*    100 KB/s :  5MB - 50秒 / 50MB - 8.5分
-'*    300 KB/s :  5MB - 17秒 / 50MB - 2.8分
-'*    500 KB/s :  5MB - 10秒 / 50MB - 1.7分
-'*   1000 KB/s :  5MB -  5秒 / 50MB - 50秒
-'***************************************************************************************************
-Public Sub ThrottleNetwork(Optional DownloadKBps As Long = 300)
-    Const FromProcedureName As String = ThisClassName & ".ThrottleNetwork"
-
-
-    printMsg info_, "Throttling network to " & DownloadKBps & " KB/s...", FromProcedureName
-
-    ExecuteCDP "Network.enable"
-
-    Dim params As New Scripting.Dictionary
-    params.Add "offline", False
-    params.Add "latency", CLng(20)
-    params.Add "downloadThroughput", CLng(DownloadKBps * 1024)
-    params.Add "uploadThroughput", CLng(500& * 1024)
-
-    ExecuteCDP "Network.emulateNetworkConditions", params
-    printMsg info_, "Network throttled to " & DownloadKBps & " KB/s " _
-                  & "(" & Format(DownloadKBps / 1024#, "0.0") & " Mbps approx.)", FromProcedureName
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：ネットワーク速度制限を解除します
-'***************************************************************************************************
-Public Sub UnthrottleNetwork()
-    Const FromProcedureName As String = ThisClassName & ".UnthrottleNetwork"
-
-
-    Dim params As New Scripting.Dictionary
-    params.Add "offline", False
-    params.Add "latency", CLng(0)
-    params.Add "downloadThroughput", CLng(-1)
-    params.Add "uploadThroughput", CLng(-1)
-
-    ExecuteCDP "Network.emulateNetworkConditions", params
-    printMsg info_, "Network throttle removed. Full speed restored.", FromProcedureName
-
-End Sub
-
-
-
-'***************************************************************************************************
-'                               ■■■ 内部処理 ■■■
-'***************************************************************************************************
-
-'***************************************************************************************************
-'* 機能　　：WillBegin params の指定フィールド値を文字列で返します
-'***************************************************************************************************
-Private Function GetWillBeginField(guid As String, FieldKey As String) As String
-    If Not downloadInfos.Exists(guid) Then Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_WILL_BEGIN) Then Exit Function
-    Dim wbD As BiDiCDPJson: Set wbD = entryD(KEY_WILL_BEGIN)
-    If Not wbD.Exists(FieldKey) Then Exit Function
-    GetWillBeginField = CStr(wbD(FieldKey))
-End Function
-
-'***************************************************************************************************
-'* 機能　　：Progress params の指定フィールド値を Double で返します（なければ 0）
-'***************************************************************************************************
-Private Function GetProgressFieldDbl(guid As String, FieldKey As String) As Double
-    If Not downloadInfos.Exists(guid) Then Exit Function
-    Dim entryD As Scripting.Dictionary: Set entryD = downloadInfos(guid)
-    If Not entryD.Exists(KEY_PROGRESS) Then Exit Function
-    Dim progD As Scripting.Dictionary: Set progD = entryD(KEY_PROGRESS)
-    If Not progD.Exists(FieldKey) Then Exit Function
-    GetProgressFieldDbl = CDbl(progD(FieldKey))
-End Function
-
-'***************************************************************************************************
-'* 機能　　：フォルダ内の全ファイルを Dictionary にスナップショットします
-'***************************************************************************************************
-Private Sub SnapshotDirectory(DirPath As String, ByRef dic As Object)
-    Dim f As String: f = Dir(DirPath & "\*.*")
-    Do While f <> ""
-        If Not dic.Exists(LCase$(f)) Then
-            dic.Add LCase$(f), DirPath & "\" & f
+        '6-2. ダウンロード自体が全て終わったら、タイムアウトチェックの前に抜ける
+        If (CompletedGUIDs.Count + CanceledGUIDs.Count) = CurrentDownloadGuidCount Then
+            printMsg info_, "All downloads are complete.", FromProcedureName
+            If CanceledGUIDs.Count Then printMsg WARN_, "There are downloads that will be cancelled.", FromProcedureName
+            Exit Do
         End If
-        f = Dir
-    Loop
-End Sub
 
-'***************************************************************************************************
-'* 機能　　：完了後にフォルダ差分からダウンロードファイルのパスを特定します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：Browser.downloadProgress に filePath がない場合（Page メソッド等）のフォールバック
-'***************************************************************************************************
-Private Function ResolveFilePathFromDir(SuggestedName As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ResolveFilePathFromDir"
-
-
-    If Len(mWatchDir) = 0 Then
-        printMsg WARN_, "WatchDir is not set.", FromProcedureName
-        Exit Function
-    End If
-
-    '--- 1. SuggestedFilename がそのままあればそれを返す ---
-    Dim directPath As String: directPath = mWatchDir & "\" & SuggestedName
-    If Len(SuggestedName) > 0 And Dir(directPath) <> "" Then
-        printMsg Debug_, "Resolved by SuggestedFilename: " & directPath, FromProcedureName
-        ResolveFilePathFromDir = directPath
-        Exit Function
-    End If
-
-    '--- 2. スナップショット差分から新規ファイルを検索 ---
-    printMsg Debug_, "Scanning directory for new files (snapshot diff)...", FromProcedureName
-    Dim f As String: f = Dir(mWatchDir & "\*.*")
-    Do While f <> ""
-        Dim fLower As String: fLower = LCase$(f)
-        If Not IsTemporaryFile(fLower) Then
-            If Not mSnapshotFiles.Exists(fLower) Then
-                Dim newPath As String: newPath = mWatchDir & "\" & f
-                printMsg Debug_, "New file found by directory diff: " & newPath, FromProcedureName
-                ResolveFilePathFromDir = newPath
-                Exit Function
-            End If
+        '6-3. 指定秒数、進捗に変化なかったら、抜ける
+        If TimerCounter - timerStart > TimeOutSecond * 1000 Then
+            printMsg WARN_, "The process timed out because there was no change in progress for a certain period of time.", FromProcedureName
+            Exit Do
         End If
-        f = Dir
+
+        '6-4. メッセージ取り出し
+        TakeEvents  '内部で`DoEvents`が走ってくれます
     Loop
 
-    printMsg WARN_, "Could not resolve downloaded file path. SuggestedFilename=" & SuggestedName, FromProcedureName
-
+    '7. ダウンロードが正常終了した数で、返却
+    AutoWaitCompleted = CompletedGUIDs.Count
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ダウンロード中の一時ファイルか判定します
+'* 機能   ：指定のステータスのGUIDを一括削除します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：state  Enum - downloadProgress_params_state
 '***************************************************************************************************
-Private Function IsTemporaryFile(fileNameLower As String) As Boolean
-    IsTemporaryFile = (Right$(fileNameLower, 11) = ".crdownload") _
-                   Or (Right$(fileNameLower, 5) = ".part") _
-                   Or (Right$(fileNameLower, 4) = ".tmp")
-End Function
+Private Sub DeleteStatusGUID(state As downloadProgress_params_state)
+    Const FromProcedureName As String = ThisClassName & ".DeleteStatusGUID"
 
-'***************************************************************************************************
-'* 機能　　：params の全キーをデバッグ出力します（seeRawSendMsgDbg=True のとき）
-'***************************************************************************************************
-Private Sub PrintParamsDebug(params As Scripting.Dictionary, methodName As String, FromProcedureName As String)
-    printMsg Debug_, String(60, "-"), FromProcedureName
-    printMsg Debug_, "  [" & methodName & "] params:", FromProcedureName
-    Dim pk As Variant
-    For Each pk In params.keys
-        printMsg Debug_, "    " & CStr(pk) & " = " & CStr(params(pk)), FromProcedureName
-    Next pk
-    printMsg Debug_, String(60, "-"), FromProcedureName
+
+    '1. status文字列を取得
+    Dim ClearState As String
+    ClearState = EnumToStringDownloadProgressState(state)
+
+    '2. 各`guid`情報を`downloadProgress`に照会
+    Dim DownloadGUID: DownloadGUID = DownloadProgress.keys
+    For Each DownloadGUID In DownloadGUID
+        '3. 一致するstatusなら、削除
+        If DownloadProgress(DownloadGUID).StringKey("state") = ClearState Then
+            DownloadWillBegin.Remove (DownloadGUID)
+            DownloadProgress.Remove (DownloadGUID)
+
+            printMsg Debug_, "Removed from the status `" & ClearState & "` : " & DownloadGUID, FromProcedureName
+        End If
+    Next
 End Sub
 
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPBrowser`直通メソッド ■■■
+'                           ■■■ `CDPBrowser/CDPCore`直通メソッド ■■■
 '***************************************************************************************************
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
-End Sub
-
+'* 機能　　：いちいち、`○○.ExecuteCDP`といった記述を防ぐ措置となります。
+'            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
+'***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As BiDiCDPJson
-    If alwaysBrowserContext Then
-        Set ExecuteCDP = ex_CDPBrowser.ExecuteCDP(methodName, params, StopError)
-    Else
-        Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
-    End If
+Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+    Set ExecuteCDP = ex_CDPBrowser.ExecuteCDP(methodName, params, StopError)
+End Function
+
+Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+    ex_CDPCore.TakeEvents StopPipeError, destruction
+End Sub
+
+Private Function TimerCounter() As Double
+    TimerCounter = ex_CDPCore.GetTicksMs
 End Function
 
 
 
 '***************************************************************************************************
-'                             ■■■ 初期設定プロシージャ ■■■
+'                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPBrowser.cls`を継承させます
+'* 機能　  ：この拡張機能Classを動かすのに必要なオブジェクトや情報を渡し、イベント処理機能を有効化させます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：イベント処理自体はブラウザ単位ですがほとんどは`タブ`から始める方が多いことから、`CDPContext`として継承するようにしてます
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
-    Const FromProcedureName As String = ThisClassName & ".Init"
-
-
     '必要なCDPオブジェクトを継承
-    Set ex_CDPContext = Inheritance
     Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
-    'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.CurrentSessionId
-    printMsg Debug_, "exCDP_DownloadWatcher initialized.", FromProcedureName
+    '渡した際のデフォルトのブラウザコンテキストをセット
+    defaultBrowserContextId = Inheritance.CurrentBrowserContextId
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：ファイルをダウンロードする際の挙動を設定/更新をします
+'---------------------------------------------------------------------------------------------------
+'* Let引数 ：下記の引数設定に紐づく、ダウンロードイベント処理を有効/無効化するか？
+'* 引数　　：behavior           ダウンロードの動作
+'            downloadPath       ダウンロードしたファイルを保存するフルフォルダパス
+'            browserContextId   `Target.createBrowserContext`で得た`browserContextId`を指定します。省略した場合、デフォルトのブラウザコンテキストが使用されます。
+'                               複数アカウントで同一サイトに対するDL作業に重宝します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setDownloadBehavior
+'* 注意事項：`browserContextId`に渡せる引数は、`Target.createBrowserContext`で得た`browserContextId`のみです
+'***************************************************************************************************
+Public Property Let setDownloadBehavior(behavior As setDownloadBehavior_behavior, downloadPath As String, Optional browserContextId As String, eventsEnabled As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".setDownloadBehavior - Let"
+
+
+    '1. CDPパラメーター構築
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "behavior", EnumToStringSetDownloadBehavior_behavior(behavior)
+    If StrPtr(browserContextId) Then CDPparams.Add "browserContextId", browserContextId
+    CDPparams.Add "downloadPath", downloadPath
+    CDPparams.Add "eventsEnabled", eventsEnabled
+
+    '2. 実行
+    ExecuteCDP "Browser.setDownloadBehavior", CDPparams
+
+    '3. 記録用に、`browserContextId`省略時、継承時のブラウザコンテキストを適用
+    If StrPtr(browserContextId) = 0 Then browserContextId = defaultBrowserContextId
+
+    '4. ダウンロードパス設定情報の記録/更新
+    '4-1.登録済みか？
+    If downloadPathList.Exists(browserContextId) Then
+        If eventsEnabled Then
+            '設定の更新
+            downloadPathList(browserContextId) = downloadPath
+            printMsg info_, "I updated the download monitoring settings. browserContextId: " & browserContextId, FromProcedureName
+        Else
+            '設定の削除
+            downloadPathList.Remove (browserContextId)
+            printMsg info_, "Download monitoring has been stopped. browserContextId: " & browserContextId, FromProcedureName
+        End If
+    Else
+        '新規登録
+        If eventsEnabled Then downloadPathList.Add browserContextId, downloadPath: printMsg info_, "Start download monitoring. browserContextId: " & browserContextId, FromProcedureName
+    End If
+
+    '5. 設定情報を表示
+    If seeRawSendMsgDbg Then printMsg info_, "setDownloadBehavior - parameters: " & WebJsonConverter.serialize(CDPparams), FromProcedureName
+End Property
+
+'***************************************************************************************************
+'* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'ブラウザ非同期処理を有効化
-    EnableBrowserEvents = True
-    Set downloadInfos = New Scripting.Dictionary
+    '各種変数の初期化
+    Set downloadPathList = New Dictionary
+    Set DownloadProgress = New Dictionary
+    Set DownloadWillBegin = New Dictionary
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'rawJSONをデバッグ出力するか
-
+    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
 End Sub
 
+
+
+'***************************************************************************************************
+'                                   ■■■ 後始末 ■■■
+'***************************************************************************************************
+'* 機能　　：拡張機能との連携を切る際に記述します
+'***************************************************************************************************
 Private Sub Class_Terminate()
-    On Error Resume Next
-    EnableBrowserEvents = False
-    Set downloadInfos = Nothing
+    '`setDownloadBehavior`設定を元に戻します
+    Dim browserContextId
+    For Each browserContextId In downloadPathList.keys
+        '1. CDPパラメーター構築
+        Dim CDPparams As New Dictionary
+        CDPparams.Add "behavior", EnumToStringSetDownloadBehavior_behavior(Default)
+        If browserContextId <> defaultBrowserContextId Then CDPparams.Add "browserContextId", browserContextId
+        CDPparams.Add "eventsEnabled", False
+
+        '2. 実行
+        ExecuteCDP "Browser.setDownloadBehavior", CDPparams, False
+    Next
 End Sub
