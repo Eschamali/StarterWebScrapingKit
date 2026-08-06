@@ -32,8 +32,8 @@ Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean
-Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private CurrentSessionId            As String       '継承時のSesssionID
+Private EnableBrowserEvents         As Boolean      'VBA側のイベント処理を有効/無効化のスイッチング
+Private CurrentSessionID            As String       '継承時のSesssionID
 
 ' 既定: はい=OK 系 / prompt 用の入力文字列
 Private Type JavaScriptDialog
@@ -95,7 +95,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
     End If
 
     '2. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
-    If CurrentSessionId <> sessionID Then Exit Sub
+    If CurrentSessionID <> sessionID Then Exit Sub
 
     '3. 対象のイベント以外も即抜け
     '処理したい対象の非同期イベント名を、各Case に記述してください。
