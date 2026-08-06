@@ -130,22 +130,14 @@ End Sub
 
 
 '***************************************************************************************************
-'                           ■■■ `CDPContext,CDPBrowser`直通メソッド ■■■
+'                           ■■■ `CDPContext`直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：いちいち、`○○.ExecuteCDP`といった記述を防ぐ措置となります。
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
 '***************************************************************************************************
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
-End Sub
-
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
-
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
-End Function
 
 
 
