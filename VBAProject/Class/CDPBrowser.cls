@@ -832,7 +832,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         '4. スコア方式を利用して、理想の対象タブ情報を取得します
         Const MaxScore As Long = 100
         bestScore = -1
-        candidateTabId = ""
+        candidateTabId = vbNullString
         Do While NodeToken > 0
             '4-1. タブの種類があってるか？　※未指定の場合は、タブの種類を問わない検索で
             If targets.TokenString(NodeToken, "type") = SearchType Or StrPtr(SearchType) = 0 Then
@@ -849,7 +849,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
                         If TargetInfo_title = tabName Then
                             score = 100
                         '部分一致
-                        ElseIf InStr(TargetInfo_title, tabName) Then
+                        ElseIf InStr(1, TargetInfo_title, tabName) Then
                             score = 50
                         '一致せず
                         Else
