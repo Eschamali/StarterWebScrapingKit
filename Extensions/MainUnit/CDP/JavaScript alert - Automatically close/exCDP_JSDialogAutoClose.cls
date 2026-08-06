@@ -80,7 +80,7 @@ End Property
 
 
 '***************************************************************************************************
-'                               ■■■ メインとなる機能拡張部分 ■■■
+'                      ■■■ メインとなる機能拡張部分 - イベント処理 ■■■
 '***************************************************************************************************
 Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
@@ -98,20 +98,23 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
     If CurrentSessionID <> sessionID Then Exit Sub
 
     '3. 対象のイベント以外も即抜け
-    '処理したい対象の非同期イベント名を、各Case に記述してください。
     Select Case methodName
+        Dim DialogInfos As BiDiCDPJson
+
         Case "Page.javascriptDialogOpening"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
             If seeRawSendMsgDbg Then
-                Dim DialogInfos As BiDiCDPJson: Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+                Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "javascriptDialogOpening information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
-                printMsg Debug_, "url           : " & DialogInfos.StringKey("url"), FromProcedureName
-                printMsg Debug_, "message       : " & DialogInfos.StringKey("message"), FromProcedureName
-                printMsg Debug_, "type          : " & DialogInfos.StringKey("type"), FromProcedureName
-                printMsg Debug_, "defaultPrompt : " & DialogInfos.StringKey("defaultPrompt"), FromProcedureName
+                printMsg Debug_, "url               : " & DialogInfos.StringKey("url"), FromProcedureName
+                printMsg Debug_, "message           : " & DialogInfos.StringKey("message"), FromProcedureName
+                printMsg Debug_, "type              : " & DialogInfos.StringKey("type"), FromProcedureName
+                printMsg Debug_, "hasBrowserHandler : " & DialogInfos.BoolKey("hasBrowserHandler"), FromProcedureName
+                printMsg Debug_, "defaultPrompt     : " & DialogInfos.StringKey("defaultPrompt"), FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
 
