@@ -579,6 +579,93 @@ Private Sub DeleteStatusGUID(state As downloadProgress_params_state)
     Next
 End Sub
 
+'***************************************************************************************************
+'* 機能   ：`DownloadProgress`,`DownloadWillBegin`の中身をイミディエイトウィンドウに表示させます
+'---------------------------------------------------------------------------------------------------
+'* 引数   ：guid    見たい`guid`    ※省略すると、全表示します
+'***************************************************************************************************
+Public Sub PrintDownloadSummary(Optional guid As String)
+    Const FromProcedureName As String = ThisClassName & ".PrintDownloadSummary"
+
+
+    '単一表示判定
+    Dim tmp As BiDiCDPJson
+    If StrPtr(guid) Then
+        'ない場合は即抜け
+        If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid - " & guid & "` was specified that is not present in `downloadWillBegin`.", FromProcedureName: Exit Sub
+
+        '1. ヘッダーログ
+        printMsg info_, String(100, "="), FromProcedureName
+        printMsg info_, "guid - `" & guid & "` information", FromProcedureName
+        printMsg info_, String(100, "="), FromProcedureName
+
+        '2. `DownloadWillBegin`情報
+        Set tmp = DownloadWillBegin(guid)
+
+        printMsg info_, "guid              : " & tmp.StringKey("guid"), FromProcedureName
+        printMsg info_, "frameId           : " & tmp.StringKey("frameId"), FromProcedureName
+        printMsg info_, "url               : " & tmp.StringKey("url"), FromProcedureName
+        printMsg info_, "suggestedFilename : " & tmp.StringKey("suggestedFilename"), FromProcedureName
+
+        '3. `DownloadProgress`情報
+        If DownloadProgress.Exists(guid) Then
+            Set tmp = DownloadProgress(guid)
+
+            printMsg info_, "state             : " & tmp.StringKey("state"), FromProcedureName
+            printMsg info_, "filePath          : " & tmp.StringKey("filePath"), FromProcedureName
+            printMsg info_, "receivedBytes     : " & tmp.NumberKey("receivedBytes"), FromProcedureName
+            printMsg info_, "totalBytes        : " & tmp.NumberKey("totalBytes"), FromProcedureName
+
+        Else
+            printMsg info_, "`DownloadProgress` is nothing...", FromProcedureName
+        End If
+    Else
+        '1つもない場合は即抜け
+        If DownloadWillBegin.Count = 0 Then printMsg WARN_, "There are no instances of `downloadWillBegin`.", FromProcedureName: Exit Sub
+        printMsg info_, String(100, "="), FromProcedureName
+        printMsg info_, "Download Summary - " _
+                      & DownloadWillBegin.Count & " total | " _
+                      & DownloadStateCount(state_completed) & " completed | " _
+                      & DownloadStateCount(state_inProgress) & " in-progress", FromProcedureName
+        printMsg info_, String(100, "-"), FromProcedureName
+
+        'For Eachで回す
+        Dim CurrentGUID
+        For Each CurrentGUID In DownloadWillBegin.keys
+            '1. ヘッダーログ
+            printMsg info_, "guid - `" & CurrentGUID & "` information", FromProcedureName
+            printMsg info_, String(100, "-"), FromProcedureName
+
+            '2. `DownloadWillBegin`情報
+            Set tmp = DownloadWillBegin(CurrentGUID)
+    
+            printMsg info_, "guid              : " & tmp.StringKey("guid"), FromProcedureName
+            printMsg info_, "frameId           : " & tmp.StringKey("frameId"), FromProcedureName
+            printMsg info_, "url               : " & tmp.StringKey("url"), FromProcedureName
+            printMsg info_, "suggestedFilename : " & tmp.StringKey("suggestedFilename"), FromProcedureName
+    
+            '3. `DownloadProgress`情報
+            If DownloadProgress.Exists(CurrentGUID) Then
+                Set tmp = DownloadProgress(CurrentGUID)
+    
+                printMsg info_, "state             : " & tmp.StringKey("state"), FromProcedureName
+                printMsg info_, "filePath          : " & tmp.StringKey("filePath"), FromProcedureName
+                printMsg info_, "receivedBytes     : " & tmp.NumberKey("receivedBytes"), FromProcedureName
+                printMsg info_, "totalBytes        : " & tmp.NumberKey("totalBytes"), FromProcedureName
+    
+            Else
+                printMsg info_, "`DownloadProgress` is nothing...", FromProcedureName
+            End If
+
+            '区切り
+            printMsg info_, String(100, "-"), FromProcedureName
+        Next
+    End If
+
+    '〆
+    printMsg info_, String(100, "="), FromProcedureName
+End Sub
+
 
 
 '***************************************************************************************************
