@@ -326,6 +326,83 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分 ■■■
 '***************************************************************************************************
+'* 機能   ：指定のguidが、ダウンロード終るまで待機し続けます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：ダウンロード完了論理値
+'* 引数　　：guid           監視するguid
+'            TimeOutSecond  タイムアウト秒数
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・タイムアウトになったら、エラーにはならず、この関数を抜けるだけです
+'            ・`TimeOutSecond`は、前回の進捗から変化がない秒数として機能します
+'            ・`downloadWillBegin`にないものは即抜けします
+'***************************************************************************************************
+Public Function AutoWaitSingleCompleted(guid As String, Optional TimeOutSecond As Double = 30) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitSingleCompleted"
+
+
+    '1. `downloadWillBegin`に、その`guid`があるか？
+    If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid` was specified that is not present in `downloadWillBegin`.", ThisClassName: Exit Function
+
+    '2. 現在の経過時間を取得
+    Dim timerStart As Double: timerStart = TimerCounter
+
+    '3. メッセージを取り出しながら、進捗をチェックする
+    Dim CurrentReceivedBytes As Long
+    Do
+        'downloadProgress - state に応じた分岐
+        Select Case Me.DownloadProgressInfo(guid, downloadProgress_state)
+            Case EnumToStringDownloadProgressState(state_inProgress)
+                '進捗取り出し
+                With Me
+                    Dim Progress_totalBytes     As Long: Progress_totalBytes = .DownloadProgressInfo(guid, downloadProgress_totalBytes)
+                    Dim Progress_receivedBytes  As Long: Progress_receivedBytes = .DownloadProgressInfo(guid, downloadProgress_receivedBytes)
+                End With
+
+                '3-1. 前回値より変化してたらタイマーリセットし、進捗表示
+                If CurrentReceivedBytes < Progress_receivedBytes Then
+                    'タイマーリセット
+                    timerStart = TimerCounter
+
+                    '進捗計算し、表示
+                    If Progress_totalBytes > 0 Then
+                        ' 全体サイズが分かるとき、% 表示
+                        Dim progressStr As String
+                        progressStr = FormatPercent(Progress_receivedBytes / Progress_totalBytes, 2)
+                        printMsg info_, guid & " - progress : " & progressStr & " (" & Progress_receivedBytes & " / " & Progress_totalBytes & ")", FromProcedureName
+                    Else
+                        ' 全体サイズが分からないとき、受信バイト数だけ表示
+                        printMsg info_, guid & " - progress : " & Format(Progress_receivedBytes / 1024, "#,##0") & " KB received", FromProcedureName
+                    End If
+
+                    '現時点での、`receivedBytes`情報を更新
+                    CurrentReceivedBytes = Progress_receivedBytes
+                End If
+
+            Case EnumToStringDownloadProgressState(state_completed)
+                '3-1. 正常終了なら、`True`返却
+                AutoWaitSingleCompleted = True
+                printMsg info_, "Download completed: " & guid, FromProcedureName
+                Exit Do
+
+            Case EnumToStringDownloadProgressState(state_canceled)
+                '3-1. ユーザーによるキャンセルあるいは、ウイルス判定による強制キャンセル時は、`False`返却
+                AutoWaitSingleCompleted = False
+                printMsg WARN_, "Download canceled : " & guid, FromProcedureName
+                Exit Do
+        End Select
+
+        '3-2. 指定秒数、進捗に変化なかったら、抜ける
+        If TimerCounter - timerStart > TimeOutSecond * 1000 Then
+            printMsg WARN_, "The process timed out because there was no change in progress for a certain period of time.", FromProcedureName
+            Exit Do
+        End If
+
+        '3-3. メッセージ取り出し
+        TakeEvents  '内部で`DoEvents`が走ってくれます
+    Loop
+End Function
+
+'***************************************************************************************************
 '* 機能   ：指定の数分、ダウンロードが終るまで待機し続けます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：ダウンロード完了数
@@ -342,8 +419,8 @@ End Sub
 '              例えば、クリックによる並列DLをして、このメソッドを呼ぶ時点で既に、最初のクリックによるDLが終ってしまった場合です
 '              その場合は、bas側で適切なタイミング(DLが来るタイミングの前にクリア等)で手動クリアしてください
 '***************************************************************************************************
-Public Function AutoWaitCompleted(CompleteCount As Long, Optional TimeOutSecond As Double = 30, Optional ClearDLHistory As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".AutoWaitCompleted"
+Public Function AutoWaitMultiCompleted(CompleteCount As Long, Optional TimeOutSecond As Double = 30, Optional ClearDLHistory As Boolean) As Long
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitMultiCompleted"
 
 
     '1. `downloadProgress - state`が、`completed`,`canceled`になってる`GUID`を削除
@@ -468,7 +545,7 @@ Public Function AutoWaitCompleted(CompleteCount As Long, Optional TimeOutSecond 
     Loop
 
     '7. ダウンロードが正常終了した数で、返却
-    AutoWaitCompleted = CompletedGUIDs.Count
+    AutoWaitMultiCompleted = CompletedGUIDs.Count
 End Function
 
 '***************************************************************************************************
