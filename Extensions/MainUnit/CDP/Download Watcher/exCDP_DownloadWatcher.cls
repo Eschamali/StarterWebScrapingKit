@@ -26,7 +26,7 @@ Attribute ex_CDPCore.VB_VarHelpID = -1
 Private ex_CDPBrowser               As CDPBrowser   '継承元のブラウザクラス
 
 '内部使用用
-Private Const ThisClassName         As String = "exCDP_DownloadWatcherForBrowser"
+Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
 
 'ステート管理
 Private defaultBrowserContextId     As String       '継承時のブラウザコンテキスト
