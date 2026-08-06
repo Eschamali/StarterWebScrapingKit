@@ -174,7 +174,7 @@ Property Get DownloadProgressInfo(guid As String, params As downloadProgress_par
         End Select
     Else
         '2. `downloadProgress`‚ªˆê“x‚à—ˆ‚Ä‚È‚¢ê‡
-        DownloadProgressInfo = vbNull
+        DownloadProgressInfo = vbEmpty
     End If
 End Property
 
