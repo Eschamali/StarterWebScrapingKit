@@ -1368,8 +1368,8 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
                 With brTab
                     .Title = tmp.StringKey("title")
                     .Url = tmp.StringKey("url")
+                    .browserContextId = tmp.StringKey("browserContextId")
                 End With
-                brTab.browserContextId = tmp.StringKey("browserContextId")
 
                 printMsg info_, "The information on this tab has been updated.", FromProcedureName
             End If
