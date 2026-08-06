@@ -2018,7 +2018,7 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
     Dim params As New Scripting.Dictionary
 
-    params("accept") = CBool(Accept)
+    params("accept") = Accept
     If StrPtr(promptText) Then params("promptText") = promptText
     ExecuteCDP "Page.handleJavaScriptDialog", params
 
