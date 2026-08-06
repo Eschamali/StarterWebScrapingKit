@@ -169,14 +169,11 @@ Friend Sub Init(Inheritance As CDPContext)
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
-
-    'ブラウザ非同期処理を有効化
-    EnableBrowserEvents = True
 
     'ダイアログへのデフォルト値を設定
     JavaScriptDialogClose.Accept = True
