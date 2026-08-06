@@ -152,7 +152,9 @@ End Function
 '***************************************************************************************************
 '                               ■■■ 初期設定プロシージャ ■■■
 '***************************************************************************************************
-'* 機能　　：CDP制御のベースとなる`CDPCore.cls`を継承させます
+'* 機能　　：CDP制御のベースとなる`CDPCore.cls`等を継承させます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：この拡張機能Classを動かすのに必要なオブジェクトや情報を渡し、イベント処理機能を有効化させます
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
@@ -160,10 +162,10 @@ Friend Sub Init(Inheritance As CDPContext)
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'SessionIdを取得
-    CurrentSessionId = ex_CDPContext.CurrentSessionId
+    CurrentSessionID = ex_CDPContext.CurrentSessionID
 
     'Pageドメインの有効化
-    ex_CDPContext.pageEnable
+    EnableEvents = True
 End Sub
 
 '***************************************************************************************************
