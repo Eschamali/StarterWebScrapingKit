@@ -64,10 +64,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：confirm / prompt / beforeunload で True=はい・OK、False=いいえ・キャンセル（alert は常に True で閉じる）
 '***************************************************************************************************
-Public Property Get DefaultAccept() As Boolean
-    DefaultAccept = JavaScriptDialogClose.Accept
-End Property
-Public Property Let DefaultAccept(ByVal v As Boolean)
+Public Property Let DefaultAccept(v As Boolean)
     JavaScriptDialogClose.Accept = v
 End Property
 
@@ -76,10 +73,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：prompt かつ accept するときに Page.handleJavaScriptDialog の promptText に使う
 '***************************************************************************************************
-Public Property Get DefaultPromptText() As String
-    DefaultPromptText = JavaScriptDialogClose.promptText
-End Property
-Public Property Let DefaultPromptText(ByVal v As String)
+Public Property Let DefaultPromptText(v As String)
     JavaScriptDialogClose.promptText = v
 End Property
 
