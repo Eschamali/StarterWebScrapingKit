@@ -341,7 +341,7 @@ Public Function AutoWaitSingleCompleted(guid As String, Optional TimeOutSecond A
 
 
     '1. `downloadWillBegin`‚ÉA‚»‚Ì`guid`‚ª‚ ‚é‚©H
-    If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid` was specified that is not present in `downloadWillBegin`.", ThisClassName: Exit Function
+    If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid - " & guid & "` was specified that is not present in `downloadWillBegin`.", ThisClassName: Exit Function
 
     '2. Œ»İ‚ÌŒo‰ßŠÔ‚ğæ“¾
     Dim timerStart As Double: timerStart = TimerCounter
