@@ -24,8 +24,7 @@ Option Explicit
 'ブラウザ制御オブジェクト
 Private WithEvents ex_CDPCore       As CDPCore      'イベント受け取りオブジェクト
 Attribute ex_CDPCore.VB_VarHelpID = -1
-Private ex_CDPBrowser               As CDPBrowser   '継承元のコンテキスト(タブ)
-Private ex_CDPContext               As CDPContext   '継承元のブラウザ
+Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
 
 
 '内部使用用
@@ -158,7 +157,6 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'SessionIdを取得
