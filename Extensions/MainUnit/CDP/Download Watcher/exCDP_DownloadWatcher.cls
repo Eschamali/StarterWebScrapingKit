@@ -412,6 +412,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・返り値と`CompleteCount`を比較して、ちゃんとDLが終えたかを確認できます
 '            ・この中身のロジックを参考に、bas側で自力で高度な待機も可能です
+'            ・基本は複数待ちとして機能しますが、`CompleteCount:=1` × `ClearDLHistory:=True`とすることで、「最新の1件待機」といったことも可能です
 '
 '* 注意事項：・タイムアウトになったら、エラーにはならず、この関数を抜けるだけです
 '            ・`TimeOutSecond`は、前回の進捗から変化がない秒数として機能します
@@ -422,6 +423,9 @@ End Function
 Public Function AutoWaitMultiCompleted(CompleteCount As Long, Optional TimeOutSecond As Double = 30, Optional ClearDLHistory As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".AutoWaitMultiCompleted"
 
+
+    'エラーガード
+    If CompleteCount < 1 Then printMsg ERROR_, "Please set `CompleteCount` to 1 or greater.", FromProcedureName, doRaiseError:=True
 
     '1. `downloadProgress - state`が、`completed`,`canceled`になってる`GUID`を削除
     If ClearDLHistory Then
