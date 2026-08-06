@@ -123,6 +123,20 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 ex_CDPContext.handleDialog .Accept, .promptText
             End With
 
+        Case "Page.javascriptDialogClosed"
+            '4. デバッグログ用に、Jsonパース処理
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
+            If seeRawSendMsgDbg Then
+                Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+
+                printMsg Debug_, String(100, "="), FromProcedureName
+                printMsg Debug_, "javascriptDialogClosed information", FromProcedureName
+                printMsg Debug_, String(100, "="), FromProcedureName
+                printMsg Debug_, "result    : " & DialogInfos.BoolKey("result"), FromProcedureName
+                printMsg Debug_, "userInput : " & DialogInfos.StringKey("userInput"), FromProcedureName
+                printMsg Debug_, String(100, "="), FromProcedureName
+            End If
+
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
 
