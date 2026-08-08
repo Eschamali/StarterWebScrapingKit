@@ -239,7 +239,7 @@ End Sub
 '* 機能　　：JavaScript関数、`alert`処理に関するDemoです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：非同期実行、イベントキャプチャした内容をもとにコマンド実行といったことをデモンストレーションします
-'* 注意事項：このライブラリのメソッドは、同期前提で組まれてる都合上、低レベル操作で記述します
+'* 注意事項：ここでの非同期clickは`jsEval`で表現します
 '***************************************************************************************************
 Sub TestAlert()
     '設定シートに基づくブラウザ立ち上げ。`selenium`の独自テストページに遷移します
@@ -357,6 +357,7 @@ End Sub
 '* 機能　　：ShadowRootに関するDemoです。シンプル版です
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Open/Close 問わず、メソッドチェーン操作で利用できます
+'* 注意事項：ここでの非同期clickは`CDPElement`で表現します
 '***************************************************************************************************
 Sub SimpleShadowRootTest()
     '1. ShadowRootページを開く
@@ -373,8 +374,12 @@ Sub SimpleShadowRootTest()
         .pageEnable                           '`Page`ドメインを有効
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
-        '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行(先述にて、直で`.click`をしないのはこのため)
-        .jsEval "function() { this.click(); }", JavaScriptAlertButton.CurrentObjectId, RunAsyncCDP:=True
+        '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行するように設定(先述にて、直で`.click`をしないのはこのため)
+        JavaScriptAlertButton.SetOptionRunAsyncCDP = True
+
+        '改めてクリック処理
+        JavaScriptAlertButton.SimpleClick
+        JavaScriptAlertButton.SetOptionRunAsyncCDP = False  '元に戻しておく
 
         ' --- 6. 特定のイベント名が出るまでループ ---
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
