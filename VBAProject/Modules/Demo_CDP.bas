@@ -492,6 +492,7 @@ Sub runHidden()
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
     chrome.getElementByQuery("[name='q']").submit
+    chrome.wait
 
    'Click the target result link
     chrome.getElementByXPath("//h3[text()='Automate Chrome / Edge using VBA']").click
@@ -534,6 +535,7 @@ Sub runHiddenForJapan()
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
     chrome.getElementByQuery("[name='q']").submit
+    chrome.wait '検索ボタン押下によりページ遷移発生につき、`wait`を挟む
 
     'Click the target result link
     chrome.getElementByXPath("//h3[text()='Chrome DevTools ProtocolでEdgeを操作するVBAマクロ']").click      '2026/02/16 時点での、最上位結果
@@ -622,6 +624,7 @@ Sub runNewTab()
     chrome.navigate "https://google.com"
     chrome.getElementByQuery("[name='q']").value = "newstarget.com"
     chrome.getElementByQuery("[name='q']").submit
+    chrome.wait '検索ボタン押下によりページ遷移発生につき、`wait`を挟む
 
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
