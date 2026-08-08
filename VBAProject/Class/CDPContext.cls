@@ -463,7 +463,7 @@ End Sub
 '            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
 '                                           False：特に施しません
 '
-'            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します
+'            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
@@ -504,7 +504,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userGesture As Boolean, _
-                       Optional allowUnsafeEvalBlockedByCSP As Boolean, _
+                       Optional allowUnsafeEvalBlockedByCSP As Boolean = True, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
@@ -563,7 +563,7 @@ step1:
     If returnByValue Then CDPparams.Add "returnByValue", returnByValue
     If awaitPromise Then CDPparams.Add "awaitPromise", awaitPromise
     If userGesture Then CDPparams.Add "userGesture", userGesture
-    If allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
+    If Not allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
     If generatePreview Then CDPparams.Add "generatePreview", generatePreview
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
