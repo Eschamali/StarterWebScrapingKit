@@ -494,7 +494,7 @@ Public Function focus()
 
 End Function
 
-Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete) As Boolean
+Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
 ' Dispatch the custom event on the element. Unlike the IE
 ' DOM event name, the argument strEventName for JS should
@@ -513,8 +513,6 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
     args.Add arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
 
-   'Wait till applied
-    main.wait till:=till
     fireEvent = True
 
 End Function
