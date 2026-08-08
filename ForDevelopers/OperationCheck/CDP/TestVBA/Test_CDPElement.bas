@@ -1,462 +1,500 @@
 Attribute VB_Name = "Test_CDPElement"
+'==============================================================================
+' CDPElement.cls 動作確認（要素操作クラスの単体テスト）
+' ・HTML: ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html
+' ・実行前に CDP が起動可、WORKSPACE_PATH をルートに設定してから RunAll_CDPElement_Tests を実行
+'==============================================================================
 Option Explicit
 
-'==============================================================================
-' CDPContext 全機能テストモジュール
-' ・テスト用HTMLファイル: ForDevelopers\OperationCheck\TestHtml\Test_CDPElement\CDPElementTest.html
-' ・テスト実行前に CDPBrowser を開いて当該ページが表示されている状態にしてください
-'==============================================================================
-
-
-' ── テスト結果カウンタ
 Private passCount As Long
 Private failCount As Long
-Private results As Collection
 
-'ワークスペースパス
-'※StarterWebScrapingKitのルートフォルダ を入力してください
+'ワークスペースパス（StarterWebScrapingKit ルート）
 Private Const WORKSPACE_PATH As String = ""
 
-' ブラウザ updateStatus 等へ渡すチェック（モジュール保存で絵文字が化ける場合の代替・U+2705）
-Private Function ECheck() As String
-    ECheck = WorksheetFunction.Unichar(9989)
+Private Function EOk() As String
+    EOk = WorksheetFunction.Unichar(9989)
 End Function
 
 '==============================================================================
-' Main: 全テスト実行
+' エントリ
 '==============================================================================
 Public Sub RunAll_CDPElement_Tests()
     Dim br As CDPContext: Set br = ShSetting01_StartBrowser.StartCDPModeContext
 
-    '--- ブラウザ起動 & HTMLページへナビゲート ---
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html", "\", "/")
     br.wait
 
-    passCount = 0
-    failCount = 0
-    Set results = New Collection
+    passCount = 0: failCount = 0
 
-    PrintHeader "CDPElement 全機能テスト 開始"
+    PrintHeader "CDPElement 検証テスト 開始"
 
-    ' ─── 各テスト実行 ───
-    Test01_Value br
-    Test02_innerText br
-    Test03_innerHTML br
-    Test04_checked br
-    Test05_selected br
-    Test06_click br
-    Test07_Attribute br
-    Test08_focus_selectText br
-    Test09_sendKey br
-    Test10_submit br
-    Test11_Traversal br
-    Test12_Collections br
-    Test13_isExist_onExist br
-    Test14_getIFrame br
+    Test01_Value_SendString_ClearValue br
+    Test02_InnerText_InnerHTML br
+    Test03_Checked br
+    Test04_Selected_SetSelection br
+    Test05_Click_SimpleClick_FireEvent br
+    Test06_SendClick_SendKey br
+    Test07_GetAttribute_SetAttribute br
+    Test08_Focus_SelectText br
+    Test09_Submit br
+    Test10_Traversal_Parent_Siblings_FirstChild br
+    Test11_GetChildren_ElementsByQuery_ElementsByXPath br
+    Test12_ElementByID_Query_XPath_Scoped br
+    Test13_IsExist_IfExist_OnExist_OnExistNot br
+    Test14_GetIFrame br
+    Test15_ShadowRoot_Open_Closed br
+    Test16_SetFileInputFiles br
+    Test17_Diagnostics_And_Options br
 
-    '--- 最終サマリー ---
-    PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
+    PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
+
+    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopPipeError:=True
 
     br.InheritanceCDPBrowser.quit
 End Sub
 
 '==============================================================================
-' ① value GET/LET / sendString / clearValue
+' ① value / sendString / clearValue
 '==============================================================================
-Private Sub Test01_Value(br As CDPContext)
+Private Sub Test01_Value_SendString_ClearValue(br As CDPContext)
     PrintSection "① value / sendString / clearValue"
-    Dim el As CDPElement
 
-    ' --- value LET ---
-    Set el = br.getElementByID("testInput")
-    el.value = "VBAから設定した値"
-    Dim got As String: got = el.value
-    AssertEq "value LET→GET", got, "VBAから設定した値"
-    br.jsEval "updateStatus('s-value','value LET: ' + document.getElementById('testInput').value, true)"
+    Dim el As CDPElement: Set el = br.getElementByID("testInput")
 
-    ' --- clearValue ---
+    el.value = "Hello VBA"
+    AssertEq "value(Let→Get)", el.value, "Hello VBA"
+
+    el.sendString "Real Key Input"
+    AssertEq "sendString後のvalue", el.value, "Real Key Input"
+
     el.clearValue
     AssertEq "clearValue後のvalue", el.value, ""
-    br.jsEval "updateStatus('s-value','clearValue後: ' + document.getElementById('testInput').value, true)"
 
-    ' --- sendString ---
-    el.sendString "sendStringで入力"
-    AssertEq "sendString後のvalue", el.value, "sendStringで入力"
-    br.jsEval "updateStatus('s-value','sendString: ' + document.getElementById('testInput').value, true)"
-
-    ' --- UseSearchJS / varResult (Basic Properties) ---
-    AssertNotEmpty "UseSearchJS プロパティ取得", el.UseSearchJS
-    AssertEq "varResult プロパティ取得(vbString=8)", CStr(el.varResult), "8"
+    br.jsEval "updateStatus('s-ce01','① 完了 " & EOk() & " | value / sendString / clearValue', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ② innerText GET/LET
+' ② innerText / innerHTML
 '==============================================================================
-Private Sub Test02_innerText(br As CDPContext)
-    PrintSection "② innerText GET/LET"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testInnerText")
+Private Sub Test02_InnerText_InnerHTML(br As CDPContext)
+    PrintSection "② innerText / innerHTML"
 
-    ' GET
-    Dim orig As String: orig = el.innerText
-    AssertNotEmpty "innerText GET", orig
+    Dim txtEl As CDPElement: Set txtEl = br.getElementByID("testTextDiv")
+    AssertEq "innerText初期値", txtEl.innerText, "initial text"
+    txtEl.innerText = "changed text"
+    AssertEq "innerText変更後", txtEl.innerText, "changed text"
 
-    ' LET（クォート/特殊文字含む）
-    el.innerText = "VBAから設定: 「引用符」と 'アポ' テスト & 記号"
-    AssertEq "innerText LET→GET", el.innerText, "VBAから設定: 「引用符」と 'アポ' テスト & 記号"
-    br.jsEval "updateStatus('s-innertext', document.getElementById('testInnerText').innerText, true)"
+    Dim htmlEl As CDPElement: Set htmlEl = br.getElementByID("testHtmlDiv")
+    AssertContains "innerHTML初期値", htmlEl.innerHTML, "bold"
+    htmlEl.innerHTML = "<i>italic</i>"
+    AssertContains "innerHTML変更後", htmlEl.innerHTML, "italic"
+
+    br.jsEval "updateStatus('s-ce02','② 完了 " & EOk() & " | innerText / innerHTML', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ③ innerHTML GET/LET
+' ③ checked（チェックボックス）
 '==============================================================================
-Private Sub Test03_innerHTML(br As CDPContext)
-    PrintSection "③ innerHTML GET/LET"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testInnerHTML")
+Private Sub Test03_Checked(br As CDPContext)
+    PrintSection "③ checked"
 
-    ' GET
-    Dim orig As String: orig = el.innerHTML
-    AssertNotEmpty "innerHTML GET", orig
+    Dim cb As CDPElement: Set cb = br.getElementByID("testCheckbox")
 
-    ' LET
-    el.innerHTML = "<span style='color:#6c63ff'>" & ECheck() & " VBAから設定した innerHTML</span>"
-    AssertContains "innerHTML LET→GET", el.innerHTML, "VBAから設定"
-    br.jsEval "updateStatus('s-innerhtml', 'innerHTML 更新済み " & ECheck() & "', true)"
+    cb.checked = True
+    AssertTrue "checked=True設定後", cb.checked
+
+    cb.checked = False
+    AssertFalse "checked=False設定後", cb.checked
+
+    br.jsEval "updateStatus('s-ce03','③ 完了 " & EOk() & " | checked', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ④ checked GET/LET
+' ④ selected / setSelection（セレクトボックス）
 '==============================================================================
-Private Sub Test04_checked(br As CDPContext)
-    PrintSection "④ checked GET/LET"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testCheckbox")
+Private Sub Test04_Selected_SetSelection(br As CDPContext)
+    PrintSection "④ selected / setSelection"
 
-    ' LET = True
-    el.checked = True
-    AssertEq "checked LET=True", CStr(el.checked), "True"
+    Dim sel As CDPElement: Set sel = br.getElementByID("testSelect")
 
-    ' LET = False
-    el.checked = False
-    AssertEq "checked LET=False", CStr(el.checked), "False"
-    br.jsEval "updateStatus('s-checked','checked テスト完了 " & ECheck() & "', true)"
+    '`setSelection`はvalue属性で指定して選択する
+    sel.setSelection "opt2"
+    AssertEq "setSelection後のvalue", sel.value, "opt2"
+
+    '`selected`Letは、selectedIndexで指定して選択する（0始まり）
+    sel.selected = "0"
+    AssertEq "selected=0後のvalue", sel.value, "opt1"
+
+    '`selected`Getは、選択中option要素のobjectIdを返す（文字列取得できていることの確認）
+    AssertNotEmpty "selected（選択中option要素のobjectId）", CStr(sel.selected)
+
+    br.jsEval "updateStatus('s-ce04','④ 完了 " & EOk() & " | selected / setSelection', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑤ selected / setSelection
+' ⑤ click / SimpleClick / fireEvent
 '==============================================================================
-Private Sub Test05_selected(br As CDPContext)
-    PrintSection "⑤ selected / setSelection"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testSelect")
+Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext)
+    PrintSection "⑤ click / SimpleClick / fireEvent"
 
-    ' selected LET = index
-    el.selected = "1"
-    Dim selVal As String: selVal = el.selected
-    AssertNotEmpty "selected LET=1 → GET", selVal
-    br.jsEval "updateStatus('s-selected','selected=' & document.getElementById('testSelect').selectedIndex, true)"
+    Dim btn As CDPElement: Set btn = br.getElementByID("testClickBtn")
 
-    ' setSelection (option value)
-    el.setSelection "opt-c"
-    selVal = el.selected
-    AssertNotEmpty "setSelection(opt-c) → GET", selVal
-    br.jsEval "updateStatus('s-selected','setSelection後 idx=' & document.getElementById('testSelect').selectedIndex, true)"
+    AssertEq "初期クリック回数", btn.getAttribute("data-clickcount"), "0"
+
+    btn.click
+    AssertEq "click後のクリック回数", btn.getAttribute("data-clickcount"), "1"
+
+    btn.SimpleClick
+    AssertEq "SimpleClick後のクリック回数", btn.getAttribute("data-clickcount"), "2"
+
+    btn.fireEvent "customtestevent"
+    AssertEq "fireEvent後のcustomfired", btn.getAttribute("data-customfired"), "true"
+
+    br.jsEval "updateStatus('s-ce05','⑤ 完了 " & EOk() & " | click / SimpleClick / fireEvent', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑥ click() / fireEvent()
+' ⑥ sendClick / sendKey
 '==============================================================================
-Private Sub Test06_click(br As CDPContext)
-    PrintSection "⑥ click / fireEvent"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testButton")
+Private Sub Test06_SendClick_SendKey(br As CDPContext)
+    PrintSection "⑥ sendClick / sendKey"
 
-    ' click
-    el.click isLoading
-    AssertPass "click() 実行"
+    Dim scBtn As CDPElement: Set scBtn = br.getElementByID("testSendClickBtn")
+    AssertEq "sendClick前のクリック回数", scBtn.getAttribute("data-clickcount"), "0"
+    scBtn.sendClick
+    AssertEq "sendClick後のクリック回数", scBtn.getAttribute("data-clickcount"), "1"
 
-    ' fireEvent
-    el.fireEvent "click"
-    AssertPass "fireEvent('click') 実行"
+    Dim ki As CDPElement: Set ki = br.getElementByID("testKeyInput")
+    ki.sendKey keyEnter
+    AssertEq "sendKey(keyEnter)後のkeyCode", ki.getAttribute("data-lastkeycode"), "13"
 
-    ' sendClick
-    Dim sendClickEl As CDPElement
-    Set sendClickEl = br.getElementByID("testSendClickBtn")
-    sendClickEl.sendClick
-    AssertPass "sendClick() 実行"
+    ki.sendKey keyBackspace
+    AssertEq "sendKey(keyBackspace)後のkeyCode", ki.getAttribute("data-lastkeycode"), "8"
 
-    br.jsEval "updateStatus('s-click','click/fireEvent/sendClick テスト完了 " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-ce06','⑥ 完了 " & EOk() & " | sendClick / sendKey', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
 ' ⑦ getAttribute / setAttribute
 '==============================================================================
-Private Sub Test07_Attribute(br As CDPContext)
+Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext)
     PrintSection "⑦ getAttribute / setAttribute"
-    Dim el As CDPElement
-    Set el = br.getElementByID("testAttr")
 
-    ' getAttribute
-    Dim attrVal As String: attrVal = el.getAttribute("data-custom")
-    AssertEq "getAttribute(data-custom)", attrVal, "original-attr"
+    Dim el As CDPElement: Set el = br.getElementByID("testAttrTarget")
 
-    ' setAttribute
-    el.setAttribute "data-custom", "VBAから変更した属性値"
-    AssertEq "setAttribute→getAttribute", el.getAttribute("data-custom"), "VBAから変更した属性値"
-    br.jsEval "updateStatus('s-attr', document.getElementById('testAttr').dataset.custom, true)"
+    AssertEq "getAttribute初期値", el.getAttribute("data-foo"), "bar"
+
+    el.setAttribute "data-foo", "baz"
+    AssertEq "setAttribute後のgetAttribute", el.getAttribute("data-foo"), "baz"
+
+    br.jsEval "updateStatus('s-ce07','⑦ 完了 " & EOk() & " | getAttribute / setAttribute', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
 ' ⑧ focus / selectText
 '==============================================================================
-Private Sub Test08_focus_selectText(br As CDPContext)
+Private Sub Test08_Focus_SelectText(br As CDPContext)
     PrintSection "⑧ focus / selectText"
 
-    ' focus
-    Dim el As CDPElement
-    Set el = br.getElementByID("testFocusInput")
-    el.focus
-    AssertPass "focus() 実行"
+    Dim fi As CDPElement: Set fi = br.getElementByID("testFocusInput")
+    fi.focus
+    Dim activeId As Variant
+    activeId = br.jsEval("document.activeElement.id", StopPipeError:=False)
+    AssertEq "focus後のdocument.activeElement.id", CStr(activeId), "testFocusInput"
 
-    ' selectText
-    Dim ta As CDPElement
-    Set ta = br.getElementByID("testTextArea")
-    ta.selectText
-    AssertPass "selectText() 実行"
-    br.jsEval "updateStatus('s-focus','focus/selectText テスト完了 " & ECheck() & "', true)"
+    Dim st As CDPElement: Set st = br.getElementByID("testSelectTextTarget")
+    st.selectText
+    Dim selectedText As Variant
+    selectedText = br.jsEval("window.getSelection().toString()", StopPipeError:=False)
+    AssertEq "selectText後の選択文字列", CStr(selectedText), "Select this whole text"
+
+    br.jsEval "updateStatus('s-ce08','⑧ 完了 " & EOk() & " | focus / selectText', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑨ sendKey
+' ⑨ submit
 '==============================================================================
-Private Sub Test09_sendKey(br As CDPContext)
-    PrintSection "⑨ sendKey"
+Private Sub Test09_Submit(br As CDPContext)
+    PrintSection "⑨ submit"
 
-    ' Field A にフォーカス→ Tab で Field B へ移動
-    Dim el1 As CDPElement
-    Set el1 = br.getElementByID("keyInput1")
-    el1.sendString "Field_A_Updated"
-    el1.sendKey keyTab
-    AssertPass "sendKey(Tab) 実行"
-    br.jsEval "updateStatus('s-sendkey','sendKey(Tab) テスト完了 " & ECheck() & "', true)"
+    '`submit`は`this.form.submit()`を呼ぶため、通常はページ遷移が発生する。
+    'テストページを壊さず検証するため、HTML側で`<form>`インスタンスの`submit`メソッドを
+    'JSでオーバーライドし、呼び出しがあったことだけを記録するようにしている。
+    Dim el As CDPElement: Set el = br.getElementByID("testSubmitInput")
+    el.submit
 
-    ' Field B で Backspace 1回
-    Dim el2 As CDPElement
-    Set el2 = br.getElementByID("keyInput2")
-    el2.sendKey keyBackspace
-    AssertPass "sendKey(Backspace) 実行"
+    Dim frm As CDPElement: Set frm = br.getElementByID("testForm")
+    AssertEq "submit呼び出し後のdata-submitted", frm.getAttribute("data-submitted"), "true"
+
+    br.jsEval "updateStatus('s-ce09','⑨ 完了 " & EOk() & " | submit', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑩ submit
+' ⑩ DOM階層: getParent / getNextSibling / getPrevSibling / getFirstChild
 '==============================================================================
-Private Sub Test10_submit(br As CDPContext)
-    PrintSection "⑩ submit"
-    Dim formEl As CDPElement
-    Set formEl = br.getElementByID("testForm")
-    formEl.submit isLoading
-    AssertPass "submit メソッド 実行 (form要素に対して)"
-    br.jsEval "updateStatus('s-submit','submit テスト完了 " & ECheck() & "', true)"
+Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext)
+    PrintSection "⑩ getParent / getNextSibling / getPrevSibling / getFirstChild"
+
+    Dim parentEl As CDPElement: Set parentEl = br.getElementByID("traversalParent")
+    Dim child1 As CDPElement: Set child1 = parentEl.getFirstChild
+    AssertEq "getFirstChildのid", child1.getAttribute("id"), "child1"
+
+    Dim child2 As CDPElement: Set child2 = child1.getNextSibling
+    AssertEq "getNextSiblingのid", child2.getAttribute("id"), "child2"
+
+    Dim child3 As CDPElement: Set child3 = br.getElementByID("child3")
+    Dim backToChild2 As CDPElement: Set backToChild2 = child3.getPrevSibling
+    AssertEq "getPrevSiblingのid", backToChild2.getAttribute("id"), "child2"
+
+    Dim parentBack As CDPElement: Set parentBack = child2.getParent
+    AssertEq "getParentのid", parentBack.getAttribute("id"), "traversalParent"
+
+    br.jsEval "updateStatus('s-ce10','⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑪ トラバーサル: getParent / getNextSibling / getPrevSibling / getFirstChild
+' ⑪ getChildren / getElementsByQuery / getElementsByXPath（要素スコープ、複数取得）
 '==============================================================================
-Private Sub Test11_Traversal(br As CDPContext)
-    PrintSection "⑪ トラバーサル"
+Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As CDPContext)
+    PrintSection "⑪ getChildren / getElementsByQuery / getElementsByXPath"
 
-    Dim child2 As CDPElement
-    Set child2 = br.getElementByID("traversalChild2")
+    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
 
-    ' getParent
-    Dim Parent As CDPElement
-    Set Parent = child2.getParent()
-    AssertEq "getParent → id", Parent.getAttribute("id"), "traversalParent"
+    Dim children As Collection: Set children = ul.getChildren
+    AssertEq "getChildrenの件数", CStr(children.Count), "5"
 
-    ' getNextSibling
-    Dim nextEl As CDPElement
-    Set nextEl = child2.getNextSibling()
-    AssertEq "getNextSibling → id", nextEl.getAttribute("id"), "traversalChild3"
+    Dim byQuery As Collection: Set byQuery = ul.getElementsByQuery(".list-item")
+    AssertEq "getElementsByQueryの件数", CStr(byQuery.Count), "5"
+    AssertEq "getElementsByQuery[1]のdata-n", byQuery(1).getAttribute("data-n"), "1"
 
-    ' getPrevSibling
-    Dim prevEl As CDPElement
-    Set prevEl = child2.getPrevSibling()
-    AssertEq "getPrevSibling → id", prevEl.getAttribute("id"), "traversalChild1"
+    Dim byXPath As Collection: Set byXPath = ul.getElementsByXPath("li")
+    AssertEq "getElementsByXPathの件数", CStr(byXPath.Count), "5"
 
-    ' getFirstChild (parentから)
-    Dim firstEl As CDPElement
-    Set firstEl = Parent.getFirstChild()
-    AssertEq "getFirstChild → id", firstEl.getAttribute("id"), "traversalChild1"
-
-    br.jsEval "updateStatus('s-traversal','トラバーサル テスト完了 " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-ce11','⑪ 完了 " & EOk() & " | getChildren / getElementsByQuery / getElementsByXPath', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑫ コレクション: getChildren / getElementsByQuery / getElementsByXPath
+' ⑫ getElementByID / getElementByQuery / getElementByXPath（要素スコープ、単一取得）
 '==============================================================================
-Private Sub Test12_Collections(br As CDPContext)
-    PrintSection "⑫ コレクション"
-    Dim ulEl As CDPElement
-    Set ulEl = br.getElementByID("collection-list")
+Private Sub Test12_ElementByID_Query_XPath_Scoped(br As CDPContext)
+    PrintSection "⑫ getElementByID / getElementByQuery / getElementByXPath（スコープ検索）"
 
-    ' getChildren
-    Dim children As Collection
-    Set children = ulEl.getChildren()
-    AssertEq "getChildren → count", CStr(children.Count), "5"
-    AssertEq "getChildren(1) data-n", children(1).getAttribute("data-n"), "1"
-    AssertEq "getChildren(5) data-n", children(5).getAttribute("data-n"), "5"
+    Dim ul As CDPElement: Set ul = br.getElementByID("collectionList")
 
-    ' getElementsByQuery (from CDPBrowser)
-    Dim Items As Collection
-    Set Items = br.getElementsByQuery(".list-item")
-    AssertEq "getElementsByQuery → count", CStr(Items.Count), "5"
-    AssertEq "getElementsByQuery(3) データ", Items(3).getAttribute("data-n"), "3"
+    Dim byId As CDPElement: Set byId = ul.getElementByID("collectionItem3")
+    AssertEq "getElementByID(スコープ)の内容", byId.innerText, "C"
 
-    ' getElementByXPath
-    Dim xpEl As CDPElement
-    Set xpEl = br.getElementByXPath("//li[@data-n='4']")
-    AssertEq "getElementByXPath data-n=4", xpEl.getAttribute("data-n"), "4"
+    Dim byQuery As CDPElement: Set byQuery = ul.getElementByQuery("[data-n='2']")
+    AssertEq "getElementByQuery(スコープ)の内容", byQuery.innerText, "B"
 
-    ' getElementsByXPath
-    Dim xpItems As Collection
-    Set xpItems = br.getElementsByXPath("//li[contains(@class,'list-item')]")
-    AssertEq "getElementsByXPath → count", CStr(xpItems.Count), "5"
+    Dim byXPath As CDPElement: Set byXPath = ul.getElementByXPath("li[3]")
+    AssertEq "getElementByXPath(スコープ)の内容", byXPath.innerText, "C"
 
-    ' CDPElement内部 getElementByQuery
-    Dim li2 As CDPElement
-    Set li2 = ulEl.getElementByQuery("[data-n='2']")
-    AssertEq "el.getElementByQuery → data-n", li2.getAttribute("data-n"), "2"
-
-    ' CDPElement内部 getElementsByQuery
-    Dim innerItems As Collection
-    Set innerItems = ulEl.getElementsByQuery(".list-item")
-    AssertEq "el.getElementsByQuery → count", CStr(innerItems.Count), "5"
-
-    ' CDPElement内部 getElementByID / getElementByXPath / getElementsByXPath
-    Dim innerIdEl As CDPElement
-    ' ulEl doesn't have elements with ID inside it in the original HTML, but we can test from the body or form
-    Dim testPanel As CDPElement: Set testPanel = br.getElementByID("test-panel")
-    Set innerIdEl = testPanel.getElementByID("collection-list")
-    AssertEq "el.getElementByID → id", innerIdEl.getAttribute("id"), "collection-list"
-
-    Dim innerXPEl As CDPElement
-    Set innerXPEl = ulEl.getElementByXPath(".//li[@data-n='5']")
-    AssertEq "el.getElementByXPath → data-n", innerXPEl.getAttribute("data-n"), "5"
-
-    Dim innerXPItems As Collection
-    Set innerXPItems = ulEl.getElementsByXPath(".//li")
-    AssertEq "el.getElementsByXPath → count", CStr(innerXPItems.Count), "5"
-
-    br.jsEval "updateStatus('s-collection','コレクション テスト完了 " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-ce12','⑫ 完了 " & EOk() & " | getElementByID / getElementByQuery / getElementByXPath（スコープ）', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
 ' ⑬ isExist / ifExist / onExist / onExistNot
 '==============================================================================
-Private Sub Test13_isExist_onExist(br As CDPContext)
+Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext)
     PrintSection "⑬ isExist / ifExist / onExist / onExistNot"
 
-    ' isExist: 存在する要素
-    Dim el As CDPElement
-    Set el = br.getElementByID("testInput")
-    AssertEq "testInput.isExist", CStr(el.isExist), "True"
+    '1. 追加前は存在しないこと
+    Dim dyn As CDPElement: Set dyn = br.getElementByID("dynamicElement")
+    AssertFalse "追加前のisExist", dyn.isExist
 
-    ' isExist: 存在しない要素
+    '2. ifExistチェーンは、存在しない要素へのメソッド呼び出しをエラーなく無視すること
+    Dim errBefore As Long
+    On Error Resume Next
+    Err.Clear
+    dyn.ifExist.focus
+    errBefore = Err.Number
+    On Error GoTo 0
+    AssertTrue "ifExistチェーン（未存在）でエラーが起きないこと", (errBefore = 0)
+
+    '3. 追加ボタンを押す（HTML側で1秒後に要素を追加）→ onExistでポーリング検知できること
+    br.getElementByID("btnAddDynamic").click
+    Dim dyn2 As CDPElement: Set dyn2 = br.getElementByID("dynamicElement")
+    Set dyn2 = dyn2.onExist(timeOutInSeconds:=5)
+    AssertTrue "追加後のonExist成功", Not (dyn2 Is Nothing)
+    If Not (dyn2 Is Nothing) Then AssertTrue "onExist後のisExist", dyn2.isExist
+
+    '4. 削除ボタンを押す（HTML側で1秒後に要素を削除）→ onExistNotで消滅検知できること
+    br.getElementByID("btnRemoveDynamic").click
+    AssertTrue "削除後のonExistNot成功", dyn2.onExistNot(timeOutInSeconds:=5)
+
+    '5. 存在し得ないID指定時、onExist(raiseTimeoutError:=False)がタイムアウトでNothingを返すこと
     Dim ghost As CDPElement
-    Set ghost = br.getElementByID("nonExistentElement12345")
-    AssertEq "nonExistent.isExist", CStr(ghost.isExist), "False"
+    Set ghost = br.getElementByID("doesNotExist12345").onExist(timeOutInSeconds:=1, raiseTimeoutError:=False)
+    AssertTrue "存在しない要素のonExistタイムアウトでNothingが返ること", (ghost Is Nothing)
 
-    ' ifExist → 存在する場合のみ実行（チェーン確認）
-    br.getElementByID("testInput").ifExist.focus
-    AssertPass "ifExist.focus 実行（スキップなし）"
-
-    ' ifExist → 存在しない場合はスキップ
-    br.getElementByID("nonExistent99").ifExist.click isLoading
-    AssertPass "ifExist.click スキップ確認（エラーなし）"
-
-    ' onExist: 動的要素を追加してから待機
-    br.jsEval "setTimeout(function(){ addDynamic() }, 800)"
-    Dim dynEl As CDPElement
-    Set dynEl = br.getElementByXPath("//div[@id='dynamicElement']")
-    dynEl.onExist timeOutInSeconds:=5
-    AssertEq "onExist 後にisExist", CStr(dynEl.isExist), "True"
-    br.jsEval "updateStatus('s-exist','onExist 待機成功 " & ECheck() & "', true)"
-
-    ' onExistNot: 削除してから待機
-    br.jsEval "setTimeout(function(){ removeDynamic() }, 800)"
-    dynEl.onExistNot timeOutInSeconds:=5
-    AssertPass "onExistNot 完了"
-    br.jsEval "updateStatus('s-exist','onExistNot 待機成功 " & ECheck() & "', true)"
+    br.jsEval "updateStatus('s-ce13','⑬ 完了 " & EOk() & " | isExist / ifExist / onExist / onExistNot', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ⑭ getIFrame
+' ⑭ getIFrame（同一オリジンiframe）
 '==============================================================================
-Private Sub Test14_getIFrame(br As CDPContext)
+Private Sub Test14_GetIFrame(br As CDPContext)
     PrintSection "⑭ getIFrame"
-    Dim iframeEl As CDPElement
-    Set iframeEl = br.getElementByID("testIFrame")
 
-    Dim frameDoc As CDPElement
-    Set frameDoc = iframeEl.getIFrame()
-    AssertEq "getIFrame.isExist", CStr(frameDoc.isExist), "True"
+    br.InheritanceCDPBrowser.sleep 0.5
 
-    ' iFrame内の要素取得
-    Dim innerEl As CDPElement
-    Set innerEl = frameDoc.getElementByID("iframeContent")
-    If innerEl.isExist Then
-        Dim txt As String: txt = innerEl.innerText
-        AssertNotEmpty "iFrame内 innerText", txt
-        innerEl.innerText = "VBAからiFrameを変更 " & ECheck()
-        AssertPass "iFrame内 innerText LET"
-    Else
-        AssertFail "iFrame内の要素が見つかりませんでした"
-    End If
-    br.jsEval "updateStatus('s-iframe','getIFrame テスト完了 " & ECheck() & "', true)"
+    Dim iframeDoc As CDPElement: Set iframeDoc = br.getElementByID("testIFrame").getIFrame
+    Dim iframeTarget As CDPElement: Set iframeTarget = iframeDoc.getElementByID("iframeTarget")
+    AssertEq "iframe内要素のinnerText", iframeTarget.innerText, "iframe content"
+
+    br.jsEval "updateStatus('s-ce14','⑭ 完了 " & EOk() & " | getIFrame', true)", StopPipeError:=False
 End Sub
 
 '==============================================================================
-' ヘルパー: アサーション
+' ⑮ GetShadowRoot / GetShadowRoots（open / closed 両モード）
 '==============================================================================
-Private Sub AssertEq(testName As String, actual As String, expected As String)
-    If actual = expected Then
+Private Sub Test15_ShadowRoot_Open_Closed(br As CDPContext)
+    PrintSection "⑮ GetShadowRoot / GetShadowRoots（open / closed）"
+
+    Dim hostOpen As CDPElement: Set hostOpen = br.getElementByID("shadowHostOpen")
+    Dim rootOpen As CDPElement: Set rootOpen = hostOpen.GetShadowRoot()
+    AssertTrue "GetShadowRoot(open)が取得できること", Not (rootOpen Is Nothing)
+    If Not (rootOpen Is Nothing) Then
+        AssertEq "shadow(open)内要素の内容", rootOpen.getElementByQuery(".shadow-content").innerText, "Shadow content (open)"
+    End If
+    br.jsEval "updateStatus('s-ce15a','⑮-a 完了 " & EOk() & " | GetShadowRoot(open)', true)", StopPipeError:=False
+
+    Dim hostClosed As CDPElement: Set hostClosed = br.getElementByID("shadowHostClosed")
+    Dim rootsClosed As Collection: Set rootsClosed = hostClosed.GetShadowRoots()
+    AssertTrue "GetShadowRoots(closed)が取得できること", Not (rootsClosed Is Nothing)
+    If Not (rootsClosed Is Nothing) Then
+        AssertEq "GetShadowRoots(closed)の件数", CStr(rootsClosed.Count), "1"
+        AssertEq "shadow(closed)内要素の内容", rootsClosed(1).getElementByQuery(".shadow-content").innerText, "Shadow content (closed)"
+    End If
+    br.jsEval "updateStatus('s-ce15b','⑮-b 完了 " & EOk() & " | GetShadowRoots(closed)', true)", StopPipeError:=False
+End Sub
+
+'==============================================================================
+' ⑯ SetFileInputFiles
+'==============================================================================
+Private Sub Test16_SetFileInputFiles(br As CDPContext)
+    PrintSection "⑯ SetFileInputFiles"
+
+    Dim dummyFile As String
+    dummyFile = WORKSPACE_PATH & "\ForDevelopers\OperationCheck\CDP\TestHtml\Test_CDPElement\CDPElementTest.html"
+
+    Dim files As New Collection
+    files.Add dummyFile
+
+    Dim fileInput As CDPElement: Set fileInput = br.getElementByID("testFileInput")
+    fileInput.SetFileInputFiles files
+
+    Dim FileName As Variant
+    FileName = fileInput.jsEval("function(){ return this.files.length > 0 ? this.files[0].name : '' }")
+    AssertEq "SetFileInputFiles後のfiles[0].name", CStr(FileName), "CDPElementTest.html"
+
+    br.jsEval "updateStatus('s-ce16','⑯ 完了 " & EOk() & " | SetFileInputFiles', true)", StopPipeError:=False
+End Sub
+
+'==============================================================================
+' ⑰ 診断プロパティ（UseSearchJS / varResult / CurrentObjectId / ExposeDevTools）
+'    と実行オプション（SetOptionStopException / SetOptionRunAsyncCDP / SetOptionUserGesture）
+'==============================================================================
+Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
+    PrintSection "⑰ 診断プロパティ / 実行オプション"
+
+    Dim el As CDPElement: Set el = br.getElementByID("testInput")
+
+    AssertContains "UseSearchJSに検索構文が含まれること", el.UseSearchJS, "getElementById"
+    AssertTrue "varResultがvbStringであること", (el.varResult = vbString)
+    AssertNotEmpty "CurrentObjectIdが取得できていること", el.CurrentObjectId
+
+    el.ExposeDevTools "__vbaTestExposed"
+    Dim exposedCheck As Variant
+    exposedCheck = br.jsEval("typeof window.__vbaTestExposed !== 'undefined' ? 'yes' : 'no'", StopPipeError:=False)
+    AssertEq "ExposeDevTools後にwindowへ公開されていること", CStr(exposedCheck), "yes"
+
+    'SetOptionRunAsyncCDP: Trueにすると、jsEvalの戻り値が結果値ではなく非同期コマンドIDになる
+    el.SetOptionRunAsyncCDP = True
+    Dim asyncResult As Variant
+    asyncResult = el.jsEval("function(){ return 1 }")
+    AssertTrue "SetOptionRunAsyncCDP=True時、戻り値が数値の非同期コマンドIDであること", (IsNumeric(asyncResult) And CLng(asyncResult) > 0)
+    el.SetOptionRunAsyncCDP = False
+
+    'SetOptionStopException: Trueにすると、JS例外発生時にVBA側でErr.Raiseされる
+    '※エラートラップ：`クラスモジュールで中断`では止まります。設定で変更願います
+    el.SetOptionStopException = True
+    Dim exNumber As Long
+    On Error Resume Next
+    Err.Clear
+    el.jsEval "function(){ throw new Error('CDPElement-test'); }"
+    exNumber = Err.Number
+    On Error GoTo 0
+    el.SetOptionStopException = False
+    AssertTrue "SetOptionStopException=True時、JS例外がVBAエラーになること", (exNumber <> 0)
+
+    'SetOptionUserGesture: エラーなく設定・使用・解除できること
+    Dim errUserGesture As Long
+    On Error Resume Next
+    Err.Clear
+    el.SetOptionUserGesture = True
+    el.jsEval "function(){ return 1 }"
+    el.SetOptionUserGesture = False
+    errUserGesture = Err.Number
+    On Error GoTo 0
+    AssertTrue "SetOptionUserGestureの設定・解除でエラーが起きないこと", (errUserGesture = 0)
+
+    br.jsEval "updateStatus('s-ce17','⑰ 完了 " & EOk() & " | 診断プロパティ / 実行オプション', true)", StopPipeError:=False
+End Sub
+
+'==============================================================================
+' ヘルパー
+'==============================================================================
+Private Sub AssertEq(Name As String, actual As Variant, expected As Variant)
+    If CStr(actual) = CStr(expected) Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " → """ & actual & """"
+        Debug.Print "  " & EOk() & " PASS | " & Name & " → """ & CStr(actual) & """"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " → 期待値:""" & expected & """ 実際:""" & actual & """"
+        Debug.Print "  FAIL | " & Name & " 期待:""" & CStr(expected) & """ 実際:""" & CStr(actual) & """"
     End If
 End Sub
 
-Private Sub AssertNotEmpty(testName As String, actual As String)
-    If Len(Trim(actual)) > 0 Then
+Private Sub AssertNotEmpty(Name As String, actual As String)
+    If Len(actual) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " → NOT EMPTY (""" & Left(actual, 40) & """)"
+        Debug.Print "  " & EOk() & " PASS | " & Name & " → NOT EMPTY"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " → 空文字が返ってきました"
+        Debug.Print "  FAIL | " & Name & " が空です"
     End If
 End Sub
 
-Private Sub AssertContains(testName As String, actual As String, substr As String)
-    If InStr(actual, substr) > 0 Then
+Private Sub AssertContains(Name As String, actual As String, substring As String)
+    If InStr(actual, substring) > 0 Then
         passCount = passCount + 1
-        Debug.Print "  ? PASS | " & testName & " → contains """ & substr & """"
+        Debug.Print "  " & EOk() & " PASS | " & Name & " → """ & substring & """ を含む"
     Else
         failCount = failCount + 1
-        Debug.Print "  ? FAIL | " & testName & " → """ & substr & """ が見つかりません"
+        Debug.Print "  FAIL | " & Name & " に """ & substring & """ が含まれません。実際:""" & actual & """"
     End If
 End Sub
 
-Private Sub AssertPass(testName As String)
-    passCount = passCount + 1
-    Debug.Print "  ? PASS | " & testName
+Private Sub AssertTrue(Name As String, actual As Boolean)
+    If actual Then
+        passCount = passCount + 1
+        Debug.Print "  " & EOk() & " PASS | " & Name & " → True"
+    Else
+        failCount = failCount + 1
+        Debug.Print "  FAIL | " & Name & " が True になりませんでした"
+    End If
 End Sub
 
-Private Sub AssertFail(testName As String)
-    failCount = failCount + 1
-    Debug.Print "  ? FAIL | " & testName
+Private Sub AssertFalse(Name As String, actual As Boolean)
+    If Not actual Then
+        passCount = passCount + 1
+        Debug.Print "  " & EOk() & " PASS | " & Name & " → False"
+    Else
+        failCount = failCount + 1
+        Debug.Print "  FAIL | " & Name & " が False になりませんでした"
+    End If
 End Sub
 
 Private Sub PrintHeader(msg As String)

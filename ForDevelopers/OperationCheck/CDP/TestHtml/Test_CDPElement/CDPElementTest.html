@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>CDPElement 全機能テスト</title>
+  <title>CDPElement 動作確認</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -11,246 +11,261 @@
       --text: #e2e8f0; --text2: #8892a4; --pass: #00d4aa; --fail: #ff6b6b; --info: #ffd93d;
     }
     body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
-    /* ── 左パネル：テスト要素 ── */
-    #test-panel { flex: 1; padding: 20px; overflow-y: auto; max-width: 680px; }
-    /* ── 右パネル：ログ ── */
-    #log-panel { width: 380px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    #test-panel { flex: 1; padding: 20px; overflow-y: auto; max-width: 900px; }
+    #log-panel { width: 340px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow: hidden; }
     #log-panel h2 { color: var(--accent); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
-    #log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-    .log-entry { font-size: 12px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--border); background: var(--surface2); word-break: break-all; }
+    #log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-family: Consolas, monospace; }
+    .log-entry { font-size: 11px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--border); background: var(--surface2); word-break: break-all; }
     .log-pass  { border-left-color: var(--pass);  color: var(--pass); }
     .log-fail  { border-left-color: var(--fail);  color: var(--fail); }
     .log-info  { border-left-color: var(--info);  color: var(--info); }
-    .log-head  { border-left-color: var(--accent); color: var(--accent); font-weight: bold; }
     #btn-clear-log { margin-top: 8px; background: #2e1f4a; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
-    #btn-clear-log:hover { background: var(--accent); color: #fff; }
-    /* ── セクション ── */
-    h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-    section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
-    section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 12px; }
-    label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
-    input[type=text], input[type=email], textarea, select {
-      width: 100%; padding: 8px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; outline: none; transition: border .2s;
-    }
-    input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-    button.test-btn {
-      background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .2s;
-    }
-    button.test-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .status-box { margin-top: 8px; padding: 6px 10px; border-radius: 5px; font-size: 12px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); min-height: 30px; transition: all .3s; }
-    .status-box.changed { border-color: var(--pass); color: var(--pass); }
-    .row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-    .flex-1 { flex: 1 }
-    /* 親子ツリー表示 */
-    #traversal-tree { display: flex; flex-direction: column; gap: 6px; }
-    .tree-heading { font-size: 12px; margin-bottom: 2px; color: var(--text2); }
-    .tree-parent { background: var(--surface2); border: 1px solid var(--accent); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .tree-child { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 8px 12px; font-size: 12px; }
-    .tree-child:hover { border-color: var(--accent2); }
-    /* コレクションリスト */
-    #collection-list { list-style: none; }
-    #collection-list li { padding: 6px 10px; margin-bottom: 4px; background: var(--surface2); border-radius: 5px; border-left: 3px solid var(--border); font-size: 12px; transition: border .3s; }
-    #collection-list li:hover { border-left-color: var(--accent2); }
-    /* iframe */
-    #testIFrame { width: 100%; height: 120px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
-    /* dynamic */
-    #dynamic-target { min-height: 30px; padding: 8px; background: var(--surface2); border-radius: 5px; border: 1px dashed var(--border); font-size: 12px; color: var(--text2); }
+    h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 10px; }
+    .status-box { padding: 6px 10px; border-radius: 6px; font-size: 12px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); min-height: 30px; transition: border-color .25s, color .25s, box-shadow .25s; display: flex; align-items: center; }
+    .status-box.changed { border-color: var(--pass); color: var(--pass); box-shadow: 0 0 0 1px rgba(0,212,170,.25); }
+    .hint { font-size: 11px; color: var(--text2); margin-top: 6px; line-height: 1.45; }
+    input[type="text"], textarea, select { width: 100%; padding: 8px; margin-top: 6px; background: #1a1d2e; border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+    button { padding: 8px 14px; background: var(--surface2); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 6px; }
+    button:hover { background: #241f4a; }
+    .status-grid { display: flex; flex-direction: column; gap: 6px; }
+    .status-row { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 10px; align-items: stretch; }
+    @media (max-width: 760px) { .status-row { grid-template-columns: 1fr; } }
+    .status-lbl { font-size: 11px; color: var(--text2); padding: 6px 0; line-height: 1.35; border-left: 3px solid var(--border); padding-left: 8px; }
+    .status-row.done .status-lbl { border-left-color: var(--pass); color: var(--text); }
+    #s-summary { font-size: 13px; font-weight: 600; min-height: 36px; }
+    #traversalParent > div { padding: 4px 8px; margin: 2px 0; background: #1a1d2e; border: 1px solid var(--border); border-radius: 4px; }
+    #collectionList { list-style: none; }
+    #collectionList li { padding: 4px 8px; margin: 2px 0; background: #1a1d2e; border: 1px solid var(--border); border-radius: 4px; }
+    iframe { width: 100%; height: 60px; border: 1px dashed var(--accent); border-radius: 8px; background: #fff; }
   </style>
 </head>
 <body>
 
-<!-- ═══ 右ログパネル ═══ -->
 <div id="log-panel">
-  <h2>🧪 テストログ</h2>
+  <h2>CDPElement テストログ</h2>
   <div id="log-list"></div>
-  <button id="btn-clear-log" onclick="document.getElementById('log-list').innerHTML=''">ログクリア</button>
+  <button type="button" id="btn-clear-log">ログクリア</button>
 </div>
 
-<!-- ═══ 左テストパネル ═══ -->
 <div id="test-panel">
-  <h1>🚀 CDPElement 全機能テスト</h1>
+  <h1>CDPElement.cls 検証ページ</h1>
+  <p class="hint">VBA の <code>RunAll_CDPElement_Tests</code> を実行すると、下の各行が順に <strong>緑（完了）</strong> に変わります。<code>WORKSPACE_PATH</code> をルートに設定してください。</p>
 
-  <!-- ─── value / sendString / clearValue ─── -->
+  <section>
+    <h3>テスト別結果（1 行ずつ更新）</h3>
+    <div class="status-grid">
+      <div class="status-row" id="row-ce01"><span class="status-lbl">① value / sendString / clearValue</span><div class="status-box" id="s-ce01">未実行</div></div>
+      <div class="status-row" id="row-ce02"><span class="status-lbl">② innerText / innerHTML</span><div class="status-box" id="s-ce02">未実行</div></div>
+      <div class="status-row" id="row-ce03"><span class="status-lbl">③ checked</span><div class="status-box" id="s-ce03">未実行</div></div>
+      <div class="status-row" id="row-ce04"><span class="status-lbl">④ selected / setSelection</span><div class="status-box" id="s-ce04">未実行</div></div>
+      <div class="status-row" id="row-ce05"><span class="status-lbl">⑤ click / SimpleClick / fireEvent</span><div class="status-box" id="s-ce05">未実行</div></div>
+      <div class="status-row" id="row-ce06"><span class="status-lbl">⑥ sendClick / sendKey</span><div class="status-box" id="s-ce06">未実行</div></div>
+      <div class="status-row" id="row-ce07"><span class="status-lbl">⑦ getAttribute / setAttribute</span><div class="status-box" id="s-ce07">未実行</div></div>
+      <div class="status-row" id="row-ce08"><span class="status-lbl">⑧ focus / selectText</span><div class="status-box" id="s-ce08">未実行</div></div>
+      <div class="status-row" id="row-ce09"><span class="status-lbl">⑨ submit</span><div class="status-box" id="s-ce09">未実行</div></div>
+      <div class="status-row" id="row-ce10"><span class="status-lbl">⑩ getParent / getNextSibling / getPrevSibling / getFirstChild</span><div class="status-box" id="s-ce10">未実行</div></div>
+      <div class="status-row" id="row-ce11"><span class="status-lbl">⑪ getChildren / getElementsByQuery / getElementsByXPath</span><div class="status-box" id="s-ce11">未実行</div></div>
+      <div class="status-row" id="row-ce12"><span class="status-lbl">⑫ getElementByID / getElementByQuery / getElementByXPath（スコープ）</span><div class="status-box" id="s-ce12">未実行</div></div>
+      <div class="status-row" id="row-ce13"><span class="status-lbl">⑬ isExist / ifExist / onExist / onExistNot</span><div class="status-box" id="s-ce13">未実行</div></div>
+      <div class="status-row" id="row-ce14"><span class="status-lbl">⑭ getIFrame</span><div class="status-box" id="s-ce14">未実行</div></div>
+      <div class="status-row" id="row-ce15a"><span class="status-lbl">⑮-a GetShadowRoot（open）</span><div class="status-box" id="s-ce15a">未実行</div></div>
+      <div class="status-row" id="row-ce15b"><span class="status-lbl">⑮-b GetShadowRoots（closed）</span><div class="status-box" id="s-ce15b">未実行</div></div>
+      <div class="status-row" id="row-ce16"><span class="status-lbl">⑯ SetFileInputFiles</span><div class="status-box" id="s-ce16">未実行</div></div>
+      <div class="status-row" id="row-ce17"><span class="status-lbl">⑰ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-ce17">未実行</div></div>
+    </div>
+  </section>
+
   <section>
     <h3>① value / sendString / clearValue</h3>
-    <label>テキストInput (#testInput)</label>
-    <input type="text" id="testInput" value="initial-value">
-    <div class="status-box" id="s-value">待機中...</div>
+    <input type="text" id="testInput" value="" autocomplete="off">
   </section>
 
-  <!-- ─── innerText ─── -->
   <section>
-    <h3>② innerText</h3>
-    <label>編集対象Div (#testInnerText)</label>
-    <div id="testInnerText" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);">Hello World! これが innerText のデフォルト値です。</div>
-    <div class="status-box" id="s-innertext">待機中...</div>
+    <h3>② innerText / innerHTML</h3>
+    <div id="testTextDiv">initial text</div>
+    <div id="testHtmlDiv"><b>bold</b></div>
   </section>
 
-  <!-- ─── innerHTML ─── -->
   <section>
-    <h3>③ innerHTML</h3>
-    <label>編集対象Div (#testInnerHTML)</label>
-    <div id="testInnerHTML" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);"><b>太字テキスト</b> と <em>斜体</em></div>
-    <div class="status-box" id="s-innerhtml">待機中...</div>
+    <h3>③ checked</h3>
+    <input type="checkbox" id="testCheckbox">
   </section>
 
-  <!-- ─── checked ─── -->
   <section>
-    <h3>④ checked (CheckBox)</h3>
-    <div class="row" style="align-items:center;gap:12px;">
-      <input type="checkbox" id="testCheckbox">
-      <label style="margin:0">チェックボックス (#testCheckbox)</label>
-    </div>
-    <div class="status-box" id="s-checked">待機中...</div>
-  </section>
-
-  <!-- ─── selected / setSelection ─── -->
-  <section>
-    <h3>⑤ selected / setSelection</h3>
-    <label>セレクトボックス (#testSelect)</label>
+    <h3>④ selected / setSelection</h3>
     <select id="testSelect">
-      <option value="opt-a">Option Alpha</option>
-      <option value="opt-b">Option Beta</option>
-      <option value="opt-c">Option Gamma</option>
+      <option value="opt1">Option 1</option>
+      <option value="opt2">Option 2</option>
+      <option value="opt3">Option 3</option>
     </select>
-    <div class="status-box" id="s-selected">待機中...</div>
   </section>
 
-  <!-- ─── click / fireEvent / sendClick ─── -->
   <section>
-    <h3>⑥ click / fireEvent / sendClick</h3>
-    <div class="row" style="margin-bottom:8px">
-      <button class="test-btn" id="testButton" onclick="document.getElementById('s-click').textContent='click() / fireEvent() が確認されました ✅'; document.getElementById('s-click').classList.add('changed')">通常のクリック (#testButton)</button>
-      <button class="test-btn" id="testSendClickBtn" onclick="document.getElementById('s-click').textContent='sendClick() で押されました ✅'; document.getElementById('s-click').classList.add('changed')">sendClick (#testSendClickBtn)</button>
-    </div>
-    <div class="status-box" id="s-click">待機中...</div>
+    <h3>⑤ click / SimpleClick / fireEvent</h3>
+    <button type="button" id="testClickBtn" data-clickcount="0" data-customfired="false">Click Me</button>
   </section>
 
-  <!-- ─── getAttribute / setAttribute ─── -->
+  <section>
+    <h3>⑥ sendClick / sendKey</h3>
+    <button type="button" id="testSendClickBtn" data-clickcount="0">Send Click</button>
+    <input type="text" id="testKeyInput" data-lastkeycode="" autocomplete="off">
+  </section>
+
   <section>
     <h3>⑦ getAttribute / setAttribute</h3>
-    <div id="testAttr" data-custom="original-attr" data-info="unchanged" style="padding:8px;background:var(--surface2);border-radius:5px;border:1px solid var(--border);">
-      data-custom="<span id="attrDisplay">original-attr</span>"
-    </div>
-    <div class="status-box" id="s-attr">待機中...</div>
+    <div id="testAttrTarget" data-foo="bar">attribute target</div>
   </section>
 
-  <!-- ─── focus / selectText ─── -->
   <section>
     <h3>⑧ focus / selectText</h3>
-    <input type="text" id="testFocusInput" value="このテキストを選択します" style="margin-bottom:6px;">
-    <textarea id="testTextArea" rows="3" style="margin-top:2px;">selectText のターゲットになるテキストエリアです。VBAからこの文字を全選択します。</textarea>
-    <div class="status-box" id="s-focus">待機中...</div>
+    <input type="text" id="testFocusInput" value="focus me" autocomplete="off">
+    <div id="testSelectTextTarget">Select this whole text</div>
   </section>
 
-  <!-- ─── sendKey ─── -->
   <section>
-    <h3>⑨ sendKey (Tab / Enter / Backspace)</h3>
-    <div class="row">
-      <div class="flex-1"><label>Field A (#keyInput1)</label><input type="text" id="keyInput1" value="Field_A"></div>
-      <div class="flex-1"><label>Field B (#keyInput2)</label><input type="text" id="keyInput2" value="Field_B"></div>
-    </div>
-    <div class="status-box" id="s-sendkey">待機中...</div>
-  </section>
-
-  <!-- ─── submit ─── -->
-  <section>
-    <h3>⑩ submit</h3>
-    <form id="testForm" onsubmit="event.preventDefault(); document.getElementById('s-submit').textContent='フォームがサブミットされました ✅'; document.getElementById('s-submit').classList.add('changed')">
-      <input type="text" id="testFormInput" value="テスト入力" style="margin-bottom:8px;">
-      <button type="submit" id="testSubmitBtn" class="test-btn">Submit (#testSubmitBtn)</button>
+    <h3>⑨ submit</h3>
+    <form id="testForm" data-submitted="false">
+      <input type="text" id="testSubmitInput" name="q" autocomplete="off">
     </form>
-    <div class="status-box" id="s-submit">待機中...</div>
+    <p class="hint">検証時のページ遷移を避けるため、この <code>&lt;form&gt;</code> の <code>submit</code> メソッドはJSでオーバーライドされています。</p>
   </section>
 
-  <!-- ─── getParent / getSibling / getFirstChild ─── -->
   <section>
-    <h3>⑪ トラバーサル: getParent / getNextSibling / getPrevSibling / getFirstChild</h3>
-    <div id="traversal-tree">
-      <div class="tree-heading">🏠 Parent (#traversalParent)</div>
-      <div class="tree-parent" id="traversalParent">
-        <div class="tree-child" id="traversalChild1">Child 1️⃣</div>
-        <div class="tree-child" id="traversalChild2">Child 2️⃣</div>
-        <div class="tree-child" id="traversalChild3">Child 3️⃣</div>
-      </div>
+    <h3>⑩ DOM階層</h3>
+    <div id="traversalParent">
+      <div id="child1">1</div>
+      <div id="child2">2</div>
+      <div id="child3">3</div>
     </div>
-    <div class="status-box" id="s-traversal">待機中...</div>
   </section>
 
-  <!-- ─── getChildren / getElementsByQuery / getElementsByXPath ─── -->
   <section>
-    <h3>⑫ コレクション: getChildren / getElementsByQuery / getElementsByXPath</h3>
-    <ul id="collection-list" class="list-items">
-      <li class="list-item" data-n="1">🍎 アイテム 1</li>
-      <li class="list-item" data-n="2">🍊 アイテム 2</li>
-      <li class="list-item" data-n="3">🍋 アイテム 3</li>
-      <li class="list-item" data-n="4">🍇 アイテム 4</li>
-      <li class="list-item" data-n="5">🍓 アイテム 5</li>
+    <h3>⑪⑫ コレクション / スコープ検索</h3>
+    <ul id="collectionList">
+      <li class="list-item" data-n="1">A</li>
+      <li class="list-item" data-n="2">B</li>
+      <li id="collectionItem3" class="list-item" data-n="3">C</li>
+      <li class="list-item" data-n="4">D</li>
+      <li class="list-item" data-n="5">E</li>
     </ul>
-    <div class="status-box" id="s-collection">待機中...</div>
   </section>
 
-  <!-- ─── isExist / ifExist / onExist / onExistNot ─── -->
   <section>
-    <h3>⑬ isExist / ifExist / onExist / onExistNot</h3>
-    <div class="row" style="gap:8px;margin-bottom:8px;">
-      <button class="test-btn" onclick="addDynamic()">➕ 動的要素を追加</button>
-      <button class="test-btn" onclick="removeDynamic()">➖ 動的要素を削除</button>
-    </div>
-    <div id="dynamic-container">
-      <div id="dynamic-target">（動的要素はここに追加されます）</div>
-    </div>
-    <div class="status-box" id="s-exist">待機中...</div>
+    <h3>⑬ isExist / ifExist / onExist / onExistNot（動的追加・削除）</h3>
+    <button type="button" id="btnAddDynamic">要素を追加（1秒後）</button>
+    <button type="button" id="btnRemoveDynamic">要素を削除（1秒後）</button>
+    <div id="dynamicContainer"></div>
   </section>
 
-  <!-- ─── getIFrame ─── -->
   <section>
-    <h3>⑭ getIFrame</h3>
-    <iframe id="testIFrame" srcdoc="<!DOCTYPE html><html><body style='background:#1a1d2e;color:#e2e8f0;font-family:system-ui;padding:16px;'><div id='iframeContent' style='border:1px solid #6c63ff;border-radius:6px;padding:10px;'>🖼️ iFrame コンテンツ（初期値）</div></body></html>"></iframe>
-    <div class="status-box" id="s-iframe">待機中...</div>
+    <h3>⑭ getIFrame（同一オリジン・srcdoc）</h3>
+    <iframe id="testIFrame" srcdoc="&lt;div id=&quot;iframeTarget&quot;&gt;iframe content&lt;/div&gt;"></iframe>
   </section>
 
-</div><!-- /test-panel -->
+  <section>
+    <h3>⑮ Shadow DOM（open / closed）</h3>
+    <div id="shadowHostOpen"></div>
+    <div id="shadowHostClosed"></div>
+  </section>
+
+  <section>
+    <h3>⑯ SetFileInputFiles</h3>
+    <input type="file" id="testFileInput">
+  </section>
+
+  <section>
+    <h3>最終サマリー</h3>
+    <div class="status-box" id="s-summary">テスト未実行</div>
+  </section>
+</div>
 
 <script>
-  // ─── ログ追加ヘルパー ───
-  function addLog(msg, type) {
-    var el = document.createElement('div');
-    el.className = 'log-entry log-' + (type || 'info');
-    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+(function () {
+  function addLog(msg, kind) {
     var list = document.getElementById('log-list');
-    list.appendChild(el);
+    if (!list) return;
+    var row = document.createElement('div');
+    row.className = 'log-entry log-' + (kind || 'info');
+    row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    list.appendChild(row);
     list.scrollTop = list.scrollHeight;
   }
 
-  // VBA側から呼び出し可能なグローバルヘルパー
-  window.cdpLog = addLog;
-
-  // 動的要素追加/削除
-  function addDynamic() {
-    var c = document.getElementById('dynamic-container');
-    if (!document.getElementById('dynamicElement')) {
-      var el = document.createElement('div');
-      el.id = 'dynamicElement';
-      el.style.cssText = 'margin-top:8px;padding:10px;background:#1a2e1f;border:1px solid #00d4aa;border-radius:5px;color:#00d4aa;font-size:12px;';
-      el.textContent = '✅ 動的要素が追加されました (id=dynamicElement)';
-      c.appendChild(el);
-      addLog('dynamicElement を追加しました', 'pass');
-    }
-  }
-  function removeDynamic() {
-    var el = document.getElementById('dynamicElement');
-    if (el) { el.remove(); addLog('dynamicElement を削除しました', 'info'); }
-  }
-
-  // ステータスBOXを更新
-  window.updateStatus = function(id, msg, ok) {
+  window.updateStatus = function (id, msg, ok) {
     var el = document.getElementById(id);
     if (!el) return;
     el.textContent = msg;
     el.className = 'status-box' + (ok !== false ? ' changed' : '');
+    var row = el.closest('.status-row');
+    if (row && ok !== false) row.classList.add('done');
+    addLog(msg, ok !== false ? 'pass' : 'fail');
   };
+
+  document.getElementById('btn-clear-log').onclick = function () {
+    document.getElementById('log-list').innerHTML = '';
+  };
+
+  // ここから各セクションの補助スクリプト
+
+  // ⑤ click / SimpleClick / fireEvent
+  var clickBtn = document.getElementById('testClickBtn');
+  clickBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+  });
+  clickBtn.addEventListener('customtestevent', function () {
+    this.dataset.customfired = 'true';
+  });
+
+  // ⑥ sendClick
+  var sendClickBtn = document.getElementById('testSendClickBtn');
+  sendClickBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+  });
+
+  // ⑥ sendKey
+  var keyInput = document.getElementById('testKeyInput');
+  keyInput.addEventListener('keydown', function (e) {
+    this.dataset.lastkeycode = String(e.keyCode);
+  });
+
+  // ⑨ submit: ページ遷移を避けるため、form.submitをインスタンス単位でオーバーライド
+  var testForm = document.getElementById('testForm');
+  testForm.submit = function () {
+    this.dataset.submitted = 'true';
+  };
+
+  // ⑬ isExist / onExist / onExistNot: 1秒後に要素を追加/削除する
+  document.getElementById('btnAddDynamic').addEventListener('click', function () {
+    setTimeout(function () {
+      var container = document.getElementById('dynamicContainer');
+      if (!document.getElementById('dynamicElement')) {
+        var div = document.createElement('div');
+        div.id = 'dynamicElement';
+        div.textContent = 'dynamic element';
+        container.appendChild(div);
+      }
+    }, 1000);
+  });
+  document.getElementById('btnRemoveDynamic').addEventListener('click', function () {
+    setTimeout(function () {
+      var el = document.getElementById('dynamicElement');
+      if (el) el.parentNode.removeChild(el);
+    }, 1000);
+  });
+
+  // ⑮ Shadow DOM: open / closed 両モード
+  var hostOpen = document.getElementById('shadowHostOpen');
+  var shadowOpen = hostOpen.attachShadow({ mode: 'open' });
+  shadowOpen.innerHTML = '<span class="shadow-content">Shadow content (open)</span>';
+
+  var hostClosed = document.getElementById('shadowHostClosed');
+  var shadowClosed = hostClosed.attachShadow({ mode: 'closed' });
+  shadowClosed.innerHTML = '<span class="shadow-content">Shadow content (closed)</span>';
+
+  addLog('ページ読み込み完了', 'pass');
+})();
 </script>
 </body>
 </html>
