@@ -1431,6 +1431,33 @@ Public Function GetShadowRoots() As Collection
     Loop
 End Function
 
+'***************************************************************************************************
+'* 機能　　：見つけた「<input type="file">」の`objectId`に対して、ファイル添付を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：files  ファイルパスが詰まってるCollectionを指定します
+'***************************************************************************************************
+Public Sub SetFileInputFiles(files As Collection)
+    Const FromProcedureName As String = ThisClassName & ".setFileInputFiles"
+
+
+    '1. 未登録の場合は、即抜け
+    If files Is Nothing Then printMsg WARN_, "The file list is undefined.", FromProcedureName: Exit Sub
+    If files.Count = 0 Then printMsg WARN_, "No files have been registered.", FromProcedureName: Exit Sub
+
+    '2. パラメーターを組み立てて送信
+    Dim params As New Dictionary
+    params.Add "files", files
+    params.Add "objectId", elementObjectId
+    ExecuteCDP "DOM.setFileInputFiles", params
+
+    '3. 別途ログ化
+    If seeRawSendMsgDbg Then
+        printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
+    Else
+        printMsg info_, "Attachment complete.", FromProcedureName
+    End If
+End Sub
+
 
 
 '***************************************************************************************************
