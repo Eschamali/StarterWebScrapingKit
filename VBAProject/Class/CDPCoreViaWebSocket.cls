@@ -1273,7 +1273,7 @@ End Sub
 '* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
 '            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Long
+Public Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
