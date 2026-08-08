@@ -410,7 +410,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
     '2. そもそもない場合は即抜け
     If objSerialize Is Nothing Then Exit Sub
 
-    '3. タブのTargetID情報を適用
+    '3. タブのTargetID情報を適用しない場合は、即抜け
     brTab.targetID = objSerialize.Item("targetID")
     If LenB(brTab.targetID) = 0 Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
 
