@@ -499,14 +499,12 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
 ' Dispatch the custom event on the element. Unlike the IE
 ' DOM event name, the argument strEventName for JS should
 ' not start with "on" such as "onblur" but only "blur".
+' NOTE："onchange" -> "change" - correct JS event name
 ' Updated: 12/12/2023
 '------------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
 
-
-   'Auto format some common event name mistakes
-    strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args As New Collection
