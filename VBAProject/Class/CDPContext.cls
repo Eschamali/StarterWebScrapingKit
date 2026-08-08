@@ -465,6 +465,7 @@ End Sub
 '
 '            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います
+'                                           ※この引数は`Runtime.evaluate`のみ有効です
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
 '                                           このパラメーターがあると、`returnByValue`の引数は無視されます。
@@ -556,6 +557,7 @@ step1:
         '必要なパラメーターをセット
         CDPparams.Add "expression", JavaScriptStr
         If contextId Then CDPparams.Add "contextId", contextId
+        If Not allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
     End If
 
     '以降は、共通設定を施す
@@ -563,7 +565,6 @@ step1:
     If returnByValue Then CDPparams.Add "returnByValue", returnByValue
     If awaitPromise Then CDPparams.Add "awaitPromise", awaitPromise
     If userGesture Then CDPparams.Add "userGesture", userGesture
-    If Not allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
     If generatePreview Then CDPparams.Add "generatePreview", generatePreview
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
