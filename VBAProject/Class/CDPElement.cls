@@ -1533,7 +1533,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Coll
 
 
     '1. `objectId`がない場合は、エラー停止
-    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Sub
+    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
     SetVar(jsEval) = main.jsEval(JavaScriptStr, elementObjectId, objectArguments, IFEXCEPTION, , _
