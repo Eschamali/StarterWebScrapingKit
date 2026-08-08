@@ -451,6 +451,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
 '---------------------------------------------------------------------------------------------------
+'* 返り値  ：設定の読み取りができたかの論理値
 '* 引数　　：UserName   読み取る識別名称
 '***************************************************************************************************
 Public Function deserialize(UserName As String) As Boolean
@@ -465,7 +466,7 @@ Public Function deserialize(UserName As String) As Boolean
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
-    If PipeInfo Is Nothing Then Exit Function
+    If PipeInfo Is Nothing Then printMsg WARN_, LogID, "Pipe information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
 
     'クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
@@ -479,6 +480,34 @@ Public Function deserialize(UserName As String) As Boolean
     '成功サインを返す
     deserialize = True
 End Function
+
+'***************************************************************************************************
+'* 機能　　：Pipe/WebSocketが生きてるか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：ハンドル生存可否
+'***************************************************************************************************
+Public Property Get isAvailability() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".isAvailability"
+
+
+    '各種判定
+    Dim RunRes As Long
+    If viaWebSocket Is Nothing Then
+        'Pipe生存判定
+        Dim tmp As Long
+        If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
+
+        'ステータスを最新にしておく
+        LastPipeError.PeekNamedPipe = Err.LastDllError
+        printMsg Debug_, LogID, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
+    Else
+        'WebSocket生存判定
+        isAvailability = viaWebSocket.isAvailability
+
+        'ステータスを最新にしておく
+        LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
+    End If
+End Property
 
 '***************************************************************************************************
 '* 機能　　：各種ハンドル情報をクリーニングします

@@ -177,8 +177,12 @@ End Type
 Private currentLog As StateLog
 
 '--- Pipe版に合わせたエラー有無判定 ---
-Private StyleErrPeekNamedPipe   As Long  'データ存在有無(ioctlsocket)の確認でエラーになったか？
-Private StyleErrReadFile        As Long  'データを取り出してる最中(recv)にエラーになったか？
+Private Type ErrorCode
+    StyleErrWriteFile       As Long  'データ送信時(Send)にてエラーになったか？
+    StyleErrPeekNamedPipe   As Long  'データ存在有無(ioctlsocket)の確認でエラーになったか？
+    StyleErrReadFile        As Long  'データを取り出してる最中(recv)にエラーになったか？
+End Type
+Private LastWinSockError   As ErrorCode
 
 '--- 各種クラスオブジェクト ---
 Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
@@ -209,14 +213,30 @@ End Property
 '* 機能    ：`GetAsyncMessage`プロシージャ使用時、`ioctlsocket`でエラーが起こった際のエラーコード
 '***************************************************************************************************
 Public Property Get IsErrorStylePeekNamedPipe() As Long
-    IsErrorStylePeekNamedPipe = StyleErrPeekNamedPipe
+    IsErrorStylePeekNamedPipe = LastWinSockError.StyleErrPeekNamedPipe
 End Property
 
 '***************************************************************************************************
 '* 機能    ：`GetAsyncMessage`プロシージャ使用時、`recv`でエラーが起こった際のエラーコード
 '***************************************************************************************************
 Public Property Get IsErrorStyleReadFile() As Long
-    IsErrorStyleReadFile = StyleErrReadFile
+    IsErrorStyleReadFile = LastWinSockError.StyleErrReadFile
+End Property
+
+'***************************************************************************************************
+'* 機能    ：ソケットが生きてるかを確認します
+'***************************************************************************************************
+Public Property Get isAvailability() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".isAvailability"
+
+
+    'WinSock生存判定
+    Dim tmp As Long
+    If ioctlsocket(m_hSocket, FIONREAD, tmp) = 0 Then isAvailability = True
+
+    'ステータスを最新にしておく
+    LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
+    printMsg Debug_, WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
 End Property
 
 
@@ -416,7 +436,11 @@ End Function
 '* 注意事項：テキストも所詮、バイナリデータなので、UTF-8バイト配列に変換した上で、`SendAsyncMessageAsBINARY`を経由して、送信します
 '***************************************************************************************************
 Public Function SendCommandCDP(SendData As String) As Long
-    SendCommandCDP = SendMessageAsBINARY(Utf8Converter.BytesFromString(SendData), True)
+    '1. 送信
+    SendMessageAsBINARY Utf8Converter.BytesFromString(SendData), True
+
+    '2. 結果を返却
+    SendCommandCDP = LastWinSockError.StyleErrWriteFile
 End Function
 
 '***************************************************************************************************
@@ -425,12 +449,10 @@ End Function
 '* 引数    ：SendData           Byte 型の配列
 '            TextType           True  : UTF-8テキスト送信 (Opcode: 0x01)
 '                               False : バイナリ送信 (Opcode: 0x02)
-'
-'* 返り値  ：実行結果コード     ※成功時は、0です
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：CDPでは、直バイナリとして送ることはないので、`Private`化してます
 '***************************************************************************************************
-Private Function SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean) As Long
+Private Sub SendMessageAsBINARY(SendData() As Byte, Optional TextType As Boolean)
     ' 1. 送信Opcodeの決定 (テキスト=0x01, バイナリ=0x02)
     Dim opcode As Byte
     opcode = IIf(TextType, &H1, &H2)
@@ -440,8 +462,8 @@ Private Function SendMessageAsBINARY(SendData() As Byte, Optional TextType As Bo
     wsFrame = BuildFrame(SendData, opcode)
 
     ' 3. WinSock経由でデータを全て送信
-    SendMessageAsBINARY = RawSend(wsFrame)
-End Function
+    RawSend wsFrame
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：WebSocketフレームの構築（マスク処理含む）を行います
@@ -524,7 +546,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：実際に、WinSockによる確実な分割/一括送信を行います
 '***************************************************************************************************
-Private Function RawSend(ByRef Data() As Byte) As Long
+Private Sub RawSend(ByRef Data() As Byte)
     Const FromProcedureName As String = ThisClassName & ".RawSend"
 
 
@@ -541,13 +563,13 @@ Private Function RawSend(ByRef Data() As Byte) As Long
         ret = Send(m_hSocket, Data(totalSent), toSend - totalSent, 0)
         If ret = -1 Then
             ' SOCKET_ERRORが発生した場合、エラーコードを返却
-            RawSend = Err.LastDllError
-            printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & RawSend & " - Detail: " & WinApiError.GetMessage(RawSend, "ws2_32"), FromProcedureName
-            Exit Function
+            LastWinSockError.StyleErrWriteFile = Err.LastDllError
+            printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & LastWinSockError.StyleErrWriteFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrWriteFile, "ws2_32"), FromProcedureName
+            Exit Sub
         End If
         totalSent = totalSent + ret
     Loop
-End Function
+End Sub
 
 
 
@@ -579,8 +601,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
     If retIoctl <> 0 Then
         ' ソケットがすでに死んでいる場合、エラー情報を記録して抜ける
-        StyleErrPeekNamedPipe = Err.LastDllError
-        printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
+        LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
+        printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & LastWinSockError.StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
         Exit Function
     End If
     printMsg Trace_, "WinSockResSize: " & bytesAvailable, FromProcedureName
@@ -602,7 +624,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         dSuccess = recv(m_hSocket, destructionData(0), bytesAvailable, MSG_WAITALL)
 
         '0以下の場合は失敗なので、エラー情報を記録
-        If dSuccess <= 0 Then StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+        If dSuccess <= 0 Then LastWinSockError.StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
 
         '破棄したサイズを返却して、抜ける
         GetAsyncMessage = dSuccess
@@ -669,8 +691,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
             RaiseEvent WebSocketReceive(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
         Else
             '取り出しに失敗したら、エラー情報を記録して抜ける
-            StyleErrReadFile = Err.LastDllError
-            printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+            LastWinSockError.StyleErrReadFile = Err.LastDllError
+            printMsg WARN_, "An error occurred while retrieving payload using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
             Exit Function
         End If
 
@@ -766,8 +788,8 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         ret = recv(m_hSocket, header(0), 2, MSG_WAITALL): .FrameHeaderSize = 2: resSize = resSize - 2
         If ret <= 0 Then
             '取り出しに失敗したら、エラー情報を記録して抜ける
-            StyleErrReadFile = Err.LastDllError
-            printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+            LastWinSockError.StyleErrReadFile = Err.LastDllError
+            printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
             Exit Function
         End If
 
@@ -808,8 +830,8 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             ret = recv(m_hSocket, extLen16(0), 2, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 2: resSize = resSize - 2
             If ret <= 0 Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
-                StyleErrReadFile = Err.LastDllError
-                printMsg WARN_, "An error occurred while retrieving the payload size from the following 2 bytes using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+                LastWinSockError.StyleErrReadFile = Err.LastDllError
+                printMsg WARN_, "An error occurred while retrieving the payload size from the following 2 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
                 Exit Function
             End If
 
@@ -825,8 +847,8 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             ret = recv(m_hSocket, extLen64(0), 8, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 8: resSize = resSize - 8
             If ret <= 0 Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
-                StyleErrReadFile = Err.LastDllError
-                printMsg WARN_, "An error occurred while retrieving the payload size from the following 8 bytes using `recv`. ErrorCode: " & StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(StyleErrReadFile, "ws2_32"), FromProcedureName
+                LastWinSockError.StyleErrReadFile = Err.LastDllError
+                printMsg WARN_, "An error occurred while retrieving the payload size from the following 8 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
                 Exit Function
             End If
 
@@ -1245,15 +1267,13 @@ End Sub
 '* 機能　　：接続情報をExcelテーブルから取得し、クラス内変数に適用します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName   利用者識別名称
-'* 返り値  ：ハンドル生存可否
-'               -1:Excelテーブルに記録されてないため利用できません
-'                0:成功
-'               >0:WinSockエラー
+'* 返り値  ：設定の読み取りができたかの論理値
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
-'* 注意事項：うまくいかない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
+'* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
+'            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Long
+Public Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
@@ -1262,15 +1282,13 @@ Public Function deserialize(UserName As String) As Long
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
-    If PipeInfo Is Nothing Then deserialize = -1: Exit Function
+    If PipeInfo Is Nothing Then printMsg WARN_, "WinSock information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
 
     'ハンドルに適用
-    m_hSocket = PipeInfo("hCDPOutRd")
+    m_hSocket = PipeInfo("hCDPOutRd")   '`hCDPInWr`も同一番号
 
-    '生存確認
-    Dim tmp As Long
-    If ioctlsocket(m_hSocket, FIONREAD, tmp) <> 0 Then deserialize = Err.LastDllError
-    printMsg Debug_, WinApiError.GetMessage(deserialize, "ws2_32"), FromProcedureName
+    '成功サインを返す
+    deserialize = True
 End Function
 
 

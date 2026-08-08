@@ -361,7 +361,7 @@ Property Get selected() As String
 
 End Property
 
-Public Function click(Optional till As ReadyState = isComplete) As Boolean
+Public Function click() As Boolean
 '----------------------------------------------------------
 ' Perform a standard click on the element. Remember to
 ' perform wait if necessary for the page to be refreshed.
@@ -383,7 +383,6 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
 
    'Perform click
     jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
-    main.wait till:=till
     click = True
 
 End Function
@@ -391,11 +390,9 @@ End Function
 '***************************************************************************************************
 '* 機能　　：JavaScriptでのシンプルなクリックコマンドを実行します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：till    ページ遷移が発生する場合、これで調整します
-'---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Function SimpleClick(Optional till As ReadyState = isComplete) As Boolean
+Public Function SimpleClick() As Boolean
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
@@ -404,15 +401,12 @@ Public Function SimpleClick(Optional till As ReadyState = isComplete) As Boolean
     'シンプルなクリックコマンドを実行
     jsEval "function(){ this.click() }"
 
-    'ページ遷移時、待機の調整をする
-    main.wait till:=till
-
     '成功サインを返す
     SimpleClick = True
 
 End Function
 
-Public Function submit(Optional till As ReadyState = isComplete) As Boolean
+Public Function submit() As Boolean
 '----------------------------------------------------------
 ' Submit a form element.
 ' Updated: 12/12/2023
@@ -422,7 +416,6 @@ Public Function submit(Optional till As ReadyState = isComplete) As Boolean
 
 
     jsEval "function(){ this.form.submit() }"
-    main.wait till:=till
     submit = True
 
 End Function
@@ -501,19 +494,17 @@ Public Function focus()
 
 End Function
 
-Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete) As Boolean
+Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
 ' Dispatch the custom event on the element. Unlike the IE
 ' DOM event name, the argument strEventName for JS should
 ' not start with "on" such as "onblur" but only "blur".
+' NOTE："onchange" -> "change" - correct JS event name
 ' Updated: 12/12/2023
 '------------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
 
-
-   'Auto format some common event name mistakes
-    strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args As New Collection
@@ -522,8 +513,6 @@ Public Function fireEvent(strEventName As String, Optional till As ReadyState = 
     args.Add arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
 
-   'Wait till applied
-    main.wait till:=till
     fireEvent = True
 
 End Function
@@ -594,7 +583,7 @@ Public Function sendClick() As Boolean
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
-    printMsg info_, "Executed sendClick successfully on objectId: " & StopException, FromProcedureName
+    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
 
 End Function
 
@@ -1533,7 +1522,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Coll
 
 
     '1. `objectId`がない場合は、エラー停止
-    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Sub
+    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
     SetVar(jsEval) = main.jsEval(JavaScriptStr, elementObjectId, objectArguments, IFEXCEPTION, , _
