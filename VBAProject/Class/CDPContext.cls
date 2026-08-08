@@ -2052,8 +2052,8 @@ Private Function refreshTargetInfo() As BiDiCDPJson
     Dim TargetInfo As BiDiCDPJson
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
-    '2. エラーがなければ、返却
-    If TargetInfo.Count Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
+    '2. エラーがなければ、`targetInfo`の中身を返却
+    If TargetInfo.ExistsKey("targetInfo") Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
 
 End Function
 
