@@ -594,7 +594,7 @@ Public Function sendClick() As Boolean
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
-    printMsg info_, "Executed sendClick successfully on objectId: " & StopException, FromProcedureName
+    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
 
 End Function
 
