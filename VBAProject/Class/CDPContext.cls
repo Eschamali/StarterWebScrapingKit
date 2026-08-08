@@ -456,13 +456,13 @@ End Sub
 '                                           `getIFrameContextID`メソッド等で得れるのがそれです
 '
 '            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
-'                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。(既定)
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
-'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
+'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます(既定)
 '
 '            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
-'                                           False：特に施しません
+'                                           False：特に施しません(既定)
 '
 '            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います
@@ -474,7 +474,7 @@ End Sub
 '            generatePreview                `objectId`で返った中身をプレーンテキスト化して、プレビューします。予め、ログレベルを`DEBUG`以下にしてください。基本は、開発時のみ`True`にしてください。
 '
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
-'                                           False：結果を待つCDPで実行します。基本はこれでOK
+'                                           False：結果を待つCDPで実行します。基本はこれでOK(既定)
 '
 '            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
 '            StopPipeError                  `True`で、Pipeハンドルエラー時、エラーで停止します
