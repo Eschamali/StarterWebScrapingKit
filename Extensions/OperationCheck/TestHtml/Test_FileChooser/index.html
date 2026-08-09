@@ -1,383 +1,501 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FileChooser Interceptor — テキストファイル読み取りデモ</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ CDP File Attachment CyberLab</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;800&display=swap');
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #080a0f;
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff007f;
+            --accent-green: #00ff87;
+            --accent-red: #ff3366;
+            --card-bg: rgba(16, 20, 30, 0.75);
+            --border-glow: rgba(0, 240, 255, 0.25);
+        }
 
-    :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --border:    #30363d;
-      --accent:    #58a6ff;
-      --accent2:   #7ee787;
-      --warn:      #d29922;
-      --text:      #c9d1d9;
-      --text-dim:  #8b949e;
-      --radius:    12px;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    body {
-      font-family: 'Inter', 'Noto Sans JP', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 20px 60px;
-    }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: #e0e6ed;
+            min-height: 100vh;
+            padding: 40px 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
 
-    /* ヘッダー */
-    header {
-      text-align: center;
-      margin-bottom: 48px;
-    }
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 8px;
-    }
-    header p {
-      color: var(--text-dim);
-      font-size: 0.92rem;
-    }
+        /* 豪華なネオン背景アニメーション */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(0, 240, 255, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 127, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 135, 0.08) 0%, transparent 50%);
+            animation: rotateBg 25s linear infinite;
+            z-index: -1;
+        }
 
-    /* ステップバッジ */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(88,166,255,.15);
-      border: 1px solid rgba(88,166,255,.3);
-      color: var(--accent);
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: .05em;
-      padding: 4px 10px;
-      border-radius: 20px;
-      margin-bottom: 12px;
-    }
+        @keyframes rotateBg {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-    /* メインカード群 */
-    .cards {
-      width: 100%;
-      max-width: 860px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px 32px;
-      transition: border-color .2s;
-    }
-    .card:hover { border-color: var(--accent); }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
 
-    .card-title {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .card-title .icon {
-      font-size: 1.3rem;
-    }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+        }
 
-    /* Zone A : ドロップゾーン風 (input type=file — 静的) */
-    #zone-static {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 32px;
-      text-align: center;
-      cursor: pointer;
-      position: relative;
-      transition: all .25s;
-    }
-    #zone-static:hover, #zone-static.dragover {
-      border-color: var(--accent);
-      background: rgba(88,166,255,.06);
-    }
-    #zone-static input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-    #zone-static .drop-label { pointer-events: none; }
-    #zone-static .drop-icon { font-size: 2.5rem; margin-bottom: 8px; }
-    #zone-static .drop-hint { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #8b9bb4;
+            font-family: 'Fira Code', monospace;
+        }
 
-    /* Zone B : ボタン経由 (JS で input を動的生成 — 動的) */
-    #btn-dynamic {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: linear-gradient(135deg, #1f6feb, var(--accent));
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 12px 24px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .2s, transform .15s;
-    }
-    #btn-dynamic:hover { opacity: .88; transform: translateY(-1px); }
-    #btn-dynamic:active { transform: translateY(0); }
+        /* グラスモフィズム・カード */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
 
-    .note {
-      margin-top: 12px;
-      font-size: 0.78rem;
-      color: var(--warn);
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.25);
+        }
 
-    /* 結果表示エリア */
-    #result-area { display: none; }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
 
-    .result-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .meta-chip {
-      background: rgba(126,231,135,.1);
-      border: 1px solid rgba(126,231,135,.25);
-      color: var(--accent2);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 0.8rem;
-      font-family: 'Courier New', monospace;
-    }
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-    /* どーん！テキスト表示 */
-    #file-content-box {
-      background: #0a0e14;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 24px 28px;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 0.92rem;
-      line-height: 1.75;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: var(--accent2);
-      max-height: 420px;
-      overflow-y: auto;
-      opacity: 0;
-      transform: translateY(12px);
-      transition: opacity .5s ease, transform .5s ease;
-    }
-    #file-content-box.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
+        .badge {
+            font-size: 0.75rem;
+            font-family: 'Fira Code', monospace;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #8b9bb4;
+            transition: all 0.3s ease;
+        }
 
-    /* 「読み取り中」スピナー */
-    #reading-badge {
-      display: none;
-      align-items: center;
-      gap: 8px;
-      color: var(--accent);
-      font-size: 0.85rem;
-      margin-top: 8px;
-    }
-    #reading-badge.show { display: flex; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      width: 14px; height: 14px;
-      border: 2px solid rgba(88,166,255,.3);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
+        .badge.active {
+            background: rgba(0, 255, 135, 0.15);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+            box-shadow: 0 0 12px rgba(0, 255, 135, 0.4);
+            animation: pulseGlow 1.5s infinite alternate;
+        }
 
-    #status-line {
-      margin-top: 8px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      text-align: right;
-    }
+        .badge.canceled {
+            background: rgba(255, 51, 102, 0.15);
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            box-shadow: 0 0 12px rgba(255, 51, 102, 0.4);
+            animation: pulseGlowRed 1.5s infinite alternate;
+        }
 
-    footer {
-      margin-top: 64px;
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      text-align: center;
-    }
-  </style>
+        @keyframes pulseGlow {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes pulseGlowRed {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* ファイルインプット装飾 */
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: rgba(8, 10, 15, 0.8);
+            border: 1px dashed rgba(0, 240, 255, 0.4);
+            border-radius: 8px;
+            color: #8b9bb4;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* ネオンボタン */
+        .btn-cyber {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(255, 0, 127, 0.2));
+            border: 1px solid var(--accent-cyan);
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+
+        .btn-cyber:hover {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+            transform: scale(1.02);
+            color: #000;
+        }
+
+        /* ターミナル風コンソール表示 */
+        .terminal {
+            background: #05070a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 14px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            color: #00ff87;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            min-height: 75px;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .terminal.success {
+            border-color: var(--accent-green);
+            box-shadow: inset 0 0 15px rgba(0, 255, 135, 0.15), 0 0 20px rgba(0, 255, 135, 0.2);
+            color: #00ff87;
+        }
+
+        .terminal.canceled {
+            border-color: var(--accent-red);
+            box-shadow: inset 0 0 15px rgba(255, 51, 102, 0.15), 0 0 20px rgba(255, 51, 102, 0.2);
+            color: var(--accent-red);
+        }
+
+        .terminal-header {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff5f56;
+        }
+        .dot:nth-child(2) { background: #ffbd2e; }
+        .dot:nth-child(3) { background: #27c93f; }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+        }
+    </style>
 </head>
 <body>
 
-<header>
-  <h1>📂  FileChooser Interceptor Demo</h1>
-  <p>VBA CDP 拡張による「ファイル選択ダイアログ横取り」デモページ</p>
-</header>
+    <canvas id="canvas-particles"></canvas>
 
-<div class="cards">
+    <div class="container">
+        <header>
+            <h1>⚡ CDP ATTACHMENT LAB</h1>
+            <div class="subtitle">&gt; SYSTEM STATUS: READY FOR CDP INJECTION</div>
+        </header>
 
-  <!-- === Zone A : 静的 input === -->
-  <div class="card">
-    <div class="badge">ZONE A</div>
-    <div class="card-title"><span class="icon">🗂️</span>静的ファイル入力（Static input[type=file]）</div>
-    <div id="zone-static">
-      <input type="file" id="static-file-input" accept=".txt">
-      <div class="drop-label">
-        <div class="drop-icon">📄</div>
-        <div>クリックしてテキストファイルを選択</div>
-        <div class="drop-hint">DOM に最初から存在する &lt;input type="file"&gt; です</div>
-      </div>
+        <!-- テスト1: 単一ファイル選択 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">1️⃣ SINGLE FILE INJECTION</div>
+                <div id="badge1" class="badge">STANDBY</div>
+            </div>
+            <input type="file" id="singleInput">
+            <div class="terminal">
+                <div class="terminal-header"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                <div id="singleResult">&gt; Waiting for file input...</div>
+            </div>
+        </div>
+
+        <!-- テスト2: 複数ファイル選択 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">2️⃣ MULTI FILE INJECTION</div>
+                <div id="badge2" class="badge">MULTIPLE</div>
+            </div>
+            <input type="file" id="multiInput" multiple>
+            <div class="terminal">
+                <div class="terminal-header"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                <div id="multiResult">&gt; Waiting for multiple files...</div>
+            </div>
+        </div>
+
+        <!-- テスト3: ON-DEMAND DYNAMIC INPUT -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">3️⃣ ON-DEMAND DYNAMIC INPUT (ADVANCED)</div>
+                <div id="badge3" class="badge">NO INPUT IN DOM</div>
+            </div>
+            <button id="customBtn" class="btn-cyber">⚡ GENERATE DYNAMIC INPUT & TRIGGER</button>
+            <div class="terminal">
+                <div class="terminal-header"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                <div id="customResult">&gt; Click button to dynamically create input & trigger CDP intercept...</div>
+            </div>
+        </div>
     </div>
-    <p class="note">⚠️ VBA が <code>DOM.setFileInputFiles</code> でファイルを注入 → <code>change</code> イベントが発火 → JS の <code>FileReader</code> が読み取ります</p>
-  </div>
 
-  <!-- === Zone B : 動的生成 === -->
-  <div class="card">
-    <div class="badge">ZONE B</div>
-    <div class="card-title"><span class="icon">⚡</span>動的ファイル選択（JS で input を動的生成）</div>
-    <button id="btn-dynamic">
-      <span>📂</span> ファイルを選ぶ（動的生成）
-    </button>
-    <p class="note">
-      ⚠️ このボタンは JS でその場 &lt;input type="file"&gt; を生成してクリックします。<br>
-      　 <strong>FileChooserインターセプト必須</strong> のケースです。注入後も同じく <code>FileReader</code> で読みます。
-    </p>
-  </div>
+    <script>
+        // 🔊 成功時の高音ピコピコSF音
+        function playSfx() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e) {}
+        }
 
-  <!-- === 結果表示エリア === -->
-  <div class="card" id="result-area">
-    <div class="badge">RESULT</div>
-    <div class="card-title"><span class="icon">📋</span>読み取ったファイルの内容</div>
-    <div class="result-meta">
-      <span class="meta-chip" id="chip-name">FileName: —</span>
-      <span class="meta-chip" id="chip-chars">Chars: —</span>
-      <span class="meta-chip" id="chip-lines">Lines: —</span>
-      <span class="meta-chip" id="chip-zone">Zone: —</span>
-    </div>
-    <div id="reading-badge"><div class="spinner"></div><span>FileReader で読み取り中...</span></div>
-    <div id="file-content-box"></div>
-    <div id="status-line">— waiting —</div>
-  </div>
+        // 🚨 キャンセル時の低音警告ブザー音
+        function playCancelSfx() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.25);
+            } catch(e) {}
+        }
 
-</div>
+        // キラキラパーティクル
+        const canvas = document.getElementById('canvas-particles');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
 
-<footer>FileChooser Interceptor Demo — StarterWebScrapingKit / Extensions/CDP</footer>
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-<script>
-  // =========================================================
-  // ファイル読み取り → どーん！表示 の共通関数
-  // =========================================================
-  function readFileAndShow(file, zoneName) {
-    var badge = document.getElementById('reading-badge');
-    var box   = document.getElementById('file-content-box');
+        function spawnParticles(x, y, isCancel = false) {
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    color: isCancel ? '#ff3366' : (Math.random() > 0.5 ? '#00f0ff' : '#00ff87'),
+                    radius: Math.random() * 3 + 1,
+                    alpha: 1
+                });
+            }
+        }
 
-    // 読み取り中バッジを表示
-    badge.classList.add('show');
-    box.classList.remove('visible');
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.02;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fill();
+                if(p.alpha <= 0) particles.splice(idx, 1);
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
 
-    var reader = new FileReader();
+        // 成功レスポンス描画
+        function renderSuccess(files, resultElem, badgeElem) {
+            playSfx();
+            const rect = resultElem.getBoundingClientRect();
+            spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, false);
 
-    reader.onload = function(e) {
-      badge.classList.remove('show');
+            const terminal = resultElem.parentElement;
+            terminal.classList.remove('canceled');
+            terminal.classList.add('success');
+            
+            badgeElem.classList.remove('canceled');
+            badgeElem.classList.add('active');
+            badgeElem.textContent = 'ATTACHED ⚡';
 
-      var content = e.target.result;
-      var lines   = content.split('\n').length;
-      var chars   = content.length;
+            let output = `[SUCCESS] ${files.length} FILE(S) INJECTED VIA CDP:\n\n`;
 
-      document.getElementById('chip-name').textContent  = 'FileName: ' + file.name;
-      document.getElementById('chip-chars').textContent = 'Chars: '    + chars.toLocaleString();
-      document.getElementById('chip-lines').textContent = 'Lines: '    + lines.toLocaleString();
-      document.getElementById('chip-zone').textContent  = 'Zone: '     + zoneName;
+            Array.from(files).forEach((file, index) => {
+                output += `❯ ITEM [${index + 1}]\n`;
+                output += `  ├─ NAME : ${file.name}\n`;
+                output += `  ├─ SIZE : ${file.size.toLocaleString()} Bytes\n`;
+                output += `  ├─ TYPE : ${file.type || 'N/A'}\n`;
+                output += `  └─ DATE : ${new Date(file.lastModified).toISOString()}\n\n`;
 
-      // どーん！
-      box.textContent = content || '（空のファイルです）';
-      document.getElementById('result-area').style.display = 'block';
+                if (file.type.startsWith('text/') || file.name.match(/\.(txt|csv|json|log)$/i)) {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        output += `--- [PREVIEW CONTENT] ---\n${evt.target.result.slice(0, 200)}\n\n`;
+                        resultElem.textContent = output;
+                    };
+                    reader.readAsText(file);
+                } else {
+                    resultElem.textContent = output;
+                }
+            });
+        }
 
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          box.classList.add('visible');
+        // 🚨 キャンセルレスポンス描画
+        function renderCancel(resultElem, badgeElem) {
+            playCancelSfx();
+            const rect = resultElem.getBoundingClientRect();
+            spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, true);
+
+            const terminal = resultElem.parentElement;
+            terminal.classList.remove('success');
+            terminal.classList.add('canceled');
+
+            badgeElem.classList.remove('active');
+            badgeElem.classList.add('canceled');
+            badgeElem.textContent = 'CANCELED ❌';
+
+            let output = `❌ [WARNING] FILE SELECTION CANCELED / REJECTED:\n\n`;
+            output += `❯ STATUS : No file was selected or CDP cancel mode was triggered.\n`;
+            output += `❯ TIME   : ${new Date().toISOString()}\n`;
+            output += `❯ ACTION : Operation aborted gracefully.`;
+
+            resultElem.textContent = output;
+        }
+
+        // テスト1 & 2 リスナー（change + cancelイベント両対応）
+        function setupListener(inputId, resultId, badgeId) {
+            const inputElem = document.getElementById(inputId);
+            const resultElem = document.getElementById(resultId);
+            const badgeElem = document.getElementById(badgeId);
+
+            // 添付成功時
+            inputElem.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files.length > 0) {
+                    renderSuccess(e.target.files, resultElem, badgeElem);
+                } else {
+                    renderCancel(resultElem, badgeElem);
+                }
+            });
+
+            // キャンセルボタン押下時（ブラウザ標準 cancel イベント）
+            inputElem.addEventListener('cancel', function() {
+                renderCancel(resultElem, badgeElem);
+            });
+        }
+
+        setupListener('singleInput', 'singleResult', 'badge1');
+        setupListener('multiInput', 'multiResult', 'badge2');
+
+        // テスト3: 動的生成＋キャンセル対応
+        document.getElementById('customBtn').addEventListener('click', function() {
+            const resultElem = document.getElementById('customResult');
+            const badgeElem = document.getElementById('badge3');
+
+            resultElem.textContent = '> [DYNAMIC CREATION] Generating temporary <input type="file"> in memory...\n> Triggering .click() on-the-fly...';
+
+            const tempInput = document.createElement('input');
+            tempInput.type = 'file';
+            tempInput.style.display = 'none';
+
+            // 添付成功
+            tempInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files.length > 0) {
+                    renderSuccess(e.target.files, resultElem, badgeElem);
+                } else {
+                    renderCancel(resultElem, badgeElem);
+                }
+                tempInput.remove();
+            });
+
+            // キャンセル時
+            tempInput.addEventListener('cancel', function() {
+                renderCancel(resultElem, badgeElem);
+                tempInput.remove();
+            });
+
+            document.body.appendChild(tempInput);
+            tempInput.click();
         });
-      });
-
-      var now = new Date();
-      document.getElementById('status-line').textContent =
-        '✅  ' + now.toLocaleTimeString() + ' に FileReader で読み取り完了（' + zoneName + '）';
-    };
-
-    reader.onerror = function() {
-      badge.classList.remove('show');
-      document.getElementById('status-line').textContent = '❌ FileReader エラー';
-    };
-
-    // UTF-8 で読む
-    reader.readAsText(file, 'UTF-8');
-  }
-
-  // =========================================================
-  // Zone A : 静的 input[type=file] の change イベント
-  // =========================================================
-  document.getElementById('static-file-input').addEventListener('change', function() {
-    var file = this.files[0];
-    if (!file) return;
-    readFileAndShow(file, 'Zone A (静的 input)');
-  });
-
-  // =========================================================
-  // Zone B : JS で動的に input を生成してクリック
-  //          → 注入後の change も document の event delegation で拾う
-  // =========================================================
-  document.getElementById('btn-dynamic').addEventListener('click', function() {
-    var inp = document.createElement('input');
-    inp.type   = 'file';
-    inp.accept = '.txt';
-    inp.id     = 'dynamic-file-input';   // changeイベント側の識別用
-    inp.style.display = 'none';
-    document.body.appendChild(inp);
-    inp.click();
-    // 3秒後に要素を除去（注入完了には十分な余裕がある）
-    setTimeout(function() {
-      if (inp.parentNode) inp.parentNode.removeChild(inp);
-    }, 3000);
-  });
-
-  // Event delegation — 動的 input の change を document レベルで拾う
-  document.addEventListener('change', function(e) {
-    // static-file-input は専用リスナーで処理済みなのでスキップ
-    if (e.target.id === 'static-file-input') return;
-    if (e.target.type !== 'file') return;
-
-    var file = e.target.files[0];
-    if (!file) return;
-    readFileAndShow(file, 'Zone B (動的生成 input)');
-  });
-
-  // =========================================================
-  // ドラッグオーバーのビジュアル
-  // =========================================================
-  var zone = document.getElementById('zone-static');
-  zone.addEventListener('dragover',  function(e) { e.preventDefault(); zone.classList.add('dragover'); });
-  zone.addEventListener('dragleave', function()  { zone.classList.remove('dragover'); });
-  zone.addEventListener('drop',      function()  { zone.classList.remove('dragover'); });
-</script>
-
+    </script>
 </body>
 </html>
