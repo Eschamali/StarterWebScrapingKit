@@ -1,468 +1,477 @@
-Attribute VB_Name = "Test_AsyncBenchmark"
 '===================================================================================================
-' CDP è¤‡æ•°ã‚¿ãƒ–éåŒæœŸé·ç§»ï¼†éåŒæœŸã‚¹ã‚¯ã‚·ãƒ§ä¸€æ‹¬ä¿å­˜ãƒ™ãƒ³ãƒãƒãƒ¼ã‚¯ãƒ†ã‚¹ãƒˆ
+' ƒ}ƒ‹ƒ`ƒ^ƒu”ñ“¯ŠúCDPƒ‰ƒEƒ“ƒh“¯Šúƒxƒ“ƒ`ƒ}[ƒN
 '---------------------------------------------------------------------------------------------------
-' ç›®çš„ï¼š
-'   è¤‡æ•°ã‚¿ãƒ–ã‚’ç”¨ã„ã¦ã€éåŒæœŸé·ç§»ï¼ˆPage.navigateï¼‰ã¨éåŒæœŸã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆï¼ˆPage.captureScreenshotï¼‰
-'   ã‚’çµ„ã¿åˆã‚ã›ãŸä¸¦åˆ—å®Ÿè¡Œã®å‹•ä½œã‚’æ¤œè¨¼ã™ã‚‹ã€‚
-'   ã¾ãŸã€å–å¾—ã—ãŸéåŒæœŸã‚³ãƒãƒ³ãƒ‰ã®æ•´ç†åˆ¸ï¼ˆCommandIDï¼‰ã‚’ã‚‚ã¨ã«ã€æœ€çµ‚ãƒ•ã‚§ãƒ¼ã‚ºã§ä¸€æ‹¬ä¿å­˜ã‚’è¡Œã†ã€‚
+' ŠT—vF
+'   w’èƒ^ƒu”‚ğŠJ‚«Aƒ‰ƒEƒ“ƒh‚²‚Æ‚Éu‘Sƒ^ƒuˆêÄƒ‰ƒ“ƒ_ƒ€‘JˆÚ ¨ ‘Sƒ^ƒu“Ç‚İ‚İŠ®—¹ƒoƒŠƒA ¨
+'   Cookie/Screenshot”ñ“¯Šú—v‹v‚ğŒJ‚è•Ô‚·BScreenshot‚Íƒ‰ƒEƒ“ƒh‚²‚Æ‚ÉŒ‹‰Ê‚ğ‰ñû‚µ‚Ä•Û‚µA
+'   Cookie‚Í‘Sƒ‰ƒEƒ“ƒhI—¹Œã‚É‚Ü‚Æ‚ß‚Ä‰ñû‚·‚éBÅŒã‚ÉScreenshot‚ğˆêŠ‡‚ÅDownloads‚Ö•Û‘¶‚·‚éB
+'
+'   ƒy[ƒW“Ç‚İ‚İŠ®—¹ŒŸ’miƒoƒŠƒA”»’è, Step Bj‚ÍAˆÈ‰º‚Ì2ƒpƒ^[ƒ“‚Å—pˆÓ‚µ‚Ä‚¢‚éF
+'     ETest_AsyncBenchmark_RoundSync_Inline     : CDPContext.BrowserEvents‚ğ’¼Úƒ|[ƒŠƒ“ƒOi’Ç‰ÁƒNƒ‰ƒX•s—vj
+'     ETest_AsyncBenchmark_RoundSync_ClassBased : exCDP_PageLoadWatcherŠg’£ƒNƒ‰ƒX‚ğ—˜—pi—vƒCƒ“ƒ|[ƒgj
+'   —¼Ò‚ÍStep A/B‚Ì”»’è•”•ª‚Ì‚İ‚ªˆÙ‚È‚èA‚»‚êˆÈŠOiCookie/Screenshot”­sE‰ñûE•Û‘¶EƒTƒ}ƒŠ[j‚Í
+'   ‹¤’Ê‚Ì”ñŒöŠJƒwƒ‹ƒp[‚ğŒÄ‚Ño‚µ‚Ä‚¢‚éB
 '===================================================================================================
 Option Explicit
 
-'---------------------------------------------------------------------------------------------------
-' å®šæ•°å®šç¾©
-'---------------------------------------------------------------------------------------------------
 Private Const RESULT_SECTION_LINE   As String = "=================================================="
-Private Const NUM_TABS              As Long = 3      ' ãƒ†ã‚¹ãƒˆã™ã‚‹ã‚¿ãƒ–æ•°
-Private Const NUM_LAPS              As Long = 3      ' å„ã‚¿ãƒ–ãŒç¹°ã‚Šè¿”ã™é·ç§»ãƒ»ã‚¹ã‚¯ã‚·ãƒ§ã®ãƒ©ãƒƒãƒ—æ•°
-Private Const SAVE_PATH             As String = "Downloads" ' ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ãƒ•ã‚©ãƒ«ãƒ€é…ä¸‹ã«ä¿å­˜ (Environ("UserProfile") & "\Downloads")
+Private Const NUM_TABS              As Long = 30      ' ŠJ‚­ƒ^ƒu”
+Private Const NUM_ROUNDS            As Long = 10       ' ŒJ‚è•Ô‚·ƒ‰ƒEƒ“ƒh”
+Private Const TIMEOUT_LOAD_SEC      As Double = 30    ' “Ç‚İ‚İŠ®—¹ƒoƒŠƒA‚Ìƒ^ƒCƒ€ƒAƒEƒg
+Private Const TIMEOUT_SCREENSHOT_SEC As Double = 20   ' ƒXƒNƒVƒ‡‰ñû‚Ìƒ^ƒCƒ€ƒAƒEƒg
+Private Const TIMEOUT_COOKIE_SEC    As Double = 15    ' Cookie‰ñû‚Ìƒ^ƒCƒ€ƒAƒEƒg
+Private Const SAVE_PATH             As String = "Downloads"
 
-' ãƒãƒƒãƒˆã‚µãƒ¼ãƒ•ã‚£ãƒ³å¯¾è±¡URLï¼ˆå®‰å®šã—ã¦ã„ã¦ã€ã‹ã¤ãƒãƒƒãƒˆãƒ¯ãƒ¼ã‚¯ã‚¤ãƒ™ãƒ³ãƒˆãŒç™ºç”Ÿã—ã‚„ã™ã„ã‚µã‚¤ãƒˆï¼‰
-Private Const URL_1 As String = "https://www.google.com"
+Private Const URL_1 As String = "https://www.youtube.com/@islandfox6864/"
 Private Const URL_2 As String = "https://www.yahoo.co.jp"
 Private Const URL_3 As String = "https://kemono-friends.jp/"
 Private Const URL_4 As String = "https://news.yahoo.co.jp"
 Private Const URL_5 As String = "https://www.amazon.co.jp"
 
-' å„ã‚¿ãƒ–ã®çŠ¶æ…‹ã‚’ç®¡ç†ã™ã‚‹æ§‹é€ ä½“
 Private Type TabState
-    Index As Long           ' ã‚¿ãƒ–ã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ (1 to NUM_TABS)
-    context As CDPContext   ' ã‚¿ãƒ–ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-    CurrentLap As Long      ' ç¾åœ¨ã®ãƒ©ãƒƒãƒ—æ•° (1 to NUM_LAPS)
-    Status As String        ' "NAVIGATING", "COMPLETED"
-    TargetUrl As String     ' ç¾åœ¨é·ç§»ä¸­ã®URL
+    Index As Long
+    LoadedThisRound As Boolean
+    TimedOutRounds As Long
+    NetworkEventCountThisRound As Long   ' ƒoƒŠƒA¬—§“_‚Å‚ÌNetwork.requestWillBeSentŒ”
 End Type
 
-' éåŒæœŸã‚¹ã‚¯ã‚·ãƒ§ã®æ•´ç†åˆ¸æƒ…å ±ã‚’è¨˜éŒ²ã™ã‚‹æ§‹é€ ä½“
-Private Type ScreenshotTicket
-    TabIndex As Long        ' ã‚¿ãƒ–ã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹
-    context As CDPContext   ' ã‚¿ãƒ–ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
-    commandID As Long       ' éåŒæœŸã‚³ãƒãƒ³ãƒ‰ID (æ•´ç†åˆ¸ç•ªå·)
-    Lap As Long             ' ãƒ©ãƒƒãƒ—æ•°
-    FileName As String      ' ä¿å­˜ãƒ•ã‚¡ã‚¤ãƒ«å
-    Saved As Boolean        ' ä¿å­˜å®Œäº†ãƒ•ãƒ©ã‚°
+Private Type ScreenshotTicket   ' ƒ‰ƒEƒ“ƒh‚²‚Æ‚Éì‚è’¼‚·i‚±‚Ìƒ‰ƒEƒ“ƒh“à‚Å‚Ì‚İg‚¤j
+    TabIndex As Long
+    context As CDPContext
+    commandID As Long
+    Retrieved As Boolean
+End Type
+
+Private Type ScreenshotPayload  ' ‘Sƒ‰ƒEƒ“ƒh•ª‚ğ’~ÏBƒfƒR[ƒhE•Û‘¶‚ÍÅŒã‚É‚Ü‚Æ‚ß‚Äs‚¤
+    TabIndex As Long
+    RoundIndex As Long
+    Base64Data As String
+    FileName As String
+    HadError As Boolean
+End Type
+
+Private Type CookieTicket       ' ‘Sƒ‰ƒEƒ“ƒh•ª‚ğ’~ÏBŒ‹‰Êæ“¾‚àÅŒã‚Ü‚Å’x‰„‚·‚é
+    TabIndex As Long
+    RoundIndex As Long
+    context As CDPContext
+    commandID As Long
+    Retrieved As Boolean
+    CookieCount As Long
+    HadError As Boolean
 End Type
 
 '===================================================================================================
-' ãƒ¡ã‚¤ãƒ³ãƒ†ã‚¹ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ï¼ˆã“ã“ã‚’å®Ÿè¡Œã™ã‚‹ï¼‰
+' Pattern A: CDPContext.BrowserEvents ‚ğ’¼Úƒ|[ƒŠƒ“ƒO‚·‚éAbasŠ®Œ‹ƒpƒ^[ƒ“
 '===================================================================================================
-Sub Test_AsyncBenchmark_Main()
-    Dim chrome As New CDPBrowser
+Public Sub Test_AsyncBenchmark_RoundSync_Inline()
+    Dim chrome As CDPBrowser
     Dim tabs() As CDPContext
     Dim tabStates() As TabState
-    Dim tickets() As ScreenshotTicket
-    Dim ticketCount As Long
     Dim urls(1 To 5) As String
-    Dim i As Long, t As Long
-    Dim allFinished As Boolean
-    Dim saveDir As String
+    Dim t As Long, r As Long
+    Dim cookieTickets() As CookieTicket, cookieTicketCount As Long
+    Dim screenshotPayloads() As ScreenshotPayload, screenshotPayloadCount As Long
+    Dim benchStart As Double
 
-    saveDir = Environ("UserProfile") & "\" & SAVE_PATH
-    ticketCount = 0
+    urls(1) = URL_1: urls(2) = URL_2: urls(3) = URL_3: urls(4) = URL_4: urls(5) = URL_5
 
-    ' URLé…åˆ—ã®åˆæœŸåŒ–
-    urls(1) = URL_1
-    urls(2) = URL_2
-    urls(3) = URL_3
-    urls(4) = URL_4
-    urls(5) = URL_5
-
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[éåŒæœŸãƒ™ãƒ³ãƒãƒãƒ¼ã‚¯ãƒ†ã‚¹ãƒˆ] é–‹å§‹"
-    Debug.Print "å®Ÿè¡Œæ™‚åˆ»: " & Format(Now, "yyyy/mm/dd hh:mm:ss")
-    Debug.Print "è¨­å®š: ã‚¿ãƒ–æ•°=" & NUM_TABS & ", ãƒ©ãƒƒãƒ—æ•°=" & NUM_LAPS
-    Debug.Print RESULT_SECTION_LINE
-
-    ' 1. ãƒ–ãƒ©ã‚¦ã‚¶ã®èµ·å‹•ã¨ã‚¿ãƒ–ã®ç”¨æ„
-    Debug.Print "ãƒ–ãƒ©ã‚¦ã‚¶ã‚’èµ·å‹•ã—ã¦ã„ã¾ã™..."
-    Set chrome = ShSetting01_StartBrowser.StartCDPMode
-
-    '------- ãƒªã‚¢ã‚¿ãƒƒãƒç”¨ -------
-    'Set chrome = New CDPBrowser
-    'chrome.reattach "ChromiumWebSocket"
-    '---------------------------
+    PrintHeader "[Inlineƒpƒ^[ƒ“] ƒ}ƒ‹ƒ`ƒ^ƒu”ñ“¯Šúƒxƒ“ƒ`ƒ}[ƒN ŠJn"
+    Debug.Print "İ’è: ƒ^ƒu”=" & NUM_TABS & ", ƒ‰ƒEƒ“ƒh”=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
+    '---- Pipe”Å ----
+    Set chrome = ShSetting01_StartBrowser.StartCDPMode
+    Set tabs(1) = chrome.getTab(setMain:=True)
+    '----------------
+    
+    '---- WebSocket”Å ----
+'    '3. İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
+'
+'    '4. w’è‚ÌWebSocketForCDP‚ÖÚ‘±
+'    Dim WebSocketCDP As New CDPCoreViaWebSocket
+'    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+'
+'    '5. Œq‚°‚½WebSocketƒIƒuƒWƒFƒNƒg‚ğ`reattach`ƒƒ\ƒbƒh‚É“n‚·
+'    Set chrome = New CDPBrowser
+'    If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "u" & UserName & "v‚ÉÚ‘±‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½BWebSocketî•ñ‚ª‚¨–S‚­‚È‚è‚Å‚·B", vbCritical, "Chrome DevTools Protocol": Exit Sub
+'    Set tabs(1) = chrome.newTab(setMain:=True)
+    '---------------------
+    benchStart = chrome.TimerCounter
+
+
+
     ReDim tabStates(1 To NUM_TABS)
 
-    ' æœ€åˆã®ã‚¿ãƒ–ã‚’å–å¾— (runTabsAsMany ã«æº–ã˜ã‚‹)
-    Set tabs(1) = chrome.getTab(setMain:=True)
-
-    ' 2ç•ªç›®ä»¥é™ã®ã‚¿ãƒ–ã‚’ä½œæˆ (newWindow:=False)
     For t = 2 To NUM_TABS
         Set tabs(t) = chrome.newTab(newWindow:=False)
     Next t
 
-    ' å„ã‚¿ãƒ–ã®ã‚¤ãƒ™ãƒ³ãƒˆã®æœ‰åŠ¹åŒ–ã¨åˆæœŸé·ç§»
     Randomize
     For t = 1 To NUM_TABS
-        Set tabStates(t).context = tabs(t)
         tabStates(t).Index = t
-        tabStates(t).CurrentLap = 1
-        tabStates(t).Status = "NAVIGATING"
 
-        ' ã‚¤ãƒ™ãƒ³ãƒˆç›£è¦–ã®æœ‰åŠ¹åŒ– (Page.loadEventFired ã‚’ã‚­ãƒ£ãƒƒãƒã™ã‚‹ãŸã‚)
         tabs(t).ExecuteCDP "Page.enable"
+        tabs(t).ExecuteCDP "Network.enable"
         tabs(t).SetFilterEvents = "Page.loadEventFired"
-        Set tabs(t).BrowserEvents = New Dictionary
-
-        ' åˆæœŸé·ç§»å…ˆã‚’ãƒ©ãƒ³ãƒ€ãƒ ã«æ±ºå®š
-        Dim rndIdx As Long
-        rndIdx = Int(Rnd * 5) + 1
-        tabStates(t).TargetUrl = urls(rndIdx)
-
-        ' éåŒæœŸé·ç§»ã®ä¾é ¼
-        Dim navParams As Scripting.Dictionary
-        Set navParams = New Scripting.Dictionary
-        navParams.Add "url", tabStates(t).TargetUrl
-
-        Call tabs(t).ExecuteCDPAsync("Page.navigate", navParams)
-        Debug.Print "Tab " & t & " Lap 1: éåŒæœŸé·ç§»é–‹å§‹ -> " & tabStates(t).TargetUrl
+        tabs(t).SetFilterEvents = "Network.requestWillBeSent"
     Next t
 
-    ' 2. ã‚¤ãƒ™ãƒ³ãƒˆãƒ«ãƒ¼ãƒ—ã«ã‚ˆã‚‹é·ç§»ãƒ»ã‚¹ã‚¯ã‚·ãƒ§è¦æ±‚ã®ä¸¦åˆ—åˆ¶å¾¡
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "éåŒæœŸå‡¦ç†ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒ«ãƒ¼ãƒ—ã‚’é–‹å§‹ã—ã¾ã™..."
+    ReDim cookieTickets(1 To NUM_TABS * NUM_ROUNDS)
+    ReDim screenshotPayloads(1 To NUM_TABS * NUM_ROUNDS)
 
-    Do
-        ' ãƒ–ãƒ©ã‚¦ã‚¶å…¨ä½“ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒ¼ãƒªãƒ³ã‚°ï¼ˆã™ã¹ã¦ã®ã‚¿ãƒ–ã®ã‚¤ãƒ™ãƒ³ãƒˆãŒå‡¦ç†ã•ã‚Œã‚‹ï¼‰
-        chrome.TakeEvents
+    For r = 1 To NUM_ROUNDS
+        Debug.Print RESULT_SECTION_LINE
+        Debug.Print "[Round " & r & "/" & NUM_ROUNDS & "] ŠJn"
 
-        allFinished = True
+        Dim activeTabs() As Boolean
+        ReDim activeTabs(1 To NUM_TABS)
+
+        ' --- Step A: ‘Sƒ^ƒuˆêÄ‚É”ñ“¯Šú‘JˆÚ ---
         For t = 1 To NUM_TABS
-            If tabStates(t).Status = "NAVIGATING" Then
-                allFinished = False
+            Set tabs(t).BrowserEvents = New Dictionary   ' ‘Oƒ‰ƒEƒ“ƒh‚Ìc—¯ƒCƒxƒ“ƒg‚ğƒNƒŠƒA‚µ‚Ä‚©‚ç”­s
+            tabStates(t).LoadedThisRound = False
 
-                ' Page.loadEventFired ãŒç™ºç”Ÿã—ãŸã‹ç¢ºèª
-                If tabStates(t).context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
-                    Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " èª­ã¿è¾¼ã¿å®Œäº†ï¼"
-
-                    ' (a) ã‚¹ã‚¯ã‚·ãƒ§éåŒæœŸä¾é ¼
-                    Dim snapParams As Scripting.Dictionary
-                    Set snapParams = New Scripting.Dictionary
-                    ' é«˜é€ŸåŒ–ã®ãŸã‚ getFullPage:=False ç›¸å½“ (paramsã¯ç©ºã§ãƒ“ãƒ¥ãƒ¼ãƒãƒ¼ãƒˆã®ã¿ã‚­ãƒ£ãƒ—ãƒãƒ£)
-
-                    Dim snapCmdID As Long
-                    snapCmdID = tabStates(t).context.ExecuteCDPAsync("Page.captureScreenshot", snapParams)
-
-                    ' æ•´ç†åˆ¸ã‚’è¨˜éŒ²
-                    ticketCount = ticketCount + 1
-                    ReDim Preserve tickets(1 To ticketCount)
-
-                    tickets(ticketCount).TabIndex = t
-                    Set tickets(ticketCount).context = tabStates(t).context
-                    tickets(ticketCount).commandID = snapCmdID
-                    tickets(ticketCount).Lap = tabStates(t).CurrentLap
-                    tickets(ticketCount).FileName = "bench_tab" & t & "_lap" & tabStates(t).CurrentLap & ".png"
-                    tickets(ticketCount).Saved = False
-
-                    Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " ã‚¹ã‚¯ã‚·ãƒ§éåŒæœŸä¾é ¼å®Œäº† (æ•´ç†åˆ¸ç•ªå·: " & snapCmdID & ")"
-
-                    ' (b) æ¬¡ã®é·ç§»ã‚’ä¾é ¼ã™ã‚‹ã‹ã€å®Œäº†ã¨ã™ã‚‹ã‹
-                    If tabStates(t).CurrentLap < NUM_LAPS Then
-                        tabStates(t).CurrentLap = tabStates(t).CurrentLap + 1
-                        tabStates(t).Status = "NAVIGATING"
-
-                        ' æ¬¡ã®ãƒ©ãƒ³ãƒ€ãƒ URLã‚’é¸æŠ
-                        rndIdx = Int(Rnd * 5) + 1
-                        tabStates(t).TargetUrl = urls(rndIdx)
-
-                        ' ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã‚’ã‚¯ãƒªã‚¢ã—ã¦ã€æ¬¡ã®ãƒ­ãƒ¼ãƒ‰ã«å‚™ãˆã‚‹
-                        Set tabStates(t).context.BrowserEvents = New Dictionary
-
-                        ' éåŒæœŸé·ç§»ã®ä¾é ¼
-                        Dim nextNavParams As Scripting.Dictionary
-                        Set nextNavParams = New Scripting.Dictionary
-                        nextNavParams.Add "url", tabStates(t).TargetUrl
-                        Call tabStates(t).context.ExecuteCDPAsync("Page.navigate", nextNavParams)
-                        Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " éåŒæœŸé·ç§»é–‹å§‹ -> " & tabStates(t).TargetUrl
-                    Else
-                        tabStates(t).Status = "COMPLETED"
-                        Debug.Print "  -> Tab " & t & " å…¨ãƒ©ãƒƒãƒ—ã®ä¾é ¼ãŒå®Œäº†ã—ã¾ã—ãŸã€‚"
-                    End If
-                End If
-            End If
+            Dim navParams As Scripting.Dictionary
+            Set navParams = New Scripting.Dictionary
+            navParams.Add "url", urls(Int(Rnd * 5) + 1)
+            tabs(t).ExecuteCDPAsync "Page.navigate", navParams
         Next t
 
-        ' CPUè² è·å‰Šæ¸›ã®ãŸã‚ã®ã‚¹ãƒªãƒ¼ãƒ—
-        chrome.sleep 0.05
-    Loop Until allFinished
+        ' --- Step B: ‘Sƒ^ƒu“Ç‚İ‚İŠ®—¹ƒoƒŠƒA ---
+        Dim barrierStart As Double: barrierStart = chrome.TimerCounter
+        Dim pendingCount As Long: pendingCount = NUM_TABS
+        Do While pendingCount > 0
+            chrome.TakeEvents
 
-    ' 3. æ•´ç†åˆ¸ã‚’åŸºã«ç”»åƒã‚’ä¸€æ‹¬ä¿å­˜ã™ã‚‹ãƒ•ã‚§ãƒ¼ã‚º
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "å…¨ãƒªã‚¯ã‚¨ã‚¹ãƒˆã®é€ä¿¡ãŒå®Œäº†ã—ã¾ã—ãŸã€‚ç”»åƒã®ä¸€æ‹¬ä¿å­˜ãƒ•ã‚§ãƒ¼ã‚ºã«ç§»ã‚Šã¾ã™..."
-
-    Dim DataConv As New WebCrypto
-    Dim CharConv As New CharacterCodeConversion
-    Dim allSaved As Boolean
-    Dim savedCount As Long
-
-    savedCount = 0
-
-    Do
-        chrome.TakeEvents
-        allSaved = True
-
-        For i = 1 To ticketCount
-            If Not tickets(i).Saved Then
-                allSaved = False
-
-                ' ResultCDPFromWithEvents ã§çµæœãŒæˆ»ã£ã¦ã„ã‚‹ã‹ç¢ºèª
-                Dim resJson As String
-                resJson = tickets(i).context.TakeResultCDP(tickets(i).commandID)
-
-                If Len(resJson) > 0 Then
-                    ' ãƒ‘ãƒ¼ã‚¹å‡¦ç†
-                    Dim resDic As Dictionary
-                    Set resDic = WebJsonConverter.Parse(resJson).value
-
-                    If Not resDic Is Nothing Then
-                        If resDic.Exists("error") Then
-                            Dim errMsg As String
-                            errMsg = resDic("error")("message")
-                            Debug.Print "  [ä¿å­˜å¤±æ•—] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " : " & errMsg
-                            tickets(i).Saved = True ' ã‚¨ãƒ©ãƒ¼çµ‚äº†ã¨ã—ã¦æ‰±ã†
-                            savedCount = savedCount + 1
-                        ElseIf resDic.Exists("result") Then
-                            Dim resultData As Dictionary
-                            Set resultData = resDic("result")
-
-                            If resultData.Exists("data") Then
-                                Dim b64 As String
-                                b64 = resultData("data")
-
-                                ' Base64ãƒ‡ãƒ¼ã‚¿ã‚’ãƒ‡ã‚³ãƒ¼ãƒ‰ã—ã¦ãƒ•ã‚¡ã‚¤ãƒ«ä¿å­˜
-                                Dim Bytes() As Byte
-                                Bytes = DataConv.Decode(b64, edfBase64)
-                                CharConv.BytesToSaveFile Bytes, saveDir, tickets(i).FileName
-
-                                Debug.Print "  [ä¿å­˜æˆåŠŸ] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " -> " & tickets(i).FileName
-                                tickets(i).Saved = True
-                                savedCount = savedCount + 1
-                            End If
+            For t = 1 To NUM_TABS
+                If Not tabStates(t).LoadedThisRound Then
+                    If tabs(t).BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
+                        tabStates(t).LoadedThisRound = True
+                        If tabs(t).BrowserEvents("EventMethods").Exists("Network.requestWillBeSent") Then
+                            tabStates(t).NetworkEventCountThisRound = tabs(t).BrowserEvents("EventMethods")("Network.requestWillBeSent").Count
+                        Else
+                            tabStates(t).NetworkEventCountThisRound = 0
                         End If
+                        activeTabs(t) = True
+                        pendingCount = pendingCount - 1
+                        Debug.Print "  Tab " & t & " “Ç‚İ‚İŠ®—¹ (NetworkEvents=" & tabStates(t).NetworkEventCountThisRound & ")"
+
+                    ElseIf chrome.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
+                        tabStates(t).LoadedThisRound = True
+                        tabStates(t).TimedOutRounds = tabStates(t).TimedOutRounds + 1
+                        activeTabs(t) = False
+                        pendingCount = pendingCount - 1
+                        Debug.Print "  [WARN] Tab " & t & " “Ç‚İ‚İƒ^ƒCƒ€ƒAƒEƒgB‚±‚Ìƒ‰ƒEƒ“ƒh‚ÍƒXƒLƒbƒv‚µ‚Ü‚·"
                     End If
                 End If
-            End If
-        Next i
+            Next t
 
-        If Not allSaved Then chrome.sleep 0.1
-    Loop Until allSaved
+            If pendingCount > 0 Then chrome.sleep 0.05
+        Loop
 
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[ãƒ†ã‚¹ãƒˆçµ‚äº†] ãƒ™ãƒ³ãƒãƒãƒ¼ã‚¯çµæœ"
-    Debug.Print "  ç·ãƒªã‚¯ã‚¨ã‚¹ãƒˆæ•´ç†åˆ¸æ•° : " & ticketCount
-    Debug.Print "  ä¿å­˜å‡¦ç†å®Œäº†æ•°       : " & savedCount
-    Debug.Print "  ä¿å­˜å…ˆãƒ•ã‚©ãƒ«ãƒ€       : " & saveDir
-    Debug.Print RESULT_SECTION_LINE
+        ' --- Step CED: Cookie/Screenshot”­sE‚±‚Ìƒ‰ƒEƒ“ƒh‚ÌScreenshot‰ñûi‹¤’Êˆ—j ---
+        FireAndDrainRound chrome, tabs, activeTabs, r, cookieTickets, cookieTicketCount, screenshotPayloads, screenshotPayloadCount
+    Next r
 
-    ' ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
-    chrome.quit
+    FinishBenchmark chrome, benchStart, tabStates, cookieTickets, cookieTicketCount, screenshotPayloads, screenshotPayloadCount, "Inline"
 End Sub
 
 '===================================================================================================
-' ãƒ¡ã‚¤ãƒ³ãƒ†ã‚¹ãƒˆãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ï¼ˆCookieãƒ‘ã‚¿ãƒ¼ãƒ³ï¼‰
+' Pattern B: exCDP_PageLoadWatcher Šg’£ƒNƒ‰ƒX‚ğ—˜—p‚·‚éƒpƒ^[ƒ“
+' ¦–‘O‚É `VBAProject/Class/exCDP_PageLoadWatcher.cls` ‚ğƒCƒ“ƒ|[ƒg‚µ‚Ä‚¨‚­‚±‚Æ
 '===================================================================================================
-Sub Test_AsyncBenchmark_Cookies()
-    Dim chrome As New CDPBrowser
+Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
+    Dim chrome As CDPBrowser
     Dim tabs() As CDPContext
+    Dim watchers() As exCDP_PageLoadWatcher
     Dim tabStates() As TabState
-    Dim tickets() As ScreenshotTicket
-    Dim ticketCount As Long
     Dim urls(1 To 5) As String
-    Dim i As Long, t As Long
-    Dim allFinished As Boolean
-    Dim saveDir As String
+    Dim t As Long, r As Long
+    Dim cookieTickets() As CookieTicket, cookieTicketCount As Long
+    Dim screenshotPayloads() As ScreenshotPayload, screenshotPayloadCount As Long
+    Dim benchStart As Double
 
-    ticketCount = 0
+    urls(1) = URL_1: urls(2) = URL_2: urls(3) = URL_3: urls(4) = URL_4: urls(5) = URL_5
 
-    ' URLé…åˆ—ã®åˆæœŸåŒ–
-    urls(1) = URL_1
-    urls(2) = URL_2
-    urls(3) = URL_3
-    urls(4) = URL_4
-    urls(5) = URL_5
-
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[éåŒæœŸãƒ™ãƒ³ãƒãƒãƒ¼ã‚¯ãƒ†ã‚¹ãƒˆ (Cookieç‰ˆ)] é–‹å§‹"
-    Debug.Print "å®Ÿè¡Œæ™‚åˆ»: " & Format(Now, "yyyy/mm/dd hh:mm:ss")
-    Debug.Print "è¨­å®š: ã‚¿ãƒ–æ•°=" & NUM_TABS & ", ãƒ©ãƒƒãƒ—æ•°=" & NUM_LAPS
-    Debug.Print RESULT_SECTION_LINE
-
-    ' 1. ãƒ–ãƒ©ã‚¦ã‚¶ã®èµ·å‹•ã¨ã‚¿ãƒ–ã®ç”¨æ„
-    Debug.Print "ãƒ–ãƒ©ã‚¦ã‚¶ã‚’èµ·å‹•ã—ã¦ã„ã¾ã™..."
-    Set chrome = ShSetting01_StartBrowser.StartCDPMode
-
-    '------- ãƒªã‚¢ã‚¿ãƒƒãƒç”¨ -------
-    'Set chrome = New CDPBrowser
-    'chrome.reattach "ChromiumWebSocket"
-    '---------------------------
+    PrintHeader "[ClassBasedƒpƒ^[ƒ“] ƒ}ƒ‹ƒ`ƒ^ƒu”ñ“¯Šúƒxƒ“ƒ`ƒ}[ƒN ŠJn"
+    Debug.Print "İ’è: ƒ^ƒu”=" & NUM_TABS & ", ƒ‰ƒEƒ“ƒh”=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
+    '---- Pipe”Å ----
+    Set chrome = ShSetting01_StartBrowser.StartCDPMode
+    Set tabs(1) = chrome.getTab(setMain:=True)
+    '----------------
+    
+    '---- WebSocket”Å ----
+'    '3. İ’èƒZƒ‹‚©‚çAƒ†[ƒU–¼‚ğæ“¾
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
+'
+'    '4. w’è‚ÌWebSocketForCDP‚ÖÚ‘±
+'    Dim WebSocketCDP As New CDPCoreViaWebSocket
+'    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+'
+'    '5. Œq‚°‚½WebSocketƒIƒuƒWƒFƒNƒg‚ğ`reattach`ƒƒ\ƒbƒh‚É“n‚·
+'    Set chrome = New CDPBrowser
+'    If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "u" & UserName & "v‚ÉÚ‘±‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½BWebSocketî•ñ‚ª‚¨–S‚­‚È‚è‚Å‚·B", vbCritical, "Chrome DevTools Protocol": Exit Sub
+'    Set tabs(1) = chrome.newTab(setMain:=True)
+    '---------------------
+
+    benchStart = chrome.TimerCounter
+
+    ReDim watchers(1 To NUM_TABS)
     ReDim tabStates(1 To NUM_TABS)
 
-    ' æœ€åˆã®ã‚¿ãƒ–ã‚’å–å¾— (runTabsAsMany ã«æº–ã˜ã‚‹)
-    Set tabs(1) = chrome.getTab(setMain:=True)
-
-    ' 2ç•ªç›®ä»¥é™ã®ã‚¿ãƒ–ã‚’ä½œæˆ (newWindow:=False)
     For t = 2 To NUM_TABS
         Set tabs(t) = chrome.newTab(newWindow:=False)
     Next t
 
-    ' å„ã‚¿ãƒ–ã®ã‚¤ãƒ™ãƒ³ãƒˆã®æœ‰åŠ¹åŒ–ã¨åˆæœŸé·ç§»
     Randomize
     For t = 1 To NUM_TABS
-        Set tabStates(t).context = tabs(t)
         tabStates(t).Index = t
-        tabStates(t).CurrentLap = 1
-        tabStates(t).Status = "NAVIGATING"
 
-        ' ã‚¤ãƒ™ãƒ³ãƒˆç›£è¦–ã®æœ‰åŠ¹åŒ– (Page.loadEventFired ã‚’ã‚­ãƒ£ãƒƒãƒã™ã‚‹ãŸã‚)
-        tabs(t).ExecuteCDP "Page.enable"
-        tabs(t).ExecuteCDP "Network.enable" ' Cookieå–å¾—ç”¨ãƒ‰ãƒ¡ã‚¤ãƒ³ã®æœ‰åŠ¹åŒ–
-        tabs(t).SetFilterEvents = "Page.loadEventFired"
-        Set tabs(t).BrowserEvents = New Dictionary
-
-        ' åˆæœŸé·ç§»å…ˆã‚’ãƒ©ãƒ³ãƒ€ãƒ ã«æ±ºå®š
-        Dim rndIdx As Long
-        rndIdx = Int(Rnd * 5) + 1
-        tabStates(t).TargetUrl = urls(rndIdx)
-
-        ' éåŒæœŸé·ç§»ã®ä¾é ¼
-        Dim navParams As Scripting.Dictionary
-        Set navParams = New Scripting.Dictionary
-        navParams.Add "url", tabStates(t).TargetUrl
-
-        Call tabs(t).ExecuteCDPAsync("Page.navigate", navParams)
-        Debug.Print "Tab " & t & " Lap 1: éåŒæœŸé·ç§»é–‹å§‹ -> " & tabStates(t).TargetUrl
+        Set watchers(t) = New exCDP_PageLoadWatcher
+        watchers(t).Init tabs(t)   ' Page/Network—LŒø‰»‚ÍƒNƒ‰ƒX“à•”‚ÅŠ®—¹‚·‚é
     Next t
 
-    ' 2. ã‚¤ãƒ™ãƒ³ãƒˆãƒ«ãƒ¼ãƒ—ã«ã‚ˆã‚‹é·ç§»ãƒ»Cookieè¦æ±‚ã®ä¸¦åˆ—åˆ¶å¾¡
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "éåŒæœŸå‡¦ç†ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒ«ãƒ¼ãƒ—ã‚’é–‹å§‹ã—ã¾ã™..."
+    ReDim cookieTickets(1 To NUM_TABS * NUM_ROUNDS)
+    ReDim screenshotPayloads(1 To NUM_TABS * NUM_ROUNDS)
 
-    Do
-        ' ãƒ–ãƒ©ã‚¦ã‚¶å…¨ä½“ã®ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒ¼ãƒªãƒ³ã‚°ï¼ˆã™ã¹ã¦ã®ã‚¿ãƒ–ã®ã‚¤ãƒ™ãƒ³ãƒˆãŒå‡¦ç†ã•ã‚Œã‚‹ï¼‰
-        chrome.TakeEvents
+    For r = 1 To NUM_ROUNDS
+        Debug.Print RESULT_SECTION_LINE
+        Debug.Print "[Round " & r & "/" & NUM_ROUNDS & "] ŠJn"
 
-        allFinished = True
+        Dim activeTabs() As Boolean
+        ReDim activeTabs(1 To NUM_TABS)
+
+        ' --- Step A: ‘Sƒ^ƒuˆêÄ‚É”ñ“¯Šú‘JˆÚ ---
         For t = 1 To NUM_TABS
-            If tabStates(t).Status = "NAVIGATING" Then
-                allFinished = False
-
-                ' Page.loadEventFired ãŒç™ºç”Ÿã—ãŸã‹ç¢ºèª
-                If tabStates(t).context.BrowserEvents("EventMethods").Exists("Page.loadEventFired") Then
-                    Debug.Print "Tab " & t & " Lap " & tabStates(t).CurrentLap & " èª­ã¿è¾¼ã¿å®Œäº†ï¼"
-
-                    ' (a) Cookieå–å¾—éåŒæœŸä¾é ¼ (Network.getAllCookies)
-                    Dim cookieCmdID As Long
-                    cookieCmdID = tabStates(t).context.ExecuteCDPAsync("Network.getAllCookies", Nothing)
-
-                    ' æ•´ç†åˆ¸ã‚’è¨˜éŒ²
-                    ticketCount = ticketCount + 1
-                    ReDim Preserve tickets(1 To ticketCount)
-
-                    tickets(ticketCount).TabIndex = t
-                    Set tickets(ticketCount).context = tabStates(t).context
-                    tickets(ticketCount).commandID = cookieCmdID
-                    tickets(ticketCount).Lap = tabStates(t).CurrentLap
-                    tickets(ticketCount).FileName = "" ' Cookieç‰ˆã§ã¯ãƒ•ã‚¡ã‚¤ãƒ«åä¸è¦
-                    tickets(ticketCount).Saved = False
-
-                    Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " CookieéåŒæœŸå–å¾—ä¾é ¼å®Œäº† (æ•´ç†åˆ¸ç•ªå·: " & cookieCmdID & ")"
-
-                    ' (b) æ¬¡ã®é·ç§»ã‚’ä¾é ¼ã™ã‚‹ã‹ã€å®Œäº†ã¨ã™ã‚‹ã‹
-                    If tabStates(t).CurrentLap < NUM_LAPS Then
-                        tabStates(t).CurrentLap = tabStates(t).CurrentLap + 1
-                        tabStates(t).Status = "NAVIGATING"
-
-                        ' æ¬¡ã®ãƒ©ãƒ³ãƒ€ãƒ URLã‚’é¸æŠ
-                        rndIdx = Int(Rnd * 5) + 1
-                        tabStates(t).TargetUrl = urls(rndIdx)
-
-                        ' ã‚¤ãƒ™ãƒ³ãƒˆãƒãƒƒãƒ•ã‚¡ã‚’ã‚¯ãƒªã‚¢ã—ã¦ã€æ¬¡ã®ãƒ­ãƒ¼ãƒ‰ã«å‚™ãˆã‚‹
-                        Set tabStates(t).context.BrowserEvents = New Dictionary
-
-                        ' éåŒæœŸé·ç§»ã®ä¾é ¼
-                        Dim nextNavParams As Scripting.Dictionary
-                        Set nextNavParams = New Scripting.Dictionary
-                        nextNavParams.Add "url", tabStates(t).TargetUrl
-                        Call tabStates(t).context.ExecuteCDPAsync("Page.navigate", nextNavParams)
-                        Debug.Print "  -> Tab " & t & " Lap " & tabStates(t).CurrentLap & " éåŒæœŸé·ç§»é–‹å§‹ -> " & tabStates(t).TargetUrl
-                    Else
-                        tabStates(t).Status = "COMPLETED"
-                        Debug.Print "  -> Tab " & t & " å…¨ãƒ©ãƒƒãƒ—ã®ä¾é ¼ãŒå®Œäº†ã—ã¾ã—ãŸã€‚"
-                    End If
-                End If
-            End If
+            tabStates(t).LoadedThisRound = False
+            watchers(t).NavigateAsync urls(Int(Rnd * 5) + 1)   ' “à•”‚ÅHasLoaded/NetworkEventCount‚ğƒŠƒZƒbƒg‚µ‚Ä‚©‚ç”­s
         Next t
 
-        ' CPUè² è·å‰Šæ¸›ã®ãŸã‚ã®ã‚¹ãƒªãƒ¼ãƒ—
-        chrome.sleep 0.05
-    Loop Until allFinished
+        ' --- Step B: ‘Sƒ^ƒu“Ç‚İ‚İŠ®—¹ƒoƒŠƒA ---
+        Dim barrierStart As Double: barrierStart = chrome.TimerCounter
+        Dim pendingCount As Long: pendingCount = NUM_TABS
+        Do While pendingCount > 0
+            chrome.TakeEvents   ' 1‰ñ‚Ìƒ|ƒ“ƒv‚Å‘Sƒ^ƒu‚Ìwatcher‚ÖƒCƒxƒ“ƒg‚ª”z•z‚³‚ê‚é
 
-    ' 3. æ•´ç†åˆ¸ã‚’åŸºã«Cookieæƒ…å ±ã‚’ä¸€æ‹¬å‡ºåŠ›ã™ã‚‹ãƒ•ã‚§ãƒ¼ã‚º
-    Debug.Print RESULT_SECTION_LINE
-    Debug.Print "å…¨ãƒªã‚¯ã‚¨ã‚¹ãƒˆã®é€ä¿¡ãŒå®Œäº†ã—ã¾ã—ãŸã€‚Cookieå–å¾—çµæœã®ä¸€æ‹¬å‡ºåŠ›ãƒ•ã‚§ãƒ¼ã‚ºã«ç§»ã‚Šã¾ã™..."
+            For t = 1 To NUM_TABS
+                If Not tabStates(t).LoadedThisRound Then
+                    If watchers(t).HasLoaded Then
+                        tabStates(t).LoadedThisRound = True
+                        tabStates(t).NetworkEventCountThisRound = watchers(t).NetworkEventCount
+                        activeTabs(t) = True
+                        pendingCount = pendingCount - 1
+                        Debug.Print "  Tab " & t & " “Ç‚İ‚İŠ®—¹ (NetworkEvents=" & tabStates(t).NetworkEventCountThisRound & ")"
 
-    Dim allSaved As Boolean
-    Dim savedCount As Long
-
-    savedCount = 0
-
-    Do
-        chrome.TakeEvents
-        allSaved = True
-
-        For i = 1 To ticketCount
-            If Not tickets(i).Saved Then
-                allSaved = False
-
-                ' ResultCDPFromWithEvents ã§çµæœãŒæˆ»ã£ã¦ã„ã‚‹ã‹ç¢ºèª
-                Dim resJson As String
-                resJson = tickets(i).context.TakeResultCDP(tickets(i).commandID)
-
-                If Len(resJson) > 0 Then
-                    ' ãƒ‘ãƒ¼ã‚¹å‡¦ç†
-                    Dim resDic As Dictionary
-                    Set resDic = WebJsonConverter.Parse(resJson).value
-
-                    If Not resDic Is Nothing Then
-                        If resDic.Exists("error") Then
-                            Dim errMsg As String
-                            errMsg = resDic("error")("message")
-                            Debug.Print "  [å–å¾—å¤±æ•—] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " : " & errMsg
-                            tickets(i).Saved = True
-                            savedCount = savedCount + 1
-                        ElseIf resDic.Exists("result") Then
-                            Dim resultData As Dictionary
-                            Set resultData = resDic("result")
-
-                            If resultData.Exists("cookies") Then
-                                Dim cookiesCol As Collection
-                                Set cookiesCol = resultData("cookies")
-
-                                Debug.Print "  [å–å¾—æˆåŠŸ] Tab " & tickets(i).TabIndex & " Lap " & tickets(i).Lap & " -> å–å¾—Cookieæ•°: " & cookiesCol.Count & " ä»¶"
-                                tickets(i).Saved = True
-                                savedCount = savedCount + 1
-                            End If
-                        End If
+                    ElseIf chrome.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
+                        tabStates(t).LoadedThisRound = True
+                        tabStates(t).TimedOutRounds = tabStates(t).TimedOutRounds + 1
+                        activeTabs(t) = False
+                        pendingCount = pendingCount - 1
+                        Debug.Print "  [WARN] Tab " & t & " “Ç‚İ‚İƒ^ƒCƒ€ƒAƒEƒgB‚±‚Ìƒ‰ƒEƒ“ƒh‚ÍƒXƒLƒbƒv‚µ‚Ü‚·"
                     End If
                 End If
+            Next t
+
+            If pendingCount > 0 Then chrome.sleep 0.05
+        Loop
+
+        ' --- Step CED: Cookie/Screenshot”­sE‚±‚Ìƒ‰ƒEƒ“ƒh‚ÌScreenshot‰ñûi‹¤’Êˆ—j ---
+        FireAndDrainRound chrome, tabs, activeTabs, r, cookieTickets, cookieTicketCount, screenshotPayloads, screenshotPayloadCount
+    Next r
+
+    FinishBenchmark chrome, benchStart, tabStates, cookieTickets, cookieTicketCount, screenshotPayloads, screenshotPayloadCount, "ClassBased"
+End Sub
+
+'===================================================================================================
+' ‹¤’Êƒwƒ‹ƒp[iPattern A/B ‚Ç‚¿‚ç‚©‚ç‚àŒÄ‚Î‚ê‚éj
+'===================================================================================================
+
+'---------------------------------------------------------------------------------------------------
+' Step CED: ƒoƒŠƒA‚ğ’Ê‰ß‚µ‚½ƒ^ƒu‚ÖCookie/Screenshot‚ğ”ñ“¯Šú”­s‚µAScreenshot‚¾‚¯‚±‚Ìƒ‰ƒEƒ“ƒh“à‚Å‰ñû‚·‚é
+' iCookie‚ÍŒ‹‰Ê‚ğæ‚è‚És‚©‚¸A®—Œ”‚ğcookieTickets‚ÉÏ‚Ş‚¾‚¯Bæ“¾‚ÍFinishBenchmark‚ÅÅŒã‚É‚Ü‚Æ‚ß‚Äs‚¤j
+'---------------------------------------------------------------------------------------------------
+Private Sub FireAndDrainRound(chrome As CDPBrowser, tabs() As CDPContext, activeTabs() As Boolean, r As Long, _
+                               ByRef cookieTickets() As CookieTicket, ByRef cookieTicketCount As Long, _
+                               ByRef screenshotPayloads() As ScreenshotPayload, ByRef screenshotPayloadCount As Long)
+    Dim t As Long, i As Long
+
+    ' Step C: CookieEScreenshot”ñ“¯Šú”­s
+    Dim screenshotTickets() As ScreenshotTicket
+    ReDim screenshotTickets(1 To NUM_TABS)
+    Dim screenshotTicketCount As Long
+
+    For t = 1 To NUM_TABS
+        If activeTabs(t) Then
+            cookieTicketCount = cookieTicketCount + 1
+            cookieTickets(cookieTicketCount).TabIndex = t
+            cookieTickets(cookieTicketCount).RoundIndex = r
+            Set cookieTickets(cookieTicketCount).context = tabs(t)
+            cookieTickets(cookieTicketCount).commandID = tabs(t).ExecuteCDPAsync("Network.getAllCookies", Nothing)
+            Debug.Print "  Tab " & t & " Cookie”ñ“¯Šú—v‹”­s (®—Œ”:" & cookieTickets(cookieTicketCount).commandID & ")"
+
+            screenshotTicketCount = screenshotTicketCount + 1
+            screenshotTickets(screenshotTicketCount).TabIndex = t
+            Set screenshotTickets(screenshotTicketCount).context = tabs(t)
+            screenshotTickets(screenshotTicketCount).commandID = tabs(t).ExecuteCDPAsync("Page.captureScreenshot", Nothing)
+            Debug.Print "  Tab " & t & " Screenshot”ñ“¯Šú—v‹”­s (®—Œ”:" & screenshotTickets(screenshotTicketCount).commandID & ")"
+        End If
+    Next t
+
+    ' Step D: ‚±‚Ìƒ‰ƒEƒ“ƒh‚ÌScreenshotŒ‹‰Ê‚ğ‚Ü‚Æ‚ß‚Äæ‚èo‚·iƒfƒR[ƒhE•Û‘¶‚Í‚Ü‚¾‚µ‚È‚¢j
+    Dim drainStart As Double: drainStart = chrome.TimerCounter
+    Dim remaining As Long: remaining = screenshotTicketCount
+
+    Do While remaining > 0
+        chrome.TakeEvents
+
+        For i = 1 To screenshotTicketCount
+            If Not screenshotTickets(i).Retrieved Then
+                Dim resJson As String
+                resJson = screenshotTickets(i).context.TakeResultCDP(screenshotTickets(i).commandID)
+
+                If Len(resJson) > 0 Then
+                    screenshotTickets(i).Retrieved = True
+                    remaining = remaining - 1
+
+                    screenshotPayloadCount = screenshotPayloadCount + 1
+                    screenshotPayloads(screenshotPayloadCount).TabIndex = screenshotTickets(i).TabIndex
+                    screenshotPayloads(screenshotPayloadCount).RoundIndex = r
+                    screenshotPayloads(screenshotPayloadCount).FileName = "bench_tab" & screenshotTickets(i).TabIndex & "_round" & r & ".png"
+
+                    Dim resDic As Dictionary
+                    Set resDic = WebJsonConverter.Parse(resJson).value
+                    If resDic.Exists("error") Then
+                        screenshotPayloads(screenshotPayloadCount).HadError = True
+                        Debug.Print "  [WARN] Tab " & screenshotTickets(i).TabIndex & " Round " & r & " ƒXƒNƒVƒ‡æ“¾ƒGƒ‰[: " & resDic("error")("message")
+                    ElseIf resDic.Exists("result") Then
+                        If resDic("result").Exists("data") Then
+                            screenshotPayloads(screenshotPayloadCount).Base64Data = resDic("result")("data")
+                            Debug.Print "  Tab " & screenshotTickets(i).TabIndex & " Round " & r & " ƒXƒNƒVƒ‡æ“¾Š®—¹"
+                        End If
+                    End If
+
+                ElseIf chrome.TimerCounter - drainStart > TIMEOUT_SCREENSHOT_SEC * 1000 Then
+                    screenshotTickets(i).Retrieved = True
+                    remaining = remaining - 1
+
+                    screenshotPayloadCount = screenshotPayloadCount + 1
+                    screenshotPayloads(screenshotPayloadCount).TabIndex = screenshotTickets(i).TabIndex
+                    screenshotPayloads(screenshotPayloadCount).RoundIndex = r
+                    screenshotPayloads(screenshotPayloadCount).HadError = True
+                    Debug.Print "  [WARN] Tab " & screenshotTickets(i).TabIndex & " Round " & r & " ƒXƒNƒVƒ‡æ“¾ƒ^ƒCƒ€ƒAƒEƒg"
+                End If
             End If
-        DoEvents
         Next i
 
-        DoEvents
-        If Not allSaved Then chrome.sleep 0.1
-    Loop Until allSaved
+        If remaining > 0 Then chrome.sleep 0.05
+    Loop
+End Sub
+
+'---------------------------------------------------------------------------------------------------
+' ‘Sƒ‰ƒEƒ“ƒhI—¹Œã: CookieˆêŠ‡æ“¾ ¨ ScreenshotˆêŠ‡•Û‘¶ ¨ ƒTƒ}ƒŠ[o—Í ¨ ƒuƒ‰ƒEƒUI—¹
+'---------------------------------------------------------------------------------------------------
+Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef tabStates() As TabState, _
+                             ByRef cookieTickets() As CookieTicket, cookieTicketCount As Long, _
+                             ByRef screenshotPayloads() As ScreenshotPayload, screenshotPayloadCount As Long, _
+                             patternName As String)
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "‘Sƒ‰ƒEƒ“ƒh‚Ì‘JˆÚE—v‹‚ªŠ®—¹‚µ‚Ü‚µ‚½BCookieˆêŠ‡æ“¾ƒtƒF[ƒY‚ÉˆÚ‚è‚Ü‚·..."
+    DrainAllCookies chrome, cookieTickets, cookieTicketCount
 
     Debug.Print RESULT_SECTION_LINE
-    Debug.Print "[ãƒ†ã‚¹ãƒˆçµ‚äº†] ãƒ™ãƒ³ãƒãƒãƒ¼ã‚¯çµæœ (Cookieç‰ˆ)"
-    Debug.Print "  ç·ãƒªã‚¯ã‚¨ã‚¹ãƒˆæ•´ç†åˆ¸æ•° : " & ticketCount
-    Debug.Print "  å–å¾—å‡¦ç†å®Œäº†æ•°       : " & savedCount
+    Debug.Print "ScreenshotˆêŠ‡•Û‘¶ƒtƒF[ƒY‚ÉˆÚ‚è‚Ü‚·..."
+    Dim saveDir As String: saveDir = Environ("UserProfile") & "\" & SAVE_PATH
+    Dim savedCount As Long: savedCount = SaveAllScreenshots(screenshotPayloads, screenshotPayloadCount, saveDir)
+
+    Dim t As Long, i As Long, cookieSum As Long
+    For i = 1 To cookieTicketCount
+        cookieSum = cookieSum + cookieTickets(i).CookieCount
+    Next i
+
+    PrintHeader "[" & patternName & "ƒpƒ^[ƒ“] ƒxƒ“ƒ`ƒ}[ƒNŒ‹‰Ê"
+    Debug.Print "  ƒ^ƒu”               : " & NUM_TABS
+    Debug.Print "  ƒ‰ƒEƒ“ƒh”            : " & NUM_ROUNDS
+    Debug.Print "  Œo‰ßŠÔ             : " & Format((chrome.TimerCounter - benchStart) / 1000, "0.0") & " •b"
+    For t = 1 To NUM_TABS
+        Debug.Print "  Tab " & t & " ƒ^ƒCƒ€ƒAƒEƒg‰ñ”    : " & tabStates(t).TimedOutRounds & " / " & NUM_ROUNDS & " ƒ‰ƒEƒ“ƒh"
+    Next t
+    Debug.Print "  Cookieæ“¾ƒ`ƒPƒbƒg”  : " & cookieTicketCount & " (Cookie‘”: " & cookieSum & ")"
+    Debug.Print "  Screenshot•Û‘¶”     : " & savedCount & " / " & screenshotPayloadCount
+    Debug.Print "  Screenshot•Û‘¶æ     : " & saveDir
     Debug.Print RESULT_SECTION_LINE
 
-    ' ãƒ–ãƒ©ã‚¦ã‚¶ã‚’é–‰ã˜ã‚‹
     chrome.quit
+End Sub
+
+'---------------------------------------------------------------------------------------------------
+' ‘Sƒ‰ƒEƒ“ƒh•ª‚ÌCookie®—Œ”‚ğA‚Ü‚Æ‚ß‚Äæ“¾‚·‚éiŒ‹‰Ê‚ª—ˆ‚Ä‚¢‚È‚¢ŠÔ‚Í‘Ò‚ÂAƒ^ƒCƒ€ƒAƒEƒg‚Å’ú‚ß‚éj
+'---------------------------------------------------------------------------------------------------
+Private Sub DrainAllCookies(chrome As CDPBrowser, ByRef cookieTickets() As CookieTicket, cookieTicketCount As Long)
+    Dim drainStart As Double: drainStart = chrome.TimerCounter
+    Dim remaining As Long: remaining = cookieTicketCount
+    Dim i As Long
+
+    Do While remaining > 0
+        chrome.TakeEvents
+
+        For i = 1 To cookieTicketCount
+            If Not cookieTickets(i).Retrieved Then
+                Dim resJson As String
+                resJson = cookieTickets(i).context.TakeResultCDP(cookieTickets(i).commandID)
+
+                If Len(resJson) > 0 Then
+                    cookieTickets(i).Retrieved = True
+                    remaining = remaining - 1
+
+                    Dim resDic As Dictionary
+                    Set resDic = WebJsonConverter.Parse(resJson).value
+                    If resDic.Exists("error") Then
+                        cookieTickets(i).HadError = True
+                    ElseIf resDic.Exists("result") Then
+                        If resDic("result").Exists("cookies") Then cookieTickets(i).CookieCount = resDic("result")("cookies").Count
+                    End If
+
+                ElseIf chrome.TimerCounter - drainStart > TIMEOUT_COOKIE_SEC * 1000 Then
+                    cookieTickets(i).Retrieved = True
+                    cookieTickets(i).HadError = True
+                    remaining = remaining - 1
+                    Debug.Print "  [WARN] Tab " & cookieTickets(i).TabIndex & " Round " & cookieTickets(i).RoundIndex & " Cookieæ“¾ƒ^ƒCƒ€ƒAƒEƒg"
+                End If
+            End If
+        Next i
+
+        If remaining > 0 Then chrome.sleep 0.1
+    Loop
+End Sub
+
+'---------------------------------------------------------------------------------------------------
+' ’~ÏÏ‚İ‚ÌScreenshot(Base64)‚ğA‚Ü‚Æ‚ß‚ÄƒfƒR[ƒhEDownloadsƒtƒHƒ‹ƒ_‚Ö•Û‘¶‚·‚é
+'---------------------------------------------------------------------------------------------------
+Private Function SaveAllScreenshots(ByRef screenshotPayloads() As ScreenshotPayload, screenshotPayloadCount As Long, saveDir As String) As Long
+    Dim DataConv As New WebCrypto
+    Dim CharConv As New CharacterCodeConversion
+    Dim i As Long, savedCount As Long
+
+    For i = 1 To screenshotPayloadCount
+        If Not screenshotPayloads(i).HadError And Len(screenshotPayloads(i).Base64Data) > 0 Then
+            Dim Bytes() As Byte
+            Bytes = DataConv.Decode(screenshotPayloads(i).Base64Data, edfBase64)
+            CharConv.BytesToSaveFile Bytes, saveDir, screenshotPayloads(i).FileName
+            savedCount = savedCount + 1
+        End If
+    Next i
+
+    SaveAllScreenshots = savedCount
+End Function
+
+Private Sub PrintHeader(msg As String)
+    Debug.Print ""
+    Debug.Print RESULT_SECTION_LINE
+    Debug.Print "  " & msg
+    Debug.Print RESULT_SECTION_LINE
 End Sub
