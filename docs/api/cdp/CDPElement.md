@@ -69,10 +69,13 @@ Property Get selected() As String
 Property Let selected(selectedOption As String)
 ```
 
-`<select>` の選択状態です。取得は先頭の `selectedOptions[0]`、代入はオプション値の設定です。選択肢の切り替えには [`setSelection`](#setselection) も使えます。
+`<select>` の選択状態です。取得は先頭の `selectedOptions[0]`（該当なしなら空扱い）、代入は `selectedIndex`（0 始まりの**位置**）での切り替えです。option の `value` 属性で選びたい場合は [`setSelection`](#setselection) を使ってください。
 
 ```vb
 Debug.Print t.getElementByQuery("select#country").selected
+
+' 2番目（index=1）の option を選ぶ
+t.getElementByQuery("select#country").selected = 1
 ```
 
 ## 操作
@@ -80,35 +83,46 @@ Debug.Print t.getElementByQuery("select#country").selected
 ### `click`
 
 ```vb
-Public Function click(Optional till As ReadyState = isComplete) As Boolean
+Public Function click() As Boolean
 ```
 
-要素をクリックします（スクロールインビュー → クリック → 待機）。
-
-| 引数 | 意味 |
-| --- | --- |
-| `till` | クリック後に待つ [`ReadyState`](./CDPContext#readystate)。既定は `isComplete` |
+要素をクリックします（スクロールインビュー → 合成 `MouseEvent('click')` を `dispatchEvent`）。
 
 ```vb
 t.getElementByID("submit").click
-t.getElementByID("submit").click isInteractive   ' 待ちを短縮
+```
+
+::: tip 注意
+クリック後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.wait`](./CDPContext#wait) を呼んでください。
+:::
+
+### `SimpleClick`
+
+```vb
+Public Function SimpleClick() As Boolean
+```
+
+要素の `this.click()` をそのまま呼ぶ、素朴なクリックです。合成 `MouseEvent` を経由する [`click`](#click) と違い、ブラウザ標準のクリック処理（フォーム送信ボタンの既定動作など）にそのまま乗せたいときに使います。
+
+```vb
+t.getElementByID("submit").SimpleClick
 ```
 
 ### `submit`
 
 ```vb
-Public Function submit(Optional till As ReadyState = isComplete) As Boolean
+Public Function submit() As Boolean
 ```
 
 所属フォームを送信します（`this.form.submit()`）。
 
-| 引数 | 意味 |
-| --- | --- |
-| `till` | 送信後に待つ ReadyState。既定は `isComplete` |
-
 ```vb
 t.getElementByQuery("form").submit
 ```
+
+::: tip 注意
+送信後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.wait`](./CDPContext#wait) を呼んでください。
+:::
 
 ### `sendString`
 
@@ -198,21 +212,24 @@ box.selectText
 ### `fireEvent`
 
 ```vb
-Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete) As Boolean
+Public Function fireEvent(strEventName As String) As Boolean
 ```
 
-DOM イベントを発火します。React 等で `setAttribute` だけでは状態が同期されないときに使います。名前に `on` を付けても自動で除去されます（`"onchange"` → `"change"`）。
+DOM イベントを発火します。React 等で `setAttribute` だけでは状態が同期されないときに使います。
 
 | 引数 | 意味 |
 | --- | --- |
-| `strEventName` | イベント名（`"input"` / `"change"` / `"blur"` など） |
-| `till` | 発火後に待つ ReadyState。既定は `isComplete` |
+| `strEventName` | JS のイベント名そのもの（`"input"` / `"change"` / `"blur"` など） |
 
 ```vb
 el.focus
 el.sendString "value"
 el.fireEvent "input"
 ```
+
+::: tip 注意
+`"on"` プレフィックス（`"onchange"` など）は自動除去されません。IE 時代の命名（`onchange`）ではなく、JS の正しいイベント名（`change`）をそのまま渡してください。
+:::
 
 デモ: `Demo_CDP.fillReactForm`
 
@@ -250,6 +267,29 @@ Public Function setSelection(strOptionName As String)
 ```vb
 t.getElementByQuery("select#country").setSelection "JP"
 ```
+
+### `SetFileInputFiles`
+
+```vb
+Public Sub SetFileInputFiles(files As Collection)
+```
+
+`<input type="file">` へ、ダイアログ操作なしでファイルを添付します（CDP の `DOM.setFileInputFiles`）。
+
+| 引数 | 意味 |
+| --- | --- |
+| `files` | 添付したいファイルの**フルパス**を格納した `Collection` |
+
+```vb
+Dim files As New Collection
+files.Add "C:\path\to\image.png"
+
+t.getElementByQuery("input[type='file']").SetFileInputFiles files
+```
+
+::: tip 注意
+`files` が `Nothing` または空の場合は、警告ログを出して何もしません。
+:::
 
 ## 存在確認
 
@@ -316,6 +356,10 @@ If t.getElementByQuery(".spinner").onExistNot(15) Then
     Debug.Print "読み込み完了"
 End If
 ```
+
+::: tip
+判定は「保持中のこの要素（`objectId`）が `document` から外れたか（`this.isConnected`）」で行います。同じセレクタに一致する**別の**要素が現れても、元の要素自体が外れていれば消滅とみなします。
+:::
 
 ## ツリー走査
 
@@ -494,13 +538,44 @@ Property Get CurrentObjectId() As String
 
 内部で保持している CDP の `objectId` です。空なら検索未ヒットです。日常利用では通常不要です。
 
-### `StopException`
+### `jsEval`
 
 ```vb
-Public StopException As Boolean
+Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Collection, _
+    Optional IFEXCEPTION As Variant, Optional returnByValue As Boolean, _
+    Optional awaitPromise As Boolean, Optional serializationOptions As Dictionary, _
+    Optional generatePreview As Boolean, Optional StopPipeError As Boolean = True) As Variant
 ```
 
-この要素経由の `jsEval` で JS 例外時に停止するかのスイッチです。開発時のみ `True` を推奨します。
+この要素の `objectId` を `this` として JavaScript を評価します。[`CDPContext.jsEval`](./CDPContext#jseval) の要素スコープ版で、クラス内の他メソッドも内部的にこれ経由で実装されています。用意されたメソッドで足りない操作をしたいときの逃げ道として使えます。
+
+```vb
+Dim el As CDPElement
+Set el = t.getElementByQuery("#price")
+
+Debug.Print el.jsEval("function(){ return this.dataset.raw }")
+```
+
+### 実行オプション（`SetOptionStopException` / `SetOptionRunAsyncCDP` / `SetOptionUserGesture`）
+
+```vb
+Property Let SetOptionStopException(v As Boolean)
+Property Let SetOptionRunAsyncCDP(v As Boolean)
+Property Let SetOptionUserGesture(v As Boolean)
+```
+
+この要素経由の [`jsEval`](#jseval)（および内部で `jsEval` を使う各メソッド）の実行方法を切り替える、Let 専用のスイッチです。
+
+| プロパティ | 意味 |
+| --- | --- |
+| `SetOptionStopException` | `True` で、JS 例外発生時に `Err.Raise` で停止。基本は開発時のみ `True` を推奨 |
+| `SetOptionRunAsyncCDP` | `True` で、結果を待たない非同期実行に切り替える。使い終わったら必ず `False` に戻すこと |
+| `SetOptionUserGesture` | `True` で、人間の操作であるかのように偽装する。スクレイピング対策の回避に有効な場合がある |
+
+```vb
+el.SetOptionStopException = True   ' デバッグ中だけ例外で止める
+el.SetOptionStopException = False
+```
 
 ### `Init`
 

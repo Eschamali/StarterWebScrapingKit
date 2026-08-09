@@ -608,11 +608,12 @@ Debug.Print Left$(t.html, 200)   ' 先頭だけ確認する例
 
 巨大なページでは文字列が長くなる点に注意してください。部分だけ欲しい場合は [`jsEval`](#jseval) でセレクタ付きに取る方が軽くて済みます。
 
-### `CurrentSessionID` / `CurrentTargetID`
+### `CurrentSessionID` / `CurrentTargetID` / `CurrentBrowserContextId`
 
 ```vb
 Property Get CurrentSessionID() As String
 Property Get CurrentTargetID() As String
+Property Get CurrentBrowserContextId() As String
 ```
 
 このタブ接続を識別する ID です。
@@ -621,13 +622,17 @@ Property Get CurrentTargetID() As String
 | --- | --- |
 | `CurrentSessionID` | CDP セッション ID。コマンド送信先のセッションを表す |
 | `CurrentTargetID` | ターゲット ID。「どのタブか」を特定するための専用 ID |
+| `CurrentBrowserContextId` | 「どの Profile（ブラウザコンテキスト）に属しているか」を特定するための専用 ID |
 
 ```vb
 Debug.Print t.CurrentSessionID
 Debug.Print t.CurrentTargetID
+Debug.Print t.CurrentBrowserContextId
 ```
 
 [再接続 (reattach)](/guides/reattach) やメインタブ記録で Excel テーブルに残る値と対応します。日常のページ操作では意識不要です。
+
+`CurrentBrowserContextId` は、`Target.createBrowserContext` で作成した独立プロファイル（シークレット相当）を複数並行運用するときに使います。
 
 ## タブ生存について
 
