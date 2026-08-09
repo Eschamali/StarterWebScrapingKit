@@ -217,7 +217,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 End If
             End If
 
-            '7. `AutoWaitSetFileInputFiles`による待機ループを解除させておく
+            '7. `AutoWaitFileChooserOpened`による待機ループを解除させておく
             WaitLock = False
 
         'ページ遷移時の過去の未処理リストの初期化
@@ -233,21 +233,22 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ メインとなる機能拡張部分 ■■■
 '***************************************************************************************************
-'* 機能    ：1件分の`Page.fileChooserOpened`が来るまで待機し、予め設定した`mFilePaths`で、添付処理を行います
+'* 機能    ：1件分の`Page.fileChooserOpened`が来るまで待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：添付成功可否　※`EnableEvents - cancel:=True`時は常に`False`
+'* 返り値  ：待機成功可否
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：InputID    `Page.fileChooserOpened`から得た`backendNodeId`
+'* 引数　　：TimeOutSecond      タイムアウト秒数
 '---------------------------------------------------------------------------------------------------
+'* 機能説明：`EnableEvents`にて、`cancel`に応じて挙動が変わる待機メソッドです
+'            ・`cancel:=True` ：イベントが来たら、予め設定した`mFilePaths`で、添付処理を行いその後、`mFilePaths`をクリアします。その後、待機ループから抜けます。
+'            ・`cancel:=False`：イベントが来たら、待機ループを抜けますが、`mFilePaths`はクリアしませんし、添付もしません
+'
 '* 注意事項：・`AddFilePath`にて、事前に登録してから、実行すること
 '            ・処理の仕方によっては、前述の処理(例:`.SimpleClick`)のついでにファイル添付されたといったパターンもあります
 '              その場合は、`FilePathCount=0`という判定で「ファイル添付リストに登録したのに確認の時点では`0`ということは、もう添付済みだな」と判定可能です
-'            ・`EnableEvents`にて、`cancel:=True`にしても機能はしますがその場合は、下記の仕様となります
-'               ・`mFilePaths`はクリアされません
-'               ・返り値は`False`となります
 '***************************************************************************************************
-Public Function AutoWaitSetFileInputFiles(Optional TimeOutSecond As Double = 30) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".AutoWaitSetFileInputFiles"
+Public Function AutoWaitFileChooserOpened(Optional TimeOutSecond As Double = 30) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitFileChooserOpened"
 
 
     '1. 未登録の場合は、即抜け
@@ -266,8 +267,8 @@ Public Function AutoWaitSetFileInputFiles(Optional TimeOutSecond As Double = 30)
         TakeEvents  '内部で`DoEvents`が走ってくれます
     Loop While WaitLock
 
-    '6. 成功返却
-    AutoWaitSetFileInputFiles = Not CancelMode  'キャンセルの場合は、`False`返却
+    '6. 待機成功返却
+    AutoWaitFileChooserOpened = True
 End Function
 
 '***************************************************************************************************
