@@ -30,12 +30,16 @@ Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 
-'ステート管理
+'基本ステート管理
 Private seeRawSendMsgDbg            As Boolean
 Private EnableBrowserEvents         As Boolean      'VBA側のイベント処理を有効/無効化のスイッチング
 Private CurrentSessionID            As String       '継承時のSesssionID
 
-' 既定: はい=OK 系 / prompt 用の入力文字列
+'最後の記録用
+Private LastJavascriptDialogOpening As String
+Private LastJavascriptDialogClosed  As String
+
+'既定: はい=OK 系 / prompt 用の入力文字列設定
 Private Type JavaScriptDialog
     Accept      As Boolean
     promptText  As String
@@ -45,7 +49,7 @@ Private JavaScriptDialogClose As JavaScriptDialog
 
 
 '***************************************************************************************************
-'                               ■■■ 公開プロパティ ■■■
+'                            ■■■ スコープ調整プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：非同期イベント処理を行うかのスイッチングです
 '---------------------------------------------------------------------------------------------------
@@ -59,6 +63,10 @@ Public Property Let EnableEvents(v As Boolean)
     ex_CDPContext.pageEnable v
 End Property
 
+
+
+'***************************************************************************************************
+'                               ■■■ 設定プロパティ ■■■
 '***************************************************************************************************
 '* 機能　　：JavaScrpt-alert関数のデフォルトボタン操作の設定です
 '---------------------------------------------------------------------------------------------------
@@ -75,6 +83,20 @@ End Property
 '***************************************************************************************************
 Public Property Let DefaultPromptText(v As String)
     JavaScriptDialogClose.promptText = v
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ 確認プロパティ ■■■
+'***************************************************************************************************
+'* 機能　　：各JavascriptDialog系の最後の情報を拝見します。文字列Jsonのままにしてます
+'***************************************************************************************************
+Public Property Get ViewLastJavascriptDialogOpening() As String
+    ViewLastJavascriptDialogOpening = LastJavascriptDialogOpening
+End Property
+Public Property Get ViewLastJavascriptDialogClosed() As String
+    ViewLastJavascriptDialogClosed = LastJavascriptDialogClosed
 End Property
 
 
@@ -123,6 +145,9 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 ex_CDPContext.handleDialog .Accept, .promptText
             End With
 
+            '6. 最後の履歴として残しておく
+            LastJavascriptDialogOpening = RawJson
+
         Case "Page.javascriptDialogClosed"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
@@ -136,6 +161,9 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 printMsg Debug_, "userInput : " & DialogInfos.StringKey("userInput"), FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
             End If
+
+            '5. 最後の履歴として残しておく
+            LastJavascriptDialogClosed = RawJson
 
         Case Else
             printMsg Trace_, "Asynchronous events received are not processed by this class: " & methodName, FromProcedureName
