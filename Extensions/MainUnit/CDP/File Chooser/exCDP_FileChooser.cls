@@ -161,8 +161,6 @@ End Sub
 
 '***************************************************************************************************
 '                      ■■■ メインとなる機能拡張部分 - イベント処理 ■■■
-'---------------------------------------------------------------------------------------------------
-'* 機能   ：`page.interceptFileChooser`のみ、パース処理したのをただただ、Dictionaryに蓄積していきます
 '***************************************************************************************************
 Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPContextEvent"
