@@ -299,7 +299,7 @@ End Sub
 '* 機能　　：ファイルを登録せずにダイアログを開いてしまった（添付忘れ）ケースからの復旧を、
 '            Demo02と同じ3パターン（単一 / 複数 / 動的生成input）それぞれで確認します
 '---------------------------------------------------------------------------------------------------
-'* 各パターン共通のフロー：
+'* 各パターン共通のフロー（1件ずつ、貯めずに即リトライ）：
 '   ① ファイル未登録の状態で input をクリック（Page.fileChooserOpened が来るが、
 '      FilePathCount=0 のため添付されず、UnprocessedSetFileList に保留される）
 '   ② 保留を確認（UnprocessedCount > 0）
@@ -311,6 +311,8 @@ End Sub
 '   - ①②（静的input）は対象inputのfiles.lengthまで直接確認する
 '   - ③（動的生成input）はCDPElementを保持できないため、クラス自身の戻り値のみで判定する
 '   - 各ラウンド後、UnprocessedCount が 0 に戻ること（次のラウンドに影響を残さない）
+'---------------------------------------------------------------------------------------------------
+'* 複数件を先に貯めてから一括処理したいケースは Demo 05 を参照してください
 '***************************************************************************************************
 Sub Demo_FileChooser_04_添付忘れからのリトライ()
 
@@ -421,6 +423,132 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     Debug.Print "[Demo04] 3種類全ての添付忘れリトライが成功しました！"
     MsgBox "3種類（単一 / 複数 / 動的生成）全ての添付忘れリトライが成功しました！", vbInformation
 
+    browserTab.InheritanceCDPBrowser.quit
+
+End Sub
+
+
+
+'***************************************************************************************************
+'      ■■■ Demo 05：添付漏れ3連続 → UnprocessedSetFileListに3件貯める → 一括で順次処理 ■■■
+'***************************************************************************************************
+'* 機能　　：Demo04とは逆に「都度リトライ」せず、まず3連続でファイル未登録のままSimpleClickを重ねて
+'            保留を3件貯めてから、まとめて順次リトライするデモです
+'---------------------------------------------------------------------------------------------------
+'* フロー：
+'   ① singleInput / multiInput / customBtn を、ファイル未登録のまま3連続でSimpleClick
+'      （3つとも`Page.fileChooserOpened`が来るが、その都度`FilePathCount=0`のため添付されず、
+'        `UnprocessedSetFileList`に backendNodeId が3件積み上がるだけになる）
+'   ② UnprocessedCount が 3 になるまで待つ
+'   ③ 3件を、貯まった順（FIFO）に1件ずつ AddFilePath → RetrySetFileInputFiles で処理
+'* 確認ポイント：
+'   - 3連続クリックしても、その場では一切添付が起きないこと（全て保留に回る）
+'   - UnprocessedCount が正しく 3 まで積み上がること
+'   - 3回のRetrySetFileInputFilesで、保留が古い順に1件ずつ正しく消費されること
+'     （① singleInput → ② multiInput → ③ customBtn の順でクリックしたので、この順で消費される想定）
+'   - 3回とも処理した後、UnprocessedCount が 0 に戻ること
+'* 注意事項：
+'   - 3連続クリックは`SetOptionRunAsyncCDP:=True`の`SimpleClick`で行う（結果を待たずに次へ進むため）
+'***************************************************************************************************
+Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
+
+    Dim fileSingle As String: fileSingle = EnsureSampleFile("batch_single.txt", "3連続添付漏れテスト：単一ファイルです。")
+    Dim fileMulti1 As String: fileMulti1 = EnsureSampleFile("batch_multi_1.txt", "3連続添付漏れテスト：複数ファイル 1")
+    Dim fileMulti2 As String: fileMulti2 = EnsureSampleFile("batch_multi_2.txt", "3連続添付漏れテスト：複数ファイル 2")
+    Dim fileDynamic As String: fileDynamic = EnsureSampleFile("batch_dynamic.txt", "3連続添付漏れテスト：動的生成inputです。")
+
+    '--- 1. テストHTMLをブラウザで開く ---
+    Dim htmlPath As String
+    htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
+    Dim browserTab As CDPContext
+    Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("file:///" & Replace(htmlPath, "\", "/"))
+    browserTab.show
+
+    '--- 2. FileChooser拡張の準備（ファイルは、まだ何も登録しない＝添付漏れの再現） ---
+    Dim fc As New exCDP_FileChooser
+    fc.Init browserTab
+
+    Dim singleInput As CDPElement: Set singleInput = browserTab.getElementByID("singleInput")
+    Dim multiInput As CDPElement: Set multiInput = browserTab.getElementByID("multiInput")
+    Dim customBtn As CDPElement: Set customBtn = browserTab.getElementByID("customBtn")
+
+    '--- 3. ファイル未登録のまま、3連続でSimpleClick（結果は待たない） ---
+    Debug.Print "[Demo05] ────── 3連続で添付漏れを発生させる ──────"
+
+    singleInput.SetOptionUserGesture = True
+    singleInput.SetOptionRunAsyncCDP = True
+    singleInput.SimpleClick
+    Debug.Print "[Demo05]   1回目: singleInput をクリック（未登録）"
+
+    multiInput.SetOptionUserGesture = True
+    multiInput.SetOptionRunAsyncCDP = True
+    multiInput.SimpleClick
+    Debug.Print "[Demo05]   2回目: multiInput をクリック（未登録）"
+
+    customBtn.SetOptionUserGesture = True
+    customBtn.SetOptionRunAsyncCDP = True
+    customBtn.SimpleClick   'JS側で<input>を動的生成してclick()する
+    Debug.Print "[Demo05]   3回目: customBtn をクリック（未登録）"
+
+    '--- 4. UnprocessedCountが3件貯まるまで待つ ---
+    If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=3, TimeOutSecond:=15) Then
+        Debug.Print "[Demo05] × 3件貯まりませんでした。UnprocessedCount=" & fc.UnprocessedCount
+        MsgBox "3連続クリックしても、保留が3件になりませんでした。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+    Debug.Print "[Demo05] ○ 3件とも保留に回りました！ UnprocessedCount=" & fc.UnprocessedCount _
+              & "（この時点でsingleInput.files.length=" & GetInputFileCount(singleInput) _
+              & " / multiInput.files.length=" & GetInputFileCount(multiInput) & "）"
+
+    '--- 5. 貯まった3件を、古い順に1件ずつ処理する ---
+    Debug.Print "[Demo05] ────── 保留3件を順次処理 ──────"
+
+    '① 1件目（クリック順どおりなら singleInput のはず）
+    fc.AddFilePath = fileSingle
+    If fc.RetrySetFileInputFiles() Then
+        Debug.Print "[Demo05] ○ 1件目リトライ成功 残りUnprocessedCount=" & fc.UnprocessedCount & " singleInput.files=" & GetInputFileNames(singleInput)
+    Else
+        Debug.Print "[Demo05] × 1件目リトライ失敗"
+        MsgBox "1件目のリトライに失敗しました。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+
+    '② 2件目（クリック順どおりなら multiInput のはず。複数ファイルを一括登録してから処理）
+    fc.AddFilePath = fileMulti1
+    fc.AddFilePath = fileMulti2
+    If fc.RetrySetFileInputFiles() Then
+        Debug.Print "[Demo05] ○ 2件目リトライ成功 残りUnprocessedCount=" & fc.UnprocessedCount & " multiInput.files=" & GetInputFileNames(multiInput)
+    Else
+        Debug.Print "[Demo05] × 2件目リトライ失敗"
+        MsgBox "2件目のリトライに失敗しました。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+
+    '③ 3件目（クリック順どおりなら customBtn の動的input のはず。CDPElementを保持できないため戻り値のみで判定）
+    fc.AddFilePath = fileDynamic
+    If fc.RetrySetFileInputFiles() Then
+        Debug.Print "[Demo05] ○ 3件目リトライ成功 残りUnprocessedCount=" & fc.UnprocessedCount
+    Else
+        Debug.Print "[Demo05] × 3件目リトライ失敗"
+        MsgBox "3件目のリトライに失敗しました。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+
+    '--- 6. 全て処理し終わって、保留が0件に戻ったことを確認 ---
+    If fc.UnprocessedCount = 0 Then
+        Debug.Print "[Demo05] ○ 3件全て処理完了！ UnprocessedCount=" & fc.UnprocessedCount
+        Debug.Print "[Demo05]   最終結果: singleInput.files=" & GetInputFileNames(singleInput) & " / multiInput.files=" & GetInputFileNames(multiInput)
+        MsgBox "3連続の添付漏れを、まとめて順次リトライで全て回収できました！", vbInformation
+    Else
+        Debug.Print "[Demo05] × 処理し残しがあります。UnprocessedCount=" & fc.UnprocessedCount
+        MsgBox "処理し残しがあります。UnprocessedCount=" & fc.UnprocessedCount, vbCritical
+    End If
+
+    fc.EnableEvents = False
     browserTab.InheritanceCDPBrowser.quit
 
 End Sub
