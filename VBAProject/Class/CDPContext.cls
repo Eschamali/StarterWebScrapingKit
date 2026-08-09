@@ -410,7 +410,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
     '2. そもそもない場合は即抜け
     If objSerialize Is Nothing Then Exit Sub
 
-    '3. タブのTargetID情報を適用
+    '3. タブのTargetID情報を適用しない場合は、即抜け
     brTab.targetID = objSerialize.Item("targetID")
     If LenB(brTab.targetID) = 0 Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
 
@@ -453,18 +453,20 @@ End Sub
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
 '            contextId                      `iframe`内で、JavaScript実行をしたいときに指定します。`objectId`が指定されてる場合は、無視されます
+'                                           `getIFrameContextID`メソッド等で得れるのがそれです
 '
 '            returnByValue                  True ：type:"object" 等の場合でも、`value`で受け取れるようにCDPが試みます。実行コードによっては、`BiDiCDPJson.cls`形式で返されるため、`SET`で受け取る必要があります。なお、空のオブジェクトで返る場合は、対応してないデータ型の可能性があるためその際は、`false`に切り替えてください。
-'                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。
+'                                           False：type:"object" 等の場合は、`{"objectId": "-4985739485.1.3"}`にある`-4985739485.1.3`というブラウザ内変数名的なものとして返えります。再度`jsEval`を使う際の引数`objectId`に流用できます。「このJSコードは`SET`で...」という意識は不要です。(既定)
 '
 '            awaitPromise                   True ：JavaScriptそのものの実行結果が非同期処理であっても、処理が終わるまで待ってから結果を返すことができます
-'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます
+'                                           False：JavaScriptそのものの実行結果が非同期処理の場合、結果を待たずに続行されます(既定)
 '
 '            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
-'                                           False：特に施しません
+'                                           False：特に施しません(既定)
 '
-'            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します
+'            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います
+'                                           ※この引数は`Runtime.evaluate`のみ有効です
 '
 '            serializationOptions           意地でも、type:"object" 等となっても、`value`で受け取れるように、細かい調整をします。予め、呼び出し側にてDictionaryを組み立てて渡してください。
 '                                           このパラメーターがあると、`returnByValue`の引数は無視されます。
@@ -472,7 +474,7 @@ End Sub
 '            generatePreview                `objectId`で返った中身をプレーンテキスト化して、プレビューします。予め、ログレベルを`DEBUG`以下にしてください。基本は、開発時のみ`True`にしてください。
 '
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
-'                                           False：結果を待つCDPで実行します。基本はこれでOK
+'                                           False：結果を待つCDPで実行します。基本はこれでOK(既定)
 '
 '            StopException                  `True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
 '            StopPipeError                  `True`で、Pipeハンドルエラー時、エラーで停止します
@@ -504,7 +506,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional userGesture As Boolean, _
-                       Optional allowUnsafeEvalBlockedByCSP As Boolean, _
+                       Optional allowUnsafeEvalBlockedByCSP As Boolean = True, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
@@ -556,6 +558,7 @@ step1:
         '必要なパラメーターをセット
         CDPparams.Add "expression", JavaScriptStr
         If contextId Then CDPparams.Add "contextId", contextId
+        If Not allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
     End If
 
     '以降は、共通設定を施す
@@ -563,7 +566,6 @@ step1:
     If returnByValue Then CDPparams.Add "returnByValue", returnByValue
     If awaitPromise Then CDPparams.Add "awaitPromise", awaitPromise
     If userGesture Then CDPparams.Add "userGesture", userGesture
-    If allowUnsafeEvalBlockedByCSP Then CDPparams.Add "allowUnsafeEvalBlockedByCSP", allowUnsafeEvalBlockedByCSP
     If generatePreview Then CDPparams.Add "generatePreview", generatePreview
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
@@ -1368,8 +1370,8 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
                 With brTab
                     .Title = tmp.StringKey("title")
                     .Url = tmp.StringKey("url")
+                    .browserContextId = tmp.StringKey("browserContextId")
                 End With
-                brTab.browserContextId = tmp.StringKey("browserContextId")
 
                 printMsg info_, "The information on this tab has been updated.", FromProcedureName
             End If
@@ -2018,7 +2020,7 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
     Dim params As New Scripting.Dictionary
 
-    params("accept") = CBool(Accept)
+    params("accept") = Accept
     If StrPtr(promptText) Then params("promptText") = promptText
     ExecuteCDP "Page.handleJavaScriptDialog", params
 
@@ -2050,8 +2052,8 @@ Private Function refreshTargetInfo() As BiDiCDPJson
     Dim TargetInfo As BiDiCDPJson
     Set TargetInfo = ExecuteCDP("Target.getTargetInfo")
 
-    '2. エラーがなければ、返却
-    If TargetInfo.Count Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
+    '2. エラーがなければ、`targetInfo`の中身を返却
+    If TargetInfo.ExistsKey("targetInfo") Then Set refreshTargetInfo = TargetInfo.NodeKey("targetInfo")
 
 End Function
 
@@ -2634,6 +2636,15 @@ End Property
 '***************************************************************************************************
 Property Get CurrentTargetID() As String
     CurrentTargetID = brTab.targetID
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このクラスで定義中の`browserContextId`を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：「どのProfile」に属してるかを特定するための専用ID
+'***************************************************************************************************
+Property Get CurrentBrowserContextId() As String
+    CurrentBrowserContextId = brTab.browserContextId
 End Property
 
 '***************************************************************************************************

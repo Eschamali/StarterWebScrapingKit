@@ -65,8 +65,16 @@ Private SearchObjectId  As String       ' このClass内で相対検索した際
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
 
-'JavaScript実行オプション
-Public StopException    As Boolean      'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
+'ForDebug
+Private seeRawSendMsgDbg As Boolean
+
+'各種便利なJavaScript実行オプション
+Private Type callFunctionOnParameters
+    StopException    As Boolean         'JavaScript実行時、エラーで止めるか？   ※基本は開発中のみ`True`にすること
+    RunAsyncCDP      As Boolean         '非同期実行
+    userGesture      As Boolean         '人間が押したかのように偽装するか？
+End Type
+Private RunOption As callFunctionOnParameters
 
 
 
@@ -98,6 +106,14 @@ Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarTy
 
     '実行結果の`objectId`格納
     elementObjectId = objectid_
+End Sub
+
+Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
+    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
+    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
 End Sub
 
 
@@ -132,9 +148,6 @@ Public Sub ExposeDevTools(varName As String)
     Const FromProcedureName As String = ThisClassName & ".ExposeDevTools"
 
 
-    '空欄は即抜け
-    If StrPtr(elementObjectId) = 0 Then printMsg WARN_, "This class does not have an ObjectID assigned.", FromProcedureName: Exit Sub
-
     ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
     Dim arg As New Dictionary
     Dim args As New Collection
@@ -142,7 +155,7 @@ Public Sub ExposeDevTools(varName As String)
     args.Add arg
 
     ' 2. 実行
-    main.jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", elementObjectId, args, StopException:=StopException
+    jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", args
     printMsg info_, "In the DevTools console tab, `" & varName & "` was assigned.", FromProcedureName
 End Sub
 
@@ -151,7 +164,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：このClassで保持中の`ObjectId`
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval)をしたい場合にどうぞ
+'* 詳細説明：`CDPElement`では足りないより高度な操作(CDPContext - jsEval等)をしたい場合にどうぞ
 '* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
@@ -172,7 +185,7 @@ Property Get value() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    value = main.jsEval("function(){ return this.value }", elementObjectId, StopException:=StopException)
+    value = jsEval("function(){ return this.value }")
 
 End Property
 
@@ -197,7 +210,7 @@ Property Let value(strTextVal As String)
     Dim isReact As Boolean
 
     'Reactフィールド検出（thisコンテキスト内でObject.entriesを実行）
-    e1 = main.jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }", elementObjectId, StopException:=StopException)
+    e1 = jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }")
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
     If isReact Then printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
@@ -209,10 +222,10 @@ Property Let value(strTextVal As String)
 
     'Perform inputing using all the methods
     If Not isReact Then
-        main.jsEval "function(v){ this.value = v }", elementObjectId, args, StopException:=StopException
+        jsEval "function(v){ this.value = v }", args
     Else
-        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, v) }", elementObjectId, args, StopException:=StopException
-        main.jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, v) }", elementObjectId, args, StopException:=StopException
+        jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, v) }", args
+        jsEval "function(v){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, v) }", args
     End If
 
     'Most input elements need this
@@ -229,7 +242,7 @@ Property Get innerText() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    innerText = main.jsEval("function(){ return this.innerText }", elementObjectId, StopException:=StopException)
+    innerText = jsEval("function(){ return this.innerText }")
 
 End Property
 
@@ -243,13 +256,13 @@ Property Let innerText(strTextVal As String)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
 
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
     args.Add arg
-    main.jsEval "function(v){ this.innerText = v }", elementObjectId, args, StopException:=StopException
+    jsEval "function(v){ this.innerText = v }", args
 
 End Property
 
@@ -262,7 +275,7 @@ Property Get innerHTML() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    innerHTML = main.jsEval("function(){ return this.innerHTML }", elementObjectId, StopException:=StopException)
+    innerHTML = jsEval("function(){ return this.innerHTML }")
 
 End Property
 
@@ -276,13 +289,13 @@ Property Let innerHTML(strTextVal As String)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
 
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
     args.Add arg
-    main.jsEval "function(v){ this.innerHTML = v }", elementObjectId, args, StopException:=StopException
+    jsEval "function(v){ this.innerHTML = v }", args
 
 End Property
 
@@ -299,7 +312,7 @@ Property Let checked(boolChecked As Boolean)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", CBool(boolChecked)
     args.Add arg
-    main.jsEval "function(v){ this.checked = v }", elementObjectId, args, StopException:=StopException
+    jsEval "function(v){ this.checked = v }", args
 
 End Property
 
@@ -312,7 +325,7 @@ Property Get checked() As Boolean
     If checkExist Then If Not isExist Then Exit Property
 
 
-    checked = main.jsEval("function(){ return this.checked }", elementObjectId, StopException:=StopException)
+    checked = jsEval("function(){ return this.checked }")
 
 End Property
 
@@ -330,7 +343,7 @@ Property Let selected(selectedOption As String)
     Dim arg As New Scripting.Dictionary
     arg.Add "value", selectedOption
     args.Add arg
-    main.jsEval "function(v){ this.selectedIndex = v }", elementObjectId, args, StopException:=StopException
+    jsEval "function(v){ this.selectedIndex = v }", args
     fireEvent "change"
 
 End Property
@@ -344,11 +357,11 @@ Property Get selected() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    selected = main.jsEval("function(){ return this.selectedOptions[0] }", elementObjectId, StopException:=StopException)
+    selected = jsEval("function(){ return this.selectedOptions[0] }")
 
 End Property
 
-Public Function click(Optional till As ReadyState = isComplete) As Boolean
+Public Function click() As Boolean
 '----------------------------------------------------------
 ' Perform a standard click on the element. Remember to
 ' perform wait if necessary for the page to be refreshed.
@@ -360,7 +373,7 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
 
 
    'Scroll into the view for better visibility of the automation
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
 
    'Some fields require the browser to manually focus before allowing
    'the click action, such as the input type 'file' field.
@@ -369,13 +382,31 @@ Public Function click(Optional till As ReadyState = isComplete) As Boolean
     ExecuteCDP "Input.insertText", params
 
    'Perform click
-    main.jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }", elementObjectId, StopException:=StopException
-    main.wait till:=till
+    jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
     click = True
 
 End Function
 
-Public Function submit(Optional till As ReadyState = isComplete) As Boolean
+'***************************************************************************************************
+'* 機能　　：JavaScriptでのシンプルなクリックコマンドを実行します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
+'***************************************************************************************************
+Public Function SimpleClick() As Boolean
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'シンプルなクリックコマンドを実行
+    jsEval "function(){ this.click() }"
+
+    '成功サインを返す
+    SimpleClick = True
+
+End Function
+
+Public Function submit() As Boolean
 '----------------------------------------------------------
 ' Submit a form element.
 ' Updated: 12/12/2023
@@ -384,8 +415,7 @@ Public Function submit(Optional till As ReadyState = isComplete) As Boolean
     If checkExist Then If Not isExist Then Exit Function
 
 
-    main.jsEval "function(){ this.form.submit() }", elementObjectId, StopException:=StopException
-    main.wait till:=till
+    jsEval "function(){ this.form.submit() }"
     submit = True
 
 End Function
@@ -403,7 +433,7 @@ Public Function getAttribute(strAttributeName As String) As String
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strAttributeName
     args.Add arg
-    getAttribute = main.jsEval("function(name){ return this.getAttribute(name) || '' }", elementObjectId, args, StopException:=StopException)
+    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
 End Function
 
@@ -419,7 +449,7 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     Dim args2 As New Collection
     Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   args2.Add a1
     Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           args2.Add a2
-    main.jsEval "function(name, val){ this.setAttribute(name, val) }", elementObjectId, args2, StopException:=StopException
+    jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
 
@@ -432,7 +462,7 @@ Public Function setSelection(strOptionName As String)
     If checkExist Then If Not isExist Then Exit Function
 
 
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
     Me.value = strOptionName
     fireEvent "change"
 
@@ -447,7 +477,7 @@ Public Function selectText()
     If checkExist Then If Not isExist Then Exit Function
 
 
-    main.jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ let r = document.createRange(); let s = window.getSelection(); r.selectNodeContents(this); s.removeAllRanges(); s.addRange(r) }"
 
 End Function
 
@@ -460,33 +490,29 @@ Public Function focus()
     If checkExist Then If Not isExist Then Exit Function
 
 
-    main.jsEval "function(){ this.focus() }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.focus() }"
 
 End Function
 
-Public Function fireEvent(strEventName As String, Optional till As ReadyState = isComplete) As Boolean
+Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
 ' Dispatch the custom event on the element. Unlike the IE
 ' DOM event name, the argument strEventName for JS should
 ' not start with "on" such as "onblur" but only "blur".
+' NOTE："onchange" -> "change" - correct JS event name
 ' Updated: 12/12/2023
 '------------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
 
 
-   'Auto format some common event name mistakes
-    strEventName = Replace(strEventName, "on", "")  'eg. "onchange" -> "change" - correct JS event name
-
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args As New Collection
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strEventName
     args.Add arg
-    main.jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", elementObjectId, args, StopException:=StopException
+    jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
 
-   'Wait till applied
-    main.wait till:=till
     fireEvent = True
 
 End Function
@@ -504,7 +530,7 @@ Public Function sendString(textToSend As String) As Boolean
 
 
     'First clear the current text of the field
-    main.jsEval "function(){ this.value = '' }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.value = '' }"
 
     'Set focus on the node
     Dim params As New Scripting.Dictionary
@@ -534,11 +560,11 @@ Public Function sendClick() As Boolean
 
     'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
     Dim x As Double, y As Double
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
 
     '中心座標として返却
-    x = main.jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }", elementObjectId)
-    y = main.jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }", elementObjectId)
+    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
+    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
 
     Dim params As New Scripting.Dictionary
     params("type") = "mousePressed"
@@ -557,7 +583,7 @@ Public Function sendClick() As Boolean
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
-    printMsg info_, "Executed sendClick successfully on objectId: " & StopException, FromProcedureName
+    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
 
 End Function
 
@@ -608,18 +634,18 @@ Public Function clearValue() As Boolean
     Dim isReact As Boolean
 
     'Scroll into view
-    main.jsEval "function(){ this.scrollIntoView(false) }", elementObjectId, StopException:=StopException
+    jsEval "function(){ this.scrollIntoView(false) }"
 
     'Reactフィールド検出
-    e1 = main.jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }", elementObjectId, StopException:=StopException)
+    e1 = jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }")
     If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
 
     'Perform clearing using all the methods
     If Not isReact Then
-        main.jsEval "function(){ this.value = '' }", elementObjectId, StopException:=StopException
+        jsEval "function(){ this.value = '' }"
     Else
-        main.jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, '') }", elementObjectId
-        main.jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, '') }", elementObjectId
+        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, '') }"
+        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, '') }"
     End If
 
    'Most input elements need this
@@ -722,11 +748,11 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
         If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & SearchJS, FromProcedureName: Exit Function
 
         '2. 検索を再実行
-        Dim resultSearch As Variant
-        resultSearch = main.jsEval(SearchJS, SearchObjectId)
+        Dim resultSearch As Boolean
+        resultSearch = jsEval("function(){ return this.isConnected; }")
 
-        '3. 結果を判定。Nullなら、ObjectIDをクリア
-        ResultVarType = VarType(resultSearch)
+        '3. 結果を判定。存在しなかったら、ObjectIDをクリア
+        ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
         If ResultVarType = vbNull Then elementObjectId = vbNullString Else sleep 0.1
     Loop
 
@@ -758,7 +784,7 @@ Public Function getParent() As CDPElement
 
     '1. 現在の要素の親ノードを取得するJavaScriptコードを実行
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ParentSearchJS, elementObjectId, StopException:=StopException)
+    resultSearch = jsEval(ParentSearchJS)
 
     '2. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -791,7 +817,7 @@ Public Function getNextSibling() As CDPElement
 
     '1. 現在の要素の次の兄弟ノードを取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(NextSiblingSearchJS, elementObjectId, StopException:=StopException)
+    resultSearch = jsEval(NextSiblingSearchJS)
 
     '2. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -824,7 +850,7 @@ Public Function getPrevSibling() As CDPElement
 
     '1. 現在の要素の前の兄弟ノードを取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(PrevSiblingSearchJS, elementObjectId, StopException:=StopException)
+    resultSearch = jsEval(PrevSiblingSearchJS)
 
     '2. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -857,7 +883,7 @@ Public Function getFirstChild() As CDPElement
 
     '1. 現在の要素の先頭の兄弟ノードを取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(FirstChildSearchJS, elementObjectId, StopException:=StopException)
+    resultSearch = jsEval(FirstChildSearchJS)
 
     '2. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -889,7 +915,7 @@ Public Function getChildren() As Collection
 
     '1. 現在の要素の子要素を取得するJavaScriptコードを生成
     Dim collResult As Variant
-    collResult = main.jsEval(ChildrenSearchJS, elementObjectId, StopException:=StopException)
+    collResult = jsEval(ChildrenSearchJS)
 
     '2. 結果を判定。文字型なら、ObjectIDを確保
     Dim collOid As String
@@ -903,7 +929,7 @@ Public Function getChildren() As Collection
     '3. Get length via callFunctionOn
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", objectId:=collOid)
+    length_ = main.jsEval("function(){ return this.length }", collOid)
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
@@ -919,7 +945,7 @@ Public Function getChildren() As Collection
         itemArgs.Add itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -961,7 +987,7 @@ Public Function getElementByID(strID As String) As CDPElement
     '2. 現在の要素配下での、指定ID属性値を持つ子要素を取得するJavaScriptコードを生成
     '※getElementById は Document のみ。要素配下の ID 探索は querySelector + CSS.escape を使用。これにより、`ShadowRoot`内検索も可能になります
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByIDSearchJS, elementObjectId, args, StopException:=StopException)
+    resultSearch = jsEval(ElementByIDSearchJS, args)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1009,7 +1035,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
     '2. QuerySelector を使用した現在の要素の子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByQuerySearchJS, elementObjectId, args, StopException:=StopException)
+    resultSearch = jsEval(ElementByQuerySearchJS, args)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1046,7 +1072,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '2. QuerySelectorAll を使用して、現在の要素の子要素のコレクションを取得するJavaScriptコードを生成
     Dim collResult As Variant
-    collResult = main.jsEval(ElementsByQuerySearchJS, elementObjectId, args, StopException:=StopException)
+    collResult = jsEval(ElementsByQuerySearchJS, args)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim collOid As String
@@ -1076,7 +1102,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         itemArgs.Add itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1141,7 +1167,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 
     '4. 現在の要素配下での､指定Xpath持つ子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(ElementByXPathSearchJS, elementObjectId, args, StopException:=StopException)
+    resultSearch = jsEval(ElementByXPathSearchJS, args)
 
     '5. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1192,7 +1218,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '4. Get XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE) using callFunctionOn (this as contextNode)
     Dim collResult As Variant
-    collResult = main.jsEval(ChildrenSearchJS, elementObjectId, xpArgs, StopException:=StopException)
+    collResult = jsEval(ChildrenSearchJS, xpArgs)
 
     '5. 結果を判定。文字型なら、ObjectIDを確保
     Dim collOid As String
@@ -1206,7 +1232,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '6. Get snapshotLength and each item's objectId
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
+    length_ = main.jsEval("function(){ return this.snapshotLength }", collOid)
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1222,7 +1248,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         itemArgs.Add itemArg
 
         '7-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
+        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
 
         '7-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1282,7 +1308,7 @@ Public Function getIFrame() As CDPElement
 
     '2. Get contentDocument objectId via callFunctionOn
     Dim resultSearch As Variant
-    resultSearch = main.jsEval(getIFrameSearchJS, elementObjectId)
+    resultSearch = jsEval(getIFrameSearchJS)
 
     '3. 結果を判定。文字型なら、ObjectIDを確保
     Dim objectId As String, JsResultVarType As VbVarType
@@ -1431,6 +1457,33 @@ Public Function GetShadowRoots() As Collection
     Loop
 End Function
 
+'***************************************************************************************************
+'* 機能　　：見つけた「<input type="file">」の`objectId`に対して、ファイル添付を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：files  ファイルパスが詰まってるCollectionを指定します
+'***************************************************************************************************
+Public Sub SetFileInputFiles(files As Collection)
+    Const FromProcedureName As String = ThisClassName & ".setFileInputFiles"
+
+
+    '1. 未登録の場合は、即抜け
+    If files Is Nothing Then printMsg WARN_, "The file list is undefined.", FromProcedureName: Exit Sub
+    If files.Count = 0 Then printMsg WARN_, "No files have been registered.", FromProcedureName: Exit Sub
+
+    '2. パラメーターを組み立てて送信
+    Dim params As New Dictionary
+    params.Add "files", files
+    params.Add "objectId", elementObjectId
+    ExecuteCDP "DOM.setFileInputFiles", params
+
+    '3. 別途ログ化
+    If seeRawSendMsgDbg Then
+        printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
+    Else
+        printMsg info_, "Attachment complete.", FromProcedureName
+    End If
+End Sub
+
 
 
 '***************************************************************************************************
@@ -1451,6 +1504,78 @@ End Function
 Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
+
+'***************************************************************************************************
+'* 機能　　：見つけた`objectId`に対して、高度なことをしたい方向け
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・当然、`objectId`は固定してます
+'            ・一部引数は、プロパティメソッドから変更する必要があります
+'            ・Class内でもこれを経由して使用しています
+'***************************************************************************************************
+Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+                       Optional returnByValue As Boolean, _
+                       Optional awaitPromise As Boolean, _
+                       Optional serializationOptions As Dictionary, _
+                       Optional generatePreview As Boolean, _
+                       Optional StopPipeError As Boolean = True) As Variant
+    Const FromProcedureName As String = ThisClassName & ".jsEval"
+
+
+    '1. `objectId`がない場合は、エラー停止
+    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
+
+    '2. 実行
+    SetVar(jsEval) = main.jsEval(JavaScriptStr, elementObjectId, objectArguments, IFEXCEPTION, , _
+                                    returnByValue, _
+                                    awaitPromise, _
+                                    RunOption.userGesture, _
+                                    True, _
+                                    serializationOptions, _
+                                    generatePreview, _
+                                    RunOption.RunAsyncCDP, _
+                                    RunOption.StopException, _
+                                    StopPipeError)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：JavaScript実行結果にて`SET`or`LET`判定によるヘルパーメソッド
+'***************************************************************************************************
+Private Property Let SetVar(ByRef outVariable As Variant, ByRef inExpression As Variant)
+    'IsObject で判定し、`Set`or`Let`で反映させる
+    '※特定のオブジェクト(`vbDataObject`)では`IsObject`が`False`になるが、そういったのは返さないので省略
+    If IsObject(inExpression) Then
+        Set outVariable = inExpression
+    Else
+        Let outVariable = inExpression
+    End If
+End Property
+
+
+
+'***************************************************************************************************
+'                             ■■■ JavaScript実行設定 ■■■
+'***************************************************************************************************
+'* 機能　　：`True`で、JavaScriptコード内で例外が起こった場合、Err.Raiseで止まります。基本は、開発時のみ使用する想定です
+'***************************************************************************************************
+Property Let SetOptionStopException(v As Boolean)
+    RunOption.StopException = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Trueで、結果を待たないCDPで実行します。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：必要な場面で使い終わったら必ず、`False`に戻すこと。面倒ごとになります
+'***************************************************************************************************
+Property Let SetOptionRunAsyncCDP(v As Boolean)
+    RunOption.RunAsyncCDP = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：True で「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
+'***************************************************************************************************
+Property Let SetOptionUserGesture(v As Boolean)
+    RunOption.userGesture = v
+End Property
 
 
 

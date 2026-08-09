@@ -620,12 +620,12 @@ Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCor
     '3. 1を基に、Excelテーブルからハンドル情報を取得
     deserializeForPipe
 
-    '4. 不整合を防ぐため、Pipeに残存しているデータを破棄しておく
-    TakeEvents False, True
-
-    '5. バージョン確認CDPコマンドを打ってパイプ生存確認
+    '4. パイプ生存確認
     If isLiveBrowser Then
         reattach = True
+
+        '不整合を防ぐため、Pipeに残存しているデータを破棄しておく
+        TakeEvents destruction:=True
 
         'ステータス更新
         getBrowserInfo
@@ -654,15 +654,10 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：パイプ生存論理値
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：バージョン確認コマンドを送り、それでパイプ生存チェックを行います
+'* 機能説明：PeekNamedPipe/ioctlsocket のハンドルが生きてるかをチェックします
 '***************************************************************************************************
 Public Function isLiveBrowser() As Boolean
-    '1. バージョン確認CDPを送る
-    '※生存確認なので、内部でのエラーは無視する
-    ExecuteCDP "Browser.getVersion", StopCDPError:=False
-
-    '2. いずれもパイプエラーコードがなければ、`True`とします
-    If PipeCore.LastErrorPeekNamedPipe = 0 And PipeCore.LastErrorReadFile = 0 And PipeCore.LastErrorWriteFile = 0 Then isLiveBrowser = True
+    isLiveBrowser = PipeCore.isAvailability
 End Function
 
 
