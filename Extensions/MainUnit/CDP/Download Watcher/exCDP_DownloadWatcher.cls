@@ -137,6 +137,60 @@ End Function
 
 
 '***************************************************************************************************
+'                               ■■■ 設定プロパティ ■■■
+'***************************************************************************************************
+'* 機能　　：ファイルをダウンロードする際の挙動を設定/更新をします
+'---------------------------------------------------------------------------------------------------
+'* Let引数 ：下記の引数設定に紐づく、ダウンロードイベント処理を有効/無効化するか？
+'* 引数　　：behavior           ダウンロードの動作
+'            downloadPath       ダウンロードしたファイルを保存するフルフォルダパス
+'            browserContextId   `Target.createBrowserContext`で得た`browserContextId`を指定します。省略した場合、デフォルトのブラウザコンテキストが使用されます。
+'                               複数アカウントで同一サイトに対するDL作業に重宝します。
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setDownloadBehavior
+'* 注意事項：`browserContextId`に渡せる引数は、`Target.createBrowserContext`で得た`browserContextId`のみです
+'***************************************************************************************************
+Public Property Let setDownloadBehavior(behavior As setDownloadBehavior_behavior, downloadPath As String, Optional browserContextId As String, eventsEnabled As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".setDownloadBehavior - Let"
+
+
+    '1. CDPパラメーター構築
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "behavior", EnumToStringSetDownloadBehavior_behavior(behavior)
+    If StrPtr(browserContextId) Then CDPparams.Add "browserContextId", browserContextId
+    CDPparams.Add "downloadPath", downloadPath
+    CDPparams.Add "eventsEnabled", eventsEnabled
+
+    '2. 実行
+    ExecuteCDP "Browser.setDownloadBehavior", CDPparams
+
+    '3. 記録用に、`browserContextId`省略時、継承時のブラウザコンテキストを適用
+    If StrPtr(browserContextId) = 0 Then browserContextId = defaultBrowserContextId
+
+    '4. ダウンロードパス設定情報の記録/更新
+    '4-1.登録済みか？
+    If DownloadPathList.Exists(browserContextId) Then
+        If eventsEnabled Then
+            '設定の更新
+            DownloadPathList(browserContextId) = downloadPath
+            printMsg info_, "I updated the download monitoring settings. browserContextId: " & browserContextId, FromProcedureName
+        Else
+            '設定の削除
+            DownloadPathList.Remove (browserContextId)
+            printMsg info_, "Download monitoring has been stopped. browserContextId: " & browserContextId, FromProcedureName
+        End If
+    Else
+        '新規登録
+        If eventsEnabled Then DownloadPathList.Add browserContextId, downloadPath: printMsg info_, "Start download monitoring. browserContextId: " & browserContextId, FromProcedureName
+    End If
+
+    '5. 設定情報を表示
+    If seeRawSendMsgDbg Then printMsg info_, "setDownloadBehavior - parameters: " & WebJsonConverter.serialize(CDPparams), FromProcedureName
+End Property
+
+
+
+'***************************************************************************************************
 '                  ■■■ ダウンロード情報取得プロパティ - Rawバージョン ■■■
 '***************************************************************************************************
 '* 機能　　：`guid`を基に、`downloadWillBegin`情報を取り出します
@@ -707,56 +761,6 @@ Friend Sub Init(Inheritance As CDPContext)
     '渡した際のデフォルトのブラウザコンテキストをセット
     defaultBrowserContextId = Inheritance.CurrentBrowserContextId
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：ファイルをダウンロードする際の挙動を設定/更新をします
-'---------------------------------------------------------------------------------------------------
-'* Let引数 ：下記の引数設定に紐づく、ダウンロードイベント処理を有効/無効化するか？
-'* 引数　　：behavior           ダウンロードの動作
-'            downloadPath       ダウンロードしたファイルを保存するフルフォルダパス
-'            browserContextId   `Target.createBrowserContext`で得た`browserContextId`を指定します。省略した場合、デフォルトのブラウザコンテキストが使用されます。
-'                               複数アカウントで同一サイトに対するDL作業に重宝します。
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setDownloadBehavior
-'* 注意事項：`browserContextId`に渡せる引数は、`Target.createBrowserContext`で得た`browserContextId`のみです
-'***************************************************************************************************
-Public Property Let setDownloadBehavior(behavior As setDownloadBehavior_behavior, downloadPath As String, Optional browserContextId As String, eventsEnabled As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".setDownloadBehavior - Let"
-
-
-    '1. CDPパラメーター構築
-    Dim CDPparams As New Dictionary
-    CDPparams.Add "behavior", EnumToStringSetDownloadBehavior_behavior(behavior)
-    If StrPtr(browserContextId) Then CDPparams.Add "browserContextId", browserContextId
-    CDPparams.Add "downloadPath", downloadPath
-    CDPparams.Add "eventsEnabled", eventsEnabled
-
-    '2. 実行
-    ExecuteCDP "Browser.setDownloadBehavior", CDPparams
-
-    '3. 記録用に、`browserContextId`省略時、継承時のブラウザコンテキストを適用
-    If StrPtr(browserContextId) = 0 Then browserContextId = defaultBrowserContextId
-
-    '4. ダウンロードパス設定情報の記録/更新
-    '4-1.登録済みか？
-    If downloadPathList.Exists(browserContextId) Then
-        If eventsEnabled Then
-            '設定の更新
-            downloadPathList(browserContextId) = downloadPath
-            printMsg info_, "I updated the download monitoring settings. browserContextId: " & browserContextId, FromProcedureName
-        Else
-            '設定の削除
-            downloadPathList.Remove (browserContextId)
-            printMsg info_, "Download monitoring has been stopped. browserContextId: " & browserContextId, FromProcedureName
-        End If
-    Else
-        '新規登録
-        If eventsEnabled Then downloadPathList.Add browserContextId, downloadPath: printMsg info_, "Start download monitoring. browserContextId: " & browserContextId, FromProcedureName
-    End If
-
-    '5. 設定情報を表示
-    If seeRawSendMsgDbg Then printMsg info_, "setDownloadBehavior - parameters: " & WebJsonConverter.serialize(CDPparams), FromProcedureName
-End Property
 
 '***************************************************************************************************
 '* 機能　　：初期設定値を適用します
