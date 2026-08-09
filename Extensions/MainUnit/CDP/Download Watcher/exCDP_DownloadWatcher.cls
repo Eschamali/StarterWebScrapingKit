@@ -415,7 +415,7 @@ Public Function AutoWaitSingleCompleted(guid As String, Optional TimeOutSecond A
                     Dim Progress_receivedBytes  As Long: Progress_receivedBytes = .DownloadProgressInfo(guid, downloadProgress_receivedBytes)
                 End With
 
-                '3-1. 前回値より変化してたらタイマーリセットし、進捗表示
+                '4-1. 前回値より変化してたらタイマーリセットし、進捗表示
                 If CurrentReceivedBytes < Progress_receivedBytes Then
                     'タイマーリセット
                     timerStart = TimerCounter
@@ -436,25 +436,30 @@ Public Function AutoWaitSingleCompleted(guid As String, Optional TimeOutSecond A
                 End If
 
             Case EnumToStringDownloadProgressState(state_completed)
-                '3-1. 正常終了なら、`True`返却
+                '4-1. 正常終了なら、`True`返却
                 AutoWaitSingleCompleted = True
                 printMsg info_, "Download completed: " & guid, FromProcedureName
                 Exit Do
 
             Case EnumToStringDownloadProgressState(state_canceled)
-                '3-1. ユーザーによるキャンセルあるいは、ウイルス判定による強制キャンセル時は、`False`返却
+                '4-1. ユーザーによるキャンセルあるいは、ウイルス判定による強制キャンセル時は、`False`返却
                 AutoWaitSingleCompleted = False
                 printMsg WARN_, "Download canceled : " & guid, FromProcedureName
                 Exit Do
+
+            Case Else
+                '4-1. `downloadWillBegin`は来てるが、`DownloadProgressInfo`がまた来てないパターン
+                printMsg Debug_, "`downloadWillBegin` has been received, but `DownloadProgressInfo` has not yet arrived.", FromProcedureName
+
         End Select
 
-        '3-2. 指定秒数、進捗に変化なかったら、抜ける
+        '4-2. 指定秒数、進捗に変化なかったら、抜ける
         If TimerCounter - timerStart > TimeOutSecond * 1000 Then
             printMsg WARN_, "The process timed out because there was no change in progress for a certain period of time.", FromProcedureName
             Exit Do
         End If
 
-        '3-3. メッセージ取り出し
+        '4-3. メッセージ取り出し
         TakeEvents  '内部で`DoEvents`が走ってくれます
     Loop
 End Function
@@ -585,6 +590,11 @@ Public Function AutoWaitMultiCompleted(CompleteCount As Long, Optional TimeOutSe
                         CanceledGUIDs.Add DownloadGUID, True
                         printMsg WARN_, CanceledGUIDs.Count + CompletedGUIDs.Count & "/" & CurrentDownloadGuidCount & " Download canceled : " & DownloadGUID, FromProcedureName
                     End If
+
+                Case Else
+                    '`downloadWillBegin`は来てるが、`DownloadProgressInfo`がまた来てないパターン
+                    printMsg Debug_, "`downloadWillBegin` has been received, but `DownloadProgressInfo` has not yet arrived.", FromProcedureName
+
             End Select
         Next
 
