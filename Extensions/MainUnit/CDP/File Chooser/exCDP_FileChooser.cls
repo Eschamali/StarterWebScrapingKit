@@ -238,7 +238,9 @@ End Sub
 '* 引数　　：InputID    `Page.fileChooserOpened`から得た`backendNodeId`
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`AddFilePath`にて、事前に登録してから、実行すること
-'            ・`EnableEvents`にて、`cancel`モードにしても機能はしますが、`mFilePaths`はクリアされません
+'            ・処理の仕方によっては、前述の処理(例:`.SimpleClick`)のついでにファイル添付されたといったパターンもあります
+'              その場合は、`FilePathCount=0`という判定で「ファイル添付リストに登録したのに確認の時点では`0`ということは、もう添付済みだな」と判定可能です
+'            ・`EnableEvents`にて、`cancel`モードにしても機能はしますがこの場合は、`mFilePaths`はクリアされません
 '***************************************************************************************************
 Public Function AutoWaitSetFileInputFiles(Optional TimeOutSecond As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitSetFileInputFiles"
@@ -291,7 +293,7 @@ Public Function RetrySetFileInputFiles() As Boolean
 End Function
 
 '***************************************************************************************************
-'* 機能   ：実際に添付処理を行います
+'* 機能   ：実際に添付処理を行い、ファイル添付リストをクリアします
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：InputID    `Page.fileChooserOpened`から得た`backendNodeId`
 '---------------------------------------------------------------------------------------------------
