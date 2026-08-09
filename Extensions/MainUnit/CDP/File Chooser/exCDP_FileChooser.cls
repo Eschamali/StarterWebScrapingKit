@@ -307,7 +307,7 @@ Private Sub SetFileInputFiles(InputID As Long)
     Dim params As New Dictionary
     params.Add "files", mFilePaths
     params.Add "backendNodeId", InputID
-    ExecuteCDP "DOM.setFileInputFiles", params, False
+    ExecuteCDP "DOM.setFileInputFiles", params
 
     '2. ï ìrÉçÉOâª
     If seeRawSendMsgDbg Then
