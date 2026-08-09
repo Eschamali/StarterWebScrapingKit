@@ -28,13 +28,13 @@ Private ex_CDPBrowser               As CDPBrowser   '継承元のブラウザクラス
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
 
-'ステート管理
+'基本ステート管理
 Private defaultBrowserContextId     As String       '継承時のブラウザコンテキスト
 Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
-Private downloadPathList            As Dictionary   '各`BrowserContextId`ごとの「downloadPath」情報
 
-'ダウンロードstatus管理
+'ダウンロード系のstatus管理
 '※`guid`をKeyに管理します
+Private DownloadPathList    As Dictionary   '各`BrowserContextId`ごとの「downloadPath」情報
 Private DownloadProgress    As Dictionary   'ダウンロード進捗情報
 Private DownloadWillBegin   As Dictionary   'ダウンロード開始情報
 
@@ -305,6 +305,9 @@ End Sub
 Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPCore_CDPBrowserEvent"
 
+
+    'この拡張Class上で、1度も設定されてない場合は即抜け
+    If DownloadPathList.Count = 0 Then Exit Sub
 
     '1. 対象のダウンロードイベントを処理
     Select Case methodName
@@ -770,7 +773,7 @@ Private Sub Class_Initialize()
 
 
     '各種変数の初期化
-    Set downloadPathList = New Dictionary
+    Set DownloadPathList = New Dictionary
     Set DownloadProgress = New Dictionary
     Set DownloadWillBegin = New Dictionary
 
@@ -788,7 +791,7 @@ End Sub
 Private Sub Class_Terminate()
     '`setDownloadBehavior`設定を元に戻します
     Dim browserContextId
-    For Each browserContextId In downloadPathList.keys
+    For Each browserContextId In DownloadPathList.keys
         '1. CDPパラメーター構築
         Dim CDPparams As New Dictionary
         CDPparams.Add "behavior", EnumToStringSetDownloadBehavior_behavior(Default)
