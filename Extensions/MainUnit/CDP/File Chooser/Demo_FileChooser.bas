@@ -1,23 +1,41 @@
 Attribute VB_Name = "Demo_FileChooser"
 '***************************************************************************************************
-'       exCDP_FileChooser 拡張 - デモ & 動作確認 モジュール
+'       exCDP_FileChooser 拡張 / CDPElement.SetFileInputFiles - デモ & 動作確認 モジュール
 '***************************************************************************************************
-'* 機能　　：exCDP_FileChooser.cls` を使ったFileChooserインターセプトのサンプルコードです
+'* 機能　　：ファイル添付の2つのアプローチ（直接注入 / ダイアログ横取り）のサンプルコードです
 '---------------------------------------------------------------------------------------------------
 '* 対応拡張：Extensions\MainUnit\CDP\File Chooser\exCDP_FileChooser.cls
 '* テストHTML：Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html
 '---------------------------------------------------------------------------------------------------
-'* 動作の仕組み：
-'   ① fc.AddFilePath = "path" でファイルパスを事前登録（複数可）
-'   ② fc.EnableIntercept でインターセプト有効化
-'   ③ ブラウザ上でクリック等のトリガー
-'   ④ OS のダイアログが開く前に CDP が横取り → Page.fileChooserOpened イベント発火
-'   ⑤ fc.SetFileWait が backendNodeId を受け取り DOM.setFileInputFiles で注入
-'   ⑥ input の change イベント発火 → JS の FileReader がファイルを読んでページに表示
+'* 2つのアプローチの違い：
+'   ①`CDPElement.SetFileInputFiles`（直接注入）
+'      ・既に存在する`<input type="file">`のCDPElementを取得できていれば、これだけで完結
+'      ・`Page.fileChooserOpened`の監視は不要（objectId経由で直接`DOM.setFileInputFiles`）
+'      ・OSダイアログを一切開かせないので最速・最安定
+'
+'   ②`exCDP_FileChooser.cls`（ダイアログ横取り）
+'      ・`.click()`等で実際にOSのファイル選択ダイアログが開こうとする瞬間を
+'        `Page.fileChooserOpened`で検知し、代わりに`DOM.setFileInputFiles`で横取り添付する
+'      ・input要素を事前に取得できない（動的生成・別ウィンドウ等）ケースで必要になる
+'      ・キャンセルモード／添付忘れリカバリー（Retry）など、①には無い付加機能を持つ
+'---------------------------------------------------------------------------------------------------
+'* `exCDP_FileChooser.cls` の実際の公開API：
+'   ・EnableEvents(Optional cancel As Boolean) = True/False  … 横取り監視のON/OFF（cancel:=Trueで全キャンセルモード）
+'   ・AddFilePath = "path"                                   … 添付予定ファイルを1件ずつ登録（複数回でマルチ添付）
+'   ・FilePathCount / UnprocessedCount
+'   ・AutoWaitSetFileInputFiles(TimeOutSecond)                … 登録済みファイルが添付されるまで待機（Boolean）
+'   ・RetrySetFileInputFiles()                                … 添付忘れで保留になった`backendNodeId`へ再添付（Boolean）
+'   ・ClearFilePaths / ClearUnprocessed
+'---------------------------------------------------------------------------------------------------
+'* 検証方針について：
+'   ・成功/失敗の判定は、このテストページ固有のバッジ表示（#badge1等の装飾UI）には依存させず、
+'     標準の`HTMLInputElement.files`（対象inputのCDPElementに対する要素スコープjsEval）と、
+'     各クラス自身が返す戻り値（AutoWaitSetFileInputFiles / RetrySetFileInputFiles のBoolean、
+'     UnprocessedCountなどのプロパティ）だけで判定しています。ページのUIが変わっても崩れません。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：
 '   ・「Page.fileChooserOpened」はブラウザが前面にある状態でないと発火しません
-'   ・WORKSPACE_PATH を各自の環境に合わせて設定してください
+'   ・WORKSPACE_PATH をご自身の環境に合わせて設定してください
 '***************************************************************************************************
 Option Explicit
 
@@ -27,214 +45,370 @@ Option Explicit
 '※ StarterWebScrapingKit のルートフォルダを入力してください
 Private Const WORKSPACE_PATH As String = ""
 
+Private Const SAMPLE_DIR As String = "\Extensions\MainUnit\CDP\File Chooser"
+
 Private CharConv As New CharacterCodeConversion
 
 
+
 '***************************************************************************************************
-'                  ■■■ Demo 01：静的 input[type=file] への注入（新API） ■■■
+'      ■■■ Demo 01：CDPElement.SetFileInputFiles による直接注入（SINGLE / MULTI） ■■■
 '***************************************************************************************************
-'* 機能　　：AddFilePath + SetFileWait の新しいAPIを使ったデモです
+'* 機能　　：ダイアログ横取りを使わず、`<input type="file">`のCDPElementへ直接ファイルを注入するデモです
 '---------------------------------------------------------------------------------------------------
-'* テストページ：Test_FileChooser/index.html の ZONE A
+'* テストページ：Test_FileChooser/index.html の「1?? SINGLE FILE INJECTION」「2?? MULTI FILE INJECTION」
 '* 確認ポイント：
-'   - fc.AddFilePath でパスを登録してから fc.SetFileWait を呼ぶフローが動くこと
-'   - HTML 側の FileReader が change イベント経由でファイルを読み、表示されること
+'   - `CDPElement.SetFileInputFiles`（1件のCollection）で singleInput への単一注入が成功すること
+'   - `CDPElement.SetFileInputFiles`（2件以上のCollection）で multiInput への複数注入が成功すること
+'   - `exCDP_FileChooser`を一切使わずに完結できること（`Page.fileChooserOpened`監視は不要）
 '***************************************************************************************************
-Sub Demo_FileChooser_01_静的inputへ注入()
+Sub Demo_FileChooser_01_直接注入_単一と複数()
 
-    Dim txtFile As String
-    txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample.txt"
-
-    If Dir(txtFile) = "" Then
-        Dim TxtString As String
-        With CharConv
-            TxtString = "こんにちは！ FileChooser Interceptor のテストです。" & vbCrLf & _
-                "" & vbCrLf & _
-                "このファイルは VBA が注入しました。" & vbCrLf & _
-                "でもファイルの中身を読んだのは VBA ではなく、" & vbCrLf & _
-                "ブラウザの JavaScript FileReader API です！" & vbCrLf & _
-                "" & vbCrLf & _
-                "実行時刻: " & Now()
-            
-            .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "sample.txt"
-        End With
-    End If
+    Dim file1 As String: file1 = EnsureSampleFile("inject_single.txt", "SINGLE FILE INJECTION のテストファイルです。")
+    Dim file2 As String: file2 = EnsureSampleFile("inject_multi_1.txt", "MULTI FILE INJECTION テストファイル 1")
+    Dim file3 As String: file3 = EnsureSampleFile("inject_multi_2.txt", "MULTI FILE INJECTION テストファイル 2")
 
     '--- 1. テストHTMLをブラウザで開く ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browserTab As CDPContext
-    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("file:///" & Replace(htmlPath, "\", "/"))
     browserTab.show
 
-    '--- 2. FileChooser拡張の初期化 ---
-    Dim fc As New exCDP_FileChooser
-    fc.Init browserTab
+    '--- 2. SINGLE FILE INJECTION：1件のCollectionを直接注入 ---
+    Debug.Print "[Demo01] singleInput へ 1件のファイルを直接注入..."
+    Dim singleFiles As New Collection
+    singleFiles.Add file1
 
-    '--- 3. ★新API：ファイルパスを事前登録 ---
-    fc.AddFilePath = txtFile
-    Debug.Print "[Demo01] 登録ファイル数: " & fc.FilePathCount
+    Dim singleInput As CDPElement
+    Set singleInput = browserTab.getElementByID("singleInput")
+    singleInput.SetFileInputFiles singleFiles
 
-    '--- 4. インターセプトを有効化 ---
-    fc.EnableEvents = True
-
-    '--- 5. ファイル選択をトリガー ---
-    Dim element As CDPElement
-    Debug.Print "[Demo01] static-file-input をクリックします..."
-    Set element = browserTab.getElementByID("static-file-input")
-    element.focus
-    element.click
-
-    '--- 6. ★新API：パス引数なし、待機 & 注入 ---
-    If Not fc.SetFiles(TimeoutSec:=10) Then
-        MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
-        Exit Sub
+    If GetInputFileCount(singleInput) = 1 Then
+        Debug.Print "[Demo01] ○ SINGLE成功！ files=" & GetInputFileNames(singleInput)
+    Else
+        Debug.Print "[Demo01] × SINGLE失敗 files.length=" & GetInputFileCount(singleInput)
+        MsgBox "SINGLE FILE INJECTION に失敗しました。", vbCritical
     End If
 
-    '--- 7. FileReader の読み取り & アニメーション完了を待つ ---
-    browserTab.InheritanceCDPBrowser.sleep 1
-    Debug.Print "[Demo01] 完了！FileReader がページに表示しています。"
+    '--- 3. MULTI FILE INJECTION：2件のCollectionを直接注入 ---
+    Debug.Print "[Demo01] multiInput へ 2件のファイルを直接注入..."
+    Dim multiFiles As New Collection
+    multiFiles.Add file2
+    multiFiles.Add file3
 
-    '--- 8. 後片付け ---
-    fc.EnableEvents = False
-    'fc.ClearFilePaths  ← 次回も同じファイルを使う場合は不要
+    Dim multiInput As CDPElement
+    Set multiInput = browserTab.getElementByID("multiInput")
+    multiInput.SetFileInputFiles multiFiles
+
+    If GetInputFileCount(multiInput) = 2 Then
+        Debug.Print "[Demo01] ○ MULTI成功！ files=" & GetInputFileNames(multiInput)
+        MsgBox "SINGLE / MULTI 両方の直接注入が成功しました！", vbInformation
+    Else
+        Debug.Print "[Demo01] × MULTI失敗 files.length=" & GetInputFileCount(multiInput)
+        MsgBox "MULTI FILE INJECTION に失敗しました。", vbCritical
+    End If
+
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
 
 
 '***************************************************************************************************
-'            ■■■ Demo 02：動的生成ダイアログへの注入（本命） ■■■
+'      ■■■ Demo 02：exCDP_FileChooser による3種類の添付（全て成功すること） ■■■
 '***************************************************************************************************
-'* テストページ：Test_FileChooser/index.html の ZONE B
+'* 機能　　：`Page.fileChooserOpened`の横取りによる3パターンの添付を確認するデモです
+'---------------------------------------------------------------------------------------------------
+'* 3種類：
+'   ① SINGLE FILE INJECTION（静的input・単一ファイル）
+'   ② MULTI FILE INJECTION（静的input・複数ファイル）
+'   ③ ON-DEMAND DYNAMIC INPUT（JSで動的生成されたinputへの横取り添付）
 '* 確認ポイント：
-'   - DOM に file input が事前に存在しないケースでも AddFilePath + SetFileWait で動くこと
+'   - いずれも AddFilePath → click → AutoWaitSetFileInputFiles の流れで添付が完了すること
+'   - ①②は対象inputのCDPElementを保持できているので、files.length/名前まで直接確認する
+'   - ③（DOM上に事前に存在しないinput）は要素を保持できないため、AutoWaitSetFileInputFilesの
+'     戻り値（＝CDP `DOM.setFileInputFiles`自体の成否）そのものを成功判定として扱う
+'* 注意事項：
+'   - `Page.fileChooserOpened`の発行には`userGesture`をOnにて、人間による操作の痕跡を残す必要があります
 '***************************************************************************************************
-Sub Demo_FileChooser_02_動的ダイアログへ注入()
+Sub Demo_FileChooser_02_3種類の添付()
 
-    Dim txtFile As String
-    txtFile = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\sample_dynamic.txt"
-
-    If Dir(txtFile) = "" Then
-        Dim TxtString As String
-        With CharConv
-            TxtString = "==========================================" & vbCrLf & _
-                "  FileChooser Interceptor - 動的注入テスト" & vbCrLf & _
-                "==========================================" & vbCrLf & _
-                "" & vbCrLf & _
-                "このファイルは JS で動的に生成されたダイアログへ注入されました。" & vbCrLf & _
-                "DOM.setFileInputFiles では対応できないケースです！" & vbCrLf & _
-                "" & vbCrLf & _
-                "実行時刻: " & Now()
-            
-            .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "sample_dynamic.txt"
-        End With
-
-    End If
+    Dim file1 As String: file1 = EnsureSampleFile("intercept_single.txt", "横取り添付：単一ファイルのテストです。")
+    Dim file2 As String: file2 = EnsureSampleFile("intercept_multi_1.txt", "横取り添付：複数ファイルのテスト 1")
+    Dim file3 As String: file3 = EnsureSampleFile("intercept_multi_2.txt", "横取り添付：複数ファイルのテスト 2")
+    Dim file4 As String: file4 = EnsureSampleFile("intercept_dynamic.txt", "横取り添付：動的生成inputへのテストです。")
 
     '--- 1. テストHTMLをブラウザで開く ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browserTab As CDPContext
-    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("file:///" & Replace(htmlPath, "\", "/"))
     browserTab.show
 
-    '--- 2. FileChooser拡張の初期化 ---
+    '--- 2. FileChooser拡張の準備（Init時点で横取り監視は自動的に有効化される） ---
     Dim fc As New exCDP_FileChooser
     fc.Init browserTab
 
-    '--- 3. ★新API：ファイルパスを事前登録 ---
-    fc.AddFilePath = txtFile
-    Debug.Print "[Demo02] 登録ファイル数: " & fc.FilePathCount
+    '--- ① SINGLE FILE INJECTION ---
+    Debug.Print "[Demo02] ────── ① 静的input・単一ファイル ──────"
+    Dim singleInput As CDPElement: Set singleInput = browserTab.getElementByID("singleInput")
+    fc.AddFilePath = file1
+    singleInput.SetOptionUserGesture = True     '人間による操作の痕跡を残す
+    singleInput.SetOptionRunAsyncCDP = True     '`True`にすると、最初のifが通る想定。`False`だと2番目の`ElseIf`に反応する想定
+    singleInput.SimpleClick
 
-    '--- 4. インターセプトを有効化 ---
-    fc.EnableEvents = True
+    If fc.AutoWaitFileChooserOpened(TimeOutSecond:=10) Then
+        Debug.Print "[Demo02] ○ ①成功 files=" & GetInputFileNames(singleInput)
+    
+    ElseIf fc.FilePathCount = 0 Then
+        Debug.Print "[Demo02] ○ ①成功(前述の`.SimpleClick`のついでに処理してくれたようだ) files=" & GetInputFileNames(singleInput)
 
-    '--- 5. Zone B の動的ボタンをクリック（JS が createElement して click） ---
-    Debug.Print "[Demo02] btn-dynamic をクリックします..."
-    browserTab.getElementByID("btn-dynamic").click
-
-    '--- 6. ★新API：パス引数なし、待機 & 注入 ---
-    If Not fc.SetFiles(TimeoutSec:=10) Then
-        MsgBox "ファイル注入失敗！ブラウザが前面にあるか確認してください。", vbCritical
+    Else
+        Debug.Print "[Demo02] × ①失敗"
+        MsgBox "①（単一ファイル）の横取り添付に失敗しました。", vbCritical
         browserTab.InheritanceCDPBrowser.quit
         Exit Sub
     End If
 
-    '--- 7. 待機 ---
-    browserTab.InheritanceCDPBrowser.sleep 1
-    Debug.Print "[Demo02] 完了！動的inputへの注入 & FileReader による表示に成功！"
+    '--- ② MULTI FILE INJECTION ---
+    Debug.Print "[Demo02] ────── ② 静的input・複数ファイル ──────"
+    Dim multiInput As CDPElement: Set multiInput = browserTab.getElementByID("multiInput")
+    fc.AddFilePath = file2
+    fc.AddFilePath = file3
+    Debug.Print "[Demo02]   登録ファイル数: " & fc.FilePathCount
+    multiInput.SimpleClick
 
-    '--- 8. 後片付け ---
+    If fc.AutoWaitFileChooserOpened(TimeOutSecond:=10) Then
+        Debug.Print "[Demo02] ○ ②成功 files=" & GetInputFileNames(multiInput)
+    
+    ElseIf fc.FilePathCount = 0 Then
+        Debug.Print "[Demo02] ○ ②成功 (前述の`.SimpleClick`のついでに処理してくれたようだ) files=" & GetInputFileNames(multiInput)
+
+    Else
+        Debug.Print "[Demo02] × ②失敗 files.length=" & GetInputFileCount(multiInput)
+        MsgBox "②（複数ファイル）の横取り添付に失敗しました。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+
+    '--- ③ ON-DEMAND DYNAMIC INPUT ---
+    '    ※ DOM上に事前に存在しないinputなのでCDPElementを保持できない。
+    '      成否は AutoWaitSetFileInputFiles（＝CDPコマンド自体の成否）のみで判定する。
+    Debug.Print "[Demo02] ────── ③ 動的生成input ──────"
+    fc.AddFilePath = file4
+    With browserTab.getElementByID("customBtn")
+'        .SetOptionUserGesture = True    'ここでもう一回偽装要求しないとクールタイムが切れるもよう
+        .SetOptionRunAsyncCDP = True    '`True`にすると、最初のifが通る想定。`False`だと2番目の`ElseIf`に反応する想定
+
+        .SimpleClick
+    End With
+
+    If fc.AutoWaitFileChooserOpened(TimeOutSecond:=10) Then
+        Debug.Print "[Demo02] ○ ③成功（DOM.setFileInputFilesが正常応答）"
+    
+    ElseIf fc.FilePathCount = 0 Then
+        Debug.Print "[Demo02] ○ ③成功 (前述の`.SimpleClick`のついでに処理してくれたようだ。DOM.setFileInputFilesが正常応答)"
+
+    Else
+        Debug.Print "[Demo02] × ③失敗"
+        MsgBox "③（動的生成input）の横取り添付に失敗しました。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+
     fc.EnableEvents = False
+    Debug.Print "[Demo02] 3種類全ての添付が成功しました！"
+    MsgBox "3種類（単一 / 複数 / 動的生成）全ての横取り添付が成功しました！", vbInformation
+
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
 
 
 
 '***************************************************************************************************
-'            ■■■ Demo 03：複数ファイルを順番に注入するシナリオ ■■■
+'                  ■■■ Demo 03：キャンセルモードが機能すること ■■■
 '***************************************************************************************************
-'* 機能　　：ClearFilePaths + AddFilePath で毎回ファイルを差し替えるデモです
+'* 機能　　：`EnableEvents(cancel:=True)`で、ファイル選択ダイアログを強制キャンセルできることを確認します
+'---------------------------------------------------------------------------------------------------
 '* 確認ポイント：
-'   - ClearFilePaths → AddFilePath のサイクルで毎回異なるファイルを注入できること
-'   - 毎ラウンド FileReader が新しい内容でページを更新すること
+'   - キャンセルモード中は、ファイルを登録していてもダイアログが自動キャンセルされ、添付は起きないこと
+'   - 対象inputの files.length が 0 のまま（＝標準DOM APIレベルで未添付）であること
+'* 注意事項：
+'   - キャンセル操作の場合は、「非同期でクリック」しないとうまく判定できません。まぁ、おまけ程度として
 '***************************************************************************************************
-Sub Demo_FileChooser_03_複数ファイル連続注入()
+Sub Demo_FileChooser_03_キャンセル機能()
 
-    '--- サンプルファイルを3つ用意 ---
-    Dim files(1 To 3) As String
-    Dim i As Integer
-    For i = 1 To 3
-        files(i) = WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser\test_" & i & ".txt"
-        If Dir(files(i)) = "" Then
-            Dim TxtString As String
-            With CharConv
-                TxtString = "===============================" & vbCrLf & _
-                    "  テストファイル " & i & " 番" & vbCrLf & _
-                    "===============================" & vbCrLf & _
-                    "" & vbCrLf & _
-                    "作成時刻: " & Now()
-                
-                .BytesToSaveFile .BytesFromString(TxtString), WORKSPACE_PATH & "\Extensions\MainUnit\CDP\File Chooser", "test_" & i & ".txt"
-            End With
+    Dim file1 As String: file1 = EnsureSampleFile("cancel_test.txt", "キャンセルテスト用ファイル（添付されないはず）。")
 
-        End If
-    Next i
-
-    '--- ブラウザ起動 ---
+    '--- 1. テストHTMLをブラウザで開く ---
     Dim htmlPath As String
     htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
     Dim browserTab As CDPContext
-    Set browserTab = 設定シートからのCDP起動ForTab("file:///" & Replace(htmlPath, "\", "/"))
+    Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("file:///" & Replace(htmlPath, "\", "/"))
     browserTab.show
 
-    '--- FileChooser拡張初期化 ---
+    '--- 2. FileChooser拡張の準備 ---
     Dim fc As New exCDP_FileChooser
     fc.Init browserTab
 
-    '--- 3ラウンド：毎回ファイルを差し替えて注入 ---
-    fc.EnableEvents = True
-    For i = 1 To 3
-        Debug.Print "[Demo03] ラウンド " & i & " / 3 ..."
+    '--- 3. キャンセルモードへ切り替え（ファイルは念のため登録しておく） ---
+    fc.EnableEvents(cancel:=True) = True
+    fc.AddFilePath = file1
+    Debug.Print "[Demo03] キャンセルモードON。登録ファイル数=" & fc.FilePathCount & "（本来は使われないはず）"
 
-        browserTab.getElementByID("static-file-input").click
+    '--- 4. ダイアログを非同期でトリガー ---
+    Dim singleInput As CDPElement: Set singleInput = browserTab.getElementByID("singleInput")
+    singleInput.SetOptionUserGesture = True
+    singleInput.SetOptionRunAsyncCDP = True
+    singleInput.SimpleClick
+    Debug.Print "[Demo03] singleInput をクリック（キャンセルされるはず）..."
 
-        '★ 単一用メソッドで、ファイルパスを登録
-        Debug.Print "[Demo03]   登録: " & files(i)
-        Dim ok As Boolean: ok = fc.SetFile(files(i), TimeoutSec:=10)
-        If Not ok Then
-            MsgBox "Round " & i & " で失敗しました。", vbCritical
-            Exit For
+    '--- 5. イベント側で、実際に添付されていないことを確認 ---
+    If fc.AutoWaitFileChooserOpened(TimeOutSecond:=10) Then
+        If fc.FilePathCount Then
+            Debug.Print "[Demo03] ○ キャンセル成功！"
+            MsgBox "キャンセル機能が正常に働きました！", vbInformation
+        Else
+            Debug.Print "[Demo03] △ キャンセル成功したけど、添付ファイルリストが消えてるようです"
+            MsgBox "キャンセル機能が正常に働きましたが、添付ファイルリストが消えてるようです", vbExclamation
         End If
+    Else
+        Debug.Print "[Demo03] × files.length=" & GetInputFileCount(singleInput) & "（キャンセルイベントがすでに回収済みか？）"
+        MsgBox "キャンセル機能が働きませんでした。", vbCritical
+    End If
 
-        '★ FileReader の読み取り完了を待つ
-        browserTab.InheritanceCDPBrowser.sleep 2
-        Debug.Print "[Demo03] ラウンド " & i & " 完了"
-    Next i
+    '--- 7. キャンセルモードを解除（登録ファイルも念のためクリア） ---
     fc.EnableEvents = False
+    fc.ClearFilePaths
 
-    Debug.Print "[Demo03] 3ファイルの連続注入が完了しました！"
+    browserTab.InheritanceCDPBrowser.quit
 
 End Sub
+
+
+
+'***************************************************************************************************
+'          ■■■ Demo 04：添付忘れでも RetrySetFileInputFiles でリカバリー ■■■
+'***************************************************************************************************
+'* 機能　　：ファイルを登録せずにダイアログを開いてしまった（添付忘れ）ケースからの復旧を確認します
+'---------------------------------------------------------------------------------------------------
+'* フロー：
+'   ① ファイル未登録の状態で input をクリック（Page.fileChooserOpened が来るが、
+'      FilePathCount=0 のため添付されず、UnprocessedSetFileList に保留される）
+'   ② 保留を確認（UnprocessedCount > 0）
+'   ③ 忘れていたファイルを AddFilePath で登録
+'   ④ RetrySetFileInputFiles で保留分に遡って添付
+'* 確認ポイント：
+'   - ①の時点で添付は起きず、UnprocessedCount が 1 になること（クラス自身が持つ状態で判定）
+'   - ③④の後、RetrySetFileInputFilesがTrueを返し、対象inputのfiles.lengthが1になること
+'   - リトライ後、UnprocessedCount が 0 に戻ること
+'***************************************************************************************************
+Sub Demo_FileChooser_04_添付忘れからのリトライ()
+
+    Dim file1 As String: file1 = EnsureSampleFile("retry_test.txt", "添付忘れリトライテスト用ファイルです。")
+
+    '--- 1. テストHTMLをブラウザで開く ---
+    Dim htmlPath As String
+    htmlPath = WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_FileChooser\index.html"
+    Dim browserTab As CDPContext
+    Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("file:///" & Replace(htmlPath, "\", "/"))
+    browserTab.show
+
+    '--- 2. FileChooser拡張の準備（ファイルは、まだ何も登録しない＝添付忘れの再現） ---
+    Dim fc As New exCDP_FileChooser
+    fc.Init browserTab
+    Debug.Print "[Demo04] 登録ファイル数=" & fc.FilePathCount & "（ワザと未登録のままクリックします）"
+
+    '--- 3. ダイアログをトリガー（添付忘れの状態でクリック） ---
+    Dim singleInput As CDPElement: Set singleInput = browserTab.getElementByID("singleInput")
+    singleInput.SetOptionUserGesture = True
+    singleInput.click
+    Debug.Print "[Demo04] singleInput をクリック（ファイル未登録のまま）..."
+
+    '--- 4. UnprocessedCount が増えることを確認 ---
+    If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
+        Debug.Print "[Demo04] × Page.fileChooserOpened を検知できませんでした"
+        MsgBox "ダイアログイベントを検知できませんでした。", vbCritical
+        browserTab.InheritanceCDPBrowser.quit
+        Exit Sub
+    End If
+    Debug.Print "[Demo04] ○ 添付忘れを再現。UnprocessedCount=" & fc.UnprocessedCount & "（files.length=" & GetInputFileCount(singleInput) & "のはず）"
+
+    '--- 5. 今になってファイルを登録 ---
+    fc.AddFilePath = file1
+    Debug.Print "[Demo04] 今になってファイルを登録: " & file1
+
+    '--- 6. RetrySetFileInputFiles でリカバリー ---
+    If fc.RetrySetFileInputFiles() And GetInputFileCount(singleInput) = 1 Then
+        Debug.Print "[Demo04] ○ リトライ成功！ files=" & GetInputFileNames(singleInput) & " / UnprocessedCount=" & fc.UnprocessedCount
+        MsgBox "添付忘れからのリトライ（RetrySetFileInputFiles）に成功しました！", vbInformation
+    Else
+        Debug.Print "[Demo04] × リトライ失敗 files.length=" & GetInputFileCount(singleInput)
+        MsgBox "RetrySetFileInputFiles に失敗しました。", vbCritical
+    End If
+
+    fc.EnableEvents = False
+    browserTab.InheritanceCDPBrowser.quit
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                           ■■■ ユーティリティ（共通利用） ■■■
+'***************************************************************************************************
+'* 機能　　：サンプルファイルが無ければ作成し、フルパスを返します
+'***************************************************************************************************
+Private Function EnsureSampleFile(FileName As String, Content As String) As String
+    Dim fullPath As String
+    fullPath = WORKSPACE_PATH & SAMPLE_DIR & "\" & FileName
+
+    If Dir(fullPath) = "" Then
+        CharConv.BytesToSaveFile CharConv.BytesFromString(Content & vbCrLf & "作成日時: " & Now()), WORKSPACE_PATH & SAMPLE_DIR, FileName
+    End If
+
+    EnsureSampleFile = fullPath
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定した`<input type="file">`のCDPElementから、標準の`files.length`を取得します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：ページ側の装飾UI（バッジ等）に依存せず、対象input自体のDOM状態だけで判定するための
+'            ヘルパーです。要素スコープの`jsEval`（`this`=input自身）で直接読みます。
+'***************************************************************************************************
+Private Function GetInputFileCount(el As CDPElement) As Long
+    GetInputFileCount = el.jsEval("function(){ return this.files.length }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定した`<input type="file">`のCDPElementから、添付済みファイル名一覧（カンマ区切り）を取得します
+'***************************************************************************************************
+Private Function GetInputFileNames(el As CDPElement) As String
+    GetInputFileNames = CStr(el.jsEval("function(){ return Array.from(this.files).map(function(f){ return f.name }).join(', ') }"))
+End Function
+
+''***************************************************************************************************
+'* 機能　　：`fc.UnprocessedCount`が指定件数に達するまで待機します（添付忘れ検知用）
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：True で検知、False でタイムアウト
+'* 詳細説明：ページのDOMではなく、`exCDP_FileChooser`クラス自身が持つ状態（保留リスト件数）だけを
+'            見ているため、テストページのUIが変わっても影響を受けません。
+'***************************************************************************************************
+Private Function WaitUntilUnprocessed(browserTab As CDPContext, fc As exCDP_FileChooser, expectedCount As Long, Optional TimeOutSecond As Double = 15) As Boolean
+    Dim t As Double: t = Timer
+
+    Do
+        browserTab.InheritanceCDPBrowser.TakeEvents
+
+        If fc.UnprocessedCount >= expectedCount Then
+            WaitUntilUnprocessed = True
+            Exit Function
+        End If
+
+        If (Timer - t) > TimeOutSecond Then Exit Function
+
+        browserTab.InheritanceCDPBrowser.sleep 0.2
+    Loop
+End Function
