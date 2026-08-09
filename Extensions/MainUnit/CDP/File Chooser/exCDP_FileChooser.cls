@@ -39,6 +39,7 @@ Private LastFileChooserOpened       As String       '最後の`Page.fileChooserOpen
 Private CancelMode                  As Boolean      '`Page.setInterceptFileChooserDialog`が`cancel`モードか？
 Private mFilePaths                  As Collection   '`DOM.setFileInputFiles - files`に渡すリスト
 Private UnprocessedSetFileList      As Collection   '`Page.setInterceptFileChooserDialog`が来たが、`mFilePaths`がセットされておらず、未処理のままのリスト
+Private WaitLock                    As Boolean      '`Page.fileChooserOpened`が来るまでの同期ロック
 
 
 
@@ -216,6 +217,9 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
                 End If
             End If
 
+            '7. `AutoWaitSetFileInputFiles`による待機ループを解除させておく
+            WaitLock = False
+
         'ページ遷移時の過去の未処理リストの初期化
         Case "Page.frameNavigated"
             Set UnprocessedSetFileList = New Collection
@@ -245,14 +249,15 @@ Public Function AutoWaitSetFileInputFiles(Optional TimeOutSecond As Double = 30)
     '2. 現在の経過時間を取得
     Dim timerStart As Double: timerStart = TimerCounter
 
-    '3. ファイルリストがリセットされるまでループ
+    '3. イベントが届くまでループ待機
+    WaitLock = True
     Do
         '4. タイムアウトしたら、抜ける
         If TimerCounter - timerStart > TimeOutSecond * 1000 Then printMsg WARN_, "The `Page.fileChooserOpened` event could not be detected within the time limit.", FromProcedureName: Exit Function
 
         '5. イベント取り出し
         TakeEvents  '内部で`DoEvents`が走ってくれます
-    Loop While mFilePaths.Count
+    Loop While WaitLock
 
     '6. 成功返却
     AutoWaitSetFileInputFiles = True
@@ -273,7 +278,7 @@ Public Function RetrySetFileInputFiles() As Boolean
     '2. ファイルリストなしも即抜け
     If FilePathCount = 0 Then printMsg WARN_, "No files have been registered.", FromProcedureName: Exit Function
 
-    '3. 添付処理
+    '3. 漏れのあった先頭の`backendNodeId`に対して、添付処理
     SetFileInputFiles UnprocessedSetFileList(1)
 
     '4. 先頭を削除
