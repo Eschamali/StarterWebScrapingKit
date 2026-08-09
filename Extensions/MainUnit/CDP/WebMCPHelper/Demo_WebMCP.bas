@@ -9,7 +9,7 @@ Option Explicit
 
 Sub Make_AI_Original_Penguin_Pizza()
     ' 1. ピザメーカーのサイトを開いたタブ（CDPContext）に接続する
-    Dim c As CDPContext: Set c = 設定シートからのCDP起動ForTab("https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
+    Dim c As CDPContext: Set c = ShSetting01_StartBrowser.StartCDPModeContext("https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
     
     '-----WebSocketルートの場合は下記を追加----
 '    '設定セルから、ユーザ名を取得
@@ -143,7 +143,7 @@ End Sub
 Sub Make_AI_Original_MysteryDoors()
 
     ' 1. ミステリー・ドアーズ のサイトを開いたタブ（CDPContext）に接続する
-    Dim c As CDPContext: Set c = 設定シートからのCDP起動ForTab("https://googlechromelabs.github.io/webmcp-tools/demos/doors/")
+    Dim c As CDPContext: Set c = ShSetting01_StartBrowser.StartCDPModeContext("https://googlechromelabs.github.io/webmcp-tools/demos/doors/")
 
     ' 2. 自作のWebMCPアシストクラスを初期化
     Dim p As New exCDP_WebMCP
@@ -211,7 +211,7 @@ Sub Make_AI_Original_MysteryDoors()
 End Sub
 
 Sub teb()
-    Dim c As CDPContext: Set c = 設定シートからのCDP起動ForTab("https://googlechromelabs.github.io/webmcp-tools/demos/smart-home/")
+    Dim c As CDPContext: Set c = ShSetting01_StartBrowser.StartCDPModeContext("https://googlechromelabs.github.io/webmcp-tools/demos/smart-home/")
 
     '自作のWebMCPアシストクラスを初期化
     Dim p As New exCDP_WebMCP

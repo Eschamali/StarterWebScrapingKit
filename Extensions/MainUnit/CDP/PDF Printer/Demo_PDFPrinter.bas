@@ -28,7 +28,7 @@ Option Explicit
 Sub Demo_PDFPrinter_01_基本保存()
 
     '1. ブラウザ起動
-    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://example.com")
+    Dim browserTab As CDPContext: Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("https://example.com")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
@@ -67,7 +67,7 @@ End Sub
 Sub Demo_PDFPrinter_02_パラメーター指定()
 
     '1. ブラウザ起動
-    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.wikipedia.org")
+    Dim browserTab As CDPContext: Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
@@ -116,7 +116,7 @@ End Sub
 Sub Demo_PDFPrinter_03_プリセット指定()
 
     '1. ブラウザ起動
-    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.wikipedia.org")
+    Dim browserTab As CDPContext: Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("https://www.wikipedia.org")
 
     '2. PDF拡張の初期化
     Dim pdf As New exCDP_PDFPrinter
@@ -163,7 +163,7 @@ Sub Demo_PDFPrinter_04_スクショとPDF同時保存()
     If Dir(outDir, vbDirectory) = "" Then MkDir outDir
 
     '1. ブラウザ起動（Googleの検索結果ページ）
-    Dim browserTab As CDPContext: Set browserTab = 設定シートからのCDP起動ForTab("https://www.google.com/search?q=1USD+to+JPY")
+    Dim browserTab As CDPContext: Set browserTab = ShSetting01_StartBrowser.StartCDPModeContext("https://www.google.com/search?q=1USD+to+JPY")
 
     '2. スクリーンショット（CDPbrowserTab.snapPage）
     browserTab.snapPage outDir, "capture_shot.png"

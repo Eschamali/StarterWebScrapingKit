@@ -16,7 +16,7 @@ Option Explicit
 '***************************************************************************************************
 Sub StartDoLoopVer()
     '設定シートに基づくブラウザ立ち上げ
-    Dim WebSocketDemo_doLoop As CDPContext: Set WebSocketDemo_doLoop = 設定シートからのCDP起動ForTab
+    Dim WebSocketDemo_doLoop As CDPContext: Set WebSocketDemo_doLoop = ShSetting01_StartBrowser.StartCDPModeContext
 
     '拡張機能側へ継承
     Dim d As New exCDP_WebSocketEvents
@@ -46,7 +46,7 @@ End Sub
 '***************************************************************************************************
 Sub StartSetTimerVer()
     '設定シートに基づくブラウザ立ち上げ
-    Dim WebSocketDemo_SafeTimer As CDPContext: Set WebSocketDemo_SafeTimer = 設定シートからのCDP起動ForTab
+    Dim WebSocketDemo_SafeTimer As CDPContext: Set WebSocketDemo_SafeTimer = ShSetting01_StartBrowser.StartCDPModeContext
 
     'このプロシージャが終了しても、このクラスオブジェクトは保持するように組む
     Static d As New exCDP_WebSocketEvents
