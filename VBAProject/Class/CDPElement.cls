@@ -748,11 +748,11 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
         If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & SearchJS, FromProcedureName: Exit Function
 
         '2. 検索を再実行
-        Dim resultSearch As Variant
-        resultSearch = main.jsEval(SearchJS, SearchObjectId)
+        Dim resultSearch As Boolean
+        resultSearch = jsEval("function(){ return this.isConnected; }")
 
-        '3. 結果を判定。Nullなら、ObjectIDをクリア
-        ResultVarType = VarType(resultSearch)
+        '3. 結果を判定。存在しなかったら、ObjectIDをクリア
+        ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
         If ResultVarType = vbNull Then elementObjectId = vbNullString Else sleep 0.1
     Loop
 

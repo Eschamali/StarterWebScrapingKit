@@ -100,7 +100,7 @@ End Type
 
 'WebSocketのFrame単位を管理する独自構造体
 Private Type WebSocketReceiveFrameManage
-    PayloadLength   As Long     'Chromium側から実際に送られるサイズ
+    PayloadLength   As Long     '今回来る1Frameのサイズ
     CurrentCursor   As Long     '`PayloadLength`のうち、どこまで書き込んだ？
     ValidTags       As Boolean  '有効なタグ中か？ペイロードデータ自体の欠け対策です
     isFIN           As Boolean  'FINフラグ
