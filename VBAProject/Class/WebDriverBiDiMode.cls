@@ -325,7 +325,6 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
 
         If Not doRetrySecond Then Exit Do
         If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
-        DoEvents
     Loop
 End Function
 
