@@ -392,18 +392,42 @@ End Sub
 '* 注意事項：・タイムアウトになったら、エラーにはならず、この関数を抜けるだけです
 '            ・`TimeOutSecond`は、前回の進捗から変化がない秒数として機能します
 '            ・`downloadWillBegin`にないものは即抜けします
+'            ・`guid`省略の場合は、`DownloadWillBegin`の最後のKeyで取り出しを試みます
 '***************************************************************************************************
-Public Function AutoWaitSingleCompleted(guid As String, Optional TimeOutSecond As Double = 30) As Boolean
+Public Function AutoWaitSingleCompleted(Optional guid As String, Optional TimeOutSecond As Double = 30, Optional ClearDLHistory As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitSingleCompleted"
 
 
-    '1. `downloadWillBegin`に、その`guid`があるか？
-    If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid - " & guid & "` was specified that is not present in `downloadWillBegin`.", ThisClassName: Exit Function
+    '1. `downloadProgress - state`が、`completed`,`canceled`になってる`GUID`を削除
+    If ClearDLHistory Then
+        Call ClearDownloadCompleted
+        Call ClearDownloadCanceled
+    End If
 
     '2. 現在の経過時間を取得
     Dim timerStart As Double: timerStart = TimerCounter
 
-    '3. メッセージを取り出しながら、進捗をチェックする
+    '3. `guid`省略判定
+    If StrPtr(guid) Then
+        '`guid`が指定されてる場合、`downloadWillBegin`に、その`guid`がない場合は即抜け
+        If Not DownloadWillBegin.Exists(guid) Then printMsg WARN_, "A `guid - " & guid & "` was specified that is not present in `downloadWillBegin`.", FromProcedureName: Exit Function
+    Else
+        '未指定の場合、`downloadWillBegin`が1件以上来るまで待機
+        printMsg info_, "The `guid` is missing. Waiting for the latest `guid`.", FromProcedureName
+        Do Until DownloadWillBegin.Count
+            '3-1. メッセージ取り出し
+            TakeEvents
+
+            '3-2. 指定秒数、1件も来なかったら抜ける
+            If TimerCounter - timerStart > TimeOutSecond * 1000 Then printMsg WARN_, "Could not detect any `downloadWillBegin`.", FromProcedureName: Exit Function
+        Loop
+
+        '3-3. 末尾のKeyとして取り出す
+        guid = DownloadWillBegin.keys(DownloadWillBegin.Count - 1)
+    End If
+
+    '4. メッセージを取り出しながら、進捗をチェックする
+    printMsg info_, "Checking the download status for `guid - " & guid & "`...", FromProcedureName
     Dim CurrentReceivedBytes As Long
     Do
         'downloadProgress - state に応じた分岐
