@@ -11,18 +11,6 @@ Attribute VB_Name = "Test_jsDialogAutoCloseRace"
 ' 実行:
 ' - VBA: Run_JSDialogAutoClose_RaceTest を実行
 '===================================================================================================
-'===================================================================================================
-' JSダイアログ自動close拡張を使った「競合ズレ」再現ストレステスト
-'
-' 目的:
-' - RunAsyncCDP=true の click (async command result) と
-'   Page.handleJavaScriptDialog (extension がイベント内で同期 invokeMethod) の
-'   受信・回収の競合を起こしやすい順序で回す
-' - ResultCDPForAsync(asyncClickID) が取り出せず失敗するケースを探す
-'
-' 実行:
-' - VBA: Run_JSDialogAutoClose_RaceTest を実行
-'===================================================================================================
 Option Explicit
 
 Private passCount As Long
@@ -36,7 +24,7 @@ Private Function EOk() As String
 End Function
 
 Public Sub Run_JSDialogAutoClose_RaceTest(Optional ByVal iterations As Long = 30)
-    Dim br As CDPContext: Set br = 設定シートからのCDP起動ForTab
+    Dim br As CDPContext: Set br = ShSetting01_StartBrowser.StartCDPModeContext
 
     br.navigate "file:///" & Replace(WORKSPACE_PATH & "\Extensions\OperationCheck\TestHtml\Test_jsDialogAutoCloseRace\Test_jsDialogAutoCloseRace.html", "\", "/")
     br.wait
