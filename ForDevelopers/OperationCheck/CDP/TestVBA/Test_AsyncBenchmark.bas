@@ -1,3 +1,4 @@
+Attribute VB_Name = "Test_AsyncBenchmark"
 '===================================================================================================
 ' マルチタブ非同期CDPラウンド同期ベンチマーク
 '---------------------------------------------------------------------------------------------------
@@ -14,12 +15,15 @@
 '===================================================================================================
 Option Explicit
 
+Private Const WebSocketTest As Boolean = True
+
+
 Private Const RESULT_SECTION_LINE   As String = "=================================================="
 Private Const NUM_TABS              As Long = 30      ' 開くタブ数
 Private Const NUM_ROUNDS            As Long = 10       ' 繰り返すラウンド数
-Private Const TIMEOUT_LOAD_SEC      As Double = 30    ' 読み込み完了バリアのタイムアウト
-Private Const TIMEOUT_SCREENSHOT_SEC As Double = 20   ' スクショ回収のタイムアウト
-Private Const TIMEOUT_COOKIE_SEC    As Double = 15    ' Cookie回収のタイムアウト
+Private Const TIMEOUT_LOAD_SEC      As Double = 60    ' 読み込み完了バリアのタイムアウト
+Private Const TIMEOUT_SCREENSHOT_SEC As Double = 60   ' スクショ回収のタイムアウト
+Private Const TIMEOUT_COOKIE_SEC    As Double = 60    ' Cookie回収のタイムアウト
 Private Const SAVE_PATH             As String = "Downloads"
 
 Private Const URL_1 As String = "https://www.youtube.com/@islandfox6864/"
@@ -79,25 +83,28 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    '---- Pipe版 ----
-    Set chrome = ShSetting01_StartBrowser.StartCDPMode
-    Set tabs(1) = chrome.getTab(setMain:=True)
-    '----------------
+    If WebSocketTest Then
+        '---- WebSocket版 ----
+        '3. 設定セルから、ユーザ名を取得
+        Dim UserName As String
+        UserName = ShSetting01_StartBrowser.CurrentUserName
     
-    '---- WebSocket版 ----
-'    '3. 設定セルから、ユーザ名を取得
-'    Dim UserName As String
-'    UserName = ShSetting01_StartBrowser.CurrentUserName
-'
-'    '4. 指定のWebSocketForCDPへ接続
-'    Dim WebSocketCDP As New CDPCoreViaWebSocket
-'    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
-'
-'    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-'    Set chrome = New CDPBrowser
-'    If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-'    Set tabs(1) = chrome.newTab(setMain:=True)
-    '---------------------
+        '4. 指定のWebSocketForCDPへ接続
+        Dim WebSocketCDP As New CDPCoreViaWebSocket
+        Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    
+        '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+        Set chrome = New CDPBrowser
+        If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        Set tabs(1) = chrome.newTab(setMain:=True)
+        '---------------------
+    Else
+        '---- Pipe版 ----
+        Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        Set tabs(1) = chrome.getTab(setMain:=True)
+        '----------------
+    End If
+    
     benchStart = chrome.TimerCounter
 
 
@@ -167,8 +174,6 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
                     End If
                 End If
             Next t
-
-            If pendingCount > 0 Then chrome.sleep 0.05
         Loop
 
         ' --- Step C・D: Cookie/Screenshot発行・このラウンドのScreenshot回収（共通処理） ---
@@ -199,25 +204,28 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    '---- Pipe版 ----
-    Set chrome = ShSetting01_StartBrowser.StartCDPMode
-    Set tabs(1) = chrome.getTab(setMain:=True)
-    '----------------
     
-    '---- WebSocket版 ----
-'    '3. 設定セルから、ユーザ名を取得
-'    Dim UserName As String
-'    UserName = ShSetting01_StartBrowser.CurrentUserName
-'
-'    '4. 指定のWebSocketForCDPへ接続
-'    Dim WebSocketCDP As New CDPCoreViaWebSocket
-'    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
-'
-'    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-'    Set chrome = New CDPBrowser
-'    If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-'    Set tabs(1) = chrome.newTab(setMain:=True)
-    '---------------------
+    If WebSocketTest Then
+        '---- WebSocket版 ----
+        '3. 設定セルから、ユーザ名を取得
+        Dim UserName As String
+        UserName = ShSetting01_StartBrowser.CurrentUserName
+    
+        '4. 指定のWebSocketForCDPへ接続
+        Dim WebSocketCDP As New CDPCoreViaWebSocket
+        Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    
+        '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+        Set chrome = New CDPBrowser
+        If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        Set tabs(1) = chrome.newTab(setMain:=True)
+        '---------------------
+    Else
+        '---- Pipe版 ----
+        Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        Set tabs(1) = chrome.getTab(setMain:=True)
+        '----------------
+    End If
 
     benchStart = chrome.TimerCounter
 
@@ -276,8 +284,6 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
                     End If
                 End If
             Next t
-
-            If pendingCount > 0 Then chrome.sleep 0.05
         Loop
 
         ' --- Step C・D: Cookie/Screenshot発行・このラウンドのScreenshot回収（共通処理） ---
@@ -367,8 +373,6 @@ Private Sub FireAndDrainRound(chrome As CDPBrowser, tabs() As CDPContext, active
                 End If
             End If
         Next i
-
-        If remaining > 0 Then chrome.sleep 0.05
     Loop
 End Sub
 
@@ -444,8 +448,6 @@ Private Sub DrainAllCookies(chrome As CDPBrowser, ByRef cookieTickets() As Cooki
                 End If
             End If
         Next i
-
-        If remaining > 0 Then chrome.sleep 0.1
     Loop
 End Sub
 
