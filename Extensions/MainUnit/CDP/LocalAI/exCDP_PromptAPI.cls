@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "LocalAI_PromptAPI"
+Attribute VB_Name = "exCDP_PromptAPI"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -21,13 +21,14 @@ Option Explicit
 '                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
 '“à•”ƒNƒ‰ƒXƒIƒuƒWƒFƒNƒg
-Private WithEvents ex_CDPBrowser    As CDPBrowser
-Attribute ex_CDPBrowser.VB_VarHelpID = -1
-Private JsonConv                    As New WebJsonConverter
+Private ex_CDPContext           As CDPContext
+Attribute ex_CDPContext.VB_VarHelpID = -1
+Private ex_CDPBrowser           As CDPBrowser
+Private WithEvents ex_CDPCore   As CDPCore
+Attribute ex_CDPCore.VB_VarHelpID = -1
 
 '“à•”g—p—p
-Private Const ThisClassName                 As String = "LocalAI_PromptAPI" 'ƒƒO‚ÌƒgƒŒ[ƒX—p
-Private Const InitialAllocationStrBuffer    As Long = 2 ^ 6                 '‰Šúƒoƒbƒtƒ@[ãŒÀ
+Private Const ThisClassName         As String = "exCDP_PromptAPI" 'ƒƒO‚ÌƒgƒŒ[ƒX—p
 
 '`Runtime.bindingCalled`‚Ì`Name`’è‹`—p
 Private Const BindingName01         As String = "sendDLprogressNotification"    'AIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLi’»—p
@@ -39,7 +40,16 @@ Private seeRawSendMsgDbg            As Boolean      'response‚ğƒfƒoƒbƒOƒƒO‚Éo‚
 Private EnableBrowserEvents         As Boolean      '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
 Private ProgressValue               As Double       'AIƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLi’»’l
 Private StreamingEOF                As Boolean      'ƒXƒgƒŠ[ƒ~ƒ“ƒOóM‚ªI‚í‚Á‚½‚©‚ÌƒTƒCƒ“
-Private StreamingCol                As Collection   'Streaming ‚Ì’~Ï—p
+Private CurrentSessionID            As String       '`CDPContext.cls`Œp³‚ÌSesssionID
+
+'`promptStreaming`‚ÌcursorŠÇ—
+Private Type TextCursor
+    strBuffer       As String   '`promptStreaming`‚©‚ç‘—‚ç‚ê‚½ƒeƒLƒXƒg‚ğ‚Ç‚ñ‚Ç‚ñ’~Ï‚·‚é•Ï”
+    length          As Long     'Œ»İ‚Ìƒoƒbƒtƒ@‘S‘Ì‚Ì’·‚³
+    NextCursor      As Long     'Ÿ‚Ìæ‚èo‚µŠJnˆÊ’u
+    EndCursor       As Long     '—LŒø‚Èƒf[ƒ^––”öˆÊ’u
+End Type
+Private promptStreaming As TextCursor
 
 'Prompt API‚ÉŠÖ‚·‚éİ’èŒQ
 Private Type PromptAPI
@@ -48,14 +58,6 @@ Private Type PromptAPI
 
 End Type
 Private SettingAI As PromptAPI
-
-'•ªŠ„‹Lq‚³‚ê‚½JavaScript”z—ñŠÇ——p
-Private Type StateFragmentedJS
-    strBuffer()     As String   'ˆê“I‚É’~Ï‚·‚é‚½‚ß‚Ì”z—ñ‚Å‚·
-    Index           As Long     '–„‚Ü‚Á‚Ä‚éˆÊ’u
-    expansionCount  As Long     'Šg’£Šm•Û‰ñ”
-End Type
-Private JSBox As StateFragmentedJS
 
 
 
@@ -82,20 +84,30 @@ Public Property Get DLProgressValue() As Double
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½‚Ì‚ğŒÄ‚Ño‚·“x‚Éæ“ª‚¾‚¯æ‚èo‚µ‚ÄAæ“ª‚ğíœ‚µ‚Ü‚·
+'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½‚Ì‚ğŒÄ‚Ño‚·“x‚ÉA‚ ‚é•ª‚¾‚¯æ‚èo‚µ‚ÄAŸ‚Ìæ‚èo‚µˆÊ’u‚ğXV‚·‚é‹@”\‚Å‚·
+'---------------------------------------------------------------------------------------------------
+'* ’ˆÓ–€F‚±‚ê‚Íå‚É‰‰o—pŒ“i’»ó‹µ‚Ég‚¢‚Ü‚·BÀÛ‚ÌŠ®¬ƒf[ƒ^‚ÍAŒãp‚Ì`StreamingAllTake`‚ğ‚²—˜—p‰º‚³‚¢
 '***************************************************************************************************
 Public Property Get StreamingTopTake() As String
-    If StreamingCol.Count = 0 Then Exit Property
-
-    StreamingTopTake = StreamingCol(1)
-    StreamingCol.Remove (1)
+    With promptStreaming
+        '1. ƒf[ƒ^‚Ì––”ö‚Ü‚Å—ˆ‚½‚ç‘¦”²‚¯
+        If .NextCursor = .EndCursor Then Exit Property
+        
+        '2. Œ»İ‚Ìcursorî•ñ‚ğŠî‚Éæ‚èo‚µ
+        StreamingTopTake = Mid$(.strBuffer, .NextCursor + 1, .EndCursor - .NextCursor)
+        
+        '3. cursorî•ñ‚ğXV
+        .NextCursor = .EndCursor
+    End With
 End Property
 
 '***************************************************************************************************
-'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½‚Ì‚ğƒRƒŒƒNƒVƒ‡ƒ“‚Æ‚µ‚ÄŠÛ‚²‚Æó‚¯æ‚è‚Ü‚·
+'* ‹@”\@@FpromptStreaming‚É‚Ä’~Ï‚µ‚½1Œ‚ÌƒƒbƒZ[ƒW‚ğó‚¯æ‚è‚Ü‚·
 '***************************************************************************************************
-Public Property Get StreamingColTake() As Collection
-    Set StreamingColTake = StreamingCol
+Public Property Get StreamingAllTake() As String
+    With promptStreaming
+        StreamingAllTake = Mid$(.strBuffer, 1, .EndCursor)
+    End With
 End Property
 
 '***************************************************************************************************
@@ -110,9 +122,7 @@ End Property
 '***************************************************************************************************
 '                     ¡¡¡ ƒƒCƒ“‚Æ‚È‚é‹@”\Šg’£•”•ª ”ñ“¯ŠúƒCƒxƒ“ƒg•Ò ¡¡¡
 '***************************************************************************************************
-'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒg‚ğˆ—‚µ‚½‚¢‚Æ‚«‚É‚²—˜—p‚­‚¾‚³‚¢B‚ ‚È‚½‚ÌƒCƒ[ƒW‚ğƒR[ƒh‚É—‚Æ‚µ‚ŞêŠ‚Ì1‚Â‚Å‚·
-'***************************************************************************************************
-Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson As String)
+Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".ex_CDPBrowser_detectionCDPEvent"
 
 
@@ -124,34 +134,40 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
         Exit Sub
     End If
 
+    '2. ‚±‚ÌƒRƒ“ƒeƒLƒXƒg(ƒ^ƒu)ƒNƒ‰ƒX‚Åİ’è’†‚Ì`SessionId`ˆÈŠO‚à‘¦”²‚¯
+    If CurrentSessionID <> sessionID Then Exit Sub
+
     '2. ˆ—‚µ‚½‚¢‘ÎÛ‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg–¼‚ğAŠeCase ‚É‹Lq
     Select Case methodName
         Case "Runtime.bindingCalled"
-            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & EventRawJson, FromProcedureName
+            Dim ResParams As BiDiCDPJson
+            Set ResParams = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
 
             '1. Payload‚ÌName•”•ª‚ğæ“¾
-            Dim NamePayload As String: NamePayload = ExtractName(EventRawJson)
+            Dim NamePayload As String: NamePayload = ResParams.StringKey("name")
 
             '2. `Name`’l‚É‰‚¶‚½ˆ—
             Dim tmp As String
             Select Case NamePayload
+                'ƒ‚ƒfƒ‹ƒf[ƒ^‚ÌDLi’»
                 Case BindingName01
                     'PayLoad•”•ª‚ğæ‚èo‚µ‚Ü‚·
-                    tmp = ExtractPayload(EventRawJson)
+                    tmp = ResParams.StringKey("payload")
                     printMsg Debug_, "payload :" & tmp, FromProcedureName
 
                     'i’»’l‚ğXV‚µ‚Ü‚·
                     ProgressValue = tmp
                     printMsg Debug_, "Downloading... " & ProgressValue & "%", FromProcedureName
 
+                '`Streaming`‚É‚æ‚é•Ô‹p—p
                 Case BindingName02
                     'ƒfƒR[ƒhÏ‚İ‚ÌPayLoad•”•ª‚ğæ‚èo‚µ‚Ü‚·
-                    tmp = JsonConv.ParseJson(EventRawJson)("params")("payload")
+                    tmp = ResParams.StringKey("payload")
                     printMsg Debug_, "payload :" & tmp, FromProcedureName
 
                     'ƒXƒgƒŠ[ƒ€‚É’Ç‰Á
-                    StreamingCol.Add tmp
-                    'Debug.Print tmp;
+                    StreamingAccumulate = tmp
 
                     'EOFƒTƒCƒ“‚ª—ˆ‚½‚çƒtƒ‰ƒO‚ğXV
                     If tmp = Chr(BindingName02_EOFcode) Then StreamingEOF = True
@@ -169,59 +185,33 @@ Private Sub ex_CDPBrowser_detectionCDPEvent(methodName As String, EventRawJson A
 End Sub
 
 '***************************************************************************************************
-'* ‹@”\@@F`Runtime.bindingCalled` ‚ÌCDPƒƒbƒZ[ƒW‚©‚ç name •”•ª‚ğ”²‚«o‚µ‚Ü‚·
-'---------------------------------------------------------------------------------------------------
-'* •Ô’l@@F`name`•”•ª
-'* ˆø”@@FresCDP     CDP‚©‚ç‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg:`Runtime.bindingCalled`‚Ì“à—e‚»‚Ì‚Ü‚ñ‚Ü
+'* ‹@”\@@FpromptStreaming‚©‚ç‚ÌƒŒƒXƒ|ƒ“ƒX‚ğ‚Ç‚ñ‚Ç‚ñ’~Ï‚³‚¹A—Ç‚¢Š´‚¶‚ÉcursorŠÇ—‚ğs‚¢‚Ü‚·
 '***************************************************************************************************
-Private Function ExtractName(resCDP As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ExtractName"
+Private Property Let StreamingAccumulate(str As String)
+    Const FromProcedureName As String = ThisClassName & ".StreamingAccumulate"
 
 
-    '--------- params-name€–Ú‚©‚çA`payload`‚Ìí—Ş‚ğ“Á’è ---------
-    Const SearchKey_ParamsName As String = "{""method"":""Runtime.bindingCalled"",""params"":{""name"":"""
-    Dim StartPos As Long, EndPos As Long
-    Dim CalledName As String
+    'ƒTƒCƒY0‚Ìê‡‚Í”²‚¯‚é
+    Dim resSize As Long
+    resSize = Len(str)
+    If resSize <= 0 Then printMsg WARN_, "No promptStreaming was found, so the buffer check will be skipped.", FromProcedureName: Exit Property
 
-    'name€–Ú‚ğ’Šo
-    StartPos = Len(SearchKey_ParamsName) + 1    'u{"method":"Runtime.bindingCalled","params":{"name":"v•ªAŒŸõˆÊ’u‚ğ‚¸‚ç‚·‘z’è
-    EndPos = InStr(StartPos, resCDP, """,""")
-    ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
-End Function
-
-'***************************************************************************************************
-'* ‹@”\@@F`Runtime.bindingCalled` ‚ÌCDPƒƒbƒZ[ƒW‚©‚ç payload •”•ª‚ğ‚‘¬‚É”²‚«o‚µ‚Ü‚·
-'---------------------------------------------------------------------------------------------------
-'* •Ô’l@@FƒGƒXƒP[ƒv‰ğœÏ‚İ`payload`•”•ª
-'* ˆø”@@FresCDP     CDP‚©‚ç‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg:`Runtime.bindingCalled`‚Ì“à—e‚»‚Ì‚Ü‚ñ‚Ü
-'***************************************************************************************************
-Private Function ExtractPayload(resCDP As String) As String
-    Const SearchKey As String = """payload"":"""
-    Dim StartPos As Long: StartPos = InStr(1, resCDP, SearchKey)
-    If StartPos = 0 Then Exit Function
-    
-    StartPos = StartPos + Len(SearchKey)
-    
-    ' payload‚ÌI—¹ˆÊ’u‚ğ’T‚·B’Êí‚ÍexecutionContextId‚Ì‘O
-    Dim EndPos As Long: EndPos = InStr(StartPos, resCDP, """,""executionContextId""")
-    If EndPos = 0 Then EndPos = InStrRev(resCDP, """}") ' –œ‚ªˆê‚Ì––”ö”»’è
-    
-    If EndPos > StartPos Then
-        ' JSONƒGƒ“ƒR[ƒh‚³‚ê‚½•¶š—ñ‚ğƒfƒR[ƒhi–{—ˆ‚Í‚à‚Á‚Æ•¡G‚¾‚ªA‚±‚±‚Å‚ÍWebJsonConverter.ParseJson‚É”C‚¹‚é‚½‚ß‚ÉA
-        ' ‚¢‚Á‚½‚ñuJsonOfJsonv‚ÌŠOŠk‚¾‚¯”‚ª‚·B‚½‚¾‚µVBA‚ÌParser‚ğŠ®‘S‚É”ğ‚¯‚é‚È‚ç‚±‚±‚ª³”Oêj
-        ' À‚ÍParseJson‚É‚±‚Ì•”•ª•¶š—ñ‚ğ“n‚·‚Ì‚ªˆê”ÔˆÀ‘SB
-        ExtractPayload = Mid(resCDP, StartPos, EndPos - StartPos)
+    With promptStreaming
+        '1. ãŒÀ‚ğ‰z‚µ‚»‚¤‚É‚È‚Á‚½‚çAŠg’£‚·‚é(‚•‰‰×ƒ|ƒCƒ“ƒg)
+        '¦ƒI[ƒoƒtƒ[‚µ‚½‚ç‚±‚Ìƒc[ƒ‹‚Å‚Í‘Î‰‚Å‚«‚Ü‚¹‚ñ
+        If .EndCursor + resSize > .length Then
+            .strBuffer = .strBuffer & String$(.length, vbNullChar)
+            .length = .length * 2
+            printMsg Debug_, "The buffer has been expanded: " & .length, FromProcedureName
+        End If
         
-        ' •¶š—ñ“à‚ÌƒGƒXƒP[ƒvi\" -> "j‚ğ•œŒ³
-        ' ¦WebJsonConverter.ParseJson ‚ÍuJSON‘S‘Ìv‚ğŠú‘Ò‚·‚é‚Ì‚ÅA
-        ' ‚±‚±‚ÅŠ®‘S‚É•œŒ³‚µ‚Ä‚µ‚Ü‚¤‚ÆA¡“x‚Í‚»‚Ì’†‚Ì•¶š—ñ‚ª‰ó‚ê‚é‰Â”\«‚ª‚ ‚éB
-        ' ‚È‚Ì‚ÅA‚±‚±‚Å‚ÍuJSON‚Æ‚µ‚Ä‚Ì•¶š—ñ’lv‚ğæ“¾‚·‚é‚É‚Æ‚Ç‚ßA
-        ' ƒNƒ‰ƒX“à‚Ìƒp[ƒXˆ—‚É‚»‚Ì‚Ü‚Ü“n‚·B
-        ' ‚½‚¾‚µACDP‚ÌJSONƒGƒ“ƒR[ƒh‚É‚æ‚è \" ‚É‚È‚Á‚Ä‚¢‚é‚à‚Ì‚ğ " ‚É–ß‚·•K—v‚ª‚ ‚éB
-        ExtractPayload = Replace(ExtractPayload, "\""", """")
-        ExtractPayload = Replace(ExtractPayload, "\\", "\")
-    End If
-End Function
+        '2. MID‚Å‚¤‚Ü‚¢‚®‚ ‚¢‚ÉAã‘‚«
+        Mid$(.strBuffer, .EndCursor + 1) = str
+
+        '3. ƒJ[ƒ\ƒ‹î•ñ‚ğXV
+        .EndCursor = .EndCursor + resSize
+    End With
+End Property
 
 
 
@@ -241,7 +231,7 @@ Public Function IsPromptApiAvailable() As Boolean
 
     '2. CDP‚ÌJavaScriptÀsƒƒ\ƒbƒh‚ğg—p‚µAƒuƒ‰ƒEƒU“à‚ÅAJavaScriptƒR[ƒh‚ğÀs
     Dim tmp
-    tmp = ex_CDPBrowser.jsEval(JsCode)
+    tmp = ex_CDPContext.jsEval(JsCode)
 
     '3. Œ‹‰Ê‚ğ®—
     '‚»‚à‚»‚àA—pˆÓ‚³‚ê‚Ä‚È‚¢‚©H
@@ -274,7 +264,7 @@ Public Function CheckAvailability() As String
     JsCode = "(async () => { return await LanguageModel.availability(); })()"
 
     '2. CDP‚ÌJavaScriptÀsƒƒ\ƒbƒh‚ğg—p‚µAƒuƒ‰ƒEƒU“à‚ÅAJavaScriptƒR[ƒh‚ğÀs‚µAŒ‹‰Ê‚ğ•Ô‹p
-    CheckAvailability = ex_CDPBrowser.jsEval(JsCode, awaitPromise:=True, StopException:=True)
+    CheckAvailability = ex_CDPContext.jsEval(JsCode, awaitPromise:=True, StopException:=True)
 End Function
 
 '***************************************************************************************************
@@ -283,11 +273,11 @@ End Function
 '* Ú×à–¾F`monitor`ƒIƒvƒVƒ‡ƒ“‚ğg—p‚µ‚ÄAƒ‚ƒfƒ‹‚Ìƒ_ƒEƒ“ƒ[ƒh‚Ìisó‹µ‚ğ’ÇÕ‚Å‚«‚Ü‚·
 '***************************************************************************************************
 Public Function ModelDownloadProgress() As String
-    With ex_CDPBrowser
+    With ex_CDPContext
         '1. ƒuƒ‰ƒEƒU¨VBA ‚Ö‚Ìó‚¯Œû‚ğ—pˆÓ
         Dim params As New Dictionary
         params.Add "name", BindingName01
-        .invokeMethod "Runtime.addBinding", params
+        .ExecuteCDP "Runtime.addBinding", params
 
         '2. JavaScript‘¤‚Å‚»‚Ì‘‹Œû‚ğ’@‚­ƒR[ƒh‚ğ€”õ
         Dim jsProgressCode As String
@@ -310,7 +300,7 @@ Public Function ModelDownloadProgress() As String
         Dim arg1 As New Dictionary: arg1.Add "value", BindingName01: args.Add arg1
 
         '4. Run!
-        ModelDownloadProgress = .jsEval(jsProgressCode, contextId:=1, objectArguments:=args, userGesture:=True, StopException:=True)
+        ModelDownloadProgress = .jsEval(jsProgressCode, objectArguments:=args, userGesture:=True, StopException:=True)
     End With
 End Function
 
@@ -344,7 +334,7 @@ Public Function instantSession(ChatString As String) As String
     Dim arg1 As New Dictionary: arg1.Add "value", ChatString: args.Add arg1
 
     '3. Às‚ÆŒ‹‰Êæ“¾
-    instantSession = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args, awaitPromise:=True)
+    instantSession = ex_CDPContext.jsEval(JsCode, objectArguments:=args, awaitPromise:=True)
 End Function
 
 '***************************************************************************************************
@@ -356,12 +346,15 @@ End Function
 Public Function instantStreamingSession(ChatString As String) As String
     '0. ƒXƒe[ƒ^ƒX‚ğƒŠƒZƒbƒg
     StreamingEOF = False
-    Set StreamingCol = New Collection
+    With promptStreaming
+        .EndCursor = 0
+        .NextCursor = 0
+    End With
 
     '1. ƒuƒ‰ƒEƒU¨VBA ‚Ö‚Ìó‚¯Œû‚ğ—pˆÓ
     Dim params As New Dictionary
     params.Add "name", BindingName02
-    ex_CDPBrowser.invokeMethod "Runtime.addBinding", params
+    ex_CDPContext.ExecuteCDP "Runtime.addBinding", params
 
     '2. JSƒR[ƒh‚Ì‘g‚İ—§‚Ä
     ' window[funcName] ‚Å“®“I‚ÉŒÄ‚Ño‚·‚±‚Æ‚Åˆø”‰»‚ª‰Â”\‚Å‚·'
@@ -387,7 +380,7 @@ Public Function instantStreamingSession(ChatString As String) As String
     Dim arg3 As New Dictionary: arg3.Add "value", BindingName02_EOFcode:    args.Add arg3
 
     '”ñ“¯Šú‚ÅÀsŠJnBŒ‹‰Ê‚ğ‘Ò‚½‚¸‚ÉŸ‚Ìˆ—‚Ö
-    instantStreamingSession = ex_CDPBrowser.jsEval(JsCode, contextId:=1, objectArguments:=args)
+    instantStreamingSession = ex_CDPContext.jsEval(JsCode, objectArguments:=args)
 End Function
 
 
@@ -410,11 +403,6 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-'CDPÀs‚É•K—v‚Å‚·
-Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As Scripting.Dictionary
-    Set invokeMethod = ex_CDPBrowser.invokeMethod(methodName, params, alwaysBrowserContext, StopError)
-End Function
-
 '”ñ“¯ŠúƒCƒxƒ“ƒg”­‰Î(RaiseEvent)‚É•K—v‚Å‚·
 Private Sub TakeEvents(Optional destruction As Boolean)
     ex_CDPBrowser.TakeEvents destruction
@@ -423,75 +411,22 @@ End Sub
 
 
 '***************************************************************************************************
-'                             ¡¡¡ ƒwƒ‹ƒp[ƒvƒƒV[ƒWƒƒ ¡¡¡
-'***************************************************************************************************
-Private Property Let FragmentedJS(pieceData As String)
-    Const FromProcedureName As String = ThisClassName & ".FragmentedJS"
-
-
-    With JSBox
-        '1. ãŒÀ‚ğ‰z‚µ‚½‚çAŠg’£‚·‚é(‚•‰‰×ƒ|ƒCƒ“ƒg)
-        If .Index >= InitialAllocationStrBuffer * .expansionCount Then
-            .expansionCount = .expansionCount + 1
-            ReDim Preserve .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-            printMsg Debug_, "The buffer has been expanded to " & InitialAllocationStrBuffer * .expansionCount, FromProcedureName
-        End If
-
-        '2. ”z—ñ‚É“ü‚ê‚é
-        .strBuffer(.Index) = pieceData
-        printMsg Trace_, "Data has been placed in array " & .Index, FromProcedureName
-
-        '3. ƒJƒEƒ“ƒg
-        .Index = .Index + 1
-    End With
-End Property
-
-Private Property Get FragmentedJS() As String
-    Const FromProcedureName As String = ThisClassName & ".FragmentedJS"
-
-
-    '1. Šm•Û’†‚Ì”z—ñ‚ğ‘S•”Œ‹‡‚·‚é
-    printMsg Trace_, "Now we'll begin the buffer merging process...", FromProcedureName
-    Dim tmp As String: tmp = Join(JSBox.strBuffer, "")
-    printMsg Trace_, "concatenated Raw-string: " & tmp, FromProcedureName
-
-    '2. `vbnullchar`‚ª‚ ‚éˆÊ’u‚ğæ“ª‚©‚ç’T‚·
-    Dim EndPos As Long: EndPos = searchNull(tmp)
-
-    '3. ‚»‚Ì–Úˆó‚ğŒ³‚ÉA1Œ•ª•Ô‹p
-    FragmentedJS = Mid(tmp, 1, EndPos - 1)
-    printMsg Debug_, "Trim complete. Result: " & FragmentedJS, FromProcedureName
-
-    '4. ƒCƒ“ƒfƒbƒNƒXƒŠƒZƒbƒg
-    JSBox.Index = 0
-    printMsg Trace_, "Buffer Index reset.", FromProcedureName
-
-End Property
-
-Private Function searchNull(checkString As String) As Long
-
-    Dim lngPos As Long
-
-    If Len(checkString) = 0 Then Exit Function
-    lngPos = InStr(1, checkString, vbNullChar, vbBinaryCompare)
-    If lngPos > 0 Then
-        searchNull = lngPos
-    Else
-        searchNull = 0
-    End If
-
-End Function
-
-
-
-'***************************************************************************************************
 '                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPBrowser.cls`‚ğŒp³‚³‚¹‚Ü‚·
-'***************************************************************************************************
-Friend Sub Init(Inheritance As CDPBrowser)
-    'Œp³
-    Set ex_CDPBrowser = Inheritance
+'* ‹@”\@@FCDP§Œä‚Ìƒx[ƒX‚Æ‚È‚é`CDPCore.cls`“™‚ğŒp³‚³‚¹‚Ü‚·
+'---------------------------------------------------------------------------------------------------
+'* Ú×à–¾FCDP§Œä‚ÉŠÖ‚·‚é‘S‚Ä‚ÌƒIƒuƒWƒFƒNƒg‚ğ‚±‚±‚ÅŒp³‚³‚¹Aƒ^ƒu‚ÌSesssionID‚à“K—p‚³‚¹‚Ä‚­‚¾‚³‚¢
+'* ’ˆÓ–€FEƒ^ƒu‚Ìê‡‚ÍAuCDPContext,CDPBrowser,CDPCorev‚Ì3‚ÂAƒuƒ‰ƒEƒU‚Ìê‡‚ÍAuCDPBrowser,CDPCorev‚Ì2‚Â‚Æ‚È‚è‚Ü‚·
+'           ESessionId ‚ÍAƒ^ƒu‚ÅŒp³‚·‚éÛ‚Ég—p‚µ‚Ü‚·
+'***************************************************************************************************Friend Sub Init(Inheritance As CDPBrowser)
+Friend Sub Init(Inheritance As CDPContext)
+    '•K—v‚ÈCDPƒIƒuƒWƒFƒNƒg‚ğŒp³
+    Set ex_CDPContext = Inheritance
+    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
+    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+
+    'SessionId‚ğæ“¾
+    CurrentSessionID = ex_CDPContext.CurrentSessionID
 End Sub
 
 '***************************************************************************************************
@@ -504,15 +439,9 @@ Private Sub Class_Initialize()
     'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    '”z—ñ‚Ì‰Šú‰»
-    With JSBox
-        .expansionCount = 1
-        ReDim .strBuffer(InitialAllocationStrBuffer * .expansionCount - 1)
-        .Index = 0
-    End With
+
+    promptStreaming.strBuffer = String(2 ^ 16, vbNullChar)
 
     'İ’èƒV[ƒg‚ÌŠeƒZƒ‹‚©‚çİ’è’l‚ğæ“¾‚µAƒNƒ‰ƒX“à•Ï”‚É“K—p‚µ‚Ü‚·
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
-    End With
+seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ƒuƒ‰ƒEƒU‚©‚çóM‚µ‚½¶‚ÌJSONƒƒbƒZ[ƒW‚ğƒCƒ~ƒfƒBƒGƒCƒg‚É•\¦‚³‚¹‚é‚©H
 End Sub

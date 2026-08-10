@@ -1,4 +1,4 @@
-Attribute VB_Name = "Demo_LocalAI"
+Attribute VB_Name = "Demo_PromptAPI"
 '===================================================================================================
 '                                       Prompt API Demo
 '---------------------------------------------------------------------------------------------------
@@ -29,14 +29,14 @@ Sub PromptAPIの準備()
 
 
     '設定シートに基づくブラウザ立ち上げ
-    Dim ReadyAI As CDPBrowser: Set ReadyAI = 設定シートからのCDP起動
+    Dim ReadyAI As CDPContext: Set ReadyAI = ShSetting01_StartBrowser.StartCDPModeContext
 
     '`PromptAPI`は、動作URL場所が限られるため、ブラウザ固有の専用ページに遷移させる
     '※オフラインでも遷移できる「バージョン情報」にひとまず設定
     ReadyAI.navigate "edge://version"
 
     '拡張機能クラスに継承させる
-    Dim PromptAPI  As New LocalAI_PromptAPI
+    Dim PromptAPI  As New exCDP_PromptAPI
     PromptAPI.Init ReadyAI
 
     '1. API が有効かどうかを確認
@@ -46,7 +46,7 @@ Sub PromptAPIの準備()
         '「https://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-api」を参考に、有効化してください
         ReadyAI.printMsg WARN_, "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", FromProcedureName
         MsgBox "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", vbCritical
-        ReadyAI.quit
+        ReadyAI.InheritanceCDPBrowser.quit
         Exit Sub
     End If
 
@@ -59,7 +59,7 @@ Sub PromptAPIの準備()
     Select Case ModeAvailability
         Case "unavailable"
             MsgBox "お使いの環境で使えるAIモデルがありません。", vbCritical
-            ReadyAI.quit
+            ReadyAI.InheritanceCDPBrowser.quit
             Exit Sub
 
         Case "downloadable", "downloading"
@@ -68,7 +68,7 @@ Sub PromptAPIの準備()
             If Continue = vbYes Then
                 Debug.Print PromptAPI.ModelDownloadProgress
             Else
-                ReadyAI.quit
+                ReadyAI.InheritanceCDPBrowser.quit
                 Exit Sub
             End If
 
@@ -80,12 +80,12 @@ Sub PromptAPIの準備()
     '非同期イベントを発火させ、進捗値を表示
     Dim AIデータ進捗値 As Double
     Do
-        ReadyAI.TakeEvents
+        ReadyAI.InheritanceCDPBrowser.TakeEvents
         DoEvents
         AIデータ進捗値 = PromptAPI.DLProgressValue
 
         Debug.Print "AIモデルデータをダウンロード中... " & AIデータ進捗値 & "%"
-        ReadyAI.sleep
+        ReadyAI.InheritanceCDPBrowser.sleep
 
     Loop Until AIデータ進捗値 >= 100
 
@@ -99,20 +99,18 @@ Sub PromptAPI即席チャット()
     Const チャット内容 As String = "こんにちは！あなたは今、Excel VBAから操作されています。自己紹介をしてください。"
 
 
-    Dim RunAI As New CDPBrowser
+    Dim RunAI As New CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_LocalAI.PromptAPI即席チャット")).value
-    End With
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. 既存のTargetIDに接続できるか？
     If Not RunAI.reattach(UserName) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
-        RunAI.quit
+        RunAI.InheritanceCDPBrowser.sleep
         Exit Sub
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
@@ -120,7 +118,7 @@ Sub PromptAPI即席チャット()
     End If
 
     '2. 拡張機能クラスに継承させる
-    Dim PromptAPI  As New LocalAI_PromptAPI
+    Dim PromptAPI  As New exCDP_PromptAPI
     PromptAPI.Init RunAI
 
     '3. 結果をイミディエイトウィンドウに表示
@@ -133,20 +131,18 @@ Sub PromptAPI即席Streamingチャット()
     Const チャット内容 As String = "Excelの歴史を少し述べてください"
 
 
-    Dim RunAI As New CDPBrowser
+    Dim RunAI As New CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    With ShSetting01_StartBrowser
-        UserName = .Range(.UseRangeName(2, "Demo_LocalAI.PromptAPI即席Streamingチャット")).value
-    End With
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. 既存のTargetIDに接続できるか？
     If Not RunAI.reattach(UserName) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
-        RunAI.quit
+        RunAI.InheritanceCDPBrowser.quit
         Exit Sub
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
@@ -154,38 +150,26 @@ Sub PromptAPI即席Streamingチャット()
     End If
 
     '2. 拡張機能クラスに継承させる
-    Dim PromptAPI  As New LocalAI_PromptAPI
+    Dim PromptAPI  As New exCDP_PromptAPI
     PromptAPI.Init RunAI
 
     '3. 結果をイミディエイトウィンドウに表示
     Debug.Print "--- AIからのストリーミング回答 ---"
     PromptAPI.instantStreamingSession チャット内容
 
-    '----パターン1----
-    'リアルタイム重視
+    '4. リアルタイムで表示
     Dim StreamingData As String
     Do
-        DoEvents
-        RunAI.TakeEvents
+        RunAI.InheritanceCDPBrowser.TakeEvents
         StreamingData = PromptAPI.StreamingTopTake
 
         If StrPtr(StreamingData) Then Debug.Print StreamingData;
-    Loop Until StreamingData = Chr(30)
-    '-----------------
+    Loop Until PromptAPI.StreamingEOFExist
+    Debug.Print vbCrLf & "--- AIからのストリーミング回答終了 ---" & vbCrLf
 
-    '----パターン2----
-    '後から高速表示
-'    Dim StreamingData
-'    Do
-'        DoEvents
-'        RunAI.TakeEvents
-'    Loop Until PromptAPI.StreamingEOFExist
-'
-'    For Each StreamingData In PromptAPI.StreamingColTake
-'        Debug.Print StreamingData;
-'    Next
-    '-----------------
-
-    Debug.Print vbCrLf & "--- AIからのストリーミング回答終了 ---"
+    '5. 完成用データ
+    Debug.Print "--- 一括出力 ---"
+    Debug.Print PromptAPI.StreamingAllTake
+    Debug.Print "--- 一括出力 End---"
 
 End Sub
