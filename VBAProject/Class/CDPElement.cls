@@ -1584,9 +1584,10 @@ End Property
 '***************************************************************************************************
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
+    '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
     If StrPtr(elementObjectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", elementObjectId
-        ExecuteCDP "Runtime.releaseObject", paramsCDP, False
+        main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
     End If
 End Sub
