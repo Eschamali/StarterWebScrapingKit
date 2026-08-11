@@ -208,7 +208,7 @@ End Function
 '            scriptHandle                   実行の基準`Handle ID`を指定します。これを指定すると`script.callFunction`として優先実行されます。
 '
 '            objectArguments                これを指定すると`script.callFunction`として優先実行されます。
-'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           予め、呼び出し側にて`Collection` OR `Array`(1次元配列)で組み立てて渡してください。なお、`Array`による固定長引数なら`Collection`よりもパフォーマンス向上します。
 '                                           参考となる組み立て手法：https://w3c.github.io/webdriver-bidi/#cddl-type-scriptlocalvalue
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
@@ -253,7 +253,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://w3c.github.io/webdriver-bidi/#command-script-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional RealmTarget As String, _
                        Optional Ownership As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -280,11 +280,11 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
 
         '必要なパラメーターをセット
         BiDiparams.Add "functionDeclaration", JavaScriptStr
-        If Not objectArguments Is Nothing Then BiDiparams.Add "arguments", objectArguments   '引数があったら適用しておく
+        If Not IsMissing(objectArguments) Then BiDiparams.Add "arguments", objectArguments  '引数があったら適用しておく
         RemoteReference.Add "handle", scriptHandle: BiDiparams.Add "this", RemoteReference
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
-    ElseIf Not objectArguments Is Nothing Then
+    ElseIf Not IsMissing(objectArguments) Then
         UseJsMethod = "script.callFunction"
 
         '必要なパラメーターをセット

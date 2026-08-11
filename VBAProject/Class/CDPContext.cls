@@ -448,7 +448,7 @@ End Sub
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           予め、呼び出し側にて`Collection` OR `Array`(1次元配列)で組み立てて渡してください。なお、`Array`による固定長引数なら`Collection`よりもパフォーマンス向上します。
 '                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
@@ -502,7 +502,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional contextId As Long, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -534,13 +534,13 @@ step1:
 
         '必要なパラメーターをセット
         CDPparams.Add "functionDeclaration", JavaScriptStr
-        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
+        If Not IsMissing(objectArguments) Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
 
         'objectId があるので、場所(ContextID)を指定する必要はない
         CDPparams.Add "objectId", objectId
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
-    ElseIf Not objectArguments Is Nothing Then
+    ElseIf Not IsMissing(objectArguments) Then
         UseJsMethod = "Runtime.callFunctionOn"
 
         '必要なパラメーターをセット
