@@ -3,14 +3,10 @@
 WebDriver BiDi で、`<input type="file">` へファイルを添付する2つのデモです。\
 [CDP版](../../CDP/File%20Chooser)（`exCDP_FileChooser.cls`）の移植依頼を受けて作成しました。
 
-> [!WARNING]
-> **お詫びと訂正**：本READMEの初版では「BiDiには`Page.fileChooserOpened`に相当する
-> ダイアログ横取りの概念が存在しない」と記載していましたが、これは誤りでした。
-> `input.fileDialogOpened`という、CDPの`Page.fileChooserOpened`を内部でそのまま
-> BiDi形式に変換して再送しているイベントが実在し、横取り添付・キャンセル・
-> 添付忘れリトライのすべてがCDP版と同様に実装可能です。本版はこの訂正版です。
-> なお実装は`assset/mapperTab.js`（Chromium製BiDi-CDP Mapperの読解）に基づいており、
-> **実機（VBA/Excel）での動作検証はできていません**。挙動に差異があれば教えてください。
+> [!NOTE]
+> **実機検証済み**：実際にVBA/Excelから動作確認いただいた結果、添付そのものは成功することを
+> 確認しています。ただし「OSダイアログの抑制について」の項で説明している通り、キャンセル
+> イベントが一瞬発火してから添付されるという、Chromium製BiDi-CDP Mapper側の癖があります。
 
 ***
 
@@ -100,7 +96,7 @@ flowchart TD
 
 ***
 
-## ⚠️ OSダイアログの抑制について（重要・要検証）
+## ⚠️ OSダイアログの抑制について（重要・実機確認済みの既知の挙動）
 
 CDPでは`Page.setInterceptFileChooserDialog`をタブ単位で呼ぶだけでOSダイアログを抑制できましたが、\
 BiDiではこれに相当する抑制を、**`session.new`時点の`capabilities`で事前に設定しておく必要があります**。
@@ -120,18 +116,33 @@ Demo02〜04では、この capabilities を`StartBiDiModeContext`の`sessionCapa
 渡した状態でブラウザを起動しています（Demo01は直接注入のみでダイアログを開かせないため不要です）。
 
 > [!WARNING]
-> **`assset/mapperTab.js`の読解に基づく未検証事項**：
-> - `unhandledPromptBehavior.file`を`"ignore"`以外にすると、Mapperは`Page.setInterceptFileChooserDialog`を
->   常に`cancel:true`付きで呼んでいるように見えます。CDP版での`cancel:true`は「ブラウザが即座に
->   キャンセル扱いにする」動作でした。BiDi側でこれが**毎回**発生するのか、`input.setFiles`を
->   後から呼んだ場合にその結果が正しく上書きされるのかは、ソースコードの読解のみで判断しており
->   実機検証はできていません
+> **実機確認済みの既知の挙動：一瞬「cancel」が発火してから添付される**
+>
+> `unhandledPromptBehavior.file`を`"ignore"`以外にすると、Chromium製BiDi-CDP Mapperは
+> `Page.setInterceptFileChooserDialog`を**常に`cancel:true`付きで**呼びます（`assset/mapperTab.js`
+> にハードコードされており、BiDi側から`cancel`の有無を選ぶパラメーターは存在しません）。
+>
+> このため、ダイアログを開く操作（`.click()`等）のたびに、ページ側は一瞬**`cancel`イベントを
+> 受け取ります**（対象inputに`change`ではなく`cancel`が先に発火する）。その直後に
+> `exBiDi_FileChooser`が`input.setFiles`を呼んで実際のファイルを設定するため、`change`イベントが
+> 後から発火し、**最終的な状態としては添付は正しく成功します**（`files.length`等で確認可能）。
+>
+> 実機でこの挙動を確認済みです：「即`cancel`が発生するが、最終的には添付成功する」。
+>
+> **`mapperTab.js`のソースを直接書き換えて`cancel:true`→`false`にすれば、この一瞬の`cancel`
+> 発火自体は起きなくなることも確認済みですが、これは以下の理由から推奨しません。**
+> - 同梱の`mapperTab.js`が更新された際に変更が失われる
+> - 他の環境・配布先に持ち出せない（環境ごとに個別修正が必要になる）
+> - BiDi仕様・VBA側のコードには一切手を入れていない、あくまでベンダー同梱物の改変であるため
+>
+> ページ側のJSが`cancel`イベントで何らかの破壊的な処理（他のフォーム状態のクリア等）を行う
+> 設計になっている場合にのみ、実運用上の影響が出る可能性があります。その場合は個別に
+> 対処方法をご検討ください（例：対象サイト側の`cancel`ハンドラの挙動を確認する等）。
+>
 > - `sessionCapabilitiesRequest`は、`StartBiDiModeContext`が**新規に**ブラウザ/BiDiセッションを
 >   起動した場合のみ適用されます（既存セッションへの`reattach`時は無効です）
 > - `session.subscribe`はBiDiセッション全体に対して行われます。同一セッション内で複数タブ／
 >   複数の`exBiDi_FileChooser`インスタンスを使う場合、購読状態の相互影響にご注意ください
-
-実機で試された際の挙動（特にキャンセルモードの動作）は、ぜひフィードバックをお願いします。
 
 ***
 
