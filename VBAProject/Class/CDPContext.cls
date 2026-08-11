@@ -463,6 +463,7 @@ End Sub
 '
 '            userGesture                    True ：「人間がクリックやキーボード操作をした結果」としてブラウザに偽装します。スクレピング対策が施されてる場合は、`True`にしておくといいかもしれません
 '                                           False：特に施しません(既定)
+'                                           ※この引数はどうやらクールタイム制のようで、例えば最初に`userGesture:=True`すれば以降のJavaScript実行に`userGesture:=True`を付与しなくてもしばらくは、「人間がクリックやキーボード操作をした結果」とみなす仕様みたいです
 '
 '            allowUnsafeEvalBlockedByCSP    True ：サイトの外部JavaScript実行規制を無視して、全てのJavaScript実行を許可します(既定)
 '                                           False：サイトの外部JavaScript実行規制に従います

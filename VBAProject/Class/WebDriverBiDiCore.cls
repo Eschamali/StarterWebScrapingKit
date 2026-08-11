@@ -361,27 +361,20 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：実際にCDPを実行します
+'* 機能　　：BiDiコマンドが載ったJavaScriptをCDPで非同期実行します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strData        完成したBiDi-Jsonコマンド
-'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：実行前に、エスケープ処理を行い、`Runtime.evaluate`として実行します
+'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '***************************************************************************************************
-Private Sub RunCDP(strData As String, StopCDPError As Boolean)
-    '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
-    If InStr(1, strData, "\") Then strData = Replace(strData, "\", "\\")
-    If InStr(1, strData, "'") Then strData = Replace(strData, "'", "\'")
+Private Sub RunCDP(strData As String, StopPipeError As Boolean)
+    '1. JSONのダブルクォートやエスケープ処理による構文乱れを防ぐための引数設定
+    Dim argList As New Collection
+    Dim argObj As New Dictionary: argObj.Add "value", strData: argList.Add argObj
 
-    '2. `expression`を組み立て
-    Dim paramsCDP As New Dictionary
-    paramsCDP.Add "expression", "window." & BiDiSend & "('" & strData & "');"
-
-    '3. CDP実行
-    '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
-    '※また内部にて、`RaiseEvent`よる発信も行われます
-    '※`.jsEval`は、内部のお節介によりオーバーヘッドが積み重なることから、直通メソッドで使用します
-    WebDriverBiDi_mapperTab.ExecuteCDP "Runtime.evaluate", paramsCDP, StopCDPError
+    '2. BiDiパラメータが載ったJavaScript実行で、非同期CDP実行
+    '※CDPと同様のロジック、「書き込みだけ」にするため、非同期で実行。同期だと、パイプ内のデータ回収が走って、IDずれが起こるため
+    '※非同期実行であれば、`.jsEval`でも十分な軽量コーディングなので問題なし
+    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=argList, RunAsyncCDP:=True, StopPipeError:=StopPipeError
 End Sub
 
 
@@ -392,11 +385,11 @@ End Sub
 '* 機能　　：CDP実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
-'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
+'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Boolean)
+Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopPipeError As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
@@ -411,7 +404,7 @@ Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Bool
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    RunCDP strMessage, StopCDPError
+    RunCDP strMessage, StopPipeError
 End Sub
 
 '***************************************************************************************************
