@@ -589,7 +589,7 @@ Property Get TakeResultBiDi(commandID As Long) As String
 
         '4. 取り出したので消しておく
         resultBiDi.response.Remove commandID
-        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
+        printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         printMsg Trace_, "This BiDi-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
