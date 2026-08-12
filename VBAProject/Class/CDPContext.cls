@@ -448,7 +448,7 @@ End Sub
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           予め、呼び出し側にて`Collection` OR `Array`(1次元配列)で組み立てて渡してください。なお、`Array`による固定長引数なら`Collection`よりもパフォーマンス向上します。
+'                                           予め、呼び出し側にて`Collection` OR `Array(... , ...)` OR `hoge(0) as Dictionary(Dictionary型 1次元配列)`で組み立てて渡してください。なお、後者ほどパフォーマンスが向上します
 '                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
