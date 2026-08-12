@@ -150,7 +150,8 @@ Sub JapaneseElementTest()
     Demo_Japanese.InheritanceCDPBrowser.sleep 3
 
     ' ボタンクリック
-    Demo_Japanese.getElementByID("executebtn").click
+    Demo_Japanese.getElementByID("executebtn").SimpleClick
+    Demo_Japanese.wait
     Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     Demo_Japanese.InheritanceCDPBrowser.sleep 3
 

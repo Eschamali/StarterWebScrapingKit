@@ -368,8 +368,8 @@ End Sub
 '***************************************************************************************************
 Private Sub RunCDP(strData As String, StopPipeError As Boolean)
     '1. JSONのダブルクォートやエスケープ処理による構文乱れを防ぐための引数設定
-    Dim argList As New Collection
-    Dim argObj As New Dictionary: argObj.Add "value", strData: argList.Add argObj
+    Dim argList(0) As Dictionary
+    Dim argObj As New Dictionary: argObj.Add "value", strData: Set argList(0) = argObj
 
     '2. BiDiパラメータが載ったJavaScript実行で、非同期CDP実行
     '※CDPと同様のロジック、「書き込みだけ」にするため、非同期で実行。同期だと、パイプ内のデータ回収が走って、IDずれが起こるため
@@ -514,10 +514,8 @@ Property Get ShowLogBiDiresponse() As Boolean
     ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
 End Property
 
-
-
 '***************************************************************************************************
-'                            ■■■ CDPCore.cls 直通メソッド ■■■
+'* 機能　　：基本ラッパー機能
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
@@ -527,16 +525,33 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     m_CDPCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_CDPCore.TakeEvents StopPipeError, destruction
-End Sub
-
 Public Function TimerCounter() As Double
     TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
 Public Sub CloseHandleBrowser()
     m_CDPCore.CloseHandleBrowser
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.TakeEvents StopApiError, destruction
+End Sub
+
+'--- manual ---
+Public Sub TakeEvent()
+    m_CDPCore.TakeEvent
+End Sub
+
+Property Get NewResBiDi() As Boolean
+    NewResBiDi = m_CDPCore.NewResCDP
+End Property
+
+Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.AnalyzeCDP StopApiError, destruction
 End Sub
 
 

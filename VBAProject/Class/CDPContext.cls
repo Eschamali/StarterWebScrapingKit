@@ -162,7 +162,8 @@ Private Type StateTabForJavaScript
     ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
     origin              As String   '実行範囲
     Name                As String   '意味のある名称
-    uniqueId            As String   'より厳格な実行コンテキスト情報。現時点では、実験的扱い
+    uniqueId            As String   'より厳格な実行コンテキスト情報。破棄判定に使います
+    IsValid             As Boolean  'その`ContextId`は有効か？
 End Type
 Private brTabRuntime As StateTabForJavaScript
 
@@ -186,7 +187,6 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
-Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
@@ -448,7 +448,7 @@ End Sub
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           予め、呼び出し側にて`Collection` OR `Array(... , ...)` OR `hoge(0) as Dictionary(Dictionary型 1次元配列)`で組み立てて渡してください。なお、後者ほどパフォーマンスが向上します
 '                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
@@ -502,7 +502,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional contextId As Long, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -534,13 +534,13 @@ step1:
 
         '必要なパラメーターをセット
         CDPparams.Add "functionDeclaration", JavaScriptStr
-        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
+        If Not IsMissing(objectArguments) Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
 
         'objectId があるので、場所(ContextID)を指定する必要はない
         CDPparams.Add "objectId", objectId
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
-    ElseIf Not objectArguments Is Nothing Then
+    ElseIf Not IsMissing(objectArguments) Then
         UseJsMethod = "Runtime.callFunctionOn"
 
         '必要なパラメーターをセット
@@ -549,7 +549,19 @@ step1:
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
         '任意指定あるいは、`Runtime.executionContextCreated`で来た情報を基に指定します
-        CDPparams.Add "executionContextId", IIf(contextId, contextId, brTabRuntime.ExecutionContextId)
+        Dim UseContextId As Long
+        If contextId Then
+            '引数で指定された`contextId`
+            UseContextId = contextId
+        Else
+            'このClassの`TargetID`に紐づく"Runtime.executionContextCreated"の`contextId`
+            '無効(古い)状態なら、有効な`contextId`が来るまで待機します
+            If Not brTabRuntime.IsValid Then printMsg info_, "The `executionContextId` required to execute `Runtime.callFunctionOn` is invalid. Attempting to update it via `TakeEvents`.", FromProcedureName: AutoWaitIsValidExecutionContextId
+
+            '適用
+            UseContextId = brTabRuntime.ExecutionContextId
+        End If
+        CDPparams.Add "executionContextId", UseContextId
 
     ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
@@ -867,6 +879,28 @@ Private Function LogFormat(ByVal logMes As String, lengthMes As Long) As String
     Dim originalLength As Long: originalLength = Len(logMes)
     If originalLength > lengthMes Then LogFormat = Left(logMes, lengthMes) & "... (Total: " & originalLength & " chars)" Else LogFormat = logMes
 End Function
+
+'***************************************************************************************************
+'* 機能　　：JavaScript実行場所を特定する`executionContextId`に有効なサインが来るまで待機します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・タイムアウト時はエラーとなります
+'            ・待機時間は、`timerOut`に依存します
+'***************************************************************************************************
+Private Sub AutoWaitIsValidExecutionContextId()
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitIsValidExecutionContextId"
+
+
+    '1. 現在の経過時間を取得
+    Dim StartTimer As Double: StartTimer = TimerCounter
+    Do
+        '2. タイムアウトチェック
+        If TimerCounter - StartTimer > timerOut Then printMsg ERROR_, "A valid `ExecutionContextId` was not received within the time limit.", FromProcedureName, doRaiseError:=True
+
+        '3. イベント取り出し
+        printMsg Trace_, "Waiting for a valid `ExecutionContextId`...", FromProcedureName
+        TakeEvents  '内部で`DoEvents`が走ります
+    Loop Until brTabRuntime.IsValid
+End Sub
 
 Public Sub jsAddLib(strURL As String)
 '----------------------------------------------------------------------------------
@@ -1423,14 +1457,32 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
             If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
                 '2-2. 各種statusを上書き
-                brTabRuntime.ExecutionContextId = tmpNode.NumberKey("id")
-                brTabRuntime.origin = tmpNode.StringKey("origin")
-                brTabRuntime.Name = tmpNode.StringKey("name")
-                brTabRuntime.uniqueId = tmpNode.StringKey("uniqueId")
+                With brTabRuntime
+                    .IsValid = True '使えるよサイン
+
+                    .ExecutionContextId = tmpNode.NumberKey("id")
+                    .origin = tmpNode.StringKey("origin")
+                    .Name = tmpNode.StringKey("name")
+                    .uniqueId = tmpNode.StringKey("uniqueId")
+                End With
 
                 '2-3. ログ化
                 printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
             End If
+
+        'JavaScript実行環境情報の破棄更新を行います
+        Case "Runtime.executionContextDestroyed"
+            '2-1. このClassで保持中の`executionContextUniqueId`と一致するか？
+            If brTabRuntime.uniqueId = BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("executionContextUniqueId") Then
+                brTabRuntime.IsValid = False
+                printMsg info_, "The JavaScript environment owned by this class has been destroyed.", FromProcedureName
+            End If
+
+        'JavaScript実行環境情報の破棄更新を行います。こちらは、コンテキスト(タブ)全体です
+        Case "Runtime.executionContextsCleared"
+            brTabRuntime.IsValid = False
+            printMsg info_, "The JavaScript environment associated with this class was destroyed due to a page transition or other reasons.", FromProcedureName
+
     End Select
 
 
@@ -1922,9 +1974,9 @@ Public Sub notify(msg As String, Optional ViewSecond As Long = 10)
 '----------------------------------------------------------------------------------
 
     ' 1. 引数をパッキング（CDPの仕様に合わせた形）
-    Dim args As New Collection
-    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  args.Add arg1
-    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    args.Add arg2
+    Dim args(1) As Dictionary
+    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  Set args(0) = arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    Set args(1) = arg2
 
     ' 2. JS関数本体（無名関数として定義し、その場で実行させる）
     Dim funcJS As String
@@ -2332,16 +2384,15 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '5-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
@@ -2433,16 +2484,15 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
@@ -2651,15 +2701,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
-
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
@@ -2738,6 +2783,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -2746,13 +2793,30 @@ Private Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
+Private Function TimerCounter() As Double
+    TimerCounter = PipeCore.GetTicksMs
+End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     PipeCore.TakeEvents StopPipeError, destruction
 End Sub
 
-Private Function TimerCounter() As Double
-    TimerCounter = PipeCore.GetTicksMs
-End Function
+'--- manual ---
+Private Sub TakeEvent()
+    PipeCore.TakeEvent
+End Sub
+
+Private Property Get NewResCDP() As Boolean
+    NewResCDP = PipeCore.NewResCDP
+End Property
+
+Private Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.AnalyzeCDP StopApiError, destruction
+End Sub
 
 
 
