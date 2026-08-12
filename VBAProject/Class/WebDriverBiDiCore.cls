@@ -368,12 +368,13 @@ End Sub
 '***************************************************************************************************
 Private Sub RunCDP(strData As String, StopPipeError As Boolean)
     '1. JSONのダブルクォートやエスケープ処理による構文乱れを防ぐための引数設定
-    Dim argObj As New Dictionary: argObj.Add "value", strData
+    Dim argList(0) As Dictionary
+    Dim argObj As New Dictionary: argObj.Add "value", strData: Set argList(0) = argObj
 
     '2. BiDiパラメータが載ったJavaScript実行で、非同期CDP実行
     '※CDPと同様のロジック、「書き込みだけ」にするため、非同期で実行。同期だと、パイプ内のデータ回収が走って、IDずれが起こるため
     '※非同期実行であれば、`.jsEval`でも十分な軽量コーディングなので問題なし
-    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=Array(argObj), RunAsyncCDP:=True, StopPipeError:=StopPipeError
+    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=argList, RunAsyncCDP:=True, StopPipeError:=StopPipeError
 End Sub
 
 

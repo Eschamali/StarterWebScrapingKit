@@ -2332,16 +2332,15 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '5-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
@@ -2433,16 +2432,15 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
