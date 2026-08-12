@@ -149,10 +149,10 @@ Public Sub ExposeDevTools(varName As String)
 
 
     ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
+    Dim args(0) As Dictionary
     Dim arg As New Dictionary
-    Dim args As New Collection
     arg.Add "value", varName
-    args.Add arg
+    Set args(0) = arg
 
     ' 2. 実行
     jsEval "function(name) { window[name] = this; console.log('VBA: Exposed as ' + name); }", args
@@ -215,10 +215,10 @@ Property Let value(strTextVal As String)
     If isReact Then printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
     'objectArgumentsで安全に値を渡す（エスケープ不要）
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
-    args.Add arg
+    Set args(0) = arg
 
     'Perform inputing using all the methods
     If Not isReact Then
@@ -258,10 +258,10 @@ Property Let innerText(strTextVal As String)
 
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
-    args.Add arg
+    Set args(0) = arg
     jsEval "function(v){ this.innerText = v }", args
 
 End Property
@@ -291,10 +291,10 @@ Property Let innerHTML(strTextVal As String)
 
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strTextVal
-    args.Add arg
+    Set args(0) = arg
     jsEval "function(v){ this.innerHTML = v }", args
 
 End Property
@@ -308,10 +308,10 @@ Property Let checked(boolChecked As Boolean)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", CBool(boolChecked)
-    args.Add arg
+    Set args(0) = arg
     jsEval "function(v){ this.checked = v }", args
 
 End Property
@@ -339,10 +339,10 @@ Property Let selected(selectedOption As String)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", selectedOption
-    args.Add arg
+    Set args(0) = arg
     jsEval "function(v){ this.selectedIndex = v }", args
     fireEvent "change"
 
@@ -429,10 +429,10 @@ Public Function getAttribute(strAttributeName As String) As String
     If checkExist Then If Not isExist Then Exit Function
 
 
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strAttributeName
-    args.Add arg
+    Set args(0) = arg
     getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
 
 End Function
@@ -446,9 +446,9 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     If checkExist Then If Not isExist Then Exit Function
 
 
-    Dim args2 As New Collection
-    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   args2.Add a1
-    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           args2.Add a2
+    Dim args2(1) As Scripting.Dictionary
+    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
+    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
@@ -507,10 +507,10 @@ Public Function fireEvent(strEventName As String) As Boolean
 
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strEventName
-    args.Add arg
+    Set args(0) = arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
 
     fireEvent = True
@@ -933,16 +933,15 @@ Public Function getChildren() As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
         itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
@@ -979,10 +978,10 @@ Public Function getElementByID(strID As String) As CDPElement
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strID
-    args.Add arg
+    Set args(0) = arg
 
     '2. 現在の要素配下での、指定ID属性値を持つ子要素を取得するJavaScriptコードを生成
     '※getElementById は Document のみ。要素配下の ID 探索は querySelector + CSS.escape を使用。これにより、`ShadowRoot`内検索も可能になります
@@ -1028,10 +1027,10 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strQuery
-    args.Add arg
+    Set args(0) = arg
 
     '2. QuerySelector を使用した現在の要素の子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
@@ -1065,10 +1064,10 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strQuery
-    args.Add arg
+    Set args(0) = arg
 
     '2. QuerySelectorAll を使用して、現在の要素の子要素のコレクションを取得するJavaScriptコードを生成
     Dim collResult As Variant
@@ -1090,16 +1089,15 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
         itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
@@ -1160,10 +1158,10 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
-    Dim args As New Collection
+    Dim args(0) As Scripting.Dictionary
     Dim arg As New Scripting.Dictionary
     arg.Add "value", strXPath
-    args.Add arg
+    Set args(0) = arg
 
     '4. 現在の要素配下での､指定Xpath持つ子要素を取得するJavaScriptコードを生成
     Dim resultSearch As Variant
@@ -1211,10 +1209,10 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
-    Dim xpArgs As New Collection
+    Dim xpArgs(0) As Scripting.Dictionary
     Dim xpArg As New Scripting.Dictionary
     xpArg.Add "value", strXPath
-    xpArgs.Add xpArg
+    Set xpArgs(0) = xpArg
 
     '4. Get XPathResult objectId (ORDERED_NODE_SNAPSHOT_TYPE) using callFunctionOn (this as contextNode)
     Dim collResult As Variant
@@ -1236,16 +1234,15 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '7-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '7-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '7-3. 引数付きで実行
         itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
@@ -1512,7 +1509,7 @@ End Function
 '            ・一部引数は、プロパティメソッドから変更する必要があります
 '            ・Class内でもこれを経由して使用しています
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
@@ -1584,9 +1581,10 @@ End Property
 '***************************************************************************************************
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
+    '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
     If StrPtr(elementObjectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", elementObjectId
-        ExecuteCDP "Runtime.releaseObject", paramsCDP, False
+        main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
     End If
 End Sub

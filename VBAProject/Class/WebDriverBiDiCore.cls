@@ -361,27 +361,20 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：実際にCDPを実行します
+'* 機能　　：BiDiコマンドが載ったJavaScriptをCDPで非同期実行します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strData        完成したBiDi-Jsonコマンド
-'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：実行前に、エスケープ処理を行い、`Runtime.evaluate`として実行します
+'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '***************************************************************************************************
-Private Sub RunCDP(strData As String, StopCDPError As Boolean)
-    '1. `Runtime.evaluate`実行前の、JSONのダブルクォートやエスケープ処理による構文乱れを防ぐためエスケープ
-    If InStr(1, strData, "\") Then strData = Replace(strData, "\", "\\")
-    If InStr(1, strData, "'") Then strData = Replace(strData, "'", "\'")
+Private Sub RunCDP(strData As String, StopPipeError As Boolean)
+    '1. JSONのダブルクォートやエスケープ処理による構文乱れを防ぐための引数設定
+    Dim argList(0) As Dictionary
+    Dim argObj As New Dictionary: argObj.Add "value", strData: Set argList(0) = argObj
 
-    '2. `expression`を組み立て
-    Dim paramsCDP As New Dictionary
-    paramsCDP.Add "expression", "window." & BiDiSend & "('" & strData & "');"
-
-    '3. CDP実行
-    '※JavaScript実行自体は同期処理。エラー時は、内部でStopがかかります。(chromium-bidi-main\src\bidiServer\MapperCdpConnection.ts　に基づく)
-    '※また内部にて、`RaiseEvent`よる発信も行われます
-    '※`.jsEval`は、内部のお節介によりオーバーヘッドが積み重なることから、直通メソッドで使用します
-    WebDriverBiDi_mapperTab.ExecuteCDP "Runtime.evaluate", paramsCDP, StopCDPError
+    '2. BiDiパラメータが載ったJavaScript実行で、非同期CDP実行
+    '※CDPと同様のロジック、「書き込みだけ」にするため、非同期で実行。同期だと、パイプ内のデータ回収が走って、IDずれが起こるため
+    '※非同期実行であれば、`.jsEval`でも十分な軽量コーディングなので問題なし
+    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=argList, RunAsyncCDP:=True, StopPipeError:=StopPipeError
 End Sub
 
 
@@ -392,11 +385,11 @@ End Sub
 '* 機能　　：CDP実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
-'            StopCDPError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
+'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Boolean)
+Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopPipeError As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
@@ -411,7 +404,7 @@ Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopCDPError As Bool
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    RunCDP strMessage, StopCDPError
+    RunCDP strMessage, StopPipeError
 End Sub
 
 '***************************************************************************************************
@@ -521,10 +514,8 @@ Property Get ShowLogBiDiresponse() As Boolean
     ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
 End Property
 
-
-
 '***************************************************************************************************
-'                            ■■■ CDPCore.cls 直通メソッド ■■■
+'* 機能　　：基本ラッパー機能
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
@@ -534,16 +525,33 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     m_CDPCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_CDPCore.TakeEvents StopPipeError, destruction
-End Sub
-
 Public Function TimerCounter() As Double
     TimerCounter = m_CDPCore.GetTicksMs
 End Function
 
 Public Sub CloseHandleBrowser()
     m_CDPCore.CloseHandleBrowser
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.TakeEvents StopApiError, destruction
+End Sub
+
+'--- manual ---
+Public Sub TakeEvent()
+    m_CDPCore.TakeEvent
+End Sub
+
+Property Get NewResBiDi() As Boolean
+    NewResBiDi = m_CDPCore.NewResCDP
+End Property
+
+Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_CDPCore.AnalyzeCDP StopApiError, destruction
 End Sub
 
 

@@ -325,7 +325,6 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
 
         If Not doRetrySecond Then Exit Do
         If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
-        DoEvents
     Loop
 End Function
 
@@ -590,7 +589,7 @@ Property Get TakeResultBiDi(commandID As Long) As String
 
         '4. 取り出したので消しておく
         resultBiDi.response.Remove commandID
-        printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
+        printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
         printMsg Trace_, "This BiDi-command ID(" & commandID & ") passed is not running asynchronously or has been deleted.", FromProcedureName
@@ -967,14 +966,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
@@ -995,6 +990,8 @@ End Property
 '***************************************************************************************************
 '                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -1003,13 +1000,30 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     m_BiDiCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    m_BiDiCore.TakeEvents StopPipeError, destruction
-End Sub
-
 Public Function TimerCounter() As Double
     TimerCounter = m_BiDiCore.TimerCounter
 End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_BiDiCore.TakeEvents StopApiError, destruction
+End Sub
+
+'--- manual ---
+Public Sub TakeEvent()
+    m_BiDiCore.TakeEvent
+End Sub
+
+Property Get NewResBiDi() As Boolean
+    NewResBiDi = m_BiDiCore.NewResBiDi
+End Property
+
+Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    m_BiDiCore.AnalyzeBiDi StopApiError, destruction
+End Sub
 
 
 

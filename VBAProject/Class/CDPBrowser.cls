@@ -1700,15 +1700,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
-
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
@@ -1718,6 +1713,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -1726,13 +1723,30 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    PipeCore.TakeEvents StopPipeError, destruction
-End Sub
-
 Public Function TimerCounter() As Double
     TimerCounter = PipeCore.GetTicksMs
 End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.TakeEvents StopApiError, destruction
+End Sub
+
+'--- manual ---
+Public Sub TakeEvent()
+    PipeCore.TakeEvent
+End Sub
+
+Property Get NewResCDP() As Boolean
+    NewResCDP = PipeCore.NewResCDP
+End Property
+
+Public Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.AnalyzeCDP StopApiError, destruction
+End Sub
 
 
 
