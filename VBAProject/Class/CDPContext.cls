@@ -1974,9 +1974,9 @@ Public Sub notify(msg As String, Optional ViewSecond As Long = 10)
 '----------------------------------------------------------------------------------
 
     ' 1. 引数をパッキング（CDPの仕様に合わせた形）
-    Dim args As New Collection
-    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  args.Add arg1
-    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    args.Add arg2
+    Dim args(1) As Dictionary
+    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  Set args(0) = arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    Set args(1) = arg2
 
     ' 2. JS関数本体（無名関数として定義し、その場で実行させる）
     Dim funcJS As String
