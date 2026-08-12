@@ -186,7 +186,6 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
-Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
