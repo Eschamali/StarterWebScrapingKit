@@ -2783,6 +2783,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -2791,13 +2793,30 @@ Private Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
+Private Function TimerCounter() As Double
+    TimerCounter = PipeCore.GetTicksMs
+End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     PipeCore.TakeEvents StopPipeError, destruction
 End Sub
 
-Private Function TimerCounter() As Double
-    TimerCounter = PipeCore.GetTicksMs
-End Function
+'--- manual ---
+Private Sub TakeEvent()
+    PipeCore.TakeEvent
+End Sub
+
+Private Property Get NewResCDP() As Boolean
+    NewResCDP = PipeCore.NewResCDP
+End Property
+
+Private Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.AnalyzeCDP StopApiError, destruction
+End Sub
 
 
 

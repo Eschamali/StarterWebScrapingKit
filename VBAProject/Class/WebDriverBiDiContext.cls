@@ -677,6 +677,8 @@ End Property
 '***************************************************************************************************
 '                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub

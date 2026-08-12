@@ -1057,58 +1057,96 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：CDPからバイト配列を一括で受け取り、テキストに変換します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopApiError   `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
+'                                    別途、`LastError○○`で後で確認可能です。統合の都合上、エラー変数名はPipe準拠です
+'
+'            destruction    `True` :ストリームに蓄積しません。破棄用にどうぞ。`responseCDP.ExistsNewRes`は更新されません。
+'                           `False`:ストリームに蓄積し、ID、イベント解析に備えます。新規データがあれば、`responseCDP.ExistsNewRes`が`True`になります。
+'***************************************************************************************************
+Public Sub AnalyzeCDP(Optional StopApiError As Boolean, Optional destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".AnalyzeCDP"
+
+
+    '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージバイト配列の取り出し
+    If viaWebSocket Is Nothing Then
+             TakePipe StopApiError, destruction
+    Else
+        TakeWebSocket StopApiError, destruction
+    End If
+
+    '2. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備させる
+    If Not destruction Then Call ReadyCDPMessage
+
+    '3. ログ化
+    If destruction Then
+        printMsg Trace_, LogID, "The disposal of the accumulated CDP data has been completed.", FromProcedureName
+    Else
+        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
+    End If
+End Sub
+
 
 
 '***************************************************************************************************
 '                               ■■■ レスポンス捌き ■■■
 '***************************************************************************************************
-'* 機能　　：メッセージ解析を行い、イベント発火まで行います
+'* 機能　　：`responseCDP.strBuffer`内から、1件分のメッセージ解析を行い、イベント発火まで行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：StopPipeError  `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
+'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、`RaiseEvent`で1件分、発信します
+'* 注意事項：このメソッドの場合、新着受信の`AnalyzeCDP`、新着確認の`NewResCDP`は、別途呼び出し側で用意/制御する必要があります。
+'            特定イベント検出時の「即時割り込み&残りのイベント処理ストップ」等といった上級者向けの手動メソッドです。
+'***************************************************************************************************
+Public Sub TakeEvent()
+    Const FromProcedureName As String = ThisClassName & ".TakeEvent"
+
+
+    '1. ログによるレスの確認
+    Dim tmp As String: tmp = TakeCDPMessage
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - CDP          : " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+
+    '2. 受信データを`RaiseEvent`するプロシージャへ委託
+    Call BrowserReceivedDataCheck(tmp)
+    printMsg Trace_, LogID, "I triggered one `RaiseEvent`.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`responseCDP.strBuffer`内にある全メッセージ解析を行い、イベント発火まで行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopApiError   `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
 '                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
 '                                    別途、`LastError○○`で後で確認可能です
 '
 '            destruction    `True` :メッセージ解析をせずに溜まったデータの取り出しのみ行います
 '                           `False`:ID、イベント解析を行いつつ、溜まったデータの取り出しも並行して行います
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で全件分、発信します
+'            ・新規メッセージ取り出し&チェックから全件イベント発火まで一通り、行えます。基本はこちらを利用します
+'* 注意事項：このメソッドは、届いている分だけを「スナップショット」として吸い上げ、Do While ループで`RaiseEvent`する全自動方式を採用してます
 '***************************************************************************************************
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeEvents"
 
 
-    '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージの取り出し
-    If viaWebSocket Is Nothing Then TakePipe StopPipeError, destruction Else TakeWebSocket StopPipeError, destruction
+    '1. CDPからバイト配列を受け取り、テキストへ変換
+    AnalyzeCDP StopApiError, destruction
 
-    '2. 破棄モード or 新規受信なし ならここで抜ける
-    If destruction Or Not responseCDP.ExistsNewRes Then Exit Sub
-
-    '3. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備
-    Call ReadyCDPMessage
-    printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
-
-    '4. 解析を始めます
+    '2. 新規メッセージがあれば、ループで全てを取り出し終わるまで、`RaiseEvent`します
     Dim ResCounter As Long
-    If responseCDP.ExistsNewRes Then printMsg Trace_, LogID, "Analyzing the data in the responseCDP.strBuffer...", FromProcedureName
     Do While responseCDP.ExistsNewRes
-        '4-1. カウント
+        '3-1. 一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
+        If ResCounter Mod RunDoEventsCount = 0 Then DoEvents
         ResCounter = ResCounter + 1
 
-        '4-2. レスの確認
-        Dim tmp As String: tmp = TakeCDPMessage
-        If StrPtr(tmp) Then
-            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "strRes(" & ResCounter & ") = " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
-
-            '受信データのチェックを行うプロシージャへ遷移します。
-            Call BrowserReceivedDataCheck(tmp)
-        End If
-
-        '4-3. 受信データのチェックの間に来たPipe/WebSocketも取り出しておき、リアルタイム性を確保
-        If viaWebSocket Is Nothing Then TakePipe StopPipeError, False Else TakeWebSocket StopPipeError, False
-
-        '4-4. バイト配列をテキストに変換させ、メッセージ処理を準備
-        Call ReadyCDPMessage
+        '3-2. 1個ずつ取り出して`RaiseEvent`するプロシージャへ
+        printMsg Debug_, LogID, "Executing the " & ResCounter & " `RaiseEvent`...", FromProcedureName
+        TakeEvent
     Loop
 
-    '5. CDPメッセージ処理件数をログ化
+    '3. CDPメッセージ処理件数をログ化
     If ResCounter Then
         printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
     Else
@@ -1246,6 +1284,13 @@ End Property
 '***************************************************************************************************
 Property Get ShowLogCDPresponse() As Boolean
     ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+End Property
+
+'***************************************************************************************************
+'* 機能　　：新規CDPレスポンスがあるかどうか？
+'***************************************************************************************************
+Property Get NewResCDP() As Boolean
+    NewResCDP = responseCDP.ExistsNewRes
 End Property
 
 '***************************************************************************************************
