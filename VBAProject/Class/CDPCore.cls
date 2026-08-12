@@ -1122,7 +1122,7 @@ End Sub
 '* 引数　　：CDPJsonString          1件分のJson形式文字列のブラウザからのイベントやCDP-Jsonコマンド結果
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で発信します
-'* 注意事項；構文エラーの場合、不整合により不安定につながるため、エラーで停止します
+'* 注意事項：構文エラーの場合、不整合により不安定につながるため、エラーで停止します
 '***************************************************************************************************
 Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
     Const FromProcedureName As String = ThisClassName & ".BrowserReceivedDataCheck"
