@@ -310,10 +310,10 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
-    Dim args As New Collection
+    Dim args(1 To 10) As Variant
     Dim i As Long
     For i = 1 To 10
-        args.Add ArgVal(i)
+        Set args(i) = ArgVal(i)
     Next i
 
     Dim v As Variant
@@ -332,11 +332,11 @@ Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPContext)
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
 
-    Dim args As New Collection
-    args.Add ArgVal("It's " & "OK " & "日本語")
+    Dim arg As Scripting.Dictionary
+    Set arg = ArgVal("It's " & "OK " & "日本語")
 
     Dim v As Variant
-    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=args, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=Array(arg), returnByValue:=True, StopPipeError:=False)
     AssertEq "エコー", CStr(v), "ECHO:It's OK 日本語"
 
     br.jsEval "updateStatus('s-js09','⑨ 完了 " & EOk() & " | objectArguments（引用符含む）エコー OK', true)", StopPipeError:=False
