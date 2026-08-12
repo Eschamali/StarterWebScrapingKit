@@ -863,20 +863,20 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：呼び出す度に1件1件、CDPメッセージを取り出します
 '***************************************************************************************************
-Private Function TakeCDPMessage() As String
+Private Property Get TakeCDPMessage() As String
     Const FromProcedureName As String = ThisClassName & ".TakeCDPMessage"
 
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
+        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Property
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
-        '3. 見つからないあるいは、`.AddCursor`を超える場合は欠け判定とする
-        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
+        '3. 見つからないあるいは、`.AddCursor`を超える場合は、メッセージ取り出しできないので、抜ける
+        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Property
 
         '4. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
@@ -887,7 +887,7 @@ Private Function TakeCDPMessage() As String
             .EndCursor = .EndCursor - .AddCursor
             .AddCursor = 0
             .StartCursor = 0
-            .ExistsNewRes = False
+            .ExistsNewRes = False   '有効な文字列メッセージは全部取り出せたので`False`に更新
 
             printMsg Debug_, LogID, "All accumulated CDPmessages have been processed. Resetting cursor information.", FromProcedureName
         Else
@@ -895,7 +895,7 @@ Private Function TakeCDPMessage() As String
             .StartCursor = EndPos
         End If
     End With
-End Function
+End Property
 
 Private Function searchNull(checkString As String, StartPos As Long) As Long
 '------------------------------------------------------------
