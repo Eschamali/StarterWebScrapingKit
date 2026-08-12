@@ -220,19 +220,35 @@ Set result = mode.ExecuteBiDi("browser.getUserContexts", New Dictionary)
 ### `TakeEvents`
 
 ```vb
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
 ```
 
-非同期応答／イベントの吸い上げです。[`TakeResultBiDi`](#takeresultbidi) の前に呼び出す必要があります。
+非同期応答／イベントの吸い上げです（**almighty**：受信 → 解析 → 蓄積中の全メッセージについて `RaiseEvent` までを一括で行う）。[`TakeResultBiDi`](#takeresultbidi) の前に呼び出す必要があります。
 
 | 引数 | 意味 |
 | --- | --- |
-| `StopPipeError` | Pipe／WebSocket 障害時に停止するか。既定は `True` |
-| `destruction` | 破棄処理向けの内部フラグ（通常は省略） |
+| `StopApiError` | Pipe／WebSocket 障害時に停止するか。既定は `True` |
+| `destruction` | `True` でストリームに蓄積せず破棄するだけ（`RaiseEvent`は起きない） |
 
 ```vb
 mode.TakeEvents
 ```
+
+### `TakeEvent` / `NewResBiDi` / `AnalyzeBiDi`
+
+```vb
+Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+Property Get NewResBiDi() As Boolean
+Public Sub TakeEvent()
+```
+
+`TakeEvents` を分解した **manual** な低レベル部品です。特定イベント検出時に即座に割り込んで残りのイベント処理を止めたい、といった上級者向け用途で使います。
+
+| メンバー | 役割 |
+| --- | --- |
+| `AnalyzeBiDi` | Pipe／WebSocket からバイト配列を受け取り、テキストへ変換して 1 件分取り出せる状態にする |
+| `NewResBiDi` | `AnalyzeBiDi` 後、取り出せる新規メッセージがあるか（`Get` 専用） |
+| `TakeEvent` | 蓄積済みメッセージを **1 件だけ**取り出し `RaiseEvent` する |
 
 ### `TakeResultBiDi`
 
@@ -347,11 +363,10 @@ Set mode.sessionSubscribe(False) = events
 ### `TimeOutSecond`
 
 ```vb
-Property Get TimeOutSecond() As Double
 Property Let TimeOutSecond(TimeSec As Double)
 ```
 
-BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**です。
+BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**です。**LET 専用**（書き込みのみ）で、設定中の値は読み返せません。
 
 ```vb
 mode.TimeOutSecond = 60

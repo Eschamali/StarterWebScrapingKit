@@ -264,12 +264,18 @@ wid = t.BrowserWindowID
 
 ```vb
 Public Function jsEval(JavaScriptStr As String, Optional objectId As String, _
-    Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, ...) As Variant
+    Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, ...) As Variant
 ```
 
 ページ上で JavaScript を評価します。例外時は `IsError(result)` で判定し、詳細は [`LastJavaScriptException`](#lastjavascriptexception) を参照してください。代替値で済ませたい場合は `IFEXCEPTION` を使います。
 
+`objectArguments` は `Collection` / `Array(...)` / 固定長の `Dictionary` 型 1 次元配列（`Dim args(0) As Dictionary`）のいずれでも渡せます。**固定長配列の方がパフォーマンスが良い**ため、ループ内などで多用する場合は固定長配列を推奨します。
+
 詳細は [JavaScript 実行](/guides/javascript)。
+
+::: tip
+`objectId` / `contextId` のいずれも省略したとき（このタブの既定コンテキストで実行するケース）、内部で保持する `executionContextId` がページ遷移等で無効化されていた場合は、有効な ID が届くまで自動で待機してから実行します。
+:::
 
 ### `LastJavaScriptException`
 
@@ -552,11 +558,10 @@ Set t.BrowserEvents = Nothing
 ### `TimeOutSecond`
 
 ```vb
-Property Get TimeOutSecond() As Double
 Property Let TimeOutSecond(TimeSec As Double)
 ```
 
-タブ単位の CDP コマンド結果待ちや、起動直後の遷移完了判定などの待機上限です。デフォルトは **30 秒**です。
+タブ単位の CDP コマンド結果待ちや、起動直後の遷移完了判定などの待機上限です。デフォルトは **30 秒**です。**LET 専用**（書き込みのみ）で、設定中の値は読み返せません。
 
 ```vb
 t.TimeOutSecond = 60

@@ -541,13 +541,15 @@ Property Get CurrentObjectId() As String
 ### `jsEval`
 
 ```vb
-Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Collection, _
+Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Variant, _
     Optional IFEXCEPTION As Variant, Optional returnByValue As Boolean, _
     Optional awaitPromise As Boolean, Optional serializationOptions As Dictionary, _
     Optional generatePreview As Boolean, Optional StopPipeError As Boolean = True) As Variant
 ```
 
 この要素の `objectId` を `this` として JavaScript を評価します。[`CDPContext.jsEval`](./CDPContext#jseval) の要素スコープ版で、クラス内の他メソッドも内部的にこれ経由で実装されています。用意されたメソッドで足りない操作をしたいときの逃げ道として使えます。
+
+`objectArguments` は `Collection` / `Array(...)` / 固定長の `Dictionary` 型 1 次元配列のいずれでも渡せます（詳細は [`CDPContext.jsEval`](./CDPContext#jseval) 参照）。
 
 ```vb
 Dim el As CDPElement

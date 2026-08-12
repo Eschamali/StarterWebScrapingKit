@@ -11,14 +11,10 @@ CDP / BiDi のコマンド結果待ちや、起動直後の遷移完了判定な
 ## `TimeOutSecond`
 
 ```vb
-Property Get TimeOutSecond() As Double   ' 設定中のタイムアウト秒数
 Property Let TimeOutSecond(TimeSec As Double)
 ```
 
-| | 意味 |
-| --- | --- |
-| **GET** | 設定中のタイムアウト秒数 |
-| **LET** | 置き換えるタイムアウト秒数 |
+**LET 専用**（書き込みのみ）です。設定中の値を読み返すことはできません。
 
 主な用途:
 
@@ -41,8 +37,6 @@ Set t = ShSetting01_StartBrowser.StartCDPModeContext
 
 ' 重いページや遅い応答が分かっているとき
 t.TimeOutSecond = 60
-
-Debug.Print t.TimeOutSecond   ' → 60
 
 t.navigate "https://example.com/heavy"
 ' ... 通常どおり操作 ...

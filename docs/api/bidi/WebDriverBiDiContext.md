@@ -144,7 +144,7 @@ t.wait isComplete, dbgState:=True
 ```vb
 Public Function jsEval(JavaScriptStr As String, _
     Optional scriptHandle As String, _
-    Optional objectArguments As Collection, _
+    Optional objectArguments As Variant, _
     Optional IFEXCEPTION As Variant, _
     Optional RealmTarget As String, _
     Optional Ownership As Boolean, _
@@ -162,7 +162,7 @@ Public Function jsEval(JavaScriptStr As String, _
 | --- | --- |
 | `JavaScriptStr` | 実行する JS（そのまま送る） |
 | `scriptHandle` | 基準ハンドル。指定時は `script.callFunction`（`function(){ this... }` 形式） |
-| `objectArguments` | 引数の `Collection`。指定時も `callFunction` 優先 |
+| `objectArguments` | 引数（`Collection` / `Array(...)` / 固定長 `Dictionary` 型 1 次元配列）。指定時も `callFunction` 優先。固定長配列の方がパフォーマンスが良い |
 | `IFEXCEPTION` | JS 例外時の代替値（IFERROR チック） |
 | `RealmTarget` | iframe 等の realm を指定して実行したいとき |
 | `Ownership` | `True` で `resultOwnership: "root"`（次回の `scriptHandle` に流用可能な handle を返す） |

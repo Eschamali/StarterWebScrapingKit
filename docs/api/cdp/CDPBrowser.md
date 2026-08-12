@@ -247,7 +247,42 @@ Public Function ExecuteCDPAsync(...) As Long
 
 ### `TakeEvents`
 
-非同期応答／イベントの吸い上げ。`TakeResultCDP` の前に呼び出す必要があります。
+```vb
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+```
+
+非同期応答／イベントの吸い上げ（**almighty**：受信 → 解析 → 蓄積中の全メッセージについて `RaiseEvent` までを一括で行う）。`TakeResultCDP` の前に呼び出す必要があります。
+
+| 引数 | 意味 |
+| --- | --- |
+| `StopApiError` | Pipe／WebSocket 障害時に停止するか。既定は `True` |
+| `destruction` | `True` でストリームに蓄積せず破棄するだけ（`RaiseEvent`は起きない） |
+
+### `TakeEvent` / `NewResCDP` / `AnalyzeCDP`
+
+```vb
+Public Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+Property Get NewResCDP() As Boolean
+Public Sub TakeEvent()
+```
+
+`TakeEvents` を分解した **manual** な低レベル部品です。特定イベント検出時に即座に割り込んで残りのイベント処理を止めたい、といった上級者向け用途で使います。
+
+| メンバー | 役割 |
+| --- | --- |
+| `AnalyzeCDP` | Pipe／WebSocket からバイト配列を受け取り、テキストへ変換して 1 件分取り出せる状態にする |
+| `NewResCDP` | `AnalyzeCDP` 後、取り出せる新規メッセージがあるか（`Get` 専用） |
+| `TakeEvent` | 蓄積済みメッセージを **1 件だけ**取り出し `RaiseEvent` する |
+
+```vb
+' TakeEvents は、概ね次と同義
+Do
+    b.AnalyzeCDP
+    Do While b.NewResCDP
+        b.TakeEvent
+    Loop
+Loop While ...
+```
 
 ### `TakeResultCDP`
 
@@ -284,11 +319,10 @@ b.SetLimitCDPResult = 1000
 ### `TimeOutSecond`
 
 ```vb
-Property Get TimeOutSecond() As Double
 Property Let TimeOutSecond(TimeSec As Double)
 ```
 
-CDP コマンド結果待ちなどの待機上限です。デフォルトは **30 秒**です。
+CDP コマンド結果待ちなどの待機上限です。デフォルトは **30 秒**です。**LET 専用**（書き込みのみ）で、設定中の値は読み返せません。
 
 ```vb
 b.TimeOutSecond = 60
