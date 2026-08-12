@@ -162,7 +162,8 @@ Private Type StateTabForJavaScript
     ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
     origin              As String   '実行範囲
     Name                As String   '意味のある名称
-    uniqueId            As String   'より厳格な実行コンテキスト情報。現時点では、実験的扱い
+    uniqueId            As String   'より厳格な実行コンテキスト情報。破棄判定に使います
+    IsValid             As Boolean  'その`ContextId`は有効か？
 End Type
 Private brTabRuntime As StateTabForJavaScript
 
@@ -548,7 +549,19 @@ step1:
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
         '任意指定あるいは、`Runtime.executionContextCreated`で来た情報を基に指定します
-        CDPparams.Add "executionContextId", IIf(contextId, contextId, brTabRuntime.ExecutionContextId)
+        Dim UseContextId As Long
+        If contextId Then
+            '引数で指定された`contextId`
+            UseContextId = contextId
+        Else
+            'このClassの`TargetID`に紐づく"Runtime.executionContextCreated"の`contextId`
+            '無効(古い)状態なら、有効な`contextId`が来るまで待機します
+            If Not brTabRuntime.IsValid Then printMsg info_, "The `executionContextId` required to execute `Runtime.callFunctionOn` is invalid. Attempting to update it via `TakeEvents`.", FromProcedureName: AutoWaitIsValidExecutionContextId
+
+            '適用
+            UseContextId = brTabRuntime.ExecutionContextId
+        End If
+        CDPparams.Add "executionContextId", UseContextId
 
     ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
@@ -866,6 +879,28 @@ Private Function LogFormat(ByVal logMes As String, lengthMes As Long) As String
     Dim originalLength As Long: originalLength = Len(logMes)
     If originalLength > lengthMes Then LogFormat = Left(logMes, lengthMes) & "... (Total: " & originalLength & " chars)" Else LogFormat = logMes
 End Function
+
+'***************************************************************************************************
+'* 機能　　：JavaScript実行場所を特定する`executionContextId`に有効なサインが来るまで待機します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・タイムアウト時はエラーとなります
+'            ・待機時間は、`timerOut`に依存します
+'***************************************************************************************************
+Private Sub AutoWaitIsValidExecutionContextId()
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitIsValidExecutionContextId"
+
+
+    '1. 現在の経過時間を取得
+    Dim StartTimer As Double: StartTimer = TimerCounter
+    Do
+        '2. タイムアウトチェック
+        If TimerCounter - StartTimer > timerOut Then printMsg ERROR_, "A valid `ExecutionContextId` was not received within the time limit.", FromProcedureName, doRaiseError:=True
+
+        '3. イベント取り出し
+        printMsg Trace_, "Waiting for a valid `ExecutionContextId`...", FromProcedureName
+        TakeEvents  '内部で`DoEvents`が走ります
+    Loop Until brTabRuntime.IsValid
+End Sub
 
 Public Sub jsAddLib(strURL As String)
 '----------------------------------------------------------------------------------
@@ -1422,14 +1457,32 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
             If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
                 '2-2. 各種statusを上書き
-                brTabRuntime.ExecutionContextId = tmpNode.NumberKey("id")
-                brTabRuntime.origin = tmpNode.StringKey("origin")
-                brTabRuntime.Name = tmpNode.StringKey("name")
-                brTabRuntime.uniqueId = tmpNode.StringKey("uniqueId")
+                With brTabRuntime
+                    .IsValid = True '使えるよサイン
+
+                    .ExecutionContextId = tmpNode.NumberKey("id")
+                    .origin = tmpNode.StringKey("origin")
+                    .Name = tmpNode.StringKey("name")
+                    .uniqueId = tmpNode.StringKey("uniqueId")
+                End With
 
                 '2-3. ログ化
                 printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
             End If
+
+        'JavaScript実行環境情報の破棄更新を行います
+        Case "Runtime.executionContextDestroyed"
+            '2-1. このClassで保持中の`executionContextUniqueId`と一致するか？
+            If brTabRuntime.uniqueId = BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("executionContextUniqueId") Then
+                brTabRuntime.IsValid = False
+                printMsg info_, "The JavaScript environment owned by this class has been destroyed.", FromProcedureName
+            End If
+
+        'JavaScript実行環境情報の破棄更新を行います。こちらは、コンテキスト(タブ)全体です
+        Case "Runtime.executionContextsCleared"
+            brTabRuntime.IsValid = False
+            printMsg info_, "The JavaScript environment associated with this class was destroyed due to a page transition or other reasons.", FromProcedureName
+
     End Select
 
 
