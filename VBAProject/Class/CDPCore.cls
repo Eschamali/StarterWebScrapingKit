@@ -820,9 +820,6 @@ Private Sub StrBufferCheck(resSize As Long)
 
         '2. 有効予定なCDPメッセージカーソル末尾位置を更新
         .EndCursor = .EndCursor + resSize
-
-        '3. 新規メッセージフラグを付与
-        .ExistsNewRes = True
     End With
 End Sub
 
@@ -855,8 +852,11 @@ Private Sub ReadyCDPMessage()
         '4. 次の蓄積位置を記録
         responseCDP.AddCursor = responseCDP.EndCursor
 
-        '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージ蓄積に備える
+        '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
         .Position = 0
+
+        '6. 文字列メッセージとして取り出せるので、`True`に更新
+        responseCDP.ExistsNewRes = True
     End With
 End Sub
 
