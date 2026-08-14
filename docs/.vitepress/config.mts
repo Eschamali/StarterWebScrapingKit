@@ -118,6 +118,18 @@ export default withMermaid(
           ]
         },
         {
+          text: 'Puppeteer / Playwright とのコアロジック徹底比較',
+          collapsed: true,
+          items: [
+            { text: '概要と結論', link: '/core-comparison/' },
+            { text: 'Transport 層とバッファ管理', link: '/core-comparison/transport' },
+            { text: 'ディスパッチとイベント配信', link: '/core-comparison/dispatch' },
+            { text: '非同期実行とイベントループ', link: '/core-comparison/async' },
+            { text: 'クラス構成の考え方', link: '/core-comparison/classes' },
+            { text: '残る差分と、埋まらない差', link: '/core-comparison/gaps' }
+          ]
+        },
+        {
           text: '開発秘話',
           items: [
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' }
@@ -169,7 +181,7 @@ export default withMermaid(
 
     markdown: {
       theme: { light: 'github-light', dark: 'github-dark' },
-      languages: ['vb', 'bash', 'json', 'javascript', 'powershell', 'text']
+      languages: ['vb', 'bash', 'json', 'javascript', 'typescript', 'powershell', 'text']
     },
 
     // vitepress-plugin-mermaid

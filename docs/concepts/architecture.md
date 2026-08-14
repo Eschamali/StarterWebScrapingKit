@@ -62,3 +62,4 @@ PipeルートとWebSocketルートの2種類に対応しております。
 - [設計思想](/concepts/design-philosophy)
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
 - [再接続 (reattach)](/guides/reattach)
+- [コアロジック徹底比較](/core-comparison/) — Puppeteer / Playwright の実ソースとの突き合わせ

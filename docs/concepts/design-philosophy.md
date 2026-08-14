@@ -37,3 +37,4 @@ description: 「最小の核」と「AIトッピング」による設計思想�
 - [アーキテクチャ](/concepts/architecture)
 - [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
+- [コアロジック徹底比較](/core-comparison/) — その「コア」は Puppeteer / Playwright とどこまで違うのか

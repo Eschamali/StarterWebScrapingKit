@@ -15,3 +15,4 @@ description: Pipe 版に加えて WebSocket モードを増設した理由と設
 
 - [WebSocket モードでできること](/websocket/capabilities)
 - [アーキテクチャ](/concepts/architecture)
+- [Transport 層とバッファ管理](/core-comparison/transport) — `ws` パッケージに委譲する Node 勢との比較

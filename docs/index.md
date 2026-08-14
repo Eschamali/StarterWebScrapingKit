@@ -40,6 +40,10 @@ features:
     details: Edge 埋め込み / PowerShell / Excel 単体。プリインストール縛りで WebView2 相当を UserForm に載せる3手法。
     link: /userform/intro
     linkText: UserForm コーナー
+  - title: コアロジック徹底比較
+    details: Puppeteer / Playwright の実ソースと1行ずつ突き合わせ。バッファ管理・ディスパッチ・非同期処理は、どこまで並んでいるのか。
+    link: /core-comparison/
+    linkText: 比較レポートへ
   - title: 開発秘話
     details: mapperTab.js を Excel に封印するまで。公式ドライバーと同じハックに辿り着いた土日の記録。
     link: /stories/bidi-story
