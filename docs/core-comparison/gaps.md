@@ -14,7 +14,7 @@ description: テスト網羅・エラー分類・型安全性・マルチブラ�
 | --- | ---: |
 | **Playwright** | `*.spec.ts` 約 556 ファイル（`tests/` 配下だけで約 575 の TS ファイル） |
 | **Puppeteer** | `*.test.ts` 約 138 ファイル + `test/` 配下 約 91 ファイル |
-| **StarterWebScrapingKit** | `ForDevelopers/OperationCheck/` に 8 モジュール（アサーション約 78 件） |
+| **StarterWebScrapingKit** | `ForDevelopers/OperationCheck/` に 8 モジュール（アサーション約 78 件 + コア層のストレステスト） |
 
 Playwright は3ブラウザエンジン × 数百本のテストを CI で常時回しています。「Chrome の更新でこの操作が壊れた」を機械的に検出できる体制です。
 
@@ -26,11 +26,11 @@ Playwright は3ブラウザエンジン × 数百本のテストを CI で常時
 | --- | --- | --- |
 | `CDP/TestVBA/Test_CDPElement.bas` | 510 行 / 17 テスト / 56 アサーション | `value` / `innerText` / `checked` / Shadow DOM / iframe / ファイル入力など要素操作の全面検証 |
 | `CDP/TestVBA/Test_jsEval.bas` | 618 行 / 16 テスト | `Runtime.evaluate` と `callFunctionOn`、`awaitPromise`、Unicode、JS 例外処理 |
-| `CDP/TestVBA/Test_AsyncBenchmark.bas` | 479 行 | マルチタブ非同期ラウンドのレイテンシ計測（インライン方式と拡張クラス方式の2パターン） |
+| `CDP/TestVBA/Test_AsyncBenchmark.bas` | 479 行 | **コア層のストレステスト**（後述） |
 | `WebDriverBiDi/TestVBA/Test_BiDiAlertRace.bas` | 218 行 | BiDi でのアラート競合という再現しにくい条件の検証 |
 | `common/RPAChallenge/Test_RPAChallenge.bas` | 74 行 | rpachallenge.com を使った E2E |
 
-しかも「実行して目視」ではなく、**アサーションと PASS / FAIL 集計を持つ手作りのテストハーネス**になっています。
+要素操作と `jsEval` については「実行して目視」ではなく、**アサーションと PASS / FAIL 集計を持つ手作りのテストハーネス**になっています。
 
 ```vb
 el.value = "Hello VBA"
@@ -52,22 +52,76 @@ PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & _
 
 これとは別に、配布物に同梱の `Demo_CDP` / `Demo_WebDriverBiDi` / `Demo_WebSocket` が使用例兼スモークテストとして機能しています。
 
+### コア層を殴りに行くテストもある
+
+このコーナーで扱ってきた Transport / バッファ / ディスパッチ / 非同期の4層をまとめて叩くのが `Test_AsyncBenchmark.bas` です。**30 タブ × 10 ラウンド**を回します。
+
+```vb
+Private Const NUM_TABS   As Long = 30      ' 開くタブ数
+Private Const NUM_ROUNDS As Long = 10      ' 繰り返すラウンド数
+```
+
+1ラウンドの流れは、そのまま4層への負荷になっています。
+
+| ステップ | 内容 | 効いてくる層 |
+| --- | --- | --- |
+| **A** | 全 30 タブへ一斉に `Page.navigate` を非同期発行（遷移先は 5 サイトからランダム） | [非同期](/core-comparison/async)（整理券方式のパイプライン化） |
+| **B** | `chrome.TakeEvents` の1回のポンプで、30 タブ分の `Page.loadEventFired` を配り分けて全タブ揃うまで待つバリア | [ディスパッチ](/core-comparison/dispatch)（`sessionId` 多重化） |
+| **C** | 通過したタブへ `Network.getAllCookies` と `Page.captureScreenshot` を非同期発行 | 同上 |
+| **D** | スクリーンショット結果を整理券で回収 | [バッファ管理](/core-comparison/transport)（巨大 Base64 ペイロード） |
+
+負荷のかかり方が、意図的にコア層の弱点を突く形になっています。
+
+- **バッファ**：PNG の Base64 は1件で軽く数百 KB を超えます。それを最大 300 件流し込むので、`InitialBuffer`（1MB）からの倍々拡張、`Mid$` によるその場書き換え、`InStr` での NUL 探索がまとめて試されます
+- **ディスパッチ**：`Network.enable` 済みの 30 タブから `Network.requestWillBeSent` が洪水のように飛んでくる中で、`Page.loadEventFired` を正しいタブへ配れるかを見ています
+- **コマンド ID の管理**：Cookie の回収だけは全ラウンド終了まで意図的に遅延させるため、**最大 300 件の未回収チケットが同時に宙に浮いた状態**になります。`DictionarySessionID` と結果 `Dictionary` の管理がそのまま試されます
+- **両トランスポート**：先頭の定数1つで Pipe 経路と WebSocket 経路を切り替えられるため、**同じシナリオを両方の管で流せます**
+
+```vb
+Private Const WebSocketTest As Boolean = True
+```
+
+さらに、イベントの受け取り方を2パターン用意して結果を突き合わせています。
+
+| エントリポイント | 受け取り方 |
+| --- | --- |
+| `Test_AsyncBenchmark_RoundSync_Inline` | `CDPContext.BrowserEvents` を直接ポーリング |
+| `Test_AsyncBenchmark_RoundSync_ClassBased` | `exCDP_PageLoadWatcher` 拡張クラス（`WithEvents`）を利用 |
+
+後者は[ディスパッチのページ](/core-comparison/dispatch)で説明した「コアを編集せず拡張クラスを貼る」モデルが 30 個並列でも壊れないことの検証にもなっています。
+
+最後に出るサマリが実質的な合否判定です。タイムアウト 0 件・スクリーンショット保存 300/300 で完走すれば、コア層が想定どおり動いていることになります。
+
+```
+  タブ数               : 30
+  ラウンド数            : 10
+  経過時間             : ... 秒
+  Tab 1 タイムアウト数    : 0 / 10 ラウンド
+  Cookie取得チケット数  : 300 (Cookie総数: ...)
+  Screenshot保存数     : 300 / 300
+```
+
 ### それでも残る差
 
 | 観点 | Playwright / Puppeteer | StarterWebScrapingKit |
 | --- | --- | --- |
-| テストの形式 | アサーションベース | ✅ アサーションベース（自作ハーネス） |
+| テストの形式 | アサーションベース | ✅ 要素操作は自作ハーネスでアサーション、コア層は負荷完走型 |
 | フィクスチャの同梱 | ✅ | ✅ `TestHtml/` |
-| カバー範囲 | ほぼ全 API | `CDPElement` / `jsEval` が中心。`CDPCore` のバッファ管理やディスパッチ、`CDPBrowser`、BiDi の大半は未カバー |
-| 実行 | CI で自動 | 人間が VBE から `RunAll_○○_Tests` を叩く |
+| コア層（バッファ / ディスパッチ / 非同期） | ✅ ユニット + 統合 | ✅ 30 タブ × 10 ラウンドの実負荷で検証 |
+| 両トランスポートの検証 | ― | ✅ Pipe / WebSocket を定数1つで切替 |
+| カバー範囲 | ほぼ全 API | 個別 API 単位では `CDPElement` / `jsEval` が中心。`CDPBrowser` や BiDi の大半は未カバー |
+| 判定の粒度 | 期待値との一致 | 完走・タイムアウト0・取得件数が中心 |
+| 実行 | CI で自動 | 人間が VBE から実行 |
 | リグレッション検出 | プルリクごとに自動 | 気づいた人が実行したときだけ |
 
-つまり差は「テストがあるか無いか」ではなく、**カバー範囲と、自動で回る仕組みがあるかどうか**です。
+つまり差は「テストがあるか無いか」でも「コア層が手薄かどうか」でもなく、**判定の粒度と、自動で回る仕組みがあるかどうか**です。
 
 ::: warning ここは正直に劣る点
-一番テストが欲しいのは、皮肉にも[このコーナーで一番自信を持って紹介したバッファ管理やディスパッチ](/core-comparison/transport)の層です。要素操作という「壊れたらすぐ気づける層」は固めてある一方、コアの回帰検出は手薄なままです。
+`Test_AsyncBenchmark` が捕まえられるのは「固まった」「メッセージを取りこぼした」「遅すぎる」といった**壊れ方が派手な障害**です。300 件のスクリーンショットが全部保存できれば、バッファ管理は少なくとも破綻していないと言えます。
 
-そして VBA には CI で回す標準的な手段がありません。ブラウザとの実通信が前提なので、そもそもヘッドレス環境での自動実行と相性が悪いという事情もあります。とはいえ Rubberduck のようなユニットテスト基盤は存在するので、**これは言語の制約ではなく投資量の問題**です。
+一方で「特定の条件でバッファ境界の1文字がずれる」ような**静かな誤りは、期待値と突き合わせていない以上すり抜けます**。Playwright 側がユニットテストで潰しているのはまさにこの層です。
+
+そして最大の差は自動化です。VBA には CI で回す標準的な手段がなく、ブラウザとの実通信が前提なのでヘッドレス環境との相性も良くありません。とはいえ Rubberduck のようなユニットテスト基盤は存在するので、**これは言語の制約ではなく投資量の問題**です。
 :::
 
 ## 2. エラー処理 ―― 分類の粒度
@@ -180,7 +234,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 | 項目 | 必要なもの |
 | --- | --- |
-| 自動テストの拡充 | `OperationCheck` のカバー範囲拡大 + 自動実行の仕組み |
+| 自動テストの拡充 | 期待値ベースの判定追加 + 自動実行の仕組み |
 | エラー分類の細分化 | エラーコードの追加と `On Error` 分岐の整理 |
 | CDP メソッド名の型付け | スキーマからの `Enum` 生成 |
 | Handle の明示的解放 | `Runtime.releaseObject` の呼び出し設計 |
