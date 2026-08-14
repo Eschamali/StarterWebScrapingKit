@@ -130,6 +130,17 @@ export default withMermaid(
           ]
         },
         {
+          text: 'VBA 圏での CDP 制御 比較',
+          collapsed: true,
+          items: [
+            { text: '概要と系譜', link: '/vba-comparison/' },
+            { text: 'イベント処理と拡張性', link: '/vba-comparison/events' },
+            { text: 'マルチタブとセッション管理', link: '/vba-comparison/multi-tab' },
+            { text: 'クラス構成とコード生成', link: '/vba-comparison/structure' },
+            { text: '使い分けと、分かれ道', link: '/vba-comparison/conclusion' }
+          ]
+        },
+        {
           text: '開発秘話',
           items: [
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' }

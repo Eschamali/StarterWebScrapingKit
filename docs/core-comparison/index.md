@@ -78,6 +78,7 @@ Puppeteer / Playwright については、npm パッケージのドキュメン�
 
 ## 関連
 
+- [VBA 圏での CDP 制御 比較](/vba-comparison/) — 同じ比較を、同じ VBA の土俵に立つ2プロジェクトに対して
 - [アーキテクチャ](/concepts/architecture) — このキット側のクラス構成
 - [設計思想](/concepts/design-philosophy) — なぜ「コア」に全リソースを振ったのか
 - [WebSocket モードの設計思想](/websocket/design) — 生 WinSock で組んだ理由

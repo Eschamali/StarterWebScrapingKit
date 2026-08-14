@@ -44,6 +44,10 @@ features:
     details: Puppeteer / Playwright の実ソースと1行ずつ突き合わせ。バッファ管理・ディスパッチ・非同期処理は、どこまで並んでいるのか。
     link: /core-comparison/
     linkText: 比較レポートへ
+  - title: VBA 圏での CDP 制御 比較
+    details: VBAChromeDevProtocol / vba-cdp-webdriver との比較。2つの源流はどこで合流し、同じ原典から出た設計は何で分かれたのか。
+    link: /vba-comparison/
+    linkText: 系譜をたどる
   - title: 開発秘話
     details: mapperTab.js を Excel に封印するまで。公式ドライバーと同じハックに辿り着いた土日の記録。
     link: /stories/bidi-story

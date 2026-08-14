@@ -218,5 +218,6 @@ frame(0) = &H80 Or opcode
 ## 次に読む
 
 - [ディスパッチとイベント配信](/core-comparison/dispatch) — 切り出した JSON をどこへ届けるか
+- [VBA 圏での CDP 制御 比較](/vba-comparison/) — 同じ原典から出発した VBA プロジェクトが、このバッファ管理をどう書いているか
 - [WebSocket モードの設計思想](/websocket/design) — 増設の経緯
 - [アーキテクチャ](/concepts/architecture) — `CDPCore` / `CDPCoreViaWebSocket` の位置づけ
