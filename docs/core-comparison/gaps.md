@@ -14,14 +14,60 @@ description: テスト網羅・エラー分類・型安全性・マルチブラ�
 | --- | ---: |
 | **Playwright** | `*.spec.ts` 約 556 ファイル（`tests/` 配下だけで約 575 の TS ファイル） |
 | **Puppeteer** | `*.test.ts` 約 138 ファイル + `test/` 配下 約 91 ファイル |
-| **StarterWebScrapingKit** | 0（`Demo_CDP` / `Demo_WebDriverBiDi` / `Demo_WebSocket` による手動確認） |
+| **StarterWebScrapingKit** | `ForDevelopers/OperationCheck/` に 8 モジュール（アサーション約 78 件） |
 
 Playwright は3ブラウザエンジン × 数百本のテストを CI で常時回しています。「Chrome の更新でこの操作が壊れた」を機械的に検出できる体制です。
 
-キットには自動テストが存在せず、`Demo_CDP.bas`（約 52KB）などのデモモジュールを人間が実行して確認する運用です。 **これは言語の制約ではありません。** VBA にも Rubberduck のようなユニットテスト基盤はあり、やっていないだけです。
+### キット側にもテストはある
+
+数こそ少ないものの、`dev` ブランチの [`ForDevelopers/OperationCheck/`](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/OperationCheck) には検証コード一式が置かれています。
+
+| モジュール | 規模 | 内容 |
+| --- | --- | --- |
+| `CDP/TestVBA/Test_CDPElement.bas` | 510 行 / 17 テスト / 56 アサーション | `value` / `innerText` / `checked` / Shadow DOM / iframe / ファイル入力など要素操作の全面検証 |
+| `CDP/TestVBA/Test_jsEval.bas` | 618 行 / 16 テスト | `Runtime.evaluate` と `callFunctionOn`、`awaitPromise`、Unicode、JS 例外処理 |
+| `CDP/TestVBA/Test_AsyncBenchmark.bas` | 479 行 | マルチタブ非同期ラウンドのレイテンシ計測（インライン方式と拡張クラス方式の2パターン） |
+| `WebDriverBiDi/TestVBA/Test_BiDiAlertRace.bas` | 218 行 | BiDi でのアラート競合という再現しにくい条件の検証 |
+| `common/RPAChallenge/Test_RPAChallenge.bas` | 74 行 | rpachallenge.com を使った E2E |
+
+しかも「実行して目視」ではなく、**アサーションと PASS / FAIL 集計を持つ手作りのテストハーネス**になっています。
+
+```vb
+el.value = "Hello VBA"
+AssertEq "value(LetとGet)", el.value, "Hello VBA"
+
+el.sendString "Real Key Input"
+AssertEq "sendString後のvalue", el.value, "Real Key Input"
+
+el.clearValue
+AssertEq "clearValue後のvalue", el.value, ""
+```
+
+```vb
+PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & _
+            " / 合計=" & (passCount + failCount)
+```
+
+検証対象の HTML フィクスチャ（`TestHtml/` 配下）も同梱されており、外部サイトの変更に左右されずにローカルファイルで再現できるようになっています。結果は `jsEval` でページ側にも書き戻され、ブラウザ上で PASS / FAIL が視覚的に確認できます。
+
+これとは別に、配布物に同梱の `Demo_CDP` / `Demo_WebDriverBiDi` / `Demo_WebSocket` が使用例兼スモークテストとして機能しています。
+
+### それでも残る差
+
+| 観点 | Playwright / Puppeteer | StarterWebScrapingKit |
+| --- | --- | --- |
+| テストの形式 | アサーションベース | ✅ アサーションベース（自作ハーネス） |
+| フィクスチャの同梱 | ✅ | ✅ `TestHtml/` |
+| カバー範囲 | ほぼ全 API | `CDPElement` / `jsEval` が中心。`CDPCore` のバッファ管理やディスパッチ、`CDPBrowser`、BiDi の大半は未カバー |
+| 実行 | CI で自動 | 人間が VBE から `RunAll_○○_Tests` を叩く |
+| リグレッション検出 | プルリクごとに自動 | 気づいた人が実行したときだけ |
+
+つまり差は「テストがあるか無いか」ではなく、**カバー範囲と、自動で回る仕組みがあるかどうか**です。
 
 ::: warning ここは正直に劣る点
-バッファ管理やディスパッチのロジックがどれだけ良くても、「壊れたことに気づける仕組み」が無い以上、信頼性の担保レベルは同列に語れません。この差は投資でしか埋まりません。
+一番テストが欲しいのは、皮肉にも[このコーナーで一番自信を持って紹介したバッファ管理やディスパッチ](/core-comparison/transport)の層です。要素操作という「壊れたらすぐ気づける層」は固めてある一方、コアの回帰検出は手薄なままです。
+
+そして VBA には CI で回す標準的な手段がありません。ブラウザとの実通信が前提なので、そもそもヘッドレス環境での自動実行と相性が悪いという事情もあります。とはいえ Rubberduck のようなユニットテスト基盤は存在するので、**これは言語の制約ではなく投資量の問題**です。
 :::
 
 ## 2. エラー処理 ―― 分類の粒度
@@ -134,7 +180,7 @@ Node 側では、以下はすべて既製品を `import` するだけです。
 
 | 項目 | 必要なもの |
 | --- | --- |
-| 自動テストの整備 | Rubberduck 等によるテスト基盤 + CI 相当の仕組み |
+| 自動テストの拡充 | `OperationCheck` のカバー範囲拡大 + 自動実行の仕組み |
 | エラー分類の細分化 | エラーコードの追加と `On Error` 分岐の整理 |
 | CDP メソッド名の型付け | スキーマからの `Enum` 生成 |
 | Handle の明示的解放 | `Runtime.releaseObject` の呼び出し設計 |

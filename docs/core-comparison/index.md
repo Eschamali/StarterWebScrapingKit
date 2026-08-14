@@ -56,7 +56,7 @@ Puppeteer / Playwright については、npm パッケージのドキュメン�
 | 非同期実行 | ❌ 言語仕様の壁 | [非同期実行とイベントループ](/core-comparison/async) |
 | Browser / Page / Element の三層モデル | ✅ 完全に一致 | [クラス構成の考え方](/core-comparison/classes) |
 | クラス分割の粒度・抽象層 | ❌ VBA の制約により粗い | 同上 |
-| テストによる品質保証 | ❌ 桁違いの差 | [残る差分と、埋まらない差](/core-comparison/gaps) |
+| テストによる品質保証 | ⚠️ 仕組みはあるが範囲と自動化に差 | [残る差分と、埋まらない差](/core-comparison/gaps) |
 | エラー分類・自動リカバリ | ❌ 体系化されていない | 同上 |
 | マルチブラウザエンジン対応 | ❌ Chromium 限定 | 同上 |
 
