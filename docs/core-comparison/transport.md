@@ -212,7 +212,7 @@ frame(0) = &H80 Or opcode
 - **WebSocket** は比較になりません。Node 側は業界標準ライブラリに丸投げできるので、そもそも競技に参加していないためです。
 
 ::: tip この層の検証について
-バッファ管理は `Test_AsyncBenchmark.bas` で実負荷にかけられています。30 タブ × 10 ラウンドで最大 300 件の Base64 スクリーンショットを流し込み、Pipe / WebSocket の両経路で完走するかを見るものです（[テストの現状](/core-comparison/gaps)）。
+バッファ管理には2種類の検証が用意されています。`Test_AsyncBenchmark.bas` は 30 タブ × 10 ラウンドで最大 300 件の Base64 スクリーンショットを流し込み、Pipe / WebSocket の両経路で完走するかを見る負荷試験です。`ZIPDevelopment.bas` は ZIP 1本をブラウザに預けて解凍させ、返ってきたバイト列を書き戻す往復試験で、**解凍された exe が起動するかどうか**をバイト単位の正しさの判定に使っています（[テストの現状](/core-comparison/gaps)）。
 :::
 
 ## 次に読む
