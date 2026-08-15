@@ -463,13 +463,13 @@ End Function
 '* 機能　　：非同期実行(ExecuteBiDiAsync)した際のcommandIDに対して、結果が来るまで内部で待機します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：commandIDに対するBiDi-Jsonコマンド の実行結果(Json文字列)
-'* 引数　　：RunedID        実行ID
+'* 引数　　：CommandID      実行ID
 '            StopApiError   `Pipe - ReadFile`/`WebSocket - recv`でエラーが起こったら停止します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
 '            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Public Function AutoWaitRunCommandID(RunedID As Long, Optional StopApiError As Boolean = True) As String
+Public Function AutoWaitRunCommandID(commandID As Long, Optional StopApiError As Boolean = True) As String
     Const FromProcedureName As String = ThisClassName & ".AutoWaitRunCommandID"
 
 
@@ -477,16 +477,17 @@ Public Function AutoWaitRunCommandID(RunedID As Long, Optional StopApiError As B
     Dim timerStart As Double: timerStart = TimerCounter
     Do
         '2. 受信処理によるパイプを拝見する
+        '※内部にて`DoEvents`が走ります
         m_BiDiCore.TakeEvents StopApiError
 
         '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
-        AutoWaitRunCommandID = TakeResultBiDi(RunedID)
+        AutoWaitRunCommandID = TakeResultBiDi(commandID)
         If StrPtr(AutoWaitRunCommandID) Then
             '送ったコマンド結果であることを確認できたので、ループから抜ける
-            printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & RunedID, FromProcedureName
+            printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & commandID, FromProcedureName
             Exit Do
         Else
-            printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & RunedID, FromProcedureName
+            printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & commandID, FromProcedureName
         End If
 
         '4. 受信処理にてエラーがあったら、即抜け
