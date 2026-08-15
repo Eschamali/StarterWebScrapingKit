@@ -400,7 +400,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     '2. BiDi-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
     Dim ResultJsonStr As String
-    ResultJsonStr = AutoWaitRunCommandID(RunID, StopBiDiError)
+    ResultJsonStr = AutoWaitTakeResultBiDi(RunID, StopBiDiError)
 
     '3. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
@@ -469,20 +469,24 @@ End Function
 '* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
 '            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Public Function AutoWaitRunCommandID(commandID As Long, Optional StopApiError As Boolean = True) As String
-    Const FromProcedureName As String = ThisClassName & ".AutoWaitRunCommandID"
+Public Function AutoWaitTakeResultBiDi(commandID As Long, Optional StopApiError As Boolean = True) As String
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitTakeResultBiDi"
 
 
-    '1. 今の経過時間を記録し、取り出し開始
+    '1. すでに結果が格納済みの場合は、ここの段階で抜ける
+    AutoWaitTakeResultBiDi = TakeResultBiDi(commandID)
+    If StrPtr(AutoWaitTakeResultBiDi) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
+
+    '2. 今の経過時間を記録し、取り出し開始
     Dim timerStart As Double: timerStart = TimerCounter
     Do
-        '2. 受信処理によるパイプを拝見する
+        '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
         m_BiDiCore.TakeEvents StopApiError
 
-        '3. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
-        AutoWaitRunCommandID = TakeResultBiDi(commandID)
-        If StrPtr(AutoWaitRunCommandID) Then
+        '4. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
+        AutoWaitTakeResultBiDi = TakeResultBiDi(commandID)
+        If StrPtr(AutoWaitTakeResultBiDi) Then
             '送ったコマンド結果であることを確認できたので、ループから抜ける
             printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & commandID, FromProcedureName
             Exit Do
@@ -490,10 +494,10 @@ Public Function AutoWaitRunCommandID(commandID As Long, Optional StopApiError As
             printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & commandID, FromProcedureName
         End If
 
-        '4. 受信処理にてエラーがあったら、即抜け
+        '5. 受信処理にてエラーがあったら、即抜け
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
-        '5. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
+        '6. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
     Loop
 End Function

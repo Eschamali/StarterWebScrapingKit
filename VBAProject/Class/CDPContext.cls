@@ -593,7 +593,7 @@ step1:
         Exit Function
     Else
         '結果待機
-        CDPresult = AutoWaitRunCommandID(RunJsID, StopApiError)
+        CDPresult = AutoWaitTakeResultCDP(RunJsID, StopApiError)
 
         'タイムアウトやパイプハンドルの応答なしによる空文字判定
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
@@ -1020,7 +1020,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     '2. CDP-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
     Dim ResultJsonStr As String
-    ResultJsonStr = AutoWaitRunCommandID(RunID, StopCDPError)
+    ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
 
     '3. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
@@ -1082,20 +1082,24 @@ End Function
 '* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
 '            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Public Function AutoWaitRunCommandID(commandID As Long, Optional StopApiError As Boolean = True) As String
-    Const FromProcedureName As String = ThisClassName & ".AutoWaitRunCommandID"
+Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError As Boolean = True) As String
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitTakeResultCDP"
 
 
-    '1. 今の経過時間を記録し、取り出し開始
+    '1. すでに結果が格納済みの場合は、ここの段階で抜ける
+    AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+    If StrPtr(AutoWaitTakeResultCDP) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
+
+    '2. 今の経過時間を記録し、取り出し開始
     Dim timerStart As Double: timerStart = TimerCounter
     Do
-        '2. 受信処理によるパイプを拝見する
+        '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
         TakeEvents StopApiError
 
-        '3. 内部の`RaiseEvent`による発火で、Dictionaryへ蓄積されたか？
-        AutoWaitRunCommandID = TakeResultCDP(commandID)
-        If StrPtr(AutoWaitRunCommandID) Then
+        '4. 内部の`RaiseEvent`による発火で、Dictionaryへ蓄積されたか？
+        AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+        If StrPtr(AutoWaitTakeResultCDP) Then
             '送ったコマンド結果であることを確認できたので、ループから抜ける
             printMsg info_, "Browser have confirmed receipt of command result ID: " & commandID, FromProcedureName
             Exit Do
@@ -1103,10 +1107,10 @@ Public Function AutoWaitRunCommandID(commandID As Long, Optional StopApiError As
             printMsg Trace_, "Browser have not yet been able to confirm command ID: " & commandID, FromProcedureName
         End If
 
-        '4. 受信処理にてエラーがあったら、即抜け
+        '5. 受信処理にてエラーがあったら、即抜け
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
-        '5. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
+        '6. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
         If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
     Loop
 End Function
