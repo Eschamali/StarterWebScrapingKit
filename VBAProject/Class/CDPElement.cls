@@ -1557,7 +1557,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
-                       Optional StopPipeError As Boolean = True) As Variant
+                       Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
@@ -1574,7 +1574,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                                     generatePreview, _
                                     RunOption.RunAsyncCDP, _
                                     RunOption.StopException, _
-                                    StopPipeError)
+                                    StopApiError)
 End Function
 
 '***************************************************************************************************

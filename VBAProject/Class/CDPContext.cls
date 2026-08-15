@@ -512,7 +512,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
-                       Optional StopPipeError As Boolean = True) As Variant
+                       Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
