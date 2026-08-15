@@ -1079,10 +1079,10 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=StopCDPError
+            printMsg ERROR_, "Failed to ExecuteCDP method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=StopCDPError
         Else
             'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+            printMsg WARN_, "Failed to ExecuteCDP method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object
