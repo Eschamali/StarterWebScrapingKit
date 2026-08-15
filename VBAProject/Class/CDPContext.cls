@@ -586,14 +586,14 @@ step1:
     'Send and check CDPresult -------------------------------------------------------------------------------------------
     'まずは、CDP自体を非同期で実行し、結果待機するか分岐します
     Dim RunJsID As Long
-    RunJsID = ExecuteCDPAsync(UseJsMethod, CDPparams, StopPipeError)
+    RunJsID = ExecuteCDPAsync(UseJsMethod, CDPparams, StopApiError)
     If RunAsyncCDP Then
         'ID返却して抜ける
         jsEval = RunJsID
         Exit Function
     Else
         '結果待機
-        CDPresult = AutoWaitRunCommandID(RunJsID, StopPipeError)
+        CDPresult = AutoWaitRunCommandID(RunJsID, StopApiError)
 
         'タイムアウトやパイプハンドルの応答なしによる空文字判定
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
