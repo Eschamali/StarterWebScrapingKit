@@ -667,6 +667,36 @@ Public Function fireEvent(strEventName As String) As Boolean
 
 End Function
 
+'***************************************************************************************************
+'* 機能　　：要素に対する物理的なマウスホバーのシミュレートを行います
+'***************************************************************************************************
+Public Function sendHover() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".sendHover"
+
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Double, y As Double
+    jsEval "function(){ this.scrollIntoView(false) }"
+
+    '中心座標として返却
+    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
+    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
+
+    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）
+    Dim params As New Scripting.Dictionary
+    params("type") = "mouseMoved"
+    params("x") = x
+    params("y") = y
+    ExecuteCDP "Input.dispatchMouseEvent", params
+
+    sendHover = True
+    printMsg info_, "Executed sendHover successfully on objectId: " & elementObjectId, FromProcedureName
+
+End Function
+
 
 
 '***************************************************************************************************
