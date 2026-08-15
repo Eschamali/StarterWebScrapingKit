@@ -37,7 +37,7 @@ features:
     link: /core-comparison/
     linkText: 比較レポートへ
   - title: 開発秘話
-    details: mapperTab.js を Excel に封印するまで。公式ドライバーと同じハックに辿り着いた土日の記録。
-    link: /stories/bidi-story
-    linkText: BiDi 登場秘話
+    details: Puppeteer / Playwright 並みのコアエンジンをVBAで実現するまでの道のり
+    link: /stories/birth-story.md
+    linkText: 登場秘話を見る
 ---
