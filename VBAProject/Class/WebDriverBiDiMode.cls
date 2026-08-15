@@ -393,36 +393,36 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
-    '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
-    If params Is Nothing Then Set params = New Dictionary
+    '1. まずは非同期実行で実行IDを回収
+    Dim RunID As Long
+    RunID = ExecuteBiDiAsync(methodName, params, StopBiDiError)
 
-    'コマンド組み立て
-    Dim BiDiCommand As New Scripting.Dictionary
-    BiDiCommand.Add "method", methodName
-    BiDiCommand.Add "params", params
+    '2. BiDi-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
+    Dim ResultJsonStr As String
+    ResultJsonStr = AutoWaitRunCommandID(RunID, StopBiDiError)
 
-    '送信して結果を受け取り、Node変換
-    Dim ResultStr As String: ResultStr = SendMessage(BiDiCommand, , StopBiDiError)
+    '3. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultStr)
+    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
 
     'Print error if there is
     If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
             'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to ExecuteBiDi method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "Failed to ExecuteBiDi method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=True
         Else
             'エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to ExecuteBiDi method """ & methodName & """", FromProcedureName
         End If
     Else
         'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
-        If resultJson.ExistsKey("result") Then Set ExecuteBiDi = resultJson.NodeKey("result")
+        Set ExecuteBiDi = resultJson.NodeKey("result")
     End If
 
     'デバッグ用に、As Is 出力
-    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultStr, FromProcedureName
+    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -441,88 +441,60 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDiAsync"
 
 
-    '`nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
+    '1. `nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
     If params Is Nothing Then Set params = New Dictionary
 
-    'コマンド組み立て
+    '2. コマンド組み立て
     Dim BiDiCommand As New Scripting.Dictionary
     BiDiCommand.Add "method", methodName
     BiDiCommand.Add "params", params
 
-    '送信
-    SendMessage BiDiCommand, True, StopError
+    '3. 送信し、実行IDを取得
+    ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(BiDiCommand, StopError)
 
-    '実行したIDを返却
-    ExecuteBiDiAsync = m_BiDiCore.LastCommandID
+    '4. 送信APIエラーチェック
+    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
+
+    '5. ログ化
     printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`BiDiコマンド送信のコア処理
+'* 機能　　：非同期実行(ExecuteBiDiAsync)した際のcommandIDに対して、結果が来るまで内部で待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → BiDi-Jsonコマンド の実行結果(Json文字列)
-'                      `True`  → `vbnullstring`
-'
-'* 引数　　：DirMessage             BiDi形式で送信するJsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
-'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
-'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
-'
-'            StopError              `True` ：内部エラーがあったら止まります
-'                                   `False`：内部エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
+'* 返り値　：commandIDに対するBiDi-Jsonコマンド の実行結果(Json文字列)
+'* 引数　　：RunedID        実行ID
+'            StopApiError   `Pipe - ReadFile`/`WebSocket - recv`でエラーが起こったら停止します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`vbnullstring`で、返ります
+'* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
+'            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopError As Boolean = True) As String
-    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+Public Function AutoWaitRunCommandID(RunedID As Long, Optional StopApiError As Boolean = True) As String
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitRunCommandID"
 
 
-    '--------------------------------------------------
-    'Send message to the browser
-    '--------------------------------------------------
-    printMsg Debug_, "runBiDi  - Async       = " & Async, FromProcedureName
-
-    m_BiDiCore.ReadyRunBiDi DirMessage, StopError                               '`Runtime.evaluate`による、BiDi → CDP 変換実行時の内部エラー無視設定も指定して、両者を釣り合わせる
-    Dim currentCommandID As Long: currentCommandID = m_BiDiCore.LastCommandID   '`ReadyRunBiDi`直後のcommandIDを取得
-
-    'WriteFile にてエラーがあった場合
-    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
-
-    '非同期(結果はいらない)モードなら、ここで抜けます
-    If Async Then Exit Function
-
-    '------------------------------------------------
-    'Read message returned by browser
-    '------------------------------------------------
-    'BiDi-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    '1. 今の経過時間を記録し、取り出し開始
     Dim timerStart As Double: timerStart = TimerCounter
-    Dim tmp As String
-    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
-
     Do
         '1. 受信処理によるパイプを拝見する
-        m_BiDiCore.TakeEvents StopError
+        m_BiDiCore.TakeEvents StopApiError
 
         '2. 内部の`RaiseEvent detectionBiDiID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = TakeResultBiDi(currentCommandID)
-        If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたのでJsonパース処理して結果を返す
-            SendMessage = tmp
-            printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
-
-            'ループから抜ける
+        AutoWaitRunCommandID = TakeResultBiDi(RunedID)
+        If StrPtr(AutoWaitRunCommandID) Then
+            '送ったコマンド結果であることを確認できたので、ループから抜ける
+            printMsg info_, "WebDriverBiDi have confirmed receipt of command result ID: " & RunedID, FromProcedureName
             Exit Do
         Else
-            printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
+            printMsg Trace_, "WebDriverBiDi have not yet been able to confirm command ID: " & RunedID, FromProcedureName
         End If
 
         '3. 受信処理にてエラーがあったら、即抜け
-        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
+        If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
         '4. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
         If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
     Loop
-
-    printMsg Trace_, "BiDiCommand result ID:" & currentCommandID & " was returned from BiDi-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
 
