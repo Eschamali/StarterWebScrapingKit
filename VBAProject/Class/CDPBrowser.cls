@@ -1092,7 +1092,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
             printMsg WARN_, "Failed to ExecuteCDP method """ & methodName & """", FromProcedureName
         End If
     Else
-        'Return result object
+        '5-1. Return result object
         Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
