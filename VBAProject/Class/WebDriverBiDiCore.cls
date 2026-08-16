@@ -68,7 +68,6 @@ End Type
 Private BiDiDebug As StateDebug
 
 'ステート管理
-Private m_MessageID     As Long     '現在のBiDiコマンドID
 Private LogID           As String   'このClassオブジェクトとしてのログID
 
 
@@ -364,17 +363,17 @@ End Sub
 '* 機能　　：BiDiコマンドが載ったJavaScriptをCDPで非同期実行します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strData        完成したBiDi-Jsonコマンド
-'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
+'            StopApiError   CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
 '***************************************************************************************************
-Private Sub RunCDP(strData As String, StopPipeError As Boolean)
+Private Sub RunCDP(strData As String, StopApiError As Boolean)
     '1. JSONのダブルクォートやエスケープ処理による構文乱れを防ぐための引数設定
     Dim argList(0) As Dictionary
     Dim argObj As New Dictionary: argObj.Add "value", strData: Set argList(0) = argObj
 
     '2. BiDiパラメータが載ったJavaScript実行で、非同期CDP実行
     '※CDPと同様のロジック、「書き込みだけ」にするため、非同期で実行。同期だと、パイプ内のデータ回収が走って、IDずれが起こるため
-    '※非同期実行であれば、`.jsEval`でも十分な軽量コーディングなので問題なし
-    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=argList, RunAsyncCDP:=True, StopPipeError:=StopPipeError
+    '※非同期実行であれば、`.jsEval`でも十分な軽量ラッパーなので問題なし
+    WebDriverBiDi_mapperTab.jsEval "function(commandBiDi) { window." & BiDiSend & "(commandBiDi); }", objectArguments:=argList, RunAsyncCDP:=True, StopApiError:=StopApiError
 End Sub
 
 
@@ -384,28 +383,29 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：CDP実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
+'* 返り値　：実行コマンドID
 '* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
-'            StopPipeError  CDP側の`TakeEvents`によるPipeエラーを無視するかの設定
+'            StopApiError   CDP側の`TakeEvents`によるAPIエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Sub ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopPipeError As Boolean)
+Public Function ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopApiError As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
-    Dim currentCommandID As Long: currentCommandID = IssuanceCommandID
+    ReadyRunBiDi = IssuanceCommandID
 
     '2. `id`を付与
-    dicMessage.Add "id", currentCommandID
+    dicMessage.Add "id", ReadyRunBiDi
 
     '3. 実際に実行
     Dim strMessage As String
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    RunCDP strMessage, StopPipeError
-End Sub
+    RunCDP strMessage, StopApiError
+End Function
 
 '***************************************************************************************************
 '* 機能　　：BiDi実行の際のコマンドIDを発行します
@@ -418,20 +418,22 @@ Private Function IssuanceCommandID() As Long
     Const FromProcedureName As String = ThisClassName & ".IssuanceCommandID"
 
 
-    If m_MessageID + 1 > LimitCommandID Then
-        '1. リクエスト数の上限に達したら、1にリセットしておく
-        m_MessageID = 1
+    '1. 上限チェック
+    Static LastCommandID As Long
+    If LastCommandID + 1 > LimitCommandID Then
+        '1-1. リクエスト数の上限に達したら、0にリセットしておく
+        LastCommandID = 0
         printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
-        '2. リセットした旨を伝える
+        '1-2. リセットした旨を伝える
         RaiseEvent ResetCommandID
-    Else
-        '1. カウントアップ
-        m_MessageID = m_MessageID + 1   'We increase the global ID counter
     End If
 
-    '2. 返却
-    IssuanceCommandID = m_MessageID
+    '2. カウントアップ
+    LastCommandID = LastCommandID + 1   'We increase the global ID counter
+
+    '3. 返却
+    IssuanceCommandID = LastCommandID
 End Function
 
 
@@ -501,10 +503,6 @@ End Property
 
 Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
     LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
-End Property
-
-Property Get LastCommandID() As Long                    '最後に実行したcommandID値
-    LastCommandID = m_MessageID
 End Property
 
 '***************************************************************************************************

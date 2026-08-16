@@ -176,6 +176,326 @@ End Property
 '***************************************************************************************************
 '                                   ■■■ 要素操作関連 ■■■
 '***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] クリック・送信
+'---------------------------------------------------------------------------------------------------
+
+'***************************************************************************************************
+'* 機能　　：JavaScriptでのシンプルなクリックコマンドを実行します
+'***************************************************************************************************
+Public Function SimpleClick() As Boolean
+
+    'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'シンプルなクリックコマンドを実行
+    jsEval "function(){ this.click() }"
+
+    '成功サインを返す
+    SimpleClick = True
+
+End Function
+
+Public Function click() As Boolean
+'----------------------------------------------------------
+' Perform a standard click on the element. Remember to
+' perform wait if necessary for the page to be refreshed.
+' Updated: 12/12/2023
+'----------------------------------------------------------
+
+   'When ifExist is employed, the function should only execute if the element exists
+    If checkExist Then If Not isExist Then Exit Function
+
+
+   'Scroll into the view for better visibility of the automation
+    jsEval "function(){ this.scrollIntoView(false) }"
+
+   'Some fields require the browser to manually focus before allowing
+   'the click action, such as the input type 'file' field.
+    Dim params As New Scripting.Dictionary
+    params("text") = ""
+    ExecuteCDP "Input.insertText", params
+
+   'Perform click
+    jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
+    click = True
+
+End Function
+
+Public Function submit() As Boolean
+'----------------------------------------------------------
+' Submit a form element.
+' Updated: 12/12/2023
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    jsEval "function(){ this.form.submit() }"
+    submit = True
+
+End Function
+
+Public Function sendClick() As Boolean
+'----------------------------------------------------------------
+' Attempt to simulate physical left mouse click input instead of
+' DOM manipulation with JavaScript dispatchEvent method.
+'----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendClick"
+
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
+    Dim x As Double, y As Double
+    jsEval "function(){ this.scrollIntoView(false) }"
+
+    '中心座標として返却
+    x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
+    y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
+
+    Dim params As New Scripting.Dictionary
+    params("type") = "mousePressed"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("clickCount") = 1
+    ExecuteCDP "Input.dispatchMouseEvent", params
+
+    params.RemoveAll
+    params("type") = "mouseReleased"
+    params("x") = x
+    params("y") = y
+    params("button") = "left"
+    params("clickCount") = 1
+    ExecuteCDP "Input.dispatchMouseEvent", params
+
+    sendClick = True
+    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
+
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 入力・クリア
+'---------------------------------------------------------------------------------------------------
+Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False) As Boolean
+'----------------------------------------------------------------
+' Attempt to directly send a unique keyboard input to the element.
+' Updated: 12/07/2024
+'----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendKey"
+
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'Set focus on the node
+    Dim params As New Scripting.Dictionary
+    params("objectId") = elementObjectId
+    ExecuteCDP "DOM.focus", params
+
+    'Send key down event to the browser
+    params.RemoveAll
+    params("type") = "keyDown"
+    params("windowsVirtualKeyCode") = Key
+    params("altKey") = altKey
+    ExecuteCDP "Input.dispatchKeyEvent", params
+
+    'Send key up event to the browser to release the key
+    params.RemoveAll
+    params("type") = "keyUp"
+    params("windowsVirtualKeyCode") = Key
+    params("altKey") = False
+    ExecuteCDP "Input.dispatchKeyEvent", params
+
+    sendKey = True
+    printMsg info_, "Executed sendKey successfully on objectId: " & elementObjectId, FromProcedureName
+
+End Function
+
+Public Function sendString(textToSend As String) As Boolean
+'----------------------------------------------------------------
+' Attempt to directly send the text string to the element via
+' backdoor interaction with CDP instead of manipulating the DOM.
+' Updated: 28/04/2023
+'----------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".sendString"
+
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    'First clear the current text of the field
+    jsEval "function(){ this.value = '' }"
+
+    'Set focus on the node
+    Dim params As New Scripting.Dictionary
+    params("objectId") = elementObjectId
+    ExecuteCDP "DOM.focus", params
+
+    'Sendkeys to the node
+    params.RemoveAll
+    params("text") = textToSend
+    ExecuteCDP "Input.insertText", params
+
+    sendString = True
+    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & elementObjectId, FromProcedureName
+
+End Function
+
+Public Function clearValue() As Boolean
+'----------------------------------------------------------------
+' Clear the value currently had by the input element
+'----------------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    Dim e1 As String
+    Dim isReact As Boolean
+
+    'Scroll into view
+    jsEval "function(){ this.scrollIntoView(false) }"
+
+    'Reactフィールド検出
+    e1 = jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }")
+    If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
+
+    'Perform clearing using all the methods
+    If Not isReact Then
+        jsEval "function(){ this.value = '' }"
+    Else
+        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, '') }"
+        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, '') }"
+    End If
+
+   'Most input elements need this
+    fireEvent "input"
+    clearValue = True
+
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] フォーム系
+'---------------------------------------------------------------------------------------------------
+Property Let checked(boolChecked As Boolean)
+'----------------------------------------------------------
+' Change the checked value of a check box element
+' Updated: 04/12/2023
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
+
+    Dim args(0) As Scripting.Dictionary
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", CBool(boolChecked)
+    Set args(0) = arg
+    jsEval "function(v){ this.checked = v }", args
+
+End Property
+
+Property Get checked() As Boolean
+'----------------------------------------------------------
+' Change the checked value of a check box element
+' Updated: 04/12/2023
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
+
+    checked = jsEval("function(){ return this.checked }")
+
+End Property
+
+Property Let selected(selectedOption As String)
+'----------------------------------------------------------
+' Change the selected value of an html select element type.
+' eg. br.getElementbyId("list").selected = 2
+' Updated: 06/03/2025
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
+
+    Dim args(0) As Scripting.Dictionary
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", selectedOption
+    Set args(0) = arg
+    jsEval "function(v){ this.selectedIndex = v }", args
+    fireEvent "change"
+
+End Property
+
+Property Get selected() As String
+'----------------------------------------------------------
+' Get the selected option. Only returns the first option.
+' Updated: 06/03/2025
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Property
+
+
+    selected = jsEval("function(){ return this.selectedOptions[0] }")
+
+End Property
+
+Public Function setSelection(strOptionName As String)
+'----------------------------------------------------------
+' Set option value to a select element.
+' Updated: 06/03/2025
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    jsEval "function(){ this.scrollIntoView(false) }"
+    Me.value = strOptionName
+    fireEvent "change"
+
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 属性操作
+'---------------------------------------------------------------------------------------------------
+Public Function getAttribute(strAttributeName As String) As String
+'----------------------------------------------------------
+' Get the value of an element attribute based on its name.
+' Updated: 12/12/23 - added checkExist
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    Dim args(0) As Scripting.Dictionary
+    Dim arg As New Scripting.Dictionary
+    arg.Add "value", strAttributeName
+    Set args(0) = arg
+    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
+
+End Function
+
+Public Function setAttribute(strAttributeName As String, strValue As String)
+'----------------------------------------------------------
+' Set value to an element attribute based on its name.
+' Updated: 12/12/23 - added checkExist
+'----------------------------------------------------------
+
+    If checkExist Then If Not isExist Then Exit Function
+
+
+    Dim args2(1) As Scripting.Dictionary
+    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
+    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
+    jsEval "function(name, val){ this.setAttribute(name, val) }", args2
+
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 要素本体の内容・値
+'---------------------------------------------------------------------------------------------------
 Property Get value() As String
 '----------------------------------------------------------
 ' Get the value property of the element in the HTML.
@@ -299,173 +619,9 @@ Property Let innerHTML(strTextVal As String)
 
 End Property
 
-Property Let checked(boolChecked As Boolean)
-'----------------------------------------------------------
-' Change the checked value of a check box element
-' Updated: 04/12/2023
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Property
-
-
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
-    arg.Add "value", CBool(boolChecked)
-    Set args(0) = arg
-    jsEval "function(v){ this.checked = v }", args
-
-End Property
-
-Property Get checked() As Boolean
-'----------------------------------------------------------
-' Change the checked value of a check box element
-' Updated: 04/12/2023
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Property
-
-
-    checked = jsEval("function(){ return this.checked }")
-
-End Property
-
-Property Let selected(selectedOption As String)
-'----------------------------------------------------------
-' Change the selected value of an html select element type.
-' eg. br.getElementbyId("list").selected = 2
-' Updated: 06/03/2025
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Property
-
-
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
-    arg.Add "value", selectedOption
-    Set args(0) = arg
-    jsEval "function(v){ this.selectedIndex = v }", args
-    fireEvent "change"
-
-End Property
-
-Property Get selected() As String
-'----------------------------------------------------------
-' Get the selected option. Only returns the first option.
-' Updated: 06/03/2025
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Property
-
-
-    selected = jsEval("function(){ return this.selectedOptions[0] }")
-
-End Property
-
-Public Function click() As Boolean
-'----------------------------------------------------------
-' Perform a standard click on the element. Remember to
-' perform wait if necessary for the page to be refreshed.
-' Updated: 12/12/2023
-'----------------------------------------------------------
-
-   'When ifExist is employed, the function should only execute if the element exists
-    If checkExist Then If Not isExist Then Exit Function
-
-
-   'Scroll into the view for better visibility of the automation
-    jsEval "function(){ this.scrollIntoView(false) }"
-
-   'Some fields require the browser to manually focus before allowing
-   'the click action, such as the input type 'file' field.
-    Dim params As New Scripting.Dictionary
-    params("text") = ""
-    ExecuteCDP "Input.insertText", params
-
-   'Perform click
-    jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
-    click = True
-
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScriptでのシンプルなクリックコマンドを実行します
-'***************************************************************************************************
-Public Function SimpleClick() As Boolean
-
-    'When ifExist is employed, the function should only execute if the element exists
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    'シンプルなクリックコマンドを実行
-    jsEval "function(){ this.click() }"
-
-    '成功サインを返す
-    SimpleClick = True
-
-End Function
-
-Public Function submit() As Boolean
-'----------------------------------------------------------
-' Submit a form element.
-' Updated: 12/12/2023
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    jsEval "function(){ this.form.submit() }"
-    submit = True
-
-End Function
-
-Public Function getAttribute(strAttributeName As String) As String
-'----------------------------------------------------------
-' Get the value of an element attribute based on its name.
-' Updated: 12/12/23 - added checkExist
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
-    arg.Add "value", strAttributeName
-    Set args(0) = arg
-    getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
-
-End Function
-
-Public Function setAttribute(strAttributeName As String, strValue As String)
-'----------------------------------------------------------
-' Set value to an element attribute based on its name.
-' Updated: 12/12/23 - added checkExist
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    Dim args2(1) As Scripting.Dictionary
-    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
-    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
-    jsEval "function(name, val){ this.setAttribute(name, val) }", args2
-
-End Function
-
-Public Function setSelection(strOptionName As String)
-'----------------------------------------------------------
-' Set option value to a select element.
-' Updated: 06/03/2025
-'----------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    jsEval "function(){ this.scrollIntoView(false) }"
-    Me.value = strOptionName
-    fireEvent "change"
-
-End Function
-
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] フォーカス・選択・イベント
+'---------------------------------------------------------------------------------------------------
 Public Function selectText()
 '----------------------------------------------------------
 ' Select all the text held by the element.
@@ -494,11 +650,7 @@ End Function
 
 Public Function fireEvent(strEventName As String) As Boolean
 '------------------------------------------------------------
-' Dispatch the custom event on the element. Unlike the IE
-' DOM event name, the argument strEventName for JS should
-' not start with "on" such as "onblur" but only "blur".
-' NOTE："onchange" -> "change" - correct JS event name
-' Updated: 12/12/2023
+' Dispatch the custom event on the element.
 '------------------------------------------------------------
 
     If checkExist Then If Not isExist Then Exit Function
@@ -515,42 +667,11 @@ Public Function fireEvent(strEventName As String) As Boolean
 
 End Function
 
-Public Function sendString(textToSend As String) As Boolean
-'----------------------------------------------------------------
-' Attempt to directly send the text string to the element via
-' backdoor interaction with CDP instead of manipulating the DOM.
-' Updated: 28/04/2023
-'----------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".sendString"
-
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    'First clear the current text of the field
-    jsEval "function(){ this.value = '' }"
-
-    'Set focus on the node
-    Dim params As New Scripting.Dictionary
-    params("objectId") = elementObjectId
-    ExecuteCDP "DOM.focus", params
-
-    'Sendkeys to the node
-    params.RemoveAll
-    params("text") = textToSend
-    ExecuteCDP "Input.insertText", params
-
-    sendString = True
-    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & elementObjectId, FromProcedureName
-
-End Function
-
-Public Function sendClick() As Boolean
-'----------------------------------------------------------------
-' Attempt to simulate physical left mouse click input instead of
-' DOM manipulation with JavaScript dispatchEvent method.
-'----------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".sendClick"
+'***************************************************************************************************
+'* 機能　　：要素に対する物理的なマウスホバーのシミュレートを行います
+'***************************************************************************************************
+Public Function sendHover() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".sendHover"
 
 
     If checkExist Then If Not isExist Then Exit Function
@@ -564,91 +685,15 @@ Public Function sendClick() As Boolean
     x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
     y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
 
+    '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）
     Dim params As New Scripting.Dictionary
-    params("type") = "mousePressed"
+    params("type") = "mouseMoved"
     params("x") = x
     params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
     ExecuteCDP "Input.dispatchMouseEvent", params
 
-    params.RemoveAll
-    params("type") = "mouseReleased"
-    params("x") = x
-    params("y") = y
-    params("button") = "left"
-    params("clickCount") = 1
-    ExecuteCDP "Input.dispatchMouseEvent", params
-
-    sendClick = True
-    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
-
-End Function
-
-Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False) As Boolean
-'----------------------------------------------------------------
-' Attempt to directly send a unique keyboard input to the element.
-' Updated: 12/07/2024
-'----------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".sendKey"
-
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    'Set focus on the node
-    Dim params As New Scripting.Dictionary
-    params("objectId") = elementObjectId
-    ExecuteCDP "DOM.focus", params
-
-    'Send key down event to the browser
-    params.RemoveAll
-    params("type") = "keyDown"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = altKey
-    ExecuteCDP "Input.dispatchKeyEvent", params
-
-    'Send key up event to the browser to release the key
-    params.RemoveAll
-    params("type") = "keyUp"
-    params("windowsVirtualKeyCode") = Key
-    params("altKey") = False
-    ExecuteCDP "Input.dispatchKeyEvent", params
-
-    sendKey = True
-    printMsg info_, "Executed sendKey successfully on objectId: " & elementObjectId, FromProcedureName
-
-End Function
-
-Public Function clearValue() As Boolean
-'----------------------------------------------------------------
-' Clear the value currently had by the input element
-'----------------------------------------------------------------
-
-    If checkExist Then If Not isExist Then Exit Function
-
-
-    Dim e1 As String
-    Dim isReact As Boolean
-
-    'Scroll into view
-    jsEval "function(){ this.scrollIntoView(false) }"
-
-    'Reactフィールド検出
-    e1 = jsEval("function(){ try { return Object.entries(this)[0][0] } catch(e) { return '' } }")
-    If InStr(e1, "react") Or InStr(e1, "Tracker") Or InStr(e1, "State") Then isReact = True
-
-    'Perform clearing using all the methods
-    If Not isReact Then
-        jsEval "function(){ this.value = '' }"
-    Else
-        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(this, '') }"
-        jsEval "function(){ Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(this, '') }"
-    End If
-
-   'Most input elements need this
-    fireEvent "input"
-    clearValue = True
+    sendHover = True
+    printMsg info_, "Executed sendHover successfully on objectId: " & elementObjectId, FromProcedureName
 
 End Function
 
@@ -1512,7 +1557,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
-                       Optional StopPipeError As Boolean = True) As Variant
+                       Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
@@ -1529,7 +1574,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                                     generatePreview, _
                                     RunOption.RunAsyncCDP, _
                                     RunOption.StopException, _
-                                    StopPipeError)
+                                    StopApiError)
 End Function
 
 '***************************************************************************************************
