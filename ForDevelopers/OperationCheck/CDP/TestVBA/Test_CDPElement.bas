@@ -46,6 +46,7 @@ Public Sub RunAll_CDPElement_Tests()
     Test15_ShadowRoot_Open_Closed br
     Test16_SetFileInputFiles br
     Test17_Diagnostics_And_Options br
+    Test18_SendHover br
 
     PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
@@ -442,6 +443,23 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     AssertTrue "SetOptionUserGestureの設定・解除でエラーが起きないこと", (errUserGesture = 0)
 
     br.jsEval "updateStatus('s-ce17','⑰ 完了 " & EOk() & " | 診断プロパティ / 実行オプション', true)", StopApiError:=False
+End Sub
+
+'==============================================================================
+' ⑱ sendHover
+'==============================================================================
+Private Sub Test18_SendHover(br As CDPContext)
+    PrintSection "⑱ sendHover"
+
+    Dim hv As CDPElement: Set hv = br.getElementByID("testHoverTarget")
+    AssertEq "sendHover前のhovered状態", hv.getAttribute("data-hovered"), "false"
+    AssertEq "sendHover前のhover回数", hv.getAttribute("data-hovercount"), "0"
+
+    hv.sendHover
+    AssertEq "sendHover後のhovered状態", hv.getAttribute("data-hovered"), "true"
+    AssertEq "sendHover後のhover回数", hv.getAttribute("data-hovercount"), "1"
+
+    br.jsEval "updateStatus('s-ce18','⑱ 完了 " & EOk() & " | sendHover', true)", StopApiError:=False
 End Sub
 
 '==============================================================================

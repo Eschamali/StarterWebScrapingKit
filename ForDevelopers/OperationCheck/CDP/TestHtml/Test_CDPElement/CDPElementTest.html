@@ -74,6 +74,7 @@
       <div class="status-row" id="row-ce15b"><span class="status-lbl">⑮-b GetShadowRoots（closed）</span><div class="status-box" id="s-ce15b">未実行</div></div>
       <div class="status-row" id="row-ce16"><span class="status-lbl">⑯ SetFileInputFiles</span><div class="status-box" id="s-ce16">未実行</div></div>
       <div class="status-row" id="row-ce17"><span class="status-lbl">⑰ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-ce17">未実行</div></div>
+      <div class="status-row" id="row-ce18"><span class="status-lbl">⑱ sendHover</span><div class="status-box" id="s-ce18">未実行</div></div>
     </div>
   </section>
 
@@ -176,6 +177,11 @@
   </section>
 
   <section>
+    <h3>⑱ sendHover</h3>
+    <div id="testHoverTarget" data-hovered="false" data-hovercount="0">Hover Target</div>
+  </section>
+
+  <section>
     <h3>最終サマリー</h3>
     <div class="status-box" id="s-summary">テスト未実行</div>
   </section>
@@ -263,6 +269,13 @@
   var hostClosed = document.getElementById('shadowHostClosed');
   var shadowClosed = hostClosed.attachShadow({ mode: 'closed' });
   shadowClosed.innerHTML = '<span class="shadow-content">Shadow content (closed)</span>';
+
+  // ⑱ sendHover
+  var hoverTarget = document.getElementById('testHoverTarget');
+  hoverTarget.addEventListener('mouseenter', function () {
+    this.dataset.hovered = 'true';
+    this.dataset.hovercount = (parseInt(this.dataset.hovercount || '0', 10) + 1).toString();
+  });
 
   addLog('ページ読み込み完了', 'pass');
 })();
