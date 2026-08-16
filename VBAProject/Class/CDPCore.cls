@@ -485,7 +485,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：ハンドル生存可否
 '***************************************************************************************************
-Public Property Get isAvailability() As Boolean
+Public Function isAvailability() As Boolean
     Const FromProcedureName As String = ThisClassName & ".isAvailability"
 
 
@@ -506,7 +506,7 @@ Public Property Get isAvailability() As Boolean
         'ステータスを最新にしておく
         LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
     End If
-End Property
+End Function
 
 '***************************************************************************************************
 '* 機能　　：各種ハンドル情報をクリーニングします
@@ -864,20 +864,20 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：呼び出す度に1件1件、CDPメッセージを取り出します
 '***************************************************************************************************
-Private Property Get TakeCDPMessage() As String
+Private Function TakeCDPMessage() As String
     Const FromProcedureName As String = ThisClassName & ".TakeCDPMessage"
 
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Property
+        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
         '3. 見つからないあるいは、`.AddCursor`を超える場合は、メッセージ取り出しできないので、抜ける
-        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Property
+        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
 
         '4. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
@@ -896,7 +896,7 @@ Private Property Get TakeCDPMessage() As String
             .StartCursor = EndPos
         End If
     End With
-End Property
+End Function
 
 Private Function searchNull(checkString As String, StartPos As Long) As Long
 '------------------------------------------------------------

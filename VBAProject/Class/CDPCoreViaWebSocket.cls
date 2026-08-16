@@ -226,7 +226,7 @@ End Property
 '***************************************************************************************************
 '* 機能    ：ソケットが生きてるかを確認します
 '***************************************************************************************************
-Public Property Get isAvailability() As Boolean
+Public Function isAvailability() As Boolean
     Const FromProcedureName As String = ThisClassName & ".isAvailability"
 
 
@@ -237,7 +237,7 @@ Public Property Get isAvailability() As Boolean
     'ステータスを最新にしておく
     LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
     printMsg Debug_, WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
-End Property
+End Function
 
 
 
