@@ -1036,11 +1036,13 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
             'データなしの場合は、エラーコードチェックを行う
             If viaWebSocket.IsErrorStylePeekNamedPipe Then
                 'ioctlsocket にてエラーがあった場合
+                LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe    'エラーコードを同期させておく
                 printMsg ERROR_, LogID, "Error ioctlsocket in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStylePeekNamedPipe, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
             ElseIf viaWebSocket.IsErrorStyleReadFile Then
                 'recv にてエラーがあった場合
+                LastPipeError.ReadFile = viaWebSocket.IsErrorStyleReadFile              'エラーコードを同期させておく
                 printMsg ERROR_, LogID, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
