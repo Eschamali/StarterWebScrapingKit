@@ -1017,31 +1017,38 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Dim RunID As Long
     RunID = ExecuteCDPAsync(methodName, params, StopCDPError)
 
-    '2. CDP-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '2. 1回だけメッセージ取り出しを行う
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
+    TakeEvents StopCDPError
+
+    '3. CDP-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '前述の`TakeEvents`により
+    '・結果が届いた：ループに入らず即回収
+    '・結果がまだ　：ループに入って回収
+    'といったパフォーマンス改善になります
     Dim ResultJsonStr As String
     ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
 
-    '3. 結果を、Node変換
+    '4. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
 
-    '4. Print error if there is
+    '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
-            'エラーになったmethod名と、結果生responseを表示して停止
+            '5-1. エラーになったmethod名と、結果生responseを表示して停止
             printMsg ERROR_, "Failed to ExecuteCDP method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=StopCDPError
         Else
-            'エラーになったmethod名だけログ出して続行
+            '5-1. エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to ExecuteCDP method """ & methodName & """", FromProcedureName
         End If
     Else
-        'Return result object
+        '5-1. Return result object
         Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
-    'デバッグ用に、As Is 出力
+    '6. デバッグ用に、As Is 出力
     If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function

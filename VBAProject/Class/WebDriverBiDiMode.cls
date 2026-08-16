@@ -397,31 +397,38 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     Dim RunID As Long
     RunID = ExecuteBiDiAsync(methodName, params, StopBiDiError)
 
-    '2. BiDi-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '2. 1回だけメッセージ取り出しを行う
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
+    TakeEvents StopBiDiError
+
+    '3. BiDi-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '前述の`TakeEvents`により
+    '・結果が届いた：ループに入らず即回収
+    '・結果がまだ　：ループに入って回収
+    'といったパフォーマンス改善になります
     Dim ResultJsonStr As String
     ResultJsonStr = AutoWaitTakeResultBiDi(RunID, StopBiDiError)
 
-    '3. 結果を、Node変換
+    '4. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
     Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
 
-    'Print error if there is
+    '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopBiDiError Then
-            'エラーになったmethod名と、結果生responseを表示して停止
+            '5-1. エラーになったmethod名と、結果生responseを表示して停止
             printMsg ERROR_, "Failed to ExecuteBiDi method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=True
         Else
-            'エラーになったmethod名だけログ出して続行
+            '5-1. エラーになったmethod名だけログ出して続行
             printMsg WARN_, "Failed to ExecuteBiDi method """ & methodName & """", FromProcedureName
         End If
     Else
-        'Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
+        '5-1. Return result object(`CDPBrowser`の思想に従い、`Result`オブジェクトで返却します)
         Set ExecuteBiDi = resultJson.NodeKey("result")
     End If
 
-    'デバッグ用に、As Is 出力
+    '6. デバッグ用に、As Is 出力
     If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
