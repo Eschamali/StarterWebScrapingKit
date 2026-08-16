@@ -264,7 +264,6 @@ Private dwProcessId     As LongPtr
 Private DictionarySessionID As Dictionary
 
 'その他
-Private LastCommandID_Pipe  As Long     '現在のコマンドID
 Private m_Frequency         As Currency '実行マシンでの周波数記録用
 Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 
@@ -486,7 +485,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：ハンドル生存可否
 '***************************************************************************************************
-Public Property Get isAvailability() As Boolean
+Public Function isAvailability() As Boolean
     Const FromProcedureName As String = ThisClassName & ".isAvailability"
 
 
@@ -507,7 +506,7 @@ Public Property Get isAvailability() As Boolean
         'ステータスを最新にしておく
         LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
     End If
-End Property
+End Function
 
 '***************************************************************************************************
 '* 機能　　：各種ハンドル情報をクリーニングします
@@ -729,18 +728,18 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：`WriteFile`の実行結果  ※0で成功です
+'* 返り値　：実行コマンドID
 '* 引数　　：dicMessage Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
 '            SessionID  タブへの命令の場合は指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As String)
+Public Function ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
-    Dim currentCommandID As Long: currentCommandID = IssuanceCommandID
+    ReadyRunCDP = IssuanceCommandID
 
     '2. `sessionId`check
     If StrPtr(sessionID) Then
@@ -748,14 +747,14 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
         dicMessage.Add "sessionId", sessionID
 
         '2-2. commandIDと`sessionId`の紐づけを行う
-        DictionarySessionID.Add currentCommandID, sessionID
-        printMsg Trace_, LogID, "commandID:" & currentCommandID & " corresponds to SessionID:" & sessionID, FromProcedureName
+        DictionarySessionID.Add ReadyRunCDP, sessionID
+        printMsg Trace_, LogID, "commandID:" & ReadyRunCDP & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
-        printMsg Trace_, LogID, "commandID:" & currentCommandID & " does not have a SessionID.", FromProcedureName
+        printMsg Trace_, LogID, "commandID:" & ReadyRunCDP & " does not have a SessionID.", FromProcedureName
     End If
 
     '3.`id`を付与
-    dicMessage.Add "id", currentCommandID
+    dicMessage.Add "id", ReadyRunCDP
 
     '4. 実際に実行
     Dim strMessage As String
@@ -765,7 +764,7 @@ Public Sub ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As
 
     '5. 通信モードに応じてPipe/WebSocket分岐
     If viaWebSocket Is Nothing Then writeProcCDP strMessage Else writeWebSocketCDP strMessage
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　：CDP実行の際のコマンドIDを発行します
@@ -778,20 +777,22 @@ Private Function IssuanceCommandID() As Long
     Const FromProcedureName As String = ThisClassName & ".IssuanceCommandID"
 
 
-    If LastCommandID_Pipe + 1 > LimitCommandID Then
-        '1. リクエスト数の上限に達したら、1にリセットしておく
-        LastCommandID_Pipe = 1
+    '1. 上限チェック
+    Static LastCommandID As Long
+    If LastCommandID + 1 > LimitCommandID Then
+        '1-1. リクエスト数の上限に達したら、0にリセットしておく
+        LastCommandID = 0
         printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
-        '2. リセットした旨を伝える
+        '1-2. リセットした旨を伝える
         RaiseEvent ResetCommandID
-    Else
-        '1. カウントアップ
-        LastCommandID_Pipe = LastCommandID_Pipe + 1   'We increase the global ID counter
     End If
 
-    '2. 返却
-    IssuanceCommandID = LastCommandID_Pipe
+    '2. カウントアップ
+    LastCommandID = LastCommandID + 1   'We increase the global ID counter
+
+    '3. 返却
+    IssuanceCommandID = LastCommandID
 End Function
 
 
@@ -863,20 +864,20 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：呼び出す度に1件1件、CDPメッセージを取り出します
 '***************************************************************************************************
-Private Property Get TakeCDPMessage() As String
+Private Function TakeCDPMessage() As String
     Const FromProcedureName As String = ThisClassName & ".TakeCDPMessage"
 
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Property
+        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
         '3. 見つからないあるいは、`.AddCursor`を超える場合は、メッセージ取り出しできないので、抜ける
-        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Property
+        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
 
         '4. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
@@ -895,7 +896,7 @@ Private Property Get TakeCDPMessage() As String
             .StartCursor = EndPos
         End If
     End With
-End Property
+End Function
 
 Private Function searchNull(checkString As String, StartPos As Long) As Long
 '------------------------------------------------------------
@@ -1035,11 +1036,13 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
             'データなしの場合は、エラーコードチェックを行う
             If viaWebSocket.IsErrorStylePeekNamedPipe Then
                 'ioctlsocket にてエラーがあった場合
+                LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe    'エラーコードを同期させておく
                 printMsg ERROR_, LogID, "Error ioctlsocket in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStylePeekNamedPipe, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
             ElseIf viaWebSocket.IsErrorStyleReadFile Then
                 'recv にてエラーがあった場合
+                LastPipeError.ReadFile = viaWebSocket.IsErrorStyleReadFile              'エラーコードを同期させておく
                 printMsg ERROR_, LogID, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
@@ -1273,10 +1276,6 @@ End Property
 
 Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
     LastErrorWriteFile = LastPipeError.WriteFile
-End Property
-
-Property Get LastCommandID() As Long                     '最後に実行したcommandID値
-    LastCommandID = LastCommandID_Pipe
 End Property
 
 '***************************************************************************************************
