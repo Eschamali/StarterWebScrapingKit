@@ -39,6 +39,12 @@
     #collectionList { list-style: none; }
     #collectionList li { padding: 4px 8px; margin: 2px 0; background: #1a1d2e; border: 1px solid var(--border); border-radius: 4px; }
     iframe { width: 100%; height: 60px; border: 1px dashed var(--accent); border-radius: 8px; background: #fff; }
+    .hover-target { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: #1a1d2e; border: 2px solid var(--border); border-radius: 8px; transition: background .25s, border-color .25s, color .25s, transform .15s; font-size: 13px; }
+    .hover-target.is-hovered { background: var(--pass); border-color: var(--pass); color: #0f1117; font-weight: 700; transform: scale(1.03); }
+    .hover-reveal { display: inline-flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1a1d2e; border: 2px solid var(--border); border-radius: 8px; font-size: 13px; }
+    .hover-reveal .reveal-btn { visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; }
+    .hover-reveal.is-revealed .reveal-btn { visibility: visible; opacity: 1; }
+    .hover-reveal .reveal-btn.was-clicked { background: var(--pass); border-color: var(--pass); color: #0f1117; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -75,6 +81,7 @@
       <div class="status-row" id="row-ce16"><span class="status-lbl">⑯ SetFileInputFiles</span><div class="status-box" id="s-ce16">未実行</div></div>
       <div class="status-row" id="row-ce17"><span class="status-lbl">⑰ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-ce17">未実行</div></div>
       <div class="status-row" id="row-ce18"><span class="status-lbl">⑱ sendHover</span><div class="status-box" id="s-ce18">未実行</div></div>
+      <div class="status-row" id="row-ce19"><span class="status-lbl">⑲ ホバーで出現するボタン</span><div class="status-box" id="s-ce19">未実行</div></div>
     </div>
   </section>
 
@@ -178,7 +185,15 @@
 
   <section>
     <h3>⑱ sendHover</h3>
-    <div id="testHoverTarget" data-hovered="false" data-hovercount="0">Hover Target</div>
+    <div id="testHoverTarget" class="hover-target" data-hovered="false" data-hovercount="0">🖱️ Hover Target（未ホバー）</div>
+  </section>
+
+  <section>
+    <h3>⑲ ホバーで出現するボタン（sendHover → sendClick）</h3>
+    <div id="hoverRevealContainer" class="hover-reveal">
+      <span>ここにカーソルを合わせると…</span>
+      <button type="button" id="hoverRevealBtn" class="reveal-btn" data-clickcount="0">隠れボタン</button>
+    </div>
   </section>
 
   <section>
@@ -275,6 +290,20 @@
   hoverTarget.addEventListener('mouseenter', function () {
     this.dataset.hovered = 'true';
     this.dataset.hovercount = (parseInt(this.dataset.hovercount || '0', 10) + 1).toString();
+    this.classList.add('is-hovered');
+    this.textContent = '✅ Hovered!（' + this.dataset.hovercount + '回）';
+  });
+
+  // ⑲ ホバーで出現するボタン（sendHover → sendClick）
+  var hoverRevealContainer = document.getElementById('hoverRevealContainer');
+  var hoverRevealBtn = document.getElementById('hoverRevealBtn');
+  hoverRevealContainer.addEventListener('mouseenter', function () {
+    this.classList.add('is-revealed');
+  });
+  hoverRevealBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    this.classList.add('was-clicked');
+    this.textContent = '✅ クリック済み（' + this.dataset.clickcount + '回）';
   });
 
   addLog('ページ読み込み完了', 'pass');

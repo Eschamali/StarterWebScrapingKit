@@ -47,6 +47,7 @@ Public Sub RunAll_CDPElement_Tests()
     Test16_SetFileInputFiles br
     Test17_Diagnostics_And_Options br
     Test18_SendHover br
+    Test19_HoverReveal_Click br
 
     PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
@@ -460,6 +461,24 @@ Private Sub Test18_SendHover(br As CDPContext)
     AssertEq "sendHover後のhover回数", hv.getAttribute("data-hovercount"), "1"
 
     br.jsEval "updateStatus('s-ce18','⑱ 完了 " & EOk() & " | sendHover', true)", StopApiError:=False
+End Sub
+
+'==============================================================================
+' ⑲ ホバーで出現するボタン（sendHover → sendClick）
+'==============================================================================
+Private Sub Test19_HoverReveal_Click(br As CDPContext)
+    PrintSection "⑲ ホバーで出現するボタン"
+
+    Dim container As CDPElement: Set container = br.getElementByID("hoverRevealContainer")
+    Dim revealBtn As CDPElement: Set revealBtn = br.getElementByID("hoverRevealBtn")
+
+    AssertEq "ホバー前のクリック回数", revealBtn.getAttribute("data-clickcount"), "0"
+
+    container.sendHover
+    revealBtn.sendClick
+    AssertEq "ホバー→sendClick後のクリック回数", revealBtn.getAttribute("data-clickcount"), "1"
+
+    br.jsEval "updateStatus('s-ce19','⑲ 完了 " & EOk() & " | ホバーで出現するボタン', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
