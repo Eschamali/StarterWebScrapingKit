@@ -49,7 +49,7 @@ Public Sub RunAll_CDPElement_Tests()
 
     PrintHeader "テスト結果: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
 
-    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopPipeError:=True
+    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
     br.InheritanceCDPBrowser.quit
 End Sub
@@ -71,7 +71,7 @@ Private Sub Test01_Value_SendString_ClearValue(br As CDPContext)
     el.clearValue
     AssertEq "clearValue後のvalue", el.value, ""
 
-    br.jsEval "updateStatus('s-ce01','① 完了 " & EOk() & " | value / sendString / clearValue', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce01','① 完了 " & EOk() & " | value / sendString / clearValue', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -90,7 +90,7 @@ Private Sub Test02_InnerText_InnerHTML(br As CDPContext)
     htmlEl.innerHTML = "<i>italic</i>"
     AssertContains "innerHTML変更後", htmlEl.innerHTML, "italic"
 
-    br.jsEval "updateStatus('s-ce02','② 完了 " & EOk() & " | innerText / innerHTML', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce02','② 完了 " & EOk() & " | innerText / innerHTML', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -107,7 +107,7 @@ Private Sub Test03_Checked(br As CDPContext)
     cb.checked = False
     AssertFalse "checked=False設定後", cb.checked
 
-    br.jsEval "updateStatus('s-ce03','③ 完了 " & EOk() & " | checked', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce03','③ 完了 " & EOk() & " | checked', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -129,7 +129,7 @@ Private Sub Test04_Selected_SetSelection(br As CDPContext)
     '`selected`Getは、選択中option要素のobjectIdを返す（文字列取得できていることの確認）
     AssertNotEmpty "selected（選択中option要素のobjectId）", CStr(sel.selected)
 
-    br.jsEval "updateStatus('s-ce04','④ 完了 " & EOk() & " | selected / setSelection', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce04','④ 完了 " & EOk() & " | selected / setSelection', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -151,7 +151,7 @@ Private Sub Test05_Click_SimpleClick_FireEvent(br As CDPContext)
     btn.fireEvent "customtestevent"
     AssertEq "fireEvent後のcustomfired", btn.getAttribute("data-customfired"), "true"
 
-    br.jsEval "updateStatus('s-ce05','⑤ 完了 " & EOk() & " | click / SimpleClick / fireEvent', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce05','⑤ 完了 " & EOk() & " | click / SimpleClick / fireEvent', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -172,7 +172,7 @@ Private Sub Test06_SendClick_SendKey(br As CDPContext)
     ki.sendKey keyBackspace
     AssertEq "sendKey(keyBackspace)後のkeyCode", ki.getAttribute("data-lastkeycode"), "8"
 
-    br.jsEval "updateStatus('s-ce06','⑥ 完了 " & EOk() & " | sendClick / sendKey', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce06','⑥ 完了 " & EOk() & " | sendClick / sendKey', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -188,7 +188,7 @@ Private Sub Test07_GetAttribute_SetAttribute(br As CDPContext)
     el.setAttribute "data-foo", "baz"
     AssertEq "setAttribute後のgetAttribute", el.getAttribute("data-foo"), "baz"
 
-    br.jsEval "updateStatus('s-ce07','⑦ 完了 " & EOk() & " | getAttribute / setAttribute', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce07','⑦ 完了 " & EOk() & " | getAttribute / setAttribute', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -200,16 +200,16 @@ Private Sub Test08_Focus_SelectText(br As CDPContext)
     Dim fi As CDPElement: Set fi = br.getElementByID("testFocusInput")
     fi.focus
     Dim activeId As Variant
-    activeId = br.jsEval("document.activeElement.id", StopPipeError:=False)
+    activeId = br.jsEval("document.activeElement.id", StopApiError:=False)
     AssertEq "focus後のdocument.activeElement.id", CStr(activeId), "testFocusInput"
 
     Dim st As CDPElement: Set st = br.getElementByID("testSelectTextTarget")
     st.selectText
     Dim selectedText As Variant
-    selectedText = br.jsEval("window.getSelection().toString()", StopPipeError:=False)
+    selectedText = br.jsEval("window.getSelection().toString()", StopApiError:=False)
     AssertEq "selectText後の選択文字列", CStr(selectedText), "Select this whole text"
 
-    br.jsEval "updateStatus('s-ce08','⑧ 完了 " & EOk() & " | focus / selectText', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce08','⑧ 完了 " & EOk() & " | focus / selectText', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -227,7 +227,7 @@ Private Sub Test09_Submit(br As CDPContext)
     Dim frm As CDPElement: Set frm = br.getElementByID("testForm")
     AssertEq "submit呼び出し後のdata-submitted", frm.getAttribute("data-submitted"), "true"
 
-    br.jsEval "updateStatus('s-ce09','⑨ 完了 " & EOk() & " | submit', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce09','⑨ 完了 " & EOk() & " | submit', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -250,7 +250,7 @@ Private Sub Test10_Traversal_Parent_Siblings_FirstChild(br As CDPContext)
     Dim parentBack As CDPElement: Set parentBack = child2.getParent
     AssertEq "getParentのid", parentBack.getAttribute("id"), "traversalParent"
 
-    br.jsEval "updateStatus('s-ce10','⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce10','⑩ 完了 " & EOk() & " | getParent / getNextSibling / getPrevSibling / getFirstChild', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -271,7 +271,7 @@ Private Sub Test11_GetChildren_ElementsByQuery_ElementsByXPath(br As CDPContext)
     Dim byXPath As Collection: Set byXPath = ul.getElementsByXPath("li")
     AssertEq "getElementsByXPathの件数", CStr(byXPath.Count), "5"
 
-    br.jsEval "updateStatus('s-ce11','⑪ 完了 " & EOk() & " | getChildren / getElementsByQuery / getElementsByXPath', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce11','⑪ 完了 " & EOk() & " | getChildren / getElementsByQuery / getElementsByXPath', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -291,7 +291,7 @@ Private Sub Test12_ElementByID_Query_XPath_Scoped(br As CDPContext)
     Dim byXPath As CDPElement: Set byXPath = ul.getElementByXPath("li[3]")
     AssertEq "getElementByXPath(スコープ)の内容", byXPath.innerText, "C"
 
-    br.jsEval "updateStatus('s-ce12','⑫ 完了 " & EOk() & " | getElementByID / getElementByQuery / getElementByXPath（スコープ）', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce12','⑫ 完了 " & EOk() & " | getElementByID / getElementByQuery / getElementByXPath（スコープ）', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -329,7 +329,7 @@ Private Sub Test13_IsExist_IfExist_OnExist_OnExistNot(br As CDPContext)
     Set ghost = br.getElementByID("doesNotExist12345").onExist(timeOutInSeconds:=1, raiseTimeoutError:=False)
     AssertTrue "存在しない要素のonExistタイムアウトでNothingが返ること", (ghost Is Nothing)
 
-    br.jsEval "updateStatus('s-ce13','⑬ 完了 " & EOk() & " | isExist / ifExist / onExist / onExistNot', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce13','⑬ 完了 " & EOk() & " | isExist / ifExist / onExist / onExistNot', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -344,7 +344,7 @@ Private Sub Test14_GetIFrame(br As CDPContext)
     Dim iframeTarget As CDPElement: Set iframeTarget = iframeDoc.getElementByID("iframeTarget")
     AssertEq "iframe内要素のinnerText", iframeTarget.innerText, "iframe content"
 
-    br.jsEval "updateStatus('s-ce14','⑭ 完了 " & EOk() & " | getIFrame', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce14','⑭ 完了 " & EOk() & " | getIFrame', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -359,7 +359,7 @@ Private Sub Test15_ShadowRoot_Open_Closed(br As CDPContext)
     If Not (rootOpen Is Nothing) Then
         AssertEq "shadow(open)内要素の内容", rootOpen.getElementByQuery(".shadow-content").innerText, "Shadow content (open)"
     End If
-    br.jsEval "updateStatus('s-ce15a','⑮-a 完了 " & EOk() & " | GetShadowRoot(open)', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce15a','⑮-a 完了 " & EOk() & " | GetShadowRoot(open)', true)", StopApiError:=False
 
     Dim hostClosed As CDPElement: Set hostClosed = br.getElementByID("shadowHostClosed")
     Dim rootsClosed As Collection: Set rootsClosed = hostClosed.GetShadowRoots()
@@ -368,7 +368,7 @@ Private Sub Test15_ShadowRoot_Open_Closed(br As CDPContext)
         AssertEq "GetShadowRoots(closed)の件数", CStr(rootsClosed.Count), "1"
         AssertEq "shadow(closed)内要素の内容", rootsClosed(1).getElementByQuery(".shadow-content").innerText, "Shadow content (closed)"
     End If
-    br.jsEval "updateStatus('s-ce15b','⑮-b 完了 " & EOk() & " | GetShadowRoots(closed)', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce15b','⑮-b 完了 " & EOk() & " | GetShadowRoots(closed)', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -390,7 +390,7 @@ Private Sub Test16_SetFileInputFiles(br As CDPContext)
     FileName = fileInput.jsEval("function(){ return this.files.length > 0 ? this.files[0].name : '' }")
     AssertEq "SetFileInputFiles後のfiles[0].name", CStr(FileName), "CDPElementTest.html"
 
-    br.jsEval "updateStatus('s-ce16','⑯ 完了 " & EOk() & " | SetFileInputFiles', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce16','⑯ 完了 " & EOk() & " | SetFileInputFiles', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -408,7 +408,7 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
 
     el.ExposeDevTools "__vbaTestExposed"
     Dim exposedCheck As Variant
-    exposedCheck = br.jsEval("typeof window.__vbaTestExposed !== 'undefined' ? 'yes' : 'no'", StopPipeError:=False)
+    exposedCheck = br.jsEval("typeof window.__vbaTestExposed !== 'undefined' ? 'yes' : 'no'", StopApiError:=False)
     AssertEq "ExposeDevTools後にwindowへ公開されていること", CStr(exposedCheck), "yes"
 
     'SetOptionRunAsyncCDP: Trueにすると、jsEvalの戻り値が結果値ではなく非同期コマンドIDになる
@@ -441,7 +441,7 @@ Private Sub Test17_Diagnostics_And_Options(br As CDPContext)
     On Error GoTo 0
     AssertTrue "SetOptionUserGestureの設定・解除でエラーが起きないこと", (errUserGesture = 0)
 
-    br.jsEval "updateStatus('s-ce17','⑰ 完了 " & EOk() & " | 診断プロパティ / 実行オプション', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-ce17','⑰ 完了 " & EOk() & " | 診断プロパティ / 実行オプション', true)", StopApiError:=False
 End Sub
 
 '==============================================================================

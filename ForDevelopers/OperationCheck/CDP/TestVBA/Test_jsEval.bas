@@ -154,7 +154,7 @@ Public Sub RunAll_jsEval_Tests()
 
     PrintHeader "ÉeÉXÉgäÆóπ: PASS=" & passCount & " / FAIL=" & failCount & " / çáåv=" & (passCount + failCount)
 
-    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopPipeError:=True
+    br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
     br.InheritanceCDPBrowser.quit
 End Sub
@@ -167,19 +167,19 @@ Private Sub Test01_Evaluate_primitives(br As CDPContext)
 
     Dim v As Variant
 
-    v = br.jsEval("2 + 40", StopPipeError:=False)
+    v = br.jsEval("2 + 40", StopApiError:=False)
     AssertEq "êîíl 42", v, 42#
 
-    v = br.jsEval("'hello-jsEval'", StopPipeError:=False)
+    v = br.jsEval("'hello-jsEval'", StopApiError:=False)
     AssertEq "ï∂éöóÒ", CStr(v), "hello-jsEval"
 
-    v = br.jsEval("true", StopPipeError:=False)
+    v = br.jsEval("true", StopApiError:=False)
     AssertEq "ê^ãU True", CStr(v), "True"
 
-    v = br.jsEval("false", StopPipeError:=False)
+    v = br.jsEval("false", StopApiError:=False)
     AssertEq "ê^ãU False", CStr(v), "False"
 
-    br.jsEval "updateStatus('s-js01','á@ äÆóπ " & EOk() & " | êîílÅEï∂éöóÒÅEê^ãU', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js01','á@ äÆóπ " & EOk() & " | êîílÅEï∂éöóÒÅEê^ãU', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -190,21 +190,21 @@ Private Sub Test02_Evaluate_returnByValue_object_and_array(br As CDPContext)
 
     Dim o As Object, a As Object
 
-    Set o = br.jsEval("({ alpha: 1, beta: 'z', gamma: true })", returnByValue:=True, StopPipeError:=False)
+    Set o = br.jsEval("({ alpha: 1, beta: 'z', gamma: true })", returnByValue:=True, StopApiError:=False)
     AssertEq "obj.alpha", CDbl(o("alpha")), 1#
     AssertEq "obj.beta", CStr(o("beta")), "z"
     AssertEq "obj.gamma", CStr(o("gamma")), "True"
 
-    Set a = br.jsEval("[10, 20, 30]", returnByValue:=True, StopPipeError:=False)
+    Set a = br.jsEval("[10, 20, 30]", returnByValue:=True, StopApiError:=False)
     AssertEq "arr[0]", CDbl(DictArrItem(a, 0)), 10#
     AssertEq "arr[1]", CDbl(DictArrItem(a, 1)), 20#
     AssertEq "arr[2]", CDbl(DictArrItem(a, 2)), 30#
 
-    Set o = br.jsEval("window.__JSEVAL_GLOBAL", returnByValue:=True, StopPipeError:=False)
+    Set o = br.jsEval("window.__JSEVAL_GLOBAL", returnByValue:=True, StopApiError:=False)
     AssertEq "global.num", CDbl(o("num")), 7#
     AssertEq "global.text", CStr(o("text")), "ÉOÉçÅ[ÉoÉãï∂éöóÒ"
 
-    br.jsEval "updateStatus('s-js02','áA äÆóπ " & EOk() & " | obj / arr / global', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js02','áA äÆóπ " & EOk() & " | obj / arr / global', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -215,7 +215,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
 
     Dim v As Variant
 
-    v = br.jsEval("void 0", returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("void 0", returnByValue:=True, StopApiError:=False)
     If IsEmpty(v) Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | undefined Å® Empty"
@@ -224,7 +224,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
         Debug.Print "  FAIL | undefined ä˙ë“ Empty é¿ç€: " & TypeName(v) & " " & VarType(v)
     End If
 
-    v = br.jsEval("null", returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("null", returnByValue:=True, StopApiError:=False)
     If IsNull(v) Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | null Å® Null"
@@ -233,7 +233,7 @@ Private Sub Test03_Evaluate_undefined_null(br As CDPContext)
         Debug.Print "  FAIL | null ä˙ë“ Null"
     End If
 
-    br.jsEval "updateStatus('s-js03','áB äÆóπ " & EOk() & " | Empty / Null', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js03','áB äÆóπ " & EOk() & " | Empty / Null', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -243,10 +243,10 @@ Private Sub Test04_Evaluate_unicode(br As CDPContext)
     PrintSection "áC evaluate - Unicode"
 
     Dim v As Variant
-    v = br.jsEval("'" & "ì˙ñ{åÍ_VBAòAåã" & "'", StopPipeError:=False)
+    v = br.jsEval("'" & "ì˙ñ{åÍ_VBAòAåã" & "'", StopApiError:=False)
     AssertEq "ì˙ñ{åÍÉäÉeÉâÉã", CStr(v), "ì˙ñ{åÍ_VBAòAåã"
 
-    br.jsEval "updateStatus('s-js04','áC äÆóπ " & EOk() & " | ì˙ñ{åÍÉäÉeÉâÉã', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js04','áC äÆóπ " & EOk() & " | ì˙ñ{åÍÉäÉeÉâÉã', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -256,10 +256,10 @@ Private Sub Test05_Evaluate_promise_br(br As CDPContext)
     PrintSection "áD evaluate - awaitPromise"
 
     Dim v As Variant
-    v = br.jsEval("Promise.resolve(123)", awaitPromise:=True, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("Promise.resolve(123)", awaitPromise:=True, returnByValue:=True, StopApiError:=False)
     AssertEq "Promise.resolve(123)", CDbl(v), 123#
 
-    br.jsEval "updateStatus('s-js05','áD äÆóπ " & EOk() & " | Promise.resolve(123)', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js05','áD äÆóπ " & EOk() & " | Promise.resolve(123)', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -269,7 +269,7 @@ Private Sub Test06_callFunctionOn_get_objectId(br As CDPContext)
     PrintSection "áE objectId éÊìæ"
 
     Dim oid As Variant
-    oid = br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False)
+    oid = br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False)
 
     If VarType(oid) = vbString And Len(CStr(oid)) > 0 Then
         passCount = passCount + 1
@@ -279,7 +279,7 @@ Private Sub Test06_callFunctionOn_get_objectId(br As CDPContext)
         Debug.Print "  FAIL | objectId Ç™éÊìæÇ≈Ç´Ç‹ÇπÇÒ"
     End If
 
-    br.jsEval "updateStatus('s-js06','áE äÆóπ " & EOk() & " | objectId ï∂éöóÒéÊìæ', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js06','áE äÆóπ " & EOk() & " | objectId ï∂éöóÒéÊìæ', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -289,16 +289,16 @@ Private Sub Test07_callFunctionOn_no_args(br As CDPContext)
     PrintSection "áF callFunctionOn - à¯êîÇ»Çµ"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False))
 
     Dim v As Variant
-    v = br.jsEval("function(){ return this.id }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(){ return this.id }", objectId:=oid, returnByValue:=True, StopApiError:=False)
     AssertEq "this.id", CStr(v), "jseval-box"
 
-    v = br.jsEval("function(){ return this.dataset.tag }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(){ return this.dataset.tag }", objectId:=oid, returnByValue:=True, StopApiError:=False)
     AssertEq "dataset.tag", CStr(v), "jseval-data"
 
-    br.jsEval "updateStatus('s-js07','áF äÆóπ " & EOk() & " | this.id / dataset', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js07','áF äÆóπ " & EOk() & " | this.id / dataset', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -308,7 +308,7 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     PrintSection "áG callFunctionOn - ëΩà¯êî"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False))
 
     Dim args(1 To 10) As Variant
     Dim i As Long
@@ -317,10 +317,10 @@ Private Sub Test08_callFunctionOn_many_args(br As CDPContext)
     Next i
 
     Dim v As Variant
-    v = br.jsEval("function(a,b,c,d,e,f,g,h,i,j){ return a+b+c+d+e+f+g+h+i+j }", objectId:=oid, objectArguments:=args, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(a,b,c,d,e,f,g,h,i,j){ return a+b+c+d+e+f+g+h+i+j }", objectId:=oid, objectArguments:=args, returnByValue:=True, StopApiError:=False)
     AssertEq "1..10 ÇÃòa", CDbl(v), 55#
 
-    br.jsEval "updateStatus('s-js08','áG äÆóπ " & EOk() & " | 10 à¯êî Å® òa 55', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js08','áG äÆóπ " & EOk() & " | 10 à¯êî Å® òa 55', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -330,16 +330,16 @@ Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPContext)
     PrintSection "áH callFunctionOn - ÉAÉ|ÉXÉgÉçÉtÉBï∂éöóÒ"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False))
 
     Dim arg As Scripting.Dictionary
     Set arg = ArgVal("It's " & "OK " & "ì˙ñ{åÍ")
 
     Dim v As Variant
-    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=Array(arg), returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(s){ return 'ECHO:' + s }", objectId:=oid, objectArguments:=Array(arg), returnByValue:=True, StopApiError:=False)
     AssertEq "ÉGÉRÅ[", CStr(v), "ECHO:It's OK ì˙ñ{åÍ"
 
-    br.jsEval "updateStatus('s-js09','áH äÆóπ " & EOk() & " | objectArgumentsÅià¯ópïÑä‹ÇﬁÅjÉGÉRÅ[ OK', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js09','áH äÆóπ " & EOk() & " | objectArgumentsÅià¯ópïÑä‹ÇﬁÅjÉGÉRÅ[ OK', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -349,16 +349,16 @@ Private Sub Test10_callFunctionOn_nested(br As CDPContext)
     PrintSection "áI callFunctionOn - éqóvëf"
 
     Dim oid As String
-    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopPipeError:=False))
+    oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False))
 
     Dim v As Variant
-    v = br.jsEval("function(){ return this.querySelector('#jseval-target').textContent }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(){ return this.querySelector('#jseval-target').textContent }", objectId:=oid, returnByValue:=True, StopApiError:=False)
     AssertNotEmpty "éq span.textContent", CStr(v)
 
-    v = br.jsEval("function(){ return this.querySelector('#jseval-input').value }", objectId:=oid, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("function(){ return this.querySelector('#jseval-input').value }", objectId:=oid, returnByValue:=True, StopApiError:=False)
     AssertEq "input.value èâä˙", CStr(v), "èâä˙íl"
 
-    br.jsEval "updateStatus('s-js10','áI äÆóπ " & EOk() & " | éq span / input', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js10','áI äÆóπ " & EOk() & " | éq span / input', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -368,7 +368,7 @@ Private Sub Test11_exception_stopException_off(br As CDPContext)
     PrintSection "áJ ó·äO - StopException=False"
 
     Dim r As Variant
-    r = br.jsEval("(function(){ throw new Error('jsEval-test'); })()", StopException:=False, StopPipeError:=False)
+    r = br.jsEval("(function(){ throw new Error('jsEval-test'); })()", StopException:=False, StopApiError:=False)
 
     If IsError(r) Then
         passCount = passCount + 1
@@ -378,7 +378,7 @@ Private Sub Test11_exception_stopException_off(br As CDPContext)
         Debug.Print "  FAIL | ó·äOéûÇ… Error å^Ç≈Ç»Ç¢: " & TypeName(r)
     End If
 
-    br.jsEval "updateStatus('s-js11','áJ äÆóπ " & EOk() & " | ó·äO Å® IsError', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js11','áJ äÆóπ " & EOk() & " | ó·äO Å® IsError', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -388,11 +388,11 @@ Private Sub Test12_exception_IFEXCEPTION(br As CDPContext)
     PrintSection "áK ó·äO - IFEXCEPTION"
 
     Dim r As Variant
-    r = br.jsEval("(function(){ throw new Error('x'); })()", StopException:=False, IFEXCEPTION:="fallback-ok", StopPipeError:=False)
+    r = br.jsEval("(function(){ throw new Error('x'); })()", StopException:=False, IFEXCEPTION:="fallback-ok", StopApiError:=False)
 
     AssertEq "IFEXCEPTION ï∂éöóÒ", CStr(r), "fallback-ok"
 
-    br.jsEval "updateStatus('s-js12','áK äÆóπ " & EOk() & " | IFEXCEPTION ÉtÉHÅ[ÉãÉoÉbÉN', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js12','áK äÆóπ " & EOk() & " | IFEXCEPTION ÉtÉHÅ[ÉãÉoÉbÉN', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -402,7 +402,7 @@ Private Sub Test13_long_string(br As CDPContext)
     PrintSection "áL í∑Ç¢ï∂éöóÒ returnByValue"
 
     Dim v As Variant
-    v = br.jsEval("'x'.repeat(2500)", returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("'x'.repeat(2500)", returnByValue:=True, StopApiError:=False)
 
     If Len(CStr(v)) = 2500 Then
         passCount = passCount + 1
@@ -412,7 +412,7 @@ Private Sub Test13_long_string(br As CDPContext)
         Debug.Print "  FAIL | í∑Ç≥ä˙ë“ 2500 é¿ç€ " & Len(CStr(v))
     End If
 
-    br.jsEval "updateStatus('s-js13','áL äÆóπ " & EOk() & " | í∑Ç≥ 2500 ï∂éö', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js13','áL äÆóπ " & EOk() & " | í∑Ç≥ 2500 ï∂éö', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -442,11 +442,11 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
     execCtx = CLng(cwRes("executionContextId"))
 
     Dim v As Variant
-    v = br.jsEval("window.__JSEVAL_ISO = 'ctx-ok'; window.__JSEVAL_ISO", contextId:=execCtx, returnByValue:=True, StopPipeError:=False)
+    v = br.jsEval("window.__JSEVAL_ISO = 'ctx-ok'; window.__JSEVAL_ISO", contextId:=execCtx, returnByValue:=True, StopApiError:=False)
     AssertEq "isolated Ç≈ë„ì¸Å®éÊìæ", CStr(v), "ctx-ok"
 
     Dim vMain As Variant
-    vMain = br.jsEval("window.__JSEVAL_ISO", returnByValue:=True, StopPipeError:=False)
+    vMain = br.jsEval("window.__JSEVAL_ISO", returnByValue:=True, StopApiError:=False)
     If IsEmpty(vMain) Or VarType(vMain) = vbNull Then
         passCount = passCount + 1
         Debug.Print "  " & EOk() & " PASS | ÉÅÉCÉì context Ç≈ÇÕ __JSEVAL_ISO ñ¢íËã`ÅiEmpty/NullÅj"
@@ -455,14 +455,14 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
         Debug.Print "  FAIL | ÉÅÉCÉì context Ç…äuó£ílÇ™å©Ç¶ÇƒÇ¢ÇÈ: " & CStr(vMain)
     End If
 
-    br.jsEval "updateStatus('s-js14','áM äÆóπ " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js14','áM äÆóπ " & EOk() & " | contextId=" & CStr(execCtx) & "', true)", StopApiError:=False
     Exit Sub
 
 Test14_Err:
     failCount = failCount + 1
     Debug.Print "  FAIL | áM " & Err.Description
     On Error Resume Next
-    br.jsEval "updateStatus('s-js14','áM FAIL', false)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js14','áM FAIL', false)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -476,7 +476,7 @@ Private Sub Test15_serializationOptions_deep(br As CDPContext)
     serOpts.Add "maxDepth", 8
 
     Dim resObj As Object
-    Set resObj = br.jsEval("({ top: 1, nest: { mid: 2, deep: { leaf: 3 } } })", returnByValue:=True, serializationOptions:=serOpts, StopPipeError:=False)
+    Set resObj = br.jsEval("({ top: 1, nest: { mid: 2, deep: { leaf: 3 } } })", returnByValue:=True, serializationOptions:=serOpts, StopApiError:=False)
 
     If resObj Is Nothing Then
         failCount = failCount + 1
@@ -503,7 +503,7 @@ Test15_Err:
 Test15_Done:
     End If
 
-    br.jsEval "updateStatus('s-js15','áN äÆóπ " & EOk() & " | serialization=deep', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js15','áN äÆóπ " & EOk() & " | serialization=deep', true)", StopApiError:=False
 End Sub
 
 '==============================================================================
@@ -517,17 +517,17 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
     br.ExecuteCDP "Page.enable", Nothing
 
     Dim oid As Variant
-    oid = br.jsEval("document.getElementById('btn-async-alert')", returnByValue:=False, StopPipeError:=False)
+    oid = br.jsEval("document.getElementById('btn-async-alert')", returnByValue:=False, StopApiError:=False)
 
     If VarType(oid) <> vbString Or Len(oid) = 0 Then
         failCount = failCount + 1
         Debug.Print "  FAIL | áO É{É^Éì objectId éÊìæé∏îs"
-        br.jsEval "updateStatus('s-js16','áO FAIL É{É^ÉìÇ»Çµ', false)", StopPipeError:=False
+        br.jsEval "updateStatus('s-js16','áO FAIL É{É^ÉìÇ»Çµ', false)", StopApiError:=False
         Exit Sub
     End If
 
     Dim asyncCmdId As Variant
-    asyncCmdId = br.jsEval("function(){ this.click(); }", CStr(oid), RunAsyncCDP:=True, StopPipeError:=False)
+    asyncCmdId = br.jsEval("function(){ this.click(); }", CStr(oid), RunAsyncCDP:=True, StopApiError:=False)
 
     If IsNumeric(asyncCmdId) And CLng(asyncCmdId) > 0 Then
         passCount = passCount + 1
@@ -565,7 +565,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
 
     Set br.BrowserEvents = Nothing
 
-    br.jsEval "updateStatus('s-js16','áO äÆóπ " & EOk() & " | Async+alert+handleDialog', true)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js16','áO äÆóπ " & EOk() & " | Async+alert+handleDialog', true)", StopApiError:=False
     Exit Sub
 
 Test16_Err:
@@ -573,7 +573,7 @@ Test16_Err:
     Debug.Print "  FAIL | áO " & Err.Description
     On Error Resume Next
     Set br.BrowserEvents = Nothing
-    br.jsEval "updateStatus('s-js16','áO FAIL', false)", StopPipeError:=False
+    br.jsEval "updateStatus('s-js16','áO FAIL', false)", StopApiError:=False
 End Sub
 
 '==============================================================================
