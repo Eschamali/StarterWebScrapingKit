@@ -7,10 +7,33 @@ Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
      ByVal pszPath As String, _
      ByVal psa As LongPtr) As Long
 
+Private Const WebSocketTest As Boolean = True
+
+
+
 Sub Webブラウザ操作でZIPテスト()
     '設定シートに基づくブラウザ立ち上げ
-    Dim ZIPテスト As CDPContext: Set ZIPテスト = ShSetting01_StartBrowser.StartCDPModeContext
+    Dim ZIPテスト As CDPContext
+    If WebSocketTest Then
+        '---- WebSocket版 ----
+        '設定セルから、ユーザ名を取得
+        Dim UserName As String
+        UserName = ShSetting01_StartBrowser.CurrentUserName
 
+        '指定のWebSocketForCDPへ接続
+        Dim WebSocketCDP As New CDPCoreViaWebSocket
+        Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+        '繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+        Dim chrome As New CDPBrowser
+        If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        Set ZIPテスト = chrome.newTab(setMain:=True)
+        '---------------------
+    Else
+        '---- Pipe版 ----
+        Set ZIPテスト = ShSetting01_StartBrowser.StartCDPModeContext
+        '----------------
+    End If
 
     ' 1. zip.js (UMD版) を動的にロードするJSを実行
     Dim injectCode As String
