@@ -156,6 +156,18 @@ Public Function sendClick() As Boolean
 t.getElementByQuery("canvas#map").sendClick
 ```
 
+### `sendHover`
+
+```vb
+Public Function sendHover() As Boolean
+```
+
+要素の中心座標へ物理的なマウスホバーをシミュレートします（`Input.dispatchMouseEvent` の `mouseMoved`）。JS の `dispatchEvent` では反応しない、CSS の `:hover` で出現するメニューやツールチップなど向けです。呼び出し前に `scrollIntoView` で自動的にビューポート内へ収めます。
+
+```vb
+t.getElementByQuery(".menu-item").sendHover
+```
+
 ### `sendKey`
 
 ```vb
@@ -544,7 +556,7 @@ Property Get CurrentObjectId() As String
 Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Variant, _
     Optional IFEXCEPTION As Variant, Optional returnByValue As Boolean, _
     Optional awaitPromise As Boolean, Optional serializationOptions As Dictionary, _
-    Optional generatePreview As Boolean, Optional StopPipeError As Boolean = True) As Variant
+    Optional generatePreview As Boolean, Optional StopApiError As Boolean = True) As Variant
 ```
 
 この要素の `objectId` を `this` として JavaScript を評価します。[`CDPContext.jsEval`](./CDPContext#jseval) の要素スコープ版で、クラス内の他メソッドも内部的にこれ経由で実装されています。用意されたメソッドで足りない操作をしたいときの逃げ道として使えます。

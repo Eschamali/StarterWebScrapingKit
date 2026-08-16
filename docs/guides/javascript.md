@@ -89,7 +89,7 @@ result = t.jsEval("1 + 1")
 | シリアライズ細調整 | `serializationOptions` | 同左 |
 | 結果を待たない実行 | `RunAsyncCDP`（戻り値は実行 id） | `RunAsyncBiDi`（戻り値は実行 id） |
 | JS 例外で VBE 停止 | `StopException`（開発時向け） | 同左 |
-| 通信エラーで停止 | `StopPipeError`（既定 `True`） | `StopBiDiError`（既定 `True`） |
+| 通信エラーで停止 | `StopApiError`（既定 `True`） | `StopBiDiError`（既定 `True`） |
 
 ### オブジェクト結果の受け取り方（CDP: `returnByValue` / BiDi: `Ownership`）
 

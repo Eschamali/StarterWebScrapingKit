@@ -45,6 +45,7 @@ t.getElementByQuery("select#country").setSelection "JP"
 ```vb
 box.sendKey keyEnter   ' keyboardCode 列挙を参照
 box.sendClick          ' 座標系クリック相当
+box.sendHover          ' 座標系ホバー相当（:hover で出現するメニューなど）
 ```
 
 ## React など仮想 DOM

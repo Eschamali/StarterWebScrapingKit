@@ -93,7 +93,7 @@ End If
 
 コマンド実行後、実行時の **id（`Long`）のみ**を返し、結果は待ちません。
 
-自力で取り出す場合は `TakeEvents` / `TakeResultCDP` を Do ループで呼び出します（内部の `SendMessage` が同じパターンです）。
+自力で取り出す場合は `TakeEvents` / `TakeResultCDP` を Do ループで呼び出します。同じパターンをまとめた自動待機版 `AutoWaitTakeResultCDP(commandID)` も用意されているので、待つだけでよい場面ではそちらを使うと手早く書けます。
 
 ### 向いている使用例
 

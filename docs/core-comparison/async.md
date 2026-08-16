@@ -49,14 +49,11 @@ VBA（Excel VBA / STA シングルスレッド）には、これに相当する�
 ```vb
 Do
     '1. 受信処理によるパイプを拝見する ※内部にて`DoEvents`が走ります
-    TakeEvents StopPipeError
+    TakeEvents StopApiError
 
     '2. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
-    tmp = TakeResultCDP(currentCommandID)
-    If StrPtr(tmp) Then
-        SendMessage = tmp
-        Exit Do
-    End If
+    AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+    If StrPtr(AutoWaitTakeResultCDP) Then Exit Do
 
     '3. 受信処理にてエラーがあったら、即抜け
     If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then ... Exit Function
@@ -81,16 +78,13 @@ Playwright も Puppeteer も「ID を Map に登録して、応答が来たら�
 
 ```vb
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, _
-                                Optional StopPipeError As Boolean = True) As Long
-    ' 送信のみ行い、結果は待たない
-    SendMessage CDPcommand, True, StopPipeError
-
-    '実行したIDを返却
-    ExecuteCDPAsync = PipeCore.LastCommandID
+                                Optional StopApiError As Boolean = True) As Long
+    ' ブラウザへ送信し、実行時の commandID をそのまま返す（整理券の発行）
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand, brTab.sessionID)
 End Function
 ```
 
-これは Promise とほぼ同じ発想です。`await` の代わりに、後から `TakeResultCDP(commandID)` で回収します。
+これは Promise とほぼ同じ発想です。`await` の代わりに、後から `TakeResultCDP(commandID)`（もしくは自動待機版の `AutoWaitTakeResultCDP(commandID)`）で回収します。
 
 ```vb
 ' 3タブに一斉に navigate を投げてから、あとで結果を回収する
