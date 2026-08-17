@@ -14,7 +14,16 @@ export default withMermaid(
     base: base,
     cleanUrls: true,
     lastUpdated: true,
-
+    themeConfig: {
+      // 表示テキストを日本語化
+      lastUpdated: {
+        text: '最終更新日',
+        formatOptions: {
+          dateStyle: 'full',
+          timeStyle: 'short'
+        }
+      }
+    },
     // サイトマップを自動生成！
     sitemap: {
         hostname: siteUrl

@@ -52,3 +52,5 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          fetch-depth: 0 # ← これを追記！！（過去のGit履歴を全取得して日付を正常化する）
