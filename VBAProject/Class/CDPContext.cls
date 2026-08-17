@@ -162,7 +162,8 @@ Private Type StateTabForJavaScript
     ExecutionContextId  As Long     '実行コンテキスト情報。`Runtime.callFunctionOn - executionContextId`に使います
     origin              As String   '実行範囲
     Name                As String   '意味のある名称
-    uniqueId            As String   'より厳格な実行コンテキスト情報。現時点では、実験的扱い
+    uniqueId            As String   'より厳格な実行コンテキスト情報。破棄判定に使います
+    IsValid             As Boolean  'その`ContextId`は有効か？
 End Type
 Private brTabRuntime As StateTabForJavaScript
 
@@ -186,7 +187,6 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 
 'その他
 Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
-Private thisApp     As Object   'A dymanic variable used in CDPBrowser initialize procedure to determine if the VBA host is an Excel / Word / Access
 Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 
 
@@ -448,7 +448,7 @@ End Sub
 '            objectId                       実行の基準要素オブジェクトIDを指定します。これを指定すると`Runtime.callFunctionOn`として優先実行されます。
 '
 '            objectArguments                これを指定すると`Runtime.callFunctionOn`として優先実行されます。
-'                                           予め、呼び出し側にてCollectionを組み立てて渡してください。
+'                                           予め、呼び出し側にて`Collection` OR `Array(... , ...)` OR `hoge(0) as Dictionary(Dictionary型 1次元配列)`で組み立てて渡してください。なお、後者ほどパフォーマンスが向上します
 '                                           参考となる組み立て手法：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-CallArgument
 '
 '            IFEXCEPTION                    JavaScript実行中に「例外（Exception）」が発生した場合の代替値を指定します。名前の通り、IFERROR関数チックに使えます。
@@ -502,7 +502,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 参考URL ：https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate
 '***************************************************************************************************
-Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Collection, Optional IFEXCEPTION As Variant, _
+Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Optional objectArguments As Variant, Optional IFEXCEPTION As Variant, _
                        Optional contextId As Long, _
                        Optional returnByValue As Boolean, _
                        Optional awaitPromise As Boolean, _
@@ -512,12 +512,11 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional generatePreview As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
-                       Optional StopPipeError As Boolean = True) As Variant
+                       Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
 
     Dim CDPresult   As String
-    Dim CDPcommand  As New Scripting.Dictionary
     Dim CDPparams   As New Scripting.Dictionary
 
 step1:
@@ -534,13 +533,13 @@ step1:
 
         '必要なパラメーターをセット
         CDPparams.Add "functionDeclaration", JavaScriptStr
-        If Not objectArguments Is Nothing Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
+        If Not IsMissing(objectArguments) Then CDPparams.Add "arguments", objectArguments   '引数があったら適用しておく
 
         'objectId があるので、場所(ContextID)を指定する必要はない
         CDPparams.Add "objectId", objectId
 
     ' 【パターン2】要素指定はないが、安全に引数(arguments)を渡したい場合
-    ElseIf Not objectArguments Is Nothing Then
+    ElseIf Not IsMissing(objectArguments) Then
         UseJsMethod = "Runtime.callFunctionOn"
 
         '必要なパラメーターをセット
@@ -549,7 +548,19 @@ step1:
 
         ' objectId がないので、実行する「場所(executionContextId)」を教える必要がある
         '任意指定あるいは、`Runtime.executionContextCreated`で来た情報を基に指定します
-        CDPparams.Add "executionContextId", IIf(contextId, contextId, brTabRuntime.ExecutionContextId)
+        Dim UseContextId As Long
+        If contextId Then
+            '引数で指定された`contextId`
+            UseContextId = contextId
+        Else
+            'このClassの`TargetID`に紐づく"Runtime.executionContextCreated"の`contextId`
+            '無効(古い)状態なら、有効な`contextId`が来るまで待機します
+            If Not brTabRuntime.IsValid Then printMsg info_, "The `executionContextId` required to execute `Runtime.callFunctionOn` is invalid. Attempting to update it via `TakeEvents`.", FromProcedureName: AutoWaitIsValidExecutionContextId
+
+            '適用
+            UseContextId = brTabRuntime.ExecutionContextId
+        End If
+        CDPparams.Add "executionContextId", UseContextId
 
     ' 【パターン3】引数も要素指定もない、ただのコード実行
     Else
@@ -570,21 +581,20 @@ step1:
     If generatePreview Then CDPparams.Add "generatePreview", generatePreview
     If Not serializationOptions Is Nothing Then CDPparams.Add "serializationOptions", serializationOptions
 
-    'CDP-Jsonを組み立て
-    CDPcommand.RemoveAll
-    CDPcommand.Add "method", UseJsMethod
-    CDPcommand.Add "params", CDPparams
-
-   '----------------------------------------------------------------------------------------
+    '----------------------------------------------------------------------------------------
 
     'Send and check CDPresult -------------------------------------------------------------------------------------------
-    '引数に応じて、CDP自体を同期/非同期で実行し、分岐します
-    CDPresult = SendMessage(CDPcommand, RunAsyncCDP, StopPipeError)
+    'まずは、CDP自体を非同期で実行し、結果待機するか分岐します
+    Dim RunJsID As Long
+    RunJsID = ExecuteCDPAsync(UseJsMethod, CDPparams, StopApiError)
     If RunAsyncCDP Then
         'ID返却して抜ける
-        jsEval = PipeCore.LastCommandID
+        jsEval = RunJsID
         Exit Function
     Else
+        '結果待機
+        CDPresult = AutoWaitTakeResultCDP(RunJsID, StopApiError)
+
         'タイムアウトやパイプハンドルの応答なしによる空文字判定
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
@@ -868,6 +878,28 @@ Private Function LogFormat(ByVal logMes As String, lengthMes As Long) As String
     If originalLength > lengthMes Then LogFormat = Left(logMes, lengthMes) & "... (Total: " & originalLength & " chars)" Else LogFormat = logMes
 End Function
 
+'***************************************************************************************************
+'* 機能　　：JavaScript実行場所を特定する`executionContextId`に有効なサインが来るまで待機します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・タイムアウト時はエラーとなります
+'            ・待機時間は、`timerOut`に依存します
+'***************************************************************************************************
+Private Sub AutoWaitIsValidExecutionContextId()
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitIsValidExecutionContextId"
+
+
+    '1. 現在の経過時間を取得
+    Dim StartTimer As Double: StartTimer = TimerCounter
+    Do
+        '2. タイムアウトチェック
+        If TimerCounter - StartTimer > timerOut Then printMsg ERROR_, "A valid `ExecutionContextId` was not received within the time limit.", FromProcedureName, doRaiseError:=True
+
+        '3. イベント取り出し
+        printMsg Trace_, "Waiting for a valid `ExecutionContextId`...", FromProcedureName
+        TakeEvents  '内部で`DoEvents`が走ります
+    Loop Until brTabRuntime.IsValid
+End Sub
+
 Public Sub jsAddLib(strURL As String)
 '----------------------------------------------------------------------------------
 ' Load the external JS Library to the document for use of specialized JS methods.
@@ -953,9 +985,9 @@ End Property
 '***************************************************************************************************
 '                              ■■■ CDPcommand操作関連 ■■■
 '***************************************************************************************************
-'* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
+'* 機能　　：CDPのMethod名と、parametersを渡して、ブラウザへ命令を行い、結果の回収も同時に行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：CDP-Jsonコマンド の実行結果(Json-Dictionary 形式)。失敗時は、`Nothing`となります。
+'* 返り値　：CDP-Jsonコマンド の実行結果`result`ノード情報。失敗時は、`Nothing`となります。
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
 '            StopError              `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
@@ -967,8 +999,7 @@ End Property
 '            The return object is Json String that has been converted to a dictionary object.
 '            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '
-'* 更新履歴：・18/02/26 - SessionIDがあっても、BrowserContext優先にコマンド実行できるように改良。エラーで止めるかのスイッチングを導入
-'            ・28/04/23 - Set this to Public as it is useful
+'* 更新履歴：・28/04/23 - Set this to Public as it is useful
 '            ・20/03/23 - Added printMsg msgs & set to Private
 '
 '* 注意事項：・CDPの運営思想の都合上、多数の`Deprecated`,`Experimental`が存在します。
@@ -982,33 +1013,43 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
-    'コマンド組み立て
-    Dim CDPcommand As New Scripting.Dictionary
-    CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
+    '1. まずは非同期実行で実行IDを回収
+    Dim RunID As Long
+    RunID = ExecuteCDPAsync(methodName, params, StopCDPError)
 
-    '送信して結果を受け取り、Node変換
-    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, StopPipeError:=StopCDPError)
+    '2. 1回だけメッセージ取り出しを行う
+    printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
+    TakeEvents StopCDPError
+
+    '3. CDP-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '前述の`TakeEvents`により
+    '・結果が届いた：ループに入らず即回収
+    '・結果がまだ　：ループに入って回収
+    'といったパフォーマンス改善になります
+    Dim ResultJsonStr As String
+    ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
+
+    '4. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultStr)
+    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
 
-    'Print error if there is
+    '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
-            'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
+            '5-1. エラーになったmethod名と、結果生responseを表示して停止
+            printMsg ERROR_, "Failed to ExecuteCDP method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=StopCDPError
         Else
-            'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+            '5-1. エラーになったmethod名だけログ出して続行
+            printMsg WARN_, "Failed to ExecuteCDP method """ & methodName & """", FromProcedureName
         End If
     Else
-        'Return result object
-        If resultJson.ExistsKey("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
+        '5-1. Return result object
+        Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
-    'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultStr, FromProcedureName
+    '6. デバッグ用に、As Is 出力
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1018,94 +1059,67 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopApiError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
-    'コマンド組み立て
+    '1. コマンド組み立て
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params
+    If Not params Is Nothing Then CDPcommand.Add "params", params       '`nothing`の場合は、`params`項目を省略
 
-    '送信
-    SendMessage CDPcommand, True, StopPipeError
+    '2. ブラウザへ送信し、実行IDを取得
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand, brTab.sessionID) 'Send message to the Context(tab) instance
 
-    '実行したIDを返却
-    ExecuteCDPAsync = PipeCore.LastCommandID
+    '3. 送信APIエラーチェック
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError: Exit Function
+
+    '4. ログ化
     printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
+
 End Function
 
 '***************************************************************************************************
-'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'* 機能　　：非同期実行(ExecuteCDPAsync)した際のcommandIDに対して、結果が来るまで内部で待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json文字列)
-'                      `True`  → `vbnullstring`
-'
-'* 引数　　：DirMessage             Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
-'
-'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
-'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
-'
-'            StopPipeError          `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
-'                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
+'* 返り値　：commandIDに対する結果Json文字列
+'* 引数　　：CommandID      実行ID
+'            StopApiError   `Pipe - ReadFile`/`WebSocket - recv`でエラーが起こったら停止します
 '---------------------------------------------------------------------------------------------------
-'* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
-'            ・03/22/23 - Added error handling for better debugging
-'            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
+'* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
+'            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopPipeError As Boolean = True) As String
-    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError As Boolean = True) As String
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitTakeResultCDP"
 
 
-   '--------------------------------------------------
-   'Send message to the browser
-   '--------------------------------------------------
-    printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
+    '1. すでに結果が格納済みの場合は、ここの段階で抜ける
+    AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+    If StrPtr(AutoWaitTakeResultCDP) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
-    PipeCore.ReadyRunCDP DirMessage, brTab.sessionID                        'Send message to the browser instance
-    Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
-
-    'WriteFile にてエラーがあった場合
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError: Exit Function
-
-    '非同期(結果はいらない)モードなら、ここで抜けます
-    If Async Then Exit Function
-
-   '------------------------------------------------
-   'Read message returned by browser
-   '------------------------------------------------
-    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    '2. 今の経過時間を記録し、取り出し開始
     Dim timerStart As Double: timerStart = TimerCounter
-    Dim tmp As String
-    printMsg Trace_, "Starting Processes incoming messages from the tab...", FromProcedureName
     Do
-        '1. 受信処理によるパイプを拝見する
+        '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
-        TakeEvents StopPipeError
+        TakeEvents StopApiError
 
-        '2. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = TakeResultCDP(currentCommandID)
-        If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたの結果を返す
-            SendMessage = tmp
-            printMsg info_, "Tab have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
-
-            'ループから抜ける
+        '4. 内部の`RaiseEvent`による発火で、Dictionaryへ蓄積されたか？
+        AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+        If StrPtr(AutoWaitTakeResultCDP) Then
+            '送ったコマンド結果であることを確認できたので、ループから抜ける
+            printMsg info_, "Browser have confirmed receipt of command result ID: " & commandID, FromProcedureName
             Exit Do
         Else
-            printMsg Trace_, "Tab have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
+            printMsg Trace_, "Browser have not yet been able to confirm command ID: " & commandID, FromProcedureName
         End If
 
-        '3. 受信処理にてエラーがあったら、即抜け
-        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
+        '5. 受信処理にてエラーがあったら、即抜け
+        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
-        '4. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
+        '6. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
         If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
     Loop
-
-    printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
 
@@ -1423,14 +1437,32 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             Set tmpNode = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("context")
             If tmpNode.NodeKey("auxData").StringKey("frameId") = brTab.targetID Then
                 '2-2. 各種statusを上書き
-                brTabRuntime.ExecutionContextId = tmpNode.NumberKey("id")
-                brTabRuntime.origin = tmpNode.StringKey("origin")
-                brTabRuntime.Name = tmpNode.StringKey("name")
-                brTabRuntime.uniqueId = tmpNode.StringKey("uniqueId")
+                With brTabRuntime
+                    .IsValid = True '使えるよサイン
+
+                    .ExecutionContextId = tmpNode.NumberKey("id")
+                    .origin = tmpNode.StringKey("origin")
+                    .Name = tmpNode.StringKey("name")
+                    .uniqueId = tmpNode.StringKey("uniqueId")
+                End With
 
                 '2-3. ログ化
                 printMsg info_, "The JavaScript execution environment for targetID:" & brTab.targetID & " has been updated.", FromProcedureName
             End If
+
+        'JavaScript実行環境情報の破棄更新を行います
+        Case "Runtime.executionContextDestroyed"
+            '2-1. このClassで保持中の`executionContextUniqueId`と一致するか？
+            If brTabRuntime.uniqueId = BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("executionContextUniqueId") Then
+                brTabRuntime.IsValid = False
+                printMsg info_, "The JavaScript environment owned by this class has been destroyed.", FromProcedureName
+            End If
+
+        'JavaScript実行環境情報の破棄更新を行います。こちらは、コンテキスト(タブ)全体です
+        Case "Runtime.executionContextsCleared"
+            brTabRuntime.IsValid = False
+            printMsg info_, "The JavaScript environment associated with this class was destroyed due to a page transition or other reasons.", FromProcedureName
+
     End Select
 
 
@@ -1922,9 +1954,9 @@ Public Sub notify(msg As String, Optional ViewSecond As Long = 10)
 '----------------------------------------------------------------------------------
 
     ' 1. 引数をパッキング（CDPの仕様に合わせた形）
-    Dim args As New Collection
-    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  args.Add arg1
-    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    args.Add arg2
+    Dim args(1) As Dictionary
+    Dim arg1 As New Dictionary: arg1.Add "value", msg:                  Set args(0) = arg1
+    Dim arg2 As New Dictionary: arg2.Add "value", ViewSecond * 1000:    Set args(1) = arg2
 
     ' 2. JS関数本体（無名関数として定義し、その場で実行させる）
     Dim funcJS As String
@@ -2332,16 +2364,15 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '5-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
@@ -2433,16 +2464,15 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs As Collection, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArgs = New Collection
         Set itemArg = New Scripting.Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
-        itemArgs.Add itemArg
+        Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
         itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
@@ -2651,15 +2681,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
-
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
@@ -2738,6 +2763,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -2746,13 +2773,30 @@ Private Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
+Private Function TimerCounter() As Double
+    TimerCounter = PipeCore.GetTicksMs
+End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     PipeCore.TakeEvents StopPipeError, destruction
 End Sub
 
-Private Function TimerCounter() As Double
-    TimerCounter = PipeCore.GetTicksMs
-End Function
+'--- manual ---
+Private Sub TakeEvent()
+    PipeCore.TakeEvent
+End Sub
+
+Private Property Get NewResCDP() As Boolean
+    NewResCDP = PipeCore.NewResCDP
+End Property
+
+Private Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.AnalyzeCDP StopApiError, destruction
+End Sub
 
 
 

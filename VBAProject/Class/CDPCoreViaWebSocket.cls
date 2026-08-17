@@ -226,7 +226,7 @@ End Property
 '***************************************************************************************************
 '* 機能    ：ソケットが生きてるかを確認します
 '***************************************************************************************************
-Public Property Get isAvailability() As Boolean
+Public Function isAvailability() As Boolean
     Const FromProcedureName As String = ThisClassName & ".isAvailability"
 
 
@@ -237,7 +237,7 @@ Public Property Get isAvailability() As Boolean
     'ステータスを最新にしておく
     LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
     printMsg Debug_, WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
-End Property
+End Function
 
 
 
@@ -634,11 +634,11 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         'フレームヘッダーが無効(古い)状態なら更新させる
         printMsg Debug_, "This is not a valid frame header, so we will update it.", FromProcedureName
 
-        '必要なフレームヘッダー情報が不足してる場合は、ここで抜ける
+        '最低限必要なフレームヘッダー情報が不足してる場合は、ここで抜ける
         'この場合、サイズ0、エラーなしとなります。
         If Not UpdateFrameHeader(bytesAvailable) Then Exit Function
 
-        '更新後の、切断要求チェック (Opcode: 8)
+        'ヘッダー情報解析後の、切断要求チェック (Opcode: 8)
         If m_WebSocketFrame.opcode = 8 Then
             Call DisconnectCDP
             m_LastBufferType = WS_BUFFER_TYPE.WS_CLOSE_MESSAGE ' プロパティを切断状態に

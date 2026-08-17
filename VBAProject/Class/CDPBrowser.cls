@@ -1033,9 +1033,9 @@ End Function
 '***************************************************************************************************
 '                              ■■■ CDPcommand操作関連 ■■■
 '***************************************************************************************************
-'* 機能　　：CDPのMethod名と、parametersを渡して、低レベルにてブラウザ制御をします
+'* 機能　　：CDPのMethod名と、parametersを渡して、ブラウザへ命令を行い、結果の回収も同時に行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：CDP-Jsonコマンド の実行結果情報。失敗時は、`Nothing`となります。
+'* 返り値　：CDP-Jsonコマンド の実行結果`result`ノード情報。失敗時は、`Nothing`となります。
 '* 引数　　：methodName             method名。"Network.getCookies"や"DOM.getDocument"というのを記入します
 '            params                 Json-Dictionary形式で、KeyとItemを事前に定義したオブジェクト変数を指定します。
 '            StopCDPError           `True`で、実行失敗時に`Err.Raise`で停止し、以降の処理を止めます
@@ -1047,8 +1047,7 @@ End Function
 '            The return object is Json String that has been converted to a dictionary object.
 '            Credit: https://github.com/PerditionC/VBAChromeDevProtocol
 '
-'* 更新履歴：・18/02/26 - SessionIDがあっても、BrowserContext優先にコマンド実行できるように改良。エラーで止めるかのスイッチングを導入
-'            ・28/04/23 - Set this to Public as it is useful
+'* 更新履歴：・28/04/23 - Set this to Public as it is useful
 '            ・20/03/23 - Added printMsg msgs & set to Private
 '
 '* 注意事項：・CDPの運営思想の都合上、多数の`Deprecated`,`Experimental`が存在します。
@@ -1062,33 +1061,43 @@ Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Di
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
-    'コマンド組み立て
-    Dim CDPcommand As New Scripting.Dictionary
-    CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
+    '1. まずは非同期実行で実行IDを回収
+    Dim RunID As Long
+    RunID = ExecuteCDPAsync(methodName, params, StopCDPError)
 
-    '送信して結果を受け取り、Node変換
-    Dim ResultStr As String: ResultStr = SendMessage(CDPcommand, StopPipeError:=StopCDPError)
+    '2. 1回だけメッセージ取り出しを行う
+    printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
+    TakeEvents StopCDPError
+
+    '3. CDP-Jsonコマンドを送った際のIDが返ってくるまで、内部でループ受信処理を行います
+    '前述の`TakeEvents`により
+    '・結果が届いた：ループに入らず即回収
+    '・結果がまだ　：ループに入って回収
+    'といったパフォーマンス改善になります
+    Dim ResultJsonStr As String
+    ResultJsonStr = AutoWaitTakeResultCDP(RunID, StopCDPError)
+
+    '4. 結果を、Node変換
     Dim resultJson As BiDiCDPJson
-    Set resultJson = BiDiCDPJson.Parse(ResultStr)
+    Set resultJson = BiDiCDPJson.Parse(ResultJsonStr)
 
-    'Print error if there is
+    '5. 実行時エラーチェック
     If ExecuteError(resultJson) Then
         'エラーによる`Err.Raise`で止めるか？
         If StopCDPError Then
-            'エラーになったmethod名と、結果生responseを表示して停止
-            printMsg ERROR_, "Failed to invoke method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultStr, FromProcedureName, doRaiseError:=True
+            '5-1. エラーになったmethod名と、結果生responseを表示して停止
+            printMsg ERROR_, "Failed to ExecuteCDP method """ & methodName & """" & vbCrLf & vbCrLf & "=== RawErrorResponse ===" & vbCrLf & ResultJsonStr, FromProcedureName, doRaiseError:=StopCDPError
         Else
-            'エラーになったmethod名だけログ出して続行
-            printMsg WARN_, "Failed to invoke method """ & methodName & """", FromProcedureName
+            '5-1. エラーになったmethod名だけログ出して続行
+            printMsg WARN_, "Failed to ExecuteCDP method """ & methodName & """", FromProcedureName
         End If
     Else
-        'Return result object
-        If resultJson.ExistsKey("result") Then Set ExecuteCDP = resultJson.NodeKey("result")
+        '5-1. Return result object
+        Set ExecuteCDP = resultJson.NodeKey("result")
     End If
 
-    'デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultStr, FromProcedureName
+    '6. デバッグ用に、As Is 出力
+    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1098,94 +1107,67 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopPipeError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopApiError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
-    'コマンド組み立て
+    '1. コマンド組み立て
     Dim CDPcommand As New Scripting.Dictionary
     CDPcommand.Add "method", methodName
     If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
-    '送信
-    SendMessage CDPcommand, True, StopPipeError
+    '2. ブラウザへ送信し、実行IDを取得
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand)  'Send message to the browser instance
 
-    '実行したIDを返却
-    ExecuteCDPAsync = PipeCore.LastCommandID
+    '3. 送信APIエラーチェック
+    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError: Exit Function
+
+    '4. ログ化
     printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
+
 End Function
 
 '***************************************************************************************************
-'* 機能　　：CDP にメッセージを送信し、Chromium ブラウザでメッセージが受信されているかどうかを確認します
+'* 機能　　：非同期実行(ExecuteCDPAsync)した際のcommandIDに対して、結果が来るまで内部で待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：Async が、`False` → CDP-Jsonコマンド の実行結果(Json文字列)
-'                      `True`  → `vbnullstring`
-'
-'* 引数　　：DirMessage             Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
-'
-'            Async                  `True` ：コマンドの結果を待ちません。Do Loopフェーズには入りません。
-'                                   `False`：コマンドの結果を待ちます。Do Loopフェーズに入り、そのIDが来るまで待ちます。この場合、非同期に実行した結果のID回収もついでに行います
-'
-'            StopPipeError          `True` ：`CDPCore.cls - TakeEvents`にて、エラーがあったら止まります
-'                                   `False`：`CDPCore.cls - TakeEvents`にて、エラーがあっても止まらず、`SendMessage`は`nothing`として返ります
+'* 返り値　：commandIDに対する結果Json文字列
+'* 引数　　：CommandID      実行ID
+'            StopApiError   `Pipe - ReadFile`/`WebSocket - recv`でエラーが起こったら停止します
 '---------------------------------------------------------------------------------------------------
-'* 更新履歴：・03/05/23 - Added soft-reset on peeknamepipe error
-'            ・03/22/23 - Added error handling for better debugging
-'            ・24/10/25 Daniel Polak - Added soft re-attach attempt when pipe error
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：Async:=True の場合は常に`vbnullchar`で、返ります
+'* 注意事項：・タイムアウトの場合は、エラー停止になります。結果に時間がかかりそうなコマンドの場合は事前に`TimeOutSecond`にて伸ばして下さい
+'            ・WinAPI側のエラーの場合は、`vbnullstring`で返ります
 '***************************************************************************************************
-Private Function SendMessage(DirMessage As Scripting.Dictionary, Optional Async As Boolean, Optional StopPipeError As Boolean = True) As String
-    Const FromProcedureName As String = ThisClassName & ".SendMessage"
+Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError As Boolean = True) As String
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitTakeResultCDP"
 
 
-   '--------------------------------------------------
-   'Send message to the browser
-   '--------------------------------------------------
-    printMsg Debug_, "runCDP  - Async       = " & Async, FromProcedureName
+    '1. すでに結果が格納済みの場合は、ここの段階で抜ける
+    AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+    If StrPtr(AutoWaitTakeResultCDP) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
-    PipeCore.ReadyRunCDP DirMessage                                         'Send message to the browser instance
-    Dim currentCommandID As Long: currentCommandID = PipeCore.LastCommandID '`ReadyRunCDP`直後のcommandIDを取得
-
-    'WriteFile にてエラーがあった場合
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError: Exit Function
-
-    '非同期(結果はいらない)モードなら、ここで抜けます
-    If Async Then Exit Function
-
-   '------------------------------------------------
-   'Read message returned by browser
-   '------------------------------------------------
-    'CDP-Jsonコマンドを送った際のIDが返ってくるまで、ループ受信処理を行いますが、タイムアウトになったら、抜けます
+    '2. 今の経過時間を記録し、取り出し開始
     Dim timerStart As Double: timerStart = TimerCounter
-    Dim tmp As String
-    printMsg Trace_, "Starting Processes incoming messages from the browser...", FromProcedureName
     Do
-        '1. 受信処理によるパイプを拝見する
+        '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
-        TakeEvents StopPipeError
+        TakeEvents StopApiError
 
-        '2. 内部の`RaiseEvent CDPBrowserID`による発火で、Dictionaryへ蓄積されたか？
-        tmp = TakeResultCDP(currentCommandID)
-        If StrPtr(tmp) Then
-            '送ったコマンド結果であることを確認できたので結果を返す
-            SendMessage = tmp
-            printMsg info_, "Browser have confirmed receipt of command result ID: " & currentCommandID, FromProcedureName
-
-            'ループから抜ける
+        '4. 内部の`RaiseEvent`による発火で、Dictionaryへ蓄積されたか？
+        AutoWaitTakeResultCDP = TakeResultCDP(commandID)
+        If StrPtr(AutoWaitTakeResultCDP) Then
+            '送ったコマンド結果であることを確認できたので、ループから抜ける
+            printMsg info_, "Browser have confirmed receipt of command result ID: " & commandID, FromProcedureName
             Exit Do
         Else
-            printMsg Trace_, "Browser have not yet been able to confirm command ID: " & currentCommandID, FromProcedureName
+            printMsg Trace_, "Browser have not yet been able to confirm command ID: " & commandID, FromProcedureName
         End If
 
-        '3. 受信処理にてエラーがあったら、即抜け
-        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName: Exit Function
+        '5. 受信処理にてエラーがあったら、即抜け
+        If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
-        '4. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
+        '6. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
         If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
     Loop
-
-    printMsg Trace_, "Command result ID:" & currentCommandID & " was returned from CDP-Json, so the receiving loop will end.", FromProcedureName
 End Function
 
 
@@ -1700,15 +1682,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：CDP-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
-'* GET返値 ：設定中のタイムアウト秒数
 '* LET引数 ：置き換えるタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：最初のブラウザ起動時の遷移完了判定や、CDP-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
-Property Get TimeOutSecond() As Double
-    TimeOutSecond = timerOut / 1000 'ミリ秒に補正する
-End Property
-
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
 End Property
@@ -1718,6 +1695,8 @@ End Property
 '***************************************************************************************************
 '                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：基本ラッパー機能
+'***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
@@ -1726,13 +1705,30 @@ Public Sub sleep(Optional seconds As Double = 0.5)
     PipeCore.sleep seconds
 End Sub
 
-Public Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
-    PipeCore.TakeEvents StopPipeError, destruction
-End Sub
-
 Public Function TimerCounter() As Double
     TimerCounter = PipeCore.GetTicksMs
 End Function
+
+'***************************************************************************************************
+'* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
+'***************************************************************************************************
+'--- almighty ---
+Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.TakeEvents StopApiError, destruction
+End Sub
+
+'--- manual ---
+Public Sub TakeEvent()
+    PipeCore.TakeEvent
+End Sub
+
+Property Get NewResCDP() As Boolean
+    NewResCDP = PipeCore.NewResCDP
+End Property
+
+Public Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
+    PipeCore.AnalyzeCDP StopApiError, destruction
+End Sub
 
 
 
