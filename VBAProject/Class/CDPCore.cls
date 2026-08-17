@@ -220,7 +220,7 @@ Private Type ResponseBufferCDP
     length          As Long     '現在のバッファ全体の長さ
     StartCursor     As Long     '取り出しの開始位置
     AddCursor       As Long     '次に蓄積し始める位置
-    EndCursor       As Long     '有効なデータ末尾位置
+    EndCursor       As Long     '有効予定なデータ末尾位置(※バッファー拡張判定用)
     ExistsNewRes    As Boolean  '新規メッセージ有無
 End Type
 Private responseCDP     As ResponseBufferCDP
@@ -842,16 +842,20 @@ Private Sub ReadyCDPMessage()
         If .Position Then .Position = 0 Else printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
 
         '3. UTF-16変数に格納する準備
+        Dim tmp As String
         If Utf8Converter Is Nothing Then
             'そのまんまUTF-16変数に格納
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = StrConv((.Read), vbUnicode)
+            tmp = StrConv((.Read), vbUnicode)
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
         Else
             'UTF-8に変換した上で、UTF-16変数に格納
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = Utf8Converter.BytesToString((.Read))
+            tmp = Utf8Converter.BytesToString((.Read))
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
         End If
 
         '4. 次の蓄積位置を記録
-        responseCDP.AddCursor = responseCDP.EndCursor
+        responseCDP.AddCursor = responseCDP.AddCursor + Len(tmp)    '追加した文字数分をシフト
+        responseCDP.EndCursor = responseCDP.AddCursor               'テキスト変換による差分補正
 
         '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
         .Position = 0
