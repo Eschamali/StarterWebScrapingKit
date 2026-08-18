@@ -734,7 +734,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As String) As Long
+Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 

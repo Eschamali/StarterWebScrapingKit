@@ -404,7 +404,7 @@ Private Sub deserializeForTab(reuseSession As Boolean)
 
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
-    Dim objSerialize As Scripting.Dictionary
+    Dim objSerialize As Dictionary
     Set objSerialize = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
 
     '2. そもそもない場合は即抜け
@@ -517,7 +517,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
 
 
     Dim CDPresult   As String
-    Dim CDPparams   As New Scripting.Dictionary
+    Dim CDPparams   As New Dictionary
 
 step1:
 
@@ -1009,7 +1009,7 @@ End Property
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -1059,12 +1059,12 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopApiError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, Optional StopApiError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
     '1. コマンド組み立て
-    Dim CDPcommand As New Scripting.Dictionary
+    Dim CDPcommand As New Dictionary
     CDPcommand.Add "method", methodName
     If Not params Is Nothing Then CDPcommand.Add "params", params       '`nothing`の場合は、`params`項目を省略
 
@@ -1317,7 +1317,7 @@ Public Sub closeTab()
 
 
     'Get the original serialized tab ID
-    Dim MainTargetID As String, tmp As Scripting.Dictionary
+    Dim MainTargetID As String, tmp As Dictionary
     Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
     If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 
@@ -1327,7 +1327,7 @@ Public Sub closeTab()
         Exit Sub
     End If
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("targetId") = brTab.targetID
     ExecuteCDP "Target.closeTarget", params
     printMsg info_, brTab.targetID & " was closed", FromProcedureName
@@ -1848,7 +1848,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     End If
 
    'If not yet then do navigate
-    Dim CDPparams As New Scripting.Dictionary
+    Dim CDPparams As New Dictionary
     CDPparams.Add "url", strURL
     ExecuteCDP "Page.navigate", CDPparams
 
@@ -1920,11 +1920,11 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
 
         sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
-        Dim params As New Scripting.Dictionary
+        Dim params As New Dictionary
         If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
         params("windowId") = Int(brTab.WID)     '02/03/23 CInt() will throw error, Int() is better
 
-        Dim bounds As New Scripting.Dictionary
+        Dim bounds As New Dictionary
         Dim x As Long, y As Long, w As Long, h As Long
         On Error Resume Next
         x = CLng(Split(xywh, " ")(0))
@@ -2004,7 +2004,7 @@ Public Sub snapPage(FolderPath As String, FileName As String, Optional getFullPa
     Const FromProcedureName As String = ThisClassName & ".snapPage"
 
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     Dim r As BiDiCDPJson
     Dim b64 As String, tmpPng As String
 
@@ -2034,7 +2034,7 @@ Public Sub activate()
 ' Updated: 02/03/2023
 '----------------------------------------------------------------------------------
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("targetId") = brTab.targetID
     ExecuteCDP "Target.activateTarget", params
 
@@ -2051,7 +2051,7 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 ' Updated: 23/07/2025 - added as requested by Jane Zhang for her project
 '----------------------------------------------------------------------------------
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
 
     params("accept") = Accept
     If StrPtr(promptText) Then params("promptText") = promptText
@@ -2364,7 +2364,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '5. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '5-1. `callFunctionOn`に渡す引数を初期化
@@ -2464,7 +2464,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
@@ -2638,7 +2638,7 @@ Property Let CurrentSessionID(newSessionID As String)
 
     'メインタブの場合は、新SessionIDも記録しておく
     With ShSetting01_StartBrowser
-        Dim MainTargetID As String, tmp As Scripting.Dictionary
+        Dim MainTargetID As String, tmp As Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
         If Not tmp Is Nothing Then MainTargetID = tmp("targetID")
 

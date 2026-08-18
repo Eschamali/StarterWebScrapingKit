@@ -1104,7 +1104,7 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
     '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
     If ReuseContext Then
         '5-1. Excelテーブルからメインタブ情報を取得
-        Dim tmp As Scripting.Dictionary
+        Dim tmp As Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
 
         '5-2. データ有無チェック
@@ -1203,7 +1203,7 @@ Public Function AutoConnectDevToolsActivePort(UserName As String, Optional Reuse
         '7. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
         If ReuseContext Then
             '7-1. Excelテーブルからメインタブ情報を取得
-            Dim tmpRe As Scripting.Dictionary
+            Dim tmpRe As Dictionary
             Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
     
             '7-2. データ有無チェック

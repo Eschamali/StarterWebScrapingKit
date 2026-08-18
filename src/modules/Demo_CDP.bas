@@ -248,7 +248,7 @@ Sub TestAlert()
 
 
     '必要な変数を用意
-    Dim paramsCDP As New Scripting.Dictionary
+    Dim paramsCDP As New Dictionary
     Dim resCDP As BiDiCDPJson
     Dim searchId As String
     Dim nodeId As Long

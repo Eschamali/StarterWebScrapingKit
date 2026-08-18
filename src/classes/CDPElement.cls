@@ -213,7 +213,7 @@ Public Function click() As Boolean
 
    'Some fields require the browser to manually focus before allowing
    'the click action, such as the input type 'file' field.
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("text") = ""
     ExecuteCDP "Input.insertText", params
 
@@ -256,7 +256,7 @@ Public Function sendClick() As Boolean
     x = jsEval("function(){ const r = this.getBoundingClientRect(); return r.left + (r.width / 2); }")
     y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("type") = "mousePressed"
     params("x") = x
     params("y") = y
@@ -292,7 +292,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
 
 
     'Set focus on the node
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("objectId") = elementObjectId
     ExecuteCDP "DOM.focus", params
 
@@ -331,7 +331,7 @@ Public Function sendString(textToSend As String) As Boolean
     jsEval "function(){ this.value = '' }"
 
     'Set focus on the node
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("objectId") = elementObjectId
     ExecuteCDP "DOM.focus", params
 
@@ -389,8 +389,8 @@ Property Let checked(boolChecked As Boolean)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", CBool(boolChecked)
     Set args(0) = arg
     jsEval "function(v){ this.checked = v }", args
@@ -420,8 +420,8 @@ Property Let selected(selectedOption As String)
     If checkExist Then If Not isExist Then Exit Property
 
 
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", selectedOption
     Set args(0) = arg
     jsEval "function(v){ this.selectedIndex = v }", args
@@ -469,8 +469,8 @@ Public Function getAttribute(strAttributeName As String) As String
     If checkExist Then If Not isExist Then Exit Function
 
 
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strAttributeName
     Set args(0) = arg
     getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
@@ -486,9 +486,9 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
     If checkExist Then If Not isExist Then Exit Function
 
 
-    Dim args2(1) As Scripting.Dictionary
-    Dim a1 As New Scripting.Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
-    Dim a2 As New Scripting.Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
+    Dim args2(1) As Dictionary
+    Dim a1 As New Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
+    Dim a2 As New Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
@@ -535,8 +535,8 @@ Property Let value(strTextVal As String)
     If isReact Then printMsg WARN_, "FYI: this is a REACT field as the first method is " & e1, FromProcedureName
 
     'objectArgumentsで安全に値を渡す（エスケープ不要）
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strTextVal
     Set args(0) = arg
 
@@ -578,8 +578,8 @@ Property Let innerText(strTextVal As String)
 
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerText = v }", args
@@ -611,8 +611,8 @@ Property Let innerHTML(strTextVal As String)
 
     jsEval "function(){ this.scrollIntoView(false) }"
 
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerHTML = v }", args
@@ -657,8 +657,8 @@ Public Function fireEvent(strEventName As String) As Boolean
 
 
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strEventName
     Set args(0) = arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
@@ -686,7 +686,7 @@ Public Function sendHover() As Boolean
     y = jsEval("function(){ const r = this.getBoundingClientRect(); return r.top + (r.height / 2); }")
 
     '物理マウスをその要素の中心座標へ移動（これでホバー状態になる）
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("type") = "mouseMoved"
     params("x") = x
     params("y") = y
@@ -976,7 +976,7 @@ Public Function getChildren() As Collection
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
-    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
@@ -1021,8 +1021,8 @@ Public Function getElementByID(strID As String) As CDPElement
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strID
     Set args(0) = arg
 
@@ -1070,8 +1070,8 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1107,8 +1107,8 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
 
     '1. `callFunctionOn`に渡す引数を準備
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1132,7 +1132,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
-    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
@@ -1201,8 +1201,8 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
-    Dim args(0) As Scripting.Dictionary
-    Dim arg As New Scripting.Dictionary
+    Dim args(0) As Dictionary
+    Dim arg As New Dictionary
     arg.Add "value", strXPath
     Set args(0) = arg
 
@@ -1252,8 +1252,8 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
-    Dim xpArgs(0) As Scripting.Dictionary
-    Dim xpArg As New Scripting.Dictionary
+    Dim xpArgs(0) As Dictionary
+    Dim xpArg As New Dictionary
     xpArg.Add "value", strXPath
     Set xpArgs(0) = xpArg
 
@@ -1277,7 +1277,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
-    Dim itemArgs(0) As Scripting.Dictionary, itemArg As Scripting.Dictionary
+    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '7-1. `callFunctionOn`に渡す引数を初期化
@@ -1541,7 +1541,7 @@ Private Function TimerCounter() As Double
     TimerCounter = main.InheritanceCDPBrowser.TimerCounter
 End Function
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
