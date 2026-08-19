@@ -942,7 +942,7 @@ Public Sub jsAddLib(strURL As String)
 
 End Sub
 
-Public Sub jsAddScript(strLocalScriptPath As String)
+Public Sub jsAddScript(FolderPath As String, ScriptName As String)
 '----------------------------------------------------------------------------------
 ' Load the contents of the local script file directly to the HTML page. This is
 ' useful when you have a custom local script to add in a certain feature to a web
@@ -957,13 +957,12 @@ Public Sub jsAddScript(strLocalScriptPath As String)
     Const FromProcedureName As String = ThisClassName & ".jsAddScript"
 
 
+    Dim strLocalScriptPath As String
+    strLocalScriptPath = FolderPath & "\" & ScriptName
     If Dir(strLocalScriptPath) = "" Then Exit Sub
 
-    Dim fso As New FileSystemObject
-    jsEval fso.OpenTextFile(strLocalScriptPath).ReadAll 'Load the script contents
+    jsEval CharConv.BytesToString(CharConv.BytesFromSavedFile(FolderPath, ScriptName)) 'Load the script contents
     printMsg info_, "Successfully added the local script: """ & strLocalScriptPath & """", FromProcedureName
-
-    Set fso = Nothing
 
 End Sub
 
@@ -2368,7 +2367,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Scripting.Dictionary
+        Set itemArg = New Dictionary
 
         '5-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
@@ -2468,7 +2467,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Scripting.Dictionary
+        Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N

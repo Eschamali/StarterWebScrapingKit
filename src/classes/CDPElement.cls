@@ -980,7 +980,7 @@ Public Function getChildren() As Collection
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Scripting.Dictionary
+        Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
@@ -1136,7 +1136,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '4-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Scripting.Dictionary
+        Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
@@ -1281,7 +1281,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
         '7-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Scripting.Dictionary
+        Set itemArg = New Dictionary
 
         '7-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N

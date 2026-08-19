@@ -210,7 +210,7 @@ End Function
 '* 引数　　：UserName           ハンドル情報に紐づくユーザ名。
 '            ErrorSource        この関数を呼び出したソース。※デバック用
 '***************************************************************************************************
-Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDictionary As Dictionary)
+Friend Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDictionary As Dictionary)
     '-------------- 1.エラーチェック --------------
     '1-1. `nothing`時は、エラーにします
     If SetDictionary Is Nothing Then Err.Raise 1 + vbObjectError, ErrorSource, "入力データがありません"
@@ -225,7 +225,7 @@ Property Set TableBrowserHandle(UserName As String, ErrorSource As String, SetDi
     '2. 記録ヘルパーメソッドを呼び出す
     serializeToTable TableName01, UserName, ErrorSource, SetDictionary
 End Property
-Property Get TableBrowserHandle(UserName As String, ErrorSource As String) As Dictionary
+Friend Property Get TableBrowserHandle(UserName As String, ErrorSource As String) As Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
     Set TableBrowserHandle = deserializeFromTable(TableName01, UserName, ErrorSource)
 End Property
@@ -240,7 +240,7 @@ End Property
 '* 引数　　：UserName           コンテキスト情報に紐づくユーザ名。
 '            ErrorSource        この関数を呼び出したソース。※デバック用
 '***************************************************************************************************
-Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetDictionary As Dictionary)
+Friend Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetDictionary As Dictionary)
     '-------------- 1.エラーチェック --------------
     '1-1. `nothing`時は、エラーにします
     If SetDictionary Is Nothing Then Err.Raise 3 + vbObjectError, ErrorSource, "入力データがありません"
@@ -255,7 +255,7 @@ Property Set TableBrowserContext(UserName As String, ErrorSource As String, SetD
     '2. 記録ヘルパーメソッドを呼び出す
     serializeToTable TableName02, UserName, ErrorSource, SetDictionary
 End Property
-Property Get TableBrowserContext(UserName As String, ErrorSource As String) As Dictionary
+Friend Property Get TableBrowserContext(UserName As String, ErrorSource As String) As Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
     Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource)
 End Property
