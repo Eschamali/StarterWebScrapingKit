@@ -816,14 +816,14 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         Dim lenIndicator As Byte
         lenIndicator = (header(1) And &H7F)
         If lenIndicator < 126 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
 
 
             '最初の1バイト（指示子）だけで、これからの受信サイズを表現してるので、そのまんま適用
             .PayloadLength = lenIndicator
 
         ElseIf lenIndicator = 126 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 4 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 4 bytes.", FromProcedureName
 
 
             '次の2バイト（16bit）に、これからの受信サイズを表現してるので、その分を追加で、取り出す
@@ -840,7 +840,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             .PayloadLength = (CLng(extLen16(0)) * &H100&) Or extLen16(1)
 
         ElseIf lenIndicator = 127 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 10 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 10 bytes.", FromProcedureName
 
 
             '次の8バイト（64bit） に、これからの受信サイズを表現してるので、その分を追加で、取り出す
@@ -877,7 +877,18 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         End If
     End With
 
-    '3. 全て更新し終えたので、成功フラグを返す
+    '3. フレーム情報を表示する
+    '※このClassでは、`RSV`系は扱いません。主要な情報のみ扱います。
+    printMsg Debug_, String(100, "="), FromProcedureName
+    printMsg Debug_, "Base Framing Protocol information", FromProcedureName
+    printMsg Debug_, String(100, "-"), FromProcedureName
+    printMsg Debug_, "FIN                : " & m_WebSocketFrame.isFIN, FromProcedureName
+    printMsg Debug_, "opcode             : " & m_WebSocketFrame.opcode, FromProcedureName
+    printMsg Debug_, "Payload len        : " & lenIndicator, FromProcedureName
+    printMsg Debug_, "Total payload size : " & m_WebSocketFrame.PayloadLength, FromProcedureName
+    printMsg Debug_, String(100, "="), FromProcedureName
+
+    '4. 全て更新し終えたので、成功フラグを返す
     UpdateFrameHeader = True
 End Function
 
