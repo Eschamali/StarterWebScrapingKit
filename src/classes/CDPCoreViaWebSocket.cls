@@ -1309,18 +1309,28 @@ End Function
 '                         ■■■ クラスオブジェクトの初期化と破棄時の処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     ' WinSock 2.2 の初期化
     Dim wsaDat As WSAData
     If WSAStartup(&H202, wsaDat) = 0 Then
         m_WSAInitialized = True
     Else
-        Err.Raise vbObjectError + 1001, "CDPCoreViaWebSocket.Class_Initialize", "WSAStartup の初期化に失敗しました。"
+        Err.Raise vbObjectError + 1001, FromProcedureName, "WSAStartup の初期化に失敗しました。"
     End If
 
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
     currentLog.id = "WSID" & Format(Rnd * 1000, "000")
+
+    'パスが設定されてたら、ログファイル保存を有効化
+    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    If LenB(LogFolderPath) > 0 Then
+        currentLog.doLog = True                'ログファイルとして保存するか？
+        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+    End If
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
