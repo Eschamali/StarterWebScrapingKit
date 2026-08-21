@@ -183,11 +183,15 @@ Private Const STARTF_USESTDHANDLES  As Long = &H100&
 Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
 Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
+'バッファー設定関連
+Private Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限　※`CDPCoreViaWebSocket.cls - InitialBuffer`と揃えること
+Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。
+Private Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
+Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
+
 'その他
-Private Const ThisClassName     As String = "CDPCore"
-Private Const InitialBuffer     As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
-Private Const RunDoEventsCount  As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
-Private Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値
+Private Const ThisClassName             As String = "CDPCore"
+Private Const LimitCommandID            As Long = 2000000000    'CDPコマンド送信時のID上限値
 
 
 
@@ -803,23 +807,47 @@ End Function
 '* 機能　　：適切な文字列変数バッファーが確保されてるかチェックします
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：拡張自体は1回分ですが、`CreatePipe`の第四引数と辻褄を合わせてるので、1回の拡張で済みます。
 '***************************************************************************************************
 Private Sub StrBufferCheck(resSize As Long)
     Const FromProcedureName As String = ThisClassName & ".StrBufferCheck"
 
 
-    '新規メッセージがない場合は即抜け
+    '1. 新規メッセージがない場合は即抜け
     If resSize <= 0 Then printMsg WARN_, LogID, "No message was found, so the buffer check will be skipped.", FromProcedureName: Exit Sub
+
+    '2. バッファーcheckへ
     With responseCDP
-        '1. 上限を越しそうになったら、拡張する(高負荷ポイント)
-        '※オーバフローしたらこのツールでは対応できません
-        If .EndCursor + resSize > .length Then
-            .strBuffer = .strBuffer & String$(.length, vbNullChar)
-            .length = .length * 2
+        'そもそもVBAで扱える文字列の上限を超える
+        If .EndCursor + resSize > MAX_STR_LEN Then
+            printMsg ERROR_, LogID, "The VBA string limit (1,073,741,823 characters) has been exceeded.", FromProcedureName, doRaiseError:=True
+
+        '上限を越しそうになったら、拡張する(高負荷ポイント)
+        ElseIf .EndCursor + resSize > .length Then
+            '2-1. 拡張サイズを決める
+            Dim AddLength  As Long
+            If .length > (MAX_STR_LEN \ 2) Then
+                '次に2倍すると上限を超えるので、最後のバインバインは上限ピッタリに着地！
+                AddLength = MAX_STR_LEN - .length
+                printMsg WARN_, LogID, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
+            Else
+                '基本は「バインバイン（2倍）」
+                AddLength = .length
+                printMsg info_, LogID, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+            End If
+
+            '2-2. 実際に拡張
+            .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
+
+            '2-3. バッファーサイズを同期
+            .length = .length + AddLength
+
+            '2-4. ログ化
             printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
-        '2. 有効予定なCDPメッセージカーソル末尾位置を更新
+        '3. 有効予定なCDPメッセージカーソル末尾位置を更新
         .EndCursor = .EndCursor + resSize
     End With
 End Sub
@@ -1412,7 +1440,7 @@ Private Sub Class_Initialize()
     '1. 初期バッファー設定
     '  文字列バッファーの初期化
     With responseCDP
-        .length = InitialBuffer
+        .length = InitialBuffer + dwAllocationGranularity   'メモリアロケーション粒度を考慮
         .strBuffer = String$(.length, vbNullChar)
     End With
 

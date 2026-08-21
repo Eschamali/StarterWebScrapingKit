@@ -142,7 +142,7 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
-Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限
+Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限　※`CDPCore.cls - InitialBuffer`と揃えること
 
 
 
@@ -296,8 +296,9 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
-    '4. 丁度良いパフォーマンスとなるバッファーを設定
-    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
+    '4. 適度なバッファーを設定
+    Const dwAllocationGranularity As Long = 2 ^ 16    'Pipeの仕様(メモリアロケーション粒度)に合わせた補正値
+    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer + dwAllocationGranularity, 4)
 
     '5. アドレス構造体の設定
     Dim addr As sockaddr_in
