@@ -1336,8 +1336,8 @@ Private Sub Class_Initialize()
     ReDim binBuffer(InitialBuffer - 1) As Byte
     Set WebSocketReceiveStream = CreateObject("ADODB.Stream")
     With WebSocketReceiveStream
-        .Open
         .Type = 1           ' adTypeBinary
+        .Open
         .Write binBuffer    ' 疑似的に大きめのバッファーを確保
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする

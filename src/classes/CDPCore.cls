@@ -1448,8 +1448,8 @@ Private Sub Class_Initialize()
     ReDim binBuffer(InitialBuffer - 1) As Byte
     Set CDPPipeStream = CreateObject("ADODB.Stream")
     With CDPPipeStream
-        .Open
         .Type = 1           ' adTypeBinary
+        .Open
         .Write binBuffer    ' 疑似的に大きめのバッファーを確保
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
