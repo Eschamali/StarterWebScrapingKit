@@ -17,8 +17,8 @@ Private Function EOk() As String
 End Function
 
 '--- CDP Runtime.callFunctionOn 用: arguments 配列の要素 ---
-Private Function ArgVal(v As Variant) As Scripting.Dictionary
-    Dim d As New Scripting.Dictionary
+Private Function ArgVal(v As Variant) As Dictionary
+    Dim d As New Dictionary
     d.Add "value", v
     Set ArgVal = d
 End Function
@@ -332,7 +332,7 @@ Private Sub Test09_callFunctionOn_apostrophe_string(br As CDPContext)
     Dim oid As String
     oid = CStr(br.jsEval("document.getElementById('jseval-box')", returnByValue:=False, StopApiError:=False))
 
-    Dim arg As Scripting.Dictionary
+    Dim arg As Dictionary
     Set arg = ArgVal("It's " & "OK " & "日本語")
 
     Dim v As Variant
@@ -431,7 +431,7 @@ Private Sub Test14_contextId_isolatedWorld(br As CDPContext)
     Dim rootFrameId As String
     rootFrameId = CStr(ftRes("frameTree")("frame")("id"))
 
-    Dim pCW As New Scripting.Dictionary
+    Dim pCW As New Dictionary
     pCW.Add "frameId", rootFrameId
     pCW.Add "worldName", "jsEvalTestIsolated"
 
@@ -471,7 +471,7 @@ End Sub
 Private Sub Test15_serializationOptions_deep(br As CDPContext)
     PrintSection "⑮ serializationOptions ? deep"
 
-    Dim serOpts As New Scripting.Dictionary
+    Dim serOpts As New Dictionary
     serOpts.Add "serialization", "deep"
     serOpts.Add "maxDepth", 8
 
@@ -559,7 +559,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
         Debug.Print "  FAIL | ダイアログイベントがタイムアウト"
     End If
 
-    Dim pDlg As New Scripting.Dictionary
+    Dim pDlg As New Dictionary
     pDlg.Add "accept", True
     br.ExecuteCDP "Page.handleJavaScriptDialog", pDlg
 

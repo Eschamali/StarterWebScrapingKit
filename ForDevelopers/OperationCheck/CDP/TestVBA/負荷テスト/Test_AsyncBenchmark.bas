@@ -140,8 +140,8 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
             Set tabs(t).BrowserEvents = New Dictionary   ' 前ラウンドの残留イベントをクリアしてから発行
             tabStates(t).LoadedThisRound = False
 
-            Dim navParams As Scripting.Dictionary
-            Set navParams = New Scripting.Dictionary
+            Dim navParams As Dictionary
+            Set navParams = New Dictionary
             navParams.Add "url", urls(Int(Rnd * 5) + 1)
             tabs(t).ExecuteCDPAsync "Page.navigate", navParams
         Next t

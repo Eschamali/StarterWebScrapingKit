@@ -109,7 +109,7 @@ Public Sub NavigateAsync(url As String)
     HasLoadedFlag = False
     NetworkEventCountValue = 0
 
-    Dim CDPparams As New Scripting.Dictionary
+    Dim CDPparams As New Dictionary
     CDPparams.Add "url", url
     ex_CDPContext.ExecuteCDPAsync "Page.navigate", CDPparams
 End Sub
