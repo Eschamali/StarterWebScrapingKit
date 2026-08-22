@@ -8,7 +8,7 @@ Microsoft Edge(Chromium系)をChrome DevTools Protocol (CDP) 経由で自動操�
 
 ## 2. 基本アーキテクチャ
 - **ブラウザ起動**: WindowsAPIの `CreateProcess` から `--remote-debugging-pipe` でEdgeを起動
-- **通信レイヤー**: Windows標準API（`CreatePipe` の または `Winsock`）をVBAから直叩き
+- **通信レイヤー**: Windows標準API（`CreatePipe` または `Winsock`）をVBAから直叩き
 - **プロトコル**: Chrome DevTools Protocol (CDP) の JSON-RPC 2.0
 - **文字コード**: VBA内部（UTF-16LE）と CDP（UTF-8）の相互変換を徹底
 
