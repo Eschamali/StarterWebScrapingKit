@@ -86,6 +86,29 @@
   </section>
 
   <section>
+    <h3>テスト別結果（ShadowDOM内操作編・結合テスト／open+closed 両方で判定）</h3>
+    <div class="status-grid">
+      <div class="status-row" id="row-sce01"><span class="status-lbl">SD① value / sendString / clearValue</span><div class="status-box" id="s-sce01">未実行</div></div>
+      <div class="status-row" id="row-sce02"><span class="status-lbl">SD② innerText / innerHTML</span><div class="status-box" id="s-sce02">未実行</div></div>
+      <div class="status-row" id="row-sce03"><span class="status-lbl">SD③ checked</span><div class="status-box" id="s-sce03">未実行</div></div>
+      <div class="status-row" id="row-sce04"><span class="status-lbl">SD④ selected / setSelection</span><div class="status-box" id="s-sce04">未実行</div></div>
+      <div class="status-row" id="row-sce05"><span class="status-lbl">SD⑤ click / SimpleClick / fireEvent</span><div class="status-box" id="s-sce05">未実行</div></div>
+      <div class="status-row" id="row-sce06"><span class="status-lbl">SD⑥ sendClick / sendKey</span><div class="status-box" id="s-sce06">未実行</div></div>
+      <div class="status-row" id="row-sce07"><span class="status-lbl">SD⑦ getAttribute / setAttribute</span><div class="status-box" id="s-sce07">未実行</div></div>
+      <div class="status-row" id="row-sce08"><span class="status-lbl">SD⑧ focus / selectText</span><div class="status-box" id="s-sce08">未実行</div></div>
+      <div class="status-row" id="row-sce09"><span class="status-lbl">SD⑨ submit</span><div class="status-box" id="s-sce09">未実行</div></div>
+      <div class="status-row" id="row-sce10"><span class="status-lbl">SD⑩ getParent / getNextSibling / getPrevSibling / getFirstChild</span><div class="status-box" id="s-sce10">未実行</div></div>
+      <div class="status-row" id="row-sce11"><span class="status-lbl">SD⑪ getChildren / getElementsByQuery（XPathは対象外）</span><div class="status-box" id="s-sce11">未実行</div></div>
+      <div class="status-row" id="row-sce12"><span class="status-lbl">SD⑫ getElementByID / getElementByQuery（スコープ・XPathは対象外）</span><div class="status-box" id="s-sce12">未実行</div></div>
+      <div class="status-row" id="row-sce13"><span class="status-lbl">SD⑬ isExist / ifExist / onExist / onExistNot</span><div class="status-box" id="s-sce13">未実行</div></div>
+      <div class="status-row" id="row-sce14"><span class="status-lbl">SD⑭ SetFileInputFiles</span><div class="status-box" id="s-sce14">未実行</div></div>
+      <div class="status-row" id="row-sce15"><span class="status-lbl">SD⑮ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-sce15">未実行</div></div>
+      <div class="status-row" id="row-sce16"><span class="status-lbl">SD⑯ sendHover</span><div class="status-box" id="s-sce16">未実行</div></div>
+      <div class="status-row" id="row-sce17"><span class="status-lbl">SD⑰ ホバーで出現するボタン</span><div class="status-box" id="s-sce17">未実行</div></div>
+    </div>
+  </section>
+
+  <section>
     <h3>① value / sendString / clearValue</h3>
     <input type="text" id="testInput" value="" autocomplete="off">
   </section>
@@ -200,6 +223,11 @@
     <h3>最終サマリー</h3>
     <div class="status-box" id="s-summary">テスト未実行</div>
   </section>
+
+  <section>
+    <h3>最終サマリー（ShadowDOM内操作編）</h3>
+    <div class="status-box" id="s-sce-summary">テスト未実行</div>
+  </section>
 </div>
 
 <script>
@@ -277,13 +305,114 @@
   });
 
   // ⑮ Shadow DOM: open / closed 両モード
+  // ShadowDOM内操作編（結合テスト）用に、TOP層と同種の要素一式をShadow-Root内にも複製する。
+  // ページの<style>はShadow-Rootの中までは届かないため、必要なスタイルはShadow-Root内の<style>に持たせる。
+  function buildShadowContentHTML(modeLabel) {
+    return ''
+      + '<style>'
+      + '  * { box-sizing: border-box; font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; color: #e2e8f0; }'
+      + '  .shadow-content { display: block; margin-bottom: 10px; color: #8892a4; }'
+      + '  .shadow-section { margin-bottom: 8px; padding: 8px; background: #12141f; border: 1px dashed #3a3d6a; border-radius: 6px; }'
+      + '  .shadow-section:last-child { margin-bottom: 0; }'
+      + '  input[type="text"], select { padding: 4px 6px; background: #1a1d2e; border: 1px solid #2e3160; border-radius: 4px; color: #e2e8f0; }'
+      + '  button { padding: 6px 10px; background: #252840; border: 1px solid #6c63ff; color: #6c63ff; border-radius: 6px; cursor: pointer; }'
+      + '  ul { padding-left: 18px; }'
+      + '  .hover-target { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: #1a1d2e; border: 2px solid #2e3160; border-radius: 8px; transition: background .25s, border-color .25s, color .25s, transform .15s; }'
+      + '  .hover-target.is-hovered { background: #00d4aa; border-color: #00d4aa; color: #0f1117; font-weight: 700; transform: scale(1.03); }'
+      + '  .hover-reveal { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; background: #1a1d2e; border: 2px solid #2e3160; border-radius: 8px; }'
+      + '  .hover-reveal .reveal-btn { visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; }'
+      + '  .hover-reveal.is-revealed .reveal-btn { visibility: visible; opacity: 1; }'
+      + '  .hover-reveal .reveal-btn.was-clicked { background: #00d4aa; border-color: #00d4aa; color: #0f1117; font-weight: 700; }'
+      + '</style>'
+      + '<span class="shadow-content">Shadow content (' + modeLabel + ')</span>'
+      + '<div class="shadow-section"><input type="text" id="sInput" value="" autocomplete="off"></div>'
+      + '<div class="shadow-section"><div id="sTextDiv">initial text</div><div id="sHtmlDiv"><b>bold</b></div></div>'
+      + '<div class="shadow-section"><input type="checkbox" id="sCheckbox"></div>'
+      + '<div class="shadow-section"><select id="sSelect"><option value="opt1">Option 1</option><option value="opt2">Option 2</option><option value="opt3">Option 3</option></select></div>'
+      + '<div class="shadow-section"><button type="button" id="sClickBtn" data-clickcount="0" data-customfired="false">Click Me</button></div>'
+      + '<div class="shadow-section"><button type="button" id="sSendClickBtn" data-clickcount="0">Send Click</button> <input type="text" id="sKeyInput" data-lastkeycode="" autocomplete="off"></div>'
+      + '<div class="shadow-section"><div id="sAttrTarget" data-foo="bar">attribute target</div></div>'
+      + '<div class="shadow-section"><input type="text" id="sFocusInput" value="focus me" autocomplete="off"> <div id="sSelectTextTarget">Select this whole text</div></div>'
+      + '<div class="shadow-section"><form id="sForm" data-submitted="false"><input type="text" id="sSubmitInput" name="q" autocomplete="off"></form></div>'
+      + '<div class="shadow-section"><div id="sTraversalParent"><div id="sChild1">1</div><div id="sChild2">2</div><div id="sChild3">3</div></div></div>'
+      + '<div class="shadow-section"><ul id="sCollectionList"><li class="list-item" data-n="1">A</li><li class="list-item" data-n="2">B</li><li id="sCollectionItem3" class="list-item" data-n="3">C</li><li class="list-item" data-n="4">D</li><li class="list-item" data-n="5">E</li></ul></div>'
+      + '<div class="shadow-section"><button type="button" id="sBtnAddDynamic">要素を追加（1秒後）</button> <button type="button" id="sBtnRemoveDynamic">要素を削除（1秒後）</button><div id="sDynamicContainer"></div></div>'
+      + '<div class="shadow-section"><input type="file" id="sFileInput"></div>'
+      + '<div class="shadow-section"><div id="sHoverTarget" class="hover-target" data-hovered="false" data-hovercount="0">🖱️ Hover Target（未ホバー・' + modeLabel + '）</div></div>'
+      + '<div class="shadow-section"><div id="sHoverRevealContainer" class="hover-reveal"><span>ここにカーソルを合わせると…</span><button type="button" id="sHoverRevealBtn" class="reveal-btn" data-clickcount="0">隠れボタン</button></div></div>';
+  }
+
+  function wireShadowContent(root) {
+    var clickBtn = root.querySelector('#sClickBtn');
+    clickBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    });
+    clickBtn.addEventListener('customtestevent', function () {
+      this.dataset.customfired = 'true';
+    });
+
+    var sendClickBtn = root.querySelector('#sSendClickBtn');
+    sendClickBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    });
+
+    var keyInput = root.querySelector('#sKeyInput');
+    keyInput.addEventListener('keydown', function (e) {
+      this.dataset.lastkeycode = String(e.keyCode);
+    });
+
+    var sForm = root.querySelector('#sForm');
+    sForm.submit = function () {
+      this.dataset.submitted = 'true';
+    };
+
+    root.querySelector('#sBtnAddDynamic').addEventListener('click', function () {
+      setTimeout(function () {
+        var container = root.querySelector('#sDynamicContainer');
+        if (!root.querySelector('#sDynamicElement')) {
+          var div = document.createElement('div');
+          div.id = 'sDynamicElement';
+          div.textContent = 'dynamic element';
+          container.appendChild(div);
+        }
+      }, 1000);
+    });
+    root.querySelector('#sBtnRemoveDynamic').addEventListener('click', function () {
+      setTimeout(function () {
+        var el = root.querySelector('#sDynamicElement');
+        if (el) el.parentNode.removeChild(el);
+      }, 1000);
+    });
+
+    var sHoverTarget = root.querySelector('#sHoverTarget');
+    sHoverTarget.addEventListener('mouseenter', function () {
+      this.dataset.hovered = 'true';
+      this.dataset.hovercount = (parseInt(this.dataset.hovercount || '0', 10) + 1).toString();
+      this.classList.add('is-hovered');
+      this.textContent = '✅ Hovered!（' + this.dataset.hovercount + '回）';
+    });
+
+    var sHoverRevealContainer = root.querySelector('#sHoverRevealContainer');
+    var sHoverRevealBtn = root.querySelector('#sHoverRevealBtn');
+    sHoverRevealContainer.addEventListener('mouseenter', function () {
+      this.classList.add('is-revealed');
+    });
+    sHoverRevealBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+      this.classList.add('was-clicked');
+      this.textContent = '✅ クリック済み（' + this.dataset.clickcount + '回）';
+    });
+  }
+
   var hostOpen = document.getElementById('shadowHostOpen');
   var shadowOpen = hostOpen.attachShadow({ mode: 'open' });
-  shadowOpen.innerHTML = '<span class="shadow-content">Shadow content (open)</span>';
+  shadowOpen.innerHTML = buildShadowContentHTML('open');
+  wireShadowContent(shadowOpen);
 
   var hostClosed = document.getElementById('shadowHostClosed');
   var shadowClosed = hostClosed.attachShadow({ mode: 'closed' });
-  shadowClosed.innerHTML = '<span class="shadow-content">Shadow content (closed)</span>';
+  shadowClosed.innerHTML = buildShadowContentHTML('closed');
+  wireShadowContent(shadowClosed);
 
   // ⑱ sendHover
   var hoverTarget = document.getElementById('testHoverTarget');
