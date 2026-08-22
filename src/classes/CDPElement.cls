@@ -57,10 +57,13 @@ End Enum
 Private main As CDPContext
 
 'JavaScript検索結果情報
-Private elementObjectId As String       ' 検索ヒット時の`ObjectId`
-Private ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
-Private SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
-Private SearchObjectId  As String       ' このClass内で相対検索した際のObjectID（ポーリング用）。`CDPContext.cls`から使用した場合は、`vbnullstring`です
+Private Type ElementInfos
+    objectId        As String       ' 検索ヒット時の`ObjectId`
+    ResultVarType   As VbVarType    ' 検索ヒット時の返り値型(https://learn.microsoft.com/ja-jp/office/vba/language/reference/user-interface-help/vartype-function)
+    SearchJS        As String       ' DOM検索で使ったJavaScript構文（ポーリング用）
+    SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
+End Type
+Private CurrentElement  As ElementInfos     '`CDPContext.cls`または、このClass内で相対検索した際の検索結果情報用
 
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
@@ -90,7 +93,7 @@ Private RunOption As callFunctionOnParameters
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：要素がなく、`objectId`が返せない場合は、`objectId_`は、`StrPtr`チェックで0になります
 '* 注意事項：・このヘルパークラスを使用する際は、`objectId`を返すようなJavaScriptコードとして実行すること。要素操作準備なら`objectId`でほぼほぼ返ると思いますが念押しです。
-'            ・`JavaScriptStr`は、以下のシチュエーションの場合、無視されます
+'            ・`JavaScriptStr`は、以下のシチュエーションの場合、無視され、ポーリング系のメソッドは使用できなくなります
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
@@ -98,14 +101,16 @@ Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarTy
     'コンテキスト(タブ)情報を継承
     Set main = InheritanceCDPContext
 
-    '実行結果の型タイプ
-    ResultVarType = argResultVarType
+    With CurrentElement
+        '実行結果の型タイプ
+        .ResultVarType = argResultVarType
 
-    '検索実行時のJavaScript構文
-    SearchJS = JavaScriptStr
+        '検索実行時のJavaScript構文
+        .SearchJS = JavaScriptStr
 
-    '実行結果の`objectId`格納
-    elementObjectId = objectid_
+        '実行結果の`objectId`格納
+        .objectId = objectid_
+    End With
 End Sub
 
 Private Sub Class_Initialize()
@@ -126,7 +131,7 @@ End Sub
 '* 詳細説明：要素の割り当てが成功した場合、このJavaScript構文をブラウザのコンソールウィンドウに直接入力することもできます
 '***************************************************************************************************
 Property Get UseSearchJS() As String
-    UseSearchJS = SearchJS
+    UseSearchJS = CurrentElement.SearchJS
 End Property
 
 '***************************************************************************************************
@@ -135,7 +140,7 @@ End Property
 '* 詳細説明：基本は`vbNull`or`vbString`を想定してます
 '***************************************************************************************************
 Property Get varResult() As VbVarType
-    varResult = ResultVarType
+    varResult = CurrentElement.ResultVarType
 End Property
 
 '***************************************************************************************************
@@ -168,7 +173,7 @@ End Sub
 '* 注意事項：空の場合は、検索に引っかからなかったことを意味します。別途`onExist`メソッドで更新して下さい
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
-    CurrentObjectId = elementObjectId
+    CurrentObjectId = CurrentElement.objectId
 End Property
 
 
@@ -273,7 +278,7 @@ Public Function sendClick() As Boolean
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendClick = True
-    printMsg info_, "Executed sendClick successfully on objectId: " & elementObjectId, FromProcedureName
+    printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -293,7 +298,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
 
     'Set focus on the node
     Dim params As New Dictionary
-    params("objectId") = elementObjectId
+    params("objectId") = CurrentElement.objectId
     ExecuteCDP "DOM.focus", params
 
     'Send key down event to the browser
@@ -311,7 +316,7 @@ Public Function sendKey(Key As keyboardCode, Optional altKey As Boolean = False)
     ExecuteCDP "Input.dispatchKeyEvent", params
 
     sendKey = True
-    printMsg info_, "Executed sendKey successfully on objectId: " & elementObjectId, FromProcedureName
+    printMsg info_, "Executed sendKey successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -332,7 +337,7 @@ Public Function sendString(textToSend As String) As Boolean
 
     'Set focus on the node
     Dim params As New Dictionary
-    params("objectId") = elementObjectId
+    params("objectId") = CurrentElement.objectId
     ExecuteCDP "DOM.focus", params
 
     'Sendkeys to the node
@@ -341,7 +346,7 @@ Public Function sendString(textToSend As String) As Boolean
     ExecuteCDP "Input.insertText", params
 
     sendString = True
-    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & elementObjectId, FromProcedureName
+    printMsg info_, "Executed sendString(""" & textToSend & """) successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -693,7 +698,7 @@ Public Function sendHover() As Boolean
     ExecuteCDP "Input.dispatchMouseEvent", params
 
     sendHover = True
-    printMsg info_, "Executed sendHover successfully on objectId: " & elementObjectId, FromProcedureName
+    printMsg info_, "Executed sendHover successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
 
@@ -711,7 +716,7 @@ End Function
 '            この仕様を利用して、`vbNull`判定を利用することで、操作可能かの判定を素早く行っています。
 '***************************************************************************************************
 Public Function isExist() As Boolean
-    isExist = Not (ResultVarType = vbNull)
+    isExist = Not (CurrentElement.ResultVarType = vbNull)
 End Function
 
 '***************************************************************************************************
@@ -731,7 +736,7 @@ Public Function ifExist() As CDPElement
 
     checkExist = True
     Set ifExist = Me
-    printMsg info_, "ifExist returned " & isExist & " on [" & SearchJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
+    printMsg info_, "ifExist returned " & isExist & " on [" & CurrentElement.SearchJS & "]." & IIf(Not isExist, " Subsequent actions on this element are disregarded.", ""), FromProcedureName
 
 End Function
 
@@ -750,25 +755,26 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
     Dim timeStart As Double: timeStart = TimerCounter
 
     '`vbNull`以外になるまで続ける
-    Do While ResultVarType = vbNull
+    '※このメソッド実行時点で既にある場合は、ループ探索には入りません
+    Do While CurrentElement.ResultVarType = vbNull
         '1. タイムアウトチェック
         If TimerCounter - timeStart > timeOutInSeconds * 1000 Then
-            printMsg ERROR_, "onExists timeout on SearchJS = " & SearchJS, FromProcedureName, doRaiseError:=raiseTimeoutError
+            printMsg ERROR_, "onExists timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
 
         '2. 検索を再実行
         Dim resultSearch As Variant
-        resultSearch = main.jsEval(SearchJS, SearchObjectId)
+        resultSearch = main.jsEval(CurrentElement.SearchJS, CurrentElement.objectId)
 
         '3. 結果を判定。文字型なら、ObjectIDを確保
-        ResultVarType = VarType(resultSearch)
-        If ResultVarType = vbString Then elementObjectId = resultSearch Else sleep 0.1
+        CurrentElement.ResultVarType = VarType(resultSearch)
+        If CurrentElement.ResultVarType = vbString Then CurrentElement.objectId = resultSearch Else sleep 0.1
     Loop
 
     '自身を返却
     Set onExist = Me
-    printMsg info_, "onExists satisfied: [" & SearchJS & "] is now available for interaction", FromProcedureName
+    printMsg info_, "onExists satisfied: [" & CurrentElement.SearchJS & "] is now available for interaction", FromProcedureName
 
 End Function
 
@@ -786,22 +792,22 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
     Dim timeStart As Double: timeStart = TimerCounter
 
     '`vbNull`になるまで続ける
-    Do Until ResultVarType = vbNull
+    Do Until CurrentElement.ResultVarType = vbNull
         '1. タイムアウトになったら抜ける
-        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & SearchJS, FromProcedureName: Exit Function
+        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName: Exit Function
 
         '2. 検索を再実行
         Dim resultSearch As Boolean
         resultSearch = jsEval("function(){ return this.isConnected; }")
 
         '3. 結果を判定。存在しなかったら、ObjectIDをクリア
-        ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
-        If ResultVarType = vbNull Then elementObjectId = vbNullString Else sleep 0.1
+        CurrentElement.ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
+        If CurrentElement.ResultVarType = vbNull Then CurrentElement.objectId = vbNullString Else sleep 0.1
     Loop
 
     '消えたサインを返却
     onExistNot = True
-    printMsg info_, "onExistsNot satisfied: [" & SearchJS & "] is no longer available for interaction", FromProcedureName
+    printMsg info_, "onExistsNot satisfied: [" & CurrentElement.SearchJS & "] is no longer available for interaction", FromProcedureName
 
 End Function
 
@@ -947,6 +953,7 @@ End Function
 '* 返り値  ：子要素のコレクション
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：これにより、複数の getElementBy メソッドを連結して使用できます
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getChildren() As Collection
     Const ChildrenSearchJS As String = "function(){ return this.children }"
@@ -1097,6 +1104,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：子要素のコレクション。1個もない場合は、`Nothing`
 '* 引数　　：strQuery   検索したい子要素クエリセレクター
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByQuery(strQuery As String) As Collection
     Const ElementsByQuerySearchJS As String = "function(sel){ return this.querySelectorAll(sel) }"
@@ -1231,7 +1240,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：syntax used for retrieving the elements, refer to Mozilla doc below:
 '             https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
-'* 注意事項：index for accessing the collection members start at one (not zero).
+'* 注意事項：・index for accessing the collection members start at one (not zero).
+'            ・複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
@@ -1376,6 +1386,7 @@ End Function
 '* 注意事項：・あくまでも、今の`CDPElement`直下の子Shadow-Root取得のみ対応します。事前にその手前での要素を取得の上、ご利用ください。
 '            ・複数ある場合は、次項の`GetShadowRoots`をご利用ください。ただし、場所が固定されてるのがわかってる場合は、引数にて調整可能です
 '            ・失敗時は、`nothing`となります。これを目印に、存在確認を行ってください
+'            ・CDPによるShadowDOM侵入の都合上、親情報を引き継がないため、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
 '***************************************************************************************************
 Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     Const FromProcedureName As String = ThisClassName & ".GetShadowRoot"
@@ -1393,7 +1404,7 @@ Public Function GetShadowRoot(Optional Index As Long) As CDPElement
     '1. `objectId`に対して、直下のNode情報を取得
     Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
     Set paramsCDP = New Dictionary
-    paramsCDP.Add "objectId", elementObjectId
+    paramsCDP.Add "objectId", CurrentElement.objectId
     paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
     paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
     Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
@@ -1446,7 +1457,7 @@ Public Function GetShadowRoots() As Collection
     '1. `objectId`に対して、直下のNode情報を取得
     Dim paramsCDP As Dictionary, ResultCDP As BiDiCDPJson
     Set paramsCDP = New Dictionary
-    paramsCDP.Add "objectId", elementObjectId
+    paramsCDP.Add "objectId", CurrentElement.objectId
     paramsCDP.Add "depth", 0        'Shadow-root(open/close)手前前提により、`0`としておく
     paramsCDP.Add "pierce", True    'Shadow-root(open/close)に入るため、`True`にしておく
     Set ResultCDP = ExecuteCDP("DOM.describeNode", paramsCDP)
@@ -1513,7 +1524,7 @@ Public Sub SetFileInputFiles(files As Collection)
     '2. パラメーターを組み立てて送信
     Dim params As New Dictionary
     params.Add "files", files
-    params.Add "objectId", elementObjectId
+    params.Add "objectId", CurrentElement.objectId
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
@@ -1562,10 +1573,10 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
 
 
     '1. `objectId`がない場合は、エラー停止
-    If StrPtr(elementObjectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
+    If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
-    SetVar(jsEval) = main.jsEval(JavaScriptStr, elementObjectId, objectArguments, IFEXCEPTION, , _
+    SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
                                     returnByValue, _
                                     awaitPromise, _
                                     RunOption.userGesture, _
@@ -1625,9 +1636,9 @@ End Property
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
-    If StrPtr(elementObjectId) Then
+    If StrPtr(CurrentElement.objectId) Then
         Dim paramsCDP As New Dictionary
-        paramsCDP.Add "objectId", elementObjectId
+        paramsCDP.Add "objectId", CurrentElement.objectId
         main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
     End If
 End Sub
