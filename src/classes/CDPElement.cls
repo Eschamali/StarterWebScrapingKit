@@ -64,6 +64,7 @@ Private Type ElementInfos
     SearchArgs()    As Dictionary   ' DOM検索で使ったJavaScript構文の引数情報（ポーリング用）
 End Type
 Private CurrentElement  As ElementInfos     '`CDPContext.cls`または、このClass内で相対検索した際の検索結果情報用
+Private ParentElement   As CDPElement       ' このClass内で相対検索した際の親の検索結果情報 ※デバッグ時、ツリー情報で辿れるメリットがあるので、`CDPElement.cls`本体を採用
 
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
@@ -844,8 +845,8 @@ Public Function getParent() As CDPElement
     Set getParent = New CDPElement
     getParent.Init main, JsResultVarType, objectId, ParentSearchJS
 
-    '4. 元の検索ObjectIDを適用
-    getParent.ParentObjectID = elementObjectId
+    '4. 元の親`CDPElement.cls`を適用
+    Set getParent.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
@@ -877,8 +878,8 @@ Public Function getNextSibling() As CDPElement
     Set getNextSibling = New CDPElement
     getNextSibling.Init main, JsResultVarType, objectId, NextSiblingSearchJS
 
-    '4. 元の検索ObjectIDを適用
-    getNextSibling.ParentObjectID = elementObjectId
+    '4. 元の親`CDPElement.cls`を適用
+    Set getNextSibling.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
@@ -910,8 +911,8 @@ Public Function getPrevSibling() As CDPElement
     Set getPrevSibling = New CDPElement
     getPrevSibling.Init main, JsResultVarType, objectId, PrevSiblingSearchJS
 
-    '4. 元の検索ObjectIDを適用
-    getPrevSibling.ParentObjectID = elementObjectId
+    '4. 元の親`CDPElement.cls`を適用
+    Set getPrevSibling.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
@@ -943,8 +944,8 @@ Public Function getFirstChild() As CDPElement
     Set getFirstChild = New CDPElement
     getFirstChild.Init main, JsResultVarType, objectId, FirstChildSearchJS
 
-    '4. 元の検索ObjectIDを適用
-    getFirstChild.ParentObjectID = elementObjectId
+    '4. 元の親`CDPElement.cls`を適用
+    Set getFirstChild.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
@@ -1047,8 +1048,8 @@ Public Function getElementByID(strID As String) As CDPElement
     Set getElementByID = New CDPElement
     getElementByID.Init main, JsResultVarType, objectId, ElementByIDSearchJS
 
-    '5. 元の検索ObjectIDを適用
-    getElementByID.ParentObjectID = elementObjectId
+    '5. 元の親`CDPElement.cls`を適用
+    Set getElementByID.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1095,8 +1096,8 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     Set getElementByQuery = New CDPElement
     getElementByQuery.Init main, JsResultVarType, objectId, ElementByQuerySearchJS
 
-    '5. 元の検索ObjectIDを適用
-    getElementByQuery.ParentObjectID = elementObjectId
+    '5. 元の親`CDPElement.cls`を適用
+    Set getElementByQuery.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1228,8 +1229,8 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     Set getElementByXPath = New CDPElement
     getElementByXPath.Init main, JsResultVarType, objectId, ElementByXPathSearchJS
 
-    '7. 元の検索ObjectIDを適用
-    getElementByXPath.ParentObjectID = elementObjectId
+    '7. 元の親`CDPElement.cls`を適用
+    Set getElementByXPath.InitParentCDPElement(args) = Me
 End Function
 
 '***************************************************************************************************
@@ -1314,10 +1315,13 @@ Public Function getElementsByXPath(strXPath As String) As Collection
 End Function
 
 '***************************************************************************************************
-'* 機能　　：相対検索時の`ObjectID`を適用します
+'* 機能　　：相対検索時の親となる`CDPElement.cls`を適用します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：相対検索の場合、検索文字列が「this. ...」という書き方になるため、検索情報となる引数が必要です
 '***************************************************************************************************
-Property Let ParentObjectID(id As String)
-    SearchObjectId = id
+Property Set InitParentCDPElement(Optional Arguments As Variant, Parent As CDPElement)
+    Set ParentElement = Parent
+    If Not IsMissing(Arguments) Then CurrentElement.SearchArgs = Arguments
 End Property
 
 
@@ -1369,8 +1373,8 @@ Public Function getIFrame() As CDPElement
     Set getIFrame = New CDPElement
     getIFrame.Init main, JsResultVarType, objectId, getIFrameSearchJS
 
-    '5. 元の検索ObjectIDを適用
-    getIFrame.ParentObjectID = elementObjectId
+    '5. 元の親`CDPElement.cls`を適用
+    Set getIFrame.InitParentCDPElement = Me
 End Function
 
 '***************************************************************************************************
