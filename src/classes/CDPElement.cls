@@ -764,9 +764,21 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
             Exit Function
         End If
 
-        '2. 検索を再実行
+        '2. 親情報に応じて検索方法を分岐
         Dim resultSearch As Variant
-        resultSearch = main.jsEval(CurrentElement.SearchJS, CurrentElement.objectId)
+        If ParentElement Is Nothing Then
+            '2-1. `CDPContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
+            resultSearch = main.jsEval(CurrentElement.SearchJS)
+        Else
+            '2-1. 引数情報に応じて、分岐
+            '※`IsMissing`を機能させるため
+            If Not Not CurrentElement.SearchArgs Then
+                '引数情報があるので、引数付きで実行
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+            Else
+                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+            End If
+        End If
 
         '3. 結果を判定。文字型なら、ObjectIDを確保
         CurrentElement.ResultVarType = VarType(resultSearch)
