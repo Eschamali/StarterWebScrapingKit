@@ -3,7 +3,7 @@ Option Explicit
 
 Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
     Alias "SHCreateDirectoryExA" _
-    (ByVal hwnd As LongPtr, _
+    (ByVal hWnd As LongPtr, _
      ByVal pszPath As String, _
      ByVal psa As LongPtr) As Long
 
@@ -59,8 +59,8 @@ Sub Webブラウザ操作でZIPテスト()
     b64ZipData = WebCrypto.Encode(ZipDataBin, edfBase64, efNoFolding)
 
     ' 4. 即時実行関数 (IIFE) のJSコードを組み立て
-    Dim jsCode As String
-    jsCode = _
+    Dim JsCode As String
+    JsCode = _
         "(async () => {" & _
         "  const zipBytes = Uint8Array.from(atob('" & b64ZipData & "'), c => c.charCodeAt(0));" & _
         "  const reader = new zip.ZipReader(new zip.Uint8ArrayReader(zipBytes));" & _
@@ -88,7 +88,7 @@ Sub Webブラウザ操作でZIPテスト()
     ' ※ awaitPromise:=True でPromiseの解決を待ち、
     '   returnByValue:=True で中身のデータを直接取得します。
     Dim resCDP As BiDiCDPJson
-    Set resCDP = ZIPテスト.jsEval(jsCode, awaitPromise:=True, returnByValue:=True)
+    Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
     ZIPテスト.InheritanceCDPBrowser.quit
 
     '6．展開

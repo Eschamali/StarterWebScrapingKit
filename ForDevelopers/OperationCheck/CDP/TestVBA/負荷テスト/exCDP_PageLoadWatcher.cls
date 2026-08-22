@@ -30,7 +30,7 @@ Private Const ThisClassName         As String = "exCDP_PageLoadWatcher"
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
 Private EnableBrowserEvents         As Boolean      '非同期イベント処理を有効化するかのスイッチング
-Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
+Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
 
 '監視結果
 Private HasLoadedFlag               As Boolean      '直近の`NavigateAsync`以降、`Page.loadEventFired`を受信したか
@@ -79,7 +79,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
     If Not EnableBrowserEvents Then Exit Sub
 
     '2. このタブクラスで設定中の`SessionId`以外は無視
-    If CurrentSessionId <> sessionID Then Exit Sub
+    If CurrentSessionID <> sessionID Then Exit Sub
 
     '3. 監視対象の非同期イベントを判定
     Select Case methodName
@@ -105,7 +105,7 @@ End Sub
 '* 詳細説明：発行前に、`HasLoaded`/`NetworkEventCount`をリセットします（前回遷移分の値を次回に持ち込まないため）
 '* 注意事項：遷移の完了確認は行いません。別途`HasLoaded`や`AutoWaitLoaded`をご利用ください
 '***************************************************************************************************
-Public Sub NavigateAsync(url As String)
+Public Sub NavigateAsync(Url As String)
     HasLoadedFlag = False
     NetworkEventCountValue = 0
 
@@ -182,7 +182,7 @@ Friend Sub Init(Inheritance As CDPContext)
     Set ex_CDPCore = Inheritance.InheritanceCDPCore
 
     'このタブのSessionIdを記録（他タブの非同期イベントを無視するため）
-    CurrentSessionId = ex_CDPContext.CurrentSessionID
+    CurrentSessionID = ex_CDPContext.CurrentSessionID
 
     '監視に必要なCDPドメインを有効化
     ex_CDPContext.ExecuteCDP "Page.enable"
