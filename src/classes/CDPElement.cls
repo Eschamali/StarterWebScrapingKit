@@ -772,6 +772,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
+            '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
                 resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
