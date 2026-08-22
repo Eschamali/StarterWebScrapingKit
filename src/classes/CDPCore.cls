@@ -862,12 +862,12 @@ Private Sub ReadyCDPMessage()
 
 
     With CDPPipeStream
-        '1. 取り出すバイト数を確定
-        .SetEOS
+        '1. CDPからのメッセージがまだない場合は即抜け
+        If .Position = 0 Then printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
 
-        '2. CDPメッセージを取り出すため、先頭に巻き戻す
-        '※既に0の場合(メッセージが空)は即抜け
-        If .Position Then .Position = 0 Else printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
+        '2. 取り出すバイト数を確定
+        .SetEOS
+        .Position = 0   'CDPメッセージを取り出すため、先頭に巻き戻す
 
         '3. UTF-16変数に格納する準備
         Dim tmp As String
@@ -1415,7 +1415,7 @@ End Function
 Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
     With CDPPipeStream
         '1, 今の位置を記録
-        Dim tmp As Long: tmp = .Position
+        Dim tmpPos As Long: tmpPos = .Position
         .SetEOS
 
         '2. 保存
@@ -1423,7 +1423,7 @@ Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
         .SaveToFile FolderPath & "\" & FileName, 2
 
         '3. 元に戻す
-        .Position = tmp
+        .Position = tmpPos
     End With
 End Sub
 
