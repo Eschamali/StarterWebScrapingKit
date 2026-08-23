@@ -234,7 +234,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
 
 
     '1. パラメーター準備
-    Dim BiDiparams As New Scripting.Dictionary
+    Dim BiDiparams As New Dictionary
     BiDiparams.Add "type", IIf(newWindow, "window", "tab")
     BiDiparams.Add "background", isBackground
 
@@ -285,7 +285,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
     Dim matchData As BiDiCDPJson
 
     'パラメーターを用意
-    Dim BiDiparams As New Scripting.Dictionary
+    Dim BiDiparams As New Dictionary
     BiDiparams.Add "maxDepth", maxDepth
 
     'タイマースタート
@@ -452,7 +452,7 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     If params Is Nothing Then Set params = New Dictionary
 
     '2. コマンド組み立て
-    Dim BiDiCommand As New Scripting.Dictionary
+    Dim BiDiCommand As New Dictionary
     BiDiCommand.Add "method", methodName
     BiDiCommand.Add "params", params
 

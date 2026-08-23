@@ -389,7 +389,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Function ReadyRunBiDi(dicMessage As Scripting.Dictionary, StopApiError As Boolean) As Long
+Public Function ReadyRunBiDi(dicMessage As Dictionary, StopApiError As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 

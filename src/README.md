@@ -4,4 +4,4 @@
 
 > [!TIP]
 > `Microsoft Access Objects`は、Microsoft Access 用に別途改良させたソース/フォームを含めております。  
-> 基本的には、`Microsoft Excel Objects`のシートオブジェクトのみ変更を加えています。また、別途コンパイルエラーを解消するパッチbasも含めておりますが、少数のコード量です。
+> 基本的には、`workbook(Microsoft Excel Objects`)のシートオブジェクトのみ変更を加えています。また、別途コンパイルエラーを解消するパッチbasも含めておりますが、少数のコード量です。

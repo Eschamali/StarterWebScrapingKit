@@ -142,7 +142,7 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
-Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限
+Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限　※`CDPCore.cls - InitialBuffer`と揃えること
 
 
 
@@ -296,8 +296,9 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
     If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
-    '4. 丁度良いパフォーマンスとなるバッファーを設定
-    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
+    '4. 適度なバッファーを設定
+    Const dwAllocationGranularity As Long = 2 ^ 16    'Pipeの仕様(メモリアロケーション粒度)に合わせた補正値
+    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer + dwAllocationGranularity, 4)
 
     '5. アドレス構造体の設定
     Dim addr As sockaddr_in
@@ -815,14 +816,14 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         Dim lenIndicator As Byte
         lenIndicator = (header(1) And &H7F)
         If lenIndicator < 126 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 2 bytes.", FromProcedureName
 
 
             '最初の1バイト（指示子）だけで、これからの受信サイズを表現してるので、そのまんま適用
             .PayloadLength = lenIndicator
 
         ElseIf lenIndicator = 126 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 4 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 4 bytes.", FromProcedureName
 
 
             '次の2バイト（16bit）に、これからの受信サイズを表現してるので、その分を追加で、取り出す
@@ -839,7 +840,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             .PayloadLength = (CLng(extLen16(0)) * &H100&) Or extLen16(1)
 
         ElseIf lenIndicator = 127 Then
-            printMsg Debug_, "Indicator is " & lenIndicator & ". Sets the header size to 10 bytes.", FromProcedureName
+            printMsg Trace_, "Indicator is " & lenIndicator & ". Sets the header size to 10 bytes.", FromProcedureName
 
 
             '次の8バイト（64bit） に、これからの受信サイズを表現してるので、その分を追加で、取り出す
@@ -876,7 +877,18 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         End If
     End With
 
-    '3. 全て更新し終えたので、成功フラグを返す
+    '3. フレーム情報を表示する
+    '※このClassでは、`RSV`系は扱いません。主要な情報のみ扱います。
+    printMsg Debug_, String(100, "="), FromProcedureName
+    printMsg Debug_, "Base Framing Protocol information", FromProcedureName
+    printMsg Debug_, String(100, "-"), FromProcedureName
+    printMsg Debug_, "FIN                : " & m_WebSocketFrame.isFIN, FromProcedureName
+    printMsg Debug_, "opcode             : " & m_WebSocketFrame.opcode, FromProcedureName
+    printMsg Debug_, "Payload len        : " & lenIndicator, FromProcedureName
+    printMsg Debug_, "Total payload size : " & m_WebSocketFrame.PayloadLength, FromProcedureName
+    printMsg Debug_, String(100, "="), FromProcedureName
+
+    '4. 全て更新し終えたので、成功フラグを返す
     UpdateFrameHeader = True
 End Function
 
@@ -1104,7 +1116,7 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
     '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
     If ReuseContext Then
         '5-1. Excelテーブルからメインタブ情報を取得
-        Dim tmp As Scripting.Dictionary
+        Dim tmp As Dictionary
         Set tmp = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
 
         '5-2. データ有無チェック
@@ -1203,7 +1215,7 @@ Public Function AutoConnectDevToolsActivePort(UserName As String, Optional Reuse
         '7. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
         If ReuseContext Then
             '7-1. Excelテーブルからメインタブ情報を取得
-            Dim tmpRe As Scripting.Dictionary
+            Dim tmpRe As Dictionary
             Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
     
             '7-2. データ有無チェック
@@ -1297,12 +1309,15 @@ End Function
 '                         ■■■ クラスオブジェクトの初期化と破棄時の処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     ' WinSock 2.2 の初期化
     Dim wsaDat As WSAData
     If WSAStartup(&H202, wsaDat) = 0 Then
         m_WSAInitialized = True
     Else
-        Err.Raise vbObjectError + 1001, "CDPCoreViaWebSocket.Class_Initialize", "WSAStartup の初期化に失敗しました。"
+        Err.Raise vbObjectError + 1001, FromProcedureName, "WSAStartup の初期化に失敗しました。"
     End If
 
     '各種ステータスを初期化
@@ -1310,12 +1325,19 @@ Private Sub Class_Initialize()
     m_LastBufferType = WS_NOT_MESSAGE
     currentLog.id = "WSID" & Format(Rnd * 1000, "000")
 
+    'パスが設定されてたら、ログファイル保存を有効化
+    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    If LenB(LogFolderPath) > 0 Then
+        currentLog.doLog = True                'ログファイルとして保存するか？
+        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+    End If
+
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
     Set WebSocketReceiveStream = CreateObject("ADODB.Stream")
     With WebSocketReceiveStream
-        .Open
         .Type = 1           ' adTypeBinary
+        .Open
         .Write binBuffer    ' 疑似的に大きめのバッファーを確保
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
