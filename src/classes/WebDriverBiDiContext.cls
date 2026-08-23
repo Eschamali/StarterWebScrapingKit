@@ -265,8 +265,8 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
     Dim scriptEvaluateResult As BiDiCDPJson
-    Dim BiDiCommand  As New Scripting.Dictionary
-    Dim BiDiparams   As New Scripting.Dictionary, scriptTarget As New Dictionary
+    Dim BiDiCommand  As New Dictionary
+    Dim BiDiparams   As New Dictionary, scriptTarget As New Dictionary
 
 
     'Construct message for sending ----------------------------------------------------------

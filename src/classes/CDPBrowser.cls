@@ -334,7 +334,7 @@ Property Let EnableDiscoverTargets(Flag As Boolean)
 
     '2. パラメータ準備
     If DefinitionCDPContext = 1 Or DefinitionCDPContext = 0 Then
-        Dim CDPparams As New Scripting.Dictionary
+        Dim CDPparams As New Dictionary
         CDPparams.Add "discover", Flag
         ExecuteCDP "Target.setDiscoverTargets", CDPparams, False
     End If
@@ -739,7 +739,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
 
     '1. パラメーター準備
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params("url") = checkURI(Url)
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
@@ -947,7 +947,7 @@ End Function
 '***************************************************************************************************
 Public Sub openDevTools(TrgetID As String, Optional panelId As String)
     'パラメーター準備
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params.Add "targetId", TrgetID
     If StrPtr(panelId) Then params.Add "panelId", panelId
 
@@ -1057,7 +1057,7 @@ End Function
 '            ・このメソッドは、コマンド結果が来るまで待機するメソッドです。送るコマンド内容や、サイトの挙動によっては、タイムアウトエラーになる場合があります。
 '              その場合は、後述の結果を待たないタイプのメソッド`ExecuteCDPAsync`をご利用ください。
 '***************************************************************************************************
-Public Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
@@ -1107,12 +1107,12 @@ End Function
 '* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, Optional StopApiError As Boolean = True) As Long
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, Optional StopApiError As Boolean = True) As Long
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
     '1. コマンド組み立て
-    Dim CDPcommand As New Scripting.Dictionary
+    Dim CDPcommand As New Dictionary
     CDPcommand.Add "method", methodName
     If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
 
@@ -1576,7 +1576,7 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
 
 
     '1. コマンド準備
-    Dim CDPparams As New Scripting.Dictionary
+    Dim CDPparams As New Dictionary
     CDPparams.Add "sessionId", sessionID
 
     '2. 破棄コマンド実行
@@ -1774,3 +1774,17 @@ Private Sub Class_Initialize()
     ResultCDP_Browser.Limit = MaxStoreResultCDP
     '------------------------------------------------------------------------------
 End Sub
+
+
+
+#If DEBUG_MODE Then
+'***************************************************************************************************
+'                                 ■■■ Test Only Area ■■■
+'***************************************************************************************************
+' 単体テストをしやすくするための専用テストメソッド。
+' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
+'***************************************************************************************************
+Property Set InheritanceCDPCore(t As CDPCore)
+    Set PipeCore = t
+End Property
+#End If

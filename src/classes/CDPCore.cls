@@ -183,11 +183,15 @@ Private Const STARTF_USESTDHANDLES  As Long = &H100&
 Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
 Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
+'バッファー設定関連
+Private Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限　※`CDPCoreViaWebSocket.cls - InitialBuffer`と揃えること
+Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。
+Private Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
+Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
+
 'その他
-Private Const ThisClassName     As String = "CDPCore"
-Private Const InitialBuffer     As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
-Private Const RunDoEventsCount  As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
-Private Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値
+Private Const ThisClassName             As String = "CDPCore"
+Private Const LimitCommandID            As Long = 2000000000    'CDPコマンド送信時のID上限値
 
 
 
@@ -220,7 +224,7 @@ Private Type ResponseBufferCDP
     length          As Long     '現在のバッファ全体の長さ
     StartCursor     As Long     '取り出しの開始位置
     AddCursor       As Long     '次に蓄積し始める位置
-    EndCursor       As Long     '有効なデータ末尾位置
+    EndCursor       As Long     '有効予定なデータ末尾位置(※バッファー拡張判定用)
     ExistsNewRes    As Boolean  '新規メッセージ有無
 End Type
 Private responseCDP     As ResponseBufferCDP
@@ -734,7 +738,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(dicMessage As Scripting.Dictionary, Optional sessionID As String) As Long
+Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
@@ -803,23 +807,47 @@ End Function
 '* 機能　　：適切な文字列変数バッファーが確保されてるかチェックします
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：拡張自体は1回分ですが、`CreatePipe`の第四引数と辻褄を合わせてるので、1回の拡張で済みます。
 '***************************************************************************************************
 Private Sub StrBufferCheck(resSize As Long)
     Const FromProcedureName As String = ThisClassName & ".StrBufferCheck"
 
 
-    '新規メッセージがない場合は即抜け
+    '1. 新規メッセージがない場合は即抜け
     If resSize <= 0 Then printMsg WARN_, LogID, "No message was found, so the buffer check will be skipped.", FromProcedureName: Exit Sub
+
+    '2. バッファーcheckへ
     With responseCDP
-        '1. 上限を越しそうになったら、拡張する(高負荷ポイント)
-        '※オーバフローしたらこのツールでは対応できません
-        If .EndCursor + resSize > .length Then
-            .strBuffer = .strBuffer & String$(.length, vbNullChar)
-            .length = .length * 2
+        'そもそもVBAで扱える文字列の上限を超える
+        If .EndCursor + resSize > MAX_STR_LEN Then
+            printMsg ERROR_, LogID, "The VBA string limit (1,073,741,823 characters) has been exceeded.", FromProcedureName, doRaiseError:=True
+
+        '上限を越しそうになったら、拡張する(高負荷ポイント)
+        ElseIf .EndCursor + resSize > .length Then
+            '2-1. 拡張サイズを決める
+            Dim AddLength  As Long
+            If .length > (MAX_STR_LEN \ 2) Then
+                '次に2倍すると上限を超えるので、最後のバインバインは上限ピッタリに着地！
+                AddLength = MAX_STR_LEN - .length
+                printMsg WARN_, LogID, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
+            Else
+                '基本は「バインバイン（2倍）」
+                AddLength = .length
+                printMsg info_, LogID, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+            End If
+
+            '2-2. 実際に拡張
+            .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
+
+            '2-3. バッファーサイズを同期
+            .length = .length + AddLength
+
+            '2-4. ログ化
             printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
-        '2. 有効予定なCDPメッセージカーソル末尾位置を更新
+        '3. 有効予定なCDPメッセージカーソル末尾位置を更新
         .EndCursor = .EndCursor + resSize
     End With
 End Sub
@@ -834,24 +862,28 @@ Private Sub ReadyCDPMessage()
 
 
     With CDPPipeStream
-        '1. 取り出すバイト数を確定
-        .SetEOS
+        '1. CDPからのメッセージがまだない場合は即抜け
+        If .Position = 0 Then printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
 
-        '2. CDPメッセージを取り出すため、先頭に巻き戻す
-        '※既に0の場合(メッセージが空)は即抜け
-        If .Position Then .Position = 0 Else printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
+        '2. 取り出すバイト数を確定
+        .SetEOS
+        .Position = 0   'CDPメッセージを取り出すため、先頭に巻き戻す
 
         '3. UTF-16変数に格納する準備
+        Dim tmp As String
         If Utf8Converter Is Nothing Then
             'そのまんまUTF-16変数に格納
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = StrConv((.Read), vbUnicode)
+            tmp = StrConv((.Read), vbUnicode)
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
         Else
             'UTF-8に変換した上で、UTF-16変数に格納
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = Utf8Converter.BytesToString((.Read))
+            tmp = Utf8Converter.BytesToString((.Read))
+            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
         End If
 
         '4. 次の蓄積位置を記録
-        responseCDP.AddCursor = responseCDP.EndCursor
+        responseCDP.AddCursor = responseCDP.AddCursor + Len(tmp)    '追加した文字数分をシフト
+        responseCDP.EndCursor = responseCDP.AddCursor               'テキスト変換による差分補正
 
         '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
         .Position = 0
@@ -1383,7 +1415,7 @@ End Function
 Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
     With CDPPipeStream
         '1, 今の位置を記録
-        Dim tmp As Long: tmp = .Position
+        Dim tmpPos As Long: tmpPos = .Position
         .SetEOS
 
         '2. 保存
@@ -1391,7 +1423,7 @@ Public Sub SaveCDPPipeStream(FolderPath As String, FileName As String)
         .SaveToFile FolderPath & "\" & FileName, 2
 
         '3. 元に戻す
-        .Position = tmp
+        .Position = tmpPos
     End With
 End Sub
 
@@ -1408,7 +1440,7 @@ Private Sub Class_Initialize()
     '1. 初期バッファー設定
     '  文字列バッファーの初期化
     With responseCDP
-        .length = InitialBuffer
+        .length = InitialBuffer + dwAllocationGranularity   'メモリアロケーション粒度を考慮
         .strBuffer = String$(.length, vbNullChar)
     End With
 
@@ -1416,8 +1448,8 @@ Private Sub Class_Initialize()
     ReDim binBuffer(InitialBuffer - 1) As Byte
     Set CDPPipeStream = CreateObject("ADODB.Stream")
     With CDPPipeStream
-        .Open
         .Type = 1           ' adTypeBinary
+        .Open
         .Write binBuffer    ' 疑似的に大きめのバッファーを確保
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
@@ -1452,6 +1484,51 @@ Private Sub Class_Terminate()
     CDPPipeStream.Close
     Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub
+
+
+
+#If DEBUG_MODE Then
+'***************************************************************************************************
+'                                 ■■■ Test Only Area ■■■
+'***************************************************************************************************
+' 単体テストをしやすくするための専用テストメソッド。
+' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
+'***************************************************************************************************
+'* 機能　　：`StrBufferCheck`のバッファーチェック
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：有効サイズ
+'* 引数　　：仮想resSize
+'---------------------------------------------------------------------------------------------------
+'* 前提条件：`CreatePipe`の第四引数と辻褄を合わせる仕組みにしてます
+'***************************************************************************************************
+Public Function Test_StrBufferCheck(Optional resSize As Long = InitialBuffer + dwAllocationGranularity) As Long
+    Const FromProcedureName As String = ThisClassName & ".Test_StrBufferCheck"
+
+
+    'テスト前提条件を満たしてるかチェック
+    '・負になっていないこと
+    '・`CreatePipe`の第四引数のバッファー値(メモリアロケーション粒度込み)が上限圏内になってること
+    If resSize < 0 Or resSize > InitialBuffer + dwAllocationGranularity Then Err.Raise vbObjectError, , "テスト前提条件を満たしてません"
+
+    '渡してみる
+    StrBufferCheck resSize
+
+    '現在の有効エリアカーソルを返す
+    printMsg info_, LogID, "`Len(responseCDP.strBuffer)`: " & Len(responseCDP.strBuffer), FromProcedureName
+    printMsg info_, LogID, "`responseCDP.length`        : " & responseCDP.length, FromProcedureName
+    Test_StrBufferCheck = responseCDP.EndCursor
+End Function
+
+Public Sub Test_SendEvent()
+    'テスト用の結果を格納
+    RaiseEvent CDPContextID(1000, "これは、タブに対する結果です", "")
+    RaiseEvent CDPBrowserID(1001, "これは、ブラウザに対する結果です")
+End Sub
+
+Public Function Test_RunCountUPcommandID() As Long
+    Test_RunCountUPcommandID = IssuanceCommandID
+End Function
+#End If
 
 
 
