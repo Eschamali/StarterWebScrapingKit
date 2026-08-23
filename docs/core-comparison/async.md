@@ -77,7 +77,7 @@ Playwright も Puppeteer も「ID を Map に登録して、応答が来たら�
 結果を待ちたくない場合は、コマンド ID（＝整理券）だけを受け取って先へ進めます。
 
 ```vb
-Public Function ExecuteCDPAsync(methodName As String, Optional params As Scripting.Dictionary, _
+Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, _
                                 Optional StopApiError As Boolean = True) As Long
     ' ブラウザへ送信し、実行時の commandID をそのまま返す（整理券の発行）
     ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand, brTab.sessionID)

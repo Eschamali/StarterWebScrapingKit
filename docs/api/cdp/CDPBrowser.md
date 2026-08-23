@@ -233,7 +233,7 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
 
 ```vb
 Public Function ExecuteCDP(methodName As String, _
-    Optional params As Scripting.Dictionary, _
+    Optional params As Dictionary, _
     Optional StopCDPError As Boolean = True) As BiDiCDPJson
 
 Public Function ExecuteCDPAsync(...) As Long

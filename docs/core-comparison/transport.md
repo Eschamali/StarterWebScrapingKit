@@ -88,12 +88,21 @@ VBA の文字列は不変（immutable）なので、`&` 連結も `Right()` に�
 ```vb
 ' 1MB を初期確保。足りなくなったら倍々に拡張する（再確保自体を稀にする）
 Private Const InitialBuffer As Long = 2 ^ 20
+Private Const MAX_STR_LEN   As Long = 2 ^ 30 - 1   ' VBA文字列の限界
 
 If .EndCursor + resSize > .length Then
-    .strBuffer = .strBuffer & String$(.length, vbNullChar)
-    .length = .length * 2
+    Dim AddLength As Long
+    If .length > (MAX_STR_LEN \ 2) Then
+        AddLength = MAX_STR_LEN - .length   ' 次に倍にすると上限超過 → 上限ピッタリに着地
+    Else
+        AddLength = .length                 ' 基本は倍々（バインバイン）
+    End If
+    .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
+    .length = .length + AddLength
 End If
 ```
+
+初期サイズ（`InitialBuffer`）も、素の1MBそのままではなく、`CreatePipe`／ソケットバッファのメモリアロケーション粒度（`dwAllocationGranularity`、既定 64KB）を上乗せして確保しています。OS側のバッファ確保単位とVBA文字列側のバッファサイズがズレていると、無駄な確保や境界での取りこぼしが起きうるためです。
 
 ```vb
 ' 連結ではなく、Mid$ ステートメントで「その場書き換え」（再確保が起きない）

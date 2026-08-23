@@ -351,6 +351,13 @@ t.getElementByID("async-btn").onExist.click
 t.getElementByID("ready").onExist(10, False).click   ' 10 秒・タイムアウトでも止めない
 ```
 
+::: warning 使えないケース
+`onExist` / `onExistNot` は、要素を取得したときの検索コード（JavaScript）を内部で再実行してポーリングします。そのため、そもそも単一の検索コードを持たない次の取得方法では**使用できません**（要素自体は問題なく操作できますが、ポーリングは効きません）。
+
+- 複数取得系（[`getChildren`](#getfirstchild--getchildren) / [`getElementsByQuery`](#getelementbyquery--getelementsbyquery) / [`getElementsByXPath`](#getelementbyxpath--getelementsbyxpath)）で得られた各要素
+- [`GetShadowRoot`](#getshadowroot--getshadowroots) / `GetShadowRoots` で得られた Shadow Root
+:::
+
 ### `onExistNot`
 
 ```vb

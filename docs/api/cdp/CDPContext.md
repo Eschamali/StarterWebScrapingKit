@@ -306,7 +306,17 @@ result = t.jsEval("notDefined.x", IFEXCEPTION:="fallback")
 
 ### `jsAddLib` / `jsAddScript`
 
-外部／ローカルスクリプトの注入。
+```vb
+Public Sub jsAddLib(strURL As String)
+Public Sub jsAddScript(FolderPath As String, ScriptName As String)
+```
+
+外部／ローカルスクリプトの注入です。`jsAddScript` はフォルダパスとファイル名を分けて渡します。
+
+```vb
+t.jsAddLib "https://cdn.example.com/lib.js"
+t.jsAddScript "C:\scripts", "helper.js"
+```
 
 ### `notify`
 

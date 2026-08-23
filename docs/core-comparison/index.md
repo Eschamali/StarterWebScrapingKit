@@ -30,7 +30,7 @@ flowchart LR
 ## 検証の前提
 
 ::: info 検証方法
-Puppeteer / Playwright については、npm パッケージのドキュメントではなく **GitHub の実ソースツリー**（`packages/puppeteer-core/src`、`packages/playwright-core/src`）を直接読み、該当箇所のファイル名と行番号を添えています。StarterWebScrapingKit 側も同様に `VBAProject/Class/*.cls` の実コードを参照しています。
+Puppeteer / Playwright については、npm パッケージのドキュメントではなく **GitHub の実ソースツリー**（`packages/puppeteer-core/src`、`packages/playwright-core/src`）を直接読み、該当箇所のファイル名と行番号を添えています。StarterWebScrapingKit 側も同様に `src/classes/*.cls` の実コードを参照しています。
 
 いずれも 2026年8月時点のソースに基づきます。3者とも活発に更新されるため、行番号は将来ずれる可能性があります。
 :::

@@ -140,9 +140,9 @@ result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
 ## スクリプトの追加・通知（CDP）
 
 ```vb
-t.jsAddLib "https://cdn.example.com/lib.js"   ' URL
-t.jsAddScript "C:\scripts\helper.js"          ' ローカルファイル
-t.notify "処理が完了しました", 5               ' 表示秒数
+t.jsAddLib "https://cdn.example.com/lib.js"                ' URL
+t.jsAddScript "C:\scripts", "helper.js"                    ' ローカルファイル（フォルダ, ファイル名）
+t.notify "処理が完了しました", 5                            ' 表示秒数
 ```
 
 ## ダイアログ

@@ -15,14 +15,15 @@ description: 3プロジェクトが選んだ3つの異なるファイル分割�
 ## StarterWebScrapingKit：スコープの階層
 
 ```
-VBAProject/Class/
+src/classes/
 ├── CDPCore.cls / CDPCoreViaWebSocket.cls   ← 通信層（Pipe / WebSocket）
 ├── CDPBrowser.cls                          ← ブラウザ単位
 ├── CDPContext.cls                          ← タブ単位
 ├── CDPElement.cls                          ← 要素単位
 ├── WebDriverBiDiCore / Context / Mode.cls  ← 別プロトコル（BiDi）の柱
 ├── WebClient / WebRequest / WebResponse.cls ← REST WebAPI の柱
-└── WebSocketCommunicator / HTTPCommunicator ← 汎用 WebSocket 通信の柱
+├── WebSocketCommunicator / HTTPCommunicator ← 汎用 WebSocket 通信の柱
+└── Dictionary.cls                          ← `Scripting.Dictionary`互換の自作クラス（v2.4.2〜）
 ```
 
 「ブラウザ → タブ → 要素」というスコープの階層と、「CDP / BiDi / REST / WebSocket」という機能の柱の2軸です。これは[アーキテクチャのページ](/concepts/architecture)で説明している通りで、Puppeteer / Playwright が採用している軸と一致します。
