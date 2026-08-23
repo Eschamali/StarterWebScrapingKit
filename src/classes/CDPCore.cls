@@ -1487,6 +1487,51 @@ End Sub
 
 
 
+#If DEBUG_MODE Then
+'***************************************************************************************************
+'                                 ■■■ Test Only Area ■■■
+'***************************************************************************************************
+' 単体テストをしやすくするための専用テストメソッド。
+' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
+'***************************************************************************************************
+'* 機能　　：`StrBufferCheck`のバッファーチェック
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：有効サイズ
+'* 引数　　：仮想resSize
+'---------------------------------------------------------------------------------------------------
+'* 前提条件：`CreatePipe`の第四引数と辻褄を合わせる仕組みにしてます
+'***************************************************************************************************
+Public Function Test_StrBufferCheck(Optional resSize As Long = InitialBuffer + dwAllocationGranularity) As Long
+    Const FromProcedureName As String = ThisClassName & ".Test_StrBufferCheck"
+
+
+    'テスト前提条件を満たしてるかチェック
+    '・負になっていないこと
+    '・`CreatePipe`の第四引数のバッファー値(メモリアロケーション粒度込み)が上限圏内になってること
+    If resSize < 0 Or resSize > InitialBuffer + dwAllocationGranularity Then Err.Raise vbObjectError, , "テスト前提条件を満たしてません"
+
+    '渡してみる
+    StrBufferCheck resSize
+
+    '現在の有効エリアカーソルを返す
+    printMsg info_, LogID, "`Len(responseCDP.strBuffer)`: " & Len(responseCDP.strBuffer), FromProcedureName
+    printMsg info_, LogID, "`responseCDP.length`        : " & responseCDP.length, FromProcedureName
+    Test_StrBufferCheck = responseCDP.EndCursor
+End Function
+
+Public Sub Test_SendEvent()
+    'テスト用の結果を格納
+    RaiseEvent CDPContextID(1000, "これは、タブに対する結果です", "")
+    RaiseEvent CDPBrowserID(1001, "これは、ブラウザに対する結果です")
+End Sub
+
+Public Function Test_RunCountUPcommandID() As Long
+    Test_RunCountUPcommandID = IssuanceCommandID
+End Function
+#End If
+
+
+
 '***************************************************************************************************
 '                              ■■■ HISTORICAL ARCHIVE ■■■
 '***************************************************************************************************
