@@ -717,7 +717,7 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
     'メッセージの終わりであれば、その目印も追記
     If EOS Then CDPPipeStream.Write m_NullTerminator
 
-    '取得サイズをcursor管理へ反映
+    '取得サイズをcursor管理へ反映し、バッファー拡張判定を行う
     StrBufferCheck resSize + EOS * -1
     printMsg Trace_, LogID, "ResSize = " & resSize & " , EOS: " & EOS, FromProcedureName
 End Sub
@@ -758,6 +758,7 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
         dicMessage.Add "sessionId", sessionID
 
         '2-2. commandIDと`sessionId`の紐づけを行う
+        '※`sessionId`付きコマンド実行時にて、エラーが起こると、`sessionId`なしエラーとして返る理不尽仕様に対応するため
         DictionarySessionID.Add ReadyRunCDP, sessionID
         printMsg Trace_, LogID, "commandID:" & ReadyRunCDP & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
