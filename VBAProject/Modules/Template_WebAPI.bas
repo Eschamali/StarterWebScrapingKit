@@ -4,6 +4,7 @@ Attribute VB_Name = "Template_WebAPI"
 '           より詳しいドキュメントは、https://vba-tools.github.io/VBA-Web/docs/　へ
 '***************************************************************************************************
 Option Explicit
+Option Private Module
 
 
 
