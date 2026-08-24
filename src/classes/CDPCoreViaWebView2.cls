@@ -376,9 +376,6 @@ End Function
 '            空文字が返る)。これにより`sessionId`を含めて再構成し、`CDPCore.
 '            BrowserReceivedDataCheck`が`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`
 '            (ブラウザ向け)を正しく振り分けられるようにする。
-'* 注意事項：`CDPWebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
-'            (このパスで届くイベントには`sessionId`が付与されないため、`CDPCore.
-'            BrowserReceivedDataCheck`では常に`CDPBrowserEvent`側に流れます)
 '***************************************************************************************************
 Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
     Dim paramJson As String
