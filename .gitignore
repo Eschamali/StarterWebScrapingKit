@@ -1,4 +1,11 @@
-VBAProject/Microsoft Excel Objects/Sheet[0-9].cls
-VBAProject/Modules/Module[0-9].bas
-WebDriverBiDiForChromium/*
+src/workbook/Sheet[0-9].cls
+src/modules/Module[0-9].bas
+ForAI/*
 CDP-Log/*
+# Excel
+~$*.xls*
+*.tmp
+*.xlam
+# xlflow
+.xlflow/
+build/

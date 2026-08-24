@@ -1,277 +1,349 @@
 # Excel VBA Web Automation Starter Kit
 
+![Logo](doc/Logo.png)
+
 > [!IMPORTANT]
-> For English users  
-> This project focuses on pure VBA control of Chromium via CDP without chromedriver.exe. Please use a browser translator for details.
+> This text was translated into English by AI based on "README-jp.md".
 
-![イントロ画像](doc/Top.png)
+[🇯🇵日本語のREADMEはこちら](README-jp.md)
 
-## インターネットの世界を、その手に
+![Intro Image](doc/Top.png)
 
-スクレイピングに必要なすべての要素を、このマクロブック「1つ」に詰め込みました。  
-面倒な環境構築はもう必要ありません。このマクロブックを開いたその瞬間から、あなたの業務効率化とインターネット自動操作への旅が始まります。
+## The World of the Internet, in Your Hands
 
-本ツールは、現代のWeb技術を攻略するために必須となる「3つの神器」を実装しています。
+All the essential elements for web scraping have been packed into this **single** macro workbook.  
+No more tedious environment setup. From the moment you open this workbook, your journey toward business efficiency and automated internet operations begins.
+
+This tool implements the "Three Sacred Treasures" required to conquer modern web technologies:
 
 1. **🚀 REST WebAPI (WinHTTP 5.1)**
-    * 高速・軽量なデータ収集の王道。参照設定のみで完結する堅牢な実装です。
-2. **🤖 ブラウザ自動操作 (CDP via Pipe & WebDriver BiDi)**
-    * Chromiumベースのブラウザ（Edge/Chrome）を自在に操ります。外部ドライバー(exe)を必要としない、パイプ通信によるモダンな実装です。
-3. **🌐 WebView2 制御 (WebView2 Branch / Beta)**
-    * **UserFormへのネイティブ統合**: ExcelのUserForm上に直接ブラウザを表示。
-    * **究極の一体感**: Excelとブラウザが一つになったような操作感を求める方へ。
-    * ※現在 `WebView2` ブランチにて開発中。
-4. **⚡ WebSocket 通信 (Beta)**
-    * リアルタイム通信への挑戦。WinAPIを駆使し、最低限の接続・送受信機能を搭載しました。VBAの限界を押し広げる、発展途上の機能です。
+    * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings.
+2. **🤖 Browser Automation (CDP via Pipe & WebDriver BiDi)**
+    * Freely control Chromium-based browsers (Edge/Chrome). A modern implementation using pipe communication that doesn't require external drivers (.exe).
+3. **⚡ WebSocket Communication**
+    * A challenge for real-time communication. Equipped with minimal connection and send/receive functions using WinAPI. An evolving feature that pushes the boundaries of VBA.
 
 ---
 
-## 🌈 選べる2つのメインルート
+## 🔥【Strengths of This Tool】🔥
 
-当プロジェクトは、用途に合わせて2つのブランチ（実装方式）を展開しています。
+* **Ultimate Portable Browser Support (Freedom from Driver Version Management!)**
+  * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
+  * Whether it's a modified browser, an anti-detect browser, or a portable Chrome on a USB drive, complete automation is possible in an instant just by **"pasting the exe path into a cell on the settings sheet"** 😎
 
-### 1. Main ブランチ (Edge x Pipe x CDP)
-**「ブラウザを、外から、自在に操る」** 
-- 通常の Edge/Chrome をパイプ通信で制御。
-- 既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用可能。
-- 安定性が高く、デバッグも容易な主流の方式です。
+* **Infinite Extensibility: Your Own Custom Tool!**
+  * Simply tell an AI about the "[Template](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)" and the "function you want," and complex automation code will be completed in seconds!
+  * No need to memorize tedious CDP specifications. Anyone can easily extend functionality as long as they have an idea.
+  * Depending on how you craft your prompts, you can even generate "demo code" with detailed explanations fully automatically!
 
-### 2. WebView2 ブランチ (UserForm x Native) 【開発中】
-**「ブラウザを、Excelに、取り込む」**
-- Excel UserForm 内に WebView2 を直接埋め込み。
-- **「ど～～～～しても、Excelと一体化して動いてる感を味わいたい」** 方への究極のUI体験。
-- UserForm 上のボタンからネイティブにスクレイピングを実行可能です。
+* **🚀 A "New Standard" Architecture for VBA, on par with Playwright / Puppeteer**
+  * Directly access the heart of the browser without leaving the "footprints" of WebDriver. This tool occupies a **low-layer position equivalent to Playwright / Puppeteer**, even though it's VBA.
+  * Its greatest strength lies in its "cleanliness." By using a "pure" operation style that doesn't inject any unique JS variables or patches (which often trigger detection), it has achieved **stealthiness that makes it easier to bypass modern defenses like Cloudflare** as if you had a VIP pass.  
+  * *Note: While bypass is not guaranteed, we have confirmed cases where it is easier to bypass than SeleniumVBA.*
 
 ---
 
-## ⭐️ 新機能：WebDriver BiDi 完全対応！（VBA初🦊）
+## 🌈 Two Main Routes to Choose From
 
-従来の CDP (Chrome DevTools Protocol) 操作に加え、現在 W3C で世界標準として次世代プロトコル策定が進められている **「WebDriver BiDi」** にいち早く対応しました（`WebDriverBiDiCore.cls` を実装）。
+This project offers two branches (implementation methods) depending on your needs.
 
-外部ツールの `chromedriver.exe` や Selenium 等の中間ウェアを一切使わず、**「VBA単体で完結する」** という当プロジェクトの理念はそのままに、以下のような高度な操作が可能になりました。
+### 1. Main Branch (Edge x Pipe x CDP)
+**"Control the browser freely from the outside"** 
+- Controls standard Edge/Chrome via pipe communication.
+- You can use existing browser profiles (favorites, login states, etc.) as they are.
+- This is the mainstream method with high stability and easy debugging.
 
-*   📥 **非同期イベントの完璧な購読**（読込完了やコンソールエラーのリアルタイム検知）
-*   ⚠️ **JavaScript アラートダイアログの細密制御**（VBAをフリーズさせないフォールバックの実装）
-*   🔌 **BiDi+ による CDP トンネリング**（標準機能では足りない部分を柔軟にカバー）
+### 2. WebView2 Branch (UserForm x Native) [Under Development]
+**"Incorporate the browser into Excel"**
+- Directly embeds WebView2 within an Excel UserForm.
+- The ultimate UI experience for those who **"really, really want the feeling of the browser moving as one with Excel."**
+- Allows you to execute scraping natively from buttons on the UserForm.
 
-**📖 詳細な技術ドキュメントや使い方は、公式ドキュメント（GitHub Pages）をご覧ください。**
-*   ➡️ **[公式ドキュメントトップ (使い方・技術アーキテクチャ)](https://eschamali.github.io/StarterWebScrapingKit/)**
+---
+
+## ⭐️ New Feature: Full WebDriver BiDi Support! (A VBA First🦊)
+
+In addition to traditional CDP (Chrome DevTools Protocol) operations, we have quickly implemented support for **"WebDriver BiDi"** (`WebDriverBiDiCore.cls`), the next-generation protocol currently being established as a global W3C standard.
+
+While maintaining the project's philosophy of being **"self-contained in VBA"** without using external `chromedriver.exe` or middleware like Selenium, the following advanced operations are now possible:
+
+*   📥 **Perfect Subscription to Asynchronous Events** (Real-time detection of page load completion or console errors)
+*   ⚠️ **Fine-grained Control of JavaScript Alert Dialogs** (Implementation of fallbacks that prevent VBA from freezing)
+*   🔌 **CDP Tunneling via BiDi+** (Flexibility to cover areas where standard features are insufficient)
+
+**📖 For detailed technical documentation and usage, please visit the official documentation (GitHub Pages).**
+*   ➡️ **[Official Documentation Top (Usage & Technical Architecture)](https://eschamali.github.io/StarterWebScrapingKit/)**
 
 ---
 
 ### 【Credits & Acknowledgments】
 
-このツールは、世界中のVBA職人が公開してくれた素晴らしいライブラリの数々を、実務で使いやすい形に統合（マッシュアップ）したものです。
-偉大な先人たちの知恵とコードに、心からの敬意と感謝を表します。
+This tool is a mashup of many wonderful libraries shared by VBA artisans around the world, integrated into a form that is easy to use in practice.  
+I express my heartfelt respect and gratitude for the wisdom and code of my great predecessors.
 
-* **WebSocket実装のコアロジック**
+* **Core Logic for WebSocket Implementation**
   * [ChromeControler-No-Selenium-WebDriver-VBAJSON](https://github.com/24000/ChromeControler-No-Selenium-WebDriver-VBAJSON)
-    * 製作者：[@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)氏
-* **CDP制御・パイプ通信の基盤**
+    * Author: [@kabkabkab](https://qiita.com/kabkabkab/items/9952a796ee9244fc98ad)
+* **Foundation for CDP Control and Pipe Communication**
   * [Chromium-Automation-with-CDP-for-VBA](https://github.com/longvh211/Chromium-Automation-with-CDP-for-VBA)
-    * 製作者：longvh211氏
-* **WinHTTP 5.1 ラッパー**
+    * Author: longvh211
+* **WinHTTP 5.1 Wrapper**
   * [VBA-Web](https://github.com/VBA-Tools-v2/VBA-Web)
-    * オリジナル製作者：Tim Hall氏
-* **高速・高機能なJSONパーサー**
-  * [WebJsonConverter.cls (from SeleniumVBA)](https://github.com/GCuser99/SeleniumVBA/blob/main/src/VBA/WebJsonConverter.cls)
-    * GCuser99氏による改良
-    * メンテナンス性を考慮し、既存のJsonConverterからこちらへ換装済み
-* **高速な文字コード変換ラッパー**
+    * Original Author: Tim Hall
+* **Ultra-high-performance JSON parser specialized for CDP/WebDriverBiDi responses**
+  * [vbacollective-json](https://github.com/vbacollective/json)
+    * Original Author: Ueslei Paim
+    * Modified version: Optimized for reliability by removing `CopyMemory` dependency
+* **High-performance JSON parser (Upward compatible with `VBA-JSON`)**
+  * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
+    * Author: Cristian Buse
+* **A high-speed Dictionary that is a superset-compatible replacement for Microsoft's `Scripting.Dictionary`.**
+  * [VBA-FastDictionary](https://github.com/cristianbuse/VBA-FastDictionary)
+    * Author: Cristian Buse
+* **Fast Character Code Conversion Wrapper**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
-    * David Ireland DI Management Services Pty
+    * David Ireland, DI Management Services Pty
   * [VBAで Windows APIを使った UTF-8 ←→ Unicode相互変換](https://qiita.com/yamashiroakihito/items/9b609653fef6fa8a5ab2)
-    * 製作者：@yamashiroakihito
-* **ログレベルの基礎部分**
+    * Author: @yamashiroakihito
+* **Log Level Basics**
   * [VBA-Log](https://github.com/VBA-tools/VBA-Log)
-    * 製作者：timhall氏
-* **ChromiumブラウザをBiDi化するためのコアロジック**
+    * Author: timhall
+* **Core Logic for BiDi in Chromium Browsers**
   * [chromium-bidi](https://github.com/GoogleChromeLabs/chromium-bidi)
-    * 製作者：GoogleChromeLabsチーム
-* **UserFormにWebView2を追加DLなしで埋め込んだすごい方**
+    * Author: GoogleChromeLabs Team
+* **The Amazing Person Who Embedded WebView2 in UserForm Without Extra Downloads**
   * [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)
-    * 製作者：[たーぼー氏](https://x.com/fenblen_puyo)
+    * Author: [Tarboh](https://x.com/fenblen_puyo)
 
-※各機能の詳細な使用方法やメソッドについては、上記オリジナルライブラリのドキュメントをご参照ください。
+*Note: For detailed usage and methods of each function, please refer to the documentation of the original libraries above.*
 
-## 💡 はじめに：ダウンロードしたファイルを開くと表示される「保護ビュー」について
+## 💡 Introduction: About the "Protected View" Displayed When Opening Downloaded Files
 
-![Excelの保護ビュー](doc/FirstStep1.png)
+![Excel Protected View](doc/FirstStep1.png)
 
-ダウンロードしたマクロブックを開くと、Excelの上部に **「保護ビュー」** という黄色いバーが表示され、「編集を有効にする」ボタンを押す必要がある場合があります。  
-さらに、マクロを実行しようとすると、セキュリティの警告が表示されることがあります。  
-![セキュリティリスク](doc/FirstStep2.png)
+When you open a downloaded macro workbook, a yellow bar saying **"Protected View"** may appear at the top of Excel, and you might need to click the "Enable Editing" button.  
+Furthermore, a security warning might appear when you try to run the macro.  
+![Security Risk](doc/FirstStep2.png)
 
-これは、**あなたのPCが、インターネットから来た、"見知らぬ"ファイルから、あなた自身を守ろうとしている**、正常で、非常に賢い動作です。
+This is a normal and very smart behavior where **your PC is trying to protect you from "unknown" files coming from the internet.**
 
-### 解除方法
+### How to Unblock
 
-1. Excelを全て閉じてください
-2. DLしたExcelファイルを右クリックして、**プロパティ**を選択  
-![右クリックメニュー](doc/FirstStep4.png)
-3. **許可する** チェックボックスをオンにして **OK**ボタンをクリック  
-![プロパティウィンドウ](doc/FirstStep5.png)
-4. 再度、ツールを開いて、「編集を有効にする」ボタンを押す
+1. Close all Excel instances.
+2. Right-click the downloaded Excel file and select **Properties**.  
+![Right-click Menu](doc/FirstStep4.png)
+3. Check the **Unblock** checkbox and click the **OK** button.  
+![Properties Window](doc/FirstStep5.png)
+4. Open the tool again and click the "Enable Editing" button.
 
-このマクロブックを、安全に、そして最大限に活用していただくために、**「なぜ、このような一手間が必要なのか」** を、少しだけ、ご説明させてください。
+To help you use this macro workbook safely and to its full potential, let me briefly explain **"why this extra step is necessary."**
 
-### なぜ、こんな「一手間」が必要になったの？【物語】
+### Why is This "Extra Step" Necessary? 【A Story】
 
-昔々、インターネットは、もっとのどかな場所でした。  
-しかし、ある時から、**Excelマクロのふりをした、悪意のある「ウイルス」** が、世界中で大流行し始めました。  
-人々は、メールに添付された、ただのExcelファイルを開いただけで、PCを乗っ取られてしまう、という悲劇に、何度も見舞われたのです。
+Once upon a time, the internet was a much more peaceful place.  
+However, at some point, malicious **"viruses" pretending to be Excel macros** began to spread worldwide.  
+People suffered tragedies where their PCs were taken over just by opening an ordinary Excel file attached to an email.
 
-そこで、Microsoftは、**大きな決断**をしました。
+So, Microsoft made a **big decision**.
 
-**「もう、インターネットから来た、すべてのファイルを、『出身不明の、怪しいヤツ』として、扱うことにしよう！」** と。
+**"Let's treat all files coming from the internet as 'suspicious characters of unknown origin'!"**
 
-#### 「Mark of the Web (MOTW)」という"刻印"
+#### The "Mark of the Web (MOTW)" Stamp
 
-あなたが、インターネット（Webブラウザ、メールソフトなど）からファイルをダウンロードした瞬間、Windowsは、そのファイルの **"見えない"部分** に、**「こいつは、インターネットという、無法地帯から来た、要注意人物だ」** という、**`Mark of the Web` (MOTW)** という、特別な **"刻印"** を押します。
+The moment you download a file from the internet (web browser, email client, etc.), Windows places a special **"stamp"** called **`Mark of the Web` (MOTW)** on the **"invisible" part** of the file, marking it as **"this person is a person of interest from the lawless land called the internet."**
 
-Excelは、ファイルを開く時に、まず、この「刻印」があるかどうかをチェックします。  
-そして、刻印を見つけると、こう判断するのです。
+When Excel opens a file, it first checks if this "stamp" exists.  
+If it finds the stamp, it judges:
 
-**「待て！こいつは、素性の知れないヤツだ！**  
-**いきなり、自由に動き回らせるのは、危険すぎる。**  
-**まずは、『保護ビュー』という名の、"隔離室"に入れよう。マクロも、絶対に動かすな！」**
+**"Wait! This guy is of unknown character!**  
+**It's too dangerous to let them move around freely right away.**  
+**First, let's put them in an 'isolation room' called 'Protected View.' And never run their macros!"**
 
-### あなたが「許可する」チェックボックスを押す、ということ
+### What It Means for You to Check the "Unblock" Box
 
-![プロパティウィンドウの下部](doc/FirstStep3.png)  
-この、厳重な警備体制を、安全に解除するための、唯一の、**正規の「身元保証」手続き**。  
-それが、ファイルのプロパティを開き、**「許可する」** のチェックボックスを押す、という行為です。
+![Bottom of Properties Window](doc/FirstStep3.png)  
+The only **official "guarantee of identity" procedure** to safely lift this strict security system.  
+That is the act of opening the file properties and checking the **"Unblock"** box.
 
-これは、あなたが、Windowsに対して、
-**「分かってる、分かってる。こいつが、インターネットから来たのは知っている。**
-**でも、こいつの"身元"は、この私（あなた）が、責任を持って、保証する！**
-**だから、もう、怪しいヤツとして扱うのはやめて、このPCの、正式な"市民"として、迎え入れてやってくれ」**
-と、**宣言**しているのと同じなのです。
+This is the same as you **declaring** to Windows:
+**"I know, I know. I know this guy came from the internet.**
+**But I (you) personally take responsibility and guarantee this person's 'identity'!**
+**So, stop treating them as suspicious and welcome them as a formal 'citizen' of this PC."**
 
-この「身元保証」が行われると、Windowsは、そのファイルの **`MOTW`という"刻印"を、永久に消し去ります**。  
-その結果、Excelは、そのファイルを「信頼できる、安全なファイル」と認識し、「保護ビュー」を表示することなく、マクロを、正常に実行させてくれるようになるのです。
-
----
-**このマクロブックは、安全です。**  
-**どうか、あなたという"保証人"の力で、この子に、あなたのPCで活躍する「許可」を与えてあげてください。**
+Once this "guarantee of identity" is provided, Windows **permanently removes the `MOTW` "stamp"** from the file.  
+As a result, Excel recognizes the file as a "trusted and safe file" and allows the macros to run normally without displaying "Protected View."
 
 ---
+**This macro workbook is safe.**  
+**Please, with your power as a "guarantor," give this file the "permission" to be active on your PC.**
 
-##  高度な機能と技術的詳細について (Migrated to GitHub Pages)
+---
 
-本プロジェクトの「独自の改良点（日本語UTF-8対応、BrowserEventsプロパティ等）」、「API仕様リファレンス」、「深い仕組みや設計思想」などの重厚なドキュメントは、すべて **美しい静的サイト（GitHub Pages）** に移設整理されました。
+##  Advanced Features and Technical Details (Migrated to GitHub Pages)
 
- **[公式ドキュメントサイト (Features / API Reference)](https://Eschamali.github.io/StarterWebScrapingKit/)** をぜひご覧いただき、VBAの限界を超えたブラウザ制御の深淵に触れてみてください！
+Extensive documentation such as "Unique Improvements (Japanese UTF-8 support, BrowserEvents property, etc.)," "API Specification Reference," and "Deep Mechanisms and Design Philosophy" has been moved and organized into a **beautiful static site (GitHub Pages)**.
 
-## ワークシート：ブラウザ起動設定について
+Please visit the **[Official Documentation Site (Features / API Reference)](https://Eschamali.github.io/StarterWebScrapingKit/)** and touch the abyss of browser control that exceeds the limits of VBA!
 
-![ワークシート：ブラウザ起動設定](doc/説明1.png)
+## Worksheet: Browser Startup Settings
 
-基本的な説明は、ワークシート上に書いてあります。ここでは起動引数について説明します。
+![Worksheet: Browser Startup Settings](doc/説明1.png)
 
-### 初期に記載してる追加の起動引数の意味
+Basic explanations are provided on the worksheet. Here, we explain the startup arguments.
 
-自動操作中で厄介な存在を排除するため、いくつか初期引数を設けつつ、W3C準拠の引数も付与します。
+### Meaning of Initial Additional Startup Arguments
 
-| 引数名                        | 意味                                                                                                                                                                                             | 
+To eliminate troublesome elements during automation, we provide several initial arguments along with W3C-compliant arguments.
+
+| Argument Name | Meaning | 
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | 
-| no-first-run                  | Chromiumベースのブラウザを初回起動時のセットアップ画面なしで立ち上げる。<br>初めて起動したときに表示される「ようこそ」画面や、Google,Microsoftアカウントのログインを促す画面などをスキップする。 | 
-| disable-fre                   | `no-first-run`と同じ。バージョンや環境によっては、`no-first-run`だけでは完全に抑制できないことがあるので、併用する                                                                               | 
-| disable-popup-blocking        | ポップアップのブロックを無効にします                                                                                                                                                             | 
-| disable-sync                  | アカウントへの自動ログインや同期を無効化します                                                                                                                                                     | 
-| disable-background-networking | バックグラウンドでネットワークリクエストを実行するいくつかのサブシステムを無効にします。<br>目的の通信以外の通信をなるべく排除します                                                             | 
-| disable-default-apps          | 初回起動時にデフォルトアプリのインストールを無効にします                                                                                                                                         | 
-| no-service-autorun            | 余計なバックグラウンドサービス起動を抑制します                                                                                                                                                   | 
-| enable-automation             | ブラウザが自動化によって制御されていることを示す表示を有効にします。<br>これにより、通常のブラウザとの混合を防ぐ目印になります。                                                                 | 
-| test-type=ExcelVBA            | テストハーネスの種類を指定します。言ってしまえば、飾りです                                                                                                                                       | 
+| no-first-run | Starts Chromium-based browsers without the first-run setup screens.<br>Skips the "Welcome" screen or prompts to log in to Google/Microsoft accounts. | 
+| disable-fre | Same as `no-first-run`. Used together because `no-first-run` alone may not fully suppress it depending on the version or environment. | 
+| disable-popup-blocking | Disables popup blocking. | 
+| disable-sync | Disables automatic login and synchronization with accounts. | 
+| disable-background-networking | Disables several subsystems that perform network requests in the background.<br>Eliminates communications other than the intended one as much as possible. | 
+| disable-default-apps | Disables the installation of default apps on first run. | 
+| no-service-autorun | Suppresses the startup of extra background services. | 
+| enable-automation | Enables the display indicating that the browser is controlled by automation.<br>Serves as a marker to prevent mixing with normal browsers. | 
+| test-type=ExcelVBA | Specifies the type of test harness. In short, it's just for decoration. | 
 
-### Bot検知回避モードについて
+### About Bot Detection Bypass Mode
 
-起動引数に、`disable-blink-features=AutomationControlled`を付与します。これにより、`navigator.webdriver`が`false`にオーバーライドされ、Bot検知回避が可能です。  
-一部のサイトはこのフラグをチェックして、アクセスできないように仕組んでいるので、必要に応じてONにしてください。
+Adds `disable-blink-features=AutomationControlled` to the startup arguments. This overrides `navigator.webdriver` to `false`, enabling bot detection bypass.  
+Some sites check this flag to block access, so turn it ON as needed.
 
-ただしこの引数、公式ではサポートされていないようなので、いつか効かなくなる可能性があることを念頭に置いて下さい。  
-一応、執筆段階では注意メッセージはでますが、まだ効いています。  
-![ブラウザ起動時の上部メッセージ](doc/説明3.png)
+However, keep in mind that this argument is not officially supported and may stop working someday.  
+As of the time of writing, a warning message appears, but it still works.  
+![Message at the top of browser startup](doc/説明3.png)
 
-### VBA内部での起動引数について
+### Startup Arguments Within VBA
 
-ブラウザを自動操作するための最低限の必須引数を記述してます。クラスモジュール`CDPBrowser`の154行目周辺にその引数が見受けられると思います。
+Contains minimum mandatory arguments for browser automation. You can find these arguments around line 350 of the `CDPBrowser` class module.
 
-| 引数名                | 意味                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 
+| Argument Name | Meaning | 
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | 
-| remote-debugging-pipe | ブラウザの"本体プロセス"とは、"別のプロセス(Excel)"から、デバッグするように仕向けます。<br>通信方式は、パイプ通信です。「リモート」とありますが、同じPC内からしかアクセスできない仕様となっています。                                                                                                                                                                                                                                                | 
-| user-data-dir         | ブラウザのデータディレクトリ(Cookieや拡張機能、パスワード倉庫など)のフルパスを指定します。<br>通常は`C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`ですが、[デバッグ機能を悪用したCookie盗難対策](https://developer.chrome.com/blog/remote-debugging-port?hl=ja)により必ず、`User Data`以外のフォルダパスを指定するように義務付けられました。<br>このツールはデフォルトで、`Automation Data`として`User Data`と同じ階層のパスに作られます。 | 
-| homepage              | ブラウザ起動時の最初のURLを指定しますが余計な通信を抑えるため、`about:blank`で空白ページにしてます。<br>ただし、次項の`app`に任意のURLが渡されるとこれは、付与しなくなります。                                                                                                                                                                                                                                                                       | 
-| app                   | `start`メソッドの第2引数にあたります。ブラウザ起動時の最初のURLを指定したい場合は、ここを指定することになります。<br>ここにURLを渡して起動すると<br>・任意のURLへの変更不可<br>・タブ生成不可<br><br>といったユーザー側による自動化を妨げる行為をある程度防ぐことが可能です。ちょっとしたキオスクモードです。                                                                                                                                                                                                                                                     | 
+| remote-debugging-pipe | Makes the browser allow debugging from a "different process (Excel)" than the "main process."<br>Uses pipe communication. Although it says "remote," it is specified to be accessible only from within the same PC. | 
+| user-data-dir | Specifies the full path to the browser's data directory (Cookies, extensions, password vault, etc.).<br>Normally it is `C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`, but due to [measures against Cookie theft using debugging features](https://developer.chrome.com/blog/remote-debugging-port?hl=ja) it is now mandatory to specify a folder path other than `User Data`.<br>By default, this tool creates a path in the same hierarchy as `User Data` as `Automation Data`. | 
+| homepage | Specifies the initial URL when the browser starts, but it is set to `about:blank` to suppress extra communication.<br>However, if an arbitrary URL is passed to the `app` in the next item, this will not be added. | 
+| app | Corresponds to the 2nd argument of the `start` method. If you want to specify the initial URL when starting the browser, you specify it here.<br>Starting with a URL here allows you to prevent user actions that interfere with automation to some extent, such as:<br>・Changing to an arbitrary URL not allowed<br>・Creating tabs not allowed<br><br>It's like a simple kiosk mode. | 
+| KioskMode | Corresponds to the 6th argument of the `start` method. Please use this when embedding Edge in a UserForm. `fullscreen` recommended. See [here](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-configure-kiosk-mode) for details. | 
 
-## ブラウザ起動方法について
+## 🚀 No more WebDriver.exe
 
-基本的な起動のテンプレートは下記になります。  
-ワークシート：ブラウザ起動設定　で設定した内容でブラウザが起動してくれるので、特にこだわりがなければこのテンプレートコードを推奨します。  
+**"The simple invocation spell from the IE days, once again."**
 
-### CDP制御の場合
+Once, we controlled the world with just three lines of code.
 
 ```bas
-Public Function 設定シートからのCDP起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType) As CDPBrowser
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_CDP.設定シートからのCDP起動")).value, "chrome", "edge")
+Set ie = CreateObject("InternetExplorer.Application")
+ie.Visible = True
+ie.Navigate "URL"
+```
 
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_CDP.設定シートからのCDP起動")).value, SwitchUser)
+To all VBAers who are being crushed by the weight of driver version management and environment setup after the disappearance of IE.  
+This tool does not give up on the romance of a **"single Excel file"** and brings back the omnipotence of those days to the modern era by directly hitting the CDP.
 
-        'ブラウザ起動
-        Set 設定シートからのCDP起動 = New CDPBrowser
-        設定シートからのCDP起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_CDP.設定シートからのCDP起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_CDP.設定シートからのCDP起動")).value, KioskMode
-    End With
-End Function
+The basic startup template is as follows.  
+The browser will start with the settings defined in the **Worksheet: Browser Startup Settings**, so we recommend this template code unless you have specific requirements.  
+In that case, your automation journey begins with just one line.
 
-Sub 冒険の始まり()
-    '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As CDPBrowser: Set HelloWorldAutomationBrowser = 設定シートからの起動
+### In Case of CDP Control
 
-    '↓ここから、あなたのイメージをコードに落とし込む↓
+```bas
+Sub BeginningOfAdventureByCDP()
+    ' Launch browser based on settings sheet
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
 
-
+    ' ↓ From here, turn your image into code ↓
 
 
-    'ブラウザを正常に閉じる
+
+
+    ' Close the browser normally
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
 
-### BiDi制御の場合
+### In Case of BiDi Control
 
 ```bas
-Public Function 設定シートからのBiDi起動(Optional StartURL As String, Optional SwitchUser As String, Optional KioskMode As edgeKioskType, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiCore
-    '設定シートの各セルから設定値を取得し、適用
-    With ShSetting01_StartBrowser
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim ブラウザ名 As String: ブラウザ名 = IIf(.Range(.UseRangeName(4, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, "chrome", "edge")
+Sub BeginningOfAdventureByBiDi()
+    ' Launch browser based on settings sheet
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
 
-        '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .Range(.UseRangeName(2, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, SwitchUser)
-
-        'ブラウザ起動
-        Set 設定シートからのBiDi起動 = New WebDriverBiDiCore
-        設定シートからのBiDi起動.start ブラウザ名, StartURL, .Range(.UseRangeName(6, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, UseDataDir, .Range(.UseRangeName(3, "Demo_WebDriverBiDi.設定シートからのBiDi起動")).value, KioskMode, sessionCapabilitiesRequest
-    End With
-End Function
-
-Sub BiDiによる冒険の始まり()
-    '設定シートに基づくブラウザ立ち上げ
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiCore: Set HelloWorldAutomationBrowser = 設定シートからのBiDi起動
-
-    '↓ここから、あなたのイメージをコードに落とし込む↓
+    ' ↓ From here, turn your image into code ↓
 
 
 
 
-    'ブラウザを正常に閉じる
+    ' Close the browser normally
     HelloWorldAutomationBrowser.quit
 End Sub
 ```
+
+## 🔌 New Feature: Browser Operation Demo via WebSocket (Port) Connection
+
+From V2.3.0, the "WebSocket (Port) Route" is officially released, allowing Excel to attach to (take control of) an existing browser session (such as Edge or Chrome) that is already running.
+
+A simple demo code named **`SetupWebSocketMode`** is provided in the standard module `Demo_CDP` for you to try out this feature.
+
+---
+
+> [!CAUTION]
+> To run this port connection demo, you must start the target browser with the **remote debugging port enabled** beforehand.  
+> Please launch Edge or Chrome in advance with the following argument from the command prompt or your shortcut properties.
+
+```bash
+# Launch the browser with the default port 9222 open
+msedge.exe --remote-debugging-port=9222
+```
+
+---
+
+### 💻 Demo Code: `SetupWebSocketMode`
+
+Running this macro will attach to the existing browser via the port, and navigate to the target page from either the specified tab or a new tab.
+
+```vb
+Sub SetupWebSocketMode()
+    ' 1. Retrieve the username from the setting sheet (ShSetting01_StartBrowser)
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.SetupWebSocketMode")
+
+    ' 2. Connect to the browser (WebSocket) that has the specified debugging port open
+    ' * Arguments: ConnectCDP(Username, EndpointName, [PortNumber: Default is 9222])
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    WebSocketCDP.ConnectCDP UserName, "/devtools/browser"
+
+    ' 3. Pass the connected WebSocket object to the `reattach` method of the main browser class
+    Dim b As New CDPBrowser
+    If Not b.reattach(UserName, WebSocketCDP) Then 
+        MsgBox "Could not connect to '" & UserName & "'. Either the browser is not running, or the WebSocket info is no longer valid.", vbCritical, "Chrome DevTools Protocol"
+        Exit Sub
+    End If
+
+    ' 4. Control tabs on the attached browser
+    Dim t As CDPContext
+    ' * Note: Be sure to specify `setMain:=True` when retrieving and operating an existing tab.
+    ' Set t = b.getTab(setMain:=True)
+    
+    ' You can also start by creating a new tab instead (either way is fine)
+    Set t = b.newTab(setMain:=True) 
+
+    ' 5. Navigate to the target page using the familiar interface!
+    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 6. Once processing is complete, safely disconnect from the WebSocket
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+### 💡 Application and Customization of Settings
+
+* **Changing the port number**:
+  By passing any port number as the third argument of `WebSocketCDP.ConnectCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
+* **Building on this code**:
+  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
