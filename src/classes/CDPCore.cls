@@ -884,23 +884,36 @@ Private Sub ReadyCDPMessage()
         Dim tmp As String
         If Utf8Converter Is Nothing Then
             'そのまんまUTF-16変数に格納
-            tmp = StrConv((.Read), vbUnicode)
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
+            AddCDPMessage StrConv((.Read), vbUnicode)
         Else
             'UTF-8に変換した上で、UTF-16変数に格納
-            tmp = Utf8Converter.BytesToString((.Read))
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
+            AddCDPMessage Utf8Converter.BytesToString((.Read))
         End If
 
-        '4. 次の蓄積位置を記録
-        responseCDP.AddCursor = responseCDP.AddCursor + Len(tmp)    '追加した文字数分をシフト
-        responseCDP.EndCursor = responseCDP.AddCursor               'テキスト変換による差分補正
-
-        '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
+        '4 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
         .Position = 0
+    End With
+End Sub
 
-        '6. 文字列メッセージとして取り出せるので、`True`に更新
-        responseCDP.ExistsNewRes = True
+'***************************************************************************************************
+'* 機能　　：バッファーにCDPメッセージを追加します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：TextJsonCDP    CDPからのテキストJsonメッセージ
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：内部でcursor管理を行い、`Mid$`による高速な追記を行います
+'* 注意事項：元がバイト配列の場合は事前に、テキスト変換が必要です
+'***************************************************************************************************
+Private Sub AddCDPMessage(TextJsonCDP As String)
+    With responseCDP
+        '1. UTF-16変数に追記
+        Mid$(.strBuffer, .AddCursor + 1) = TextJsonCDP
+
+        '2. 次の蓄積位置を記録
+        .AddCursor = .AddCursor + Len(TextJsonCDP)    '追加した文字数分をシフト
+        .EndCursor = .AddCursor                       'テキスト変換による差分補正
+
+        '3. 文字列メッセージとして取り出せるので、`True`に更新
+        .ExistsNewRes = True
     End With
 End Sub
 
