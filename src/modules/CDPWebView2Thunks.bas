@@ -109,10 +109,9 @@ Private Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
 Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
     ByVal pv As LongPtr)
 
-Public Declare PtrSafe Sub RtlMoveMemory Lib "kernel32" ( _
-    ByVal Destination As LongPtr, _
-    ByVal Source As LongPtr, _
-    ByVal length As LongPtr)
+Private Declare PtrSafe Function lstrcpyW Lib "kernel32" ( _
+    ByVal lpString1 As LongPtr, _
+    ByVal lpString2 As LongPtr) As LongPtr
 
 ' --- 環境変数API(センチネル機構用) ---
 Private Declare PtrSafe Function GetEnvironmentVariableW Lib "kernel32" ( _
@@ -394,7 +393,7 @@ Public Function PtrToString(ByVal p As LongPtr) As String
     cch = lstrlenW(p)
     If cch = 0 Then Exit Function
     PtrToString = String$(cch, vbNullChar)
-    RtlMoveMemory StrPtr(PtrToString), p, CLngPtr(cch * 2)
+    lstrcpyW StrPtr(PtrToString), p
 End Function
 
 '* 機能　　：`HRESULT get_Xxx([out,retval] LPWSTR *value)`形のCOMメソッドを呼び、Stringで返します
