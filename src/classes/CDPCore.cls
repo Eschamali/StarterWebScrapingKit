@@ -650,8 +650,11 @@ Private Function readProcCDP(ByRef EndOfData As Boolean, destruction As Boolean)
 
         '0以外なら成功です
         If bSuccess Then
-            'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
-            If Not destruction Then CDPPipeStream.Write Buffer
+            '破棄しない場合は、ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+            If Not destruction Then
+                CDPPipeStream.Write Buffer  '`ADODB.Stream`に追加
+                StrBufferCheck lPeekData    'バッファー拡張判定を行う
+            End If
 
             '終端null文字があるかチェック
             EndOfData = (Buffer(lPeekData - 1) = 0)
@@ -992,18 +995,17 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
         viewStdoutAndStderr
 
         '受信処理
-        intRes = readProcCDP(EOvbNullChar, destruction)
+        intRes = readProcCDP(EOvbNullChar, destruction) '※内部で、`ADODB.Stream`へバイト配列が蓄積されます
         printMsg Trace_, LogID, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定
+            '破棄モードかの判定 ※ログメッセージ分岐のみ
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
                 printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
             Else
                 '中身の解析に備えて、蓄積準備
-                StrBufferCheck intRes
                 printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
             End If
         Else
@@ -1059,16 +1061,16 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
 
         '受信処理
-        intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)
+        intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)   '※内部で`WithEvents`が走り、そこで`ADODB.Stream`へバイト配列が蓄積されます
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定
+            '破棄モードかの判定 ※ログメッセージ分岐のみ
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
                 printMsg Trace_, LogID, "Discarding data in WebSocket...", FromProcedureName
             Else
-                '中身の解析に備えて、`WithEvents`側で蓄積します
+                '中身の解析に備えて、蓄積準備
                 printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
             End If
         Else
