@@ -494,8 +494,15 @@ Public Function isAvailability() As Boolean
 
 
     '各種判定
-    Dim RunRes As Long
-    If viaWebSocket Is Nothing Then
+    Select Case False
+        Case viaWebSocket Is Nothing
+            'WebSocket生存判定
+            isAvailability = viaWebSocket.isAvailability
+    
+            'ステータスを最新にしておく
+            LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
+
+        Case Else
         'Pipe生存判定
         Dim tmp As Long
         If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
@@ -503,13 +510,8 @@ Public Function isAvailability() As Boolean
         'ステータスを最新にしておく
         LastPipeError.PeekNamedPipe = Err.LastDllError
         printMsg Debug_, LogID, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
-    Else
-        'WebSocket生存判定
-        isAvailability = viaWebSocket.isAvailability
 
-        'ステータスを最新にしておく
-        LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
-    End If
+    End Select
 End Function
 
 '***************************************************************************************************
@@ -518,17 +520,19 @@ End Function
 '* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
 Public Sub CloseHandleBrowser()
-    'WebSocketモードならそっち側のClose処理を行う
-    If viaWebSocket Is Nothing Then
+    'WebSocket/WebView2モードならそっち側のClose処理を行う
+    Select Case False
+        Case viaWebSocket Is Nothing
+            viaWebSocket.DisconnectCDP
+
+        Case Else
         CloseHandle hStdOutRd
         CloseHandle hStdInWr
         CloseHandle hCDPOutRd
         CloseHandle hCDPInWr
         CloseHandle hStderrOutRd
         CloseHandle hProcess
-    Else
-        viaWebSocket.DisconnectCDP
-    End If
+    End Select
 End Sub
 
 
@@ -767,7 +771,10 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
 
     '5. 通信モードに応じてPipe/WebSocket分岐
-    If viaWebSocket Is Nothing Then writeProcCDP strMessage Else writeWebSocketCDP strMessage
+    Select Case False
+        Case viaWebSocket Is Nothing:  writeWebSocketCDP strMessage
+        Case Else:                          writeProcCDP strMessage
+    End Select
 End Function
 
 '***************************************************************************************************
@@ -1107,11 +1114,10 @@ Public Sub AnalyzeCDP(Optional StopApiError As Boolean, Optional destruction As 
 
 
     '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージバイト配列の取り出し
-    If viaWebSocket Is Nothing Then
-             TakePipe StopApiError, destruction
-    Else
-        TakeWebSocket StopApiError, destruction
-    End If
+    Select Case False
+        Case viaWebSocket Is Nothing:  TakeWebSocket StopApiError, destruction
+        Case Else:                          TakePipe StopApiError, destruction
+    End Select
 
     '2. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備させる
     If Not destruction Then Call ReadyCDPMessage
