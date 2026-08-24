@@ -69,16 +69,6 @@ End Type
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
-' --- WebView2Loader.dll ---
-'   Excel(Power Query)に同梱されている実物を`EnsureWebView2LoaderResolved`で
-'   事前にLoadLibraryしておくことで、この`Declare`はその既読み込み済みモジュールを
-'   ベース名で再利用する(Win32ローダーの標準動作)。
-Public Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader.dll" ( _
-    ByVal browserExecutableFolder As LongPtr, _
-    ByVal userDataFolder As LongPtr, _
-    ByVal additionalBrowserArguments As LongPtr, _
-    ByVal environmentCreatedHandler As LongPtr) As Long
-
 ' --- kernel32: メモリ / モジュール ---
 Private Declare PtrSafe Function VirtualAlloc Lib "kernel32" ( _
     ByVal lpAddress As LongPtr, _
@@ -98,7 +88,7 @@ Private Declare PtrSafe Function VirtualQuery Lib "kernel32" ( _
 
 Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
 
-Public Declare PtrSafe Function LoadLibraryW Lib "kernel32" ( _
+Private Declare PtrSafe Function LoadLibraryW Lib "kernel32" ( _
     ByVal lpLibFileName As LongPtr) As LongPtr
 
 ' --- oleaut32: DispCallFunc ---
@@ -113,10 +103,10 @@ Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
     ByRef pvargResult As Any) As Long
 
 ' --- 文字列ヘルパー用API ---
-Public Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
+Private Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
     ByVal lpString As LongPtr) As Long
 
-Public Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
+Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
     ByVal pv As LongPtr)
 
 Public Declare PtrSafe Sub RtlMoveMemory Lib "kernel32" ( _

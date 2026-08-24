@@ -25,13 +25,30 @@ Attribute VB_Exposed = False
 '***************************************************************************************************
 Option Explicit
 
+
+
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+' --- WebView2Loader.dll ---
+'   Excel(Power Query)に同梱されている実物を`EnsureWebView2LoaderResolved`で
+'   事前にLoadLibraryしておくことで、この`Declare`はその既読み込み済みモジュールを
+'   ベース名で再利用する(Win32ローダーの標準動作)。
+Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader.dll" ( _
+    ByVal browserExecutableFolder As LongPtr, _
+    ByVal userDataFolder As LongPtr, _
+    ByVal additionalBrowserArguments As LongPtr, _
+    ByVal environmentCreatedHandler As LongPtr) As Long
+
+Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
+
+
+
 #If Win64 Then
     ' OK
 #Else
     #Error "このクラスは64ビットVBA(x64)が必要です"
 #End If
-
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
 
 Public Enum WebView2HostState
     Whs_Created = 0
@@ -115,7 +132,7 @@ Public Function Init(Optional userDataPath As String) As Boolean
     m_envState = Whs_Waiting
 
     Dim hr As Long
-    hr = CDPWebView2Thunks.CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(Path), 0, pEnvHandlerObj)
+    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(Path), 0, pEnvHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2EnvironmentWithOptions失敗 hr=&H" & Hex(hr)
         m_envState = Whs_Failed
