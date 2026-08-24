@@ -393,9 +393,10 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
-    '1. まずは非同期実行で実行IDを回収
+    '1. まずは非同期実行で実行IDを回収し、IDが0になってないか確認
     Dim RunID As Long
     RunID = ExecuteBiDiAsync(methodName, params, StopBiDiError)
+    If RunID = 0 Then Exit Function
 
     '2. 1回だけメッセージ取り出しを行う
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
@@ -440,7 +441,7 @@ End Function
 '*           params        引数を持ったDictionary (省略可能)
 '            StopError     内部エラーがあったら止めるか？
 '
-'* 返値    ：送信したメッセージの ID
+'* 返値    ：送信したメッセージの ID    ※API失敗時は0で、成功時は1以上です。
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
 '***************************************************************************************************
@@ -460,7 +461,12 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(BiDiCommand, StopError)
 
     '4. 送信APIエラーチェック
-    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
+    If m_BiDiCore.LastErrorWriteFile Then
+        printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError
+
+        ExecuteBiDiAsync = 0    '失敗なので、0にセット
+        Exit Function
+    End If
 
     '5. ログ化
     printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName

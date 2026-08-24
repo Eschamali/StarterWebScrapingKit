@@ -1061,9 +1061,10 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDP"
 
 
-    '1. まずは非同期実行で実行IDを回収
+    '1. まずは非同期実行で実行IDを回収し、IDが0になってないか確認
     Dim RunID As Long
     RunID = ExecuteCDPAsync(methodName, params, StopCDPError)
+    If RunID = 0 Then Exit Function
 
     '2. 1回だけメッセージ取り出しを行う
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
@@ -1104,7 +1105,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：`ExecuteCDP`の非同期実行(コマンド結果を待たない)バージョンです
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK)
+'* 返り値　：CDP-Jsonコマンド 実行時のID値(整理券番号のイメージでOK) ※API失敗時は0で、成功時は1以上です。
 '* 引数　　：※`ExecuteCDP`と一緒のため、省略
 '***************************************************************************************************
 Public Function ExecuteCDPAsync(methodName As String, Optional params As Dictionary, Optional StopApiError As Boolean = True) As Long
@@ -1120,7 +1121,12 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Diction
     ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand)  'Send message to the browser instance
 
     '3. 送信APIエラーチェック
-    If PipeCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError: Exit Function
+    If PipeCore.LastErrorWriteFile Then
+        printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError
+
+        ExecuteCDPAsync = 0 '失敗なので、0にセット
+        Exit Function
+    End If
 
     '4. ログ化
     printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
