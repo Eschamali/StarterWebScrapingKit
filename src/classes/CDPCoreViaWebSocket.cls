@@ -297,8 +297,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
-    Const dwAllocationGranularity As Long = 2 ^ 16    'Pipeの仕様(メモリアロケーション粒度)に合わせた補正値
-    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer + dwAllocationGranularity, 4)
+    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
 
     '5. アドレス構造体の設定
     Dim addr As sockaddr_in
