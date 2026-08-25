@@ -881,41 +881,39 @@ Private Sub StrBufferCheck(resSize As Long)
 
         '今のバッファーサイズを越しそうになったら、拡張する(高負荷ポイント)
         ElseIf .EndCursor + resSize > .length Then
-            '2-1. 必要なサイズを計算
-            Dim requiredLen As Long
-            requiredLen = .EndCursor + resSize
-
-            '2-2. 着地点（NewLength）を決める
-            Dim newLength As Long
-            newLength = .length * 2 '基本はバインバイン
-        
-            'バインバインでも足りない巨大データなら、必要サイズへ一発ワープ！
-            If newLength < requiredLen Then
-                newLength = requiredLen
-                printMsg info_, LogID, "Huge data detected. Warp to required size: " & newLength, FromProcedureName
+            '2-1. 拡張サイズを決める
+            Dim AddLength  As Long
+            If .length > (MAX_STR_LEN \ 2) Then
+                '次に2倍すると上限を超えるので、最後のバインバインは上限ピッタリに着地！
+                AddLength = MAX_STR_LEN - .length
+                printMsg WARN_, LogID, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
             Else
-                printMsg info_, LogID, "Expand the buffer (x2): " & newLength, FromProcedureName
+                'まずは、「バインバイン（2倍）」で設定
+                AddLength = .length
+
+                'バインバインでも足りないかcheck
+                If .EndCursor + resSize > .length + AddLength Then
+                    '加算
+                    AddLength = (.EndCursor + resSize) - .length
+                    printMsg info_, LogID, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+                Else
+                    'バインバインのままで
+                    printMsg info_, LogID, "Expand the buffer(x2). Add buffer size: " & AddLength, FromProcedureName
+                End If
             End If
 
-            'VBA上限を超えないように天井ガード
-            If newLength > MAX_STR_LEN Then
-                newLength = MAX_STR_LEN
-                printMsg WARN_, LogID, "This is the final expansion (Capped at MAX).", FromProcedureName
-            End If
-
-            '2-3. 足す量（AddLength）を計算して、実際に拡張
-            Dim AddLength As Long
-            AddLength = newLength - .length
-
+            '2-2. 実際に拡張
             .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
-            .length = newLength
+
+            '2-3. バッファーサイズを同期
+            .length = .length + AddLength
 
             '2-4. ログ化
-            printMsg Debug_, LogID, "The buffer has been expanded: " & .length & " (Added: " & AddLength & ")", FromProcedureName
+            printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
         '3. 有効予定なCDPメッセージカーソル末尾位置を更新
-        .EndCursor = requiredLen
+        .EndCursor = .EndCursor + resSize
     End With
 End Sub
 
