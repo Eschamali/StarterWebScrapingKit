@@ -243,7 +243,11 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
 
     '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
     Dim mapperTabConnection As Boolean
-    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(userProfile, WebSocketMode:=WebSocketMode)
+    If WebSocketMode Is Nothing Then
+        mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
+    Else
+        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, WebSocketMode)
+    End If
 
     '3. 各種オブジェクトを継承
     Set m_CDPCore = WebDriverBiDi_mapperTab.InheritanceCDPCore

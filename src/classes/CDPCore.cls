@@ -463,12 +463,6 @@ Public Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    'WebSocket/WebView2モードの場合は、パイプ用変数に適用する意味がないので`True`で返して即抜け
-    Select Case False
-        Case viaWebSocket Is Nothing:   printMsg info_, LogID, "As WebSocket mode is in use, this does not apply to pipe variables.", FromProcedureName:    deserialize = True: Exit Function
-        Case viaWebView2 Is Nothing:    printMsg info_, LogID, "As WebView2 mode is in use, this does not apply to pipe variables.", FromProcedureName:     deserialize = True: Exit Function
-    End Select
-
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)

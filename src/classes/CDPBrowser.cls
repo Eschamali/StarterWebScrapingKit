@@ -599,33 +599,100 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のパイプハンドル情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：パイプ生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
-'            WebView2Mode       WebView2でCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：パイプが生きてない場合は、このメソッドから再開できません
+'* 注意事項：パイプが生きてない場合は、VBAエラーで止まります
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket, Optional WebView2Mode As CDPCoreViaWebView2) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".reattach"
+Public Sub reattachPipe(userProfile As String)
+    Const FromProcedureName As String = ThisClassName & ".reattachPipe"
 
 
     '1. 識別名称を設定
     br.User = userProfile
 
-    '2. パイプハンドル制御するための初期化
+    '2. CDP制御するための初期化
     Set PipeCore = New CDPCore
-    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString    '`New`による直後に、文字コード設定を反映
-    Set PipeCore.WebSocketMode = WebSocketMode
-    Set PipeCore.WebView2Mode = WebView2Mode
 
     '3. 1を基に、Excelテーブルからハンドル情報を取得
-    deserializeForPipe
+    '※載ってない物はエラーとする
+    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
-    '4. パイプ生存確認
+    '4. 生存確認フェーズへ
+    reattach
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：事前に接続済みの`WebSocket`オブジェクトを渡して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：WebSocket生存論理値
+'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebSocketMode      CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebSocketオブジェクトが機能してない場合は、VBAエラーで止まります
+'***************************************************************************************************
+Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket)
+    Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
+
+
+    '1. 識別名称を設定
+    br.User = userProfile
+
+    '2. CDP制御するための初期化
+    Set PipeCore = New CDPCore
+
+    '3. 引数を基に、WebSocketの接続情報を適用
+    '※オブジェクトなしの場合は、エラーとする
+    If WebSocketMode Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
+    Set PipeCore.WebSocketMode = WebSocketMode
+
+    '4. 生存確認フェーズへ
+    reattach
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：事前に構成済みの`WebView2`オブジェクトを渡して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：WebSocket生存論理値
+'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'            WebView2Mode       構成済みの`WebView2Mode`オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2オブジェクトが機能してない場合は、VBAエラーで止まります
+'***************************************************************************************************
+Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
+    Const FromProcedureName As String = ThisClassName & ".reattachWebView2"
+
+
+    '1. 識別名称を設定
+    br.User = userProfile
+
+    '2. CDP制御するための初期化
+    Set PipeCore = New CDPCore
+
+    '3. 引数を基に、WEBView2オブジェクト情報を適用
+    '※オブジェクトなしの場合は、エラーとする
+    If WebView2Mode Is Nothing Then printMsg ERROR_, "WebView2 connection information is not configured.", FromProcedureName, doRaiseError:=True
+    Set PipeCore.WebView2Mode = WebView2Mode
+
+    '4. 生存確認フェーズへ
+    reattach
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ハンドルが生きれるか確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：生存論理値
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ハンドルが機能してない場合は、VBAエラーで止まります
+'***************************************************************************************************
+Private Sub reattach()
+    Const FromProcedureName As String = ThisClassName & ".reattach"
+
+
+    '1. 文字コード設定を反映
+    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString
+
+    '2. 接続生存確認
     If isLiveBrowser Then
-        reattach = True
-
         '不整合を防ぐため、Pipeに残存しているデータを破棄しておく
         TakeEvents destruction:=True
 
@@ -633,22 +700,9 @@ Public Function reattach(userProfile As String, Optional WebSocketMode As CDPCor
         getBrowserInfo
         printParams
     Else
-        reattach = False
-        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & userProfile, FromProcedureName
+        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & br.User, FromProcedureName, doRaiseError:=True
     End If
 
-End Function
-
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプ情報を取得します
-'***************************************************************************************************
-Private Sub deserializeForPipe()
-    Const FromProcedureName As String = ThisClassName & ".deserializeForPipe"
-
-
-    '`UserName`に紐づくパイプ通信のハンドル情報の読み込みへ移る
-    '※載ってない物はエラーとする
-    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 End Sub
 
 '***************************************************************************************************

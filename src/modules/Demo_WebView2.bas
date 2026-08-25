@@ -72,11 +72,9 @@ Sub Demo_WebView2CDP_RuntimeEvaluate()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    Dim c As New CDPBrowser
-    If Not c.reattach(UserName, WebView2Mode:=g_webview2Obj) Then
-        MsgBox "WebView2への reattach に失敗しました。", vbCritical, "Chrome DevTools Protocol"
-        Exit Sub
-    End If
+    Dim t As New CDPBrowser: t.reattachWebView2 UserName, g_webview2Obj
+    Dim c As New CDPContext
+    Set c = t.getTab
 
     '1. ページ遷移
     Dim navParams As New Dictionary
@@ -126,10 +124,7 @@ Sub ネットワークイベントの確認ForWebView2()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     Dim c As New CDPBrowser
-    If Not c.reattach(UserName, WebView2Mode:=g_webview2Obj) Then
-        MsgBox "WebView2への reattach に失敗しました。", vbCritical, "Chrome DevTools Protocol"
-        Exit Sub
-    End If
+    c.reattachWebView2 UserName, g_webview2Obj
     Set Demo_NetworkEvent = c.newTab(setMain:=True)
 
     '一部の非同期イベントのみキャプチャするようにフィルターを設定

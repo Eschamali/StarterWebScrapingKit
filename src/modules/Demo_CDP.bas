@@ -836,7 +836,7 @@ End Sub
 '* 機能　　：ブラウザのパイプハンドルの接続まで担うリアタッチです
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、ブラウザの接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
-'            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
+'            ・ブラウザのパイプハンドルが生きてない場合は、VBAエラーになります。`demoReattachmentPart1`からやり直しです
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
     Dim c As New CDPBrowser
@@ -846,8 +846,8 @@ Sub demoReattachmentPart2ForBrowser()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '1. Excelに記録されてるパイプハンドル情報の生存確認
-    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    '1. Excelに記録されてるパイプハンドル情報から復旧を試みる
+    c.reattachPipe UserName
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -872,7 +872,7 @@ Sub demoReattachmentPart2ForTab()
 
     '1. Excelに記録されてる`TargetID`の生存確認
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
@@ -898,9 +898,9 @@ Sub AutoConnectTab()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim t As New CDPContext
-    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '4. ページ遷移
     t.navigate "https://www.youtube.com/@islandfox6864"
@@ -918,9 +918,9 @@ Sub AutoConnectBrowser()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    b.reattachWebSocket UserName, WebSocketCDP
 
     '4. 未接続のタブに接続
     Dim t As CDPContext
@@ -944,9 +944,9 @@ Sub AutoConnectDevToolsActivePort()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    b.reattachWebSocket UserName, WebSocketCDP
 
     '4. 未接続のタブに接続
     Dim t As CDPContext
@@ -987,9 +987,9 @@ Sub OpenExcelWebView2()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
-    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '5. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    b.reattachWebSocket UserName, WebSocketCDP
 
     '6. 新しいタブに接続
     Dim t As CDPContext

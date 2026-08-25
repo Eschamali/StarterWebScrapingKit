@@ -337,11 +337,57 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
-'            reuseSession   `True` ：Excelに記録中のsessionIdを流用します
-'                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
-'
-'            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
-'            WebView2Mode       WebView2でCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
+'***************************************************************************************************
+Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
+    '1. 新オブジェクトを用意
+    Set BrowserCore = New CDPBrowser
+
+    '2. 識別名称に紐づくパイプハンドル情報を再セット
+    BrowserCore.reattachPipe userProfile
+
+    '3. 既存のタブ(TargetID)への再接続を試みる
+    reattachPipe = reattach(reuseSession)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WebSocket、ブラウザセッション情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：既存タブへの接続成功可否論理値
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'***************************************************************************************************
+Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+    '1. 新オブジェクトを用意
+    Set BrowserCore = New CDPBrowser
+
+    '2. 識別名称に紐づくWebSocket情報を再セット
+    BrowserCore.reattachWebSocket userProfile, WebSocketMode
+
+    '3. 既存のタブ(TargetID)への再接続を試みる
+    reattachWebSocket = reattach(reuseSession)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：WebView2、ブラウザセッション情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：既存タブへの接続成功可否論理値
+'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'***************************************************************************************************
+Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+    '1. 新オブジェクトを用意
+    Set BrowserCore = New CDPBrowser
+
+    '2. WebView2情報を再セット
+    BrowserCore.reattachWebView2 userProfile, WebView2Mode
+
+    '3. 既存のタブ(TargetID)への再接続を試みる
+    reattachWebView2 = reattach(reuseSession)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：Excelテーブルにある既存のタブ(TargetID)情報を利用して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：TargetIDの生存論理値
+'* 引数　　：reuseSession   Excelに記録してる`SessionID`を使いまわすか？
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -352,37 +398,31 @@ End Sub
 '* 注意事項：・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
 '            　この`targetID`自体が既に閉じてしまってる場合、結果は`False`で返りますが、VBAエラーがない場合、パイプハンドルは生きてるので、下記のメソッドで手動で復旧可能です。
 '            　その際は、`setMain:=True`で、セッションを確立させてください。
-'            　・newTab
-'            　・getTab
+'            　・CDPBrowser.newTab
+'            　・CDPBrowser.getTab
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As CDPCoreViaWebSocket, Optional WebView2Mode As CDPCoreViaWebView2) As Boolean
+Private Function reattach(Optional reuseSession As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 新オブジェクトを用意
-    Set BrowserCore = New CDPBrowser
-
-    '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
-    reattach = BrowserCore.reattach(userProfile, WebSocketMode, WebView2Mode)
+    '1. タブ情報を再セット
     Set PipeCore = BrowserCore.InheritanceCDPCore
-
-    '3. パイプが生きてない場合は、VBAエラーで停止させる
-    If Not reattach Then printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & userProfile, FromProcedureName, doRaiseError:=True
-
-    '4. タブ情報を再セット
     deserializeForTab reuseSession
 
-    '5. `sessionId`が空欄の場合は、即抜け
+    '2. `sessionId`が空欄の場合は、即抜け
     If LenB(brTab.sessionID) = 0 Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
 
-    '6. sessionId生存check
+    '3. sessionId生存check
     If refreshTargetInfo Is Nothing Then
         reattach = False
+
+
         printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName
     Else
         reattach = True
+
 
         '`Context`(タブ等)の変化を捉えれるようにする
         BrowserCore.EnableDiscoverTargets = True
