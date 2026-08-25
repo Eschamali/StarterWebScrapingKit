@@ -58,7 +58,6 @@ Public Enum WebView2HostState
 End Enum
 
 Private Const ClassNameStatic As String = "Static"
-Private Const InitWaitBudget  As Long = 1000   ' DoEventsを回す上限回数(残量チェックが出来ないための保険)
 
 Private m_hostHwnd     As LongPtr
 Private m_pEnvironment As LongPtr
@@ -197,7 +196,7 @@ End Function
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Dim tick As Long
-    Do While state = Whs_Waiting And tick < InitWaitBudget
+    Do While state = Whs_Waiting And tick < 1000    '無難に1s待機
         DoEvents
         sleep2 1
         tick = tick + 1
