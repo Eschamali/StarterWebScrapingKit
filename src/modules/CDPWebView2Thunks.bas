@@ -35,6 +35,8 @@ Option Explicit
     #Error "このモジュールは64ビットVBA(x64)が必要です"
 #End If
 
+
+
 '***************************************************************************************************
 '                                   ■■■ SafeArray / PointerAccessor ■■■
 '***************************************************************************************************
@@ -65,6 +67,8 @@ Private Type PointerAccessor
     arr() As LongPtr
     sa As SAFEARRAY_1D
 End Type
+
+
 
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
@@ -144,6 +148,8 @@ Private Type MEMORY_BASIC_INFORMATION
     pad2 As Long
 End Type
 
+
+
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
@@ -173,6 +179,8 @@ Private Const HEADER_SIZE      As Long = 64
 Private Const REGION_SIZE      As Long = HEADER_SIZE + SLOT_SIZE * SLOT_COUNT
 Private Const THUNK_BUF_SIZE   As Long = 80
 
+
+
 '***************************************************************************************************
 '                                   ■■■ GUID型 / HandlerKind ■■■
 '***************************************************************************************************
@@ -190,6 +198,8 @@ Public Enum HandlerKind
     HK_CdpMethodCompleted = 3    ' ICoreWebView2CallDevToolsProtocolMethodCompletedHandler(通常版/ForSession版で共用)
     HK_CdpEventReceived = 4      ' ICoreWebView2DevToolsProtocolEventReceivedEventHandler(永続)
 End Enum
+
+
 
 '***************************************************************************************************
 '                                   ■■■ 各種モジュール変数 ■■■
@@ -211,6 +221,8 @@ Private m_loaderModule As LongPtr   ' EnsureWebView2LoaderResolvedが解決し�
 
 ' EntryPointスタブのソース(空Sub。AddressOfでVBAランタイム生成のトランポリンを取得するために存在)
 Private Sub EntryPoint(): End Sub
+
+
 
 '***************************************************************************************************
 '                              ■■■ WebView2Loader.dll 探索ヘルパー ■■■
@@ -270,6 +282,8 @@ Private Function FindPowerQueryLoaderUnder(root As String) As String
     Loop
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ AcquireHandlerFor ■■■
 '***************************************************************************************************
@@ -302,6 +316,8 @@ Public Function AcquireHandlerFor( _
 
     Set AcquireHandlerFor = h
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ dcf(汎用vtable呼び出し) ■■■
@@ -379,6 +395,8 @@ Public Function ComAddRef(ByVal pInterface As LongPtr) As Long
     If pInterface <> 0 Then ComAddRef = dcf(pInterface, 1, "AddRef")
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ 文字列/プロパティヘルパー ■■■
 '***************************************************************************************************
@@ -412,6 +430,8 @@ Public Function GetStringProperty( _
         CoTaskMemFree pStr
     End If
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ Thunks_Init / AcquireSlot / ReleaseSlot / Shutdown ■■■
@@ -597,6 +617,8 @@ Private Function SlotIndexFromVTableObjAddr(ByVal pVTableObj As LongPtr) As Long
     SlotIndexFromVTableObjAddr = idx
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ サンクの機械語生成 ■■■
 '***************************************************************************************************
@@ -667,6 +689,8 @@ End Function
 Private Function GetAddr(ByVal addr As LongPtr) As LongPtr
     GetAddr = addr
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ IUnknownスタブ群(標準モジュール) ■■■
@@ -748,6 +772,8 @@ Private Function LongPtrLowDword(ByVal v As LongPtr) As Long
     End If
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ IIDテーブル ■■■
 '***************************************************************************************************
@@ -808,6 +834,8 @@ Private Function HexStrToInt(ByVal s As String) As Integer
     End If
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ 参照カウント管理 ■■■
 '***************************************************************************************************
@@ -850,6 +878,8 @@ Private Function HandlerReleaseInternal(ByVal This As LongPtr) As Long
     HandlerReleaseInternal = N
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ メモリプリミティブ(PointerAccessor経由) ■■■
 '***************************************************************************************************
@@ -888,6 +918,8 @@ End Function
 Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)
     ptrs(0) = ptr
 End Sub
+
+
 
 '***************************************************************************************************
 '                              ■■■ センチネル機構(VBAリセット耐性) ■■■

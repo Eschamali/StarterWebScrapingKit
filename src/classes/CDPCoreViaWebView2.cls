@@ -51,10 +51,15 @@ Option Explicit
     #Error "このクラスは64ビットVBA(x64)が必要です"
 #End If
 
-Private Const ThisClassName As String = "CDPCoreViaWebView2"
 
-' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
-Private Const IID_ICoreWebView2_11 As String = "0be78e56-c193-4051-b943-23b460c08bdb"
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
+Private Const ThisClassName As String = "CDPCoreViaWebView2"                            'ログのトレース用
+Private Const IID_ICoreWebView2_11 As String = "0be78e56-c193-4051-b943-23b460c08bdb"   ' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
+
+
 
 '***************************************************************************************************
 '                                   ■■■ イベント定義 ■■■
@@ -62,16 +67,20 @@ Private Const IID_ICoreWebView2_11 As String = "0be78e56-c193-4051-b943-23b460c0
 '* 完成した1件のCDP-Json文字列(コマンド結果 or 非同期イベント)を、そのまま発信します
 Public Event CDPMessageReceived(RawJson As String)
 
+
+
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private m_Host       As CDPWebView2Host
-Private m_pView11     As LongPtr    ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
+Private m_Host          As CDPWebView2Host
+Private m_pView11       As LongPtr    ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
 Private m_pView11Failed As Boolean  ' 1度QIに失敗したら、以後は再試行しない
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
+
+
 
 '***************************************************************************************************
 '                                   ■■■ 初期化/後始末 ■■■
@@ -84,6 +93,8 @@ End Sub
 Private Sub Class_Terminate()
     DisconnectCDP
 End Sub
+
+
 
 '***************************************************************************************************
 '                               ■■■ 新規接続関連 ■■■
@@ -150,6 +161,8 @@ Public Sub DisconnectCDP()
         Set m_Host = Nothing
     End If
 End Sub
+
+
 
 '***************************************************************************************************
 '                               ■■■ CDPコマンド送信 ■■■
@@ -287,6 +300,8 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     End If
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
+
+
 
 '***************************************************************************************************
 '                               ■■■ CDPイベント購読 ■■■
