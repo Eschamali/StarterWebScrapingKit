@@ -185,7 +185,7 @@ Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
 'バッファー設定関連
 Private Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限　※`CDPCoreViaWebSocket.cls - InitialBuffer`と揃えること
-Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。
+Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。なお、この補正はあくまでも、Pipe経路に限ります。
 Private Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
 Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
 
@@ -758,14 +758,12 @@ End Sub
 '* 注意事項：・メッセージの取り出し自体(`TakeCDPMessage`/`searchNull`)はPipe/WebSocket共通のロジックを
 '            　そのまま流用しており、`vbNullChar`をメッセージ区切りとして検索する前提になっているため、
 '            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
-'            ・WebView2の場合、完成JSON文字列として来ることから、いきなりでかい文字列が来ることがある
-'              よって、入れる用のバッファーが
 '***************************************************************************************************
 Private Sub viaWebView2_CDPMessageReceived(RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
 
 
-    '1. 取得サイズをcursor管理へ反映し、バッファー拡張判定を行う
+    '1. バッファー拡張判定を行う
     StrBufferCheck Len(RawJson) + 1 '`+1`は、`vbnullchar`補正
 
     '2. まずは、本体CDPJsonメッセージを追加
@@ -870,11 +868,9 @@ End Function
 '***************************************************************************************************
 '                         ■■■ CDPレスポンス、蓄積/取得管理処理 ■■■
 '***************************************************************************************************
-'* 機能　　：適切な文字列変数バッファーが確保されてるかチェックします
+'* 機能　　：適切な文字列変数バッファーが確保されてるかチェックし、確保されてない場合は、拡張を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：拡張自体は1回分ですが、`CreatePipe`の第四引数と辻褄を合わせてるので、1回の拡張で済みます。
+'* 引数    ：ResSize    `ReadFile/recv etc`から得たデータサイズそのまんま
 '***************************************************************************************************
 Private Sub StrBufferCheck(resSize As Long)
     Const FromProcedureName As String = ThisClassName & ".StrBufferCheck"
@@ -889,32 +885,43 @@ Private Sub StrBufferCheck(resSize As Long)
         If .EndCursor + resSize > MAX_STR_LEN Then
             printMsg ERROR_, LogID, "The VBA string limit (1,073,741,823 characters) has been exceeded.", FromProcedureName, doRaiseError:=True
 
-        '上限を越しそうになったら、拡張する(高負荷ポイント)
+        '今のバッファーサイズを越しそうになったら、拡張する(高負荷ポイント)
         ElseIf .EndCursor + resSize > .length Then
-            '2-1. 拡張サイズを決める
-            Dim AddLength  As Long
-            If .length > (MAX_STR_LEN \ 2) Then
-                '次に2倍すると上限を超えるので、最後のバインバインは上限ピッタリに着地！
-                AddLength = MAX_STR_LEN - .length
-                printMsg WARN_, LogID, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
+            '2-1. 必要なサイズを計算
+            Dim requiredLen As Long
+            requiredLen = .EndCursor + resSize
+
+            '2-2. 着地点（NewLength）を決める
+            Dim newLength As Long
+            newLength = .length * 2 '基本はバインバイン
+        
+            'バインバインでも足りない巨大データなら、必要サイズへ一発ワープ！
+            If newLength < requiredLen Then
+                newLength = requiredLen
+                printMsg info_, LogID, "Huge data detected. Warp to required size: " & newLength, FromProcedureName
             Else
-                '基本は「バインバイン（2倍）」
-                AddLength = .length
-                printMsg info_, LogID, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+                printMsg info_, LogID, "Expand the buffer (x2): " & newLength, FromProcedureName
             End If
 
-            '2-2. 実際に拡張
-            .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
+            'VBA上限を超えないように天井ガード
+            If newLength > MAX_STR_LEN Then
+                newLength = MAX_STR_LEN
+                printMsg WARN_, LogID, "This is the final expansion (Capped at MAX).", FromProcedureName
+            End If
 
-            '2-3. バッファーサイズを同期
-            .length = .length + AddLength
+            '2-3. 足す量（AddLength）を計算して、実際に拡張
+            Dim AddLength As Long
+            AddLength = newLength - .length
+
+            .strBuffer = .strBuffer & String$(AddLength, vbNullChar)
+            .length = newLength
 
             '2-4. ログ化
-            printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
+            printMsg Debug_, LogID, "The buffer has been expanded: " & .length & " (Added: " & AddLength & ")", FromProcedureName
         End If
 
         '3. 有効予定なCDPメッセージカーソル末尾位置を更新
-        .EndCursor = .EndCursor + resSize
+        .EndCursor = requiredLen
     End With
 End Sub
 
