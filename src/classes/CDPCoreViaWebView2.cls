@@ -301,84 +301,6 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
 
-
-
-'***************************************************************************************************
-'                               ■■■ CDPイベント購読 ■■■
-'***************************************************************************************************
-'* 機能　　：指定したCDPイベント名を、WebView2経由で購読します
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：購読成功可否(既に購読済みの場合も`True`)
-'* 引数　　：eventName   購読するCDPイベント名(例："Page.loadEventFired")
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
-'            必要なイベント名ごとに、このメソッドを個別に呼び出してください。
-'***************************************************************************************************
-Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEvent"
-
-    If m_Host Is Nothing Then Exit Function
-    Dim pView As LongPtr: pView = m_Host.ViewPtr
-    If pView = 0 Then Exit Function
-
-    If m_subReceiver.Exists(EventName) Then SubscribeCdpEvent = True: Exit Function
-
-    Dim pReceiver As LongPtr
-    Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
-                               StrPtr(EventName), VarPtr(pReceiver))
-    If hr <> 0 Or pReceiver = 0 Then
-        Debug.Print FromProcedureName & ": GetDevToolsProtocolEventReceiver失敗 hr=&H" & Hex(hr)
-        Exit Function
-    End If
-
-    Dim h As CDPWebView2CallbackHandler
-    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
-    If h Is Nothing Then
-        CDPWebView2Thunks.ComRelease pReceiver
-        Exit Function
-    End If
-    h.EventName = EventName
-
-    Dim pVTableObj As LongPtr
-    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
-
-    Dim token As LongLong
-    hr = CDPWebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
-                               pVTableObj, VarPtr(token))
-    If hr <> 0 Then
-        Debug.Print FromProcedureName & ": add_DevToolsProtocolEventReceived失敗 hr=&H" & Hex(hr)
-        Set h = Nothing
-        CDPWebView2Thunks.ComRelease pReceiver
-        Exit Function
-    End If
-
-    'WebView2側がハンドラをAddRef済みなので、ローカル参照hはこれ以上不要(捨ててよい)
-    Set h = Nothing
-
-    m_subReceiver.Add EventName, (pReceiver)
-    m_subToken.Add EventName, (token)
-    SubscribeCdpEvent = True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定したCDPイベント名の購読を解除します
-'***************************************************************************************************
-Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
-    If m_subReceiver Is Nothing Then Exit Function
-    If Not m_subReceiver.Exists(EventName) Then Exit Function
-
-    Dim pReceiver As LongPtr: pReceiver = m_subReceiver(EventName)
-    Dim token As LongLong: token = m_subToken(EventName)
-
-    CDPWebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
-    CDPWebView2Thunks.ComRelease pReceiver
-
-    m_subReceiver.Remove EventName
-    m_subToken.Remove EventName
-    UnsubscribeCdpEvent = True
-End Function
-
 '***************************************************************************************************
 '* 機能　　：`GetDevToolsProtocolEventReceived`の発火通知を受け取り、CDP形式のJsonに組み立てて
 '            発信します
@@ -432,4 +354,84 @@ Private Function TryGetEventSessionId(ByVal pArgs As LongPtr) As String
 
     'QueryInterfaceで確保した分の参照を解放(GetStringPropertyはQI自体はしない)
     CDPWebView2Thunks.ComRelease pArgs2
+End Function
+
+
+
+'***************************************************************************************************
+'                               ■■■ CDPイベント購読 ■■■
+'***************************************************************************************************
+'* 機能　　：指定したCDPイベント名を、WebView2経由で購読します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：購読成功可否(既に購読済みの場合も`True`)
+'* 引数　　：eventName   購読するCDPイベント名(例："Page.loadEventFired")
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
+'            必要なイベント名ごとに、このメソッドを個別に呼び出してください。
+'***************************************************************************************************
+Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEvent"
+
+
+    If m_Host Is Nothing Then Exit Function
+    Dim pView As LongPtr: pView = m_Host.ViewPtr
+    If pView = 0 Then Exit Function
+
+    If m_subReceiver.Exists(EventName) Then SubscribeCdpEvent = True: Exit Function
+
+    Dim pReceiver As LongPtr
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
+                               StrPtr(EventName), VarPtr(pReceiver))
+    If hr <> 0 Or pReceiver = 0 Then
+        printMsg ERROR_, "Failed to GetDevToolsProtocolEventReceiver.  hr=&H" & Hex(hr), FromProcedureName
+        Exit Function
+    End If
+
+    Dim h As CDPWebView2CallbackHandler
+    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
+    If h Is Nothing Then
+        CDPWebView2Thunks.ComRelease pReceiver
+        Exit Function
+    End If
+    h.EventName = EventName
+
+    Dim pVTableObj As LongPtr
+    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+
+    Dim token As LongLong
+    hr = CDPWebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
+                               pVTableObj, VarPtr(token))
+    If hr <> 0 Then
+        printMsg ERROR_, "Failed to add_DevToolsProtocolEventReceived.  hr=&H" & Hex(hr), FromProcedureName
+
+        Set h = Nothing
+        CDPWebView2Thunks.ComRelease pReceiver
+        Exit Function
+    End If
+
+    'WebView2側がハンドラをAddRef済みなので、ローカル参照はこれ以上不要(捨ててよい)
+    Set h = Nothing
+
+    m_subReceiver.Add EventName, (pReceiver)
+    m_subToken.Add EventName, (token)
+    SubscribeCdpEvent = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定したCDPイベント名の購読を解除します
+'***************************************************************************************************
+Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
+    If m_subReceiver Is Nothing Then Exit Function
+    If Not m_subReceiver.Exists(EventName) Then Exit Function
+
+    Dim pReceiver As LongPtr: pReceiver = m_subReceiver(EventName)
+    Dim token As LongLong: token = m_subToken(EventName)
+
+    CDPWebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
+    CDPWebView2Thunks.ComRelease pReceiver
+
+    m_subReceiver.Remove EventName
+    m_subToken.Remove EventName
+    UnsubscribeCdpEvent = True
 End Function
