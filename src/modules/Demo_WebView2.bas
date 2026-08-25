@@ -32,7 +32,7 @@ Public g_webview2Obj As CDPCoreViaWebView2
 Sub Demo_WebView2Init()
     Set g_webview2Obj = New CDPCoreViaWebView2
 
-    If Not g_webview2Obj.ConnectCDP() Then
+    If Not g_webview2Obj.ConnectCDP(ShSetting01_StartBrowser.CurrentUserName) Then
         Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
                     "またはEnvironment/Controllerの生成に失敗した可能性があります。"
         Set g_webview2Obj = Nothing

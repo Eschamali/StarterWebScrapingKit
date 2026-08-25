@@ -102,17 +102,17 @@ End Sub
 '* 機能　　：`WebView2`方式としてCDP制御できる準備を行います(Environment/Controller/Viewの生成)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：userDataPath   WebView2のユーザーデータフォルダ(省略時は%TEMP%\CDPWebView2)
+'* 引数    ：UserName       WebView2のユーザーデータフォルダ名
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：既存の接続がある場合は、切断されます
 '***************************************************************************************************
-Public Function ConnectCDP(Optional userDataPath As String) As Boolean
+Public Function ConnectCDP(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
     If Not (m_Host Is Nothing) Then DisconnectCDP
 
     Set m_Host = New CDPWebView2Host
-    If Not m_Host.Init(userDataPath) Then
+    If Not m_Host.Init(UserName) Then
         Debug.Print FromProcedureName & ": WebView2の初期化に失敗しました"
         Set m_Host = Nothing
         Exit Function

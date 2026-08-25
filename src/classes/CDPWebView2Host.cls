@@ -90,10 +90,10 @@ End Sub
 '* 機能　　：ICoreWebView2Environment→ICoreWebView2Controller→ICoreWebView2の生成を、
 '            完了まで同期的に待って実行します
 '---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
 '* 返り値  ：成功可否
-'* 引数　　：userDataPath   WebView2のユーザーデータフォルダ(省略時は%TEMP%\CDPWebView2)
 '***************************************************************************************************
-Public Function Init(Optional userDataPath As String) As Boolean
+Public Function Init(UserName As String) As Boolean
     Const FromProcedureName As String = "CDPWebView2Host.Init"
 
     If m_envState <> Whs_Created Then
@@ -113,9 +113,9 @@ Public Function Init(Optional userDataPath As String) As Boolean
     m_hostHwnd = Application.hWnd
 
     '3. Environment作成
+    '※Officeのルールに従うようなパスにしておく
     Dim Path As String
-    Path = userDataPath
-    If LenB(Path) = 0 Then Path = Environ$("TEMP") & "\CDPWebView2"
+    Path = Environ("UserProfile") & "\AppData\Local\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
     EnsureFolderExists Path
 
     Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
