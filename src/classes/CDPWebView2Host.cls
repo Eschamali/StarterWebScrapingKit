@@ -57,8 +57,6 @@ Public Enum WebView2HostState
     Whs_Failed = 3
 End Enum
 
-Private Const ClassNameStatic As String = "Static"
-
 Private m_hostHwnd     As LongPtr
 Private m_pEnvironment As LongPtr
 Private m_pController  As LongPtr
