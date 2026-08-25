@@ -341,6 +341,7 @@ End Sub
 '                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
 '
 '            WebSocketMode      WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
+'            WebView2Mode       WebView2でCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -356,7 +357,7 @@ End Sub
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Function reattach(userProfile As String, Optional reuseSession As Boolean, Optional WebSocketMode As CDPCoreViaWebSocket, Optional WebView2Mode As CDPCoreViaWebView2) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -364,7 +365,7 @@ Public Function reattach(userProfile As String, Optional reuseSession As Boolean
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくパイプハンドル情報を再セットし、パイプ生存確認を行う
-    reattach = BrowserCore.reattach(userProfile, WebSocketMode)
+    reattach = BrowserCore.reattach(userProfile, WebSocketMode, WebView2Mode)
     Set PipeCore = BrowserCore.InheritanceCDPCore
 
     '3. パイプが生きてない場合は、VBAエラーで停止させる

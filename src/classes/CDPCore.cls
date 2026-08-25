@@ -217,6 +217,8 @@ Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用し�
 Private LogControl              As New Logger               'ログレベルの制御
 Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
+Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
+Attribute viaWebView2.VB_VarHelpID = -1
 
 'バッファー管理
 Private Type ResponseBufferCDP
@@ -461,8 +463,11 @@ Public Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    'WebSocketモードの場合は、パイプ用変数に適用する意味がないので`True`で返して即抜け
-    If Not viaWebSocket Is Nothing Then printMsg info_, LogID, "As WebSocket mode is in use, this does not apply to pipe variables.", FromProcedureName: deserialize = True: Exit Function
+    'WebSocket/WebView2モードの場合は、パイプ用変数に適用する意味がないので`True`で返して即抜け
+    Select Case False
+        Case viaWebSocket Is Nothing:   printMsg info_, LogID, "As WebSocket mode is in use, this does not apply to pipe variables.", FromProcedureName:    deserialize = True: Exit Function
+        Case viaWebView2 Is Nothing:    printMsg info_, LogID, "As WebView2 mode is in use, this does not apply to pipe variables.", FromProcedureName:     deserialize = True: Exit Function
+    End Select
 
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
@@ -502,14 +507,18 @@ Public Function isAvailability() As Boolean
             'ステータスを最新にしておく
             LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
 
-        Case Else
-        'Pipe生存判定
-        Dim tmp As Long
-        If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
+        Case viaWebView2 Is Nothing
+            'WebView2生存判定
+            isAvailability = viaWebView2.isAvailability
 
-        'ステータスを最新にしておく
-        LastPipeError.PeekNamedPipe = Err.LastDllError
-        printMsg Debug_, LogID, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
+        Case Else
+            'Pipe生存判定
+            Dim tmp As Long
+            If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
+    
+            'ステータスを最新にしておく
+            LastPipeError.PeekNamedPipe = Err.LastDllError
+            printMsg Debug_, LogID, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
 
     End Select
 End Function
@@ -525,13 +534,16 @@ Public Sub CloseHandleBrowser()
         Case viaWebSocket Is Nothing
             viaWebSocket.DisconnectCDP
 
+        Case viaWebView2 Is Nothing
+            viaWebView2.DisconnectCDP
+
         Case Else
-        CloseHandle hStdOutRd
-        CloseHandle hStdInWr
-        CloseHandle hCDPOutRd
-        CloseHandle hCDPInWr
-        CloseHandle hStderrOutRd
-        CloseHandle hProcess
+            CloseHandle hStdOutRd
+            CloseHandle hStdInWr
+            CloseHandle hCDPOutRd
+            CloseHandle hCDPInWr
+            CloseHandle hStderrOutRd
+            CloseHandle hProcess
     End Select
 End Sub
 
@@ -735,6 +747,48 @@ End Sub
 
 
 '***************************************************************************************************
+'                              ■■■ WebView2の読み書き ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPCoreViaWebView2 - SendCommandCDP`から得たデータを、Pipe/WebSocketと同じ蓄積先へ
+'            直接書き込みます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：WebView2はCOMコールバック経由で完成JSON文字列(欠けなし・フラグメントなし)を届けるため、
+'            `viaWebSocket_WebSocketReceive`のようなバイト列蓄積とストリーム変換は不要で、
+'            直接`responseCDP.strBuffer`へ書き込みます
+'* 注意事項：・メッセージの取り出し自体(`TakeCDPMessage`/`searchNull`)はPipe/WebSocket共通のロジックを
+'            　そのまま流用しており、`vbNullChar`をメッセージ区切りとして検索する前提になっているため、
+'            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
+'            ・WebView2の場合、完成JSON文字列として来ることから、いきなりでかい文字列が来ることがある
+'              よって、入れる用のバッファーが
+'***************************************************************************************************
+Private Sub viaWebView2_CDPMessageReceived(RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
+
+
+    '1. 取得サイズをcursor管理へ反映し、バッファー拡張判定を行う
+    StrBufferCheck Len(RawJson) + 1 '`+1`は、`vbnullchar`補正
+
+    '2. まずは、本体CDPJsonメッセージを追加
+    AddCDPMessage RawJson
+
+    '3. `vbnullchar`で〆
+    AddCDPMessage vbNullChar
+    printMsg Trace_, LogID, "Storing received messages (WebView2)...", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2経由で、ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strData    完成したCDP-Json文字列コマンド
+'***************************************************************************************************
+Private Sub writeWebView2CDP(strData As String)
+    'WebView2オブジェクト経由で送信処理を委ねる
+    LastPipeError.WriteFile = viaWebView2.SendCommandCDP(strData)
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ CDPコマンド実行前の下準備 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
@@ -774,9 +828,10 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
     printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
 
-    '5. 通信モードに応じてPipe/WebSocket分岐
+    '5. 通信モードに応じてPipe/WebSocket/WebView2分岐
     Select Case False
         Case viaWebSocket Is Nothing:  writeWebSocketCDP strMessage
+        Case viaWebView2 Is Nothing:    writeWebView2CDP strMessage
         Case Else:                          writeProcCDP strMessage
     End Select
 End Function
@@ -905,7 +960,7 @@ End Sub
 '***************************************************************************************************
 Private Sub AddCDPMessage(TextJsonCDP As String)
     With responseCDP
-        '1. UTF-16変数に追記
+        '1. UTF-16変数に格納
         Mid$(.strBuffer, .AddCursor + 1) = TextJsonCDP
 
         '2. 次の蓄積位置を記録
@@ -1116,6 +1171,40 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：WebView2からの、保留中のコールバックを処理させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopApiError   (このモードでは未使用。Pipe/WebSocket版とのシグネチャ統一のためだけに存在)
+'            destruction    `True` :今回`DoEvents`中に届いたメッセージも蓄積せず、破棄します
+'                           `False`:蓄積し、ID、イベント解析に備えます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2のコールバックは`DoEvents`実行中に(同期的に)発火する。`PeekNamedPipe`の
+'            ような「残量チェック」の手段がないため、上限回数まで`DoEvents`を回し、新着メッセージが
+'            確認できたら早期終了する
+'***************************************************************************************************
+Private Sub TakeWebView2(StopApiError As Boolean, destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeWebView2"
+    Const PumpBudget As Long = 20  '残量チェックが出来ないための保険的な上限
+
+
+    Dim i As Long
+    For i = 1 To PumpBudget
+        DoEvents    '※内部でWebView2のコールバックが走り、そこに仕込んだ`RaiseEvent`で、CDPメッセージを蓄積させる
+        If responseCDP.ExistsNewRes Then Exit For
+    Next i
+
+    If destruction Then
+        '`DoEvents`中に届いてしまった分を明示的に破棄する
+        With responseCDP
+            .AddCursor = 0
+            .StartCursor = 0
+            .EndCursor = 0
+            .ExistsNewRes = False
+        End With
+        printMsg Trace_, LogID, "Discarding data in WebView2...", FromProcedureName
+    End If
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：CDPからバイト配列を一括で受け取り、テキストに変換します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：StopApiError   `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
@@ -1129,14 +1218,20 @@ Public Sub AnalyzeCDP(Optional StopApiError As Boolean, Optional destruction As 
     Const FromProcedureName As String = ThisClassName & ".AnalyzeCDP"
 
 
-    '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージバイト配列の取り出し
+    '1. 通信モードに応じてPipe/WebSocket/WebView2分岐し、受信メッセージバイト配列の取り出し
     Select Case False
         Case viaWebSocket Is Nothing:  TakeWebSocket StopApiError, destruction
+        Case viaWebView2 Is Nothing:    TakeWebView2 StopApiError, destruction
         Case Else:                          TakePipe StopApiError, destruction
     End Select
-
+    
     '2. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備させる
-    If Not destruction Then Call ReadyCDPMessage
+    'WebView2モードは、`viaWebView2_CDPMessageReceived`が`responseCDP.strBuffer`へ直接書き込む
+    'ため、`CDPPipeStream`経由のテキスト変換(`ReadyCDPMessage`)は不要かつ不整合の元になるので
+    '呼ばない
+    If Not destruction Then
+        If viaWebView2 Is Nothing Then Call ReadyCDPMessage
+    End If
 
     '3. ログ化
     If destruction Then
@@ -1351,6 +1446,13 @@ End Property
 '***************************************************************************************************
 Property Set WebSocketMode(ws As CDPCoreViaWebSocket)
     Set viaWebSocket = ws
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set WebView2Mode(wv As CDPCoreViaWebView2)
+    Set viaWebView2 = wv
 End Property
 
 
