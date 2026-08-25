@@ -388,10 +388,10 @@ Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
 
     Dim synthesized As String
     If LenB(sessionID) = 0 Then
-        synthesized = "{""method"":" & JsonQuoteString(EventName) & ",""params"":" & paramJson & "}"
+        synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & "}"
     Else
-        synthesized = "{""method"":" & JsonQuoteString(EventName) & ",""params"":" & paramJson & _
-                      ",""sessionId"":" & JsonQuoteString(sessionID) & "}"
+        synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & _
+                      ",""sessionId"":""" & sessionID & """}"
     End If
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
@@ -417,8 +417,4 @@ Private Function TryGetEventSessionId(ByVal pArgs As LongPtr) As String
 
     'QueryInterfaceで確保した分の参照を解放(GetStringPropertyはQI自体はしない)
     CDPWebView2Thunks.ComRelease pArgs2
-End Function
-
-Private Function JsonQuoteString(ByVal s As String) As String
-    JsonQuoteString = """" & Replace(Replace(s, "\", "\\"), """", "\""") & """"
 End Function
