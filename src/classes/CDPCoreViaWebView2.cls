@@ -338,7 +338,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
 
         '上手い具合に、`id`付きで、返ったエラーもくっつけて、復元させる
         Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(resultJson).NodeKey("error")
-        synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify
+        synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify & "}"
     End If
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
