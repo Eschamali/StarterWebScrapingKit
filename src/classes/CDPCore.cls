@@ -1178,19 +1178,24 @@ End Sub
 '                           `False`:蓄積し、ID、イベント解析に備えます
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：WebView2のコールバックは`DoEvents`実行中に(同期的に)発火する。`PeekNamedPipe`の
-'            ような「残量チェック」の手段がないため、上限回数まで`DoEvents`を回し、新着メッセージが
-'            確認できたら早期終了する
+'            ような「残量チェック」の手段がないため、カーソルの変化がなかったら即抜けするロジックにする
 '***************************************************************************************************
 Private Sub TakeWebView2(StopApiError As Boolean, destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".TakeWebView2"
-    Const PumpBudget As Long = 20  '残量チェックが出来ないための保険的な上限
 
 
-    Dim i As Long
-    For i = 1 To PumpBudget
-        DoEvents    '※内部でWebView2のコールバックが走り、そこに仕込んだ`RaiseEvent`で、CDPメッセージを蓄積させる
-        If responseCDP.ExistsNewRes Then Exit For
-    Next i
+    Dim BeforeEndCursor As Long
+    Do
+        '1. 内部でWebView2のコールバックを呼ぶ試行を行う。溜まってる場合、そこに仕込んだ`RaiseEvent`で、CDPメッセージを蓄積させる処理にワープします
+        '※`DoEvents`自体がイベント発火のきっかけになることから、「一定回数ごとに`DoEvents`」といったことはしません
+        DoEvents
+
+        '2. カーソルの変化がない場合は、ループから抜ける
+        If BeforeEndCursor = responseCDP.EndCursor Then Exit Do
+
+        '3. 前回値を記録
+        BeforeEndCursor = responseCDP.EndCursor
+    Loop
 
     If destruction Then
         '`DoEvents`中に届いてしまった分を明示的に破棄する
