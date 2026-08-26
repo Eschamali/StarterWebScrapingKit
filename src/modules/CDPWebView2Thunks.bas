@@ -225,66 +225,6 @@ Private Sub EntryPoint(): End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ WebView2Loader.dll 探索ヘルパー ■■■
-'***************************************************************************************************
-'* 機能　　：`WebView2Loader.dll`を実行時に探索し、既に読み込み済みのモジュールとして解決します
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：解決できたかの論理値
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：1. まず`LoadLibraryW("WebView2Loader.dll")`をベース名のみで試す
-'            2. 失敗したら、Excel(Power Query統合アドイン)に同梱されている実物を
-'               `%ProgramFiles%`/`%ProgramFiles(x86)%`配下の`Microsoft Office\root\Office*\
-'               ADDINS\Microsoft Power Query for Excel Integrated\bin\WebView2Loader.dll`から
-'               探索し、見つかった実パスで`LoadLibraryW`する
-'            3. 一度でも解決したら`m_loaderModule`にキャッシュし、以後は即`True`を返す
-'* 注意事項：ここでこのDLLを一度LoadLibraryしておくことで、以後の
-'            `Declare ... Lib "WebView2Loader.dll"`はこの既読み込み済みモジュールを
-'            ベース名一致で再利用する(Win32ローダーの標準動作)。
-'            見つからない場合、ダウンロード等のフォールバックは一切行わない
-'            (外部バイナリの配置禁止というCLAUDE.mdの制約に従う)
-'***************************************************************************************************
-Public Function EnsureWebView2LoaderResolved() As Boolean
-    If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
-
-    '1. 既に解決可能ならそれで良い
-    m_loaderModule = LoadLibraryW(StrPtr("WebView2Loader.dll"))
-    If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
-
-    '2. Power Query統合アドインに同梱されている実物を探す
-    Dim roots(1) As String
-    roots(0) = Environ$("ProgramFiles")
-    roots(1) = Environ$("ProgramFiles(x86)")
-
-    Dim r As Long, candidate As String
-    For r = 0 To 1
-        If LenB(roots(r)) = 0 Then GoTo NextRoot
-        candidate = FindPowerQueryLoaderUnder(roots(r))
-        If LenB(candidate) > 0 Then
-            m_loaderModule = LoadLibraryW(StrPtr(candidate))
-            If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
-        End If
-NextRoot:
-    Next r
-
-    '3. 見つからなかった(m_loaderModule = 0のまま)
-End Function
-
-Private Function FindPowerQueryLoaderUnder(root As String) As String
-    Dim officeRoot As String: officeRoot = root & "\Microsoft Office\root\"
-    Dim d As String: d = Dir$(officeRoot, vbDirectory)
-    Do While LenB(d) > 0
-        If d Like "Office*" Then
-            Dim candidate As String
-            candidate = officeRoot & d & "\ADDINS\Microsoft Power Query for Excel Integrated\bin\WebView2Loader.dll"
-            If LenB(Dir$(candidate)) > 0 Then FindPowerQueryLoaderUnder = candidate: Exit Function
-        End If
-        d = Dir$()
-    Loop
-End Function
-
-
-
-'***************************************************************************************************
 '                              ■■■ AcquireHandlerFor ■■■
 '***************************************************************************************************
 '* 機能　　：新規のCOMコールバックハンドラを1個確保します

@@ -27,11 +27,7 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
-' --- WebView2Loader.dll ---
-'   Excel(Power Query)に同梱されている実物を`EnsureWebView2LoaderResolved`で
-'   事前にLoadLibraryしておくことで、この`Declare`はその既読み込み済みモジュールを
-'   ベース名で再利用する(Win32ローダーの標準動作)。
-Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader.dll" ( _
+Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
     ByVal userDataFolder As LongPtr, _
     ByVal additionalBrowserArguments As LongPtr, _
@@ -97,18 +93,10 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
         Exit Function
     End If
 
-    '1. WebView2Loader.dllの解決
-    If Not CDPWebView2Thunks.EnsureWebView2LoaderResolved() Then
-        Debug.Print FromProcedureName & ": WebView2Loader.dllが見つかりませんでした。" & _
-                    "Power Query for Excelが導入されているか確認してください。"
-        m_envState = Whs_Failed
-        Exit Function
-    End If
-
-    '2. ハンドルを指定
+    '1. ハンドルを指定
     m_hostHwnd = AttachHwnd
 
-    '3. Environment作成
+    '2. Environment作成
     '※Officeのルールに従うようなパスにしておく
     Dim Path As String
     Path = Environ("UserProfile") & "\AppData\Local\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
@@ -124,7 +112,7 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     Dim pEnvHandlerObj As LongPtr
     pEnvHandlerObj = m_envHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
 
-    '重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
+    '3. 重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
     'コールバックを発火させるケースがあるため(実機で確認済みの罠)
     m_envState = Whs_Waiting
 
