@@ -81,10 +81,6 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
-'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
-'                                           1      ：キオスクモード デジタル/対話型サイネージ
-'                                           2      ：キオスクモード パブリック ブラウジング
-'
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
@@ -92,7 +88,7 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '***************************************************************************************************
 Public Sub InitBiDi(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
+    Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
     Const FromProcedureName As String = ThisClassName & ".start"
@@ -100,7 +96,7 @@ Public Sub InitBiDi(Optional Name As String = "chrome", _
 
     '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, userProfile, addArgs, KioskMode
+    m_CDPBrowser.start Name, appUrl, userProfile, addArgs
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore

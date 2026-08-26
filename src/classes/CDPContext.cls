@@ -200,18 +200,17 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            addArgs        追加の起動引数
-'            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
 Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
     Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType)
+    Optional userProfile As String, Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
     '1. ブラウザ起動
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, userProfile, addArgs, KioskMode
+    BrowserCore.start Name, appUrl, userProfile, addArgs
 
     '2. WithEventsClassオブジェクトを受け取る
     Set PipeCore = BrowserCore.InheritanceCDPCore

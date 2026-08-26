@@ -65,15 +65,6 @@ Public Enum DevToolsAgentHost_KType
     kBrowserUI
 End Enum
 
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] EdgeをWebView2っぽく見せる専用引数リスト
-'---------------------------------------------------------------------------------------------------'
-Public Enum edgeKioskType
-    none            'キオスクモードなしの通常起動
-    fullscreen      'キオスクモード デジタル/対話型サイネージ
-    publicBrowsing  'キオスクモード パブリック ブラウジング
-End Enum
-
 
 
 '***************************************************************************************************
@@ -194,7 +185,6 @@ End Function
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            addArgs        追加の起動引数
-'            KioskMode      Edgeのキオスクモードを使う際にセットします
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
 ' This function initiates a new browser instance.
@@ -222,7 +212,7 @@ End Function
 Public Sub start(Optional Name As String = "chrome", _
     Optional appUrl As String, _
     Optional userProfile As String, _
-    Optional addArgs As String, Optional KioskMode As edgeKioskType)
+    Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
@@ -273,15 +263,6 @@ Public Sub start(Optional Name As String = "chrome", _
     End Select
     strCall = strCall & addProfile
     br.User = userProfile 'store the user profile name for cpid serialization
-   '-----------------------------------------------------------------------------------------------------------------------------------------
-
-    'Edge特有のキオスクモードを設定します -------------------------------------------------------------------------------------------------------------
-    '※Chromeは、Edgeほど調整できないため、同じ引数にします
-    Select Case KioskMode
-        Case edgeKioskType.fullscreen: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=fullscreen")
-        Case edgeKioskType.publicBrowsing: strCall = strCall & IIf(br.Type = brChrome, " --kiosk", " --kiosk --edge-kiosk-type=public-browsing")
-    End Select
-    br.setShowWindow = IIf(KioskMode, WinState.doShowMinNoActivate, br.setShowWindow)   'キオスクモード時は、ウィンドウを非アクティブ化し、最小化されたウィンドウとして表示する優先にします。(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
    '-----------------------------------------------------------------------------------------------------------------------------------------
 
    'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------
