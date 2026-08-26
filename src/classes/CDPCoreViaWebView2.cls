@@ -95,24 +95,31 @@ Private currentLog As StateLog
 '* 機能　　：`WebView2`方式としてCDP制御できる準備を行います(Environment/Controller/Viewの生成)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName       WebView2のユーザーデータフォルダ名
+'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'            AttachHwnd WebView2を貼り付けるハンドル ※省略時、Excel自身のハンドル(Application.Hwnd)を使用
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：既存の接続がある場合は、切断されます
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String) As Boolean
+Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
+    '1. 既にオブジェクトを持ってる場合は切断後、再開
     If Not (m_Host Is Nothing) Then DisconnectCDP
 
+    '2. ハンドル未指定の場合は、Excel自身を直接使用する
+    If AttachHwnd <= 0 Then AttachHwnd = Application.hWnd
+
+    '3. 専用のホストオブジェクトへ、WebView2確保を委託
     Set m_Host = New CDPWebView2Host
-    If Not m_Host.Init(UserName) Then
+    If Not m_Host.Init(UserName, AttachHwnd) Then
         printMsg ERROR_, "WebView2 initialization failed.", FromProcedureName
 
         Set m_Host = Nothing
         Exit Function
     End If
 
+    '4. 成功サインを返す
     ConnectCDP = True
 End Function
 

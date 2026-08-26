@@ -14,10 +14,7 @@ Attribute VB_Exposed = False
 '   WebView2はForm/Env/Controller/Viewという生成順序・Releaseチェーンが伴うため、
 '   CDP送受信ロジックと混ぜるとClass_Terminateの順序管理が事故りやすいためです)。
 '
-'   ホスト用の親ウィンドウは、UserForm(.frm/.frx)を使わず、システム標準の"Static"
-'   ウィンドウクラスで非表示ネイティブウィンドウを都度生成する方式を採用しています
-'   (このプロジェクトはCDP専用でWebView2を可視化する必要がなく、.frxバイナリを
-'   手作業で正しく生成するのは事故のリスクが高いため)。
+'   ホスト用の親ウィンドウは、利用者が使いたいハンドルを指定する方式です。
 '
 '   ★注意(既知の落とし穴、継承不可避)★
 '     コールバック待ち中(このClassのInit実行中?完了まで)にVBEでブレーク/ステップ
@@ -89,9 +86,10 @@ End Sub
 '            完了まで同期的に待って実行します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'            AttachHwnd WebView2を貼り付けるハンドル
 '* 返り値  ：成功可否
 '***************************************************************************************************
-Public Function Init(UserName As String) As Boolean
+Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     Const FromProcedureName As String = "CDPWebView2Host.Init"
 
     If m_envState <> Whs_Created Then
@@ -107,8 +105,8 @@ Public Function Init(UserName As String) As Boolean
         Exit Function
     End If
 
-    '2. Excelのハンドルを直接使用する
-    m_hostHwnd = Application.hWnd
+    '2. ハンドルを指定
+    m_hostHwnd = AttachHwnd
 
     '3. Environment作成
     '※Officeのルールに従うようなパスにしておく
