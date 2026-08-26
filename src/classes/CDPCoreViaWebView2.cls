@@ -92,33 +92,6 @@ Private currentLog As StateLog
 
 
 '***************************************************************************************************
-'                                   ■■■ 初期化/後始末 ■■■
-'***************************************************************************************************
-Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
-    Set m_subReceiver = New Dictionary
-    Set m_subToken = New Dictionary
-    currentLog.id = "WVID" & Format(Rnd * 1000, "000")
-
-    'パスが設定されてたら、ログファイル保存を有効化
-    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
-    If LenB(LogFolderPath) > 0 Then
-        currentLog.doLog = True                'ログファイルとして保存するか？
-        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
-    End If
-End Sub
-
-Private Sub Class_Terminate()
-    DisconnectCDP
-End Sub
-
-
-
-'***************************************************************************************************
-'                               ■■■ 新規接続関連 ■■■
-'***************************************************************************************************
 '* 機能　　：`WebView2`方式としてCDP制御できる準備を行います(Environment/Controller/Viewの生成)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
@@ -521,4 +494,29 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     'エラー時に止まります
     If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
 
+End Sub
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 初期化/後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
+    Set m_subReceiver = New Dictionary
+    Set m_subToken = New Dictionary
+    currentLog.id = "WVID" & Format(Rnd * 1000, "000")
+
+    'パスが設定されてたら、ログファイル保存を有効化
+    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    If LenB(LogFolderPath) > 0 Then
+        currentLog.doLog = True                'ログファイルとして保存するか？
+        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+    End If
+End Sub
+
+Private Sub Class_Terminate()
+    DisconnectCDP
 End Sub
