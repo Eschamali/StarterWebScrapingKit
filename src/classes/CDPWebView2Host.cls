@@ -100,7 +100,6 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     '※Officeのルールに従うようなパスにしておく
     Dim Path As String
     Path = Environ("UserProfile") & "\AppData\Local\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
-    EnsureFolderExists Path
 
     Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
     If m_envHandler Is Nothing Then
@@ -182,20 +181,6 @@ Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Loop
     WaitFor = (state <> Whs_Waiting)
 End Function
-
-Private Sub EnsureFolderExists(ByVal Path As String)
-    If LenB(Path) = 0 Then Exit Sub
-    Dim parentDir As String
-    Dim slashPos As Long
-    slashPos = InStrRev(Path, "\")
-    If slashPos > 0 Then
-        parentDir = Left$(Path, slashPos - 1)
-        If LenB(parentDir) > 0 Then
-            If Dir(parentDir, vbDirectory) = "" Then MkDir parentDir
-        End If
-    End If
-    If Dir(Path, vbDirectory) = "" Then MkDir Path
-End Sub
 
 
 
