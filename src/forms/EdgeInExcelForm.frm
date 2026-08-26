@@ -14,7 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'           Edgeブラウザをユーザーフォームに埋め込んで、WebView2っぽい雰囲気にします
+'                         ユーザーフォームに本物のWebView2埋め込みます
 '***************************************************************************************************
 Option Explicit
 
@@ -23,30 +23,23 @@ Option Explicit
 '***************************************************************************************************
 '                               ■■■ 必要なWindowsAPI定義 ■■■
 '***************************************************************************************************
-Private Declare PtrSafe Function GetCurrentThreadId Lib "kernel32" () As Long
-Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" (ByVal hWnd As LongPtr, ByRef lpdwProcessId As Long) As Long
-Private Declare PtrSafe Function AttachThreadInput Lib "user32" (ByVal idAttach As Long, ByVal idAttachTo As Long, ByVal fAttach As Long) As Long
 Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
-Private Declare PtrSafe Function SetParent Lib "user32" (ByVal hWndChild As LongPtr, ByVal hWndNewParent As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongPtrA" (ByVal hWnd As LongPtr, ByVal nIndex As Long) As LongPtr
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" (ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-Private Declare PtrSafe Function MoveWindow Lib "user32" (ByVal hWnd As LongPtr, ByVal x As Long, ByVal y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal bRepaint As Long) As Long
-Private Declare PtrSafe Function SetFocus Lib "user32" (ByVal hWnd As LongPtr) As LongPtr
-Private Declare PtrSafe Function GetForegroundWindow Lib "user32" () As LongPtr
-Private Declare PtrSafe Function SetForegroundWindow Lib "user32" (ByVal hWnd As LongPtr) As Long
-Private Declare PtrSafe Function SetActiveWindow Lib "user32" (ByVal hWnd As LongPtr) As LongPtr
 
 
 
 '***************************************************************************************************
 '                               ■■■ 制御に必要な変数定義 ■■■
 '***************************************************************************************************
-'外部から渡されるEdgeのウィンドウハンドル
-Private EdgeHwnd    As LongPtr
-Private targetCDP   As CDPContext
-Attribute targetCDP.VB_VarHelpID = -1
+'制御のコアとなるオブジェクト
+Private fWebView2           As CDPCoreViaWebView2
+Private WithEvents CDPEvent As CDPCore      '非同期イベント処理用
+Attribute CDPEvent.VB_VarHelpID = -1
+Private fCDPContext         As CDPContext   'タブ情報
+Attribute fCDPContext.VB_VarHelpID = -1
 
-'自身のUserFormのハンドルを保存する変数
+'自身の各ハンドルを保存する変数
 Private myFormHwnd      As LongPtr
 Private myEdgeFrameHwnd As LongPtr
 
@@ -59,51 +52,59 @@ Private BottomMargin As Long
 '***************************************************************************************************
 '                              ■■■ ウィンドウスタイルの定数 ■■■
 '***************************************************************************************************
-Private Const GWL_STYLE     As Long = -16
-Private Const WS_THICKFRAME As Long = &H40000       ' サイズ変更枠
-Private Const WS_CHILD      As Long = &H40000000    ' 子ウィンドウ
-Private Const WS_VISIBLE    As Long = &H10000000    ' headlessモードでも強制表示させるやつ
+Private Const GWL_STYLE         As Long = -16
+Private Const WS_THICKFRAME     As Long = &H40000 'サイズ変更枠
+Private Const WS_MAXIMIZEBOX    As Long = &H10000 '最大化ボタン
+Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 
 
 
 '***************************************************************************************************
-'                               ■■■ メインプロシージャ ■■■
+'                                   ■■■ 新規起動 ■■■
 '***************************************************************************************************
-'* 機能　　：Edgeを誘拐してUserFormに埋め込むメソッドです
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：成功可否論理値
-'* 引数　　：TargetCDPBrowser   CDPモードでStartした後のオブジェクト変数
-'***************************************************************************************************
-Public Function AttachEdge(TargetCDPBrowser As CDPContext) As Boolean
-    '1. 必要な変数を適用
-    Set targetCDP = TargetCDPBrowser
-    EdgeHwnd = targetCDP.BrowserWindowHandle(True)
+Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPContext
+    '1. 引数が省略されてる場合は、ワークシートの設定を適用
+    If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
 
-    '受け取り失敗時は抜ける
-    If EdgeHwnd = 0 Then Exit Function
+    '2. WebView2を起動
+    Set fWebView2 = New CDPCoreViaWebView2
+    If Not fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd) Then
+        Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
+                    "またはEnvironment/Controllerの生成に失敗した可能性があります。"
+        Set fWebView2 = Nothing
+        Exit Function
+    End If
 
-    '2. Edgeをユーザーフォームに埋め込むための準備
-    SetWindowLongPtr EdgeHwnd, GWL_STYLE, WS_CHILD Or WS_VISIBLE
-
-    '3. EdgeをこのUserForm内のFrame内に誘拐（SetParent）する！
-    SetParent EdgeHwnd, myEdgeFrameHwnd
-
-    '4. Frame内サイズを合わせる
+    '3. サイズをセット
     AdjustEdgeSize
 
-    '5. 成功で送る
-    AttachEdge = True
+    '4. 可視化
+    SwitchVisible.value = True
+    fWebView2.Visible = True
+
+    '5. タブ接続まで行う
+    Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
+    Set fCDPContext = t.getTab(setMain:=True)
+
+    '6. 非同期イベント処理に備える
+    Set CDPEvent = t.InheritanceCDPCore
+
+    '7. 返却
+    Set StartCDPModeWebView2 = fCDPContext
 End Function
 
+
+
 '***************************************************************************************************
-'* 機能　　：EdgeのサイズをFrame内ににピッタリはめ込む処理をします
+'                                       ■■■ サイズ変更 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2のサイズをFrame内ににピッタリはめ込む処理をします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：係数 1.333 は ポイント(VBA) → ピクセル(API) の標準的な変換レートにより、変換してリサイズします
 '* 注意事項：画面のDPI設定によってはズレる場合があるので、微調整してください
 '***************************************************************************************************
 Private Sub AdjustEdgeSize()
     ' 【設定】 堀（外周の余白）のサイズをポイント単位で指定します
-    Const MARGIN_PT     As Long = 40 ' 上下左右に15ポイントの余白を作る
     Const PointToPixel  As Double = 1.3333
 
     ' Frameの幅と高さを、UserFormの内部サイズから余白を引いた値にする
@@ -126,7 +127,11 @@ Private Sub AdjustEdgeSize()
 
     ' APIを使って、EdgeのウィンドウをFrameの左上(0,0)にピッタリはめ込む！
     ' (Frameの中にSetParentされているので、0,0はFrameの左上を意味します)
-    MoveWindow EdgeHwnd, 0, 0, pxWidth, pxHeight, 1
+    fWebView2.Resize pxWidth, pxHeight
+End Sub
+
+Private Sub UserForm_Resize()
+    AdjustEdgeSize
 End Sub
 
 
@@ -137,124 +142,27 @@ End Sub
 '* 機能　　：ボタン押下時、テキストボックスに入力したURLにページ遷移します
 '***************************************************************************************************
 Private Sub navigateButton_Click()
-    targetCDP.navigate Me.TextURLBox.Text
-End Sub
-
-
-
-'***************************************************************************************************
-'                        ■■■ Edgeにフォーカスするためのイベント関連 ■■■
-'***************************************************************************************************
-'* 機能　　：UserformがShowされたのと同時に、Edgeにフォーカスします
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・最初の`Show`しか効果ありません
-'            ・Userform同士のウィンドウアクティブ/非アクティブしか効果ありません
-'***************************************************************************************************
-Private Sub UserForm_Activate()
-    Call attachToEdgeFocus
+    fCDPContext.navigate Me.TextURLBox.Text
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：Frameの外周にあたるUserformに、クリックすると、Edgeにフォーカスがあたります
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：ウィンドウのタイトルバークリックでは反応しません
+'* 機能　　：ブラウザを描画するかの切り替えが発生します
 '***************************************************************************************************
-Private Sub UserForm_Click()
-    Call attachToEdgeFocus
+Private Sub SwitchVisible_Click()
+    fWebView2.Visible = SwitchVisible.value
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：Frameの外周にあたるUserformに、マウスが触れると、Edgeにフォーカスがあたります
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：前者は、Frame枠外周全域、後者は特定のラベルエリアのみとなります
-'* 注意事項：・利用ユーザーが「電流イライラ棒裏技wazappu」のプロフェッショナルで、光速で堀(UserForm領域イベント)をすり抜けて城(Edge)をクリックした場合、フォーカス移動検知が間に合わず「文字が入力できない」という現象が発生することを懸念してください
-'            ・イベント検知領域が、別ウィンドウと重なって、直でEdge領域に行っても失敗します
+'* 機能　　：WebView2のコアプロパティを提供します
 '***************************************************************************************************
-'Private Sub UserForm_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal x As Single, ByVal y As Single)
-'    Call attachToEdgeFocus
-'End Sub
+Property Get controlWebView2() As CDPCoreViaWebView2
+    controlWebView2 = fWebView2
+End Property
 
-Private Sub Notice_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal x As Single, ByVal y As Single)
-    Call attachToEdgeFocus
-    Call FocusNotify        'ついでに通知もしておく
-End Sub
+
 
 '***************************************************************************************************
-'* 機能　　：UserFormのサイズが変更されたら、中のEdgeのサイズも追従させ、ついでに、フォーカスもしておきます
-'***************************************************************************************************
-Private Sub UserForm_Resize()
-    Call attachToEdgeFocus
-    Call AdjustEdgeSize
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Userform内にあるEdgeにフォーカスを当て、キーボード入力ができるようにします
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：埋め込まれたEdgeは、アクティブ化反映ができない仕様により、プロシージャ呼び出しによるフォーカスでなんとか実現しました
-'* 注意事項：このプロシージャは、Userformのイベントで実行するように仕向けてください。
-'***************************************************************************************************
-Private Sub attachToEdgeFocus()
-    '別プロセスウィンドウがアクティブになっても、ExcelUserformをアクティブ化させる処理
-    bringToForeground myFormHwnd
-
-    'Edgeハンドルにフォーカスさせる
-    FocusEdge EdgeHwnd
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Userform内にあるEdgeにフォーカスを当てる処理をします
-'***************************************************************************************************
-Private Sub FocusEdge(ByVal EdgeHwnd As LongPtr)
-    Dim pid As Long
-    Dim tidTarget As Long, tidMe As Long
-
-    tidMe = GetCurrentThreadId()
-    tidTarget = GetWindowThreadProcessId(EdgeHwnd, pid)
-
-    ' SetFocus は「同じ入力キューにアタッチされている必要」[2](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setfocus)[3](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-attachthreadinput)
-    If tidTarget <> tidMe Then AttachThreadInput tidMe, tidTarget, 1
-    SetFocus EdgeHwnd
-    If tidTarget <> tidMe Then AttachThreadInput tidMe, tidTarget, 0
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：他ウィンドウがアクティブ状態であっても、UserFormにアクティブ化させる処理です
-'***************************************************************************************************
-Private Sub bringToForeground(ByVal hWndTop As LongPtr)
-    Dim fg As LongPtr, pid As Long
-    Dim tidFG As Long, tidMe As Long
-
-    fg = GetForegroundWindow()
-    tidFG = GetWindowThreadProcessId(fg, pid)
-    tidMe = GetCurrentThreadId()
-
-    ' いまのフォアグラウンドスレッドと入力キュー共有（成功すると前面化が通りやすい）
-    If tidFG <> tidMe Then AttachThreadInput tidMe, tidFG, 1
-
-    ' SetForegroundWindow は制限がある（失敗することがあるのは仕様）[1](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow)
-    SetForegroundWindow (hWndTop)
-    SetActiveWindow hWndTop  ' アクティブ化（前面でないと効かないことがある）
-
-    If tidFG <> tidMe Then AttachThreadInput tidMe, tidFG, 0
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：フォーカスした旨のステータスを表示させます
-'***************************************************************************************************
-Private Sub FocusNotify()
-    Me.focusNotice.Visible = True
-
-    Dim endTime As Double
-    endTime = targetCDP.InheritanceCDPBrowser.TimerCounter + 1000 '1000ms間表示させる
-    Do
-        DoEvents ' これを入れないとExcelがフリーズしてイベントが拾えない！
-    Loop While targetCDP.InheritanceCDPBrowser.TimerCounter < endTime
-
-    Me.focusNotice.Visible = False
-End Sub
-
-
-
+'                                       ■■■ 初期化 ■■■
 '***************************************************************************************************
 '* 機能　　：操作に必要なハンドル情報を取得します
 '***************************************************************************************************
@@ -266,7 +174,7 @@ Private Sub UserForm_Initialize()
     '2. 現在のスタイルを取得し、このUserFormにリサイズ機能を追加
     Dim currentStyle As LongPtr
     currentStyle = GetWindowLongPtr(myFormHwnd, GWL_STYLE)
-    SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME
+    SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX
 
     '3. 埋め込み先のEdgeフレームのハンドル情報を取得
     myEdgeFrameHwnd = Me.EdgeFrame.[_GethWnd]
