@@ -396,8 +396,10 @@ End Function
 '* 返り値  ：購読成功可否(既に購読済みの場合も`True`)
 '* 引数　　：eventName   購読するCDPイベント名(例："Page.loadEventFired")
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
-'            必要なイベント名ごとに、このメソッドを個別に呼び出してください。
+'* 注意事項：・CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
+'            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
+'            ・1つでも購読した場合、VBEの`Stop`やブレイクポイントを行うとクラッシュします。
+'              どうしてもデバッグが必要な場合は､`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEvent"
