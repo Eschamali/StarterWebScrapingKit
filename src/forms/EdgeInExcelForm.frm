@@ -26,6 +26,7 @@ Option Explicit
 Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
 Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongPtrA" (ByVal hWnd As LongPtr, ByVal nIndex As Long) As LongPtr
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" (ByVal hWnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'WebView2用追加起動引数設定用
 
 
 
@@ -63,33 +64,39 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '                                   ■■■ 新規起動 ■■■
 '***************************************************************************************************
 Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPContext
-    '1. 引数が省略されてる場合は、ワークシートの設定を適用
+    '1. WebView2の追加起動引数準備
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+    SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(ShSetting01_StartBrowser.UseRangeID(3, ".StartCDPModeWebView2"))
+
+    '2. 引数が省略されてる場合は、ワークシートの設定を適用
     If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. WebView2を起動
+    '3. WebView2を起動
+    Dim isActive As Boolean
     Set fWebView2 = New CDPCoreViaWebView2
-    If Not fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd) Then
-        Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                    "またはEnvironment/Controllerの生成に失敗した可能性があります。"
-        Set fWebView2 = Nothing
-        Exit Function
-    End If
+    isActive = fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd)
 
-    '3. サイズをセット
+    '4. クリア
+    SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+
+    '5. 起動失敗したら、抜ける
+    If Not isActive Then Set fWebView2 = Nothing: Exit Function
+
+    '6. サイズをセット
     AdjustEdgeSize
 
-    '4. 可視化
+    '7. 可視化
     SwitchVisible.value = True
     fWebView2.Visible = True
 
-    '5. タブ接続まで行う
+    '8. タブ接続まで行う
     Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
     Set fCDPContext = t.getTab(setMain:=True)
 
-    '6. 非同期イベント処理に備える
+    '9. 非同期イベント処理に備える
     Set CDPEvent = t.InheritanceCDPCore
 
-    '7. 返却
+    '10. 返却
     Set StartCDPModeWebView2 = fCDPContext
 End Function
 
