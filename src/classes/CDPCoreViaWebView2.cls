@@ -28,7 +28,8 @@ Attribute VB_Exposed = False
 '     CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
 '     モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
 '     が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
-'     明示的なAPIとして公開しています。
+'     明示的なAPIとして公開しています(一括購読はWebView2側に概念自体が無いため未対応。
+'     一括解除のみ`UnsubscribeAllCdpEvents`として提供)。
 '     `GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読するだけで、
 '     `Target.setAutoAttach`等でアタッチされた子セッション(タブ/iframe/worker等)からの同名イベントも
 '     同じコールバックに届きます。どのセッション由来かは`ICoreWebView2DevToolsProtocolEventReceived
@@ -135,20 +136,7 @@ End Function
 '***************************************************************************************************
 Public Sub DisconnectCDP()
     '1. 残っている購読を全解除
-    If Not (m_subReceiver Is Nothing) Then
-        Dim N As Long: N = m_subReceiver.Count
-        If N > 0 Then
-            Dim keys() As String
-            ReDim keys(0 To N - 1)
-            Dim i As Long
-            For i = 0 To N - 1
-                keys(i) = m_subReceiver.KeyAtIndex(i)
-            Next i
-            For i = 0 To N - 1
-                UnsubscribeCdpEvent keys(i)
-            Next i
-        End If
-    End If
+    UnsubscribeAllCdpEvents
 
     '2. ICoreWebView2_11(QI取得分)を解放
     If m_pView11 <> 0 Then
@@ -456,6 +444,39 @@ Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
     m_subReceiver.Remove EventName
     m_subToken.Remove EventName
     UnsubscribeCdpEvent = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：購読中の全CDPイベントを一括解除します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：解除した件数
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：これを行うことで、VBEの`Stop`やブレイクポイントをしてもクラッシュしなくなります
+'* 注意事項：WebView2の`GetDevToolsProtocolEventReceiver`自体には一括購読/一括解除の概念はなく、
+'            イベント名ごとの個別登録が必須です(CDP-over-WebSocketの「ドメインをenableすれば
+'            以後そのドメインの全イベントが自動で流れる」モデルとは異なります)。このメソッドは、
+'            `SubscribeCdpEvent`で購読済みのイベント名を`m_subReceiver`から一覧取得し、
+'            `UnsubscribeCdpEvent`を1件ずつ回すことで「一発解除」に見せているだけです。
+'***************************************************************************************************
+Public Function UnsubscribeAllCdpEvents() As Long
+    If m_subReceiver Is Nothing Then Exit Function
+
+    Dim N As Long: N = m_subReceiver.Count
+    If N = 0 Then Exit Function
+
+    Dim keys() As String
+    ReDim keys(0 To N - 1)
+    Dim i As Long
+    For i = 0 To N - 1
+        keys(i) = m_subReceiver.KeyAtIndex(i)
+    Next i
+
+    Dim removedCount As Long
+    For i = 0 To N - 1
+        If UnsubscribeCdpEvent(keys(i)) Then removedCount = removedCount + 1
+    Next i
+
+    UnsubscribeAllCdpEvents = removedCount
 End Function
 
 
