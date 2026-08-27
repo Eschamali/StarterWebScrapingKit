@@ -167,7 +167,16 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     End If
     m_pView = pv
 
-    '6. 成功サインを返す
+    '6. ICoreWebView2Settingsを取得(View::get_Settings、vtable index 3)
+    '   ★毎回取得/解放していると呼び出しごとにQI相当のオーバーヘッドが発生するため、
+    '   ここで1回だけ取得してキャッシュし、`CLOSE_`でまとめて解放する方式に統一する。
+    '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_pSettings=0`の
+    '   ままにする(DevToolsEnabled等の各プロパティは0ガードで静かに無視するだけなので安全)。
+    Dim ps As LongPtr
+    hr = CDPWebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
+    If hr = 0 And ps <> 0 Then m_pSettings = ps
+
+    '7. 成功サインを返す
     Init = True
 End Function
 
@@ -181,36 +190,6 @@ Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Loop
     WaitFor = (state <> Whs_Waiting)
 End Function
-
-
-
-'***************************************************************************************************
-'                                   ■■■ 設定関連 ■■■
-'***************************************************************************************************
-'* 機能　　：リサイズ処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：WV2_Right      横の長さ
-'            WV2_Bottom     縦の長さ
-'            WV2_Top        上端からのオフセット値
-'            WV2_Left       左端からのオフセット値
-'***************************************************************************************************
-Public Sub Resize(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long)
-    '1. ひとまとまりにする
-    Dim rc As CDPWebView2Thunks.RECT
-    rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
-
-    '2. リサイズ
-    CDPWebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：表示/非表示切り替え
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：v  Web描画の表示/非表示
-'***************************************************************************************************
-Property Let Visible(v As Boolean)
-    CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
-End Property
 
 
 
@@ -259,6 +238,10 @@ Public Sub CLOSE_()
     If m_pController <> 0 Then
         CDPWebView2Thunks.dcf m_pController, 24, "Ctrl.Close"
     End If
+    If m_pSettings <> 0 Then
+        CDPWebView2Thunks.ComRelease m_pSettings
+        m_pSettings = 0
+    End If
     If m_pView <> 0 Then
         CDPWebView2Thunks.ComRelease m_pView
         m_pView = 0
@@ -290,4 +273,34 @@ End Property
 
 Public Property Get LastError() As Long
     LastError = m_lastError
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2Controller 一式 ■■■
+'***************************************************************************************************
+'* 機能　　：リサイズ処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：WV2_Right      横の長さ
+'            WV2_Bottom     縦の長さ
+'            WV2_Top        上端からのオフセット値
+'            WV2_Left       左端からのオフセット値
+'***************************************************************************************************
+Public Sub Resize(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long)
+    '1. ひとまとまりにする
+    Dim rc As CDPWebView2Thunks.RECT
+    rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
+
+    '2. リサイズ
+    CDPWebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：表示/非表示切り替え
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Web描画の表示/非表示
+'***************************************************************************************************
+Property Let Visible(v As Boolean)
+    CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
 End Property
