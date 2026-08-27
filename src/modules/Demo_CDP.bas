@@ -335,7 +335,7 @@ End Sub
 Sub ExcelのユーザーフォームにWebView2を埋め込む()
     '1. CDPでEdgeを起動
     Dim 本物WebView2 As CDPContext
-    Set 本物WebView2 = EdgeInExcelForm.StartCDPModeWebView2
+    Set 本物WebView2 = WebView2Form.StartCDPModeWebView2
 
     '2. 遷移
     If 本物WebView2 Is Nothing Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
@@ -344,7 +344,7 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
     本物WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
 
     '3. フォームを表示
-    EdgeInExcelForm.show
+    WebView2Form.show
 
     '4. ブラウザを正常に閉じる
     本物WebView2.InheritanceCDPBrowser.quit

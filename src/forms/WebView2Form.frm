@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} EdgeInExcelForm 
-   Caption         =   "EdgeInUserForm"
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} WebView2Form 
+   Caption         =   "WebView2Demo"
    ClientHeight    =   8295.001
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   15000
-   OleObjectBlob   =   "EdgeInExcelForm.frx":0000
+   OleObjectBlob   =   "WebView2Form.frx":0000
    StartUpPosition =   1  'オーナー フォームの中央
 End
-Attribute VB_Name = "EdgeInExcelForm"
+Attribute VB_Name = "WebView2Form"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
