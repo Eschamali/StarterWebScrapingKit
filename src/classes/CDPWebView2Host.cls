@@ -54,6 +54,7 @@ Private m_hostHwnd     As LongPtr
 Private m_pEnvironment As LongPtr
 Private m_pController  As LongPtr
 Private m_pView        As LongPtr
+Private m_pSettings    As LongPtr   ' ICoreWebView2Settings(Initで1回だけ取得、CLOSE_で解放)
 
 Private m_envHandler  As CDPWebView2CallbackHandler
 Private m_ctrlHandler As CDPWebView2CallbackHandler
@@ -303,4 +304,37 @@ End Sub
 '***************************************************************************************************
 Property Let Visible(v As Boolean)
     CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2Settings 一式 ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2Settings
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：DevTools(F12キー・右クリック「検証」から起動するWebView2内蔵のDevToolsウィンドウ)の
+'            起動可否を切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`ICoreWebView2Settings::put_AreDevToolsEnabled`はブラウザ上のDevTools UIのみを
+'            制御するものであり、このプロジェクトが依存するCDPリモートデバッグ
+'            (`--remote-debugging-pipe`)経由の自動操作には一切影響しません
+'***************************************************************************************************
+Property Let DevToolsEnabled(v As Boolean)
+    If m_pSettings = 0 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定の右クリックコンテキストメニューの表示可否を切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let ContextMenuEnabled(v As Boolean)
+    If m_pSettings = 0 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
