@@ -12,13 +12,6 @@ Attribute VB_Name = "CDPWebView2Thunks"
 '       HK_CdpMethodCompleted/HK_CdpEventReceived)に絞った
 '     ・`InitIIDTable`に、CallDevToolsProtocolMethodCompletedHandler と
 '       DevToolsProtocolEventReceivedEventHandler の実IIDを追加した
-'     ・`EnsureWebView2LoaderResolved`(WebView2Loader.dll探索ヘルパー)を新設した
-'         → StarterWebScrapingKitのCLAUDE.mdは「外部バイナリの配置」を禁止しているため、
-'           このプロジェクト専用のWebView2Loader.dllは同梱しない。代わりに、Excelの
-'           Power Query統合アドインに同梱されている実物を実行時に探索してLoadLibraryする。
-'     ・UserFormマウスリサイズ用API(GetClientRect/GetAncestor/SetWindowLongPtrW/
-'       SetWindowPos)や、この用途で使わないTest_系Subは移植対象外とした
-'     ・初期表示タブは犠牲にし、`newtab`からスタートすることで、UserFormなしで一応、可視化状態で制御可。※タブ化はしない
 '
 '   ★重要(既知の落とし穴、継承不可避)★
 '     ・全てのCOMコールバックはこのモジュールの機械語サンクを経由する。VBEでブレーク/
