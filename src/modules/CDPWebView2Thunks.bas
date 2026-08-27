@@ -90,11 +90,6 @@ Private Declare PtrSafe Function VirtualQuery Lib "kernel32" ( _
     ByRef lpBuffer As MEMORY_BASIC_INFORMATION, _
     ByVal dwLength As LongPtr) As LongPtr
 
-Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
-
-Private Declare PtrSafe Function LoadLibraryW Lib "kernel32" ( _
-    ByVal lpLibFileName As LongPtr) As LongPtr
-
 ' --- oleaut32: DispCallFunc ---
 Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
     ByVal pvInstance As LongPtr, _
