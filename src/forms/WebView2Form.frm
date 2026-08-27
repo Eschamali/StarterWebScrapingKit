@@ -163,7 +163,7 @@ End Sub
 '* 機能　　：WebView2のコアプロパティを提供します
 '***************************************************************************************************
 Property Get controlWebView2() As CDPCoreViaWebView2
-    controlWebView2 = fWebView2
+    Set controlWebView2 = fWebView2
 End Property
 
 
