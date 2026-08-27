@@ -62,11 +62,11 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
         Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext"), SwitchUser)
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext")
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.StartAndConnectTab BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPModeContext")
+        StartCDPModeContext.StartAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPModeContext")
     End With
 End Function
 
@@ -89,11 +89,11 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
         Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode"), SwitchUser)
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode")
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.start BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+        StartCDPMode.start BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
     End With
 End Function
 
@@ -119,11 +119,11 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
         Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiModeContext"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext"), SwitchUser)
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext")
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.StartBiDiModeAndConnectTab BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
+        StartBiDiModeContext.StartBiDiModeAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -145,11 +145,11 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
         Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiMode"), "chrome", "edge")
 
         '第2引数が省略ならシート側の設定を適用
-        Dim UseDataDir As String: UseDataDir = IIf(StrPtr(SwitchUser) = 0, .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode"), SwitchUser)
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode")
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.StartBiDiMode BrowserName, StartURL, UseDataDir, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+        StartBiDiMode.StartBiDiMode BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
     End With
 End Function
 
