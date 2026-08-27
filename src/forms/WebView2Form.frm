@@ -66,7 +66,7 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPContext
     '1. WebView2の追加起動引数準備
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
-    SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(ShSetting01_StartBrowser.UseRangeID(3, ".StartCDPModeWebView2"))
+    SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(ShSetting01_StartBrowser.UseRangeID(3, "WebView2Form.StartCDPModeWebView2"))
 
     '2. 引数が省略されてる場合は、ワークシートの設定を適用
     If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
