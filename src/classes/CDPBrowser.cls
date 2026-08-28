@@ -323,63 +323,17 @@ Private Function getBrowserPath(strBrowserType As String) As String
     Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
 
 
+    '1. exe名を取得
     Select Case True
         Case InStr(LCase(strBrowserType), "chrome"): br.Type = brChrome
         Case InStr(LCase(strBrowserType), "edg"): br.Type = brEdge         'On edge it is just "Edg"
         Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
     End Select
 
-    'カスタムパスの指定があったらそっちを優先
-    With ShSetting01_StartBrowser
-        If LenB(.UseRangeID(1, FromProcedureName)) = 0 Then
-            '1. 必要な変数を用意
-            Dim strKeyPath      As String   'ベースパス
-            Dim ValueSize       As Long     '値の大きさ
+    '2. 汎用モジュール側でブラウザパスを取得する
+    getBrowserPath = CDPHelpers.getBrowserPath(br.Type)
 
-            '2. ブラウザのインストールパスのあるレジストリ場所を指定
-            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & br.Type
-
-            '3. レジストリから、ブラウザインストールパスを特定
-            '※文字列の場合、仕組み上まず、文字数チェックを行います
-            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
-                '4. 得た文字数を基に改めて、値の中身を取り出す
-                getBrowserPath = String(ValueSize / 2, vbNullChar)
-                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
-
-                '5. `vbnullchar`以前を取り出す
-                getBrowserPath = Split(getBrowserPath, vbNullChar)(0)
-            End If
-        Else
-            '1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .UseRangeID(1, FromProcedureName)
-        End If
-    End With
-
-    'パスが空の場合は、次の捜索へ
-    If LenB(getBrowserPath) = 0 Then
-
-        '2. デフォルトインストールパスチェック
-        Select Case br.Type
-            Case brChrome
-                If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & br.Type
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & br.Type
-                End If
-            Case brEdge
-                If LenB(Dir(Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & br.Type
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & br.Type
-                End If
-        End Select
-
-        If LenB(getBrowserPath) > 0 Then
-            If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = ""
-        End If
-
-
-        '2段階の捜索でもパスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
+    '3. パスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
         If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
     End If
 

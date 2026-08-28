@@ -46,6 +46,71 @@ Private Const ThisModuleName   As String = "CDPHelpers"    'トレース用
 
 
 '***************************************************************************************************
+'                                   ■■■ パス情報 ■■■
+'***************************************************************************************************
+'* 機能　　：利用するブラウザパスを取得します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：AppPathName    "msedge.exe"のようなブラウザexe名を指定します
+'* 返り値　：ブラウザパス　 ※失敗時は、`vbnullstring`で返します
+'***************************************************************************************************
+Public Function getBrowserPath(ByVal AppPathName As String) As String
+    Const FromProcedureName As String = ThisModuleName & ".getBrowserPath"
+
+
+    '1. カスタムパスの指定があったらそっちを優先
+    With ShSetting01_StartBrowser
+        If LenB(.UseRangeID(1, FromProcedureName)) Then
+            '1-1. カスタムパスを指定(ポータブル版ブラウザなど)
+            getBrowserPath = .UseRangeID(1, FromProcedureName)
+
+        Else
+            '1-1. 必要な変数を用意
+            Dim strKeyPath      As String   'ベースパス
+            Dim ValueSize       As Long     '値の大きさ
+
+            '1-2. ブラウザのインストールパスが記録されてるレジストリ場所を指定
+            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & AppPathName
+
+            '1-3. レジストリから、ブラウザインストールパスを特定
+            '※文字列で取るので仕組み上まず、文字数チェックを行います
+            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
+                '1-4. 得た文字数を基に改めて、値の中身を取り出しつつ、末尾の`vbNullChar`も落とすように調整する
+                getBrowserPath = String(ValueSize / 2 - 2, vbNullChar)
+                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
+            End If
+        End If
+    End With
+
+    '2. パスが空の場合は、次の捜索へ
+    If LenB(getBrowserPath) = 0 Then
+        '2-1. デフォルトインストールパスチェック
+        '※Chrome,Edgeのみ確認します
+        Select Case AppPathName
+            Case BrowserList.RunChrome
+                If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName
+                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & AppPathName
+                End If
+            Case BrowserList.RunEdge
+                If LenB(Dir(Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & AppPathName)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & AppPathName
+                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & AppPathName)) > 0 Then
+                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & AppPathName
+                End If
+        End Select
+
+        '2-2. 存在するか？
+        If LenB(getBrowserPath) > 0 Then
+            'しなかったら、`vbnullstring`にしておく
+            If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = vbNullString
+        End If
+    End If
+End Function
+
+
+
+'***************************************************************************************************
 '                                   ■■■ ポリシー情報 ■■■
 '***************************************************************************************************
 '* 機能　　：`RemoteDebuggingAllowed`の確認を行います
