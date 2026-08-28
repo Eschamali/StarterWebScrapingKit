@@ -38,12 +38,8 @@ Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマン�
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore      'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
 
-'BiDiコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)
-Private Type cacheResultBiDi
-    response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
-    Limit       As Long         'その`Dictionary`に詰め込む上限数
-End Type
-Private resultBiDi  As cacheResultBiDi
+'BiDiコマンドの結果を蓄積する変数(`WithEvents`で直接は取らないようにする仕組み作り)
+Private ResultCommandBiDi As Dictionary  '「ID - それに対するBiDiコマンドの結果」というDictionary
 
 'ブラウザからの非同期イベント状況
 Private m_Events    As Dictionary
@@ -522,21 +518,14 @@ End Function
 '            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
-'* 注意事項：・Jsonは、文字列のままで渡されます。
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteBiDiAsync`の結果)が全て削除されます
+'* 注意事項：Jsonは、文字列のままで渡されます。
 '***************************************************************************************************
 Private Sub m_BiDiCore_detectionBiDiID(id As Long, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiID"
 
 
-    '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
-    If resultBiDi.response.Count + 1 > resultBiDi.Limit Then
-        resultBiDi.response.RemoveAll
-        printMsg WARN_, "The accumulation limit has exceeded " & resultBiDi.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
-    End If
-
-    '2. その後、結果を蓄積
-    resultBiDi.response.Add id, RawJson
+    '結果を蓄積し、後で取り出せるようにする
+    ResultCommandBiDi.Add id, RawJson
     printMsg Trace_, "The results of the WebDriverBiDi(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
 End Sub
 
@@ -546,7 +535,7 @@ End Sub
 '* 機能説明：IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub m_BiDiCore_ResetCommandID()
-    resultBiDi.response.RemoveAll
+    ResultCommandBiDi.RemoveAll
 End Sub
 
 '***************************************************************************************************
@@ -565,16 +554,16 @@ Property Get TakeResultBiDi(commandID As Long) As String
 
 
     '1. 存在するか？
-    If resultBiDi.response.Exists(commandID) Then
+    If ResultCommandBiDi.Exists(commandID) Then
         '2. Log化
-        Dim tmp As String: tmp = resultBiDi.response(commandID)
+        Dim tmp As String: tmp = ResultCommandBiDi(commandID)
         printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
         TakeResultBiDi = tmp
 
         '4. 取り出したので消しておく
-        resultBiDi.response.Remove commandID
+        ResultCommandBiDi.Remove commandID
         printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
@@ -649,15 +638,23 @@ Public Property Get LastBiDiJsonError() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：BiDi-Json コマンド結果を蓄積させる上限を決めます
+'* 機能　　：BiDi-Json コマンド結果を手動でクリアします
 '---------------------------------------------------------------------------------------------------
-'* LET引数 ：置き換える上限数
+'* 返値    ：クリア件数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
+'* 機能説明：任意のタイミングでの、メモリクリーン等にどうぞ
 '***************************************************************************************************
-Property Let SetLimitBiDi(Number As Long)
-    resultBiDi.Limit = Number
-End Property
+Public Function CleanResultCommandBiDi() As Long
+    Const FromProcedureName As String = ThisClassName & ".CleanResultCommandBiDi"
+
+
+    '1. クリア件数を返却
+    CleanResultCommandBiDi = ResultCommandBiDi.Count
+
+    '2. ALLクリア
+    ResultCommandBiDi.RemoveAll
+    printMsg info_, "The user cleared " & CleanResultCommandBiDi & " previous BiDi command results.", FromProcedureName
+End Function
 
 
 
@@ -1023,7 +1020,6 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
-    Set resultBiDi.response = New Dictionary
-    resultBiDi.Limit = MaxStoreResultBiDi
+    '`WithEvents`からのコマンド結果を蓄積させる初期化
+    Set ResultCommandBiDi = New Dictionary
 End Sub

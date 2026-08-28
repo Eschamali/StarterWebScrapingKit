@@ -111,7 +111,6 @@ Private Const EventsDictionaryKeyName02 As String = "EventMethods"
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
-Private Const MaxStoreResultCDP As Long = 2 ^ 16            'ブラウザからのコマンド結果蓄積数
 
 
 
@@ -167,12 +166,8 @@ Private Type StateTabForJavaScript
 End Type
 Private brTabRuntime As StateTabForJavaScript
 
-'CDPコマンドの結果を一時蓄積する際の管理(`WithEvents`によるズレ防止の仕組み作り)
-Private Type cacheResultCDP
-    response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
-    Limit       As Long         'その`Dictionary`に詰め込む上限数
-End Type
-Private ResultCDP_Tab As cacheResultCDP
+'CDPコマンドの結果を蓄積する変数
+Private ResultCommandCDP_Context As Dictionary  '「ID - それに対するCDPコマンドの結果」というDictionary
 
 'ブラウザからの非同期イベント状況
 Private Type StateBrowserEvents
@@ -1179,9 +1174,7 @@ End Function
 '            sessionID      届いたSessionID
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
-'* 注意事項：・Jsonは、文字列のままで渡されます
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteCDPAsync`の結果)が全て削除されます
-'            ・IDが20億に達する場合も、結果履歴が全て削除されます
+'* 注意事項：Jsonは、文字列のままで渡されます
 '***************************************************************************************************
 Private Sub PipeCore_CDPContextID(id As Long, RawJson As String, sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
@@ -1190,14 +1183,8 @@ Private Sub PipeCore_CDPContextID(id As Long, RawJson As String, sessionID As St
     '1. このタブクラスで設定中の`SesionId`以外は即抜け
     If sessionID <> brTab.sessionID Then Exit Sub
 
-    '2. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
-    If ResultCDP_Tab.response.Count + 1 > ResultCDP_Tab.Limit Then
-        ResultCDP_Tab.response.RemoveAll
-        printMsg WARN_, "The accumulation limit has exceeded " & ResultCDP_Tab.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
-    End If
-
-    '3. その後、結果を蓄積
-    ResultCDP_Tab.response.Add id, RawJson
+    '2. その後、結果を蓄積し、後で取り出せるようにする
+    ResultCommandCDP_Context.Add id, RawJson
     printMsg Trace_, "The results of the CDP(ID: " & id & ") execution from the tab(sessionId: " & sessionID & ") have been received. → " & RawJson, FromProcedureName
 End Sub
 
@@ -1207,7 +1194,7 @@ End Sub
 '* 機能説明：IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub PipeCore_ResetCommandID()
-    ResultCDP_Tab.response.RemoveAll
+    ResultCommandCDP_Context.RemoveAll
 End Sub
 
 '***************************************************************************************************
@@ -1226,16 +1213,16 @@ Property Get TakeResultCDP(commandID As Long) As String
 
 
     '1. 存在するか？
-    If ResultCDP_Tab.response.Exists(commandID) Then
+    If ResultCommandCDP_Context.Exists(commandID) Then
         '2. Log化
-        Dim tmp As String: tmp = ResultCDP_Tab.response(commandID)
+        Dim tmp As String: tmp = ResultCommandCDP_Context(commandID)
         printMsg info_, "Browser were able to confirm the existence of CDP command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
         TakeResultCDP = tmp
 
         '4. 取り出したので消しておく
-        ResultCDP_Tab.response.Remove commandID
+        ResultCommandCDP_Context.Remove commandID
         printMsg Trace_, "CDP-command ID: " & commandID & " has been removed from `ResultCDP_Browser.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
@@ -1337,15 +1324,23 @@ Property Get LastCDPJsonError() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：CDP-Json コマンド結果を蓄積させる上限を決めます
+'* 機能　　：CDP-Json コマンド結果を手動でクリアします
 '---------------------------------------------------------------------------------------------------
-'* LET引数 ：置き換える上限数
+'* 返値    ：クリア件数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
+'* 機能説明：任意のタイミングでの、メモリクリーン等にどうぞ
 '***************************************************************************************************
-Property Let SetLimitCDPResult(Number As Long)
-    ResultCDP_Tab.Limit = Number
-End Property
+Public Function CleanResultCommandCDP() As Long
+    Const FromProcedureName As String = ThisClassName & ".CleanResultCommandCDP"
+
+
+    '1. クリア件数を返却
+    CleanResultCommandCDP = ResultCommandCDP_Context.Count
+
+    '2. ALLクリア
+    ResultCommandCDP_Context.RemoveAll
+    printMsg info_, "The user cleared " & CleanResultCommandCDP & " previous CDP command results.", FromProcedureName
+End Function
 
 
 
@@ -2877,9 +2872,8 @@ Private Sub Class_Initialize()
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
-    Set ResultCDP_Tab.response = New Dictionary
-    ResultCDP_Tab.Limit = MaxStoreResultCDP
+    '`WithEvents`からのコマンド結果を蓄積させる初期化
+    Set ResultCommandCDP_Context = New Dictionary
 
 End Sub
 
