@@ -1499,33 +1499,6 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
 
 End Sub
 
-Public Sub sleep(Optional seconds As Double = 0.5)
-'------------------------------------------------------------------
-' Custom sleep function. Sleep by 0.5s by default.
-' Useful for a quick necessary pause when needed.
-'------------------------------------------------------------------
-
-    Const baseUnit As Long = 1000    'ie. millisecs
-
-    sleep2 seconds * baseUnit
-    DoEvents
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：PC起動時からの「経過時間（ミリ秒）」を正確に返します（Timer関数の神互換）
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：PC起動時からの「経過時間（ミリ秒）」
-'***************************************************************************************************
-Public Function GetTicksMs() As Double
-    '1. 今の「振動回数」を取得する
-    Dim currentCount As Currency
-    Call QueryPerformanceCounter(currentCount)
-
-    '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
-    GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
-End Function
-
 '***************************************************************************************************
 '* 機能　　：呼び出し時点での`CDPPipeStream`の中身をファイルに保存します
 '---------------------------------------------------------------------------------------------------
