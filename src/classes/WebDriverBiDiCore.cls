@@ -519,14 +519,6 @@ Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String
     m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Public Sub sleep(Optional seconds As Double = 0.5)
-    m_CDPCore.sleep seconds
-End Sub
-
-Public Function TimerCounter() As Double
-    TimerCounter = m_CDPCore.GetTicksMs
-End Function
-
 Public Sub CloseHandleBrowser()
     m_CDPCore.CloseHandleBrowser
 End Sub

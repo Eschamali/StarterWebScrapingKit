@@ -128,13 +128,10 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.invokeMethod`といった記述を防ぐ措置となります。
+'* 機能　　：親クラスへの直通ラッパーです。
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
+'* 詳細説明：待機は`CDPHelpers.Sleep` / `CDPHelpers.TimerCounter`を直接使ってください
 '***************************************************************************************************
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
-End Sub
-
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub

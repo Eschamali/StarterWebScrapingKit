@@ -198,7 +198,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     Dim intRes As Long
     Dim timeStart As Double
 
-    timeStart = TimerCounter
+    timeStart = CDPHelpers.TimerCounter
 
    'Determine default browser parameters -------------------------------------------------------------------------------------
    '07/01/26: avoid using --enable-automation tag as it triggers many web apps to perform bot check
@@ -264,7 +264,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
 
     'ブラウザステータス表示
     printParams
-    printMsg info_, "Browser initialization completed after " & (TimerCounter - timeStart) / 1000 & "s", FromProcedureName
+    printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -737,7 +737,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Dim SearchType As String: SearchType = EnumToStringDevToolsAgentHost_KType(SearchTypeID)
 
     '2. タイマースタートして探索を開始する
-    If doRetrySecond > 0 Then timerStart = TimerCounter
+    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
     Do
         '3. 実行して、`Target.TargetInfo`オブジェクトリストを取得します
         Set targets = ExecuteCDP("Target.getTargets").NodeKey("targetInfos")
@@ -819,7 +819,7 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         End If
 
     '6. Do retry as long as not timeout
-    Loop Until tabfound Or TimerCounter - timerStart > doRetrySecond * 1000
+    Loop Until tabfound Or CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000
 
     '7. Returns nothing if not found
     'Nothing is preferred over throwing error
@@ -1071,7 +1071,7 @@ Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError A
     If StrPtr(AutoWaitTakeResultCDP) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
     '2. 今の経過時間を記録し、取り出し開始
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
@@ -1091,7 +1091,7 @@ Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError A
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
         '6. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
-        If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
+        If CDPHelpers.TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (CDPHelpers.TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
     Loop
 End Function
 
@@ -1298,13 +1298,13 @@ Public Sub quit()
         PipeExists = False
     Else
         '2-1. どうもブラウザは生きてるようなのでコマンドを送って確認する
-        sngT = TimerCounter
-        Do While PipeExists And TimerCounter - sngT < 5000
+        sngT = CDPHelpers.TimerCounter
+        Do While PipeExists And CDPHelpers.TimerCounter - sngT < 5000
             PipeExists = isLiveBrowser
 
             '2-2. なくなってたら、即抜け
             If Not PipeExists Then Exit Do
-            sleep 0.1
+            CDPHelpers.Sleep 0.1
         Loop
     End If
 
@@ -1319,7 +1319,7 @@ Public Sub quit()
     deleteCDPID                 'テーブルからも削除する
 
     '5. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
-    sleep 1
+    CDPHelpers.Sleep 1
     printMsg info_, "The browser has been terminated.", FromProcedureName
 
 End Sub
@@ -1626,14 +1626,6 @@ End Property
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
-
-Public Sub sleep(Optional seconds As Double = 0.5)
-    PipeCore.sleep seconds
-End Sub
-
-Public Function TimerCounter() As Double
-    TimerCounter = PipeCore.GetTicksMs
-End Function
 
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア

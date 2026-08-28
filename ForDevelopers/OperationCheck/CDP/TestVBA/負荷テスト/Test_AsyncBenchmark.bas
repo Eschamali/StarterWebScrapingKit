@@ -116,7 +116,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
             Set tabs(1) = chrome.getTab(setMain:=True)
     End Select
     
-    benchStart = chrome.TimerCounter
+    benchStart = CDPHelpers.TimerCounter
 
 
 
@@ -158,7 +158,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
         Next t
 
         ' --- Step B: 全タブ読み込み完了バリア ---
-        Dim barrierStart As Double: barrierStart = chrome.TimerCounter
+        Dim barrierStart As Double: barrierStart = CDPHelpers.TimerCounter
         Dim pendingCount As Long: pendingCount = NUM_TABS
         Do While pendingCount > 0
             chrome.TakeEvents
@@ -176,7 +176,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
                         pendingCount = pendingCount - 1
                         Debug.Print "  Tab " & t & " 読み込み完了 (NetworkEvents=" & tabStates(t).NetworkEventCountThisRound & ")"
 
-                    ElseIf chrome.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
+                    ElseIf CDPHelpers.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
                         tabStates(t).LoadedThisRound = True
                         tabStates(t).TimedOutRounds = tabStates(t).TimedOutRounds + 1
                         activeTabs(t) = False
@@ -248,7 +248,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
             Set tabs(1) = chrome.getTab(setMain:=True)
     End Select
 
-    benchStart = chrome.TimerCounter
+    benchStart = CDPHelpers.TimerCounter
 
     ReDim watchers(1 To NUM_TABS)
     ReDim tabStates(1 To NUM_TABS)
@@ -282,7 +282,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
         Next t
 
         ' --- Step B: 全タブ読み込み完了バリア ---
-        Dim barrierStart As Double: barrierStart = chrome.TimerCounter
+        Dim barrierStart As Double: barrierStart = CDPHelpers.TimerCounter
         Dim pendingCount As Long: pendingCount = NUM_TABS
         Do While pendingCount > 0
             chrome.TakeEvents   ' 1回のポンプで全タブのwatcherへイベントが配布される
@@ -296,7 +296,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
                         pendingCount = pendingCount - 1
                         Debug.Print "  Tab " & t & " 読み込み完了 (NetworkEvents=" & tabStates(t).NetworkEventCountThisRound & ")"
 
-                    ElseIf chrome.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
+                    ElseIf CDPHelpers.TimerCounter - barrierStart > TIMEOUT_LOAD_SEC * 1000 Then
                         tabStates(t).LoadedThisRound = True
                         tabStates(t).TimedOutRounds = tabStates(t).TimedOutRounds + 1
                         activeTabs(t) = False
@@ -350,7 +350,7 @@ Private Sub FireAndDrainRound(chrome As CDPBrowser, tabs() As CDPContext, active
     Next t
 
     ' Step D: このラウンドのScreenshot結果をまとめて取り出す（デコード・保存はまだしない）
-    Dim drainStart As Double: drainStart = chrome.TimerCounter
+    Dim drainStart As Double: drainStart = CDPHelpers.TimerCounter
     Dim remaining As Long: remaining = screenshotTicketCount
 
     Do While remaining > 0
@@ -382,7 +382,7 @@ Private Sub FireAndDrainRound(chrome As CDPBrowser, tabs() As CDPContext, active
                         End If
                     End If
 
-                ElseIf chrome.TimerCounter - drainStart > TIMEOUT_SCREENSHOT_SEC * 1000 Then
+                ElseIf CDPHelpers.TimerCounter - drainStart > TIMEOUT_SCREENSHOT_SEC * 1000 Then
                     screenshotTickets(i).Retrieved = True
                     remaining = remaining - 1
 
@@ -421,7 +421,7 @@ Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef ta
     PrintHeader "[" & patternName & "パターン] ベンチマーク結果"
     Debug.Print "  タブ数               : " & NUM_TABS
     Debug.Print "  ラウンド数            : " & NUM_ROUNDS
-    Debug.Print "  経過時間             : " & Format((chrome.TimerCounter - benchStart) / 1000, "0.0") & " 秒"
+    Debug.Print "  経過時間             : " & Format((CDPHelpers.TimerCounter - benchStart) / 1000, "0.0") & " 秒"
     For t = 1 To NUM_TABS
         Debug.Print "  Tab " & t & " タイムアウト回数    : " & tabStates(t).TimedOutRounds & " / " & NUM_ROUNDS & " ラウンド"
     Next t
@@ -439,7 +439,7 @@ End Sub
 ' 全ラウンド分のCookie整理券を、まとめて取得する（結果が来ていない間は待つ、タイムアウトで諦める）
 '---------------------------------------------------------------------------------------------------
 Private Sub DrainAllCookies(chrome As CDPBrowser, ByRef cookieTickets() As CookieTicket, cookieTicketCount As Long)
-    Dim drainStart As Double: drainStart = chrome.TimerCounter
+    Dim drainStart As Double: drainStart = CDPHelpers.TimerCounter
     Dim remaining As Long: remaining = cookieTicketCount
     Dim i As Long
 
@@ -463,7 +463,7 @@ Private Sub DrainAllCookies(chrome As CDPBrowser, ByRef cookieTickets() As Cooki
                         If resDic("result").Exists("cookies") Then cookieTickets(i).CookieCount = resDic("result")("cookies").Count
                     End If
 
-                ElseIf chrome.TimerCounter - drainStart > TIMEOUT_COOKIE_SEC * 1000 Then
+                ElseIf CDPHelpers.TimerCounter - drainStart > TIMEOUT_COOKIE_SEC * 1000 Then
                     cookieTickets(i).Retrieved = True
                     cookieTickets(i).HadError = True
                     remaining = remaining - 1

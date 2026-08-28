@@ -609,7 +609,7 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
         strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
-        sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 
     printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
@@ -677,10 +677,6 @@ End Property
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
-End Sub
-
-Private Sub sleep(Optional seconds As Double = 0.5)
-    m_BiDiCore.sleep seconds
 End Sub
 
 

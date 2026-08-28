@@ -127,20 +127,20 @@ Public Function AutoWaitLoaded(Optional TimeOutSecond As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitLoaded"
 
 
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         If HasLoadedFlag Then
             AutoWaitLoaded = True
             Exit Function
         End If
 
-        If TimerCounter - timerStart > TimeOutSecond * 1000 Then
+        If CDPHelpers.TimerCounter - timerStart > TimeOutSecond * 1000 Then
             printMsg WARN_, "AutoWaitLoaded timed out.", FromProcedureName
             Exit Function
         End If
 
         TakeEvents  '内部でパイプをポンプします
-        sleep 0.05
+        CDPHelpers.Sleep 0.05
     Loop
 End Function
 
@@ -153,17 +153,9 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
 
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
-End Sub
-
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     ex_CDPCore.TakeEvents StopPipeError, destruction
 End Sub
-
-Private Function TimerCounter() As Double
-    TimerCounter = ex_CDPCore.GetTicksMs
-End Function
 
 
 

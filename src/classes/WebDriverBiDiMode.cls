@@ -281,7 +281,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
     BiDiparams.Add "maxDepth", maxDepth
 
     'タイマースタート
-    If doRetrySecond Then startTime = TimerCounter
+    If doRetrySecond Then startTime = CDPHelpers.TimerCounter
     
     'シンプルに、`Instr`方式の検索で行う
     Do
@@ -316,7 +316,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
         End If
 
         If Not doRetrySecond Then Exit Do
-        If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
+        If CDPHelpers.TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
     Loop
 End Function
 
@@ -483,7 +483,7 @@ Public Function AutoWaitTakeResultBiDi(commandID As Long, Optional StopApiError 
     If StrPtr(AutoWaitTakeResultBiDi) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
     '2. 今の経過時間を記録し、取り出し開始
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
@@ -503,7 +503,7 @@ Public Function AutoWaitTakeResultBiDi(commandID As Long, Optional StopApiError 
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
         '6. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
-        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
+        If CDPHelpers.TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
     Loop
 End Function
 
@@ -674,7 +674,7 @@ Public Sub quit()
     deleteCDPID                     'テーブルからも削除する
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
-    sleep 1
+    CDPHelpers.Sleep 1
     printMsg info_, "The WebDriverBiDi has been terminated.", FromProcedureName
 End Sub
 
@@ -978,14 +978,6 @@ End Property
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
 End Sub
-
-Public Sub sleep(Optional seconds As Double = 0.5)
-    m_BiDiCore.sleep seconds
-End Sub
-
-Public Function TimerCounter() As Double
-    TimerCounter = m_BiDiCore.TimerCounter
-End Function
 
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア

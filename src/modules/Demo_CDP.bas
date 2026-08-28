@@ -135,25 +135,25 @@ Sub JapaneseElementTest()
     '日本語と絵文字入力テスト
     height.sendString "うみねこ！" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "みゃ～お！" & WorksheetFunction.Unichar(129442)  '日本語兼サロゲートペア絵文字入力テスト(U+1F636 U+200D U+1F32B U+FE0F、U+1F9A2)
     Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(129418)       '日本語兼絵文字通知表示テスト(U+1F98A)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     'ちゃんと数字で入力しなおす
     height.sendString "170.5"
     Demo_Japanese.notify "身長を入力し直しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+1F58D U+FE0F)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' 体重をセット
     Dim weight As CDPElement
     Set weight = Demo_Japanese.getElementByID("var_体重")
     weight.sendString "48.5"
     Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+2696 U+FE0F)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' ボタンクリック
     Demo_Japanese.getElementByID("executebtn").SimpleClick
     Demo_Japanese.wait
     Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' 体脂肪率を取得
     Dim 体脂肪率 As Double
@@ -395,7 +395,7 @@ Sub SimpleShadowRootTest()
                 Next
 
                 '1件、見つかったので少し待って、抜ける
-                .InheritanceCDPBrowser.sleep 2
+                CDPHelpers.Sleep 2
                 Exit Do
             End If
         Loop While True
@@ -404,7 +404,7 @@ Sub SimpleShadowRootTest()
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "accept", True
         .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
-        .InheritanceCDPBrowser.sleep
+        CDPHelpers.Sleep
 
         '8. ブラウザを正常に閉じる
         .InheritanceCDPBrowser.quit
@@ -428,12 +428,12 @@ Sub iframeShadowRootTest()
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
 
         '4. 少し待って、閉じる
-        .sleep 2
+        CDPHelpers.Sleep 2
         .quit
     End With
 End Sub
 
-Sub runEdge()
+Sub RunEdge()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
 ' This demo tries to access a webpage of a famous movie
@@ -561,7 +561,7 @@ Sub runTabsAsOne()
     chrome.InheritanceCDPBrowser.newTab "https://bing.com"
 
    'Resize to complete
-    chrome.InheritanceCDPBrowser.sleep    'ちょこっとクールタイムが必要みたい
+    CDPHelpers.Sleep    'ちょこっとクールタイムが必要みたい
     chrome.show xywh:="0 20 1000 700"
 
 End Sub

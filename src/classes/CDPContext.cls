@@ -221,10 +221,10 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
    'As a result, the below check simply checks if there is "movement" in the name of the page instead
     Dim timerStart As Double, strLoc As String
     If LenB(appUrl) Then
-        timerStart = TimerCounter
+        timerStart = CDPHelpers.TimerCounter
         Do
             If LenB(Me.Title) Then Exit Do
-            If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
+            If CDPHelpers.TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
             DoEvents
         Loop
        wait
@@ -924,10 +924,10 @@ Private Sub AutoWaitIsValidExecutionContextId()
 
 
     '1. 現在の経過時間を取得
-    Dim StartTimer As Double: StartTimer = TimerCounter
+    Dim StartTimer As Double: StartTimer = CDPHelpers.TimerCounter
     Do
         '2. タイムアウトチェック
-        If TimerCounter - StartTimer > timerOut Then printMsg ERROR_, "A valid `ExecutionContextId` was not received within the time limit.", FromProcedureName, doRaiseError:=True
+        If CDPHelpers.TimerCounter - StartTimer > timerOut Then printMsg ERROR_, "A valid `ExecutionContextId` was not received within the time limit.", FromProcedureName, doRaiseError:=True
 
         '3. イベント取り出し
         printMsg Trace_, "Waiting for a valid `ExecutionContextId`...", FromProcedureName
@@ -1138,7 +1138,7 @@ Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError A
     If StrPtr(AutoWaitTakeResultCDP) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
     '2. 今の経過時間を記録し、取り出し開始
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
@@ -1158,7 +1158,7 @@ Public Function AutoWaitTakeResultCDP(commandID As Long, Optional StopApiError A
         If PipeCore.LastErrorPeekNamedPipe > 0 Or PipeCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
         '6. 一定時間経ってもコマンド結果が来ないなら、エラーで停止します
-        If TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
+        If CDPHelpers.TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, FromProcedureName, "Timeout waiting for browser to return message." Else printMsg Trace_, (CDPHelpers.TimerCounter - timerStart) / 1000 & " seconds have passed...", FromProcedureName
     Loop
 End Function
 
@@ -1928,7 +1928,7 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
         strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
         If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
-        sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 
     printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
@@ -1958,7 +1958,7 @@ Public Sub show(Optional state As WinState = asNormal, Optional xywh As String =
    'Will not work properly if window is currently maximized
     If xywh <> "0 0 0 0" Then
 
-        sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
+        CDPHelpers.Sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
 
         Dim params As New Dictionary
         If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
@@ -2169,7 +2169,7 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
 
 
     '1. タイマースタートして探索を開始する
-    If doRetrySecond > 0 Then timerStart = TimerCounter
+    If doRetrySecond > 0 Then timerStart = CDPHelpers.TimerCounter
     Do
         '2. 実行して、まずは`frameTree`を取得
         Dim frameTreeNode As BiDiCDPJson
@@ -2255,7 +2255,7 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
         End If
 
     '7. Do retry as long as not timeout
-    Loop Until iframefound Or TimerCounter - timerStart > doRetrySecond * 1000
+    Loop Until iframefound Or CDPHelpers.TimerCounter - timerStart > doRetrySecond * 1000
 
     '8. Returns nothing if not found
     'Nothing is preferred over throwing error
@@ -2808,14 +2808,6 @@ End Property
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
 End Sub
-
-Private Sub sleep(Optional seconds As Double = 0.5)
-    PipeCore.sleep seconds
-End Sub
-
-Private Function TimerCounter() As Double
-    TimerCounter = PipeCore.GetTicksMs
-End Function
 
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア

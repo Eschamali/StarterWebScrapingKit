@@ -150,17 +150,13 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ `CDPContext,CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.sleep`といったチェーンメソッド記述を防ぐ措置となります。
+'* 機能　　：親クラスへの直通ラッパーです。
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：下記3つは一例ですが、必要に応じて削除や追加も可能です
+'* 詳細説明：下記は一例です。待機は`CDPHelpers.Sleep` / `CDPHelpers.TimerCounter`を直接使ってください。必要に応じて削除や追加も可能です
 '* 注意事項：各種メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておき、Private化すること
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
-End Sub
-
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)

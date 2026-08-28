@@ -753,13 +753,13 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 
 
     'カウントスタート
-    Dim timeStart As Double: timeStart = TimerCounter
+    Dim timeStart As Double: timeStart = CDPHelpers.TimerCounter
 
     '`vbNull`以外になるまで続ける
     '※このメソッド実行時点で既にある場合は、ループ探索には入りません
     Do While CurrentElement.ResultVarType = vbNull
         '1. タイムアウトチェック
-        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then
+        If CDPHelpers.TimerCounter - timeStart > timeOutInSeconds * 1000 Then
             printMsg ERROR_, "onExists timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
@@ -783,7 +783,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 
         '3. 結果を判定。文字型なら、ObjectIDを確保
         CurrentElement.ResultVarType = VarType(resultSearch)
-        If CurrentElement.ResultVarType = vbString Then CurrentElement.objectId = resultSearch Else sleep 0.1
+        If CurrentElement.ResultVarType = vbString Then CurrentElement.objectId = resultSearch Else CDPHelpers.Sleep 0.1
     Loop
 
     '自身を返却
@@ -803,12 +803,12 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
 
 
     'カウントスタート
-    Dim timeStart As Double: timeStart = TimerCounter
+    Dim timeStart As Double: timeStart = CDPHelpers.TimerCounter
 
     '`vbNull`になるまで続ける
     Do Until CurrentElement.ResultVarType = vbNull
         '1. タイムアウトになったら抜ける
-        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName: Exit Function
+        If CDPHelpers.TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName: Exit Function
 
         '2. 検索を再実行
         Dim resultSearch As Boolean
@@ -816,7 +816,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
 
         '3. 結果を判定。存在しなかったら、ObjectIDをクリア
         CurrentElement.ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
-        If CurrentElement.ResultVarType = vbNull Then CurrentElement.objectId = vbNullString Else sleep 0.1
+        If CurrentElement.ResultVarType = vbNull Then CurrentElement.objectId = vbNullString Else CDPHelpers.Sleep 0.1
     Loop
 
     '消えたサインを返却
@@ -1560,14 +1560,6 @@ End Sub
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     main.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
 End Sub
-
-Private Sub sleep(Optional seconds As Double = 0.5)
-    main.InheritanceCDPBrowser.sleep seconds
-End Sub
-
-Private Function TimerCounter() As Double
-    TimerCounter = main.InheritanceCDPBrowser.TimerCounter
-End Function
 
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)

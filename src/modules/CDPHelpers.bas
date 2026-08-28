@@ -244,13 +244,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：これを使う前に、`InitQueryPerformanceFrequency`を呼び出すこと
 '***************************************************************************************************
-Public Function GetTicksMs() As Double
+Public Function TimerCounter() As Double
     '1. 今の「振動回数」を取得する
     Dim currentCount As Currency
     Call QueryPerformanceCounter(currentCount)
 
     '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
-    GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
+    TimerCounter = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
 End Function
 
 '***************************************************************************************************
