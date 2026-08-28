@@ -192,13 +192,13 @@ Private timerOut    As Double   'Max timeout period in seconds, snapPage usually
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
+'            Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            addArgs        追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(Optional Name As String = "chrome", _
+Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"

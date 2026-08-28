@@ -58,16 +58,33 @@ Private m_Frequency As Currency '実行マシンでの周波数記録用
 
 
 '***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ブラウザ種別をexe名で返します
+'---------------------------------------------------------------------------------------------------
+Public Function EnumToStringBrowserList(param As BrowserList) As String
+    Select Case param
+        Case BrowserList.RunChrome: EnumToStringBrowserList = "chrome.exe"
+        Case BrowserList.RunEdge:   EnumToStringBrowserList = "msedge.exe"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
 '                                   ■■■ パス情報 ■■■
 '***************************************************************************************************
 '* 機能　　：利用するブラウザパスを取得します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：AppPathName    "msedge.exe"のようなブラウザexe名を指定します
+'* 引数　　：BrowserType    起動するブラウザ種別（`BrowserList`）
 '* 返り値　：ブラウザパス　 ※失敗時は、`vbnullstring`で返します
 '***************************************************************************************************
-Public Function getBrowserPath(ByVal AppPathName As String) As String
+Public Function getBrowserPath(ByVal BrowserType As BrowserList) As String
     Const FromProcedureName As String = ThisModuleName & ".getBrowserPath"
 
+    Dim AppPathName As String
+    AppPathName = EnumToStringBrowserList(BrowserType)
 
     '1. カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
@@ -97,7 +114,7 @@ Public Function getBrowserPath(ByVal AppPathName As String) As String
     If LenB(getBrowserPath) = 0 Then
         '2-1. デフォルトインストールパスチェック
         '※Chrome,Edgeのみ確認します
-        Select Case AppPathName
+        Select Case BrowserType
             Case BrowserList.RunChrome
                 If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
                     getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName

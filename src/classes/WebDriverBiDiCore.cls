@@ -77,7 +77,7 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '***************************************************************************************************
 '* 機能　　：「BiDi-CDP Mapper」を付けた状態で、ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
@@ -86,7 +86,7 @@ Private LogID           As String   'このClassオブジェクトとしての�
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub InitBiDi(Optional Name As String = "chrome", _
+Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)

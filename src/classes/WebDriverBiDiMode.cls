@@ -61,13 +61,13 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiMode(Optional Name As String = "chrome", _
+Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)

@@ -152,7 +152,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name           ブラウザ名。※現時点では、Chrome OR Edge のみ
+'* 引数　　：Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
 '            addArgs        追加の起動引数
@@ -160,7 +160,7 @@ End Function
 '* 機能説明
 ' This function initiates a new browser instance.
 ' By default, this function initializes chrome as the default choice.
-' To init edge, parse 'edge' to the first parameter (eg. browser.start "edge").
+' To init edge, pass BrowserList.RunEdge to the first parameter (eg. browser.start BrowserList.RunEdge).
 ' To open in App Mode, input the starting URL for appURL parameter as app mode cannot be open on a blank tab.
 ' If cleanActive is False, the method will skip cleaning currently open instances. This will save
 ' initialization time but if an instance is already running and not closed, pipe error will be triggered.
@@ -180,7 +180,7 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Sub start(Optional Name As String = "chrome", _
+Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
     Optional addArgs As String)

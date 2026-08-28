@@ -59,7 +59,7 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
     With Me
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), "chrome", "edge")
+        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), BrowserList.RunChrome, BrowserList.RunEdge)
 
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext")
@@ -86,7 +86,7 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
     With Me
         '起動ブラウザ種類の設定
         '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), "chrome", "edge")
+        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), BrowserList.RunChrome, BrowserList.RunEdge)
 
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode")
@@ -116,7 +116,7 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
     With Me
         '起動ブラウザ種類の設定
         '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiModeContext"), "chrome", "edge")
+        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiModeContext"), BrowserList.RunChrome, BrowserList.RunEdge)
 
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext")
@@ -142,7 +142,7 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
     With Me
         '起動ブラウザ種類の設定
         '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As String: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiMode"), "chrome", "edge")
+        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiMode"), BrowserList.RunChrome, BrowserList.RunEdge)
 
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode")
