@@ -80,11 +80,6 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByRef lpNumberOfBytesWritten As Long, _
     lpOverlapped As Long) As Long
 
-'----- 待機関連 -----
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
-Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
-Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
-
 
 
 '***************************************************************************************************
@@ -1602,8 +1597,8 @@ Private Sub Class_Initialize()
     '3. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
 
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
-    Call QueryPerformanceFrequency(m_Frequency)
+    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶する
+    CDPHelpers.InitQueryPerformanceFrequency
     '------------------------------------------------------------------------------
 End Sub
 
