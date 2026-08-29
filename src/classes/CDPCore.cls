@@ -232,7 +232,6 @@ Private hProcess        As LongPtr
 '起動ウィンドウ情報
 Private setShowWindow   As WinState
 Private dwProcessId     As LongPtr
-Private UserDataDirPath As String
 
 'コマンドIDとSessionIDの紐づけ管理
 Private DictionarySessionID As Dictionary
@@ -265,16 +264,13 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
 
-        '1-3. `user-data-dir`情報を取得
-        UserDataDirPath = .getUserDataDirPath
-
-        '1-4. デバッグブラウザを閉じる(開いてたら)
+        '1-3. デバッグブラウザを閉じる(開いてたら)
         .cleanUpSessions
 
-        '1-5. 「ページを復元しました」といったお節介機能を無効化
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
         .setCrashStateNormal
 
-        '1-6. コマンドラインを生成
+        '1-5. コマンドラインを生成
         ' ブラウザexeフルパス
         ' デバッグ方法
         ' データ保存先

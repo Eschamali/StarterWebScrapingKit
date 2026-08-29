@@ -170,7 +170,6 @@ Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た�
 'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ使用
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID
-Private UserDataDirPath     As String           'ローカルブラウザ起動時の`user-data-dir`
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -1223,13 +1222,10 @@ Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As Br
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
 
-        '1-3. `user-data-dir`情報を取得
-        UserDataDirPath = .getUserDataDirPath
-
-        '1-4. デバッグブラウザを閉じる(開いてたら)
+        '1-3. デバッグブラウザを閉じる(開いてたら)
         .cleanUpSessions
 
-        '1-5. 「ページを復元しました」といったお節介機能を無効化
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
         .setCrashStateNormal
 
         '1-6. コマンドラインを生成
