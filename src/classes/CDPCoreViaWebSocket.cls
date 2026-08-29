@@ -1210,7 +1210,7 @@ End Function
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
 '* 注意事項：このプロシージャではブラウザの起動までです。WebSocketへの接続は、返ったオブジェクト内の別途プロシージャ(`AutoConnectBrowserCDP`等)で行って下さい
 '***************************************************************************************************
-Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String, Optional OpenPort As Long = D_port) As String
+Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As BrowserList, Optional FirstURL As String, Optional addArgs As String, Optional OpenPort As Long = D_port) As String
     Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
 
 
