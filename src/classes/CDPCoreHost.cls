@@ -130,11 +130,14 @@ Public Sub cleanUpSessions()
             '5. Killタイプ判定
             If currentPolicy.UserDataDir.Exists Then
                 '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
+                printMsg Debug_, "The `UserDataDir` policy is in effect, so all running browser instances will be terminated..." & proc.CommandLine, FromProcedureName
                 proc.Terminate
 
             ElseIf InStr(1, proc.CommandLine, GenerateArgRemoteDebugging) > 0 And InStr(1, proc.CommandLine, GenerateArgUserDataDir) > 0 Then
                 '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
-                 proc.Terminate
+                printMsg Debug_, "Detect debug browser: " & proc.CommandLine, FromProcedureName
+                printMsg Debug_, "I'm going to kill that browser.", FromProcedureName
+                proc.Terminate
             End If
         End If
         DoEvents
