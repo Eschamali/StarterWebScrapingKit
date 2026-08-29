@@ -262,16 +262,19 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
         '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
         .InitInfo UserName, BrowserType, True
 
-        '1-2. `user-data-dir`情報を取得
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. `user-data-dir`情報を取得
         UserDataDirPath = .getUserDataDirPath
 
-        '1-3. デバッグブラウザを閉じる(開いてたら)
+        '1-4. デバッグブラウザを閉じる(開いてたら)
         .cleanUpSessions
 
-        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        '1-5. 「ページを復元しました」といったお節介機能を無効化
         .setCrashStateNormal
 
-        '1-5. コマンドラインを生成
+        '1-6. コマンドラインを生成
         ' ブラウザexeフルパス
         ' デバッグ方法
         ' データ保存先

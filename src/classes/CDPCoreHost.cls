@@ -105,9 +105,6 @@ Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As B
     DebugUserName = UserName
     UserBrowserMode = BrowserType
     PipeMode = UsePipe
-
-    'ポリシーチェックを行い、情報更新を行う
-    CheckRemoteDebuggingBlockedByPolicy
 End Sub
 
 '***************************************************************************************************
@@ -393,7 +390,7 @@ End Function
 '               ・RemoteDebuggingAllowed
 '               ・UserDataDir
 '***************************************************************************************************
-Private Sub CheckRemoteDebuggingBlockedByPolicy()
+Public Sub CheckRemoteDebuggingBlockedByPolicy()
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
