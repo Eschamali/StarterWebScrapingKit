@@ -12,7 +12,7 @@ Option Private Module
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
 '----- 待機関連 -----
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" (ByVal dwMilliseconds As Long)
+Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
 Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
 Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
 
