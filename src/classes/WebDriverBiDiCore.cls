@@ -33,9 +33,6 @@ Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-C
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
 Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
-'その他
-Private Const LimitCommandID    As Long = 2000000000    'BiDiコマンド送信時のID上限値
-
 
 
 '***************************************************************************************************

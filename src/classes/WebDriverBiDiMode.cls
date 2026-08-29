@@ -20,14 +20,8 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'BiDiからのイベント情報を格納する際のDictionaryKey名設定
-Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Private Const EventsDictionaryKeyName02 As String = "EventMethods"
-
-'その他
 Private Const TIMEOUT_DEFAULT       As Double = 30                  '初期タイムアウト秒数
 Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログのトレース用
-Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマンド結果蓄積数
 
 
 
@@ -47,10 +41,12 @@ Private m_Events    As Dictionary
 '各種エラー情報
 Private m_ErrorDetails  As Dictionary
 
-'その他
-Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+'ログ関連
 Private LogID           As String
 Private logFolderPath   As String        'ログファイルの保存フォルダパス
+
+'その他
+Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private BiDiUserName    As String       'User-data-dir と同等
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用

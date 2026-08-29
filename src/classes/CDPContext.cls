@@ -97,18 +97,6 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'JSの`document.readyState`の状態一式
-Public Enum ReadyState      'Used for .wait method
-    isLoading = 0           'equivalence of the browser's "loading" state
-    isInteractive = 1       'equivalence of the browser's "interactive" state
-    isComplete = 2          'equivalence of the browser's "complete" state
-End Enum
-
-'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
-Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Private Const EventsDictionaryKeyName02 As String = "EventMethods"
-
-'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
 
@@ -1915,20 +1903,17 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 
 
     Dim strState As String, targetState As String
-    Select Case till
-        Case isLoading: targetState = "loading"
-        Case isInteractive: targetState = "interactive"
-        Case isComplete: targetState = "complete"
-    End Select
+    targetState = EnumToStringReadyState(till)
 
     '初期値を設定しておく
     '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = "loading"
+    strState = EnumToStringReadyState(isLoading)
+
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
+        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
         CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 

@@ -596,20 +596,16 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 
 
     Dim strState As String, targetState As String
-    Select Case till
-        Case isLoading: targetState = "loading"
-        Case isInteractive: targetState = "interactive"
-        Case isComplete: targetState = "complete"
-    End Select
+    targetState = EnumToStringReadyState(till)
 
     '初期値を設定しておく
     '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = "loading"
+    strState = EnumToStringReadyState(isLoading)
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
+        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
         CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 

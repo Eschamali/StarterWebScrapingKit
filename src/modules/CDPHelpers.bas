@@ -21,6 +21,24 @@ Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFre
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
+'JSの`document.readyState`の状態一式
+Public Enum ReadyState      'Used for .wait method
+    isLoading = 0           'equivalence of the browser's "loading" state
+    isInteractive = 1       'equivalence of the browser's "interactive" state
+    isComplete = 2          'equivalence of the browser's "complete" state
+End Enum
+
+'バッファー設定関連
+Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
+Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
+
+'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
+Public Const EventsDictionaryKeyName01 As String = "TotalEvents"
+Public Const EventsDictionaryKeyName02 As String = "EventMethods"
+
+'その他
+Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値
+Public Const chromeWindowClass As String = "Chrome_WidgetWin_1" 'same window class for Edge
 Private Const ThisModuleName   As String = "CDPHelpers"         'トレース用
 
 
@@ -56,6 +74,16 @@ Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
     End Select
 End Function
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 待機の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Public Function EnumToStringReadyState(param As ReadyState) As String
+    Select Case param
+        Case ReadyState.isLoading:      EnumToStringReadyState = "loading"
+        Case ReadyState.isInteractive:  EnumToStringReadyState = "interactive"
+        Case ReadyState.isComplete:     EnumToStringReadyState = "complete"
+    End Select
+End Function
 
 
 
