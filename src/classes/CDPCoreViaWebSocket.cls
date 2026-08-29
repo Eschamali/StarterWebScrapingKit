@@ -1197,6 +1197,62 @@ Public Function AutoConnectDevToolsActivePort(UserName As String, Optional Reuse
     End If
 End Function
 
+'***************************************************************************************************
+'* 機能　　：ローカルのブラウザをWebSocketモードで起動します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：起動時のコマンドライン。
+'* 引数　　：UserName       記録する識別名称
+'            BrowserType    ブラウザタイプ
+'            FirstURL       `-app`に渡すURL
+'            addArgs        追加引数
+'            OpenPort       どのポートでデバッグするか？
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
+'* 注意事項：このプロシージャではブラウザの起動までです。WebSocketへの接続は、返ったオブジェクト内の別途プロシージャ(`AutoConnectBrowserCDP`等)で行って下さい
+'***************************************************************************************************
+Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String, Optional OpenPort As Long = D_port) As String
+    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備
+        .InitInfo UserName, BrowserType, OpenPort
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(FirstURL), _
+                                    addArgs))
+    End With
+
+    '2. 実際に起動を行います
+    printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
+    dwProcessId = Shell(RunCommandLine, setShowWindow)
+
+    '3. エラー時は、Stop
+    If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
+
+    '4. コマンドラインを返却
+    RunWebSocketModeBrowserCDP = RunCommandLine
+End Function
+
 
 
 '***************************************************************************************************
@@ -1264,62 +1320,6 @@ Public Function deserialize(UserName As String) As Boolean
 
     '成功サインを返す
     deserialize = True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：ローカルのブラウザをWebSocketモードで起動します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：起動時のコマンドライン。
-'* 引数　　：UserName       記録する識別名称
-'            BrowserType    ブラウザタイプ
-'            FirstURL       `-app`に渡すURL
-'            addArgs        追加引数
-'            OpenPort       どのポートでデバッグするか？
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
-'* 注意事項：このプロシージャではブラウザの起動までです。WebSocketへの接続は別途プロシージャで行って下さい
-'***************************************************************************************************
-Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String, Optional OpenPort As Long = D_port) As String
-    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
-
-
-    '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
-        '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, BrowserType, OpenPort
-
-        '1-2. ポリシーチェック
-        .CheckRemoteDebuggingBlockedByPolicy
-
-        '1-3. デバッグブラウザを閉じる(開いてたら)
-        .cleanUpSessions
-
-        '1-4. 「ページを復元しました」といったお節介機能を無効化
-        .setCrashStateNormal
-
-        '1-5. コマンドラインを生成
-        ' ブラウザexeフルパス
-        ' デバッグ方法
-        ' データ保存先
-        ' 初期URL
-        ' 追加引数
-        Dim RunCommandLine As String
-        RunCommandLine = Join(Array(.getBrowserPath, _
-                                    .GenerateArgRemoteDebugging, _
-                                    .GenerateArgUseUserData, _
-                                    .GenerateArgApp(FirstURL), _
-                                    addArgs))
-    End With
-
-    '2. 実際に起動を行います
-    printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
-    dwProcessId = Shell(RunCommandLine, setShowWindow)
-
-    '3. エラー時は、Stop
-    If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
-
-    '4. コマンドラインを返却
-    RunWebSocketModeBrowserCDP = RunCommandLine
 End Function
 
 
