@@ -82,11 +82,6 @@ Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
 '--- ログ設定状況 ---
-Private Type StateLog
-    id                  As String   'ユニーク名
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog As StateLog
 
 
@@ -562,7 +557,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebView2.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.id, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString), vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 
@@ -576,14 +571,11 @@ Private Sub Class_Initialize()
 
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
-    currentLog.id = "WVID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "WVID" & Format(Rnd * 1000, "000")
 
-    'パスが設定されてたら、ログファイル保存を有効化
-    Dim logFolderPath As String: logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
-    If LenB(logFolderPath) > 0 Then
-        currentLog.doLog = True                'ログファイルとして保存するか？
-        currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
-    End If
+    'ログ設定
+    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
+    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()

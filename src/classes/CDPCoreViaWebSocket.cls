@@ -168,11 +168,6 @@ Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た�
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
 '--- ログ設定状況 ---
-Private Type StateLog
-    id                  As String   'ユニーク名
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog As StateLog
 
 '--- Pipe版に合わせたエラー有無判定 ---
@@ -921,7 +916,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebSokect.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.id, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString), vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 
@@ -1298,14 +1293,11 @@ Private Sub Class_Initialize()
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
-    currentLog.id = "WSID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")
 
-    'パスが設定されてたら、ログファイル保存を有効化
-    Dim logFolderPath As String: logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
-    If LenB(logFolderPath) > 0 Then
-        currentLog.doLog = True                'ログファイルとして保存するか？
-        currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
-    End If
+    'ログ設定
+    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
+    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte

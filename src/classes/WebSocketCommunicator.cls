@@ -130,11 +130,6 @@ End Type
 Private currentebWebSocket As StateWebSocket
 
 '--- ログ設定状況 ---
-Private Type StateLog
-    id                  As String   'ユニーク名
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog As StateLog
 
 '最後のWebSocketから得た受信データ
@@ -218,10 +213,10 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Dim logName As String, strFormattedMsg As String
 
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & currentLog.id & " | " & strMsg
+    Else strFormattedMsg = " | " & currentLog.LogID & " | " & strMsg
 
    'Perform msg logging if needed
-    If currentLog.doLog Then
+    If LenB(currentLog.logPath) Then
         logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebSokect.log"
         If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
     End If
@@ -724,17 +719,13 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.id = "BRID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "WHID" & Format(Rnd * 1000, "000")
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        '1. パスが設定されてたら、ログファイル保存を有効化
-        Dim logFolderPath As String: logFolderPath = .UseRangeID(9, FromProcedureName)
-        If LenB(logFolderPath) Then
-            currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
-        End If
+        currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)
+        currentLog.logPath = .UseRangeID(9, FromProcedureName)
     End With
 
     'タイムアウト設定(デフォルトで、30s)
