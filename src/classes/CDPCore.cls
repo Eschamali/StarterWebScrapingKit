@@ -308,7 +308,10 @@ Public Function ReadyInitCDP(UserName As String, BrowserType As BrowserList, Fir
     '3. エラー時は、Stop
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
 
-    '4. コマンドラインを返却
+    '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
+    serialize UserName
+
+    '5. コマンドラインを返却
     ReadyInitCDP = RunCommandLine
 End Function
 
@@ -469,7 +472,7 @@ End Function
 '* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Public Sub serialize(UserName As String)
+Private Sub serialize(UserName As String)
     '0. データ記録準備
     Dim tmp As New Dictionary
 

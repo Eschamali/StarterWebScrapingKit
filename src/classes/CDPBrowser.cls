@@ -172,13 +172,10 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     '3. 起動依頼
     br.CallString = PipeCore.ReadyInitCDP(br.User, Name, appUrl, addArgs)
 
-    '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
-    PipeCore.serialize br.User
-
-    '5. 起動中のブラウザ情報を変数に記録
+    '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    '6. ブラウザステータス表示
+    '5. ブラウザステータス表示
     printParams
     printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Sub
