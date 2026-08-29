@@ -1414,6 +1414,10 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, br.LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
+
+
+'***************************************************************************************************
+'                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
 '***************************************************************************************************

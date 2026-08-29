@@ -2802,9 +2802,7 @@ End Property
 
 
 '***************************************************************************************************
-'                               ■■■ CDPCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
@@ -2813,6 +2811,10 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, brTab.LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
+
+
+'***************************************************************************************************
+'                               ■■■ CDPCore.cls 直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
 '***************************************************************************************************
