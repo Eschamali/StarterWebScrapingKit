@@ -1167,9 +1167,30 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
+    Const FromProcedureName As String = ThisClassName & ".getBrowserInfo"
+
+
     br.Type = ExecuteCDP("Browser.getVersion")("product")
     br.Ver = Split(br.Type, "/")(1)
-    If PipeCore.Connection_dwProcessId > 0 Then br.Path = getBrowserPath(br.Type)  'プロセスID情報がない場合は、取らない
+
+    'プロセスID情報がない場合は、ブラウザパスを取らない
+    If PipeCore.Connection_dwProcessId > 0 Then
+        '"Browser.getVersion"を基に、どういうブラウザかを特定する
+        Dim BrowserType As BrowserList
+
+        '1. タイプを特定
+        Select Case True
+            Case InStr(LCase(br.Type), "chrome"): BrowserType = RunChrome
+            Case InStr(LCase(br.Type), "edg"): BrowserType = RunEdge         'On edge it is just "Edg"
+            Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
+        End Select
+
+        '2. ブラウザパスの取得を試みる
+        With New CDPCoreHost
+            .InitInfo br.User, BrowserType
+            br.Path = .getBrowserPath
+        End With
+    End If
 End Sub
 
 
