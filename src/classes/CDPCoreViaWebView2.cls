@@ -579,10 +579,10 @@ Private Sub Class_Initialize()
     currentLog.id = "WVID" & Format(Rnd * 1000, "000")
 
     'パスが設定されてたら、ログファイル保存を有効化
-    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
-    If LenB(LogFolderPath) > 0 Then
+    Dim logFolderPath As String: logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    If LenB(logFolderPath) > 0 Then
         currentLog.doLog = True                'ログファイルとして保存するか？
-        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+        currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
     End If
 End Sub
 

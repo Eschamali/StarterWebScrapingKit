@@ -1557,10 +1557,10 @@ Private Sub Class_Initialize()
         currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
         '2-2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .UseRangeID(9, FromProcedureName)
-        If LenB(LogFolderPath) > 0 Then
+        Dim logFolderPath As String: logFolderPath = .UseRangeID(9, FromProcedureName)
+        If LenB(logFolderPath) > 0 Then
             currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
+            currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
         End If
 
         '2-3. Assign an objID for easy debug identification
