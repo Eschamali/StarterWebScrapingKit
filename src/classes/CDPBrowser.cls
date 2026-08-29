@@ -20,14 +20,6 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
-'DJP 20241105 to solve problems with terminating sessions on terminal server
-Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
-    ) As Long
-
-Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
-    ByVal dwProcessId As Long, _
-    ByRef pSessionId As Long) As Long
-
 Private Declare PtrSafe Function TerminateProcess Lib "kernel32" (ByVal hProcess As LongPtr, ByVal uExitCode As Long) As Long
 
 
@@ -95,19 +87,6 @@ Private br As StateBrowser
 
 'CDPコマンドの結果を蓄積する変数
 Private ResultCommandCDP_Browser As Dictionary  '「ID - それに対するCDPコマンドの結果」というDictionary
-
-'---------------- ポリシー状況一覧 ----------------
-Private Type StatePolicy
-    Exists      As Boolean  '存在有無
-    Contents    As Variant  '中身の値
-End Type
-
-Private Type CheckPolicy
-    UserDataDir As StatePolicy  'https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
-End Type
-Private currentPolicy As CheckPolicy
-Private UseChrome     As Boolean
-'--------------------------------------------------
 
 '各種エラー情報
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
@@ -312,148 +291,6 @@ Property Set RunCollect_TargetCreated(ArgCollect As Collection)
     '引数のポインタCollectionを指定させる
     Set TargetInfos = ArgCollect
 End Property
-
-Private Function getBrowserPath(strBrowserType As String) As String
-'----------------------------------------------------------------------------------
-' Obtain the installation path of the browser program. This is useful when
-' the installation path is changed by the user or their corporation for security.
-' Updated: 22/03/2023
-' 20251023 Daniel Polak - added fallback path when registry lookup fails (in a locked-down environment)
-'----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
-
-
-    '1. exe名を取得
-    Select Case True
-        Case InStr(LCase(strBrowserType), "chrome"): br.Type = brChrome
-        Case InStr(LCase(strBrowserType), "edg"): br.Type = brEdge         'On edge it is just "Edg"
-        Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
-    End Select
-
-    '2. 汎用モジュール側でブラウザパスを取得する
-    getBrowserPath = CDPHelpers.getBrowserPath(br.Type)
-
-    '3. パスが見つからない場合は、ブラウザが入ってない or カスタムパスインストール or ポータブル版ブラウザ or Canaryブラウザの可能性
-        If LenB(getBrowserPath) = 0 Then printMsg ERROR_, "Unable to locate " & br.Type & " installation path.", FromProcedureName, doRaiseError:=True
-    End If
-
-End Function
-
-'***************************************************************************************************
-'* 機能　　：新しいデバッグブラウザセッションを開始する前にクリーンアップを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：実行結果　※0で成功です
-'* 引数    ：BrowserPath        起動しようとするブラウザフルパス
-'            UserDataArg        `--user-data-dir` or `--profile-directory`といった起動ユーザー引数を適用します
-'            onlyCdpSessions    `True` ：`--remote-debugging-pipe`,`--user-data-dir="..."`を含む、CDP制御サインに対してのブラウザをKillします
-'                               `False`：起動しようとするブラウザパスのみに対してのブラウザをKillします。ポリシー：UserDataDir の対策です
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：・基本は対象ブラウザの`remote-debugging-pipe`プロセスのみを終了します
-'            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
-'***************************************************************************************************
-Private Sub cleanUpSessions(onlyCdpSessions As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".cleanUpSessions"
-
-
-    '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
-    Dim lProcessId As Long, lSessionId As Long
-    lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
-    ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
-
-    ' 2. exe名を取得
-    Dim exeName As String, tmp
-    tmp = Split(br.Path, "\")
-    exeName = tmp(UBound(tmp))
-
-    ' 3. 起動中のプロセスを巡る
-    Dim proc As Object
-    On Error Resume Next
-    For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
-        '4. 起動中のブラウザ名であるか確認
-        If LCase$(proc.Name) = LCase$(exeName) Then
-            '5. Killタイプ判定
-            If Not onlyCdpSessions Then
-                '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
-                proc.Terminate
-
-            ElseIf InStr(1, proc.CommandLine, "--" & ArgRemoteDebuggingName) > 0 And InStr(1, proc.CommandLine, br.User) > 0 Then
-                '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
-                 proc.Terminate
-            End If
-        End If
-        DoEvents
-    Next
-    On Error GoTo 0
-    Err.Clear
-
-    printMsg info_, "cleanUpSessions completed and previous CdpSessionID removed", FromProcedureName
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：リモート デバッグに関するポリシーチェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserExeName        "msedge.exe" とかを指定します。本家ライブラリに沿った形です
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：・企業によっては、ポリシー設定でリモートデバッグできないようにしています。
-'　　　　　　・設定されていると、起動はできたのに、なんか操作できないといった混乱が発生するため、このチェックを設けています
-'            ・現在は下記の確認に対応してます
-'               ・RemoteDebuggingAllowed
-'               ・UserDataDir
-'***************************************************************************************************
-Private Sub IsRemoteDebuggingBlockedByPolicy(BrowserExeName As String)
-    Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
-
-
-    'ブラウザ名に応じて、ベースとなるキーパスを設定
-    Dim RegPathBrowser As String
-    Select Case BrowserExeName
-        Case brEdge:    RegPathBrowser = "\Microsoft\Edge"
-        Case brChrome:  RegPathBrowser = "\Google\Chrome"     'https://issues.chromium.org/issues/42323066
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
-    End Select
-
-    '"HKLM(0)"と"HKCU(1)"を確認する
-    '最初は、PC単位、次に、現在のログインユーザー単位で確認します
-    Dim i As Long
-    Dim ErrorMes As String
-    For i = 0 To 1
-        ' ------------ 1. RemoteDebuggingAllowed ------------
-        '※これに引っかかると残念ですが、CDP制御はできません
-        If CDPHelpers.CheckBrowserPolicyRemoteDebuggingAllowed(i, RegPathBrowser) Then
-                '通達
-                ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                                  "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
-
-                printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-                Exit For
-        End If
-
-
-        '------------ 2. UserDataDir ------------
-        '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも毎回、落とさないといけない制限となります
-        currentPolicy.UserDataDir.Contents = CDPHelpers.CheckBrowserPolicyUserDataDir(i, RegPathBrowser)
-
-        'ポリシーとして存在してるなら中身のチェック
-        If StrPtr(currentPolicy.UserDataDir.Contents) Then
-            'フラグ立て
-            currentPolicy.UserDataDir.Exists = True
-
-            '空文字チェック
-            If LenB(currentPolicy.UserDataDir.Contents) = 0 Then
-                '空文字でも固定化されるため、そのパスを提示しておく
-                currentPolicy.UserDataDir.Contents = Environ("LOCALAPPDATA") & "\" & RegPathBrowser & "\User Data"
-            End If
-
-            '通達
-            ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。これが個人のPCアカウントであり、この仕様を回避する場合は、レジストリ操作にて削除して下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザデータの配置場所が`" & currentPolicy.UserDataDir.Contents & "`に固定されています。起動中のブラウザを全て落とします。")
-
-            printMsg WARN_, ErrorMes, FromProcedureName
-            Exit For
-        End If
-    Next
-End Sub
 
 
 
@@ -1324,58 +1161,7 @@ Public Sub quit()
 
 End Sub
 
-Private Sub setCrashStateNormal()
-'------------------------------------------------------------------
-' Set Crashed state to Normal to prevent the "Restore Sessions?"
-' popup from appearing every time the browser is started after
-' being closed by browser.quit method.
-' Requires user data dir profile stored in private var br.User and
-' the browser type stored in private variable br.Type.
-' Update: 22/01/26 - Tweaked to work well with the new multi-instance
-'                    structure.
-'------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".setCrashStateNormal"
 
-
-    Dim filePath_Preferences As String
-    Dim strContents As String, strNewContents As String
-    Dim intF As Integer
-
-    '状況に応じたクラッシュパス情報を指定する
-    '`UserDataDir`のポリシーがあったらそっちを優先
-    If currentPolicy.UserDataDir.Exists Then
-        'Use this switch instead if your organization disables UserDataDir with policy
-        filePath_Preferences = currentPolicy.UserDataDir.Contents & "\" & br.User & "\Preferences"
-    Else
-        'user-data-dir
-        Select Case br.Type
-            Case brChrome: filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & br.User & "\Default\Preferences"
-            Case brEdge: filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & br.User & "\Default\Preferences"
-        End Select
-    End If
-
-
-    'クラッシュ情報がない場合は、ここで抜ける
-    If LenB(Dir(filePath_Preferences)) = 0 Then Exit Sub
-
-    intF = FreeFile
-    Open filePath_Preferences For Binary As #intF
-        strContents = Input$(LOF(intF), #intF)
-    Close #intF
-
-   'Precise replacement: only replace exit_type value
-    strNewContents = Replace(strContents, """exit_type"":""Crashed""", """exit_type"":""Normal""", 1, -1, vbBinaryCompare)
-
-    If strNewContents <> strContents Then
-        intF = FreeFile
-        Open filePath_Preferences For Binary As #intF
-            Put #intF, 1, strNewContents
-        Close #intF
-    End If
-
-    printMsg info_, "setCrashStateNormal completed", FromProcedureName
-
-End Sub
 
 '***************************************************************************************************
 '* 機能　　：`CDPCore.InitCDP`で起動したデバッグブラウザプロセスハンドルに対して、プロセス終了をかけます
