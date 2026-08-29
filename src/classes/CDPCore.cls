@@ -386,7 +386,7 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = ShowWindowMode
+        .wShowWindow = setShowWindow
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -1364,23 +1364,6 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ プロパティ機能 ■■■
 '***************************************************************************************************
-'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：UTF-8 の変換が作動してるかの論理値
-'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
-'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
-'***************************************************************************************************
-Property Let UseConverterUtf8FromString(Flag As Boolean)
-    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
-End Property
-
-Property Get UseConverterUtf8FromString() As Boolean
-    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
-End Property
-
-'***************************************************************************************************
 '* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
 '***************************************************************************************************
 Property Get ConnectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
@@ -1528,6 +1511,8 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 初期化/後始末処理 ■■■
 '***************************************************************************************************
+'* 機能　　：各種設定を適用します
+'***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
@@ -1565,6 +1550,12 @@ Private Sub Class_Initialize()
 
         '2-3. Assign an objID for easy debug identification
         LogID = "COID" & Format(Rnd * 1000, "000")
+
+        '2-4. UTF8変換モードを設定するか
+        If .UseRangeID(10, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
+
+        '2-5. 初期起動ウィンドウ状態を設定
+        setShowWindow = .UseRangeID(12, FromProcedureName)
     End With
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化
