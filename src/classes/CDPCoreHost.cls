@@ -79,7 +79,7 @@ Private UseChrome     As Boolean
 '取得するブラウザ設定
 Private UserBrowserMode As BrowserList
 Private DebugUserName   As String
-Private cRemotePort     As Long
+Private PipeMode        As Boolean
 
 'ログ設定
 Private currentLog              As StateLog
@@ -93,13 +93,18 @@ Private currentLog              As StateLog
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       記録する識別名称
 '            BrowserType    ブラウザタイプ
-'            RemotePort     Port経由で制御する場合は指定
+'            UsePipe        Port経由で制御する場合は`False`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`RemotePort`の挙動は下記です
+'            ・-1 ：Pipeモード
+'            ・0  ：Chromium側が空いてるポートを見つけてくれる
+'            ・1↑：そのポートで開くように強制
 '***************************************************************************************************
 Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As Boolean)
     '各種情報反映
     DebugUserName = UserName
     UserBrowserMode = BrowserType
-    cRemotePort = RemotePort
+    PipeMode = UsePipe
 
     'ポリシーチェックを行い、情報更新を行う
     CheckRemoteDebuggingBlockedByPolicy
@@ -370,7 +375,7 @@ End Function
 '* 詳細説明：`InitInfo`の第三引数に応じて変わります
 '***************************************************************************************************
 Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(cRemotePort = 0, "--remote-debugging-pipe", "--remote-debugging-port=" & cRemotePort)
+    GenerateArgRemoteDebugging = IIf(PipeMode, "--remote-debugging-pipe", "--remote-debugging-port=0")
 End Function
 
 
@@ -406,7 +411,7 @@ Private Sub CheckRemoteDebuggingBlockedByPolicy()
         If CheckBrowserPolicyRemoteDebuggingAllowed(i) Then
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                                "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
 
             printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
             Exit For

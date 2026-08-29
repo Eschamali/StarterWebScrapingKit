@@ -1185,7 +1185,7 @@ Private Sub getBrowserInfo()
 
         '2. ブラウザパスの取得を試みる
         With New CDPCoreHost
-            .InitInfo br.User, BrowserType
+            .InitInfo br.User, BrowserType, False
             br.Path = .getBrowserPath
         End With
     End If
