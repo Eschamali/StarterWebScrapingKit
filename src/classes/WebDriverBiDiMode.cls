@@ -41,9 +41,8 @@ Private m_Events    As Dictionary
 '各種エラー情報
 Private m_ErrorDetails  As Dictionary
 
-'ログ関連
-Private LogID           As String
-Private logFolderPath   As String        'ログファイルの保存フォルダパス
+'ログ設定
+Private currentLog      As StateLog
 
 'その他
 Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
@@ -76,6 +75,7 @@ Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
 
     '2. WebDriverBiDi としてブラウザを起動させる
     m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, sessionCapabilitiesRequest
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
@@ -178,6 +178,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName, WebSocketMode)
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
     If requestSessionNew Then
@@ -419,7 +420,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -974,7 +975,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -1012,10 +1013,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    LogID = "BDID" & Format(Rnd * 1000, "000")
-
-    'ログファイル保存先
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    currentLog.LogID = "BDID" & Format(Rnd * 1000, "000")
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正

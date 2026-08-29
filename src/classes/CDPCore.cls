@@ -222,13 +222,7 @@ Private responseCDP     As ResponseBufferCDP
 Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェクト
 
 'ログ設定状況
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog  As StateLog
-Private LogID       As String
 
 'パイプ関連のエラー番号
 Private Type ErrorCode
@@ -1457,8 +1451,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ログ設定値、取得用プロパティ
 '***************************************************************************************************
-Property Get ShowLogCDPresponse() As Boolean
-    ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+Friend Property Get LogSettings() As StateLog
+    LogSettings = currentLog
 End Property
 
 '***************************************************************************************************
@@ -1491,7 +1485,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString)
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 '***************************************************************************************************
@@ -1553,15 +1547,11 @@ Private Sub Class_Initialize()
         '2-1. イミディエイトに関する設定を行う
         currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
-        '2-2. パスが設定されてたら、ログファイル保存を有効化
-        Dim logFolderPath As String: logFolderPath = .UseRangeID(9, FromProcedureName)
-        If LenB(logFolderPath) > 0 Then
-            currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = logFolderPath     '保存先のフォルダパスを設定
-        End If
+        '2-2. ログファイル保存先。空ならファイル出力しない
+        currentLog.logPath = .UseRangeID(9, FromProcedureName)
 
         '2-3. Assign an objID for easy debug identification
-        LogID = "COID" & Format(Rnd * 1000, "000")
+        currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
 
         '2-4. UTF8変換モードを設定するか
         If .UseRangeID(10, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion

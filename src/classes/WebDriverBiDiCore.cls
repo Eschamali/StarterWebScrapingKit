@@ -60,13 +60,11 @@ Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
 Private Type StateDebug
     ViewDebugTab        As Boolean      '「BiDi-CDP Mapper is controlling this tab」といったデバックタブ画面を表示するか？※非表示でも、「edge://inspect/#other」で存在確認はできます。
     DiagnosticLog       As Boolean      '「BiDi-CDP Mapper」内の診断ログ情報を出力するか
-    seeRawSendMsgDbg    As Boolean      'BiDiのresponseをデバッグログに出すかの調整
 End Type
 Private BiDiDebug As StateDebug
 
-'ステート管理
-Private LogID           As String   'このClassオブジェクトとしてのログID
-Private logFolderPath   As String   'ログファイルの保存フォルダパス
+'ログ設定
+Private currentLog      As StateLog
 
 
 
@@ -98,6 +96,7 @@ Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
+    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
     newTabForBiDi
@@ -246,6 +245,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     '3. 各種オブジェクトを継承
     Set m_CDPCore = WebDriverBiDi_mapperTab.InheritanceCDPCore
     Set m_CDPBrowser = WebDriverBiDi_mapperTab.InheritanceCDPBrowser
+    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '`TargetID`有無に応じた分岐
     If mapperTabConnection Then
@@ -339,7 +339,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Case BiDiResMain
             '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
             bindingCalledPayload = CDPToBiDi.StringKey("payload")
-            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
+            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
             BiDiReceivedDataCheck bindingCalledPayload
@@ -504,20 +504,13 @@ Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時の
 End Property
 
 '***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Property Get ShowLogBiDiresponse() As Boolean
-    ShowLogBiDiresponse = m_CDPCore.ShowLogCDPresponse
-End Property
-
-'***************************************************************************************************
 '* 機能　　：基本ラッパー機能
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Public Sub CloseHandleBrowser()
@@ -724,14 +717,12 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    LogID = "BCID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "BCID" & Format(Rnd * 1000, "000")
 
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser
         BiDiDebug.ViewDebugTab = .UseRangeID(11, FromProcedureName)    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
-        BiDiDebug.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-        BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
-        logFolderPath = .UseRangeID(9, FromProcedureName)                'ログファイルの保存フォルダパス
+        BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)     'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
 

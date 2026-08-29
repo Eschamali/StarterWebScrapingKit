@@ -69,9 +69,8 @@ Private ParentElement   As CDPElement       ' このClass内で相対検索し�
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
 
-'ForDebug
-Private seeRawSendMsgDbg As Boolean
-Private logFolderPath    As String   'ログファイルの保存フォルダパス
+'ログ設定
+Private currentLog As StateLog
 
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
@@ -102,6 +101,7 @@ Private RunOption As callFunctionOnParameters
 Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
     Set main = InheritanceCDPContext
+    CDPHelpers.InheritLogSettings currentLog, InheritanceCDPContext.InheritanceCDPCore.LogSettings
 
     With CurrentElement
         '実行結果の型タイプ
@@ -119,9 +119,7 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)     'ログファイルの保存フォルダパス
+    currentLog.LogID = "ELID" & Format(Rnd * 1000, "000")
 End Sub
 
 
@@ -1547,7 +1545,7 @@ Public Sub SetFileInputFiles(files As Collection)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
-    If seeRawSendMsgDbg Then
+    If currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
     Else
         printMsg info_, "Attachment complete.", FromProcedureName
@@ -1563,7 +1561,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 

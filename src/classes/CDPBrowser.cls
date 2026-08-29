@@ -73,7 +73,6 @@ Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
     Path        As String   'Browser default installation path
-    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Ver         As String   'The current browser version
     CallString  As String   'The initial call string used by .start
 End Type
@@ -90,7 +89,7 @@ Private timerOut                As Double       'Max timeout period in seconds, 
 Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
-Private logFolderPath           As String       'ログファイルの保存フォルダパス
+Private currentLog              As StateLog     'ログ設定
 
 
 
@@ -162,6 +161,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
 
     '1. パイプ関連の初期化処理しついでに、起動完了までのタイム測定もしちゃう
     Set PipeCore = New CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
     Dim timeStart As Double
     timeStart = CDPHelpers.TimerCounter
 
@@ -249,6 +249,7 @@ Public Sub reattachPipe(userProfile As String)
 
     '2. CDP制御するための初期化
     Set PipeCore = New CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. 1を基に、Excelテーブルからハンドル情報を取得
     '※載ってない物はエラーとする
@@ -276,6 +277,7 @@ Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaW
 
     '2. CDP制御するための初期化
     Set PipeCore = New CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. 引数を基に、WebSocketの接続情報を適用
     '※オブジェクトなしの場合は、エラーとする
@@ -304,6 +306,7 @@ Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWeb
 
     '2. CDP制御するための初期化
     Set PipeCore = New CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. 引数を基に、WEBView2オブジェクト情報を適用
     '※オブジェクトなしの場合は、エラーとする
@@ -780,7 +783,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1144,7 +1147,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, br.LogID & " Browser - Information", FromProcedureName
+    printMsg Debug_, currentLog.LogID & " Browser - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
@@ -1358,7 +1361,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, br.LogID, isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -1403,15 +1406,12 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    br.LogID = "BRID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "BRID" & Format(Rnd * 1000, "000")
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     'ホワイトプロトコルリストを取得
     ProtocolWhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
-
-    'ログファイル保存先
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
@@ -1432,5 +1432,6 @@ End Sub
 '***************************************************************************************************
 Property Set InheritanceCDPCore(t As CDPCore)
     Set PipeCore = t
+    CDPHelpers.InheritLogSettings currentLog, t.LogSettings
 End Property
 #End If

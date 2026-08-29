@@ -28,6 +28,14 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
+'各 Class のログ設定（`Private currentLog As StateLog`）。
+'`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
+Public Type StateLog
+    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or CDPからのコマンド結果 or 非同期イベントの生Json文字列
+    logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
+    LogID               As String   '"○○○○" & Format(Rnd * 1000, "000")　(○は4文字)
+End Type
+
 'バッファー設定関連
 Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
 Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
@@ -132,6 +140,16 @@ End Sub
 
 '***************************************************************************************************
 '                                     ■■■ ログ系 ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPCore` ホストのログ設定（生JSON表示 / 保存先）を受け継ぎます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`LogID` は各 Class 固有のため上書きしません
+'***************************************************************************************************
+Public Sub InheritLogSettings(ByRef dest As StateLog, source As StateLog)
+    dest.seeRawSendMsgDbg = source.seeRawSendMsgDbg
+    dest.logPath = source.logPath
+End Sub
+
 '***************************************************************************************************
 '* 機能　　：Immediate Window と、任意のフォルダへのログファイル出力を行います
 '---------------------------------------------------------------------------------------------------

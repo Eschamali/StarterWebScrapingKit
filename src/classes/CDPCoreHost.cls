@@ -87,8 +87,7 @@ Private DebugUserName   As String
 Private cRemotePort     As Long
 
 'ログ設定
-Private LogID                   As String
-Private logFolderPath           As String      'ログファイルの保存フォルダパス
+Private currentLog              As StateLog
 
 
 
@@ -500,7 +499,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -513,8 +512,9 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    LogID = "CHID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "CHID" & Format(Rnd * 1000, "000")
 
-    'ログファイル保存先
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    'ログ設定
+    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
+    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 End Sub

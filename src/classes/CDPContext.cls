@@ -138,7 +138,6 @@ Private Type StateTab
     '補助情報
     hWnd        As LongPtr  'Browser object window handle
     WID         As String   'Useful for windows repositioning
-    LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Title       As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
 End Type
@@ -171,7 +170,7 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 'その他
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private logFolderPath   As String   'ログファイルの保存フォルダパス
+Private currentLog      As StateLog 'ログ設定
 
 
 
@@ -197,7 +196,7 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
     BrowserCore.start Name, appUrl, userProfile, addArgs
 
     '2. WithEventsClassオブジェクトを受け取る
-    Set PipeCore = BrowserCore.InheritanceCDPCore
+    Set Me.InheritanceCDPCore = BrowserCore.InheritanceCDPCore
 
     '3. Complete initialization ------------------------------------------------------
     attachToSession     'Find and attach the newly open Session ID
@@ -391,7 +390,7 @@ Private Function reattach(Optional reuseSession As Boolean) As Boolean
 
 
     '1. タブ情報を再セット
-    Set PipeCore = BrowserCore.InheritanceCDPCore
+    Set Me.InheritanceCDPCore = BrowserCore.InheritanceCDPCore
     deserializeForTab reuseSession
 
     '2. `sessionId`が空欄の場合は、即抜け
@@ -623,7 +622,7 @@ step1:
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
         'CDP自体の結果ログ表示
-        If PipeCore.ShowLogCDPresponse Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+        If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
         Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
@@ -667,7 +666,7 @@ step2:
     Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
 
     '`RemoteObject`部分を文字ログ化
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If Not Node_ExceptionDetails Is Nothing Then
@@ -1073,7 +1072,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If PipeCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1720,7 +1719,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, brTab.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
@@ -2569,7 +2568,11 @@ Property Get InheritanceCDPCore() As CDPCore
     Set InheritanceCDPCore = PipeCore
 End Property
 Property Set InheritanceCDPCore(Target As CDPCore)
+    '1. コア本体を継承
     Set PipeCore = Target
+
+    '2. ログ設定もついでに継承
+    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
 End Property
 
 '***************************************************************************************************
@@ -2672,7 +2675,7 @@ Property Let CurrentSessionID(newSessionID As String)
     End With
 
     getSessionInfo        'update all session infos
-    printMsg info_, brTab.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, currentLog.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -2793,7 +2796,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, brTab.LogID, isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -2847,10 +2850,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    brTab.LogID = "TBID" & Format(Rnd * 1000, "000")
-
-    'ログファイル保存先
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    currentLog.LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary

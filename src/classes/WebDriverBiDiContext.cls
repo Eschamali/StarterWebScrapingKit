@@ -40,8 +40,7 @@ Private InfoList As browsingContextInfo
 
 'その他
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
-Private LogID                   As String
-Private logFolderPath           As String      'ログファイルの保存フォルダパス
+Private currentLog              As StateLog     'ログ設定
 
 
 
@@ -69,7 +68,7 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList
     m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest
 
     '3. イベントを継承
-    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.InheritanceWebDriverBiDiCore = m_BiDiMode.InheritanceBiDiCore
 
     '4. タブの接続へ
     attachToContext
@@ -98,7 +97,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest, WebSocketMode) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
-    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.InheritanceWebDriverBiDiCore = m_BiDiMode.InheritanceBiDiCore
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -674,7 +673,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -698,7 +697,11 @@ Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
     Set InheritanceWebDriverBiDiCore = m_BiDiCore
 End Property
 Property Set InheritanceWebDriverBiDiCore(Target As WebDriverBiDiCore)
+    '1. コア本体を継承
     Set m_BiDiCore = Target
+
+    '2. ログ設定もついでに継承
+    CDPHelpers.InheritLogSettings currentLog, Target.DirectControlCDP.InheritanceCDPCore.LogSettings
 End Property
 
 '***************************************************************************************************
@@ -721,10 +724,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    LogID = "BTID" & Format(Rnd * 1000, "000")
-
-    'ログファイル保存先
-    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    currentLog.LogID = "BTID" & Format(Rnd * 1000, "000")
 End Sub
 
 Private Sub Class_Terminate()
