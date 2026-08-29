@@ -42,11 +42,6 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Public Enum BrowserList
-    RunEdge
-    RunChrome
-End Enum
-
 '===============レジストリ関連の定数===============
 ' ルートキー
 Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー

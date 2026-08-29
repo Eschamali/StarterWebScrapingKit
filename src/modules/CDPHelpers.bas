@@ -28,6 +28,12 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
+'起動する Chromium 系ブラウザ。`CDPCoreHost` に置くと、こちらの `StateLog` と循環参照になる
+Public Enum BrowserList
+    RunEdge
+    RunChrome
+End Enum
+
 '各 Class のログ設定（`Private currentLog As StateLog`）。
 '`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
 Public Type StateLog
