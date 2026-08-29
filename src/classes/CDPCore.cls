@@ -204,7 +204,6 @@ Public Event ResetCommandID()
 '***************************************************************************************************
 '各種クラスオブジェクト
 Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
-Private LogControl              As New Logger               'ログレベルの制御
 Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
 Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
@@ -260,7 +259,6 @@ Private dwProcessId     As LongPtr
 Private DictionarySessionID As Dictionary
 
 'その他
-Private m_Frequency         As Currency '実行マシンでの周波数記録用
 Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 
 
@@ -1489,44 +1487,11 @@ End Property
 '***************************************************************************************************
 '                               ■■■ その他ヘルパーメソッド ■■■
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & LogID & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
-        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With LogControl
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_:   .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_:   .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    '主に、CDPコマンドのエラー時に止まります
-    If doRaiseError Then Err.Raise CDPCustomErrorCodes.Protocol, From, Description:=strMsg
-
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString)
 End Sub
 
 '***************************************************************************************************
