@@ -53,8 +53,6 @@ End Enum
 '***************************************************************************************************
 'このツール固有情報
 Private Const CDPVer                    As String = "3.1.0"
-Private Const ArgRemoteDebuggingName    As String = "remote-debugging-pipe"
-
 
 'その他
 Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
