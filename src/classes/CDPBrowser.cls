@@ -70,6 +70,7 @@ Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP
 Attribute PipeCore.VB_VarHelpID = -1
 
 '操作中のブラウザ情報一式
+'※`reattach`系から始めた場合は一部の情報は取り出せません
 Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
@@ -77,7 +78,6 @@ Private Type StateBrowser
     LogID       As String   'The ID of the current CDPBrowser object. Useful when reading debugs of multiple tabs.
     Ver         As String   'The current browser version
     CallString  As String   'The initial call string used by .start
-    setShowWindow As WinState   '`remote-debugging-pipe`で起動する際のブラウザ初期表示モードの設定値
 End Type
 Private br As StateBrowser
 
@@ -162,82 +162,25 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    'パイプ関連の初期化処理
+    '1. パイプ関連の初期化処理しついでに、起動完了までのタイム測定もしちゃう
     Set PipeCore = New CDPCore
-    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString '`New`による直後に、文字コード設定を反映
-
-    'いくつかのポリシーチェックを行います。
-    IsRemoteDebuggingBlockedByPolicy IIf(UseChrome, brChrome, brEdge)
-
-    Dim strCall As String, addProfile As String
-    Dim intRes As Long
     Dim timeStart As Double
-
     timeStart = CDPHelpers.TimerCounter
 
-   'Determine default browser parameters -------------------------------------------------------------------------------------
-   '07/01/26: avoid using --enable-automation tag as it triggers many web apps to perform bot check
-    Select Case Name
-        Case "edge": br.Type = brEdge
-        Case "chrome": br.Type = brChrome
-        Case Else: printMsg ERROR_, "Browser initiation fails: only the defined browser types can be accepted", FromProcedureName, doRaiseError:=True
-    End Select
-    br.Path = getBrowserPath(br.Type)
-    strCall = """" & br.Path & """ --" & ArgRemoteDebuggingName
-   '--------------------------------------------------------------------------------------------------------------------------
+    '2. Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+    br.User = userProfile
+    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
 
-   'Add starting URL to the call string -------------------------------------------------------------------------------------------------------------------
-    If appUrl <> "" Then
-        If appUrl = "about:blank" Then printMsg ERROR_, "Browser cannot be open under Application Mode when homepage is set to ""about:blank""", FromProcedureName, doRaiseError:=True
-        strCall = strCall & " --app=""" & checkURI(appUrl) & """"
-    Else
-        strCall = strCall & " --homepage ""about:blank"""
-    End If
-   '-------------------------------------------------------------------------------------------------------------------------------------------------------
+    '3. 起動依頼
+    br.CallString = PipeCore.ReadyInitCDP(br.User, Name, appUrl, addArgs)
 
-   'Start with the choice profile -------------------------------------------------------------------------------------------------------------
-   '22/01/26: I have recently noted that if an organization sets the group policy of Edge of UserDataDir to a specific structure, the argument --user-data-dir
-   'will be effectively disabled and blocked to the specified data dir by the policy. In this scenario, CDP session can only load the browser state from the default
-   'data dir which already cannot be allowed to run --remote-debugging-pipe from Google's latest Chromium. If Edge's Chromium updates to the latest, this policy will
-   'cause the CDP initialization to fail. If Edge's Chromium is still behind the latest Chromium version, CDP init can still be possible with the --profile-directory
-   'switch but the requirement is that all running Edge instances that had been started up manually will need to be closed first otherwise the PeekNamedPipe error
-   'will result. For Chrome, v136 and later does not honor remote-debugging request if user profile is loaded from the Chrome\User Data\ folder.
-   'As a result, here we set it to Chrome\CDP\ folder instead (auto-created if not exists).
-    Select Case br.Type
-        Case brEdge: addProfile = IIf(currentPolicy.UserDataDir.Exists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & userProfile & """")      'ポリシー状況に応じて、引数を変える
-        Case brChrome: addProfile = IIf(currentPolicy.UserDataDir.Exists, " --profile-directory=""" & userProfile & """", " --user-data-dir=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & userProfile & """")     'ポリシー状況に応じて、引数を変える
-    End Select
-    strCall = strCall & addProfile
-    br.User = userProfile 'store the user profile name for cpid serialization
-   '-----------------------------------------------------------------------------------------------------------------------------------------
+    '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
+    PipeCore.serialize br.User
 
-   'Clean up previous sessions if they could not be reattached to avoid PeekNamedPipe error --------------------------------------------
-   'Note: The error usually occurs when the same User Profile is already being used by another pipe. Hence if this
-   'session is unable to connect to the previous pipe (for instance, due to the session application host was abruptly terminated),
-   'PeekNamedPipe error will be thrown.
-    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser        'Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
-    cleanUpSessions onlyCdpSessions:=Not (currentPolicy.UserDataDir.Exists)  'Note: you can set onlyCdpSessions to True by default if your organization does not force UserDataDir policy
-    setCrashStateNormal 'Prevent "Restore Session" popup
-   '------------------------------------------------------------------------------------------------------------------------------------
-
-   'Prepare for initialization ------------------------------------------------------------------------
-    strCall = strCall & " " & addArgs  'Add additional arguments if instructed
-   '---------------------------------------------------------------------------------------------------
-
-   'Initialize CDPCore class ----------------------------------------------------------------------------------------------------------
-    br.CallString = strCall
-    printMsg Debug_, "Starting pipe communication... → " & br.CallString, FromProcedureName
-    intRes = PipeCore.InitCDP(br.CallString, br.setShowWindow) 'Serializable is set to True by default for ease of accessibility
-    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
-   '-----------------------------------------------------------------------------------------------------------------------------------
-
-    'ブラウザセッションパイプ情報を記録
-    serializeForPipe
-
-    '起動中のブラウザ情報を変数に記録
+    '5. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    'ブラウザステータス表示
+    '6. ブラウザステータス表示
     printParams
     printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Sub
@@ -384,10 +327,6 @@ Private Sub reattach()
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 文字コード設定を反映
-    PipeCore.UseConverterUtf8FromString = UseConverterUtf8FromString
-
-    '2. 接続生存確認
     If isLiveBrowser Then
         '不整合を防ぐため、Pipeに残存しているデータを破棄しておく
         TakeEvents destruction:=True
@@ -416,13 +355,6 @@ End Function
 
 '***************************************************************************************************
 '                           ■■■ 各種接続情報記録/削除設定 ■■■
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルに、ブラウザへの接続パイプ情報を記録します
-'***************************************************************************************************
-Private Sub serializeForPipe()
-    PipeCore.serialize br.User
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
 '---------------------------------------------------------------------------------------------------
