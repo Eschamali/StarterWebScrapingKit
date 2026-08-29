@@ -905,25 +905,22 @@ Sub AutoConnectTab()
     WebSocketCDP.DisconnectCDP
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ローカルブラウザ起動から一通りの制御を行います
+'***************************************************************************************************
 Sub AutoConnectBrowser()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. ブラウザを起動し、指定のWebSocketForCDPへ接続
+    '2. WebSocket制御で、ブラウザを起動
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.RunWebSocketModeBrowserCDP(UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, "Demo_CDP.AutoConnectBrowser"), BrowserList.RunChrome, BrowserList.RunEdge), , ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.AutoConnectBrowser"))
-    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    Dim BrowserControl As CDPBrowser
+    Set BrowserControl = WebSocketCDP.RunWebSocketModeBrowserCDP(IIf(ShSetting01_StartBrowser.UseRangeID(4, "Demo_CDP.AutoConnectBrowser"), BrowserList.RunChrome, BrowserList.RunEdge), , UserName, ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.AutoConnectBrowser"))
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim b As New CDPBrowser
-    b.reattachWebSocket UserName, WebSocketCDP
-
-    '4. 未接続のタブに接続
+    '3. 未接続のタブに接続
     Dim t As CDPContext
-    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-'    Set t = b.getTab(setMain:=True)
-    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+    Set t = BrowserControl.getTab(setMain:=True)
 
     '5. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
