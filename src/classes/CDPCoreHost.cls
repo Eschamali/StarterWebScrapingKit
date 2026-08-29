@@ -39,6 +39,28 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
 
 
 
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
+Public Enum BrowserList
+    RunEdge
+    RunChrome
+End Enum
+
+'===============レジストリ関連の定数===============
+' ルートキー
+Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
+Private Const HKEY_CURRENT_USER     As Long = &H80000001    '"今、ログインしているユーザー"だけ
+' 戻り値の型（RegGetValueW の dwFlags に指定する制限）
+Private Const RRF_RT_REG_SZ         As Long = &H2           ' 文字列 (REG_SZ) に限定
+Private Const RRF_RT_REG_DWORD      As Long = &H10          ' 32ビット数値 (REG_DWORD) に限定
+' 型サイズ
+Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイト (32bit) と決まっている
+' APIの戻り値
+Private Const RRF_SUCCESS           As Long = 0             '成功サイン
+'==================================================
+
+'その他
 Private Const ThisClassName             As String = "CDPCoreHost"   'ログのトレース用
 
 
@@ -59,9 +81,14 @@ Private currentPolicy As CheckPolicy
 Private UseChrome     As Boolean
 '--------------------------------------------------
 
-Private UserBrowserMode As BrowserList  '使うブラウザ
+'取得するブラウザ設定
+Private UserBrowserMode As BrowserList
 Private DebugUserName   As String
 Private cRemotePort     As Long
+
+'ログ設定
+Private LogID                   As String
+Private logFolderPath           As String      'ログファイルの保存フォルダパス
 
 
 
@@ -72,6 +99,7 @@ Private cRemotePort     As Long
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       記録する識別名称
 '            BrowserType    ブラウザタイプ
+'            RemotePort     Port経由で制御する場合は指定
 '***************************************************************************************************
 Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, Optional RemotePort As Long)
     DebugUserName = UserName
@@ -82,7 +110,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：新しいデバッグブラウザセッションを開始する前にクリーンアップを行います
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：・基本は対象ブラウザの`remote-debugging-pipe`プロセスのみを終了します
+'* 機能説明：・基本は対象ブラウザの`remote-debugging-pipe/port`プロセスのみを終了します
 '            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
 '***************************************************************************************************
 Public Sub cleanUpSessions()
@@ -106,7 +134,7 @@ Public Sub cleanUpSessions()
         '4. 起動中のブラウザ名であるか確認
         If LCase$(proc.Name) = LCase$(exeName) Then
             '5. Killタイプ判定
-            If Not currentPolicy.UserDataDir.Exists Then
+            If currentPolicy.UserDataDir.Exists Then
                 '6. デバッグブラウザ(CdpSessions)であるか問わず、通常ブラウザもKillします
                 proc.Terminate
 
@@ -180,11 +208,10 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：利用するブラウザパスを取得します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserType    起動するブラウザ種別（`BrowserList`）
 '* 返り値　：ブラウザパス　 ※失敗時は、`vbnullstring`で返します
 '***************************************************************************************************
 Public Function getBrowserPath() As String
-    Const FromProcedureName As String = ThisModuleName & ".getBrowserPath"
+    Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
 
 
     Dim AppPathName As String
@@ -218,7 +245,7 @@ Public Function getBrowserPath() As String
     If LenB(getBrowserPath) = 0 Then
         '2-1. デフォルトインストールパスチェック
         '※Chrome,Edgeのみ確認します
-        Select Case BrowserType
+        Select Case UserBrowserMode
             Case BrowserList.RunChrome
                 If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
                     getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName
@@ -256,7 +283,7 @@ End Function
 '* 詳細説明：ブラウザに合わせたパスと同じ場所に配置します
 '* 注意事項：デバッグ時はこれが必須です。https://developer.chrome.com/blog/remote-debugging-port
 '***************************************************************************************************
-Public Function GenerateArgUserDataDir() As String
+Private Function GenerateArgUserDataDir() As String
     Const ArgName As String = "user-data-dir"
 
 
@@ -276,7 +303,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`UserDataDir`ポリシーに引っかかる場合は、これを代わりに指定します
 '***************************************************************************************************
-Public Function GenerateArgProfileDirectory() As String
+Private Function GenerateArgProfileDirectory() As String
     Const ArgName As String = "profile-directory"
 
 
@@ -284,6 +311,17 @@ Public Function GenerateArgProfileDirectory() As String
         Case BrowserList.RunEdge:    GenerateArgProfileDirectory = "--" & ArgName & "=""" & DebugUserName & """"
         Case BrowserList.RunChrome:  GenerateArgProfileDirectory = "--" & ArgName & "=""" & DebugUserName & """"
     End Select
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`UserDataDir`ポリシーに応じて、最適なユーザーデータ保存先引数を提供します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`GenerateArgUserDataDir` or `GenerateArgUserDataDir`のいずれか
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`CheckRemoteDebuggingBlockedByPolicy`を事前に処理させておくこと
+'***************************************************************************************************
+Public Function GenerateArgUseUserData() As String
+    GenerateArgUseUserData = IIf(currentPolicy.UserDataDir.Exists, GenerateArgProfileDirectory, GenerateArgUserDataDir)
 End Function
 
 '***************************************************************************************************
@@ -346,7 +384,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
     For i = 0 To 1
         ' ------------ 1. RemoteDebuggingAllowed ------------
         '※これに引っかかると残念ですが、CDP制御はできません
-        If CDPHelpers.CheckBrowserPolicyRemoteDebuggingAllowed(i, RegPathBrowser) Then
+        If CheckBrowserPolicyRemoteDebuggingAllowed(i) Then
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
                                 "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
@@ -358,7 +396,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
 
         '------------ 2. UserDataDir ------------
         '※これに引っかかるとCDP制御はできますが、デバッグブラウザとは関係ない普通のブラウザも毎回、落とさないといけない制限となります
-        currentPolicy.UserDataDir.Contents = CDPHelpers.CheckBrowserPolicyUserDataDir(i, RegPathBrowser)
+        currentPolicy.UserDataDir.Contents = CheckBrowserPolicyUserDataDir(i)
 
         'ポリシーとして存在してるなら中身のチェック
         If StrPtr(currentPolicy.UserDataDir.Contents) Then
@@ -387,13 +425,11 @@ End Sub
 '* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
 '                               False：HKEY_LOCAL_MACHINE 側を確認
 '
-'            TargetBrowser      確認先のブラウザポリシーパス("SOFTWARE\Policies"以降を、"\"始まりから入力)
-'
 '* 返り値　：`RemoteDebuggingAllowed:=0`で、`True`となります
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/remotedebuggingallowed
 '***************************************************************************************************
-Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boolean, ByVal TargetBrowser As String) As Boolean
+Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boolean) As Boolean
     Const checkValueName As String = "RemoteDebuggingAllowed"
 
 
@@ -401,7 +437,7 @@ Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boole
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueContents   As Long     '値の中身
     Dim ValueSize       As Long     '値の大きさ
-    TargetBrowser = "SOFTWARE\Policies" & TargetBrowser
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
@@ -425,20 +461,18 @@ End Function
 '* 引数　　：useHKCU            True ：HKEY_CURRENT_USER　側を確認
 '                               False：HKEY_LOCAL_MACHINE 側を確認
 '
-'            TargetBrowser      確認先のブラウザポリシーパス("SOFTWARE\Policies"以降を"、\"始まりから入力)
-'
 '* 返り値　：パスが返ったらそれが固定の保存場所です。`vbnullstring`の場合は、制限なしです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-browser-policies/userdatadir
 '***************************************************************************************************
-Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean, ByVal TargetBrowser As String) As String
+Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean) As String
     Const checkValueName As String = "UserDataDir"
 
 
     '1. 必要な変数を用意
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueSize       As Long     '値の大きさ
-    TargetBrowser = "SOFTWARE\Policies" & TargetBrowser
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
@@ -456,3 +490,31 @@ Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean, ByVal T
         RegGetValueW RootTree, StrPtr(TargetBrowser), StrPtr(checkValueName), RRF_RT_REG_SZ, 0, StrPtr(CheckBrowserPolicyUserDataDir), ValueSize
     End If
 End Function
+
+
+
+'***************************************************************************************************
+'                                     ■■■ ログヘルパー ■■■
+'***************************************************************************************************
+Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError
+End Sub
+
+
+
+'***************************************************************************************************
+'                                     ■■■ 初期化 ■■■
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
+    'Assign an objID for easy debug identification
+    LogID = "CHID" & Format(Rnd * 1000, "000")
+
+    'ログファイル保存先
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+End Sub

@@ -268,13 +268,65 @@ Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 '***************************************************************************************************
 '                             ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
+'* 機能　　：パイプとして起動するための引数準備を行い、起動します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：起動時のコマンドライン。
+'* 引数　　：UserName       記録する識別名称
+'            BrowserType    ブラウザタイプ
+'            FirstURL       `-app`に渡すURL
+'            addArgs        追加引数
+'***************************************************************************************************
+Public Function ReadyInitCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String) As String
+    Const FromProcedureName As String = ThisClassName & ".ReadyInitCDP"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備
+        .InitInfo UserName, BrowserType
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(FirstURL), _
+                                    addArgs))
+    End With
+
+    '2. 実際に起動を行います
+    Dim intRes As Long
+    printMsg Debug_, "Starting pipe communication... → " & RunCommandLine, FromProcedureName
+    intRes = InitCDP(RunCommandLine)
+
+    '3. エラー時は、Stop
+    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
+
+    '4. コマンドラインを返却
+    ReadyInitCDP = RunCommandLine
+End Function
+
+'***************************************************************************************************
 '* 機能　　：Chromiumを`remote-debugging-pipe`として起動し、パイプ接続を開始します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行結果　※0で成功です
-'* 引数　　：strExec            コマンドライン
-'            ShowWindowMode     初期ウィンドウ表示タイプ
+'* 引数　　：strExec   exe名を含むコマンドライン
 '***************************************************************************************************
-Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
+Private Function InitCDP(strExec As String) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
