@@ -167,9 +167,10 @@ Private m_IsConnected       As Boolean          '既にWebSocketに接続済み�
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
-'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ使用
+'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ特別に使用
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
-Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID
+Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
+Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -235,6 +236,13 @@ Public Function isAvailability() As Boolean
     LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
     printMsg Debug_, WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
 End Function
+
+'***************************************************************************************************
+'* 機能    ：`RunWebSocketModeBrowserCDP` で起動したブラウザのプロセスハンドル情報
+'***************************************************************************************************
+Property Get Connection_hProcess() As LongPtr
+    Connection_hProcess = hProcess
+End Property
 
 
 
@@ -1226,18 +1234,21 @@ Public Function RunWebSocketModeBrowserCDP(Optional BrowserType As BrowserList =
         '3. エラー時は、Stop
         If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
 
-        '4. DevToolsActivePort ファイルが出現するまで待機
+        '4. プロセスハンドルを取る
+        hProcess = .OpenProcessHandle(dwProcessId)
+
+        '5. DevToolsActivePort ファイルが出現するまで待機
         If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
 
-        '5. DevToolsActivePort ファイルから、空いてるポート情報を取得
+        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
         '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
         Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
     End With
 
-    '6. 接続
+    '7. 接続
     If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
 
-    '7. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡し、返却
+    '8. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡し、返却
     Set RunWebSocketModeBrowserCDP = New CDPBrowser
     RunWebSocketModeBrowserCDP.reattachWebSocket userProfile, Me
 End Function
@@ -1253,20 +1264,20 @@ End Function
 '            targetId       `Target.TargetInfo`の`targetId`
 '            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'* 注意事項：・パイプハンドルはソケット値で代用します。`hProcess` / `dwProcessId` は `Shell` 起動時のみ実値です
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String, targetID As String, BiDiContext As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
+    '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", 0
     tmp.Add "hStderrOutRd", 0
     tmp.Add "hStdInWr", 0
     tmp.Add "hCDPOutRd", (m_hSocket)
     tmp.Add "hCDPInWr", (m_hSocket)
-    tmp.Add "hProcess", 0
+    tmp.Add "hProcess", (hProcess)
     tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
@@ -1306,6 +1317,8 @@ Public Function deserialize(UserName As String) As Boolean
 
     'ハンドルに適用
     m_hSocket = PipeInfo("hCDPOutRd")   '`hCDPInWr`も同一番号
+    hProcess = PipeInfo("hProcess")
+    dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
     deserialize = True

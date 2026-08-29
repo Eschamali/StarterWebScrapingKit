@@ -548,6 +548,7 @@ Public Sub CloseHandleBrowser()
     Select Case False
         Case viaWebSocket Is Nothing
             viaWebSocket.DisconnectCDP
+            CloseHandle viaWebSocket.Connection_hProcess
 
         Case viaWebView2 Is Nothing
             viaWebView2.DisconnectCDP

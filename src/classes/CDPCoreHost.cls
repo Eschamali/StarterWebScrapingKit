@@ -37,6 +37,11 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, _
     ByRef pSessionId As Long) As Long
 
+Private Declare PtrSafe Function OpenProcess Lib "kernel32" ( _
+    ByVal dwDesiredAccess As Long, _
+    ByVal bInheritHandle As Long, _
+    ByVal dwProcessId As Long) As LongPtr
+
 
 
 '***************************************************************************************************
@@ -54,6 +59,11 @@ Private Const SIZE_REG_DWORD        As Long = 4             ' DWORD は 4バイ�
 ' APIの戻り値
 Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
+
+'OpenProcess 用アクセス権（TerminateProcess / 終了待ち / 生存確認に必要な最小セット）
+Private Const PROCESS_TERMINATE                 As Long = &H1&
+Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
+Private Const SYNCHRONIZE                       As Long = &H100000
 
 'その他
 Private Const ThisClassName             As String = "CDPCoreHost"           'ログのトレース用
@@ -282,6 +292,30 @@ Public Function getUserDataDirPath() As String
             Case BrowserList.RunEdge:    getUserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName
             Case BrowserList.RunChrome:  getUserDataDirPath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName
         End Select
+    End If
+End Function
+
+'***************************************************************************************************
+'* 機能　　：プロセスIDから、操作可能なプロセスハンドル(`hProcess`)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：成功時は `hProcess`。失敗時は `0`
+'* 引数　　：ProcessId      `Shell` 関数や `CreateProcess` が返すプロセスID
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBA の `Shell` は PID しか返さないため、`TerminateProcess` 用のハンドルはこちらで開きます
+'* 注意事項：取得したハンドルは呼び出し側が `CloseHandle` すること
+'***************************************************************************************************
+Public Function OpenProcessHandle(ProcessId As LongPtr) As LongPtr
+    Const FromProcedureName As String = ThisClassName & ".OpenProcessHandle"
+
+
+    If ProcessId = 0 Then Exit Function
+
+    OpenProcessHandle = OpenProcess(PROCESS_TERMINATE Or PROCESS_QUERY_LIMITED_INFORMATION Or SYNCHRONIZE, 0, CLng(ProcessId))
+    If OpenProcessHandle = 0 Then
+        Dim errNo As Long: errNo = Err.LastDllError
+        printMsg WARN_, "OpenProcess failed. PID:" & ProcessId & " ErrorCode:" & errNo & " - " & WinApiError.GetMessage(errNo, "kernel32"), FromProcedureName
+    Else
+        printMsg Debug_, "OpenProcess succeeded. PID:" & ProcessId & " hProcess:" & OpenProcessHandle, FromProcedureName
     End If
 End Function
 
