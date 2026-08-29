@@ -173,10 +173,7 @@ Public Sub setCrashStateNormal()
         filePath_Preferences = currentPolicy.UserDataDir.Contents & "\" & DebugUserName & "\Preferences"
     Else
         'user-data-dir
-        Select Case UserBrowserMode
-            Case BrowserList.RunChrome: filePath_Preferences = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName & "\Default\Preferences"
-            Case BrowserList.RunEdge:   filePath_Preferences = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName & "\Default\Preferences"
-        End Select
+        filePath_Preferences = getUserDataDirPath
     End If
 
 
@@ -265,6 +262,27 @@ Public Function getBrowserPath() As String
     End If
 End Function
 
+'***************************************************************************************************
+'* 機能　　：ブラウザが使用するユーザーパスを返します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　："user-data-dir"のパス部分
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：以下の用途で役立ちます
+'            ・`Preferences`内のクラッシュ情報をクリアする
+'            ・`--remote-debugging-port=0`で起動した際の、`DevToolsActivePort`を拝見して、自動で空いてるポートに繋げる仕組み
+'***************************************************************************************************
+Public Function getUserDataDirPath() As String
+    If currentPolicy.UserDataDir.Exists Then
+        '`UserDataDir`ポリシーがある場合はそっちを優先に返却
+        getUserDataDirPath = currentPolicy.UserDataDir.Contents
+    Else
+        Select Case UserBrowserMode
+            Case BrowserList.RunEdge:    getUserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName
+            Case BrowserList.RunChrome:  getUserDataDirPath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName
+        End Select
+    End If
+End Function
+
 
 
 '***************************************************************************************************
@@ -285,8 +303,8 @@ Private Function GenerateArgUserDataDir() As String
 
 
     Select Case UserBrowserMode
-        Case BrowserList.RunEdge:    GenerateArgUserDataDir = "--" & ArgName & "=""" & Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName & """"
-        Case BrowserList.RunChrome:  GenerateArgUserDataDir = "--" & ArgName & "=""" & Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName & """"
+        Case BrowserList.RunEdge:    GenerateArgUserDataDir = "--" & ArgName & "=""" & getUserDataDirPath & """"
+        Case BrowserList.RunChrome:  GenerateArgUserDataDir = "--" & ArgName & "=""" & getUserDataDirPath & """"
     End Select
 End Function
 

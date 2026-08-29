@@ -232,6 +232,7 @@ Private hProcess        As LongPtr
 '起動ウィンドウ情報
 Private setShowWindow   As WinState
 Private dwProcessId     As LongPtr
+Private UserDataDirPath As String
 
 'コマンドIDとSessionIDの紐づけ管理
 Private DictionarySessionID As Dictionary
@@ -258,11 +259,11 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     With New CDPCoreHost
-        '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, BrowserType
+        '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
+        .InitInfo UserName, BrowserType, True
 
-        '1-2. ポリシーチェック
-        .CheckRemoteDebuggingBlockedByPolicy
+        '1-2. `user-data-dir`情報を取得
+        UserDataDirPath = .getUserDataDirPath
 
         '1-3. デバッグブラウザを閉じる(開いてたら)
         .cleanUpSessions
