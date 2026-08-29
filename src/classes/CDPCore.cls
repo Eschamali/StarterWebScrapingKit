@@ -968,7 +968,7 @@ Private Sub ReadyCDPMessage()
 
     With CDPPipeStream
         '1. CDPからのメッセージがまだない場合は即抜け
-        If .Position = 0 Then printMsg Debug_, "The stored messages are empty.", FromProcedureName: Exit Sub
+        If .Position = 0 Then printMsg Trace_, "The stored messages are empty.", FromProcedureName: Exit Sub
 
         '2. 取り出すバイト数を確定
         .SetEOS
