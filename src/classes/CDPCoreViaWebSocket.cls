@@ -143,10 +143,6 @@ Private Const D_host        As String = "127.0.0.1"
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
 
-'起動ウィンドウ情報 ※`RunWebSocketModeBrowser`から起動した場合のみ
-Private setShowWindow   As WinState
-Private dwProcessId     As LongPtr
-
 
 
 '***************************************************************************************************
@@ -170,6 +166,11 @@ Private m_WSAInitialized    As Boolean          'WinSockの初期化成功可否
 Private m_IsConnected       As Boolean          '既にWebSocketに接続済みか？
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
+
+'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ使用
+Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
+Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID
+Private UserDataDirPath     As String           'ローカルブラウザ起動時の`user-data-dir`
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
