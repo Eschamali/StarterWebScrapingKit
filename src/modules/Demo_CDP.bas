@@ -929,30 +929,27 @@ Sub AutoConnectBrowser()
     WebSocketCDP.DisconnectCDP
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：今、目の前のブラウザを制御します
+'***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
-    '1. 設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    '2. 指定のWebSocketForCDPへ接続
+    '1. 指定のWebSocketForCDPへ接続
     '※「edge://inspect/#remote-debugging」にて事前準備が必要です
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
+    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    b.reattachWebSocket UserName, WebSocketCDP
+    b.reattachWebSocket "User Data", WebSocketCDP
 
-    '4. 未接続のタブに接続
+    '3. 未接続のタブに接続
     Dim t As CDPContext
-    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-'    Set t = b.getTab(setMain:=True)
     Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
 
-    '5. ページ遷移
+    '4. ページ遷移
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
 
-    '6. WebSocketから切断
+    '5. WebSocketから切断
     WebSocketCDP.DisconnectCDP
 End Sub
 
