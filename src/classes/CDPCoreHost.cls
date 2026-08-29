@@ -95,10 +95,14 @@ Private currentLog              As StateLog
 '            BrowserType    ブラウザタイプ
 '            RemotePort     Port経由で制御する場合は指定
 '***************************************************************************************************
-Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, Optional RemotePort As Long)
+Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As Boolean)
+    '各種情報反映
     DebugUserName = UserName
     UserBrowserMode = BrowserType
     cRemotePort = RemotePort
+
+    'ポリシーチェックを行い、情報更新を行う
+    CheckRemoteDebuggingBlockedByPolicy
 End Sub
 
 '***************************************************************************************************
@@ -384,7 +388,7 @@ End Function
 '               ・RemoteDebuggingAllowed
 '               ・UserDataDir
 '***************************************************************************************************
-Public Sub CheckRemoteDebuggingBlockedByPolicy()
+Private Sub CheckRemoteDebuggingBlockedByPolicy()
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
 
