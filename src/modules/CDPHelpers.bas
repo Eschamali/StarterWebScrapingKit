@@ -42,6 +42,22 @@ Public Type StateLog
     LogID               As String   '"○○○○" & Format(Rnd * 1000, "000")　(○は4文字)
 End Type
 
+'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
+Public Enum WinState
+    asHidden = 0            'Hides the window and activates another window.
+    asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
+    asMinimized = 2         'Activates the window and displays it as a minimized window.
+    asMaximized = 3         'Activates the window and displays it as a maximized window.
+    doShowNoActivate = 4    'Displays a window in its most recent size and position. This value is similar to asNormal, except that the window is not activated.
+    doShow = 5              'Activates the window and displays it in its current size and position.
+    doMinimize = 6          'Minimizes the specified window and activates the next top-level window in the Z order.
+    doShowMinNoActivate = 7 'Displays the window as a minimized window. This value is similar to asMinimized, except the window is not activated.
+    doShowNA = 8            'Displays the window in its current size and position. This value is similar to doShow, except that the window is not activated.
+    doRestore = 9           'Activates and displays the window. If the window is minimized or maximized, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window.
+    doShowDefault = 10      'Sets the show state based on the WS_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application.
+    doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
+End Enum
+
 'バッファー設定関連
 Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
 Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
