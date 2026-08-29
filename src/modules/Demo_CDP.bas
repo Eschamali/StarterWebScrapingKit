@@ -433,7 +433,7 @@ Sub iframeShadowRootTest()
     End With
 End Sub
 
-Sub RunEdge()
+Sub RunChromium()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
 ' This demo tries to access a webpage of a famous movie
