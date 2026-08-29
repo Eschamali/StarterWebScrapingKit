@@ -145,9 +145,9 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`LogID` は各 Class 固有のため上書きしません
 '***************************************************************************************************
-Public Sub InheritLogSettings(ByRef dest As StateLog, source As StateLog)
-    dest.seeRawSendMsgDbg = source.seeRawSendMsgDbg
-    dest.logPath = source.logPath
+Public Sub InheritLogSettings(ByRef dest As StateLog, Source As StateLog)
+    dest.seeRawSendMsgDbg = Source.seeRawSendMsgDbg
+    dest.logPath = Source.logPath
 End Sub
 
 '***************************************************************************************************
