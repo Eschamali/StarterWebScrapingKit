@@ -143,6 +143,10 @@ Private Const D_host        As String = "127.0.0.1"
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
 
+'起動ウィンドウ情報 ※`RunWebSocketModeBrowser`から起動した場合のみ
+Private setShowWindow   As WinState
+Private dwProcessId     As LongPtr
+
 
 
 '***************************************************************************************************
@@ -1218,7 +1222,7 @@ Private Sub serialize(UserName As String, targetID As String, BiDiContext As Str
     tmp.Add "hCDPOutRd", (m_hSocket)
     tmp.Add "hCDPInWr", (m_hSocket)
     tmp.Add "hProcess", 0
-    tmp.Add "dwProcessId", 0
+    tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
     Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
@@ -1265,13 +1269,58 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ローカルのブラウザをWebSocketモードで起動します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   利用者識別名称
-'* 返り値  ：設定の読み取りができたかの論理値
+'* 返り値　：起動時のコマンドライン。
+'* 引数　　：UserName       記録する識別名称
+'            BrowserType    ブラウザタイプ
+'            FirstURL       `-app`に渡すURL
+'            addArgs        追加引数
+'            OpenPort       どのポートでデバッグするか？
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
-'* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
-'            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
+'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
+'* 注意事項：このプロシージャではブラウザの起動までです。WebSocketへの接続は別途プロシージャで行って下さい
 '***************************************************************************************************
+Public Function RunWebSocketModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String, Optional OpenPort As Long = D_port) As String
+    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備
+        .InitInfo UserName, BrowserType, OpenPort
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(FirstURL), _
+                                    addArgs))
+    End With
+
+    '2. 実際に起動を行います
+    printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
+    dwProcessId = Shell(RunCommandLine, setShowWindow)
+
+    '3. エラー時は、Stop
+    If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
+
+    '4. コマンドラインを返却
+    RunWebSocketModeBrowserCDP = RunCommandLine
+End Function
 
 
 
@@ -1309,6 +1358,9 @@ Private Sub Class_Initialize()
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
     End With
+
+    '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
+    setShowWindow = ShSetting01_StartBrowser.UseRangeID(12, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()

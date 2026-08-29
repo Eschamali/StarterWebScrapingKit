@@ -246,7 +246,7 @@ Private hCDPInRd        As LongPtr
 Private hProcess        As LongPtr
 
 '起動ウィンドウ情報
-Private setShowWindow   As Integer
+Private setShowWindow   As WinState
 Private dwProcessId     As LongPtr
 
 'コマンドIDとSessionIDの紐づけ管理
@@ -268,8 +268,8 @@ Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 '            FirstURL       `-app`に渡すURL
 '            addArgs        追加引数
 '***************************************************************************************************
-Public Function ReadyInitCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ReadyInitCDP"
+Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String) As String
+    Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
 
 
     '1. ブラウザ起動前に、いくつかチェックを行います
@@ -312,7 +312,7 @@ Public Function ReadyInitCDP(UserName As String, BrowserType As BrowserList, Fir
     serialize UserName
 
     '5. コマンドラインを返却
-    ReadyInitCDP = RunCommandLine
+    RunPipeModeBrowserCDP = RunCommandLine
 End Function
 
 '***************************************************************************************************

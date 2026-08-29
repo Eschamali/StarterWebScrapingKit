@@ -170,7 +170,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
 
     '3. 起動依頼
-    br.CallString = PipeCore.ReadyInitCDP(br.User, Name, appUrl, addArgs)
+    br.CallString = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, addArgs)
 
     '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
