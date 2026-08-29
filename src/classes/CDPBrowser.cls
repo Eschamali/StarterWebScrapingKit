@@ -92,11 +92,11 @@ Private ResultCommandCDP_Browser As Dictionary  '「ID - それに対するCDP�
 Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の最後のエラー情報
 
 'その他
-Private timerOut    As Double                   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private UseConverterUtf8FromString As Boolean   'ブラウザへ送信する際、UTF-8で使用するかしないか
-Private TargetInfos As Collection               '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
-Private DefinitionCDPContext As Long            '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
+Private timerOut                As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
+Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
+Private logFolderPath           As String       'ログファイルの保存フォルダパス
 
 
 
@@ -1405,12 +1405,13 @@ End Property
 
 
 '***************************************************************************************************
-'                               ■■■ CDPCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, br.LogID, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, br.LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
 '***************************************************************************************************
@@ -1455,20 +1456,11 @@ Private Sub Class_Initialize()
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        '1. Edgeウィンドウの表示モードの設定
-        br.setShowWindow = .UseRangeID(12, FromProcedureName)
+    'ホワイトプロトコルリストを取得
+    ProtocolWhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
 
-        '2. 文字コード設定
-        UseConverterUtf8FromString = .UseRangeID(10, FromProcedureName)
-
-        '3. ブラウザの使用タイプ
-        UseChrome = .UseRangeID(4, FromProcedureName)
-        
-        '4. ホワイトプロトコルリストを取得
-        ProtocolWhiteList = .TableProtocolWhiteList
-    End With
+    'ログファイル保存先
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正

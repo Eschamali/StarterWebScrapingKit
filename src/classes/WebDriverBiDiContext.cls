@@ -41,6 +41,7 @@ Private InfoList As browsingContextInfo
 'その他
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
 Private LogID                   As String
+Private logFolderPath           As String      'ログファイルの保存フォルダパス
 
 
 
@@ -671,12 +672,13 @@ End Property
 
 
 '***************************************************************************************************
-'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
 
@@ -719,8 +721,14 @@ End Property
 '                       ■■■ このClassオブジェクト生成/破棄時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     'Assign an objID for easy debug identification
     LogID = "BTID" & Format(Rnd * 1000, "000")
+
+    'ログファイル保存先
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()

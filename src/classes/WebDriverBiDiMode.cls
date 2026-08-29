@@ -50,6 +50,7 @@ Private m_ErrorDetails  As Dictionary
 'その他
 Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private LogID           As String
+Private logFolderPath   As String        'ログファイルの保存フォルダパス
 Private BiDiUserName    As String       'User-data-dir と同等
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
@@ -971,12 +972,13 @@ End Property
 
 
 '***************************************************************************************************
-'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
 '***************************************************************************************************
@@ -1006,8 +1008,14 @@ End Sub
 '                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     'Assign an objID for easy debug identification
     LogID = "BDID" & Format(Rnd * 1000, "000")
+
+    'ログファイル保存先
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正

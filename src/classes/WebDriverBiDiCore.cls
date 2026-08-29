@@ -69,6 +69,7 @@ Private BiDiDebug As StateDebug
 
 'ステート管理
 Private LogID           As String   'このClassオブジェクトとしてのログID
+Private logFolderPath   As String   'ログファイルの保存フォルダパス
 
 
 
@@ -158,7 +159,7 @@ Private Sub newTabForBiDi()
     End With
 
     '7. ログ化
-    printMsg Debug_, LogID, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
+    printMsg Debug_, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -182,7 +183,7 @@ Private Sub StartBiDiCDPMapper()
         .jsEval "window.runMapperInstance('" & .CurrentTargetID & "')"
     End With
 
-    printMsg Debug_, LogID, "`BiDi-CDP Mapper` has been launched", FromProcedureName
+    printMsg Debug_, "`BiDi-CDP Mapper` has been launched", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -211,7 +212,7 @@ Private Sub BiDiResponseBiding()
         End If
     End With
 
-    printMsg Debug_, LogID, "I have configured the route to receive from `BiDi-CDP Mapper`.", FromProcedureName
+    printMsg Debug_, "I have configured the route to receive from `BiDi-CDP Mapper`.", FromProcedureName
 End Sub
 
 
@@ -252,7 +253,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     '`TargetID`有無に応じた分岐
     If mapperTabConnection Then
         'Excelに記録されてる`TargetID`が生きてる = `Target.exposeDevToolsProtocol`が有効
-        printMsg info_, LogID, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
+        printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
         '4. そのタブURLは、このクラスで用意した専用URLか？
         If StrComp(MapperURL, WebDriverBiDi_mapperTab.Url, vbTextCompare) = 0 Then
@@ -264,14 +265,14 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
             '`BiDi-CDP Mapper`の起動状況に応じた分岐
             If isMapperRunning Then
                 '6. `BiDi-CDP Mapper`は生きてるので、再バイディングを行う
-                printMsg Debug_, LogID, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
+                printMsg Debug_, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
                 Call BiDiResponseBiding
 
                 '7. 既存接続したサインで返す
                 ReBootBiDiCDPMapper = False
             Else
                 '6. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
-                printMsg Debug_, LogID, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
+                printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
                 StartBiDiCDPMapper
 
                 '7. 再始動したサインを返す
@@ -282,7 +283,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
             '5. 別URL状態なので、空ページに遷移させる
             '※`Target.exposeDevToolsProtocol`が有効の状態でのネットサーフィンは、危険なのでこの措置をとる
             '　超端的に言うと、ネット上のvbsコードがIEで実行されちゃって大変なことになるあれ
-            printMsg WARN_, LogID, "The URL is not suitable for `Target.exposeDevToolsProtocol`. You will be redirected to an empty page.", FromProcedureName
+            printMsg WARN_, "The URL is not suitable for `Target.exposeDevToolsProtocol`. You will be redirected to an empty page.", FromProcedureName
             WebDriverBiDi_mapperTab.Url = MapperURL
 
             '6. `BiDi-CDP Mapper`を始動させる
@@ -293,7 +294,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
         End If
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
-        printMsg WARN_, LogID, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
+        printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
         newTabForBiDi
 
         '3. `BiDi-CDP Mapper`を始動させます
@@ -341,7 +342,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Case BiDiResMain
             '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
             bindingCalledPayload = CDPToBiDi.StringKey("payload")
-            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
+            If BiDiDebug.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
             BiDiReceivedDataCheck bindingCalledPayload
@@ -350,12 +351,12 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Case BiDiResDebug
             '4-1. エスケープ解除済みのpayload 部分を抽出し、ログ表示のみに留める
             bindingCalledPayload = CDPToBiDi.StringKey("payload")
-            printMsg Debug_, LogID, "Debug  - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
+            printMsg Debug_, "Debug  - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
         'WebDriverBiDi 以外の`Runtime.bindingCalled`が返った模様
         '※この場合は、追加処理しない
         Case Else
-            printMsg Debug_, LogID, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & bindingCalledName, FromProcedureName
+            printMsg Debug_, "We detected `" & BiDiForCDPEventName & "` instances other than WebDriverBiDi. Name :" & bindingCalledName, FromProcedureName
     End Select
 End Sub
 
@@ -403,7 +404,7 @@ Public Function ReadyRunBiDi(dicMessage As Dictionary, StopApiError As Boolean) 
     Dim strMessage As String
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
-    printMsg Debug_, LogID, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
+    printMsg Debug_, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
     RunCDP strMessage, StopApiError
 End Function
 
@@ -423,7 +424,7 @@ Private Function IssuanceCommandID() As Long
     If LastCommandID + 1 > LimitCommandID Then
         '1-1. リクエスト数の上限に達したら、0にリセットしておく
         LastCommandID = 0
-        printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
         '1-2. リセットした旨を伝える
         RaiseEvent ResetCommandID
@@ -468,7 +469,7 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
             RaiseEvent detectionBiDiID(ResultCommandID, BiDiJsonString)
         Else
             '`method`も`id`項目もない場合、BiDi-Jsonコマンドの構文エラーとして返った可能性があるとし、受信ループ終了とする
-            printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteBiDi/ExecuteBiDiAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & BiDiJsonString, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "A syntax error was detected when executing with ExecuteBiDi/ExecuteBiDiAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & BiDiJsonString, FromProcedureName, doRaiseError:=True
         End If
     End If
 End Function
@@ -515,8 +516,11 @@ End Property
 '***************************************************************************************************
 '* 機能　　：基本ラッパー機能
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_CDPCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
 Public Sub CloseHandleBrowser()
@@ -730,6 +734,7 @@ Private Sub Class_Initialize()
         BiDiDebug.ViewDebugTab = .UseRangeID(11, FromProcedureName)    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
         BiDiDebug.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
         BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
+        logFolderPath = .UseRangeID(9, FromProcedureName)                'ログファイルの保存フォルダパス
     End With
 End Sub
 
@@ -776,10 +781,10 @@ End Sub
 '
 '        '5. name値を取り出す
 '        ExtractName = Mid(resCDP, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
+'        printMsg Trace_, "`Name` of `Runtime.bindingCalled` > " & ExtractName, FromProcedureName
 '    Else
 '        'name値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-'        printMsg ERROR_, LogID, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'        printMsg ERROR_, "Failed to identify the `name` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
 '    End If
 'End Function
 '
@@ -824,11 +829,11 @@ End Sub
 '            ExtractPayload = Replace(ExtractPayload, "\\", "\")
 '        Else
 '            'payload値が取れない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-'            printMsg ERROR_, LogID, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'            printMsg ERROR_, "Failed to retrieve the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
 '        End If
 '    Else
 '        'payload値が特定できない場合、`Runtime.bindingCalled`の構造が変わってる可能性があり、続行不可とする
-'        printMsg ERROR_, LogID, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
+'        printMsg ERROR_, "Failed to identify the `payload` value. The structure of `Runtime.bindingCalled` may have changed." & vbCrLf & "> " & resCDP, FromProcedureName, doRaiseError:=True
 '    End If
 'End Function
 ''***************************************************************************************************
@@ -878,10 +883,10 @@ End Sub
 '
 '        '6. ID値を取り出す
 '        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
+'        printMsg Trace_, "This BiDi response is the BiDicommand result. ID:" & idValueContents, FromProcedureName
 '    Else
 '        GetContentsID = False
-'        printMsg Trace_, LogID, "This BiDi response does not have an `id`.", FromProcedureName
+'        printMsg Trace_, "This BiDi response does not have an `id`.", FromProcedureName
 '    End If
 'End Function
 '
@@ -921,7 +926,7 @@ End Sub
 '
 '        '5. method名を取り出す
 '        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'        printMsg Trace_, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
 '
 '    '下記の例に基づき、後方にない場合は、非同期イベントではないとして、扱います。
 '    '・{"method":"network.beforeRequestSent", ... (中略) ..., "type":"event"}
@@ -936,9 +941,9 @@ End Sub
 '
 '        '5. method名を取り出す
 '        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
+'        printMsg Trace_, "This BiDi response is an asynchronous event: " & methodValueContents, FromProcedureName
 '    Else
 '        GetContentsMethod = False
-'        printMsg Trace_, LogID, "This BiDi response does not have an `method`.", FromProcedureName
+'        printMsg Trace_, "This BiDi response does not have an `method`.", FromProcedureName
 '    End If
 'End Function

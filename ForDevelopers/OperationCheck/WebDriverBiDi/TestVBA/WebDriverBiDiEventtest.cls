@@ -26,6 +26,7 @@ Private Const ThisClassName         As String = "WebDriverBiDiEventtest"        
 
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
+Private logFolderPath              As String       'ログファイルの保存フォルダパス
 
 Public EnableBrowserEvents          As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Public targetContext                As String
@@ -139,7 +140,10 @@ Private Sub sleep(Optional seconds As Double = 0.5)
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_WebDriverBiDi.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
 End Sub
 
 Private Function invokeMethod(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As Scripting.Dictionary
@@ -171,5 +175,6 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         seeRawSendMsgDbg = .Range(.UseRangeName(8, FromProcedureName)).value    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        logFolderPath = .UseRangeID(9, FromProcedureName)                       'ログファイルの保存フォルダパス
     End With
 End Sub

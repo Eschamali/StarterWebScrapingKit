@@ -31,6 +31,7 @@ Private Const ThisClassName         As String = "exCDP_PageLoadWatcher"
 Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
 Private EnableBrowserEvents         As Boolean      '非同期イベント処理を有効化するかのスイッチング
 Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
+Private logFolderPath              As String       'ログファイルの保存フォルダパス
 
 '監視結果
 Private HasLoadedFlag               As Boolean      '直近の`NavigateAsync`以降、`Page.loadEventFired`を受信したか
@@ -150,7 +151,10 @@ End Function
 '                           ■■■ `CDPContext/CDPBrowser/CDPCore`直通メソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
@@ -193,4 +197,5 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)     'ログファイルの保存フォルダパス
 End Sub

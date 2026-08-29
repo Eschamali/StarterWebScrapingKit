@@ -181,8 +181,9 @@ Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
 
 'その他
-Public KeepSession  As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
-Private timerOut    As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
+Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
+Private logFolderPath   As String   'ログファイルの保存フォルダパス
 
 
 
@@ -2806,7 +2807,10 @@ End Property
 '* 機能　　：基本ラッパー機能
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    PipeCore.printMsg LogLevel_, brTab.LogID, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, brTab.LogID, isHeader, doRaiseError, logFolderPath
 End Sub
 
 '***************************************************************************************************
@@ -2857,6 +2861,9 @@ Private Sub Class_Initialize()
 
     'Assign an objID for easy debug identification
     brTab.LogID = "TBID" & Format(Rnd * 1000, "000")
+
+    'ログファイル保存先
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary

@@ -36,6 +36,7 @@ Private Const ThisClassName         As String = "exCDP_TemplateWithSafeTimer"
 Private seeRawSendMsgDbg            As Boolean      'ログ表示管理
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
+Private logFolderPath              As String       'ログファイルの保存フォルダパス
 
 
 
@@ -196,7 +197,10 @@ End Sub
 '* 注意事項：各種メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておき、Private化すること
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
@@ -236,4 +240,5 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)      'ログファイルの保存フォルダパス
 End Sub

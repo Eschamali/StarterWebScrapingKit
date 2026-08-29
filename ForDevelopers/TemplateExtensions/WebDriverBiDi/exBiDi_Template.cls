@@ -29,6 +29,7 @@ Private Const ThisClassName         As String = "exBiDi_Template.cls"           
 'ステート管理
 Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
+Private logFolderPath              As String       'ログファイルの保存フォルダパス
 
 
 
@@ -125,7 +126,10 @@ End Sub
 
 'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_BiDiContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
 End Sub
 
 'BiDi実行に必要です
@@ -167,5 +171,6 @@ Private Sub Class_Initialize()
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+        logFolderPath = .UseRangeID(9, FromProcedureName)          'ログファイルの保存フォルダパス
     End With
 End Sub

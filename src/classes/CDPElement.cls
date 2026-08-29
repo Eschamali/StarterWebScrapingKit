@@ -71,6 +71,7 @@ Private checkExist      As Boolean      ' チェーンメソッドを利用し�
 
 'ForDebug
 Private seeRawSendMsgDbg As Boolean
+Private logFolderPath    As String   'ログファイルの保存フォルダパス
 
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
@@ -120,6 +121,7 @@ Private Sub Class_Initialize()
 
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    logFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)     'ログファイルの保存フォルダパス
 End Sub
 
 
@@ -1555,12 +1557,20 @@ End Sub
 
 
 '***************************************************************************************************
-'                             ■■■ CDPContext.cls 直通メソッド ■■■
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    main.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
 End Sub
 
+
+
+'***************************************************************************************************
+'                             ■■■ CDPContext.cls 直通メソッド ■■■
+'***************************************************************************************************
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function

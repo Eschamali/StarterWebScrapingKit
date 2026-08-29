@@ -1,6 +1,6 @@
 Attribute VB_Name = "CDPHelpers"
 '==============================================================================================================
-'                              汎用的に使うCDP関連の便利プロシージャです
+'                       汎用的に使うCDP/BiDi関連の便利プロシージャ/固定設定値です
 '                        特定のClassでしか使わない物はここに配置してはいけません
 '==============================================================================================================
 Option Explicit
@@ -29,6 +29,7 @@ Private Const ThisModuleName   As String = "CDPHelpers"         'トレース用
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
 Private m_Frequency As Currency '実行マシンでの周波数記録用
+Private LogControl As New Logger   'ログレベルの制御
 
 
 
@@ -97,4 +98,60 @@ End Function
 '***************************************************************************************************
 Public Sub InitQueryPerformanceFrequency()
     Call QueryPerformanceFrequency(m_Frequency)
+End Sub
+
+
+
+'***************************************************************************************************
+'                                     ■■■ ログ系 ■■■
+'***************************************************************************************************
+'* 機能　　：Immediate Window と、任意のフォルダへのログファイル出力を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：LogLevel_          ログレベル
+'            strMsg            本文
+'            From              呼び出し元（トレース用）
+'            LogFileExtension  ログファイルの拡張子（各 Class の定数を渡す）
+'            LogID             オブジェクト識別ID。空なら本文のみ
+'            isHeader          True で区切り線付きヘッダー表示
+'            doRaiseError      True でログ出力後にエラーを発生させる
+'            SaveLogFolderPath ログファイルの保存フォルダ。空ならファイル出力しない
+'            RaiseErrorNumber  doRaiseError 時のエラー番号。0 なら `CDPCustomErrorCodes.Protocol`
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：保存先パスと拡張子は各 Class 側で保持し、この引数へ渡してください
+'***************************************************************************************************
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, LogFileExtension As String, _
+    Optional LogID As String, _
+    Optional isHeader As Boolean = False, _
+    Optional doRaiseError As Boolean = False, _
+    Optional SaveLogFolderPath As String, _
+    Optional RaiseErrorNumber As Long)
+
+    Dim logName As String, strFormattedMsg As String
+
+    If isHeader Then
+        strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-")
+    Else
+        strFormattedMsg = " | " & LogID & " | " & strMsg
+    End If
+
+    If LenB(SaveLogFolderPath) Then
+        logName = "log" & UCase(Format(Now, "ddMMMyy")) & LogFileExtension
+        If LenB(Dir(SaveLogFolderPath, vbDirectory)) = 0 Then MkDir SaveLogFolderPath
+    End If
+
+    With LogControl
+        Select Case LogLevel_
+            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, SaveLogFolderPath, logName
+            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, SaveLogFolderPath, logName
+            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, SaveLogFolderPath, logName
+            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, SaveLogFolderPath, logName
+            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, SaveLogFolderPath, logName, Err.Number
+            Case Else: 'ログ出力無効化
+        End Select
+    End With
+
+    If doRaiseError Then
+        If RaiseErrorNumber = 0 Then RaiseErrorNumber = CDPCustomErrorCodes.Protocol
+        Err.Raise RaiseErrorNumber, From, Description:=strMsg
+    End If
 End Sub
