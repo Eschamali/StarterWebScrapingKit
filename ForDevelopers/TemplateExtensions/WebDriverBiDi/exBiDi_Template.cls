@@ -27,9 +27,8 @@ Attribute ex_BiDiContext.VB_VarHelpID = -1
 Private Const ThisClassName         As String = "exBiDi_Template.cls"             'ログのトレース用
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
+Private currentLog                 As StateLog     'ログ設定
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
-Private logFolderPath              As String       'ログファイルの保存フォルダパス
 
 
 
@@ -129,7 +128,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, , isHeader, doRaiseError, logFolderPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 'BiDi実行に必要です
@@ -153,13 +152,14 @@ Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
     Set ex_BiDiContext = Inheritance
     Set ex_BiDiCore = Inheritance.InheritanceWebDriverBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
     
     'コンテキスト情報
     m_context = Inheritance.context
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：`LogID`を採番します
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
@@ -168,9 +168,5 @@ Private Sub Class_Initialize()
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-        logFolderPath = .UseRangeID(9, FromProcedureName)          'ログファイルの保存フォルダパス
-    End With
+    currentLog.LogID = "XBID" & Format(Rnd * 1000, "000")
 End Sub
