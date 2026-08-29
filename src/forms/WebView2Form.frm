@@ -38,7 +38,6 @@ Private fWebView2           As CDPCoreViaWebView2
 Private WithEvents CDPEvent As CDPCore      '非同期イベント処理用
 Attribute CDPEvent.VB_VarHelpID = -1
 Private fCDPContext         As CDPContext   'タブ情報
-Attribute fCDPContext.VB_VarHelpID = -1
 
 '自身の各ハンドルを保存する変数
 Private myFormHwnd      As LongPtr
