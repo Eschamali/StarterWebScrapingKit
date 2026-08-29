@@ -1137,64 +1137,40 @@ End Function
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称
+'* 引数    ：UserName       利用者識別名称　※省略時、普段使い(User Data)側での接続を試みます
 '            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort(UserName As String, Optional ReuseContext As Boolean) As Boolean
+Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
     '1. `DevToolsActivePort`のファイルパスを特定
-    Dim FilePath_DevToolsActivePort As String
-    If ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName) Then
-        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Google\Chrome\User Data\DevToolsActivePort"
-    Else
-        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\DevToolsActivePort"
-    End If
+    Dim checkDevToolsActivePort As New CDPCoreHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
 
-    '2. そのファイルがあるか？
-    If LenB(Dir(FilePath_DevToolsActivePort)) Then
-        'そのパスを読み込んで、接続情報を取得する
-        '3. ファイルOpen
-        Dim intFree As Integer
-        intFree = FreeFile
-        Open FilePath_DevToolsActivePort For Input As #intFree
+    '2. 情報があるか？
+    Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
+    If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
-        '4. 中身を全部読む
-        Dim tmp
-        tmp = Input(LOF(intFree), #intFree)
-
-        '5. 閉じる
-        Close #intFree
-
-        '6. 分割
-        '※最初にポート番号、その次にURLパスが記述されてます
-        tmp = Split(tmp, vbLf)
-
-        '7. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
+    '3. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
         If ReuseContext Then
-            '7-1. Excelテーブルからメインタブ情報を取得
+        '4. Excelテーブルからメインタブ情報を取得
             Dim tmpRe As Dictionary
             Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
     
-            '7-2. データ有無チェック
+        '5. データ有無チェック
             If Not tmpRe Is Nothing Then
-                '8. あったらその情報を適用し、抜ける
-                AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(tmp(0)))
+            '6. あったらその情報を適用し、抜ける
+            AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(DevToolsActivePortInfo(0)))
                 Exit Function
             End If
         End If
 
-        '8. 接続
-        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , , CLng(tmp(0)))
-    Else
-        'エラーで終了
-        printMsg ERROR_, "Connection information is missing." & vbCrLf & "> " & FilePath_DevToolsActivePort, FromProcedureName, doRaiseError:=True
-    End If
+    '7. 接続
+    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0)))
 End Function
 
 '***************************************************************************************************

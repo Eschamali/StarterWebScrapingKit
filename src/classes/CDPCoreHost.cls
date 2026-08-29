@@ -56,7 +56,8 @@ Private Const RRF_SUCCESS           As Long = 0             '成功サイン
 '==================================================
 
 'その他
-Private Const ThisClassName             As String = "CDPCoreHost"   'ログのトレース用
+Private Const ThisClassName             As String = "CDPCoreHost"           'ログのトレース用
+Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
 
 
 
@@ -286,6 +287,72 @@ Public Function getUserDataDirPath() As String
             Case BrowserList.RunEdge:    getUserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName
             Case BrowserList.RunChrome:  getUserDataDirPath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName
         End Select
+    End If
+End Function
+
+
+
+'***************************************************************************************************
+'                            ■■■ DevToolsActivePort 関連 ■■■
+'***************************************************************************************************
+'* 機能　　：ユーザーデータフォルダ直下にある「DevToolsActivePort」ファイルを削除します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：古いWebSocket情報を見ないようにする対策です
+'***************************************************************************************************
+Public Sub DeleteFileDevToolsActivePort()
+    Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
+    If LenB(Dir(DevToolsActivePortFilePath)) Then Kill DevToolsActivePortFilePath
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ユーザーデータフォルダ直下にある「DevToolsActivePort」ファイルが出現するまで待機します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：10s後、あったら存在したら`True`となります
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：10s間待機します
+'* 注意事項：必要に応じて、前述のプロシージャで削除を行います
+'***************************************************************************************************
+Public Function AutoWaitExistsFileDevToolsActivePort() As Boolean
+    Const MaxTick As Long = 100
+    Const FromProcedureName As String = ThisClassName & ".AutoWaitExistsFileDevToolsActivePort"
+
+
+    Dim TickCount As Long
+    Do
+        CDPHelpers.Sleep 0.1
+        TickCount = TickCount + 1
+
+        If LenB(Dir(getUserDataDirPath & "\" & WebSocketInfoFileName)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Do
+        printMsg Debug_, "Waiting for the DevToolsActivePort file to appear...", FromProcedureName
+    Loop Until TickCount = MaxTick
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`DevToolsActivePort`ファイルから、WebSocket接続情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：下記の構成となる1次元配列。※ない場合は、`vbEmpty`
+'            要素0：ポート番号
+'            要素1：WebSocketパス
+'***************************************************************************************************
+Public Function AnalysisDevToolsActivePort() As Variant
+    'ファイル存在チェック
+    Dim FilePath_DevToolsActivePort As String: FilePath_DevToolsActivePort = getUserDataDirPath & "\" & WebSocketInfoFileName
+    If LenB(Dir(FilePath_DevToolsActivePort)) Then
+        'そのパスを読み込んで、接続情報を取得する
+        '1. ファイルOpen
+        Dim intFree As Integer
+        intFree = FreeFile
+        Open FilePath_DevToolsActivePort For Input As #intFree
+
+        '2. 中身を全部読む
+        Dim tmp
+        tmp = Input(LOF(intFree), #intFree)
+
+        '3. 閉じる
+        Close #intFree
+
+        '4. 分割
+        AnalysisDevToolsActivePort = Split(tmp, vbLf)
     End If
 End Function
 
