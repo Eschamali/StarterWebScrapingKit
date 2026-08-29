@@ -83,7 +83,7 @@ Private DebugUserName   As String
 Private PipeMode        As Boolean
 
 'ログ設定
-Private currentLog              As StateLog
+Private currentLog      As StateLog
 
 
 
@@ -95,11 +95,6 @@ Private currentLog              As StateLog
 '* 引数　　：UserName       記録する識別名称
 '            BrowserType    ブラウザタイプ
 '            UsePipe        Port経由で制御する場合は`False`
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`RemotePort`の挙動は下記です
-'            ・-1 ：Pipeモード
-'            ・0  ：Chromium側が空いてるポートを見つけてくれる
-'            ・1↑：そのポートで開くように強制
 '***************************************************************************************************
 Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As Boolean)
     '各種情報反映
