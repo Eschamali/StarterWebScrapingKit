@@ -47,8 +47,8 @@ Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りP
 Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
 
 'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
-Public Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Public Const EventsDictionaryKeyName02 As String = "EventMethods"
+Public Const EventsKey_TotalEvents As String = "TotalEvents"
+Public Const EventsKey_EventMethods As String = "EventMethods"
 
 'その他
 Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値

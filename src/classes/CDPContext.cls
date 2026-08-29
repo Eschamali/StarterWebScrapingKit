@@ -1547,7 +1547,7 @@ Property Set BrowserEvents(ObjDic As Dictionary)
         printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
     '3. 指定のKeyがあるか？
-    ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
+    ElseIf ObjDic.Exists(EventsKey_TotalEvents) And ObjDic.Exists(EventsKey_EventMethods) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set publicBrowserEvents.Queue = ObjDic
         printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
@@ -1629,17 +1629,17 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
 
 
     ' 合計イベントキャプチャ数をカウントする
-    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
-    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
+    Accumulator(EventsKey_TotalEvents) = Accumulator(EventsKey_TotalEvents) + 1
+    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsKey_TotalEvents), FromProcedureName
 
     ' インデックスも付与(1始まり)
     ' これにより、全体の時系列データも保持できます
-    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
+    eventData.Add "__index__", Accumulator(EventsKey_TotalEvents)
 
 
     '格納開始
     ' 1.イベントメソッドデータがあるDictionaryに遷移
-    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsKey_EventMethods)
 
     ' 2. このイベント名の`Collection`が、すでにあるか？
     Dim eventList As Collection
@@ -1702,8 +1702,8 @@ Private Function FormatDictionary_BrowserEvents() As Dictionary
     Set FormatDictionary_BrowserEvents = New Dictionary
 
     '初期構造を作成します
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
-    FormatDictionary_BrowserEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
+    FormatDictionary_BrowserEvents.Add EventsKey_TotalEvents, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BrowserEvents.Add EventsKey_EventMethods, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
 
