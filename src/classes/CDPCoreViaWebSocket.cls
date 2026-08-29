@@ -142,7 +142,6 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
-Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限　※`CDPCore.cls - InitialBuffer`と揃えること
 
 
 
@@ -187,7 +186,6 @@ Private LastWinSockError   As ErrorCode
 '--- 各種クラスオブジェクト ---
 Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
 Private Utf8Converter           As New CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
-Private ViewLog                 As New Logger                   'ログ用
 
 
 
@@ -920,43 +918,10 @@ End Sub
 '                                  ■■■ ログヘルパー ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & currentLog.id & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebSokect.log"
-        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With ViewLog
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
+    Const LogFileExtension As String = ".WebSokect.log"
 
 
-    'エラー時に止まります
-    If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
-
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.id, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString), vbObjectError + 1
 End Sub
 
 
@@ -1301,6 +1266,17 @@ Public Function deserialize(UserName As String) As Boolean
     '成功サインを返す
     deserialize = True
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルのブラウザをWebSocketモードで起動します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   利用者識別名称
+'* 返り値  ：設定の読み取りができたかの論理値
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
+'* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
+'            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
+'***************************************************************************************************
 
 
 

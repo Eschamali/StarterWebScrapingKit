@@ -76,7 +76,6 @@ Public Event CDPMessageReceived(RawJson As String)
 Private m_Host          As CDPWebView2Host
 Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
 Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
-Private ViewLog         As New Logger   'ログ用
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
@@ -560,43 +559,10 @@ End Property
 '                                  ■■■ ログヘルパー ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & currentLog.id & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebView2.log"
-        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With ViewLog
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
+    Const LogFileExtension As String = ".WebView2.log"
 
 
-    'エラー時に止まります
-    If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
-
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.id, isHeader, doRaiseError, IIf(currentLog.doLog, currentLog.logPath, vbNullString), vbObjectError + 1
 End Sub
 
 
