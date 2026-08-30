@@ -19,13 +19,6 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                              ■■■ WebView2用設定API ■■■
-'***************************************************************************************************
-Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'プロセス内環境変数用API
-
-
-
-'***************************************************************************************************
 '                              ■■■ テーブルの列操作用 ■■■
 '***************************************************************************************************
 Private Const TableName01 As String = "BrowserHandleInfo"
@@ -568,28 +561,6 @@ Private Function GetReferenceRange(TableName As String, SearchUser As String) As
         If Not IsError(StartRowPos) Then Set GetReferenceRange = .Cells(StartRowPos, 1)
     End With
 End Function
-
-
-
-'***************************************************************************************************
-'                               ■■■ ヘルパープロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：実行プロセス内のWebView2デバッグポートを開く際に使います。迷ったら、`9222`に設定して下さい
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：閉じる場合は、0未満にしてください
-'***************************************************************************************************
-Property Let EnsureWebView2Debug(port As Long)
-    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
-
-
-    If port >= 0 Then
-        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
-        Debug.Print "WebView2のデバッグポートを開けました: " & port
-    Else
-        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
-        Debug.Print "WebView2のデバッグポートを閉じました"
-    End If
-End Property
 
 '***************************************************************************************************
 '* 機能　　：現在設定中の識別名称を取得します

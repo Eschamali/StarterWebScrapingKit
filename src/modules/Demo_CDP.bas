@@ -966,7 +966,8 @@ End Sub
 '***************************************************************************************************
 Sub OpenExcelWebView2()
     '1. デバッグ用のポートをOpen
-    ShSetting01_StartBrowser.EnsureWebView2Debug = 9222
+    Dim HelpWebView2 As New CDPCoreViaWebSocket
+    HelpWebView2.EnsureWebView2DebugPort = 9222
 
     '2. Helpを開いて、疑似的にWebView2を始動させる
     CommandBars.ExecuteMso "Help"
@@ -976,12 +977,11 @@ Sub OpenExcelWebView2()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '4. 指定のWebSocketForCDPへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    Debug.Print HelpWebView2.AutoConnectBrowserCDP(UserName)
 
     '5. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    b.reattachWebSocket UserName, WebSocketCDP
+    b.reattachWebSocket UserName, HelpWebView2
 
     '6. 新しいタブに接続
     Dim t As CDPContext
@@ -991,6 +991,6 @@ Sub OpenExcelWebView2()
     t.navigate "https://www.youtube.com/@humboldtpenguin2619"
 
     '8. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
-    ShSetting01_StartBrowser.EnsureWebView2Debug = 0
+    HelpWebView2.DisconnectCDP
+    HelpWebView2.EnsureWebView2DebugPort = 0
 End Sub

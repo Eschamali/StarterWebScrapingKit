@@ -63,6 +63,9 @@ Option Explicit
     Private Declare Function setsockopt Lib "ws2_32.dll" (ByVal s As Long, ByVal level As Long, ByVal optname As Long, ByRef optval As Long, ByVal optlen As Long) As Long
 #End If
 
+' --- WebView2をWebSocket経由制御するための宣言 ---
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long
+
 
 
 '***************************************************************************************************
@@ -1252,6 +1255,27 @@ Public Function RunWebSocketModeBrowserCDP(Optional BrowserType As BrowserList =
     Set RunWebSocketModeBrowserCDP = New CDPBrowser
     RunWebSocketModeBrowserCDP.reattachWebSocket userProfile, Me
 End Function
+
+'***************************************************************************************************
+'* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：閉じる場合は、0未満にしてください
+'***************************************************************************************************
+Property Let EnsureWebView2DebugPort(port As Long)
+    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If port >= 0 Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
+        printMsg info_, "WebView2のデバッグポートを開けました: " & port, FromProcedureName
+
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        printMsg info_, "WebView2のデバッグポートを閉じました", FromProcedureName
+
+    End If
+End Property
 
 
 
