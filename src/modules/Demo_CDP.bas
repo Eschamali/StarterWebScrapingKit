@@ -333,21 +333,17 @@ End Sub
 '* 機能　　：WebView2を起動します
 '***************************************************************************************************
 Sub ExcelのユーザーフォームにWebView2を埋め込む()
-    '1. CDPでEdgeを起動
-    Dim 本物WebView2 As CDPContext
-    Set 本物WebView2 = WebView2Form.StartCDPModeWebView2
+    '1. UserForm側のWebView2の初期化を済ませる
+    With WebView2Form
+        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
+                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
 
-    '2. 遷移
-    If 本物WebView2 Is Nothing Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                    "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
+        '2. 遷移
+        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
 
-    本物WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
-
-    '3. フォームを表示
-    WebView2Form.show
-
-    '4. ブラウザを正常に閉じる
-    本物WebView2.InheritanceCDPBrowser.quit
+        '3. フォームを表示
+        .show
+    End With
 End Sub
 
 '***************************************************************************************************
