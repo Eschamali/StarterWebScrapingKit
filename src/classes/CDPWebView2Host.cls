@@ -69,15 +69,7 @@ Private m_closed    As Boolean
 '***************************************************************************************************
 '                              ■■■ 初期化/後始末 ■■■
 '***************************************************************************************************
-Private Sub Class_Initialize()
-    m_envState = Whs_Created
-    m_ctrlState = Whs_Created
-End Sub
-
-Private Sub Class_Terminate()
-    If Not m_closed Then CLOSE_
-End Sub
-
+'                                   ■■■ 起動前準備 ■■■
 '***************************************************************************************************
 '* 機能　　：ICoreWebView2Environment→ICoreWebView2Controller→ICoreWebView2の生成を、
 '            完了まで同期的に待って実行します
@@ -338,3 +330,17 @@ Property Let ContextMenuEnabled(v As Boolean)
     If m_pSettings = 0 Then Exit Property
     CDPWebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
+
+
+
+'***************************************************************************************************
+'                              ■■■ 初期化/後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    m_envState = Whs_Created
+    m_ctrlState = Whs_Created
+End Sub
+
+Private Sub Class_Terminate()
+    If Not m_closed Then CLOSE_
+End Sub
