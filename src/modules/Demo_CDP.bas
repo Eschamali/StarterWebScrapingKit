@@ -988,5 +988,5 @@ Sub OpenExcelWebView2()
 
     '8. WebSocketから切断
     HelpWebView2.DisconnectCDP
-    HelpWebView2.EnsureWebView2DebugPort = 0
+    HelpWebView2.EnsureWebView2DebugPort = -1
 End Sub
