@@ -185,7 +185,7 @@ Public Sub setCrashStateNormal()
         filePath_Preferences = currentPolicy.UserDataDir.Contents & "\" & DebugUserName & "\Preferences"
     Else
         'user-data-dir
-        filePath_Preferences = getUserDataDirPath
+        filePath_Preferences = getUserDataDirPath & "\Default\Preferences"
     End If
 
 
