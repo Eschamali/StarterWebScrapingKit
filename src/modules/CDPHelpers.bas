@@ -76,8 +76,8 @@ Private Const ThisModuleName   As String = "CDPHelpers"         'トレース用
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency As Currency '実行マシンでの周波数記録用
-Private LogControl As New Logger   'ログレベルの制御
+Private m_Frequency As Currency     '実行マシンでの周波数記録用
+Private LogControl  As New Logger   'ログレベルの制御
 
 
 
@@ -95,12 +95,22 @@ Public Function EnumToStringBrowserList_exeName(param As BrowserList) As String
 End Function
 
 '---------------------------------------------------------------------------------------------------
-' [ SECTION ] ブラウザ種別を相対パス名で返します
+' [ SECTION ] ポリシー情報のあるブラウザ種別を相対パス名で返します
 '---------------------------------------------------------------------------------------------------
 Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
     Select Case param
         Case BrowserList.RunChrome: EnumToStringBrowserList_RegPath = "\Google\Chrome"
         Case BrowserList.RunEdge:   EnumToStringBrowserList_RegPath = "\Microsoft\Edge"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 開発レベルのブラウザ種別を相対パス名で返します
+'---------------------------------------------------------------------------------------------------
+Public Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
+    Select Case param
+        Case BrowserList.RunChrome: EnumToStringBrowserList_BrowserPath = "\Google\Chrome"
+        Case BrowserList.RunEdge:   EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge"
     End Select
 End Function
 
