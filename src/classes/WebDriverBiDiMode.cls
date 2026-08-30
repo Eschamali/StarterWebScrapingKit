@@ -20,14 +20,8 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'BiDiからのイベント情報を格納する際のDictionaryKey名設定
-Private Const EventsDictionaryKeyName01 As String = "TotalEvents"
-Private Const EventsDictionaryKeyName02 As String = "EventMethods"
-
-'その他
 Private Const TIMEOUT_DEFAULT       As Double = 30                  '初期タイムアウト秒数
 Private Const ThisClassName         As String = "WebDriverBiDiMode" 'ログのトレース用
-Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマンド結果蓄積数
 
 
 
@@ -38,12 +32,8 @@ Private Const MaxStoreResultBiDi    As Long = 2 ^ 16                'コマン�
 Private WithEvents m_BiDiCore   As WebDriverBiDiCore      'イベント受け取りオブジェクト
 Attribute m_BiDiCore.VB_VarHelpID = -1
 
-'BiDiコマンドの結果を蓄積する際の管理(`WithEvents`で直接は取らないようにする仕組み作り)
-Private Type cacheResultBiDi
-    response    As Dictionary   '「ID - それに対するCDPコマンドの結果」というDictionary
-    Limit       As Long         'その`Dictionary`に詰め込む上限数
-End Type
-Private resultBiDi  As cacheResultBiDi
+'BiDiコマンドの結果を蓄積する変数(`WithEvents`で直接は取らないようにする仕組み作り)
+Private ResultCommandBiDi As Dictionary  '「ID - それに対するBiDiコマンドの結果」というDictionary
 
 'ブラウザからの非同期イベント状況
 Private m_Events    As Dictionary
@@ -51,9 +41,11 @@ Private m_Events    As Dictionary
 '各種エラー情報
 Private m_ErrorDetails  As Dictionary
 
+'ログ設定
+Private currentLog      As StateLog
+
 'その他
 Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private LogID           As String
 Private BiDiUserName    As String       'User-data-dir と同等
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
@@ -65,19 +57,15 @@ Private InfoList        As Collection   '非同期イベント`browsingContext.c
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
-'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
-'                                           1      ：キオスクモード デジタル/対話型サイネージ
-'                                           2      ：キオスクモード パブリック ブラウジング
-'
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiMode(Optional Name As String = "chrome", _
+Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
+    Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
@@ -86,7 +74,8 @@ Public Sub StartBiDiMode(Optional Name As String = "chrome", _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, sessionCapabilitiesRequest
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
@@ -189,6 +178,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName, WebSocketMode)
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
     If requestSessionNew Then
@@ -246,10 +236,10 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     Set newTab = New WebDriverBiDiContext
     With newTab
         '3-1. このBiDiのイベントオブジェクトを渡す
-        Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+        Set .ThisWebDriverBiDiCore = m_BiDiCore
 
         '4. このBiDi情報も渡す
-        Set .InheritanceWebDriverBiDiMode = Me
+        Set .ThisWebDriverBiDiMode = Me
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes.StringKey("context")
@@ -289,7 +279,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
     BiDiparams.Add "maxDepth", maxDepth
 
     'タイマースタート
-    If doRetrySecond Then startTime = TimerCounter
+    If doRetrySecond Then startTime = CDPHelpers.TimerCounter
     
     'シンプルに、`Instr`方式の検索で行う
     Do
@@ -307,10 +297,10 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 Set getTab = New WebDriverBiDiContext
                 With getTab
                     '4. このこのBiDiのイベントオブジェクトを渡す
-                    Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+                    Set .ThisWebDriverBiDiCore = m_BiDiCore
 
                     '5. このBiDi情報を渡す
-                    Set .InheritanceWebDriverBiDiMode = Me
+                    Set .ThisWebDriverBiDiMode = Me
 
                     '6. 先ほど得た`context`を渡す
                     .context = matchData("context")
@@ -324,7 +314,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
         End If
 
         If Not doRetrySecond Then Exit Do
-        If TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
+        If CDPHelpers.TimerCounter - startTime > doRetrySecond * 1000 Then Exit Do
     Loop
 End Function
 
@@ -393,9 +383,10 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDi"
 
 
-    '1. まずは非同期実行で実行IDを回収
+    '1. まずは非同期実行で実行IDを回収し、IDが0になってないか確認
     Dim RunID As Long
     RunID = ExecuteBiDiAsync(methodName, params, StopBiDiError)
+    If RunID = 0 Then Exit Function
 
     '2. 1回だけメッセージ取り出しを行う
     printMsg Debug_, "Waiting for the command result response for synchronous execution... : " & RunID, FromProcedureName
@@ -429,7 +420,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If m_BiDiCore.ShowLogBiDiresponse Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -440,7 +431,7 @@ End Function
 '*           params        引数を持ったDictionary (省略可能)
 '            StopError     内部エラーがあったら止めるか？
 '
-'* 返値    ：送信したメッセージの ID
+'* 返値    ：送信したメッセージの ID    ※API失敗時は0で、成功時は1以上です。
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDiコマンドを構成し、JSON化してブラウザへ投げます。結果の待機は行いません。
 '***************************************************************************************************
@@ -460,7 +451,12 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(BiDiCommand, StopError)
 
     '4. 送信APIエラーチェック
-    If m_BiDiCore.LastErrorWriteFile Then printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError: Exit Function
+    If m_BiDiCore.LastErrorWriteFile Then
+        printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError
+
+        ExecuteBiDiAsync = 0    '失敗なので、0にセット
+        Exit Function
+    End If
 
     '5. ログ化
     printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
@@ -485,7 +481,7 @@ Public Function AutoWaitTakeResultBiDi(commandID As Long, Optional StopApiError 
     If StrPtr(AutoWaitTakeResultBiDi) Then printMsg Debug_, "The result has already been stored as a side effect of another process.", FromProcedureName: Exit Function
 
     '2. 今の経過時間を記録し、取り出し開始
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         '3. 受信処理によるパイプを拝見する
         '※内部にて`DoEvents`が走ります
@@ -505,7 +501,7 @@ Public Function AutoWaitTakeResultBiDi(commandID As Long, Optional StopApiError 
         If m_BiDiCore.LastErrorPeekNamedPipe > 0 Or m_BiDiCore.LastErrorReadFile > 0 Then printMsg ERROR_, "Possible reasons: (1) the browser is not actually running (ie. call string failure); (2) the browser window was accidentally closed; (3) the CDP Pipe connection to the browser was cut-off somehow.", FromProcedureName, doRaiseError:=StopApiError: Exit Function
 
         '6. 一定時間経ってもコマンド結果が来ないなら、タイムアウトエラーとして終了します
-        If TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
+        If CDPHelpers.TimerCounter - timerStart > timerOut Then printMsg ERROR_, "Timeout waiting for BiDi to return message.", FromProcedureName, , True
     Loop
 End Function
 
@@ -520,21 +516,14 @@ End Function
 '            RawJson        コマンド結果の生Json文字列　※As Is. ID付きのままで渡されます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`ID`をKeyに、Dictionaryへ`RawJson`を格納します。
-'* 注意事項：・Jsonは、文字列のままで渡されます。
-'            ・Dictionaryへの蓄積には、上限があります。上限を超えると、結果履歴(特に、`ExecuteBiDiAsync`の結果)が全て削除されます
+'* 注意事項：Jsonは、文字列のままで渡されます。
 '***************************************************************************************************
 Private Sub m_BiDiCore_detectionBiDiID(id As Long, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiID"
 
 
-    '1. 格納件数チェックし、次の蓄積で上限を超えたら、全履歴を削除します
-    If resultBiDi.response.Count + 1 > resultBiDi.Limit Then
-        resultBiDi.response.RemoveAll
-        printMsg WARN_, "The accumulation limit has exceeded " & resultBiDi.Limit & ", so All result history has been deleted to prevent performance degradation.", FromProcedureName
-    End If
-
-    '2. その後、結果を蓄積
-    resultBiDi.response.Add id, RawJson
+    '結果を蓄積し、後で取り出せるようにする
+    ResultCommandBiDi.Add id, RawJson
     printMsg Trace_, "The results of the WebDriverBiDi(ID: " & id & ") execution from the browser have been received. → " & RawJson, FromProcedureName
 End Sub
 
@@ -544,7 +533,7 @@ End Sub
 '* 機能説明：IDが20億に達する場合も、結果履歴が全て削除されます
 '***************************************************************************************************
 Private Sub m_BiDiCore_ResetCommandID()
-    resultBiDi.response.RemoveAll
+    ResultCommandBiDi.RemoveAll
 End Sub
 
 '***************************************************************************************************
@@ -563,16 +552,16 @@ Property Get TakeResultBiDi(commandID As Long) As String
 
 
     '1. 存在するか？
-    If resultBiDi.response.Exists(commandID) Then
+    If ResultCommandBiDi.Exists(commandID) Then
         '2. Log化
-        Dim tmp As String: tmp = resultBiDi.response(commandID)
+        Dim tmp As String: tmp = ResultCommandBiDi(commandID)
         printMsg info_, "Browser were able to confirm the existence of BiDi command ID:" & commandID & "　→　" & tmp, FromProcedureName
 
         '3. 返却
         TakeResultBiDi = tmp
 
         '4. 取り出したので消しておく
-        resultBiDi.response.Remove commandID
+        ResultCommandBiDi.Remove commandID
         printMsg Trace_, "BiDi-command ID: " & commandID & " has been removed from `ResultBiDi.response`.", FromProcedureName
     Else
         '2. 存在しない旨を伝える
@@ -647,15 +636,23 @@ Public Property Get LastBiDiJsonError() As Dictionary
 End Property
 
 '***************************************************************************************************
-'* 機能　　：BiDi-Json コマンド結果を蓄積させる上限を決めます
+'* 機能　　：BiDi-Json コマンド結果を手動でクリアします
 '---------------------------------------------------------------------------------------------------
-'* LET引数 ：置き換える上限数
+'* 返値    ：クリア件数
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：格納上限件数を設定します。デフォルトは、65536件です。
+'* 機能説明：任意のタイミングでの、メモリクリーン等にどうぞ
 '***************************************************************************************************
-Property Let SetLimitBiDi(Number As Long)
-    resultBiDi.Limit = Number
-End Property
+Public Function CleanResultCommandBiDi() As Long
+    Const FromProcedureName As String = ThisClassName & ".CleanResultCommandBiDi"
+
+
+    '1. クリア件数を返却
+    CleanResultCommandBiDi = ResultCommandBiDi.Count
+
+    '2. ALLクリア
+    ResultCommandBiDi.RemoveAll
+    printMsg info_, "The user cleared " & CleanResultCommandBiDi & " previous BiDi command results.", FromProcedureName
+End Function
 
 
 
@@ -675,7 +672,7 @@ Public Sub quit()
     deleteCDPID                     'テーブルからも削除する
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
-    sleep 1
+    CDPHelpers.Sleep 1
     printMsg info_, "The WebDriverBiDi has been terminated.", FromProcedureName
 End Sub
 
@@ -775,7 +772,7 @@ Property Set BiDiEvents(ObjDic As Dictionary)
         printMsg info_, "A new event capture save data has been created. Starts event capture.", FromProcedureName
 
     '3. 指定のKeyがあるか？
-    ElseIf ObjDic.Exists(EventsDictionaryKeyName01) And ObjDic.Exists(EventsDictionaryKeyName02) And ObjDic.Count = 2 Then
+    ElseIf ObjDic.Exists(EventsKey_TotalEvents) And ObjDic.Exists(EventsKey_EventMethods) And ObjDic.Count = 2 Then
         '既存データをセット。これにより、このDictionaryにイベントキャプチャの追記が行われます。
         Set m_Events = ObjDic
         printMsg info_, "Existing event capture save data was successfully loaded. Resume event capture with this save data.", FromProcedureName
@@ -796,8 +793,8 @@ Private Function FormatDictionary_BiDiEvents() As Dictionary
     Set FormatDictionary_BiDiEvents = New Dictionary
 
     '初期構造を作成します
-    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName01, 0                 '合計イベントキャプチャ数
-    FormatDictionary_BiDiEvents.Add EventsDictionaryKeyName02, New Dictionary    'イベントキャプチャDictionaryデータ
+    FormatDictionary_BiDiEvents.Add EventsKey_TotalEvents, 0                 '合計イベントキャプチャ数
+    FormatDictionary_BiDiEvents.Add EventsKey_EventMethods, New Dictionary    'イベントキャプチャDictionaryデータ
 End Function
 
 '***************************************************************************************************
@@ -818,17 +815,17 @@ Private Sub OnNewEventReceived(Accumulator As Dictionary, eventData As Dictionar
 
 
     ' 合計イベントキャプチャ数をカウントする
-    Accumulator(EventsDictionaryKeyName01) = Accumulator(EventsDictionaryKeyName01) + 1
-    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsDictionaryKeyName01), FromProcedureName
+    Accumulator(EventsKey_TotalEvents) = Accumulator(EventsKey_TotalEvents) + 1
+    printMsg Trace_, "Now Total of accumulated events :" & Accumulator(EventsKey_TotalEvents), FromProcedureName
 
     ' インデックスも付与(1始まり)
     ' これにより、全体の時系列データも保持できます
-    eventData.Add "__index__", Accumulator(EventsDictionaryKeyName01)
+    eventData.Add "__index__", Accumulator(EventsKey_TotalEvents)
 
 
     '格納開始
     ' 1.イベントメソッドデータがあるDictionaryに遷移
-    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsDictionaryKeyName02)
+    Dim EventsDictionary As Dictionary: Set EventsDictionary = Accumulator(EventsKey_EventMethods)
 
     ' 2. このイベント名の`Collection`が、すでにあるか？
     Dim eventList As Collection
@@ -965,29 +962,26 @@ End Property
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
 '***************************************************************************************************
-Property Get InheritanceBiDiCore() As WebDriverBiDiCore
-    Set InheritanceBiDiCore = m_BiDiCore
+Property Get ThisBiDiCore() As WebDriverBiDiCore
+    Set ThisBiDiCore = m_BiDiCore
 End Property
 
 
 
 '***************************************************************************************************
-'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
-Public Sub sleep(Optional seconds As Double = 0.5)
-    m_BiDiCore.sleep seconds
-End Sub
 
-Public Function TimerCounter() As Double
-    TimerCounter = m_BiDiCore.TimerCounter
-End Function
 
+'***************************************************************************************************
+'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：メッセージ取り出し/制御系。`RaiseEvent`のコア
 '***************************************************************************************************
@@ -1015,13 +1009,15 @@ End Sub
 '                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     'Assign an objID for easy debug identification
-    LogID = "BDID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "BDID" & Format(Rnd * 1000, "000")
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
-    '`WithEvents`からのコマンド結果を蓄積させる件数設定(デフォルトで、65,536件)
-    Set resultBiDi.response = New Dictionary
-    resultBiDi.Limit = MaxStoreResultBiDi
+    '`WithEvents`からのコマンド結果を蓄積させる初期化
+    Set ResultCommandBiDi = New Dictionary
 End Sub

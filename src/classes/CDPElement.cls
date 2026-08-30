@@ -69,8 +69,8 @@ Private ParentElement   As CDPElement       ' このClass内で相対検索し�
 '簡易check系
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
 
-'ForDebug
-Private seeRawSendMsgDbg As Boolean
+'ログ設定
+Private currentLog As StateLog
 
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
@@ -87,7 +87,7 @@ Private RunOption As callFunctionOnParameters
 '***************************************************************************************************
 '* 機能　　：`CDPContext.cls`で検索実行したJavaScript結果を格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：InheritanceCDPContext  継承したい`CDPContext`そのもの
+'* 引数　　：ThisCDPContext  継承したい`CDPContext`そのもの
 '            argResultVarType       検索実行結果の`VarType` ※`ObjectID`の場合は、`vbString`として扱います。
 '            objectId_              検索実行結果時の`ObjectId`
 '            JavaScriptStr          検索実行したJavaScriptコードそのもの。ポーリング用に使用します。
@@ -98,9 +98,10 @@ Private RunOption As callFunctionOnParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set main = InheritanceCDPContext
+    Set main = ThisCDPContext
+    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.ThisCDPCore.LogSettings
 
     With CurrentElement
         '実行結果の型タイプ
@@ -118,8 +119,7 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "ELID" & Format(Rnd * 1000, "000")
 End Sub
 
 
@@ -753,13 +753,13 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 
 
     'カウントスタート
-    Dim timeStart As Double: timeStart = TimerCounter
+    Dim timeStart As Double: timeStart = CDPHelpers.TimerCounter
 
     '`vbNull`以外になるまで続ける
     '※このメソッド実行時点で既にある場合は、ループ探索には入りません
     Do While CurrentElement.ResultVarType = vbNull
         '1. タイムアウトチェック
-        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then
+        If CDPHelpers.TimerCounter - timeStart > timeOutInSeconds * 1000 Then
             printMsg ERROR_, "onExists timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName, doRaiseError:=raiseTimeoutError
             Exit Function
         End If
@@ -783,7 +783,7 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
 
         '3. 結果を判定。文字型なら、ObjectIDを確保
         CurrentElement.ResultVarType = VarType(resultSearch)
-        If CurrentElement.ResultVarType = vbString Then CurrentElement.objectId = resultSearch Else sleep 0.1
+        If CurrentElement.ResultVarType = vbString Then CurrentElement.objectId = resultSearch Else CDPHelpers.Sleep 0.1
     Loop
 
     '自身を返却
@@ -803,12 +803,12 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
 
 
     'カウントスタート
-    Dim timeStart As Double: timeStart = TimerCounter
+    Dim timeStart As Double: timeStart = CDPHelpers.TimerCounter
 
     '`vbNull`になるまで続ける
     Do Until CurrentElement.ResultVarType = vbNull
         '1. タイムアウトになったら抜ける
-        If TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName: Exit Function
+        If CDPHelpers.TimerCounter - timeStart > timeOutInSeconds * 1000 Then printMsg WARN_, "onExistsNot timeout on SearchJS = " & CurrentElement.SearchJS, FromProcedureName: Exit Function
 
         '2. 検索を再実行
         Dim resultSearch As Boolean
@@ -816,7 +816,7 @@ Public Function onExistNot(Optional timeOutInSeconds As Double = 30) As Boolean
 
         '3. 結果を判定。存在しなかったら、ObjectIDをクリア
         CurrentElement.ResultVarType = IIf(resultSearch, vbBoolean, vbNull)
-        If CurrentElement.ResultVarType = vbNull Then CurrentElement.objectId = vbNullString Else sleep 0.1
+        If CurrentElement.ResultVarType = vbNull Then CurrentElement.objectId = vbNullString Else CDPHelpers.Sleep 0.1
     Loop
 
     '消えたサインを返却
@@ -1545,7 +1545,7 @@ Public Sub SetFileInputFiles(files As Collection)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
-    If seeRawSendMsgDbg Then
+    If currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
     Else
         printMsg info_, "Attachment complete.", FromProcedureName
@@ -1555,20 +1555,20 @@ End Sub
 
 
 '***************************************************************************************************
-'                             ■■■ CDPContext.cls 直通メソッド ■■■
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    main.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
-Private Sub sleep(Optional seconds As Double = 0.5)
-    main.InheritanceCDPBrowser.sleep seconds
-End Sub
 
-Private Function TimerCounter() As Double
-    TimerCounter = main.InheritanceCDPBrowser.TimerCounter
-End Function
 
+'***************************************************************************************************
+'                             ■■■ CDPContext.cls 直通メソッド ■■■
+'***************************************************************************************************
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function

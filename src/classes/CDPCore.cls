@@ -80,11 +80,6 @@ Private Declare PtrSafe Function WriteFile Lib "kernel32" ( _
     ByRef lpNumberOfBytesWritten As Long, _
     lpOverlapped As Long) As Long
 
-'----- 待機関連 -----
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
-Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
-Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
-
 
 
 '***************************************************************************************************
@@ -155,22 +150,6 @@ End Type
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
-Public Enum WinState
-    asHidden = 0            'Hides the window and activates another window.
-    asNormal = 1            'Activates and displays a window. If the window is minimized or maximized, the system restores it to its original
-    asMinimized = 2         'Activates the window and displays it as a minimized window.
-    asMaximized = 3         'Activates the window and displays it as a maximized window.
-    doShowNoActivate = 4    'Displays a window in its most recent size and position. This value is similar to asNormal, except that the window is not activated.
-    doShow = 5              'Activates the window and displays it in its current size and position.
-    doMinimize = 6          'Minimizes the specified window and activates the next top-level window in the Z order.
-    doShowMinNoActivate = 7 'Displays the window as a minimized window. This value is similar to asMinimized, except the window is not activated.
-    doShowNA = 8            'Displays the window in its current size and position. This value is similar to doShow, except that the window is not activated.
-    doRestore = 9           'Activates and displays the window. If the window is minimized or maximized, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window.
-    doShowDefault = 10      'Sets the show state based on the WS_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application.
-    doForceMin = 11         'Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
-End Enum
-
 'このツール独自のエラーコード
 Public Enum CDPCustomErrorCodes
     TIMEOUT = 900   '時間内に、CDPから応答がありませんでした
@@ -183,15 +162,10 @@ Private Const STARTF_USESTDHANDLES  As Long = &H100&
 Private Const NORMAL_PRIORITY_CLASS As Long = &H20&
 Private Const STARTF_USESHOWWINDOW  As Long = &H1&
 
-'バッファー設定関連
-Private Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限　※`CDPCoreViaWebSocket.cls - InitialBuffer`と揃えること
-Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。
-Private Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む回数
-Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
-
 'その他
-Private Const ThisClassName             As String = "CDPCore"
-Private Const LimitCommandID            As Long = 2000000000    'CDPコマンド送信時のID上限値
+Private Const ThisClassName             As String = "CDPCore"   'ログのトレース用
+Private Const MAX_STR_LEN               As Long = 2 ^ 30 - 1    'VBA文字列の限界
+Private Const dwAllocationGranularity   As Long = 2 ^ 16        'メモリアロケーション粒度。本来ならば、「GetSystemInfo - dwAllocationGranularity」で正確に取るべきだが、これのために何十行の宣言等を書くのが面倒なので、定数で妥協。過去30年変わってないので。バッファー拡張判定用に使います。なお、この補正はあくまでも、Pipe経路に限ります。
 
 
 
@@ -214,9 +188,10 @@ Public Event ResetCommandID()
 '***************************************************************************************************
 '各種クラスオブジェクト
 Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
-Private LogControl              As New Logger               'ログレベルの制御
 Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
+Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
+Attribute viaWebView2.VB_VarHelpID = -1
 
 'バッファー管理
 Private Type ResponseBufferCDP
@@ -231,13 +206,7 @@ Private responseCDP     As ResponseBufferCDP
 Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェクト
 
 'ログ設定状況
-Private Type StateLog
-    seeRawSendMsgDbg    As Boolean  'set to True if needing to see the raw json msg received from the browser for debugging
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog  As StateLog
-Private LogID       As String
 
 'パイプ関連のエラー番号
 Private Type ErrorCode
@@ -261,14 +230,13 @@ Private hCDPInRd        As LongPtr
 Private hProcess        As LongPtr
 
 '起動ウィンドウ情報
-Private setShowWindow   As Integer
+Private setShowWindow   As WinState
 Private dwProcessId     As LongPtr
 
 'コマンドIDとSessionIDの紐づけ管理
 Private DictionarySessionID As Dictionary
 
 'その他
-Private m_Frequency         As Currency '実行マシンでの周波数記録用
 Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 
 
@@ -276,13 +244,68 @@ Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
 '***************************************************************************************************
 '                             ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
+'* 機能　　：パイプとして起動するためのcommandライン準備を行い、起動します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：起動時のコマンドライン。
+'* 引数　　：UserName       記録する識別名称
+'            BrowserType    ブラウザタイプ
+'            FirstURL       `-app`に渡すURL
+'            addArgs        追加引数
+'***************************************************************************************************
+Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String) As String
+    Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
+        .InitInfo UserName, BrowserType, True
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(FirstURL), _
+                                    addArgs))
+    End With
+
+    '2. 実際に起動を行います
+    Dim intRes As Long
+    printMsg Debug_, "Starting pipe communication... → " & RunCommandLine, FromProcedureName
+    intRes = InitCDP(RunCommandLine)
+
+    '3. エラー時は、Stop
+    If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
+
+    '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
+    serialize UserName
+
+    '5. コマンドラインを返却
+    RunPipeModeBrowserCDP = RunCommandLine
+End Function
+
+'***************************************************************************************************
 '* 機能　　：Chromiumを`remote-debugging-pipe`として起動し、パイプ接続を開始します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行結果　※0で成功です
-'* 引数　　：strExec            コマンドライン
-'            ShowWindowMode     初期ウィンドウ表示タイプ
+'* 引数　　：strExec   exe名を含むコマンドライン
 '***************************************************************************************************
-Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
+Private Function InitCDP(strExec As String) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -389,7 +412,7 @@ Public Function InitCDP(strExec As String, ShowWindowMode As WinState) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = ShowWindowMode
+        .wShowWindow = setShowWindow
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -433,7 +456,7 @@ End Function
 '* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Public Sub serialize(UserName As String)
+Private Sub serialize(UserName As String)
     '0. データ記録準備
     Dim tmp As New Dictionary
 
@@ -461,15 +484,12 @@ Public Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    'WebSocketモードの場合は、パイプ用変数に適用する意味がないので`True`で返して即抜け
-    If Not viaWebSocket Is Nothing Then printMsg info_, LogID, "As WebSocket mode is in use, this does not apply to pipe variables.", FromProcedureName: deserialize = True: Exit Function
-
     'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
     Dim PipeInfo As Dictionary
     Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
 
     '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
-    If PipeInfo Is Nothing Then printMsg WARN_, LogID, "Pipe information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
+    If PipeInfo Is Nothing Then printMsg WARN_, "Pipe information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
 
     'クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
@@ -494,22 +514,28 @@ Public Function isAvailability() As Boolean
 
 
     '各種判定
-    Dim RunRes As Long
-    If viaWebSocket Is Nothing Then
-        'Pipe生存判定
-        Dim tmp As Long
-        If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
+    Select Case False
+        Case viaWebSocket Is Nothing
+            'WebSocket生存判定
+            isAvailability = viaWebSocket.isAvailability
+    
+            'ステータスを最新にしておく
+            LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
 
-        'ステータスを最新にしておく
-        LastPipeError.PeekNamedPipe = Err.LastDllError
-        printMsg Debug_, LogID, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
-    Else
-        'WebSocket生存判定
-        isAvailability = viaWebSocket.isAvailability
+        Case viaWebView2 Is Nothing
+            'WebView2生存判定
+            isAvailability = viaWebView2.isAvailability
 
-        'ステータスを最新にしておく
-        LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
-    End If
+        Case Else
+            'Pipe生存判定
+            Dim tmp As Long
+            If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
+    
+            'ステータスを最新にしておく
+            LastPipeError.PeekNamedPipe = Err.LastDllError
+            printMsg Debug_, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
+
+    End Select
 End Function
 
 '***************************************************************************************************
@@ -518,17 +544,23 @@ End Function
 '* 注意事項：事前に、`deserialize`をした状態にすること
 '***************************************************************************************************
 Public Sub CloseHandleBrowser()
-    'WebSocketモードならそっち側のClose処理を行う
-    If viaWebSocket Is Nothing Then
-        CloseHandle hStdOutRd
-        CloseHandle hStdInWr
-        CloseHandle hCDPOutRd
-        CloseHandle hCDPInWr
-        CloseHandle hStderrOutRd
-        CloseHandle hProcess
-    Else
-        viaWebSocket.DisconnectCDP
-    End If
+    'WebSocket/WebView2モードならそっち側のClose処理を行う
+    Select Case False
+        Case viaWebSocket Is Nothing
+            viaWebSocket.DisconnectCDP
+            CloseHandle viaWebSocket.Connection_hProcess
+
+        Case viaWebView2 Is Nothing
+            viaWebView2.DisconnectCDP
+
+        Case Else
+            CloseHandle hStdOutRd
+            CloseHandle hStdInWr
+            CloseHandle hCDPOutRd
+            CloseHandle hCDPInWr
+            CloseHandle hStderrOutRd
+            CloseHandle hProcess
+    End Select
 End Sub
 
 
@@ -604,14 +636,14 @@ Private Sub viewStdoutAndStderr()
     intRes = readProcSTD(strRes, False)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
-        printMsg Debug_, LogID, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+        printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
     End If
 
     'Sometimes edge writes to stderrout so we clear stderrout too.
     intRes = readProcSTD(strRes, True)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
-        printMsg ERROR_, LogID, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+        printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
     End If
 End Sub
 
@@ -646,8 +678,11 @@ Private Function readProcCDP(ByRef EndOfData As Boolean, destruction As Boolean)
 
         '0以外なら成功です
         If bSuccess Then
-            'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
-            If Not destruction Then CDPPipeStream.Write Buffer
+            '破棄しない場合は、ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+            If Not destruction Then
+                CDPPipeStream.Write Buffer  '`ADODB.Stream`に追加
+                StrBufferCheck lPeekData    'バッファー拡張判定を行う
+            End If
 
             '終端null文字があるかチェック
             EndOfData = (Buffer(lPeekData - 1) = 0)
@@ -705,14 +740,14 @@ Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As
 
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
     CDPPipeStream.Write res
-    printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
+    printMsg Trace_, "Storing received messages...", FromProcedureName
 
     'メッセージの終わりであれば、その目印も追記
     If EOS Then CDPPipeStream.Write m_NullTerminator
 
-    '取得サイズをcursor管理へ反映
+    '取得サイズをcursor管理へ反映し、バッファー拡張判定を行う
     StrBufferCheck resSize + EOS * -1
-    printMsg Trace_, LogID, "ResSize = " & resSize & " , EOS: " & EOS, FromProcedureName
+    printMsg Trace_, "ResSize = " & resSize & " , EOS: " & EOS, FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -723,6 +758,46 @@ End Sub
 Private Sub writeWebSocketCDP(strData As String)
     'WebSocketオブジェクト経由で送信処理を委ねる
     LastPipeError.WriteFile = viaWebSocket.SendCommandCDP(strData)
+End Sub
+
+
+
+'***************************************************************************************************
+'                              ■■■ WebView2の読み書き ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPCoreViaWebView2 - SendCommandCDP`から得たデータを、Pipe/WebSocketと同じ蓄積先へ
+'            直接書き込みます
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：WebView2はCOMコールバック経由で完成JSON文字列(欠けなし・フラグメントなし)を届けるため、
+'            `viaWebSocket_WebSocketReceive`のようなバイト列蓄積とストリーム変換は不要で、
+'            直接`responseCDP.strBuffer`へ書き込みます
+'* 注意事項：・メッセージの取り出し自体(`TakeCDPMessage`/`searchNull`)はPipe/WebSocket共通のロジックを
+'            　そのまま流用しており、`vbNullChar`をメッセージ区切りとして検索する前提になっているため、
+'            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
+'***************************************************************************************************
+Private Sub viaWebView2_CDPMessageReceived(RawJson As String)
+    Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
+
+
+    '1. バッファー拡張判定を行う
+    StrBufferCheck Len(RawJson) + 1 '`+1`は、`vbnullchar`補正
+
+    '2. まずは、本体CDPJsonメッセージを追加
+    AddCDPMessage RawJson
+
+    '3. `vbnullchar`で〆
+    AddCDPMessage vbNullChar
+    printMsg Trace_, "Storing received messages (WebView2)...", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2経由で、ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strData    完成したCDP-Json文字列コマンド
+'***************************************************************************************************
+Private Sub writeWebView2CDP(strData As String)
+    'WebView2オブジェクト経由で送信処理を委ねる
+    LastPipeError.WriteFile = viaWebView2.SendCommandCDP(strData)
 End Sub
 
 
@@ -751,10 +826,11 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
         dicMessage.Add "sessionId", sessionID
 
         '2-2. commandIDと`sessionId`の紐づけを行う
+        '※`sessionId`付きコマンド実行時にて、エラーが起こると、`sessionId`なしエラーとして返る理不尽仕様に対応するため
         DictionarySessionID.Add ReadyRunCDP, sessionID
-        printMsg Trace_, LogID, "commandID:" & ReadyRunCDP & " corresponds to SessionID:" & sessionID, FromProcedureName
+        printMsg Trace_, "commandID:" & ReadyRunCDP & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
-        printMsg Trace_, LogID, "commandID:" & ReadyRunCDP & " does not have a SessionID.", FromProcedureName
+        printMsg Trace_, "commandID:" & ReadyRunCDP & " does not have a SessionID.", FromProcedureName
     End If
 
     '3.`id`を付与
@@ -764,10 +840,14 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
     Dim strMessage As String
 '    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
     strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
-    printMsg Debug_, LogID, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
+    printMsg Debug_, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
 
-    '5. 通信モードに応じてPipe/WebSocket分岐
-    If viaWebSocket Is Nothing Then writeProcCDP strMessage Else writeWebSocketCDP strMessage
+    '5. 通信モードに応じてPipe/WebSocket/WebView2分岐
+    Select Case False
+        Case viaWebSocket Is Nothing:  writeWebSocketCDP strMessage
+        Case viaWebView2 Is Nothing:    writeWebView2CDP strMessage
+        Case Else:                          writeProcCDP strMessage
+    End Select
 End Function
 
 '***************************************************************************************************
@@ -786,7 +866,7 @@ Private Function IssuanceCommandID() As Long
     If LastCommandID + 1 > LimitCommandID Then
         '1-1. リクエスト数の上限に達したら、0にリセットしておく
         LastCommandID = 0
-        printMsg info_, LogID, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
+        printMsg info_, "Reset to `1` to prevent internal counter overflow.", FromProcedureName
 
         '1-2. リセットした旨を伝える
         RaiseEvent ResetCommandID
@@ -804,37 +884,44 @@ End Function
 '***************************************************************************************************
 '                         ■■■ CDPレスポンス、蓄積/取得管理処理 ■■■
 '***************************************************************************************************
-'* 機能　　：適切な文字列変数バッファーが確保されてるかチェックします
+'* 機能　　：適切な文字列変数バッファーが確保されてるかチェックし、確保されてない場合は、拡張を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：ResSize    `ReadFile`から得たデータサイズそのまんま
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：拡張自体は1回分ですが、`CreatePipe`の第四引数と辻褄を合わせてるので、1回の拡張で済みます。
+'* 引数    ：ResSize    `ReadFile/recv etc`から得たデータサイズそのまんま
 '***************************************************************************************************
 Private Sub StrBufferCheck(resSize As Long)
     Const FromProcedureName As String = ThisClassName & ".StrBufferCheck"
 
 
     '1. 新規メッセージがない場合は即抜け
-    If resSize <= 0 Then printMsg WARN_, LogID, "No message was found, so the buffer check will be skipped.", FromProcedureName: Exit Sub
+    If resSize <= 0 Then printMsg WARN_, "No message was found, so the buffer check will be skipped.", FromProcedureName: Exit Sub
 
     '2. バッファーcheckへ
     With responseCDP
         'そもそもVBAで扱える文字列の上限を超える
         If .EndCursor + resSize > MAX_STR_LEN Then
-            printMsg ERROR_, LogID, "The VBA string limit (1,073,741,823 characters) has been exceeded.", FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "The VBA string limit (1,073,741,823 characters) has been exceeded.", FromProcedureName, doRaiseError:=True
 
-        '上限を越しそうになったら、拡張する(高負荷ポイント)
+        '今のバッファーサイズを越しそうになったら、拡張する(高負荷ポイント)
         ElseIf .EndCursor + resSize > .length Then
             '2-1. 拡張サイズを決める
             Dim AddLength  As Long
             If .length > (MAX_STR_LEN \ 2) Then
                 '次に2倍すると上限を超えるので、最後のバインバインは上限ピッタリに着地！
                 AddLength = MAX_STR_LEN - .length
-                printMsg WARN_, LogID, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
+                printMsg WARN_, "This is the final expansion. Further expansions are not possible. Add buffer size: " & AddLength, FromProcedureName
             Else
-                '基本は「バインバイン（2倍）」
+                'まずは、「バインバイン（2倍）」で設定
                 AddLength = .length
-                printMsg info_, LogID, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+
+                'バインバインでも足りないかcheck
+                If .EndCursor + resSize > .length + AddLength Then
+                    '加算
+                    AddLength = (.EndCursor + resSize) - .length
+                    printMsg info_, "Expand the buffer. Add buffer size: " & AddLength, FromProcedureName
+                Else
+                    'バインバインのままで
+                    printMsg info_, "Expand the buffer(x2). Add buffer size: " & AddLength, FromProcedureName
+                End If
             End If
 
             '2-2. 実際に拡張
@@ -844,7 +931,7 @@ Private Sub StrBufferCheck(resSize As Long)
             .length = .length + AddLength
 
             '2-4. ログ化
-            printMsg Debug_, LogID, "The buffer has been expanded: " & .length, FromProcedureName
+            printMsg Debug_, "The buffer has been expanded: " & .length, FromProcedureName
         End If
 
         '3. 有効予定なCDPメッセージカーソル末尾位置を更新
@@ -863,7 +950,7 @@ Private Sub ReadyCDPMessage()
 
     With CDPPipeStream
         '1. CDPからのメッセージがまだない場合は即抜け
-        If .Position = 0 Then printMsg Debug_, LogID, "The stored messages are empty.", FromProcedureName: Exit Sub
+        If .Position = 0 Then printMsg Trace_, "The stored messages are empty.", FromProcedureName: Exit Sub
 
         '2. 取り出すバイト数を確定
         .SetEOS
@@ -873,23 +960,36 @@ Private Sub ReadyCDPMessage()
         Dim tmp As String
         If Utf8Converter Is Nothing Then
             'そのまんまUTF-16変数に格納
-            tmp = StrConv((.Read), vbUnicode)
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
+            AddCDPMessage StrConv((.Read), vbUnicode)
         Else
             'UTF-8に変換した上で、UTF-16変数に格納
-            tmp = Utf8Converter.BytesToString((.Read))
-            Mid$(responseCDP.strBuffer, responseCDP.AddCursor + 1) = tmp
+            AddCDPMessage Utf8Converter.BytesToString((.Read))
         End If
 
-        '4. 次の蓄積位置を記録
-        responseCDP.AddCursor = responseCDP.AddCursor + Len(tmp)    '追加した文字数分をシフト
-        responseCDP.EndCursor = responseCDP.AddCursor               'テキスト変換による差分補正
-
-        '5 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
+        '4 .追加出来たので、カーソル位置をリセットし、次の新着メッセージバイト蓄積に備える
         .Position = 0
+    End With
+End Sub
 
-        '6. 文字列メッセージとして取り出せるので、`True`に更新
-        responseCDP.ExistsNewRes = True
+'***************************************************************************************************
+'* 機能　　：バッファーにCDPメッセージを追加します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：TextJsonCDP    CDPからのテキストJsonメッセージ
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：内部でcursor管理を行い、`Mid$`による高速な追記を行います
+'* 注意事項：元がバイト配列の場合は事前に、テキスト変換が必要です
+'***************************************************************************************************
+Private Sub AddCDPMessage(TextJsonCDP As String)
+    With responseCDP
+        '1. UTF-16変数に格納
+        Mid$(.strBuffer, .AddCursor + 1) = TextJsonCDP
+
+        '2. 次の蓄積位置を記録
+        .AddCursor = .AddCursor + Len(TextJsonCDP)    '追加した文字数分をシフト
+        .EndCursor = .AddCursor                       'テキスト変換による差分補正
+
+        '3. 文字列メッセージとして取り出せるので、`True`に更新
+        .ExistsNewRes = True
     End With
 End Sub
 
@@ -902,14 +1002,14 @@ Private Function TakeCDPMessage() As String
 
     With responseCDP
         '1. 次に蓄積し始める位置が先頭の場合は即抜け
-        If .AddCursor = 0 Then printMsg WARN_, LogID, "There are no new responses.", FromProcedureName: Exit Function
+        If .AddCursor = 0 Then printMsg WARN_, "There are no new responses.", FromProcedureName: Exit Function
 
         '2. 今の位置から`vbnullchar`の位置を探索
         Dim EndPos As Long
         EndPos = searchNull(.strBuffer, .StartCursor + 1)
 
         '3. 見つからないあるいは、`.AddCursor`を超える場合は、メッセージ取り出しできないので、抜ける
-        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, LogID, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
+        If EndPos = 0 Or EndPos > .AddCursor Then printMsg WARN_, "There are new messages, but some are still missing.", FromProcedureName: Exit Function
 
         '4. その目印を元に、1件分返却
         TakeCDPMessage = Mid$(.strBuffer, .StartCursor + 1, EndPos - .StartCursor - 1)
@@ -922,7 +1022,7 @@ Private Function TakeCDPMessage() As String
             .StartCursor = 0
             .ExistsNewRes = False   '有効な文字列メッセージは全部取り出せたので`False`に更新
 
-            printMsg Debug_, LogID, "All accumulated CDPmessages have been processed. Resetting cursor information.", FromProcedureName
+            printMsg Debug_, "All accumulated CDPmessages have been processed. Resetting cursor information.", FromProcedureName
         Else
             '次の取り出しに備えて更新
             .StartCursor = EndPos
@@ -970,7 +1070,7 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
 
 
     Dim intRes As Long
-    printMsg Trace_, LogID, "Starts retrieving data from the pipe...", FromProcedureName
+    printMsg Trace_, "Starts retrieving data from the pipe...", FromProcedureName
 
     '終端null文字があって尚且つ、受信データ0が来るまで、ループ受信を行います
     Dim LoopCounter As Long
@@ -985,40 +1085,39 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
         viewStdoutAndStderr
 
         '受信処理
-        intRes = readProcCDP(EOvbNullChar, destruction)
-        printMsg Trace_, LogID, "ResSize = " & intRes, FromProcedureName
+        intRes = readProcCDP(EOvbNullChar, destruction) '※内部で、`ADODB.Stream`へバイト配列が蓄積されます
+        printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定
+            '破棄モードかの判定 ※ログメッセージ分岐のみ
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
-                printMsg Trace_, LogID, "Discarding data in pipe...", FromProcedureName
+                printMsg Trace_, "Discarding data in pipe...", FromProcedureName
             Else
                 '中身の解析に備えて、蓄積準備
-                StrBufferCheck intRes
-                printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
+                printMsg Trace_, "Storing received messages...", FromProcedureName
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
             If LastPipeError.PeekNamedPipe Then
                 'PeekNamedPipe にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, "Error PeekNamedPipe in readProcCDP. ErrorCode:" & LastPipeError.PeekNamedPipe & " - " & WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             ElseIf LastPipeError.ReadFile Then
                 'ReadFile にてエラーがあった場合
-                printMsg ERROR_, LogID, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
+                printMsg ERROR_, "Error ReadFile in readProcCDP. ErrorCode:" & LastPipeError.ReadFile & " - " & WinApiError.GetMessage(LastPipeError.ReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopPipeError
                 Exit Sub
 
             Else
                 'パイプ内は空
-                printMsg Trace_, LogID, "The ReadFile is currently empty.", FromProcedureName
+                printMsg Trace_, "The ReadFile is currently empty.", FromProcedureName
 
             End If
         End If
     Loop Until EOvbNullChar And intRes < 1
-    printMsg Trace_, LogID, "Finished getting data from the pipe.", FromProcedureName
+    printMsg Trace_, "Finished getting data from the pipe.", FromProcedureName
 
 End Sub
 
@@ -1040,7 +1139,7 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
 
     Dim intRes As Long
-    printMsg Trace_, LogID, "Starts retrieving data from the WebSocket...", FromProcedureName
+    printMsg Trace_, "Starts retrieving data from the WebSocket...", FromProcedureName
 
     '終了サインかつ、受信データなしになるまで、ループ受信を行います
     Dim LoopCounter As Long
@@ -1052,44 +1151,83 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
 
 
         '受信処理
-        intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)
+        intRes = viaWebSocket.GetAsyncMessage(isFIN, destruction)   '※内部で`WithEvents`が走り、そこで`ADODB.Stream`へバイト配列が蓄積されます
 
         '返り値チェック
         If intRes > 0 Then
-            '破棄モードかの判定
+            '破棄モードかの判定 ※ログメッセージ分岐のみ
             If destruction Then
                 '解析などせず、そのまんま出して破棄します
-                printMsg Trace_, LogID, "Discarding data in WebSocket...", FromProcedureName
+                printMsg Trace_, "Discarding data in WebSocket...", FromProcedureName
             Else
-                '中身の解析に備えて、`WithEvents`側で蓄積します
-                printMsg Trace_, LogID, "Storing received messages...", FromProcedureName
+                '中身の解析に備えて、蓄積準備
+                printMsg Trace_, "Storing received messages...", FromProcedureName
             End If
         Else
             'データなしの場合は、エラーコードチェックを行う
             If viaWebSocket.IsErrorStylePeekNamedPipe Then
                 'ioctlsocket にてエラーがあった場合
                 LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe    'エラーコードを同期させておく
-                printMsg ERROR_, LogID, "Error ioctlsocket in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStylePeekNamedPipe, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
+                printMsg ERROR_, "Error ioctlsocket in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStylePeekNamedPipe, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
             ElseIf viaWebSocket.IsErrorStyleReadFile Then
                 'recv にてエラーがあった場合
                 LastPipeError.ReadFile = viaWebSocket.IsErrorStyleReadFile              'エラーコードを同期させておく
-                printMsg ERROR_, LogID, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
+                printMsg ERROR_, "Error recv in GetAsyncMessage. ErrorCode:" & viaWebSocket.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaWebSocket.IsErrorStyleReadFile, "ws2_32"), FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
 
             ElseIf viaWebSocket.LastBufferType = WS_CLOSE_MESSAGE Then
                 '切断要求が来た場合
-                printMsg ERROR_, LogID, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
+                printMsg ERROR_, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
                 Exit Sub
             Else
                 'パイプ内は空あるいは、WebSocketフレーム単位としてまだ届いていない
-                printMsg Trace_, LogID, "The WebSocket is currently empty.", FromProcedureName
+                printMsg Trace_, "The WebSocket is currently empty.", FromProcedureName
 
             End If
         End If
     Loop Until isFIN And intRes < 1
 
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2からの、保留中のコールバックを処理させます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopApiError   (このモードでは未使用。Pipe/WebSocket版とのシグネチャ統一のためだけに存在)
+'            destruction    `True` :今回`DoEvents`中に届いたメッセージも蓄積せず、破棄します
+'                           `False`:蓄積し、ID、イベント解析に備えます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2のコールバックは`DoEvents`実行中に(同期的に)発火する。`PeekNamedPipe`の
+'            ような「残量チェック」の手段がないため、カーソルの変化がなかったら即抜けするロジックにする
+'***************************************************************************************************
+Private Sub TakeWebView2(StopApiError As Boolean, destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeWebView2"
+
+
+    Dim BeforeEndCursor As Long
+    Do
+        '1. 内部でWebView2のコールバックを呼ぶ試行を行う。溜まってる場合、そこに仕込んだ`RaiseEvent`で、CDPメッセージを蓄積させる処理にワープします
+        '※`DoEvents`自体がイベント発火のきっかけになることから、「一定回数ごとに`DoEvents`」といったことはしません
+        DoEvents
+
+        '2. カーソルの変化がない場合は、ループから抜ける
+        If BeforeEndCursor = responseCDP.EndCursor Then Exit Do
+
+        '3. 前回値を記録
+        BeforeEndCursor = responseCDP.EndCursor
+    Loop
+
+    If destruction Then
+        '`DoEvents`中に届いてしまった分を明示的に破棄する
+        With responseCDP
+            .AddCursor = 0
+            .StartCursor = 0
+            .EndCursor = 0
+            .ExistsNewRes = False
+        End With
+        printMsg Trace_, "Discarding data in WebView2...", FromProcedureName
+    End If
 End Sub
 
 '***************************************************************************************************
@@ -1106,21 +1244,26 @@ Public Sub AnalyzeCDP(Optional StopApiError As Boolean, Optional destruction As 
     Const FromProcedureName As String = ThisClassName & ".AnalyzeCDP"
 
 
-    '1. 通信モードに応じてPipe/WebSocket分岐し、受信メッセージバイト配列の取り出し
-    If viaWebSocket Is Nothing Then
-             TakePipe StopApiError, destruction
-    Else
-        TakeWebSocket StopApiError, destruction
-    End If
-
+    '1. 通信モードに応じてPipe/WebSocket/WebView2分岐し、受信メッセージバイト配列の取り出し
+    Select Case False
+        Case viaWebSocket Is Nothing:  TakeWebSocket StopApiError, destruction
+        Case viaWebView2 Is Nothing:    TakeWebView2 StopApiError, destruction
+        Case Else:                          TakePipe StopApiError, destruction
+    End Select
+    
     '2. `ReadFile` or `recv` で得たバイト配列をテキストに変換させ、メッセージ処理を準備させる
-    If Not destruction Then Call ReadyCDPMessage
+    'WebView2モードは、`viaWebView2_CDPMessageReceived`が`responseCDP.strBuffer`へ直接書き込む
+    'ため、`CDPPipeStream`経由のテキスト変換(`ReadyCDPMessage`)は不要かつ不整合の元になるので
+    '呼ばない
+    If Not destruction Then
+        If viaWebView2 Is Nothing Then Call ReadyCDPMessage
+    End If
 
     '3. ログ化
     If destruction Then
-        printMsg Trace_, LogID, "The disposal of the accumulated CDP data has been completed.", FromProcedureName
+        printMsg Trace_, "The disposal of the accumulated CDP data has been completed.", FromProcedureName
     Else
-        printMsg Trace_, LogID, "Preparation for CDPmessage analysis is complete.", FromProcedureName
+        printMsg Trace_, "Preparation for CDPmessage analysis is complete.", FromProcedureName
     End If
 End Sub
 
@@ -1141,11 +1284,11 @@ Public Sub TakeEvent()
 
     '1. ログによるレスの確認
     Dim tmp As String: tmp = TakeCDPMessage
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, LogID, "Result - CDP          : " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - CDP          : " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
     '2. 受信データを`RaiseEvent`するプロシージャへ委託
     Call BrowserReceivedDataCheck(tmp)
-    printMsg Trace_, LogID, "I triggered one `RaiseEvent`.", FromProcedureName
+    printMsg Trace_, "I triggered one `RaiseEvent`.", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -1177,15 +1320,15 @@ Public Sub TakeEvents(Optional StopApiError As Boolean = True, Optional destruct
         ResCounter = ResCounter + 1
 
         '3-2. 1個ずつ取り出して`RaiseEvent`するプロシージャへ
-        printMsg Debug_, LogID, "Executing the " & ResCounter & " `RaiseEvent`...", FromProcedureName
+        printMsg Debug_, "Executing the " & ResCounter & " `RaiseEvent`...", FromProcedureName
         TakeEvent
     Loop
 
     '3. CDPメッセージ処理件数をログ化
     If ResCounter Then
-        printMsg Debug_, LogID, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
+        printMsg Debug_, "Executed " & ResCounter & " `RaiseEvent` calls.", FromProcedureName
     Else
-        printMsg Trace_, LogID, "There were no messages received this time.", FromProcedureName
+        printMsg Trace_, "There were no messages received this time.", FromProcedureName
     End If
 End Sub
 
@@ -1238,7 +1381,7 @@ Private Sub BrowserReceivedDataCheck(CDPJsonString As String)
             End If
         Else
             '`method`も`id`項目もない場合、CDP-Jsonコマンドの構文エラーとして返った可能性があるとし、不整合を防ぐため、エラーで止める
-            printMsg ERROR_, LogID, "A syntax error was detected when executing with ExecuteCDP/ExecuteCDPAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
+            printMsg ERROR_, "A syntax error was detected when executing with ExecuteCDP/ExecuteCDPAsync. Processing was interrupted to prevent inconsistencies." & vbCrLf & "> " & CDPJsonString, FromProcedureName, doRaiseError:=True
         End If
     End If
 End Sub
@@ -1247,23 +1390,6 @@ End Sub
 
 '***************************************************************************************************
 '                               ■■■ プロパティ機能 ■■■
-'***************************************************************************************************
-'* 機能　　：コマンドを送る(WriteFile)前に、VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送るかを設定します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：UTF-8 の変換が作動してるかの論理値
-'* LET引数 ：・`True`   VBAの「Unicode」文字列をUTF-8でエンコードしたバイト配列として、コマンドを送ります
-'            ・`False`  VBAの「Unicode」文字列そのまんまで、コマンドを送ります
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：日本語での送信が必要の場合は`True`で設定しないと、途中で動作が止まることがあるため、このプロパティを設けます
-'***************************************************************************************************
-Property Let UseConverterUtf8FromString(Flag As Boolean)
-    If Flag Then Set Utf8Converter = New CharacterCodeConversion Else Set Utf8Converter = Nothing
-End Property
-
-Property Get UseConverterUtf8FromString() As Boolean
-    UseConverterUtf8FromString = Not (Utf8Converter Is Nothing)
-End Property
-
 '***************************************************************************************************
 '* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
 '***************************************************************************************************
@@ -1313,8 +1439,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ログ設定値、取得用プロパティ
 '***************************************************************************************************
-Property Get ShowLogCDPresponse() As Boolean
-    ShowLogCDPresponse = currentLog.seeRawSendMsgDbg
+Friend Property Get LogSettings() As StateLog
+    LogSettings = currentLog
 End Property
 
 '***************************************************************************************************
@@ -1331,77 +1457,24 @@ Property Set WebSocketMode(ws As CDPCoreViaWebSocket)
     Set viaWebSocket = ws
 End Property
 
+'***************************************************************************************************
+'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set WebView2Mode(wv As CDPCoreViaWebView2)
+    Set viaWebView2 = wv
+End Property
+
 
 
 '***************************************************************************************************
 '                               ■■■ その他ヘルパーメソッド ■■■
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, LogID As String, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & LogID & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".cdp.log"
-        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With LogControl
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_:   .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_:   .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
+Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    '主に、CDPコマンドのエラー時に止まります
-    If doRaiseError Then Err.Raise CDPCustomErrorCodes.Protocol, From, Description:=strMsg
-
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
-
-Public Sub sleep(Optional seconds As Double = 0.5)
-'------------------------------------------------------------------
-' Custom sleep function. Sleep by 0.5s by default.
-' Useful for a quick necessary pause when needed.
-'------------------------------------------------------------------
-
-    Const baseUnit As Long = 1000    'ie. millisecs
-
-    sleep2 seconds * baseUnit
-    DoEvents
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：PC起動時からの「経過時間（ミリ秒）」を正確に返します（Timer関数の神互換）
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：PC起動時からの「経過時間（ミリ秒）」
-'***************************************************************************************************
-Public Function GetTicksMs() As Double
-    '1. 今の「振動回数」を取得する
-    Dim currentCount As Currency
-    Call QueryPerformanceCounter(currentCount)
-
-    '2. 割り算して「秒」にし、1000倍して「ミリ秒（Double型）」にして返す！
-    GetTicksMs = (CDbl(currentCount) / CDbl(m_Frequency)) * 1000#
-End Function
 
 '***************************************************************************************************
 '* 機能　　：呼び出し時点での`CDPPipeStream`の中身をファイルに保存します
@@ -1432,6 +1505,8 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 初期化/後始末処理 ■■■
 '***************************************************************************************************
+'* 機能　　：各種設定を適用します
+'***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
@@ -1460,22 +1535,24 @@ Private Sub Class_Initialize()
         '2-1. イミディエイトに関する設定を行う
         currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
-        '2-2. パスが設定されてたら、ログファイル保存を有効化
-        Dim LogFolderPath As String: LogFolderPath = .UseRangeID(9, FromProcedureName)
-        If LenB(LogFolderPath) > 0 Then
-            currentLog.doLog = True                'ログファイルとして保存するか？
-            currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
-        End If
+        '2-2. ログファイル保存先。空ならファイル出力しない
+        currentLog.logPath = .UseRangeID(9, FromProcedureName)
 
         '2-3. Assign an objID for easy debug identification
-        LogID = "COID" & Format(Rnd * 1000, "000")
+        currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
+
+        '2-4. UTF8変換モードを設定するか
+        If .UseRangeID(10, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
+
+        '2-5. 初期起動ウィンドウ状態を設定
+        setShowWindow = .UseRangeID(12, FromProcedureName)
     End With
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
 
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して記憶する
-    Call QueryPerformanceFrequency(m_Frequency)
+    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶する
+    CDPHelpers.InitQueryPerformanceFrequency
     '------------------------------------------------------------------------------
 End Sub
 
@@ -1514,8 +1591,8 @@ Public Function Test_StrBufferCheck(Optional resSize As Long = InitialBuffer + d
     StrBufferCheck resSize
 
     '現在の有効エリアカーソルを返す
-    printMsg info_, LogID, "`Len(responseCDP.strBuffer)`: " & Len(responseCDP.strBuffer), FromProcedureName
-    printMsg info_, LogID, "`responseCDP.length`        : " & responseCDP.length, FromProcedureName
+    printMsg info_, "`Len(responseCDP.strBuffer)`: " & Len(responseCDP.strBuffer), FromProcedureName
+    printMsg info_, "`responseCDP.length`        : " & responseCDP.length, FromProcedureName
     Test_StrBufferCheck = responseCDP.EndCursor
 End Function
 
@@ -1579,10 +1656,10 @@ End Function
 '
 '        '5. ID値を取り出す
 '        idValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "This response is the command result. ID:" & idValueContents, FromProcedureName
+'        printMsg Trace_, "This response is the command result. ID:" & idValueContents, FromProcedureName
 '    Else
 '        GetContentsID = False
-'        printMsg Trace_, LogID, "This response does not have an `id`.", FromProcedureName
+'        printMsg Trace_, "This response does not have an `id`.", FromProcedureName
 '    End If
 'End Function
 '
@@ -1623,10 +1700,10 @@ End Function
 '
 '        '5. method名を取り出す
 '        methodValueContents = Mid(jsonString, StartPos, EndPos - StartPos)
-'        printMsg Trace_, LogID, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
+'        printMsg Trace_, "This response is an asynchronous event: " & methodValueContents, FromProcedureName
 '    Else
 '        GetContentsMethod = False
-'        printMsg Trace_, LogID, "This response does not have an `method`.", FromProcedureName
+'        printMsg Trace_, "This response does not have an `method`.", FromProcedureName
 '    End If
 'End Function
 '
@@ -1654,7 +1731,7 @@ End Function
 '    '負になってたら即抜け
 '    If StartSearchPos < 0 Then
 '        GetContentsSessionId = False
-'        printMsg Trace_, LogID, "This response is the short command result for the browser.", FromProcedureName
+'        printMsg Trace_, "This response is the short command result for the browser.", FromProcedureName
 '        Exit Function
 '    End If
 '
@@ -1668,9 +1745,9 @@ End Function
 '
 '        '3. sessionId値を取り出す
 '        sessionIdValueContents = Mid(jsonString, Len(jsonString) - LenSessionID - Len("""}") + 1, LenSessionID)  '「0DB67B7FD7C79501E6FBA9752A68F35A"}」分、後ろに設定するイメージ
-'        printMsg Trace_, LogID, "This response is the command result for the tab. sessionId:" & sessionIdValueContents, FromProcedureName
+'        printMsg Trace_, "This response is the command result for the tab. sessionId:" & sessionIdValueContents, FromProcedureName
 '    Else
 '        GetContentsSessionId = False
-'        printMsg Trace_, LogID, "This response is the command result for the browser.", FromProcedureName
+'        printMsg Trace_, "This response is the command result for the browser.", FromProcedureName
 '    End If
 'End Function

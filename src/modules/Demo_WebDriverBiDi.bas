@@ -21,7 +21,7 @@ Sub BiDiによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.InheritanceWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
 End Sub
 
 
@@ -46,7 +46,7 @@ Sub ネットワークイベントの確認()
     '-------------------------------- 機能1：イベントキャプチャを有効化する --------------------------------
     '`New Dictionary`を渡すことで、内部で非同期イベントの蓄積を開始する
     Dim resultBiDi As Dictionary
-    Set Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+    Set Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 
     'BiDi側でネットワークイベントを購読開始する
     Dim paramsBiDi As Dictionary
@@ -55,48 +55,48 @@ Sub ネットワークイベントの確認()
     eventsArray.Add "network.beforeRequestSent"
     eventsArray.Add "network.responseCompleted"
     eventsArray.Add "log.entryAdded"
-    Set Demo_NetworkEvent.InheritanceWebDriverBiDiMode.sessionSubscribe = eventsArray
+    Set Demo_NetworkEvent.ThisWebDriverBiDiMode.sessionSubscribe = eventsArray
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う (念のため待機後にも余波を回収)
-    Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_Event.json"
 
 
     '-------------------------------- 機能2：セーブデータを作成し、イベントキャプチャを無効化する --------------------------------
-    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents  'セーブデータ作成
-    Set Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents = Nothing               '`Nothing`を渡すことで、イベント記録状態を破棄する
+    Dim SaveDataEvents As Dictionary: Set SaveDataEvents = Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents  'セーブデータ作成
+    Set Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents = Nothing               '`Nothing`を渡すことで、イベント記録状態を破棄する
 
 
     'URL遷移
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので破棄状態（0バイト等）になります
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_NotEvent.json"
 
 
     '-------------------------------- 機能3：セーブデータを読み込み、そこからイベントキャプチャを再開する --------------------------------
-    Set Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents = SaveDataEvents        '既存のセーブデータを読み込む
+    Set Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents = SaveDataEvents        '既存のセーブデータを読み込む
 
     'URL遷移
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceWebDriverBiDiMode.TakeEvents
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
-    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.InheritanceWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
+    CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.ThisWebDriverBiDiMode.BiDiEvents)), Environ("UserProfile") & "\Downloads", "BiDi_EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.InheritanceWebDriverBiDiMode.quit
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.quit
 End Sub
 
 '***************************************************************************************************
@@ -150,10 +150,10 @@ Sub UseExtensions()
     '読み込まれたか確認する
     If resultBiDi Is Nothing Then
         ' コマンド実行に失敗した場合、LastBiDiJsonError からエラー情報を取得する
-        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceWebDriverBiDiMode.LastBiDiJsonError("error")
+        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("error")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.quit
         Exit Sub
 
     ElseIf resultBiDi.ExistsKey("extension") Then
@@ -164,7 +164,7 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & resultBiDi.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -177,13 +177,13 @@ Sub UseExtensions()
 
     '消えたか確認する
     If resultBiDi Is Nothing Then
-        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceWebDriverBiDiMode.LastBiDiJsonError("error")
+        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("error")
     Else
         MsgBox "拡張機能のアンインストールに成功しました。ブラウザをご確認ください。", vbInformation, "Uninstall Done!"
     End If
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.InheritanceWebDriverBiDiMode.quit
+    controlExtensions.ThisWebDriverBiDiMode.quit
 End Sub
 
 '***************************************************************************************************
@@ -218,7 +218,7 @@ Sub TestAlert()
         ' --- 1. 必要なドメイン(イベント)をサブスクライブ ---
         Dim eventsArray As New Collection
         eventsArray.Add "browsingContext.userPromptOpened"
-        Set .InheritanceWebDriverBiDiMode.sessionSubscribe = eventsArray
+        Set .ThisWebDriverBiDiMode.sessionSubscribe = eventsArray
 
         Dim i As Long
         For i = 1 To 3
@@ -231,7 +231,7 @@ Sub TestAlert()
 
             ' --- 2. イベントキャプチャを新しく有効化 ---
             ' 過去のイベントをリセット
-            Set .InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+            Set .ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 
             ' --- 3. 非同期でコマンド準備/実行(Jsのクリック処理) ---
             ' 対象の要素をクリックするJSを評価する
@@ -243,13 +243,13 @@ Sub TestAlert()
             Const SearchEventName As String = "browsingContext.userPromptOpened"
             Do
                 '非同期イベントを取り出す
-                .InheritanceWebDriverBiDiMode.TakeEvents
+                .ThisWebDriverBiDiMode.TakeEvents
 
                 'イベント名の確認
-                If .InheritanceWebDriverBiDiMode.BiDiEvents("EventMethods").Exists(SearchEventName) Then
+                If .ThisWebDriverBiDiMode.BiDiEvents("EventMethods").Exists(SearchEventName) Then
                     '出ているダイアログの情報の確認
                     Dim tmp
-                    For Each tmp In .InheritanceWebDriverBiDiMode.BiDiEvents("EventMethods")(SearchEventName)
+                    For Each tmp In .ThisWebDriverBiDiMode.BiDiEvents("EventMethods")(SearchEventName)
                         Debug.Print "message:"; tmp("params")("message")
                         Debug.Print "type   :"; tmp("type") & vbCrLf
                     Next
@@ -283,7 +283,7 @@ Sub TestAlert()
 
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .InheritanceWebDriverBiDiMode.quit
+        .ThisWebDriverBiDiMode.quit
     End With
 End Sub
 
@@ -332,7 +332,7 @@ Sub TestBiDiPlus_CDPTunnel()
     End If
 
     '終了
-    bidiPlus.InheritanceWebDriverBiDiMode.quit
+    bidiPlus.ThisWebDriverBiDiMode.quit
 End Sub
 
 Sub ConvertToCDPContextDemo()
