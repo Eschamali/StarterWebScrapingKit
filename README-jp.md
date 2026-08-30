@@ -91,6 +91,9 @@
 * **`VBA-JSON`の上位互換の高速JSONパーサー**
   * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
     * 製作者：Cristian Buse
+* **Microsoft製 `Scripting.Dictionary`の上位互換の高速Dictionary**
+  * [VBA-FastDictionary](https://github.com/cristianbuse/VBA-FastDictionary)
+    * 製作者：Cristian Buse
 * **高速な文字コード変換ラッパー**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland DI Management Services Pty

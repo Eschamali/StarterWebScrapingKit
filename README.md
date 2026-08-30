@@ -96,7 +96,10 @@ I express my heartfelt respect and gratitude for the wisdom and code of my great
     * Modified version: Optimized for reliability by removing `CopyMemory` dependency
 * **High-performance JSON parser (Upward compatible with `VBA-JSON`)**
   * [VBA-FastJSON](https://github.com/cristianbuse/VBA-FastJSON)
-    * Author: Ion Cristian Buse
+    * Author: Cristian Buse
+* **A high-speed Dictionary that is a superset-compatible replacement for Microsoft's `Scripting.Dictionary`.**
+  * [VBA-FastDictionary](https://github.com/cristianbuse/VBA-FastDictionary)
+    * Author: Cristian Buse
 * **Fast Character Code Conversion Wrapper**
   * [How to convert VBA/VB6 Unicode strings to UTF-8](https://di-mgt.com.au/howto-convert-vba-unicode-to-utf8.html)
     * David Ireland, DI Management Services Pty
