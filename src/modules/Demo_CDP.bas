@@ -42,7 +42,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.InheritanceCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
 End Sub
 
 
@@ -79,7 +79,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
@@ -94,7 +94,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
@@ -108,14 +108,14 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.InheritanceCDPBrowser.quit
+    Demo_NetworkEvent.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -162,7 +162,7 @@ Sub JapaneseElementTest()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_Japanese.InheritanceCDPBrowser.quit
+    Demo_Japanese.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -194,16 +194,16 @@ Sub UseExtensions()
     Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
-    Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
+    Set ResultCDP = controlExtensions.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
 
     '読み込まれたか確認する
     '※コマンド実行に失敗すると、`nothing`で返るので、この仕様を利用します
     If ResultCDP Is Nothing Then
         'CDP-Json結果に`error`要素あり
-        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("code")
+        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.quit
         Exit Sub
 
     ElseIf ResultCDP.ExistsKey("id") Then
@@ -213,19 +213,19 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.quit
     End If
 
 
     '拡張機能をアンインストール
     Set CDPparams = New Dictionary
     CDPparams.Add "id", ResultCDP("id")
-    Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.uninstall", CDPparams, False)
+    Set ResultCDP = controlExtensions.ThisCDPBrowser.ExecuteCDP("Extensions.uninstall", CDPparams, False)
 
     '消えたか確認する
     If ResultCDP Is Nothing Then
         'CDP-Json結果に`error`要素あり
-        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("code")
+        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
     Else
         MsgBox "拡張機能のアンインストールに成功しました。ブラウザをご確認ください。", vbInformation, "Uninstall Done!"
@@ -233,7 +233,7 @@ Sub UseExtensions()
 
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.InheritanceCDPBrowser.quit
+    controlExtensions.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -287,7 +287,7 @@ Sub TestAlert()
             Const SearchEventName As String = "Page.javascriptDialogOpening"
             Do
                 '非同期イベントを取り出す
-                .InheritanceCDPBrowser.TakeEvents
+                .ThisCDPBrowser.TakeEvents
 
                 'イベント名の確認
                 If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
@@ -325,7 +325,7 @@ Sub TestAlert()
         Dim Htmlの表示内容 As String: Htmlの表示内容 = .getElementByXPath("//*[@id='text']/p").innerText
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .InheritanceCDPBrowser.quit
+        .ThisCDPBrowser.quit
     End With
 End Sub
 
@@ -378,7 +378,7 @@ Sub SimpleShadowRootTest()
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
         Do
             '非同期イベントを取り出す
-            .InheritanceCDPBrowser.TakeEvents
+            .ThisCDPBrowser.TakeEvents
 
             'イベント名の確認
             If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
@@ -403,7 +403,7 @@ Sub SimpleShadowRootTest()
         CDPHelpers.Sleep
 
         '8. ブラウザを正常に閉じる
-        .InheritanceCDPBrowser.quit
+        .ThisCDPBrowser.quit
     End With
 End Sub
 
@@ -498,7 +498,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.InheritanceCDPBrowser.quit
+    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -536,7 +536,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.InheritanceCDPBrowser.quit
+    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -553,8 +553,8 @@ Sub runTabsAsOne()
 
    'Automate Tabs
     chrome.Url = "https://google.com"   'or [chrome.navigate "https://google.com"]
-    chrome.InheritanceCDPBrowser.newTab "https://sg.yahoo.com"
-    chrome.InheritanceCDPBrowser.newTab "https://bing.com"
+    chrome.ThisCDPBrowser.newTab "https://sg.yahoo.com"
+    chrome.ThisCDPBrowser.newTab "https://bing.com"
 
    'Resize to complete
     CDPHelpers.Sleep    'ちょこっとクールタイムが必要みたい
@@ -628,7 +628,7 @@ Sub runNewTab()
 
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
-    Set targetTab = chrome.InheritanceCDPBrowser.getTab
+    Set targetTab = chrome.ThisCDPBrowser.getTab
     targetTab.wait
 
    'Feed the top news title for today
@@ -744,8 +744,8 @@ Sub switchMain()
 
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
-    chrome.InheritanceCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
-    chrome.InheritanceCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
+    chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
+    chrome.ThisCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub

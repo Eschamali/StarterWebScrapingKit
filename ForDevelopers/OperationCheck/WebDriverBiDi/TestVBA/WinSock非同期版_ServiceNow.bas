@@ -85,7 +85,7 @@ Public Sub BiDi‚É‚æ‚é–`Œ¯‚ÌŽn‚Ü‚è_ServiceNow”ñ“¯Šú”Å()
     '-------------------------
 
     'Enable event accumulation before subscription.
-    Set g_SN_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+    Set g_SN_Browser.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 
     g_SN_Active = True
 
@@ -125,7 +125,7 @@ Public Sub ServiceNow_AsyncPump()
     On Error GoTo ErrorHandler
 
     'One non-blocking WinSock receive/drain pass.
-    g_SN_Browser.InheritanceWebDriverBiDiMode.TakeEvents True
+    g_SN_Browser.ThisWebDriverBiDiMode.TakeEvents True
 
     If Len(g_SN_NetworkPattern) > 0 Then
         If Not g_SN_NetworkMatched Then
@@ -142,7 +142,7 @@ Public Sub ServiceNow_AsyncPump()
         Dim rawJson As String
 
         rawJson = _
-            g_SN_Browser.InheritanceWebDriverBiDiMode.TakeResultBiDi( _
+            g_SN_Browser.ThisWebDriverBiDiMode.TakeResultBiDi( _
                 g_SN_CommandId)
 
         If StrPtr(rawJson) Then
@@ -287,7 +287,7 @@ Private Sub SN_SubmitSubscribe()
     subscribeParams.Add "contexts", contextsArray
 
     g_SN_CommandId = _
-        g_SN_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
+        g_SN_Browser.ThisWebDriverBiDiMode.ExecuteBiDiAsync( _
             "session.subscribe", _
             subscribeParams, _
             True)
@@ -305,7 +305,7 @@ Private Sub SN_SubmitShadowUnlocker()
         SN_BuildShadowUnlockerPreload
 
     g_SN_CommandId = _
-        g_SN_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
+        g_SN_Browser.ThisWebDriverBiDiMode.ExecuteBiDiAsync( _
             "script.addPreloadScript", _
             paramsBiDi, _
             True)
@@ -323,7 +323,7 @@ Private Sub SN_SubmitConsentAutoClicker()
         SN_BuildConsentAutoClickerPreload
 
     g_SN_CommandId = _
-        g_SN_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
+        g_SN_Browser.ThisWebDriverBiDiMode.ExecuteBiDiAsync( _
             "script.addPreloadScript", _
             paramsBiDi, _
             True)
@@ -394,7 +394,7 @@ Private Sub SN_ResetNetworkGate(ByVal urlPattern As String)
     g_SN_NetworkMatched = False
 
     'One-shot history: an old matching request must not satisfy a new action.
-    Set g_SN_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = _
+    Set g_SN_Browser.ThisWebDriverBiDiMode.BiDiEvents = _
         New Dictionary
 End Sub
 
@@ -405,7 +405,7 @@ Private Function SN_HasNetworkPattern( _
 
     Dim eventsRoot As Dictionary
     Set eventsRoot = _
-        g_SN_Browser.InheritanceWebDriverBiDiMode.BiDiEvents
+        g_SN_Browser.ThisWebDriverBiDiMode.BiDiEvents
 
     If eventsRoot Is Nothing Then Exit Function
     If Not eventsRoot.Exists("EventMethods") Then Exit Function
@@ -518,10 +518,10 @@ Private Sub SN_ReleaseBrowser()
     On Error Resume Next
 
     If Not g_SN_Browser Is Nothing Then
-        Set g_SN_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = _
+        Set g_SN_Browser.ThisWebDriverBiDiMode.BiDiEvents = _
             Nothing
 
-        g_SN_Browser.InheritanceWebDriverBiDiMode.quit
+        g_SN_Browser.ThisWebDriverBiDiMode.quit
     End If
 
     Set g_SN_Browser = Nothing

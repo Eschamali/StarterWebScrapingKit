@@ -159,7 +159,7 @@ End Function
 Friend Sub Init(Inheritance As WebDriverBiDiCore)
     'åpè≥
     Set ex_WebDriverBiDi = Inheritance
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.DirectControlCDP.InheritanceCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.DirectControlCDP.ThisCDPCore.LogSettings
 End Sub
 
 '***************************************************************************************************

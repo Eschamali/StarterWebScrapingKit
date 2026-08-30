@@ -75,7 +75,7 @@ Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
 
     '2. WebDriverBiDi としてブラウザを起動させる
     m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, sessionCapabilitiesRequest
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
@@ -178,7 +178,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName, WebSocketMode)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
     If requestSessionNew Then
@@ -236,10 +236,10 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     Set newTab = New WebDriverBiDiContext
     With newTab
         '3-1. このBiDiのイベントオブジェクトを渡す
-        Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+        Set .ThisWebDriverBiDiCore = m_BiDiCore
 
         '4. このBiDi情報も渡す
-        Set .InheritanceWebDriverBiDiMode = Me
+        Set .ThisWebDriverBiDiMode = Me
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes.StringKey("context")
@@ -297,10 +297,10 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 Set getTab = New WebDriverBiDiContext
                 With getTab
                     '4. このこのBiDiのイベントオブジェクトを渡す
-                    Set .InheritanceWebDriverBiDiCore = m_BiDiCore
+                    Set .ThisWebDriverBiDiCore = m_BiDiCore
 
                     '5. このBiDi情報を渡す
-                    Set .InheritanceWebDriverBiDiMode = Me
+                    Set .ThisWebDriverBiDiMode = Me
 
                     '6. 先ほど得た`context`を渡す
                     .context = matchData("context")
@@ -962,8 +962,8 @@ End Property
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
 '***************************************************************************************************
-Property Get InheritanceBiDiCore() As WebDriverBiDiCore
-    Set InheritanceBiDiCore = m_BiDiCore
+Property Get ThisBiDiCore() As WebDriverBiDiCore
+    Set ThisBiDiCore = m_BiDiCore
 End Property
 
 

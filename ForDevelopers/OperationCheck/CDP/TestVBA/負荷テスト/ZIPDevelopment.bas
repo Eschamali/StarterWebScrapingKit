@@ -89,7 +89,7 @@ Sub Webブラウザ操作でZIPテスト()
     '   returnByValue:=True で中身のデータを直接取得します。
     Dim resCDP As BiDiCDPJson
     Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
-    ZIPテスト.InheritanceCDPBrowser.quit
+    ZIPテスト.ThisCDPBrowser.quit
 
     '6．展開
     Dim ベース展開先 As String

@@ -68,7 +68,7 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList
     m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest
 
     '3. イベントを継承
-    Set Me.InheritanceWebDriverBiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '4. タブの接続へ
     attachToContext
@@ -97,7 +97,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest, WebSocketMode) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
-    Set Me.InheritanceWebDriverBiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -639,10 +639,10 @@ Public Function ConvertToCDPContext() As CDPContext
     Set ConvertToCDPContext = New CDPContext
     With ConvertToCDPContext
         '4. BiDiブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = m_BiDiCore.DirectControlCDP.InheritanceCDPCore
+        Set .ThisCDPCore = m_BiDiCore.DirectControlCDP.ThisCDPCore
 
         '5. BiDiブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = m_BiDiCore.DirectControlCDP
+        Set .ThisCDPBrowser = m_BiDiCore.DirectControlCDP
 
         '6. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
@@ -683,25 +683,25 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiMode.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiMode() As WebDriverBiDiMode
-    Set InheritanceWebDriverBiDiMode = m_BiDiMode
+Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
+    Set ThisWebDriverBiDiMode = m_BiDiMode
 End Property
-Property Set InheritanceWebDriverBiDiMode(Target As WebDriverBiDiMode)
+Property Set ThisWebDriverBiDiMode(Target As WebDriverBiDiMode)
     Set m_BiDiMode = Target
 End Property
 
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
-    Set InheritanceWebDriverBiDiCore = m_BiDiCore
+Property Get ThisWebDriverBiDiCore() As WebDriverBiDiCore
+    Set ThisWebDriverBiDiCore = m_BiDiCore
 End Property
-Property Set InheritanceWebDriverBiDiCore(Target As WebDriverBiDiCore)
+Property Set ThisWebDriverBiDiCore(Target As WebDriverBiDiCore)
     '1. コア本体を継承
     Set m_BiDiCore = Target
 
     '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.DirectControlCDP.InheritanceCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, Target.DirectControlCDP.ThisCDPCore.LogSettings
 End Property
 
 '***************************************************************************************************

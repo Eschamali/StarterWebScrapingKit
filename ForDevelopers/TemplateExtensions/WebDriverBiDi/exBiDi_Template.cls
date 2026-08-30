@@ -151,8 +151,8 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.InheritanceWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.InheritanceCDPCore.LogSettings
+    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
     
     'コンテキスト情報
     m_context = Inheritance.context

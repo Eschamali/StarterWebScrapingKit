@@ -220,8 +220,8 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
     CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
 
     'SessionIdを取得

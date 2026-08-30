@@ -87,7 +87,7 @@ Private RunOption As callFunctionOnParameters
 '***************************************************************************************************
 '* 機能　　：`CDPContext.cls`で検索実行したJavaScript結果を格納します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：InheritanceCDPContext  継承したい`CDPContext`そのもの
+'* 引数　　：ThisCDPContext  継承したい`CDPContext`そのもの
 '            argResultVarType       検索実行結果の`VarType` ※`ObjectID`の場合は、`vbString`として扱います。
 '            objectId_              検索実行結果時の`ObjectId`
 '            JavaScriptStr          検索実行したJavaScriptコードそのもの。ポーリング用に使用します。
@@ -98,10 +98,10 @@ Private RunOption As callFunctionOnParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub Init(InheritanceCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set main = InheritanceCDPContext
-    CDPHelpers.InheritLogSettings currentLog, InheritanceCDPContext.InheritanceCDPCore.LogSettings
+    Set main = ThisCDPContext
+    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.ThisCDPCore.LogSettings
 
     With CurrentElement
         '実行結果の型タイプ

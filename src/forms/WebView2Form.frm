@@ -101,7 +101,7 @@ Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     Set fCDPContext = t.getTab(setMain:=True)
 
     '9. 非同期イベント処理に備える
-    Set fCDPEvent = t.InheritanceCDPCore
+    Set fCDPEvent = t.ThisCDPCore
 
     '10. 成功signを返す
     StartCDPModeWebView2 = True

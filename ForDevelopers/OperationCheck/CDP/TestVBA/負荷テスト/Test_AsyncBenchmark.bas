@@ -102,7 +102,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
         Case 2
             '---- WebView2版 ----
             Set tabs(1) = WebView2Form.StartCDPModeWebView2
-            Set chrome = tabs(1).InheritanceCDPBrowser
+            Set chrome = tabs(1).ThisCDPBrowser
 
             'イベント購読
             WebView2Form.controlWebView2.SubscribeCdpEvent "Page.loadEventFired"
@@ -234,7 +234,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
         Case 2
             '---- WebView2版 ----
             Set tabs(1) = WebView2Form.StartCDPModeWebView2
-            Set chrome = tabs(1).InheritanceCDPBrowser
+            Set chrome = tabs(1).ThisCDPBrowser
 
             'イベント購読
             WebView2Form.controlWebView2.SubscribeCdpEvent "Page.loadEventFired"

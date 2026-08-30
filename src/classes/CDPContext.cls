@@ -196,7 +196,7 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
     BrowserCore.start Name, appUrl, userProfile, addArgs
 
     '2. WithEventsClassオブジェクトを受け取る
-    Set Me.InheritanceCDPCore = BrowserCore.InheritanceCDPCore
+    Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
     attachToSession     'Find and attach the newly open Session ID
@@ -390,7 +390,7 @@ Private Function reattach(Optional reuseSession As Boolean) As Boolean
 
 
     '1. タブ情報を再セット
-    Set Me.InheritanceCDPCore = BrowserCore.InheritanceCDPCore
+    Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
     deserializeForTab reuseSession
 
     '2. `sessionId`が空欄の場合は、即抜け
@@ -2564,10 +2564,10 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceCDPCore() As CDPCore
-    Set InheritanceCDPCore = PipeCore
+Property Get ThisCDPCore() As CDPCore
+    Set ThisCDPCore = PipeCore
 End Property
-Property Set InheritanceCDPCore(Target As CDPCore)
+Property Set ThisCDPCore(Target As CDPCore)
     '1. コア本体を継承
     Set PipeCore = Target
 
@@ -2578,10 +2578,10 @@ End Property
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceCDPBrowser() As CDPBrowser
-    Set InheritanceCDPBrowser = BrowserCore
+Property Get ThisCDPBrowser() As CDPBrowser
+    Set ThisCDPBrowser = BrowserCore
 End Property
-Property Set InheritanceCDPBrowser(Target As CDPBrowser)
+Property Set ThisCDPBrowser(Target As CDPBrowser)
     Set BrowserCore = Target
 End Property
 

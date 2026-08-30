@@ -95,7 +95,7 @@ Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
     m_CDPBrowser.start Name, appUrl, userProfile, addArgs
 
     '2. WithEventsClassオブジェクトを受け取る
-    Set m_CDPCore = m_CDPBrowser.InheritanceCDPCore
+    Set m_CDPCore = m_CDPBrowser.ThisCDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
@@ -145,10 +145,10 @@ Private Sub newTabForBiDi()
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
         '6-1. このブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = m_CDPBrowser.InheritanceCDPCore
+        Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
 
         '6-2. このブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = m_CDPBrowser
+        Set .ThisCDPBrowser = m_CDPBrowser
 
         '6-3. 先ほど得た`sessionId`を渡す
         .CurrentSessionID = sessionID
@@ -243,8 +243,8 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     End If
 
     '3. 各種オブジェクトを継承
-    Set m_CDPCore = WebDriverBiDi_mapperTab.InheritanceCDPCore
-    Set m_CDPBrowser = WebDriverBiDi_mapperTab.InheritanceCDPBrowser
+    Set m_CDPCore = WebDriverBiDi_mapperTab.ThisCDPCore
+    Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '`TargetID`有無に応じた分岐

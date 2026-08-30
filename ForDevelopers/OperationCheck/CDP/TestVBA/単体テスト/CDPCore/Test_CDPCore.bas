@@ -56,8 +56,8 @@ Sub 結果リセットテスト()
 
 
     Dim testCDPCore     As New CDPCore
-    Dim testCDPBrowser  As New CDPBrowser: Set testCDPBrowser.InheritanceCDPCore = testCDPCore
-    Dim testCDPContext  As New CDPContext: Set testCDPContext.InheritanceCDPCore = testCDPCore
+    Dim testCDPBrowser  As New CDPBrowser: Set testCDPBrowser.ThisCDPCore = testCDPCore
+    Dim testCDPContext  As New CDPContext: Set testCDPContext.ThisCDPCore = testCDPCore
     
     'テスト用に結果を送信
     testCDPCore.Test_SendEvent

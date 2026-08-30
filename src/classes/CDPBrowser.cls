@@ -449,10 +449,10 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     Set newTab = New CDPContext
     With newTab
         '1. このブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = PipeCore
+        Set .ThisCDPCore = PipeCore
 
         '2. このブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = Me
+        Set .ThisCDPBrowser = Me
 
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
@@ -608,10 +608,10 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     Set getTab = New CDPContext
     With getTab
         '1. このブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = PipeCore
+        Set .ThisCDPCore = PipeCore
 
         '2. このブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = Me
+        Set .ThisCDPBrowser = Me
 
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
@@ -1309,8 +1309,8 @@ End Function
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
 '***************************************************************************************************
-Property Get InheritanceCDPCore() As CDPCore
-    Set InheritanceCDPCore = PipeCore
+Property Get ThisCDPCore() As CDPCore
+    Set ThisCDPCore = PipeCore
 End Property
 
 
@@ -1427,7 +1427,7 @@ End Sub
 ' 単体テストをしやすくするための専用テストメソッド。
 ' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
 '***************************************************************************************************
-Property Set InheritanceCDPCore(t As CDPCore)
+Property Set ThisCDPCore(t As CDPCore)
     Set PipeCore = t
     CDPHelpers.InheritLogSettings currentLog, t.LogSettings
 End Property

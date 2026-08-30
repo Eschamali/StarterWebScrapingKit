@@ -543,7 +543,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
     Dim i As Long
     Dim found As Boolean
     For i = 1 To 100
-        br.InheritanceCDPBrowser.TakeEvents
+        br.ThisCDPBrowser.TakeEvents
         If br.BrowserEvents("EventMethods").Exists(evName) Then
             found = True
             Exit For

@@ -88,7 +88,7 @@ Public Sub BiDi‚É‚æ‚é–`Œ¯‚ÌŽn‚Ü‚è_GoogleFlights”ñ“¯Šú”Å()
     '-------------------------
 
     'Enable event accumulation before subscribing, so no responseCompleted event is discarded.
-    Set g_GF_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+    Set g_GF_Browser.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 
     g_GF_Active = True
     g_GF_Phase = GFPhaseWaitSubscribe
@@ -109,7 +109,7 @@ Public Sub BiDi‚É‚æ‚é–`Œ¯‚ÌŽn‚Ü‚è_GoogleFlights”ñ“¯Šú”Å()
     subscribeParams.Add "contexts", contextsArray
 
     g_GF_CommandId = _
-        g_GF_Browser.InheritanceWebDriverBiDiMode.ExecuteBiDiAsync( _
+        g_GF_Browser.ThisWebDriverBiDiMode.ExecuteBiDiAsync( _
             "session.subscribe", _
             subscribeParams, _
             True)
@@ -152,7 +152,7 @@ Public Sub GoogleFlights_AsyncPump()
     On Error GoTo ErrorHandler
 
     'One non-blocking WinSock receive/drain pass.
-    g_GF_Browser.InheritanceWebDriverBiDiMode.TakeEvents True
+    g_GF_Browser.ThisWebDriverBiDiMode.TakeEvents True
 
     If Len(g_GF_NetworkPattern) > 0 Then
         If Not g_GF_NetworkMatched Then
@@ -166,7 +166,7 @@ Public Sub GoogleFlights_AsyncPump()
     If Not g_GF_CommandCompleted Then
         Dim rawJson As String
         rawJson = _
-            g_GF_Browser.InheritanceWebDriverBiDiMode.TakeResultBiDi( _
+            g_GF_Browser.ThisWebDriverBiDiMode.TakeResultBiDi( _
                 g_GF_CommandId)
 
         If StrPtr(rawJson) Then
@@ -379,7 +379,7 @@ Private Sub GF_ResetNetworkGate(ByVal urlPattern As String)
     g_GF_NetworkMatched = False
 
     'One-shot event history: old matching requests must not satisfy the new action.
-    Set g_GF_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+    Set g_GF_Browser.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 End Sub
 
 Private Function GF_HasNetworkPattern(ByVal urlPattern As String) As Boolean
@@ -387,7 +387,7 @@ Private Function GF_HasNetworkPattern(ByVal urlPattern As String) As Boolean
 
     Dim eventsRoot As Dictionary
     Set eventsRoot = _
-        g_GF_Browser.InheritanceWebDriverBiDiMode.BiDiEvents
+        g_GF_Browser.ThisWebDriverBiDiMode.BiDiEvents
 
     If eventsRoot Is Nothing Then Exit Function
     If Not eventsRoot.Exists("EventMethods") Then Exit Function
@@ -480,8 +480,8 @@ Private Sub GF_ReleaseBrowser()
     On Error Resume Next
 
     If Not g_GF_Browser Is Nothing Then
-        Set g_GF_Browser.InheritanceWebDriverBiDiMode.BiDiEvents = Nothing
-        g_GF_Browser.InheritanceWebDriverBiDiMode.quit
+        Set g_GF_Browser.ThisWebDriverBiDiMode.BiDiEvents = Nothing
+        g_GF_Browser.ThisWebDriverBiDiMode.quit
     End If
 
     Set g_GF_Browser = Nothing
