@@ -23,6 +23,10 @@ Internet Explorer（IE）のサポートが完全終了して早数年。世の�
 IEのサポートは2029年ごろで完全に終わるそうなので、きっとその時にExcelにも公式でWebView2が使える日が来ると願っています。それまで待てない、今すぐUserFormにモダンブラウザを埋めたい！という方は、ぜひ読み進めてください。
 :::
 
+::: info v3.0.0での進展
+執筆当初「Lv.99」は「理論上できるが本キットには未実装、他プロジェクトへのリンク紹介」という位置づけでした。v3.0.0で、この技法（COM/vtableハック）を本キット自身に `CDPCoreViaWebView2.cls` / `CDPWebView2Thunks.bas` として実装し、`CDPContext`/`CDPElement`から通常のCDP制御と同じ感覚で使えるようになりました。また、Lv.1（Edge埋め込み）はこの実装に伴い廃止されています。詳細は各ページを参照してください。
+:::
+
 ## 前提条件：絶対の「プリインストール環境」縛り
 
 企業のセキュリティが厳しい昨今、外部のexeツールや有志の怪しいDLLを勝手にダウンロードして組み込むことはご法度です。そのため、今回は以下の縛りプレイで挑みました。
@@ -38,8 +42,8 @@ Excel自体は後入れソフトですが、業務PCにはほぼ100%プリイン
 
 | レベル | 手法 | 概要 |
 | --- | --- | --- |
-| Lv.1 | [Edge 埋め込み](./edge) | `msedge.exe` を Kiosk + CDP で UserForm にドッキング |
+| ~~Lv.1~~ | [~~Edge 埋め込み~~](./edge)（v3.0.0で廃止） | `msedge.exe` を Kiosk + CDP で UserForm にドッキング |
 | Lv.10 | [PowerShell 経由](./powershell) | Power Query 同梱 DLL で真の WebView2 |
-| Lv.99 | [Excel 単体](./vba-only) | COM / vtable ハックで VBA メモリ空間から直接制御 |
+| Lv.99 | [Excel 単体](./vba-only)（v3.0.0でネイティブ実装） | COM / vtable ハックで VBA メモリ空間から直接制御 |
 
 比較の結論は [総括](./summary) へ。

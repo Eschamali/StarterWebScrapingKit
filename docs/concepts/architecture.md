@@ -64,11 +64,13 @@ Pipe・WebSocket・WebView2 の3ルートに対応しております。
 
 - **Pipeルート**: `--remote-debugging-pipe`として起動します。同一PCで自動化する場合はこれ1択です。
 - **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。`RunWebSocketModeBrowserCDP` を使えばローカルブラウザの起動から一気に行うことも可能です。[WebSocket モードでの制御について](/websocket/design) を参照。
-- **WebView2ルート**（v3.0.0〜）: デバッグポートもパイプも使わず、WebView2 SDK（`ICoreWebView2`）を直接叩いて CDP をやり取りします。ExcelのUserFormにブラウザを埋め込みたい場合の経路です。[UserForm への埋め込み](/userform/intro) を参照。
+- **WebView2ルート**（v3.0.0〜）: デバッグポートもパイプも使わず、WebView2 SDK（`ICoreWebView2`）を直接叩いて CDP をやり取りします。ExcelのUserFormにブラウザを埋め込みたい場合の経路です。[WebView2モードでの制御について](/webview2/design) を参照。
 
 ## 関連
 
 - [設計思想](/concepts/design-philosophy)
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
 - [再接続 (reattach)](/guides/reattach)
+- [WebSocketモードでできること](/websocket/capabilities)
+- [WebView2モードでできること](/webview2/capabilities)
 - [コアロジック徹底比較](/core-comparison/) — Puppeteer / Playwright の実ソースとの突き合わせ

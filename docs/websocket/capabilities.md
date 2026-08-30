@@ -18,7 +18,7 @@ description: WebSocket モードでできること。Android ブラウザや Web
 - Tailscale 等によるインターネットを介した制御
 
 ::: tip Excel自身に埋め込むWebView2の場合
-Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだけなら、WebSocketモードではなく [`CDPCoreViaWebView2`](/userform/vba-only) というネイティブな専用トランスポート（v3.0.0〜）を使ってください。デバッグポートもWebSocketも経由しない、より直接的な経路です。
+Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだけなら、WebSocketモードではなく [WebView2モードでの制御について](/webview2/design) というネイティブな専用トランスポート（v3.0.0〜）を使ってください。デバッグポートもWebSocketも経由しない、より直接的な経路です。
 :::
 
 ## ローカルブラウザの起動から行う場合

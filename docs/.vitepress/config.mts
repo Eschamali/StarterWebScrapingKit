@@ -98,6 +98,13 @@ export default withMermaid(
           ]
         },
         {
+          text: 'WebView2モードでの制御について',
+          items: [
+            { text: '設計思想について', link: '/webview2/design' },
+            { text: 'WebView2モードでできること', link: '/webview2/capabilities' }
+          ]
+        },
+        {
           text: 'ガイド',
           items: [
             { text: 'ページ遷移', link: '/guides/navigation' },

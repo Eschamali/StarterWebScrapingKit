@@ -4,6 +4,10 @@ description: msedge.exe を UserForm に直接埋め込む Lv.1 手法。起動�
 
 # msedge.exe を UserForm に直接埋め込む
 
+::: warning v3.0.0で廃止済みの手法です
+本ページの手法（`KioskMode`引数・`EdgeInExcelForm`）は、v3.0.0で本キットが[真のWebView2をネイティブ実装](./vba-only)したことに伴い、コードベースから削除されています。以下は当時の設計・トレードオフの記録として残しています。今から埋め込みたい方は [Excel 単体（Lv.99）](./vba-only) を参照してください。
+:::
+
 > WebView2は、極端な話、Edgeから、URLバーやウィンドウ枠がない状態にしたものみたいなもの。  
 > 実はある引数を足してちょこっと簡単なAPIを使えば簡単に実現可能だ。
 
@@ -39,7 +43,7 @@ Edge 起動時に、以下の起動引数を付与するのがキモです：
 
 その後、VBAの **Windows API** を使ってEdgeのウィンドウハンドルを取得し、UserFormの子ウィンドウとして強引に取り込みます。開通したパイプ経由でCDP-JSONコマンドを流し込むことで、スクレイピングや画面操作が可能です。
 
-本キットでは `KioskMode:=fullscreen` などで同等の起動を行います（設定シート／`StartCDPModeContext`）。
+v2.x系の本キットでは `KioskMode:=fullscreen` などで同等の起動を行っていました（設定シート／`StartCDPModeContext`）。v3.0.0でこの引数自体が削除されているため、以下のデモコードは現行バージョンでは動作しません。
 
 ## デモコードの動作内容
 

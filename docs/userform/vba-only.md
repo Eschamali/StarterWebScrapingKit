@@ -10,6 +10,10 @@ description: Excel 単体・外部依存なしで真の WebView2 を UserForm �
 ついに辿り着きました。これが本プロジェクトの真の目的であり、到達点です。  
 **外部プロセス（PowerShellなど）に頼らず、Excel VBAのメモリ空間上だけで WebView2 を直接起動・制御します。**
 
+::: tip v3.0.0でネイティブ実装済み
+以前このページは「理論上は可能だが本キット未実装、詳しくは他プロジェクトへ」という紹介記事でした。v3.0.0で、この技法を本キット自身に `CDPCoreViaWebView2.cls` / `CDPWebView2Thunks.bas` / `WebView2Form.frm` として本実装しています。接続後は、Pipe / WebSocket と同じ `CDPContext` / `CDPElement` の API でそのまま操作できます。実際の使い方は[このページの後半](#本キットでの使い方)を参照してください。
+:::
+
 <blockquote class="twitter-tweet"><p lang="ja" dir="ltr">ふはははははは！！！Excel VBAのユーザーフォーム上でWebView2を動作させて、イベントを検知することに成功したぞ <a href="https://t.co/lwDDCylQYq">pic.twitter.com/lwDDCylQYq</a></p>&mdash; たーぼー（インコ） (@fenblen_puyo) <a href="https://x.com/fenblen_puyo/status/2032821182924468312?ref_src=twsrc%5Etfw">March 14, 2026</a></blockquote>
 
 一見するとLv.1（Edge埋め込み）と似ていますが、タスクマネージャーを見ればその違いは一目瞭然です。
@@ -75,8 +79,41 @@ End Sub
 正直に申し上げて、これは **VBAの限界を突破した「ハック」** に近いです。  
 しかし、この手法をマスターすれば、TLBや外部DLLに一切頼ることなく、最新のブラウザエンジンをExcelのUserFormに完全に支配下に置くことができます。
 
+::: info 移植元
+この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（`Wv2Thunks.bas`）のロジックを、バイト列やオフセット値を一切変更せずそのまま移植したものです。本キット向けに追加したのは、CDP用に絞った4種類のハンドラ種別と、`CallDevToolsProtocolMethodForSessionAsync` / `DevToolsProtocolEventReceivedEventHandler` のIID登録のみです。
+:::
+
+## 本キットでの使い方
+
+`WebView2Form.frm` の `StartCDPModeWebView2` を呼ぶだけで、初期化からCDP接続まで完了します。
+
+```vb
+Sub ExcelのユーザーフォームにWebView2を埋め込む()
+    '1. UserForm側のWebView2の初期化を済ませる
+    With WebView2Form
+        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+
+        '2. あとはいつも通りの CDPContext / CDPElement 操作
+        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
+
+        '3. フォームを表示
+        .show
+    End With
+End Sub
+```
+
+同梱デモ: `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`
+
+内部では `CDPCoreViaWebView2.ConnectCDP` がWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。つまり、いったん埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
+
+自前のUserFormに組み込む場合のAPI詳細（`ConnectCDP`の引数、イベント購読、リサイズ等）は [WebView2モードでできること](/webview2/capabilities) にまとめています。
+
+::: warning ブレークポイントに注意
+全てのCOMコールバックは機械語サンクを経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）にVBEでブレーク／ステップ実行すると、Excelがクラッシュする可能性があります。デバッグ時は注意してください。
+:::
+
 ::: warning
-仕組みの探求の覚悟があるなら、ぜひリポジトリを覗いてみてください：  
+より低レベルな仕組みの探求の覚悟があるなら、移植元のリポジトリも覗いてみてください：  
 [WebView2-For-Excel-VBA (GitHub)](https://github.com/tarboh/WebView2-For-Excel-VBA)
 :::
 
@@ -84,6 +121,8 @@ End Sub
 
 ## 次へ
 
+- [WebView2モードでできること](/webview2/capabilities) — API詳細
+- [WebView2モードの設計思想について](/webview2/design)
 - [総括：3つの手法の比較](./summary)
 - [PowerShell 経由](./powershell)
 - [はじめに](./intro)

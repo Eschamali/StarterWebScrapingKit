@@ -115,7 +115,7 @@ If Not t.reattachWebSocket(UserName, WebSocketCDP, True) Then Exit Sub
 
 ### WebView2 版
 
-考え方は同じです。`CDPCoreViaWebView2` を構成済みの状態で `CDPContext.reattachWebView2(UserName, WebView2CDP, True)` に渡します。詳細は [UserForm への埋め込み（Lv.99: Excel単体）](/userform/vba-only) を参照してください。
+考え方は同じです。`CDPCoreViaWebView2` を構成済みの状態で `CDPContext.reattachWebView2(UserName, WebView2CDP, True)` に渡します。詳細は [WebView2モードでできること](/webview2/capabilities) / [UserForm への埋め込み（Lv.99: Excel単体）](/userform/vba-only) を参照してください。
 
 詳細は [WebSocket モードでできること](/websocket/capabilities) も併せて参照してください。
 
