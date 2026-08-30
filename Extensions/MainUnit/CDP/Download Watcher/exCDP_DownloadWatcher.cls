@@ -30,7 +30,7 @@ Private Const ThisClassName         As String = "exCDP_DownloadWatcher"
 
 '基本ステート管理
 Private defaultBrowserContextId     As String       '継承時のブラウザコンテキスト
-Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
+Private currentLog                  As StateLog   'ログ設定
 
 'ダウンロード系のstatus管理
 '※`guid`をKeyに管理します
@@ -185,7 +185,7 @@ Public Property Let setDownloadBehavior(behavior As setDownloadBehavior_behavior
     End If
 
     '5. 設定情報を表示
-    If seeRawSendMsgDbg Then printMsg info_, "setDownloadBehavior - parameters: " & WebJsonConverter.serialize(CDPparams), FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg info_, "setDownloadBehavior - parameters: " & WebJsonConverter.serialize(CDPparams), FromProcedureName
 End Property
 
 
@@ -326,7 +326,7 @@ Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
             DownloadWillBegin.Add DownloadGUID, downloadInfos
 
             '1-4. デバッグ用メッセージ表示
-            If seeRawSendMsgDbg Then
+            If currentLog.seeRawSendMsgDbg Then
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "Download detected. information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -351,7 +351,7 @@ Private Sub ex_CDPCore_CDPBrowserEvent(methodName As String, RawJson As String)
             Set DownloadProgress(DownloadGUID) = downloadInfos
 
             '1-4. デバッグ用メッセージ表示
-            If seeRawSendMsgDbg Then
+            If currentLog.seeRawSendMsgDbg Then
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "`" & DownloadGUID & "` Download progress", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -766,7 +766,10 @@ End Sub
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -778,7 +781,7 @@ Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destru
 End Sub
 
 Private Function TimerCounter() As Double
-    TimerCounter = ex_CDPCore.GetTicksMs
+    TimerCounter = CDPHelpers.TimerCounter
 End Function
 
 
@@ -792,8 +795,9 @@ End Function
 '***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 
     '渡した際のデフォルトのブラウザコンテキストをセット
     defaultBrowserContextId = Inheritance.CurrentBrowserContextId
@@ -803,16 +807,12 @@ End Sub
 '* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     '各種変数の初期化
     Set DownloadPathList = New Dictionary
     Set DownloadProgress = New Dictionary
     Set DownloadWillBegin = New Dictionary
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "DWID" & Format(Rnd * 1000, "000")
 End Sub
 
 

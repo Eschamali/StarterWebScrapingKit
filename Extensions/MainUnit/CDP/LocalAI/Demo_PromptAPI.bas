@@ -46,7 +46,7 @@ Sub PromptAPIの準備()
         '「https://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-api」を参考に、有効化してください
         ReadyAI.printMsg WARN_, "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", FromProcedureName
         MsgBox "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", vbCritical
-        ReadyAI.InheritanceCDPBrowser.quit
+        ReadyAI.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -59,7 +59,7 @@ Sub PromptAPIの準備()
     Select Case ModeAvailability
         Case "unavailable"
             MsgBox "お使いの環境で使えるAIモデルがありません。", vbCritical
-            ReadyAI.InheritanceCDPBrowser.quit
+            ReadyAI.ThisCDPBrowser.quit
             Exit Sub
 
         Case "downloadable", "downloading"
@@ -68,7 +68,7 @@ Sub PromptAPIの準備()
             If Continue = vbYes Then
                 Debug.Print PromptAPI.ModelDownloadProgress
             Else
-                ReadyAI.InheritanceCDPBrowser.quit
+                ReadyAI.ThisCDPBrowser.quit
                 Exit Sub
             End If
 
@@ -80,12 +80,12 @@ Sub PromptAPIの準備()
     '非同期イベントを発火させ、進捗値を表示
     Dim AIデータ進捗値 As Double
     Do
-        ReadyAI.InheritanceCDPBrowser.TakeEvents
+        ReadyAI.ThisCDPBrowser.TakeEvents
         DoEvents
         AIデータ進捗値 = PromptAPI.DLProgressValue
 
         Debug.Print "AIモデルデータをダウンロード中... " & AIデータ進捗値 & "%"
-        ReadyAI.InheritanceCDPBrowser.sleep
+        CDPHelpers.Sleep
 
     Loop Until AIデータ進捗値 >= 100
 
@@ -106,11 +106,11 @@ Sub PromptAPI即席チャット()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. 既存のTargetIDに接続できるか？
-    If Not RunAI.reattach(UserName) Then
+    If Not RunAI.reattachPipe(UserName) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
-        RunAI.InheritanceCDPBrowser.sleep
+        CDPHelpers.Sleep
         Exit Sub
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
@@ -138,11 +138,11 @@ Sub PromptAPI即席Streamingチャット()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '1. 既存のTargetIDに接続できるか？
-    If Not RunAI.reattach(UserName) Then
+    If Not RunAI.reattachPipe(UserName) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
-        RunAI.InheritanceCDPBrowser.quit
+        RunAI.ThisCDPBrowser.quit
         Exit Sub
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
@@ -160,7 +160,7 @@ Sub PromptAPI即席Streamingチャット()
     '4. リアルタイムで表示
     Dim StreamingData As String
     Do
-        RunAI.InheritanceCDPBrowser.TakeEvents
+        RunAI.ThisCDPBrowser.TakeEvents
         StreamingData = PromptAPI.StreamingTopTake
 
         If StrPtr(StreamingData) Then Debug.Print StreamingData;

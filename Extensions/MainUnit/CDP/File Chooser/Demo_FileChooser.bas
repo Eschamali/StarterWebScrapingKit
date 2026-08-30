@@ -110,7 +110,7 @@ Sub Demo_FileChooser_01_’¼Ú’“ü_’Pˆê‚Æ•¡”()
         MsgBox "MULTI FILE INJECTION ‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
     End If
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -171,7 +171,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡@Ž¸”s"
         MsgBox "‡@i’Pˆêƒtƒ@ƒCƒ‹j‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -192,7 +192,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡AŽ¸”s files.length=" & GetInputFileCount(multiInput)
         MsgBox "‡Ai•¡”ƒtƒ@ƒCƒ‹j‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -217,7 +217,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡BŽ¸”s"
         MsgBox "‡Bi“®“I¶¬inputj‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -225,7 +225,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Debug.Print "[Demo02] 3Ží—Þ‘S‚Ä‚Ì“Y•t‚ª¬Œ÷‚µ‚Ü‚µ‚½I"
     MsgBox "3Ží—Þi’Pˆê / •¡” / “®“I¶¬j‘S‚Ä‚Ì‰¡Žæ‚è“Y•t‚ª¬Œ÷‚µ‚Ü‚µ‚½I", vbInformation
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -287,7 +287,7 @@ Sub Demo_FileChooser_03_ƒLƒƒƒ“ƒZƒ‹‹@”\()
     fc.EnableEvents = False
     fc.ClearFilePaths
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -343,7 +343,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ Page.fileChooserOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡@Fƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount & "ifiles.length=" & GetInputFileCount(singleInput) & "‚Ì‚Í‚¸j"
@@ -356,7 +356,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡@Ž¸”s files.length=" & GetInputFileCount(singleInput)
         MsgBox "‡@i’Pˆêƒtƒ@ƒCƒ‹j‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -371,7 +371,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ Page.fileChooserOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡AFƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount & "ifiles.length=" & GetInputFileCount(multiInput) & "‚Ì‚Í‚¸j"
@@ -385,7 +385,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡AŽ¸”s files.length=" & GetInputFileCount(multiInput)
         MsgBox "‡Ai•¡”ƒtƒ@ƒCƒ‹j‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -402,7 +402,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ Page.fileChooserOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡BFƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount
@@ -415,7 +415,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡BŽ¸”s"
         MsgBox "‡Bi“®“I¶¬inputj‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -423,7 +423,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Debug.Print "[Demo04] 3Ží—Þ‘S‚Ä‚Ì“Y•t–Y‚êƒŠƒgƒ‰ƒC‚ª¬Œ÷‚µ‚Ü‚µ‚½I"
     MsgBox "3Ží—Þi’Pˆê / •¡” / “®“I¶¬j‘S‚Ä‚Ì“Y•t–Y‚êƒŠƒgƒ‰ƒC‚ª¬Œ÷‚µ‚Ü‚µ‚½I", vbInformation
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -494,7 +494,7 @@ Sub Demo_FileChooser_05_“Y•t˜R‚ê3˜A‘±‚©‚ç‚ÌˆêŠ‡ƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=3, TimeOutSecond:=15) Then
         Debug.Print "[Demo05] ~ 3Œ’™‚Ü‚è‚Ü‚¹‚ñ‚Å‚µ‚½BUnprocessedCount=" & fc.UnprocessedCount
         MsgBox "3˜A‘±ƒNƒŠƒbƒN‚µ‚Ä‚àA•Û—¯‚ª3Œ‚É‚È‚è‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo05] › 3Œ‚Æ‚à•Û—¯‚É‰ñ‚è‚Ü‚µ‚½I UnprocessedCount=" & fc.UnprocessedCount _
@@ -511,7 +511,7 @@ Sub Demo_FileChooser_05_“Y•t˜R‚ê3˜A‘±‚©‚ç‚ÌˆêŠ‡ƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo05] ~ 1Œ–ÚƒŠƒgƒ‰ƒCŽ¸”s"
         MsgBox "1Œ–Ú‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -523,7 +523,7 @@ Sub Demo_FileChooser_05_“Y•t˜R‚ê3˜A‘±‚©‚ç‚ÌˆêŠ‡ƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo05] ~ 2Œ–ÚƒŠƒgƒ‰ƒCŽ¸”s"
         MsgBox "2Œ–Ú‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -534,7 +534,7 @@ Sub Demo_FileChooser_05_“Y•t˜R‚ê3˜A‘±‚©‚ç‚ÌˆêŠ‡ƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo05] ~ 3Œ–ÚƒŠƒgƒ‰ƒCŽ¸”s"
         MsgBox "3Œ–Ú‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -549,7 +549,7 @@ Sub Demo_FileChooser_05_“Y•t˜R‚ê3˜A‘±‚©‚ç‚ÌˆêŠ‡ƒŠƒgƒ‰ƒC()
     End If
 
     fc.EnableEvents = False
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -599,7 +599,7 @@ Private Function WaitUntilUnprocessed(browserTab As CDPContext, fc As exCDP_File
     Dim t As Double: t = Timer
 
     Do
-        browserTab.InheritanceCDPBrowser.TakeEvents
+        browserTab.ThisCDPBrowser.TakeEvents
 
         If fc.UnprocessedCount >= expectedCount Then
             WaitUntilUnprocessed = True
@@ -608,6 +608,6 @@ Private Function WaitUntilUnprocessed(browserTab As CDPContext, fc As exCDP_File
 
         If (Timer - t) > TimeOutSecond Then Exit Function
 
-        browserTab.InheritanceCDPBrowser.sleep 0.2
+        CDPHelpers.Sleep 0.2
     Loop
 End Function

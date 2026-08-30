@@ -20,12 +20,12 @@ Sub Make_AI_Original_Penguin_Pizza()
 '    Dim WebSocketCDP As New CDPCoreViaWebSocket
 '    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 '
-'    '繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-'    Dim b As New CDPBrowser
-'    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+'    '繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+'    Dim b As New CDPContext
+'    If Not b.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 '
 '    '新しいタブに接続
-'    Set c = b.newTab(setMain:=True, Url:="https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
+'    Set c = b.ThisCDPBrowser.newTab(setMain:=True, Url:="https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
 '    c.wait
     '------------------
 
@@ -201,13 +201,13 @@ Sub Make_AI_Original_MysteryDoors()
     Do
         Dim tmp As String: tmp = p.TakeResultWebMCP(tmpResult)
         If StrPtr(tmp) Then Set castLightResult = BiDiCDPJson.Parse(tmp).NodeKey("params"): Exit Do
-        c.InheritanceCDPBrowser.TakeEvents
+        c.ThisCDPBrowser.TakeEvents
     Loop Until Timer - timerStart > 30
     
     Debug.Print "3-3. Result-castLight: " & castLightResult.StringKey("output")
     Debug.Print "3-4. 廊下に戻る: " & p.ExecuteWebMCP("returnToHallway").StringKey("status")
 
-    c.InheritanceCDPBrowser.quit
+    c.ThisCDPBrowser.quit
 End Sub
 
 Sub teb()

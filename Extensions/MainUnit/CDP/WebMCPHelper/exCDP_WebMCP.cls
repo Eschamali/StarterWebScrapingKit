@@ -26,7 +26,7 @@ Private WithEvents m_CDPCore As CDPCore 'イベント受け取り用
 Attribute m_CDPCore.VB_VarHelpID = -1
 
 'ステート管理
-Private seeRawSendMsgDbg    As Boolean      'ログ表示管理
+Private currentLog          As StateLog      'ログ設定
 Private EnableBrowserEvents As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionID    As String       '`CDPContext.cls`継承時のSesssionID
 Private toolsMap            As Dictionary   'コマンド名と`Object-WebMCP.Tool`との紐づけ。`toolName`が`Key`です
@@ -63,7 +63,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         '`WebMCP`が実行されたログを記録します
         Case "WebMCP.toolInvoked"
             '3-1. Json文字化が入るため、非表示の場合は即抜けして、パフォーマンスを維持
-            If Not seeRawSendMsgDbg Then Exit Sub
+            If Not currentLog.seeRawSendMsgDbg Then Exit Sub
 
             '3-2. 実行ログを表示させる準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
@@ -143,14 +143,15 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：`CDPContext.cls`の情報を継承し、`WebMCP`関連の機能を有効化します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：InheritanceCDPContext  継承したい`CDPContext`そのもの
+'* 引数　　：ThisCDPContext  継承したい`CDPContext`そのもの
 '***************************************************************************************************
-Public Sub Init(InheritanceCDPContext As CDPContext)
+Public Sub Init(ThisCDPContext As CDPContext)
     'コンテキスト(タブ)情報を継承
-    Set m_CDPContext = InheritanceCDPContext
+    Set m_CDPContext = ThisCDPContext
 
     'イベント受け取り用オブジェクトも継承
-    Set m_CDPCore = InheritanceCDPContext.InheritanceCDPCore
+    Set m_CDPCore = ThisCDPContext.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.ThisCDPCore.LogSettings
 
     'セッションIDを取得
     CurrentSessionID = m_CDPContext.CurrentSessionID
@@ -319,7 +320,7 @@ Public Function ExecuteWebMCP(ToolName As String, Optional input_ As Dictionary,
         '2-2. 取り出せたら、Node-Json形式にして返却後、抜ける
         If StrPtr(tmp) Then
             Set ExecuteWebMCP = BiDiCDPJson.Parse(tmp).NodeKey("params")
-            If m_CDPCore.ShowLogCDPresponse Then printMsg Debug_, "ExecuteWebMCP `" & ToolName & "` with result: " & ExecuteWebMCP.Stringify, FromProcedureName
+            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteWebMCP `" & ToolName & "` with result: " & ExecuteWebMCP.Stringify, FromProcedureName
             Exit Function
         End If
 
@@ -385,7 +386,10 @@ End Sub
 '                               ■■■ 各種直通メソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
@@ -397,7 +401,7 @@ Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destru
 End Sub
 
 Private Function TimerCounter() As Double
-    TimerCounter = m_CDPCore.GetTicksMs
+    TimerCounter = CDPHelpers.TimerCounter
 End Function
 
 
@@ -406,9 +410,6 @@ End Function
 '                         ■■■ クラスオブジェクトの初期化と破棄時の処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
@@ -416,8 +417,7 @@ Private Sub Class_Initialize()
     Set toolsMap = New Dictionary
     Set toolRespondedMap = New Dictionary
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "WMID" & Format(Rnd * 1000, "000")
 End Sub
 
 Private Sub Class_Terminate()

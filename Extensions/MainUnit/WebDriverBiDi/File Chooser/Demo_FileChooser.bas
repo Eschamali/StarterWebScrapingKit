@@ -97,7 +97,7 @@ Sub Demo_FileChooser_01_’¼Ú’“ü_’Pˆê‚Æ•¡”()
         MsgBox "MULTI FILE INJECTION ‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
     End If
 
-    browserTab.InheritanceWebDriverBiDiMode.quit
+    browserTab.ThisWebDriverBiDiMode.quit
 
 End Sub
 
@@ -144,7 +144,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡@Ž¸”s"
         MsgBox "‡@i’Pˆêƒtƒ@ƒCƒ‹j‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -160,7 +160,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡AŽ¸”s files.length=" & GetInputFileCount(browserTab, "#multiInput")
         MsgBox "‡Ai•¡”ƒtƒ@ƒCƒ‹j‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -175,7 +175,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Else
         Debug.Print "[Demo02] ~ ‡BŽ¸”s"
         MsgBox "‡Bi“®“I¶¬inputj‚Ì‰¡Žæ‚è“Y•t‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -183,7 +183,7 @@ Sub Demo_FileChooser_02_3Ží—Þ‚Ì“Y•t()
     Debug.Print "[Demo02] 3Ží—Þ‘S‚Ä‚Ì“Y•t‚ª¬Œ÷‚µ‚Ü‚µ‚½I"
     MsgBox "3Ží—Þi’Pˆê / •¡” / “®“I¶¬j‘S‚Ä‚Ì‰¡Žæ‚è“Y•t‚ª¬Œ÷‚µ‚Ü‚µ‚½I", vbInformation
 
-    browserTab.InheritanceWebDriverBiDiMode.quit
+    browserTab.ThisWebDriverBiDiMode.quit
 
 End Sub
 
@@ -245,7 +245,7 @@ Sub Demo_FileChooser_03_ƒLƒƒƒ“ƒZƒ‹‹@”\()
     fc.EnableEvents = False
     fc.ClearFilePaths
 
-    browserTab.InheritanceWebDriverBiDiMode.quit
+    browserTab.ThisWebDriverBiDiMode.quit
 
 End Sub
 
@@ -286,7 +286,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ input.fileDialogOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡@Fƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount
@@ -297,7 +297,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡@Ž¸”s"
         MsgBox "‡@i’Pˆêƒtƒ@ƒCƒ‹j‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -308,7 +308,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ input.fileDialogOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡AFƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount
@@ -320,7 +320,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡AŽ¸”s"
         MsgBox "‡Ai•¡”ƒtƒ@ƒCƒ‹j‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -333,7 +333,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   ~ input.fileDialogOpened ‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
         MsgBox "‡BFƒ_ƒCƒAƒƒOƒCƒxƒ“ƒg‚ðŒŸ’m‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
     Debug.Print "[Demo04]   › “Y•t–Y‚ê‚ðÄŒ»BUnprocessedCount=" & fc.UnprocessedCount
@@ -344,7 +344,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Else
         Debug.Print "[Demo04] ~ ‡BŽ¸”s"
         MsgBox "‡Bi“®“I¶¬inputj‚ÌƒŠƒgƒ‰ƒC‚ÉŽ¸”s‚µ‚Ü‚µ‚½B", vbCritical
-        browserTab.InheritanceWebDriverBiDiMode.quit
+        browserTab.ThisWebDriverBiDiMode.quit
         Exit Sub
     End If
 
@@ -352,7 +352,7 @@ Sub Demo_FileChooser_04_“Y•t–Y‚ê‚©‚ç‚ÌƒŠƒgƒ‰ƒC()
     Debug.Print "[Demo04] 3Ží—Þ‘S‚Ä‚Ì“Y•t–Y‚êƒŠƒgƒ‰ƒC‚ª¬Œ÷‚µ‚Ü‚µ‚½I"
     MsgBox "3Ží—Þi’Pˆê / •¡” / “®“I¶¬j‘S‚Ä‚Ì“Y•t–Y‚êƒŠƒgƒ‰ƒC‚ª¬Œ÷‚µ‚Ü‚µ‚½I", vbInformation
 
-    browserTab.InheritanceWebDriverBiDiMode.quit
+    browserTab.ThisWebDriverBiDiMode.quit
 
 End Sub
 
@@ -430,7 +430,7 @@ Private Function WaitUntilUnprocessed(browserTab As WebDriverBiDiContext, fc As 
     Dim t As Double: t = Timer
 
     Do
-        browserTab.InheritanceWebDriverBiDiMode.TakeEvents
+        browserTab.ThisWebDriverBiDiMode.TakeEvents
 
         If fc.UnprocessedCount >= expectedCount Then
             WaitUntilUnprocessed = True
@@ -439,6 +439,6 @@ Private Function WaitUntilUnprocessed(browserTab As WebDriverBiDiContext, fc As 
 
         If (Timer - t) > TimeOutSecond Then Exit Function
 
-        browserTab.InheritanceWebDriverBiDiMode.sleep 0.2
+        CDPHelpers.Sleep 0.2
     Loop
 End Function

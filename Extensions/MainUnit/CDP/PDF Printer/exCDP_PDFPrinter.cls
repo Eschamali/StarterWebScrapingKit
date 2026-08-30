@@ -34,6 +34,9 @@ Private ex_CDPContext    As CDPContext
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_PDFPrinter"   'ログのトレース用
 
+'ログ設定
+Private currentLog                 As StateLog
+
 
 
 '***************************************************************************************************
@@ -200,11 +203,14 @@ End Function
 '                           ■■■ `CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPContext.InheritanceCDPBrowser.sleep seconds
+    CDPHelpers.Sleep seconds
 End Sub
 
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -221,12 +227,12 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '継承
     Set ex_CDPContext = Inheritance
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    '現バージョンでは設定シートからの読み込みは不要
-    '将来的に保存先デフォルトフォルダ等を設定シートから取得する場合はここに追加
+    currentLog.LogID = "PDID" & Format(Rnd * 1000, "000")
 End Sub

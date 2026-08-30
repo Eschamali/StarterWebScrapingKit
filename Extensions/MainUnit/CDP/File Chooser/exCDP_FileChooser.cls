@@ -30,7 +30,7 @@ Private ex_CDPContext               As CDPContext   '継承元のタブクラス
 Private Const ThisClassName         As String = "exCDP_FileChooser"
 
 '基本ステート管理
-Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
+Private currentLog                  As StateLog   'ログ設定
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
 Private CurrentSessionID            As String       '継承時のSesssionID
 
@@ -189,7 +189,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
             Target_backendNodeId = FileChooserOpenedParams.NumberKey("backendNodeId")
 
             '5. デバック用に表示
-            If seeRawSendMsgDbg Then
+            If currentLog.seeRawSendMsgDbg Then
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -315,7 +315,7 @@ Private Sub SetFileInputFiles(InputID As Long)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '2. 別途ログ化
-    If seeRawSendMsgDbg Then
+    If currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(mFilePaths), FromProcedureName
         printMsg info_, "We will initialize the file list in preparation for the next upload.", FromProcedureName
     Else
@@ -335,7 +335,10 @@ End Sub
 '            メインの`CDPContext`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -347,7 +350,7 @@ Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destru
 End Sub
 
 Private Function TimerCounter() As Double
-    TimerCounter = ex_CDPCore.GetTicksMs
+    TimerCounter = CDPHelpers.TimerCounter
 End Function
 
 
@@ -360,7 +363,8 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 
     '渡した際のSessionIDをセット
     CurrentSessionID = Inheritance.CurrentSessionID
@@ -373,15 +377,11 @@ End Sub
 '* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     '各変数の初期化
     Set mFilePaths = New Collection
     Set UnprocessedSetFileList = New Collection
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "FCID" & Format(Rnd * 1000, "000")
 End Sub
 
 

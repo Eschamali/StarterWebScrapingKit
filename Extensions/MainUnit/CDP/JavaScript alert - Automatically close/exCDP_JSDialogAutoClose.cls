@@ -31,7 +31,7 @@ Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
 Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 
 '基本ステート管理
-Private seeRawSendMsgDbg            As Boolean
+Private currentLog                 As StateLog   'ログ設定
 Private EnableBrowserEvents         As Boolean      'VBA側のイベント処理を有効/無効化のスイッチング
 Private CurrentSessionID            As String       '継承時のSesssionID
 
@@ -128,7 +128,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Case "Page.javascriptDialogOpening"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
-            If seeRawSendMsgDbg Then
+            If currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -153,7 +153,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Case "Page.javascriptDialogClosed"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
-            If seeRawSendMsgDbg Then
+            If currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -183,7 +183,10 @@ End Sub
 '            メインの`CDPBrowser`メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておくこと
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -198,7 +201,8 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 
     'SessionIdを取得
     CurrentSessionID = ex_CDPContext.CurrentSessionID
@@ -211,14 +215,10 @@ End Sub
 '* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ダイアログへのデフォルト値を設定
     JavaScriptDialogClose.Accept = True
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "JDID" & Format(Rnd * 1000, "000")
 End Sub
 
 

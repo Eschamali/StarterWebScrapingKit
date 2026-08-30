@@ -125,7 +125,7 @@ Iter_Next:
 
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
     Set ext = Nothing
-    br.InheritanceCDPBrowser.quit
+    br.ThisCDPBrowser.quit
 End Sub
 
 Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByRef box As BiDiCDPJson, ByVal timeoutSec As Double) As Boolean
@@ -145,7 +145,7 @@ Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByR
         End If
 
         '取りこぼしを拾うために短くポンプ
-        br.InheritanceCDPBrowser.TakeEvents
+        br.ThisCDPBrowser.TakeEvents
         DoEvents
 
         If (Timer - t0) > timeoutSec Then Exit Do

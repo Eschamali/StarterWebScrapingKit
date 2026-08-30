@@ -28,7 +28,7 @@ Attribute ex_BiDiContext.VB_VarHelpID = -1
 Private Const ThisClassName     As String = "exBiDi_SpaSettler.cls" 'ログのトレース用
 
 'ステート管理
-Private seeRawSendMsgDbg        As Boolean  'responseをデバッグログに出すかの調整
+Private currentLog             As StateLog  'ログ設定
 Private EnableBrowserEvents     As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private m_context               As String   '`WebDriverBiDiContext`継承時の`Context`情報
 
@@ -107,7 +107,7 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True)
 
 
     '1. エラー情報をクリア
-    ex_BiDiContext.InheritanceWebDriverBiDiMode.LastBiDiJsonError.RemoveAll
+    ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.RemoveAll
 
     '2. 必要なイベントを購読
     Dim TargetEvents As New Collection
@@ -116,16 +116,16 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True)
     TargetEvents.Add "network.beforeRequestSent"
     TargetEvents.Add "browsingContext.load"
     TargetEvents.Add "browsingContext.domContentLoaded"
-    Set ex_BiDiContext.InheritanceWebDriverBiDiMode.sessionSubscribe = TargetEvents
+    Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe = TargetEvents
 
     '3. エラーcheck
-    If ex_BiDiContext.InheritanceWebDriverBiDiMode.LastBiDiJsonError.Count Then printMsg ERROR_, "The execution of `session.subscribe` failed." & vbCrLf & "> " & ex_BiDiContext.InheritanceWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName, doRaiseError:=True
+    If ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.Count Then printMsg ERROR_, "The execution of `session.subscribe` failed." & vbCrLf & "> " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName, doRaiseError:=True
 
     '4. 各種初期化
     With CurrentDiscoveryLog
         Set .recorderLogs = New Collection
         Set .recSuppByKey = New Dictionary
-        .recorderStartTime = ex_BiDiCore.TimerCounter
+        .recorderStartTime = CDPHelpers.TimerCounter
         .excludeResources = excludeImagesAndCss
         .droppedHeadCount = 0
         .isRecording = True
@@ -139,7 +139,7 @@ End Sub
 Private Sub FormatAndStoreLog(methodName As String, RawJson As String)
     '1. 経過時間を取得
     Dim relTime As String
-    relTime = Format(ex_BiDiCore.TimerCounter - CurrentDiscoveryLog.recorderStartTime, "0.00") & "s"
+    relTime = Format(CDPHelpers.TimerCounter - CurrentDiscoveryLog.recorderStartTime, "0.00") & "s"
 
     '2. `params`の取り出し
     Dim paramsNode As BiDiCDPJson
@@ -247,12 +247,15 @@ End Function
 '***************************************************************************************************
 '負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_BiDiCore.sleep seconds
+    CDPHelpers.Sleep seconds
 End Sub
 
 'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_BiDiContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".bidi.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 'BiDi実行に必要です
@@ -275,7 +278,8 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.InheritanceWebDriverBiDiCore
+    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
     
     'コンテキスト情報
     m_context = Inheritance.context
@@ -285,17 +289,11 @@ End Sub
 '* 機能　　：ワークシートから、必要な設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
     '初期上限をセット
     CurrentDiscoveryLog.Limit = 5000
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
-    End With
+    currentLog.LogID = "SPID" & Format(Rnd * 1000, "000")
 End Sub

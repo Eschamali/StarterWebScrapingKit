@@ -31,8 +31,8 @@ Sub StartDoLoopVer()
     '非同期イベント監視を開始
     Debug.Print "`Do-Loop`が始動しました。"; "Demo画面にて適当に文字を入力してみてください。"
     Do
-        WebSocketDemo_doLoop.InheritanceCDPBrowser.sleep 0.05  '50ms間隔で監視
-        WebSocketDemo_doLoop.InheritanceCDPBrowser.TakeEvents
+        CDPHelpers.Sleep 0.05  '50ms間隔で監視
+        WebSocketDemo_doLoop.ThisCDPBrowser.TakeEvents
     Loop
 
 

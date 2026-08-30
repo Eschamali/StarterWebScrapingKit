@@ -27,7 +27,7 @@ Private WithEvents st               As SafeTimer
 Private Const ThisClassName         As String = "exCDP_NetworkEvents"             'ログのトレース用
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
+Private currentLog                 As StateLog      'ログ設定
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
 
@@ -162,12 +162,15 @@ End Sub
 '***************************************************************************************************
 '負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+    CDPHelpers.Sleep seconds
 End Sub
 
 'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 'CDP実行に必要です
@@ -190,8 +193,9 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 
     'SessionIdを取得
     CurrentSessionId = ex_CDPContext.CurrentSessionId
@@ -201,12 +205,8 @@ End Sub
 '* 機能　　：ワークシートから、必要な設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "WSEV" & Format(Rnd * 1000, "000")
 End Sub

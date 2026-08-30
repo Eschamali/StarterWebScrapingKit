@@ -36,7 +36,7 @@ Private Const BindingName02         As String = "pushAiStream"                  
 Private Const BindingName02_EOFcode As String = 30                              'promptStreaming 終端目印文字コード
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean      'responseをデバッグログに出すかの調整
+Private currentLog                 As StateLog   'ログ設定
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private ProgressValue               As Double       'AIモデルデータのDL進捗値
 Private StreamingEOF                As Boolean      'ストリーミング受信が終わったかのサイン
@@ -395,12 +395,15 @@ End Function
 '***************************************************************************************************
 '負荷を抑えるときにどうぞ
 Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+    CDPHelpers.Sleep seconds
 End Sub
 
 'ログメッセージを出すときにどうぞ
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".cdp.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 '非同期イベント発火(RaiseEvent)に必要です
@@ -418,30 +421,26 @@ End Sub
 '* 詳細説明：CDP制御に関する全てのオブジェクトをここで継承させ、タブのSesssionIDも適用させてください
 '* 注意事項：・タブの場合は、「CDPContext,CDPBrowser,CDPCore」の3つ、ブラウザの場合は、「CDPBrowser,CDPCore」の2つとなります
 '           ・SessionId は、タブで継承する際に使用します
-'***************************************************************************************************Friend Sub Init(Inheritance As CDPBrowser)
+'***************************************************************************************************
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 
     'SessionIdを取得
     CurrentSessionID = ex_CDPContext.CurrentSessionID
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-
     promptStreaming.strBuffer = String(2 ^ 16, vbNullChar)
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "AIID" & Format(Rnd * 1000, "000")
 End Sub

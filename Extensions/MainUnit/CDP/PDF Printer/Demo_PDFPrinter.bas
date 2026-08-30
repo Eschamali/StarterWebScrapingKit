@@ -47,7 +47,7 @@ Sub Demo_PDFPrinter_01_基本保存()
     End If
 
     '5. ブラウザを閉じる
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -97,7 +97,7 @@ Sub Demo_PDFPrinter_02_パラメーター指定()
     If savedPath <> "" Then browserTab.notify "パラメーター指定PDF保存完了！: " & savedPath
 
     '5. ブラウザを閉じる
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -139,7 +139,7 @@ Sub Demo_PDFPrinter_03_プリセット指定()
     browserTab.notify "プリセット指定PDF保存を3種類完了しました！"
 
     '4. ブラウザを閉じる
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -183,6 +183,6 @@ Sub Demo_PDFPrinter_04_スクショとPDF同時保存()
     End If
 
     '5. ブラウザを閉じる
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub

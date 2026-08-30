@@ -41,6 +41,7 @@ Private ex_BiDiContext          As WebDriverBiDiContext
 Private Const ThisClassName     As String = "exBiDi_FileChooser"
 
 'ステート管理
+Private currentLog             As StateLog  'ログ設定
 Private EnableBrowserEvents     As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CancelMode              As Boolean  '`input.fileDialogOpened`受信時、添付を行わずスキップするか
 Private m_context               As String   '`WebDriverBiDiContext`継承時の`Context`情報
@@ -76,10 +77,10 @@ Public Property Let EnableEvents(Optional cancel As Boolean, v As Boolean)
     '※`session.subscribe`はセッション単位です。他のタブ/インスタンスと共有点である事に留意してください
     Dim TargetEvents As New Collection
     TargetEvents.Add "input.fileDialogOpened"
-    Set ex_BiDiContext.InheritanceWebDriverBiDiMode.sessionSubscribe(v) = TargetEvents
+    Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe(v) = TargetEvents
 
-    If Not ex_BiDiContext.InheritanceWebDriverBiDiMode.LastBiDiJsonError Is Nothing Then
-        printMsg WARN_, "`session.subscribe`に失敗した可能性があります。 > " & ex_BiDiContext.InheritanceWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName
+    If Not ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError Is Nothing Then
+        printMsg WARN_, "`session.subscribe`に失敗した可能性があります。 > " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName
     End If
 End Property
 
@@ -341,7 +342,10 @@ End Function
 '                           ■■■ `WebDriverBiDiContext`直通メソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    ex_BiDiContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
+    Const LogFileExtension As String = ".bidi.log"
+
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Function ExecuteBiDi(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -353,7 +357,7 @@ Private Sub TakeEvents(Optional destruction As Boolean)
 End Sub
 
 Private Function TimerCounter() As Double
-    TimerCounter = ex_BiDiCore.TimerCounter
+    TimerCounter = CDPHelpers.TimerCounter
 End Function
 
 
@@ -366,7 +370,8 @@ End Function
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '必要なオブジェクトを継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.InheritanceWebDriverBiDiCore
+    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
     m_context = Inheritance.context
 
     '既定でイベント監視を有効化（キャンセルモードはOFF）
@@ -379,4 +384,6 @@ End Sub
 Private Sub Class_Initialize()
     Set mFilePaths = New Collection
     Set UnprocessedFileDialogList = New Collection
+
+    currentLog.LogID = "BFID" & Format(Rnd * 1000, "000")
 End Sub

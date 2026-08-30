@@ -94,7 +94,7 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
         Debug.Print "[Demo01] × downloadWillBegin を検知できませんでした"
         MsgBox "ダウンロードが開始されませんでした。", vbCritical
         UnthrottleNetwork browserTab
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -118,7 +118,7 @@ Sub Demo_DownloadWatcher_01_5MBのPNGをダウンロード()
     End If
 
     UnthrottleNetwork browserTab
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -194,7 +194,7 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
         End If
 
         UnthrottleNetwork browserTab
-        browserTab.InheritanceCDPBrowser.sleep 1.5    '次のダウンロードの前にボタンが再有効化されるまで待つ
+        CDPHelpers.Sleep 1.5    '次のダウンロードの前にボタンが再有効化されるまで待つ
     Next i
 
     Debug.Print "[Demo02] 全ラウンド完了！ 現在の履歴: " & dw.DownloadGuidCount & " 件 (completed=" & dw.DownloadStateCount(state_completed) & ")"
@@ -205,7 +205,7 @@ Sub Demo_DownloadWatcher_02_複数ファイルを連続ダウンロード()
 
     MsgBox "3ファイルのダウンロードが完了しました！" & vbCrLf & outDir, vbInformation
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -252,7 +252,7 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     guid = WaitForNewGuid(browserTab, dw, priorCount, TimeOutSecond:=600)
     If Len(guid) = 0 Then
         Debug.Print "[Demo03] × downloadWillBegin タイムアウト"
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo03] ○ downloadWillBegin 検知！ guid=" & Left(guid, 8) & "..."
@@ -262,7 +262,7 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
     Dim lastPct As Long: lastPct = -1
 
     Do
-        browserTab.InheritanceCDPBrowser.TakeEvents
+        browserTab.ThisCDPBrowser.TakeEvents
 
         Dim state As String: state = dw.DownloadProgressInfo(guid, downloadProgress_state)
         Dim totalBytes As Double: totalBytes = dw.DownloadProgressInfo(guid, downloadProgress_totalBytes)
@@ -298,11 +298,11 @@ Sub Demo_DownloadWatcher_03_進捗表示しながら大容量ダウンロード()
             Exit Do
         End If
 
-        browserTab.InheritanceCDPBrowser.sleep 0.5
+        CDPHelpers.Sleep 0.5
     Loop
 
     UnthrottleNetwork browserTab
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -347,7 +347,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
     If Len(guid) = 0 Or Not dw.AutoWaitSingleCompleted(guid, TimeOutSecond:=120) Then
         MsgBox "ダウンロード失敗。State=" & dw.DownloadProgressInfo(guid, downloadProgress_state), vbCritical
         UnthrottleNetwork browserTab
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
 
@@ -367,7 +367,7 @@ Sub Demo_DownloadWatcher_04_別名で保存()
         MsgBox "別名保存に失敗しました。", vbCritical
     End If
 
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -474,7 +474,7 @@ Sub Demo_DownloadWatcher_05_複数同時DLをまとめて待つ()
     End If
 
     UnthrottleNetwork browserTab
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -538,7 +538,7 @@ Sub Demo_DownloadWatcher_06_直接リンク型_10MBをリアルタイム進捗表示()
     If Len(guid) = 0 Then
         Debug.Print "[Demo06] × downloadWillBegin タイムアウト"
         UnthrottleNetwork browserTab
-        browserTab.InheritanceCDPBrowser.quit
+        browserTab.ThisCDPBrowser.quit
         Exit Sub
     End If
     Debug.Print "[Demo06] [" & Format(Time, "hh:mm:ss") & "] ○ downloadWillBegin 受信！"
@@ -549,7 +549,7 @@ Sub Demo_DownloadWatcher_06_直接リンク型_10MBをリアルタイム進捗表示()
     Dim lastPct As Long: lastPct = -1
 
     Do
-        browserTab.InheritanceCDPBrowser.TakeEvents
+        browserTab.ThisCDPBrowser.TakeEvents
 
         Dim state As String: state = dw.DownloadProgressInfo(guid, downloadProgress_state)
         Dim totalBytes As Double: totalBytes = dw.DownloadProgressInfo(guid, downloadProgress_totalBytes)
@@ -586,11 +586,11 @@ Sub Demo_DownloadWatcher_06_直接リンク型_10MBをリアルタイム進捗表示()
             Exit Do
         End If
 
-        browserTab.InheritanceCDPBrowser.sleep 0.3
+        CDPHelpers.Sleep 0.3
     Loop
 
     UnthrottleNetwork browserTab
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -661,16 +661,16 @@ Sub Demo_DownloadWatcher_07_直接リンク型_複数ファイル同時DL()
     '--- 4. 全3件の検知を待つ ---
     Dim t As Double: t = Timer
     Do
-        browserTab.InheritanceCDPBrowser.TakeEvents
+        browserTab.ThisCDPBrowser.TakeEvents
         Debug.Print "[Demo07]   検知待ち... DownloadGuidCount=" & dw.DownloadGuidCount & " / 3"
         If dw.DownloadGuidCount - priorCount >= 3 Then Exit Do
         If (Timer - t) > 120 Then
             Debug.Print "[Demo07] × 検出タイムアウト。検出数=" & (dw.DownloadGuidCount - priorCount)
             UnthrottleNetwork browserTab
-            browserTab.InheritanceCDPBrowser.quit
+            browserTab.ThisCDPBrowser.quit
             Exit Sub
         End If
-        browserTab.InheritanceCDPBrowser.sleep 0.5
+        CDPHelpers.Sleep 0.5
     Loop
     Debug.Print "[Demo07] " & (dw.DownloadGuidCount - priorCount) & "件のダウンロードを検出！"
 
@@ -699,7 +699,7 @@ Sub Demo_DownloadWatcher_07_直接リンク型_複数ファイル同時DL()
     End If
 
     UnthrottleNetwork browserTab
-    browserTab.InheritanceCDPBrowser.quit
+    browserTab.ThisCDPBrowser.quit
 
 End Sub
 
@@ -748,7 +748,7 @@ Private Function WaitForNewGuid(browserTab As CDPContext, dw As exCDP_DownloadWa
     Dim t As Double: t = Timer
 
     Do
-        browserTab.InheritanceCDPBrowser.TakeEvents
+        browserTab.ThisCDPBrowser.TakeEvents
 
         If dw.DownloadGuidCount > priorCount Then
             Dim guids: guids = dw.DownloadGuidList
@@ -758,7 +758,7 @@ Private Function WaitForNewGuid(browserTab As CDPContext, dw As exCDP_DownloadWa
 
         If (Timer - t) > TimeOutSecond Then Exit Function   '空文字のまま返す
 
-        browserTab.InheritanceCDPBrowser.sleep 0.2
+        CDPHelpers.Sleep 0.2
     Loop
 End Function
 
