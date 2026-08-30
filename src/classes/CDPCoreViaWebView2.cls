@@ -134,16 +134,29 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '2. ハンドル未指定の場合は、Excel自身を直接使用する
     If AttachHwnd <= 0 Then AttachHwnd = Application.hWnd
 
-    '3. 専用のホストオブジェクトへ、WebView2確保を委託
+    '3. 専用のホストオブジェクトを新規作成
+    Dim RunRes As Boolean
     Set m_Host = New CDPWebView2Host
-    If Not m_Host.Init(UserName, AttachHwnd) Then
-        printMsg ERROR_, "WebView2 initialization failed.", FromProcedureName
+    With m_Host
+        '3-1. 必要な情報を渡す
+        .InitInfo UserName, AttachHwnd
+
+        '3-2. セッションを閉じる(保険用)
+        .cleanUpSessions
+
+        '3-3. 起動！
+        RunRes = .RunWebView2
+    End With
+
+    '4. 正常に起動出来たか？
+    If Not RunRes Then
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName
 
         Set m_Host = Nothing
         Exit Function
     End If
 
-    '4. 成功サインを返す
+    '5. 成功サインを返す
     ConnectCDP = True
 End Function
 

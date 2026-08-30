@@ -50,50 +50,62 @@ Public Enum WebView2HostState
     Whs_Failed = 3
 End Enum
 
-Private m_hostHwnd     As LongPtr
-Private m_pEnvironment As LongPtr
-Private m_pController  As LongPtr
-Private m_pView        As LongPtr
-Private m_pSettings    As LongPtr   ' ICoreWebView2Settings(Initで1回だけ取得、CLOSE_で解放)
-
-Private m_envHandler  As CDPWebView2CallbackHandler
-Private m_ctrlHandler As CDPWebView2CallbackHandler
-
-Private m_envState  As WebView2HostState
-Private m_ctrlState As WebView2HostState
-Private m_lastError As Long
-Private m_closed    As Boolean
-
-
 
 '***************************************************************************************************
-'                              ■■■ 初期化/後始末 ■■■
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+Private m_hostHwnd      As LongPtr
+Private m_pEnvironment  As LongPtr
+Private m_pController   As LongPtr
+Private m_pView         As LongPtr
+Private m_pSettings     As LongPtr
+
+Private m_envHandler    As CDPWebView2CallbackHandler
+Private m_ctrlHandler   As CDPWebView2CallbackHandler
+
+Private m_envState      As WebView2HostState
+Private m_ctrlState     As WebView2HostState
+
+Private m_lastError     As Long
+Private m_closed        As Boolean
+
+Private WebView2UserDataDirPath As String
+
+
+
 '***************************************************************************************************
 '                                   ■■■ 起動前準備 ■■■
+'***************************************************************************************************
+'* 機能　　：このClassが機能する必要な情報を渡します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'            AttachHwnd WebView2を貼り付けるハンドル
+'***************************************************************************************************
+Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
+    WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
+    m_hostHwnd = AttachHwnd
+End Sub
+
 '***************************************************************************************************
 '* 機能　　：ICoreWebView2Environment→ICoreWebView2Controller→ICoreWebView2の生成を、
 '            完了まで同期的に待って実行します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
-'            AttachHwnd WebView2を貼り付けるハンドル
 '* 返り値  ：成功可否
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`InitInfo`にて、情報を渡すこと
 '***************************************************************************************************
-Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
-    Const FromProcedureName As String = "CDPWebView2Host.Init"
+Public Function RunWebView2() As Boolean
+    Const FromProcedureName As String = "CDPWebView2Host.RunWebView2"
 
+
+    '1. 2重インスタンス保持はさせない
     If m_envState <> Whs_Created Then
         Debug.Print FromProcedureName & ": 二重呼び出しは不可です"
         Exit Function
     End If
 
-    '1. ハンドルを指定
-    m_hostHwnd = AttachHwnd
-
     '2. Environment作成
     '※Officeのルールに従うようなパスにしておく
-    Dim Path As String
-    Path = Environ("UserProfile") & "\AppData\Local\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
-
     Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
     If m_envHandler Is Nothing Then
         Debug.Print FromProcedureName & ": Environment用ハンドラのAcquireに失敗しました"
@@ -109,7 +121,7 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     m_envState = Whs_Waiting
 
     Dim hr As Long
-    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(Path), 0, pEnvHandlerObj)
+    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(WebView2UserDataDirPath), 0, pEnvHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2EnvironmentWithOptions失敗 hr=&H" & Hex(hr)
         m_envState = Whs_Failed
@@ -170,7 +182,7 @@ Public Function Init(UserName As String, AttachHwnd As LongPtr) As Boolean
     If hr = 0 And ps <> 0 Then m_pSettings = ps
 
     '7. 成功サインを返す
-    Init = True
+    RunWebView2 = True
 End Function
 
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
@@ -269,6 +281,10 @@ End Property
 
 Public Property Get LastError() As Long
     LastError = m_lastError
+End Property
+
+Public Property Get LastErrorMessage() As String
+    LastErrorMessage = WinApiError.GetMessage(m_lastError, "WebView2Loader")
 End Property
 
 
