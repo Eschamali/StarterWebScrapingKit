@@ -24,6 +24,14 @@ Option Explicit
 
 
 
+#If Win64 Then
+    ' OK
+#Else
+    #Error "このクラスは64ビットVBA(x64)が必要です"
+#End If
+
+
+
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
@@ -33,16 +41,19 @@ Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "W
     ByVal additionalBrowserArguments As LongPtr, _
     ByVal environmentCreatedHandler As LongPtr) As Long
 
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
+'DJP 20241105 to solve problems with terminating sessions on terminal server
+Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
+    ) As Long
+
+Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
+    ByVal dwProcessId As Long, _
+    ByRef pSessionId As Long) As Long
 
 
 
-#If Win64 Then
-    ' OK
-#Else
-    #Error "このクラスは64ビットVBA(x64)が必要です"
-#End If
-
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 Public Enum WebView2HostState
     Whs_Created = 0
     Whs_Waiting = 1
@@ -264,6 +275,40 @@ Public Sub CLOSE_()
     End If
 
     m_closed = True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：新しいWebView2セッションを開始する前にクリーンアップを行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・基本は対象WebView2の`user-data-dir`に属するプロセスのみを終了します
+'            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
+'***************************************************************************************************
+Public Sub cleanUpSessions()
+    '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
+    Dim lProcessId As Long, lSessionId As Long
+    lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
+    ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
+
+    '2. WebView2のexe名 ※1つしかないので固定値
+    Const exeName As String = "msedgewebview2.exe"
+
+    '3. 起動中のプロセスを巡る
+    Dim proc As Object
+    On Error Resume Next
+    For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
+        '4. 起動中のブラウザ名であるか確認
+        If LCase$(proc.Name) = LCase$(exeName) Then
+            '5. Killタイプ判定
+            If InStr(1, proc.CommandLine, "--user-data-dir=""" & WebView2UserDataDirPath) & Chr(34) > 0 Then
+                '6. 対象ユーザー名のWebView2なら、Killします
+                proc.Terminate
+            End If
+        End If
+        DoEvents
+    Next
+    On Error GoTo 0
+    Err.Clear
+
 End Sub
 
 
