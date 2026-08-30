@@ -28,8 +28,10 @@ CDP-over-Pipe / CDP-over-WebSocket は「ドメインを `enable` すれば、�
 すべてのCOMコールバックは、機械語で書かれたサンク（後述）を経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）にVBEでブレーク／ステップ実行すると、Excelがクラッシュする可能性があります。
 :::
 
-::: info 疑似マルチタブは提供しません
-WebView2の`ICoreWebView2`は1インスタンス=1ページです。かつて検討した「複数のWebView2インスタンスを起動して疑似タブ扱いする」というアプローチ（PowerShellベースの検証版で試作）は、v3.0.0のネイティブ実装では採用していません。`Target.setAutoAttach`によるiframe/workerの子セッション捕捉はネイティブに対応していますが、複数タブ相当の`Target.createTarget`等はサポート対象外です。
+::: info 複数タブは「別ウィンドウ」として開きます
+`CDPBrowser.newTab`（内部的には`Target.createTarget`）は、WebView2モードでも他のtransportと同じように使えます。ただし、WebView2の`ICoreWebView2`は1インスタンス=1ページのため、新しく作られたタブをUserFormの中に**埋め込む**仕組みまでは用意していません。そのため、2つ目以降のタブは独立した新規ウィンドウとして立ち上がります。
+
+タブ（＝ウィンドウ）をまたいだCDPコマンドの送受信自体は、`ICoreWebView2_11::CallDevToolsProtocolMethodForSession`（`SendCommandCDP`が`sessionId`の有無で自動的に切り分けます）で正しくルーティングされるため、`CDPContext`を複数持って並行操作すること自体は可能です。「UserFormの中に複数タブ分のビューを並べて表示する」機能が無いだけです。
 :::
 
 ## 低レイヤの実装：機械語サンクとvtable

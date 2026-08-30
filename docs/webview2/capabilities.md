@@ -57,7 +57,7 @@ t.navigate "https://example.com"
 
 ::: tip 注意
 - 既存の接続がある場合は、`ConnectCDP` の再呼び出しで切断・再接続されます
-- WebView2の`ICoreWebView2`は1インスタンス=1ページです。複数タブのような`Target.createTarget`はサポート対象外です（[設計思想について](/webview2/design)）
+- `CDPBrowser.newTab`（`Target.createTarget`）自体はWebView2モードでも使えますが、WebView2は1インスタンス=1ページのため、新規タブはUserForm内には埋め込まれず**独立した新規ウィンドウ**として開きます。タブ（ウィンドウ）をまたいだCDPコマンドのやり取りは`CallDevToolsProtocolMethodForSession`が担うため、複数の`CDPContext`を並行操作すること自体は可能です（詳細は[設計思想について](/webview2/design)）
 :::
 
 ## 表示・イベント購読
