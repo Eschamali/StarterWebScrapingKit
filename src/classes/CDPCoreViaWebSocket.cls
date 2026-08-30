@@ -63,6 +63,9 @@ Option Explicit
     Private Declare Function setsockopt Lib "ws2_32.dll" (ByVal s As Long, ByVal level As Long, ByVal optname As Long, ByRef optval As Long, ByVal optlen As Long) As Long
 #End If
 
+' --- WebView2をWebSocket経由制御するための宣言 ---
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long
+
 
 
 '***************************************************************************************************
@@ -142,7 +145,6 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
-Private Const InitialBuffer As Long = 2 ^ 20        ' WinSock/ADODB.Stream 初期バッファー上限　※`CDPCore.cls - InitialBuffer`と揃えること
 
 
 
@@ -168,12 +170,12 @@ Private m_IsConnected       As Boolean          '既にWebSocketに接続済み�
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
+'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ特別に使用
+Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
+Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
+Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
+
 '--- ログ設定状況 ---
-Private Type StateLog
-    id                  As String   'ユニーク名
-    doLog               As Boolean  'ログファイルにも、デバッグメッセージを残すか
-    logPath             As String   'ログファイルの保存フォルダパス
-End Type
 Private currentLog As StateLog
 
 '--- Pipe版に合わせたエラー有無判定 ---
@@ -187,7 +189,6 @@ Private LastWinSockError   As ErrorCode
 '--- 各種クラスオブジェクト ---
 Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
 Private Utf8Converter           As New CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
-Private ViewLog                 As New Logger                   'ログ用
 
 
 
@@ -238,6 +239,13 @@ Public Function isAvailability() As Boolean
     LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
     printMsg Debug_, WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
 End Function
+
+'***************************************************************************************************
+'* 機能    ：`RunWebSocketModeBrowserCDP` で起動したブラウザのプロセスハンドル情報
+'***************************************************************************************************
+Property Get Connection_hProcess() As LongPtr
+    Connection_hProcess = hProcess
+End Property
 
 
 
@@ -297,8 +305,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
-    Const dwAllocationGranularity As Long = 2 ^ 16    'Pipeの仕様(メモリアロケーション粒度)に合わせた補正値
-    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer + dwAllocationGranularity, 4)
+    Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
 
     '5. アドレス構造体の設定
     Dim addr As sockaddr_in
@@ -921,43 +928,10 @@ End Sub
 '                                  ■■■ ログヘルパー ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
-'----------------------------------------------------------------------------------
-' A custom printMsg that besides printing to the Immediate Window, it will
-' also print to a dated log file. This is useful at user level where
-' the Immediate Window is not easily accessible. doRaiseError will also raise an
-' error aside from printing the error message to the log file.
-' Updated: 07/01/26 Long Vh: the message output is disabled by default to avoid
-'                            spamming info. This can be turned on by setting globally
-'                            noDbgMsg = False or noLogging = False
-'----------------------------------------------------------------------------------
-
-    Dim logName As String, strFormattedMsg As String
-
-    If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & currentLog.id & " | " & strMsg
-
-   'Perform msg logging if needed
-    If currentLog.doLog Then
-        logName = "log" & UCase(Format(Now, "ddMMMyy")) & ".WebSokect.log"
-        If LenB(Dir(currentLog.logPath, vbDirectory)) = 0 Then MkDir currentLog.logPath
-    End If
-
-   'Perform msg output to Immediate Window if needed
-    With ViewLog
-        Select Case LogLevel_
-            Case LogLevelName.Trace_: .LogTrace strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.Debug_: .LogDebug strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.info_: .LogInfo strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.WARN_: .LogWarn strFormattedMsg, From, currentLog.logPath, logName
-            Case LogLevelName.ERROR_: .LogError strFormattedMsg, From, currentLog.logPath, logName, Err.Number
-            Case Else: 'ログ出力無効化
-        End Select
-    End With
+    Const LogFileExtension As String = ".WebSokect.log"
 
 
-    'エラー時に止まります
-    If doRaiseError Then Err.Raise vbObjectError + 1, From, Description:=strMsg
-
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 
@@ -1174,65 +1148,134 @@ End Function
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称
+'* 引数    ：UserName       利用者識別名称　※省略時、普段使い(User Data)側での接続を試みます
 '            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort(UserName As String, Optional ReuseContext As Boolean) As Boolean
+Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
     '1. `DevToolsActivePort`のファイルパスを特定
-    Dim FilePath_DevToolsActivePort As String
-    If ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName) Then
-        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Google\Chrome\User Data\DevToolsActivePort"
-    Else
-        FilePath_DevToolsActivePort = Environ("LOCALAPPDATA") & "\Microsoft\Edge\User Data\DevToolsActivePort"
-    End If
+    Dim checkDevToolsActivePort As New CDPCoreHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
 
-    '2. そのファイルがあるか？
-    If LenB(Dir(FilePath_DevToolsActivePort)) Then
-        'そのパスを読み込んで、接続情報を取得する
-        '3. ファイルOpen
-        Dim intFree As Integer
-        intFree = FreeFile
-        Open FilePath_DevToolsActivePort For Input As #intFree
+    '2. 情報があるか？
+    Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
+    If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
-        '4. 中身を全部読む
-        Dim tmp
-        tmp = Input(LOF(intFree), #intFree)
-
-        '5. 閉じる
-        Close #intFree
-
-        '6. 分割
-        '※最初にポート番号、その次にURLパスが記述されてます
-        tmp = Split(tmp, vbLf)
-
-        '7. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
-        If ReuseContext Then
-            '7-1. Excelテーブルからメインタブ情報を取得
-            Dim tmpRe As Dictionary
-            Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
+    '3. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
+    If ReuseContext Then
+        '4. Excelテーブルからメインタブ情報を取得
+        Dim tmpRe As Dictionary
+        Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
     
-            '7-2. データ有無チェック
-            If Not tmpRe Is Nothing Then
-                '8. あったらその情報を適用し、抜ける
-                AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(tmp(0)))
-                Exit Function
-            End If
+        '5. データ有無チェック
+        If Not tmpRe Is Nothing Then
+            '6. あったらその情報を適用し、抜ける
+            AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(DevToolsActivePortInfo(0)))
+            Exit Function
         End If
-
-        '8. 接続
-        AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(tmp(1)), , , CLng(tmp(0)))
-    Else
-        'エラーで終了
-        printMsg ERROR_, "Connection information is missing." & vbCrLf & "> " & FilePath_DevToolsActivePort, FromProcedureName, doRaiseError:=True
     End If
+
+    '7. 接続
+    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0)))
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルのブラウザをWebSocketモードで起動し、自動制御まで準備します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：起動時のコマンドライン。
+'* 引数　　：BrowserType    ブラウザタイプ
+'            FirstURL       `-app`に渡すURL
+'            UserName       記録する識別名称
+'            addArgs        追加引数
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
+'* 注意事項：このメソッドで開始する場合は、`CDPBrowser`から始める仕様とします
+'***************************************************************************************************
+Public Function RunWebSocketModeBrowserCDP(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String) As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備
+        .InitInfo userProfile, BrowserType, False
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. WebSocket接続に備えて、古い情報を削除
+        .DeleteFileDevToolsActivePort
+
+        '1-6. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(appUrl), _
+                                    addArgs))
+
+        '2. 実際に起動を行います
+        printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
+        dwProcessId = Shell(RunCommandLine, setShowWindow)
+
+        '3. エラー時は、Stop
+        If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
+
+        '4. プロセスハンドルを取る
+        hProcess = .OpenProcessHandle(dwProcessId)
+
+        '5. DevToolsActivePort ファイルが出現するまで待機
+        If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
+
+        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
+        '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
+        Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
+    End With
+
+    '7. 接続
+    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+
+    '8. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡し、返却
+    Set RunWebSocketModeBrowserCDP = New CDPBrowser
+    RunWebSocketModeBrowserCDP.reattachWebSocket userProfile, Me
+End Function
+
+'***************************************************************************************************
+'* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：閉じる場合は、0未満にしてください
+'***************************************************************************************************
+Property Let EnsureWebView2DebugPort(port As Long)
+    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If port >= 0 Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
+        printMsg info_, "WebView2のデバッグポートを開けました: " & port, FromProcedureName
+
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        printMsg info_, "WebView2のデバッグポートを閉じました", FromProcedureName
+
+    End If
+End Property
 
 
 
@@ -1245,21 +1288,21 @@ End Function
 '            targetId       `Target.TargetInfo`の`targetId`
 '            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・`remote-debugging-pipe`と共存する都合上、一部は仮値にしてます
+'* 注意事項：・パイプハンドルはソケット値で代用します。`hProcess` / `dwProcessId` は `Shell` 起動時のみ実値です
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String, targetID As String, BiDiContext As String)
     '------------------ 1. パイプ情報の記録準備 ------------------
-    '※主要となる情報以外は一旦、一律0とし、必要なデータを`Dictionary`に詰める
+    '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", 0
     tmp.Add "hStderrOutRd", 0
     tmp.Add "hStdInWr", 0
     tmp.Add "hCDPOutRd", (m_hSocket)
     tmp.Add "hCDPInWr", (m_hSocket)
-    tmp.Add "hProcess", 0
-    tmp.Add "dwProcessId", 0
+    tmp.Add "hProcess", (hProcess)
+    tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
     Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
@@ -1298,6 +1341,8 @@ Public Function deserialize(UserName As String) As Boolean
 
     'ハンドルに適用
     m_hSocket = PipeInfo("hCDPOutRd")   '`hCDPInWr`も同一番号
+    hProcess = PipeInfo("hProcess")
+    dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
     deserialize = True
@@ -1323,14 +1368,11 @@ Private Sub Class_Initialize()
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
-    currentLog.id = "WSID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")
 
-    'パスが設定されてたら、ログファイル保存を有効化
-    Dim LogFolderPath As String: LogFolderPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
-    If LenB(LogFolderPath) > 0 Then
-        currentLog.doLog = True                'ログファイルとして保存するか？
-        currentLog.logPath = LogFolderPath     '保存先のフォルダパスを設定
-    End If
+    'ログ設定
+    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
+    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
@@ -1342,6 +1384,9 @@ Private Sub Class_Initialize()
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
     End With
+
+    '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
+    setShowWindow = ShSetting01_StartBrowser.UseRangeID(12, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()
