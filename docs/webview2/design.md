@@ -54,4 +54,5 @@ WebView2は`IUnknown`ベースのCOMオブジェクトで、VBAの`Object`変数
 - [WebView2モードでできること](/webview2/capabilities)
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only) — UserFormへの埋め込み手順
 - [アーキテクチャ](/concepts/architecture)
+- [WebView2、登場秘話](/stories/webview2-story) — 着手から半年越しの復活までの経緯
 - [このツールの誕生秘話](/stories/birth-story) — WebView2ブランチが辿った半年

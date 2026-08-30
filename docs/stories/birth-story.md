@@ -759,6 +759,10 @@ VBAでKeyを基に値を紐づける、といえばこれまで`Microsoft Script
 
 ただし、この章の主役の1人は、**8月に生まれたコードではありません**。
 
+::: tip もっと詳しく
+このブランチが辿った道のり（きっかけとなった記事、一度は本体と分離してしまった経緯、たーぼーさんからの一通の報告で復活した顛末）は、[WebView2、登場秘話](/stories/webview2-story) にまとめています。
+:::
+
 ### 春に埋めた種
 
 `git log` を遡ると、奇妙な日付が出てきます。
@@ -914,6 +918,7 @@ flowchart TB
 ## 次に読む
 
 - [なぜ `WebDriver` なしでブラウザ自動化ができるとわかったのか](/stories/bidi-story) — 第4章の 19,879 行の正体
+- [WebView2、登場秘話](/stories/webview2-story) — 終章で触れたWebView2ブランチの、3月の着手から半年越しの復活までの全貌
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only) — 終章で合流したブランチの、利用者向けの使い方
 - [WebSocket モードでできること](/websocket/capabilities) — WinSock が開けた 1% の扉
 - [アーキテクチャ](/concepts/architecture) — 解体後のクラス構成

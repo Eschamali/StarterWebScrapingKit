@@ -123,6 +123,7 @@ End Sub
 
 - [WebView2モードでできること](/webview2/capabilities) — API詳細
 - [WebView2モードの設計思想について](/webview2/design)
+- [WebView2、登場秘話](/stories/webview2-story) — この実装が生まれた経緯
 - [総括：3つの手法の比較](./summary)
 - [PowerShell 経由](./powershell)
 - [はじめに](./intro)

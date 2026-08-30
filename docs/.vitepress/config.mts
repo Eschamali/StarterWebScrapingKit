@@ -160,7 +160,8 @@ export default withMermaid(
           text: '開発秘話',
           items: [
             { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
-            { text: 'BiDi 登場秘話', link: '/stories/bidi-story' }
+            { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
+            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' }
           ]
         },
         {
