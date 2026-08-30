@@ -576,13 +576,13 @@ End Function
 '***************************************************************************************************
 '* 機能　　：実行プロセス内のWebView2デバッグポートを開く際に使います。迷ったら、`9222`に設定して下さい
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：閉じる場合は、`0`にしてください
+'* 注意事項：閉じる場合は、0未満にしてください
 '***************************************************************************************************
 Property Let EnsureWebView2Debug(port As Long)
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
 
 
-    If port > 0 Then
+    If port >= 0 Then
         SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
         Debug.Print "WebView2のデバッグポートを開けました: " & port
     Else
