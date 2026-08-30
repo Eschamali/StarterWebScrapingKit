@@ -95,7 +95,7 @@ Public Function EnumToStringBrowserList_exeName(param As BrowserList) As String
 End Function
 
 '---------------------------------------------------------------------------------------------------
-' [ SECTION ] ポリシー情報のあるブラウザ種別を相対パス名で返します
+' [ SECTION ] ポリシー情報のあるブラウザ種別を相対レジストリキーパス名で返します
 '---------------------------------------------------------------------------------------------------
 Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
     Select Case param
@@ -105,7 +105,7 @@ Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
 End Function
 
 '---------------------------------------------------------------------------------------------------
-' [ SECTION ] 開発レベルのブラウザ種別を相対パス名で返します
+' [ SECTION ] 開発レベルのブラウザ種別を相対フォルダパス名で返します
 '---------------------------------------------------------------------------------------------------
 Public Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
     Select Case param
