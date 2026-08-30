@@ -216,7 +216,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：ブラウザパス　 ※失敗時は、`vbnullstring`で返します
 '***************************************************************************************************
-Public Function getBrowserPath() As String
+Property Get getBrowserPath() As String
     Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
 
 
@@ -272,7 +272,7 @@ Public Function getBrowserPath() As String
             If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = vbNullString
         End If
     End If
-End Function
+End Property
 
 '***************************************************************************************************
 '* 機能　　：ブラウザが使用するユーザーパスを返します
@@ -283,7 +283,7 @@ End Function
 '            ・`Preferences`内のクラッシュ情報をクリアする
 '            ・`--remote-debugging-port=0`で起動した際の、`DevToolsActivePort`を拝見して、自動で空いてるポートに繋げる仕組み
 '***************************************************************************************************
-Public Function getUserDataDirPath() As String
+Property Get getUserDataDirPath() As String
     If currentPolicy.UserDataDir.Exists Then
         '`UserDataDir`ポリシーがある場合はそっちを優先に返却
         getUserDataDirPath = currentPolicy.UserDataDir.Contents
@@ -293,7 +293,7 @@ Public Function getUserDataDirPath() As String
             Case BrowserList.RunChrome:  getUserDataDirPath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName
         End Select
     End If
-End Function
+End Property
 
 '***************************************************************************************************
 '* 機能　　：プロセスIDから、操作可能なプロセスハンドル(`hProcess`)を取得します
@@ -342,8 +342,8 @@ End Sub
 '* 注意事項：必要に応じて、前述のプロシージャで削除を行います
 '***************************************************************************************************
 Public Function AutoWaitExistsFileDevToolsActivePort() As Boolean
-    Const MaxTick As Long = 100
     Const FromProcedureName As String = ThisClassName & ".AutoWaitExistsFileDevToolsActivePort"
+    Const MaxTick As Long = 100 '無難に10.0s待機
 
 
     Dim TickCount As Long
