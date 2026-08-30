@@ -78,7 +78,7 @@ Public Function PrintToPDF( _
     printMsg info_, "PDF printing started. File: " & FileBaseName & ".pdf", FromProcedureName
 
     '--- 1. パラメーター組み立て ---
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
 
     params("printBackground") = PrintBackground
     params("landscape") = Landscape
@@ -213,7 +213,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 

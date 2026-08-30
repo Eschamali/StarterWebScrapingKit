@@ -392,7 +392,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = m_CDPContext.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 

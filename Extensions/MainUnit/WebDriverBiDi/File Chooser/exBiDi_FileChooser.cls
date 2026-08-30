@@ -348,7 +348,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
-Private Function ExecuteBiDi(methodName As String, Optional params As Scripting.Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteBiDi = ex_BiDiContext.ExecuteBiDi(methodName, params, StopError)
 End Function
 

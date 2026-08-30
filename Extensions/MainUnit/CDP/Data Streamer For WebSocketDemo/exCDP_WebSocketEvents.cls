@@ -174,7 +174,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 End Sub
 
 'CDPé¿çsÇ…ïKóvÇ≈Ç∑
-Private Function ExecuteCDP(methodName As String, Optional params As Scripting.Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As BiDiCDPJson
+Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional alwaysBrowserContext As Boolean, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = ex_CDPContext.ExecuteCDP(methodName, params, StopError)
 End Function
 

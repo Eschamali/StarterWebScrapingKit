@@ -793,7 +793,7 @@ End Function
 Private Sub ThrottleNetwork(browserTab As CDPContext, DownloadKBps As Long)
     browserTab.ExecuteCDP "Network.enable"
 
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params.Add "offline", False
     params.Add "latency", 0
     params.Add "downloadThroughput", DownloadKBps * 1024
@@ -805,7 +805,7 @@ End Sub
 '* 機能　　：`ThrottleNetwork`で掛けた速度制限を解除します
 '***************************************************************************************************
 Private Sub UnthrottleNetwork(browserTab As CDPContext)
-    Dim params As New Scripting.Dictionary
+    Dim params As New Dictionary
     params.Add "offline", False
     params.Add "latency", 0
     params.Add "downloadThroughput", -1
