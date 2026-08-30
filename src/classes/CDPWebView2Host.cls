@@ -175,10 +175,13 @@ End Function
 
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
+    Const MaxTick As Long = 100 '無難に10.0s待機
+
+
     Dim tick As Long
-    Do While state = Whs_Waiting And tick < 1000    '無難に1s待機
+    Do While state = Whs_Waiting And tick < MaxTick
         DoEvents
-        sleep2 1
+        CDPHelpers.Sleep 0.1
         tick = tick + 1
     Loop
     WaitFor = (state <> Whs_Waiting)
