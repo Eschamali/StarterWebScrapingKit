@@ -17,6 +17,9 @@ description: 3プロジェクトが選んだ3つの異なるファイル分割�
 ```
 src/classes/
 ├── CDPCore.cls / CDPCoreViaWebSocket.cls   ← 通信層（Pipe / WebSocket）
+├── CDPCoreViaWebView2.cls                  ← 通信層（WebView2、v3.0.0〜）
+├── CDPCoreHost.cls                         ← ローカルブラウザの起動・後始末（v3.0.0〜）
+├── CDPWebView2Host.cls / CallbackHandler.cls ← WebView2 COMコールバックの受け皿（v3.0.0〜）
 ├── CDPBrowser.cls                          ← ブラウザ単位
 ├── CDPContext.cls                          ← タブ単位
 ├── CDPElement.cls                          ← 要素単位
@@ -26,7 +29,7 @@ src/classes/
 └── Dictionary.cls                          ← `Scripting.Dictionary`互換の自作クラス（v2.4.2〜）
 ```
 
-「ブラウザ → タブ → 要素」というスコープの階層と、「CDP / BiDi / REST / WebSocket」という機能の柱の2軸です。これは[アーキテクチャのページ](/concepts/architecture)で説明している通りで、Puppeteer / Playwright が採用している軸と一致します。
+「ブラウザ → タブ → 要素」というスコープの階層と、「CDP / BiDi / REST / WebSocket / WebView2」という機能の柱の軸です。これは[アーキテクチャのページ](/concepts/architecture)で説明している通りで、Puppeteer / Playwright が採用している軸と一致します。
 
 ## vba-cdp-webdriver：処理の段階
 

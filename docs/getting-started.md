@@ -88,9 +88,12 @@ End Sub
 
 - `StartURL` — 起動直後に開く URL
 - `SwitchUser` — 別プロファイル名で起動（マルチインスタンス）
-- `KioskMode` — Edge キオスク／UserForm 埋め込み向け
 
 BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引数を用意しています。必要に応じて事前に `Dictionary` を組み立て、引数に渡してください。
+
+::: tip UserForm へのブラウザ埋め込み
+「UserForm の中にブラウザ画面を表示したい」場合は、この4種類とは別に [UserForm への WebView2 埋め込み](/userform/intro) を参照してください。v3.0.0 で、本キット自身が WebView2 をネイティブに CDP 制御できるようになりました。
+:::
 
 #### `sessionCapabilitiesRequest` とは
 

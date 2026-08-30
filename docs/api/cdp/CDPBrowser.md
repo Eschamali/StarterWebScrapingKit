@@ -22,48 +22,46 @@ b.quit
 ### `start`
 
 ```vb
-Public Sub start(Optional Name As String = "chrome", ...)
+Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, ...)
 ```
 
 ブラウザを起動しパイプ接続します。日常利用では設定シート経由を推奨。
 
-### `reattach`
+### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
 
-Excel テーブルにある既存のパイプハンドル情報を利用して、再接続を試みます。
+Excel テーブルにある既存の接続情報（パイプ／WebSocket／WebView2）を利用して、再接続を試みます。トランスポートごとに専用のメソッドが分かれています。
 
 ```vb
-Public Function reattach( _
-    userProfile As String, _
-    Optional WebSocketMode As CDPCoreViaWebSocket _
-) As Boolean
+Public Sub reattachPipe(userProfile As String)
+Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
 | `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく識別名称） |
 | `WebSocketMode` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定 |
-
-**戻り値:** パイプ（または WebSocket 接続）が生存しているかどうか。
+| `WebView2Mode` | WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebView2` を指定 |
 
 #### 基本的な使い方
 
 - `start` や設定シート経由で起動したときの識別名称を `userProfile` に渡します（例: `ShSetting01_StartBrowser.CurrentUserName`）
-- WebSocket モードで動かすときは、接続済みの WebSocket Class オブジェクトを第 2 引数に渡します
+- WebSocket / WebView2 モードで動かすときは、接続処理済みの Class オブジェクトを第 2 引数に渡します
 
 ```vb
 ' Pipe 版
 Dim b As New CDPBrowser
-If Not b.reattach(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
+b.reattachPipe ShSetting01_StartBrowser.CurrentUserName
 
 ' WebSocket 版
 Dim ws As New CDPCoreViaWebSocket
 ws.AutoConnectBrowserCDP UserName
 Dim b As New CDPBrowser
-If Not b.reattach(UserName, ws) Then Exit Sub
+b.reattachWebSocket UserName, ws
 ```
 
 ::: tip 注意
-パイプが生きていない場合は、このメソッドから再開できません。Part1 からやり直してください。
+`CDPBrowser` 側はいずれも戻り値なしの `Sub` です。パイプ（または WebSocket / WebView2 接続）が生きていない場合は、`Boolean` を返さず **VBA エラーで停止**します（`CDPContext` 側の同名メソッドは `Function ... As Boolean` で、失敗時は例外を投げずに `False` を返す点が異なります）。エラーで止めたくない場合は、呼び出し側で `On Error` を使ってください。生存していない場合、Part1 からやり直す必要がある点は共通です。
 :::
 
 詳細は [再接続ガイド](/guides/reattach) / [WebSocket モード](/websocket/capabilities) を参照。

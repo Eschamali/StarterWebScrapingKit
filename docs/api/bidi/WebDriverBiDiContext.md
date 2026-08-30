@@ -23,11 +23,10 @@ t.InheritanceWebDriverBiDiMode.quit
 
 ```vb
 Public Sub StartBiDiModeAndConnectTab( _
-    Optional Name As String = "chrome", _
+    Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
     Optional addArgs As String, _
-    Optional KioskMode As edgeKioskType, _
     Optional sessionCapabilitiesRequest As Dictionary _
 )
 ```
@@ -36,17 +35,20 @@ Public Sub StartBiDiModeAndConnectTab( _
 
 | 引数 | 意味 |
 | --- | --- |
-| `Name` | ブラウザ名（現時点では Chrome / Edge） |
+| `Name` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
 | `appUrl` | 起動時に開く URL |
 | `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
 | `addArgs` | 追加の起動引数 |
-| `KioskMode` | Edge キオスクモード |
 | `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
 
 ```vb
 Dim t As New WebDriverBiDiContext
-t.StartBiDiModeAndConnectTab "chrome", userProfile:="MyUser"
+t.StartBiDiModeAndConnectTab BrowserList.RunChrome, userProfile:="MyUser"
 ```
+
+::: tip 注意
+`Name` は v3.0.0 で `String` から `BrowserList` 列挙型に変更されました。`KioskMode` 引数（Edge キオスクモード埋め込み向け）も、WebView2 のネイティブ対応に伴い廃止されています。
+:::
 
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
 

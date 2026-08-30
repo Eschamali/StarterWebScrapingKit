@@ -13,6 +13,8 @@ description: プロシージャをまたいで同じデバッグブラウザへ�
 
 ## CDP — ブラウザ単位
 
+トランスポート（Pipe / WebSocket / WebView2）ごとに、`reattachPipe` / `reattachWebSocket` / `reattachWebView2` の3メソッドに分かれています。ここでは基本の Pipe 版を示します。
+
 ```vb
 ' --- Part1 ---
 Dim c As CDPContext
@@ -24,17 +26,20 @@ Dim b As New CDPBrowser
 Dim UserName As String
 UserName = ShSetting01_StartBrowser.CurrentUserName
 
-If Not b.reattach(UserName) Then
-    MsgBox "接続できません"
-    Exit Sub
-End If
+b.reattachPipe UserName   ' パイプが死んでいる場合はここで VBA エラー停止
 
 Dim r As CDPContext
 Set r = b.getTab(setMain:=True)   ' 必須: setMain:=True
 r.navigate "https://example.com"
 ```
 
+::: tip 注意
+`CDPBrowser` 側の `reattachPipe` / `reattachWebSocket` / `reattachWebView2` は戻り値なしの `Sub` です。接続情報が生きていない場合は `Boolean` を返さず VBA エラーで停止します。エラーで止めたくない場合は `On Error` を使ってください。
+:::
+
 ## CDP — タブ（Context）単位
+
+`CDPContext` 側は `Function ... As Boolean` で、失敗時は例外を投げず `False` を返します。
 
 ```vb
 Dim c As New CDPContext
@@ -42,7 +47,7 @@ Dim UserName As String
 UserName = ShSetting01_StartBrowser.CurrentUserName
 
 ' 第2引数: Excel に記録した SessionId を再利用するか
-If Not c.reattach(UserName, False) Then
+If Not c.reattachPipe(UserName, False) Then
     MsgBox "TargetID が無効です"
     Exit Sub
 End If
@@ -65,7 +70,7 @@ SessionID を保持して引き継ぐ場合は、次節を参照してくださ�
 ### Pipe 版
 
 1. 処理の最後に `CDPContext.KeepSession = True`
-2. 再開したいプロシージャで、タブ Class の `reattach` を `CDPContext.reattach(UserName, True)` として呼ぶ
+2. 再開したいプロシージャで、タブ Class の `reattachPipe` を `CDPContext.reattachPipe(UserName, True)` として呼ぶ
 3. あとは今まで通り
 
 ```vb
@@ -80,7 +85,7 @@ Dim t As New CDPContext
 Dim UserName As String
 UserName = ShSetting01_StartBrowser.CurrentUserName
 
-If Not t.reattach(UserName, True) Then Exit Sub
+If Not t.reattachPipe(UserName, True) Then Exit Sub
 ' 同じ SessionID 上で ObjectID を引き続き利用可能
 ```
 
@@ -88,7 +93,7 @@ If Not t.reattach(UserName, True) Then Exit Sub
 
 1. 処理の最後に `CDPContext.KeepSession = True` にしつつ、`CDPCoreViaWebSocket.DisconnectCDP` などの**切断処理をしない**
 2. 利用者識別名称（`UserName`）で `CDPCoreViaWebSocket.deserialize(UserName)` し、WinSock ハンドルを復元
-3. 再開したいプロシージャで、タブ Class の `reattach` を `CDPContext.reattach(UserName, True, WebSocketCDP)` として呼ぶ
+3. 再開したいプロシージャで、タブ Class の `reattachWebSocket` を `CDPContext.reattachWebSocket(UserName, WebSocketCDP, True)` として呼ぶ
 4. あとは今まで通り
 
 ```vb
@@ -105,8 +110,12 @@ Dim WebSocketCDP As New CDPCoreViaWebSocket
 If WebSocketCDP.deserialize(UserName) <> 0 Then Exit Sub
 
 Dim t As New CDPContext
-If Not t.reattach(UserName, True, WebSocketCDP) Then Exit Sub
+If Not t.reattachWebSocket(UserName, WebSocketCDP, True) Then Exit Sub
 ```
+
+### WebView2 版
+
+考え方は同じです。`CDPCoreViaWebView2` を構成済みの状態で `CDPContext.reattachWebView2(UserName, WebView2CDP, True)` に渡します。詳細は [UserForm への埋め込み（Lv.99: Excel単体）](/userform/vba-only) を参照してください。
 
 詳細は [WebSocket モードでできること](/websocket/capabilities) も併せて参照してください。
 
@@ -141,7 +150,7 @@ ctx.navigate "https://w3c.github.io/webdriver-bidi/"
 ::: warning 注意
 * パイプハンドルや Target / BiDi context が死んでいると失敗します。その場合は Part1 からやり直し
 * BiDi の mapper タブが消えても、`WebDriverBiDiMode.reattach` で再始動できる場合があります
-* 既存ブラウザ（デバッグポート）への接続は `CDPCoreViaWebSocket` を `reattach` に渡すパターン（`Demo_CDP.AutoConnect*`）。詳しくは [WebSocket モード](/websocket/capabilities)
+* 既存ブラウザ（デバッグポート）への接続は、CDP なら `reattachWebSocket`、BiDi なら `reattach` に `CDPCoreViaWebSocket` を渡すパターン（`Demo_CDP.AutoConnect*`）。詳しくは [WebSocket モード](/websocket/capabilities)
 :::
 
 ## 関連デモ

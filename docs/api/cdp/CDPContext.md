@@ -23,56 +23,57 @@ t.InheritanceCDPBrowser.quit
 
 ```vb
 Public Sub StartAndConnectTab( _
-    Optional Name As String = "chrome", _
+    Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
-    Optional addArgs As String, _
-    Optional KioskMode As edgeKioskType _
+    Optional addArgs As String _
 )
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `Name` | ブラウザ名（現時点では Chrome / Edge） |
+| `Name` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
 | `appUrl` | `--app` に付ける URL |
 | `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
 | `addArgs` | 追加の起動引数 |
-| `KioskMode` | Edge キオスクモード |
 
 日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
 
-### `reattach`
+::: tip 注意
+`Name` は v3.0.0 で `String` から `BrowserList` 列挙型に変更されました。同じく `KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応（[UserForm への埋め込み](/userform/vba-only)）に伴い廃止されています。
+:::
 
-Excel テーブルにある既存のパイプハンドル／ブラウザセッション情報を利用して、再接続を試みます。
+### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
+
+Excel テーブルにある既存のパイプ／WebSocket／WebView2 接続情報を利用して、再接続を試みます。`CDPBrowser` 側と異なり、いずれも `Function ... As Boolean` で、失敗時は例外を投げず `False` を返します。
 
 ```vb
-Public Function reattach( _
-    userProfile As String, _
-    Optional reuseSession As Boolean, _
-    Optional WebSocketMode As CDPCoreViaWebSocket _
-) As Boolean
+Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
 ```
 
 | 引数 | 意味 |
 | --- | --- |
 | `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく） |
-| `reuseSession` | `True` で Excel に記録中の SessionID を流用。`False` なら `targetID` を基に SessionID を更新し、古い SessionID を破棄して上書き |
 | `WebSocketMode` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定 |
+| `WebView2Mode` | WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebView2` を指定 |
+| `reuseSession` | `True` で Excel に記録中の SessionID を流用。`False` なら `targetID` を基に SessionID を更新し、古い SessionID を破棄して上書き |
 
 **戻り値:** 既存タブへの接続成功可否。
 
 ```vb
 ' Pipe 版
 Dim t As New CDPContext
-If Not t.reattach(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
+If Not t.reattachPipe(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
 
 ' SessionID を引き継ぐ（KeepSession 済みの場合）
-If Not t.reattach(UserName, True) Then Exit Sub
+If Not t.reattachPipe(UserName, True) Then Exit Sub
 
 ' WebSocket 版（Page 接続）
 Dim ws As New CDPCoreViaWebSocket
 ws.AutoConnectPageCDP UserName
-If Not t.reattach(UserName, , ws) Then Exit Sub
+If Not t.reattachWebSocket(UserName, ws) Then Exit Sub
 ```
 
 ::: tip 注意
