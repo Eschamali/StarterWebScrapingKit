@@ -34,18 +34,18 @@ Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal l
 '                               ■■■ 制御に必要な変数定義 ■■■
 '***************************************************************************************************
 '制御のコアとなるオブジェクト
-Private fWebView2           As CDPCoreViaWebView2
-Private WithEvents CDPEvent As CDPCore      '非同期イベント処理用
-Attribute CDPEvent.VB_VarHelpID = -1
-Private fCDPContext         As CDPContext   'タブ情報
+Private fWebView2               As CDPCoreViaWebView2
+Private WithEvents fCDPEvent    As CDPCore      '非同期イベント処理用
+Attribute fCDPEvent.VB_VarHelpID = -1
+Private fCDPContext             As CDPContext   'タブ情報
 
 '自身の各ハンドルを保存する変数
 Private myFormHwnd      As LongPtr
 Private myEdgeFrameHwnd As LongPtr
 
 'Frameのマージン
-Private RightMargin As Long
-Private BottomMargin As Long
+Private RightMargin     As Long
+Private BottomMargin    As Long
 
 
 
@@ -62,7 +62,15 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '***************************************************************************************************
 '                                   ■■■ 新規起動 ■■■
 '***************************************************************************************************
-Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPContext
+'* 機能　　：WebView2のサイズをFrame内ににピッタリはめ込む処理をします
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功可否論理値
+'* 引数    ：WebView2の利用ユーザー名
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・フォーム表示までは行いません。bas側で`.show`をしてください
+'            ・CDP操作は、property経由でやるのが基本とします
+'***************************************************************************************************
+Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     '1. WebView2の追加起動引数準備
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
     SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(ShSetting01_StartBrowser.UseRangeID(3, "WebView2Form.StartCDPModeWebView2"))
@@ -93,10 +101,10 @@ Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPContex
     Set fCDPContext = t.getTab(setMain:=True)
 
     '9. 非同期イベント処理に備える
-    Set CDPEvent = t.InheritanceCDPCore
+    Set fCDPEvent = t.InheritanceCDPCore
 
-    '10. 返却
-    Set StartCDPModeWebView2 = fCDPContext
+    '10. 成功signを返す
+    StartCDPModeWebView2 = True
 End Function
 
 
@@ -159,10 +167,17 @@ Private Sub SwitchVisible_Click()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：WebView2のコアプロパティを提供します
+'* 機能　　：このUserFormの持つ、WebView2のコアプロパティを提供します
 '***************************************************************************************************
-Property Get controlWebView2() As CDPCoreViaWebView2
-    Set controlWebView2 = fWebView2
+Property Get ThisWebView2() As CDPCoreViaWebView2
+    Set ThisWebView2 = fWebView2
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このUserFormの持つ、CDPContextオブジェクトを提供します
+'***************************************************************************************************
+Property Get ThisCDPContext() As CDPContext
+    Set ThisCDPContext = fCDPContext
 End Property
 
 
