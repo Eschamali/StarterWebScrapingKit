@@ -156,7 +156,7 @@ Public Sub RunAll_jsEval_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
-    br.InheritanceCDPBrowser.quit
+    br.ThisCDPBrowser.quit
 End Sub
 
 '==============================================================================
@@ -548,7 +548,7 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
             found = True
             Exit For
         End If
-        br.InheritanceCDPBrowser.sleep 0.05
+        CDPHelpers.sleep 0.05
     Next i
 
     If found Then

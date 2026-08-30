@@ -101,15 +101,19 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
 
         Case 2
             '---- WebView2版 ----
-            Set tabs(1) = WebView2Form.StartCDPModeWebView2
-            Set chrome = tabs(1).ThisCDPBrowser
+            With WebView2Form
+                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+                Set tabs(1) = .ThisCDPContext
+                Set chrome = tabs(1).ThisCDPBrowser
 
-            'イベント購読
-            WebView2Form.controlWebView2.SubscribeCdpEvent "Page.loadEventFired"
-            WebView2Form.controlWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
+                'イベント購読
+                .ThisWebView2.SubscribeCdpEvent "Page.loadEventFired"
+                .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
-            '1つ目のフォームを表示
-            WebView2Form.show False
+                '1つ目のフォームを表示
+                .show False
+            End With
+
         Case Else
             '---- Pipe版 ----
             Set chrome = ShSetting01_StartBrowser.StartCDPMode
@@ -215,7 +219,7 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    
+    Set chrome = New CDPBrowser
     Select Case TestType
         Case 1
             '---- WebSocket版 ----
@@ -233,15 +237,18 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
 
         Case 2
             '---- WebView2版 ----
-            Set tabs(1) = WebView2Form.StartCDPModeWebView2
-            Set chrome = tabs(1).ThisCDPBrowser
+            With WebView2Form
+                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+                Set tabs(1) = .ThisCDPContext
+                Set chrome = tabs(1).ThisCDPBrowser
 
-            'イベント購読
-            WebView2Form.controlWebView2.SubscribeCdpEvent "Page.loadEventFired"
-            WebView2Form.controlWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
+                'イベント購読
+                .ThisWebView2.SubscribeCdpEvent "Page.loadEventFired"
+                .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
-            '1つ目のフォームを表示
-            WebView2Form.show False
+                '1つ目のフォームを表示
+                .show False
+            End With
         Case Else
             '---- Pipe版 ----
             Set chrome = ShSetting01_StartBrowser.StartCDPMode
