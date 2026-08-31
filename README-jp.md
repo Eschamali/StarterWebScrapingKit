@@ -37,21 +37,17 @@
 
 ---
 
-## 🌈 選べる2つのメインルート
+## 🌈 CDP制御、3つのルート【CDP版の3種の神器】
 
-当プロジェクトは、用途に合わせて2つのブランチ（実装方式）を展開しています。
+以前は「Main（Pipe）」と「WebView2（開発中）」の2ブランチに分かれていましたが、v3.0.0でついに**1本のツールへ統合**されました。用途に応じて、3つの通信ルートを使い分けてください。
 
-### 1. Main ブランチ (Edge x Pipe x CDP)
-**「ブラウザを、外から、自在に操る」** 
-- 通常の Edge/Chrome をパイプ通信で制御。
-- 既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用可能。
-- 安定性が高く、デバッグも容易な主流の方式です。
+| ルート | ひとこと | こんなときに |
+| --- | --- | --- |
+| 🥇 **Pipe** | **迷ったらこれ** | `--remote-debugging-pipe`によるパイプ通信。既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用でき、安定性・デバッグ容易性ともに最も実績のある主流の方式です |
+| 🥈 **WebSocket** | Android や、今目の前のブラウザ | 既に起動しているブラウザへの後付け接続に対応。※設定次第では別PCのブラウザ操作も可能です。v3.0.0からはローカルブラウザの**起動から接続まで**を1メソッドで完結できるようにもなりました |
+| 🥉 **WebView2** | Port も Pipe も使えない環境に | デバッグポートも名前付きパイプも一切開かず、WebView2 SDKを直接叩いてCDPをやり取りします。**「UserForm完結」という美**——外部プロセスなしで、Excelのメモリ空間だけでブラウザを完全制御できます |
 
-### 2. WebView2 ブランチ (UserForm x Native) 【開発中】
-**「ブラウザを、Excelに、取り込む」**
-- Excel UserForm 内に WebView2 を直接埋め込み。
-- **「ど～～～～しても、Excelと一体化して動いてる感を味わいたい」** 方への究極のUI体験。
-- UserForm 上のボタンからネイティブにスクレイピングを実行可能です。
+いずれのルートでも、`CDPContext.navigate` や `CDPElement.getElementByQuery` など**まったく同じAPI**でそのまま操作できます。詳しい使い分けは後述のデモコード、または [公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) を参照してください。
 
 ---
 
@@ -221,7 +217,7 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 | user-data-dir         | ブラウザのデータディレクトリ(Cookieや拡張機能、パスワード倉庫など)のフルパスを指定します。<br>通常は`C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`ですが、[デバッグ機能を悪用したCookie盗難対策](https://developer.chrome.com/blog/remote-debugging-port?hl=ja)により必ず、`User Data`以外のフォルダパスを指定するように義務付けられました。<br>このツールはデフォルトで、`Automation Data`として`User Data`と同じ階層のパスに作られます。 | 
 | homepage              | ブラウザ起動時の最初のURLを指定しますが余計な通信を抑えるため、`about:blank`で空白ページにしてます。<br>ただし、次項の`app`に任意のURLが渡されるとこれは、付与しなくなります。                                                                                                                                                                                                                                                                       | 
 | app                   | `start`メソッドの第2引数にあたります。ブラウザ起動時の最初のURLを指定したい場合は、ここを指定することになります。<br>ここにURLを渡して起動すると<br>・任意のURLへの変更不可<br>・タブ生成不可<br><br>といったユーザー側による自動化を妨げる行為をある程度防ぐことが可能です。ちょっとしたキオスクモードです。                                                                                                                                        | 
-| KioskMode             | `start`メソッドの第6引数にあたります。UserForm にEdgeを埋め込む際にご利用ください。`fullscreen`推奨。詳細は[こちら](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-configure-kiosk-mode)                                                                                                                                                                                                                                                | 
+| KioskMode             | v3.0.0で`start`メソッドの引数からは**廃止**されました（UserFormへのブラウザ埋め込みは、WebView2のネイティブ対応に統合されたためです）。<br>それでも従来通りのキオスク起動をしたい場合は、上記の「追加の起動引数」セル（J13セル以降）に直接 `--kiosk --edge-kiosk-type=fullscreen`（Edge）または `--kiosk`（Chrome）を記載することで復活できます。詳細は[こちら](https://learn.microsoft.com/ja-jp/deployedge/microsoft-edge-configure-kiosk-mode)                                                                                                                                                                                                                                                | 
 
 ## 🚀 No more WebDriver.exe
 
@@ -280,26 +276,20 @@ End Sub
 
 ## 🔌 新機能：WebSocket（Port）接続でのブラウザ操作デモ
 
-V2.3.0より、すでに起動しているEdgeやChromeなどの既存ブラウザセッションにExcelからアタッチ（制御を乗っ取る）できる「WebSocket（Port）ルート」が正式に解禁されました。
+V2.3.0より、すでに起動しているEdgeやChromeなどの既存ブラウザセッションにExcelからアタッチ（制御を乗っ取る）できる「WebSocket（Port）ルート」が正式に解禁されました。v3.0.0からは、後述の通りブラウザの**起動自体**もこのルートにお任せできるようになったので、事前準備なしで試したい方はそちらもご覧ください。
 
 標準モジュール `Demo_CDP` の中に、この機能を試すためのシンプルなデモコード `WebSocket経由版Demo` セクションが同梱されています。
 
 ---
 
-> [!CAUTION]
-> このポート接続デモを動かすためには、あらかじめ対象のブラウザを**リモートデバッグポートを有効にした状態で起動しておく**必要があります。  
-> コマンドプロンプトやショートカットのプロパティ等から、以下の引数を付けてEdgeまたはChromeをあらかじめ起動しておいてください。
+### 💻 デモコード：`SetupWebSocketMode`（すでに起動しているブラウザへアタッチする場合）
+
+このマクロを実行すると、ポートフォワード経由で既存のブラウザを乗っ取り、タブから目的のページへ遷移します。実行前に、対象のブラウザを**リモートデバッグポートを有効にした状態で起動しておいて**ください。
 
 ```bash
 # デフォルトポート 9222 を開いてブラウザを起動する
 msedge.exe --remote-debugging-port=9222
 ```
-
----
-
-### 💻 デモコード：`SetupWebSocketMode`
-
-このマクロを実行すると、ポートフォワード経由で既存のブラウザを乗っ取り、タブから目的のページへ遷移します。
 
 ```vb
 Sub SetupWebSocketMode()
@@ -311,9 +301,9 @@ Sub SetupWebSocketMode()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim t As New CDPContext
-    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '4. ページ遷移
     'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
@@ -332,3 +322,50 @@ End Sub
   面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
 * **接続の種類について**：
   特定のページ、ブラウザそのもの、今目の前のブラウザ　の３種類をご用意しております。この辺の使い方も`WebSocket経由版Demo` セクションにありますので参考に。
+
+### 🆕 WebSocketモードでのローカルブラウザ起動にも対応（v3.0.0〜）
+
+これまでのWebSocketモードは「すでに起動しているブラウザへの後付け接続」専用でしたが、v3.0.0より **ローカルブラウザの起動から接続までを1メソッドで完結**できるようになりました。事前に対象ブラウザを手動起動しておく必要はありません。
+
+```vb
+Sub WebSocketモードで新規にブラウザを起動する()
+    '1. WebSocketモードでローカルブラウザを起動し、そのまま接続まで行う
+    Dim ws As New CDPCoreViaWebSocket
+    Dim b As CDPBrowser
+    Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+
+    '2. あとはいつも通り
+    Dim t As CDPContext
+    Set t = b.getTab(setMain:=True)
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    '3. 終了
+    b.quit
+End Sub
+```
+
+内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化まで自動で行ってくれます。
+
+---
+
+## 🌐 新機能：WebView2でのブラウザ操作（v3.0.0〜）
+
+**外部プロセス（PowerShellなど）に一切頼らず、Excel VBAのメモリ空間だけでWebView2を直接起動・制御**できるようになりました。「Port も Pipe も使えない」という、これまでで一番厳しい制限環境向けの切り札です。
+
+```vb
+Sub ExcelのユーザーフォームにWebView2を埋め込む()
+    With WebView2Form
+        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+
+        '設定シートに基づくブラウザ立ち上げと同じ感覚で、そのまま操作できます
+        .ThisCDPContext.navigate "https://www.youtube.com/@islandfox6864"
+
+        .show
+    End With
+End Sub
+```
+
+一度埋め込んでしまえば、`CDPContext` / `CDPElement` のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
+
+> [!NOTE]
+> この機能の心臓部（機械語サンク・vtable呼び出し）は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックをそのまま移植したものです。改めて感謝申し上げます🙏 詳しい経緯は[公式ドキュメントの開発秘話](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story)をご覧ください。
