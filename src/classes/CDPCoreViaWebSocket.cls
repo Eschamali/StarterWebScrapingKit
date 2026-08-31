@@ -138,6 +138,7 @@ Private Const FIONREAD      As Long = &H4004667F    ' 受信可能バイト数
 Private Const SOL_SOCKET    As Long = 65535         ' ソケットレベルのオプション
 Private Const SO_RCVBUF     As Long = &H1002&       ' 受信バッファサイズ設定フラグ
 Private Const MSG_WAITALL   As Long = &H8           ' 要求したバイト数のデータがすべて揃うか、エラーや接続終了が発生するまで関数の処理をブロック（待機）する上級者向け。いわゆる、Pipe版と同等の挙動
+Private Const SOCKET_ERROR  As Long = -1            ' ioctlsocket や recv、send などの関数が失敗したことを示します
 
 'デフォルト値
 Private Const D_port        As Long = 9222
@@ -302,7 +303,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
 
     '3. ソケット生成
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-    If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
     Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
@@ -312,12 +313,12 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
-    If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
-    If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '7. WebSocketハンドシェイクの実行
     If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
@@ -569,7 +570,7 @@ Private Sub RawSend(ByRef Data() As Byte)
     ' 全バイトが完全にソケットに乗り切るまでループで送信を継続します
     Do While totalSent < toSend
         ret = Send(m_hSocket, Data(totalSent), toSend - totalSent, 0)
-        If ret = -1 Then
+        If ret = SOCKET_ERROR Then
             ' SOCKET_ERRORが発生した場合、エラーコードを返却
             LastWinSockError.StyleErrWriteFile = Err.LastDllError
             printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & LastWinSockError.StyleErrWriteFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrWriteFile, "ws2_32"), FromProcedureName
@@ -607,7 +608,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     Dim bytesAvailable As Long
     Dim retIoctl As Long
     retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
-    If retIoctl <> 0 Then
+    If retIoctl = SOCKET_ERROR Then
         ' ソケットがすでに死んでいる場合、エラー情報を記録して抜ける
         LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
         printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & LastWinSockError.StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
@@ -631,8 +632,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         ReDim destructionData(bytesAvailable - 1) As Byte
         dSuccess = recv(m_hSocket, destructionData(0), bytesAvailable, MSG_WAITALL)
 
-        '0以下の場合は失敗なので、エラー情報を記録
-        If dSuccess <= 0 Then LastWinSockError.StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
+        'SOCKET_ERRORの場合は失敗なので、エラー情報を記録
+        If dSuccess = SOCKET_ERROR Then LastWinSockError.StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
 
         '破棄したサイズを返却して、抜ける
         GetAsyncMessage = dSuccess
@@ -681,8 +682,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         ReDim payloadBuffer(TakePayloadSize - 1) As Byte
         bSuccess = recv(m_hSocket, payloadBuffer(0), TakePayloadSize, MSG_WAITALL)
 
-        '4-1. 0より大きければ、成功です
-        If bSuccess > 0 Then
+        '4-1. `SOCKET_ERROR`じゃなければ成功です
+        If Not bSuccess = SOCKET_ERROR Then
             '受信サイズを記録
             m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.CurrentCursor + TakePayloadSize
 
@@ -773,11 +774,9 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
 
     '2. フレームヘッダーを解析
     With m_WebSocketFrame
-        '有効なフラグとして適用
-        .ValidTags = True
-
-        'カーソル位置をリセット
-        .CurrentCursor = 0
+        '2-1. 各種リセット
+        .ValidTags = True   '有効なフラグとして適用
+        .CurrentCursor = 0  'カーソル位置をリセット
 
         '2-2. 先頭の基本ヘッダー2バイトを受信
         '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
@@ -794,7 +793,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         Dim header(0 To 1) As Byte
         Dim ret As Long
         ret = recv(m_hSocket, header(0), 2, MSG_WAITALL): .FrameHeaderSize = 2: resSize = resSize - 2
-        If ret <= 0 Then
+        If ret = SOCKET_ERROR Then
             '取り出しに失敗したら、エラー情報を記録して抜ける
             LastWinSockError.StyleErrReadFile = Err.LastDllError
             printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
@@ -836,7 +835,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             '次の2バイト（16bit）に、これからの受信サイズを表現してるので、その分を追加で、取り出す
             Dim extLen16(0 To 1) As Byte
             ret = recv(m_hSocket, extLen16(0), 2, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 2: resSize = resSize - 2
-            If ret <= 0 Then
+            If ret = SOCKET_ERROR Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
                 LastWinSockError.StyleErrReadFile = Err.LastDllError
                 printMsg WARN_, "An error occurred while retrieving the payload size from the following 2 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
@@ -853,7 +852,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             '次の8バイト（64bit） に、これからの受信サイズを表現してるので、その分を追加で、取り出す
             Dim extLen64(0 To 7) As Byte
             ret = recv(m_hSocket, extLen64(0), 8, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 8: resSize = resSize - 8
-            If ret <= 0 Then
+            If ret = SOCKET_ERROR Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
                 LastWinSockError.StyleErrReadFile = Err.LastDllError
                 printMsg WARN_, "An error occurred while retrieving the payload size from the following 8 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
