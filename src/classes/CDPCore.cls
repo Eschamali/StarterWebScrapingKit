@@ -187,11 +187,13 @@ Public Event ResetCommandID()
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 '各種クラスオブジェクト
-Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
-Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
+Private Utf8Converter               As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private WithEvents viaWebSocket     As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
-Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
+Private WithEvents viaWebView2      As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebView2.VB_VarHelpID = -1
+Private WithEvents viaNativeMessaging As CDPCoreViaNativeMessaging  'NativeMessaging(Chrome拡張機能)経由でCDP制御したい場合のオブジェクト用
+Attribute viaNativeMessaging.VB_VarHelpID = -1
 
 'バッファー管理
 Private Type ResponseBufferCDP
@@ -526,6 +528,13 @@ Public Function isAvailability() As Boolean
             'WebView2生存判定
             isAvailability = viaWebView2.isAvailability
 
+        Case viaNativeMessaging Is Nothing
+            'NativeMessaging生存判定
+            isAvailability = viaNativeMessaging.isAvailability
+
+            'ステータスを最新にしておく
+            LastPipeError.PeekNamedPipe = viaNativeMessaging.IsErrorStylePeekNamedPipe
+
         Case Else
             'Pipe生存判定
             Dim tmp As Long
@@ -552,6 +561,9 @@ Public Sub CloseHandleBrowser()
 
         Case viaWebView2 Is Nothing
             viaWebView2.DisconnectCDP
+
+        Case viaNativeMessaging Is Nothing
+            viaNativeMessaging.DisconnectCDP
 
         Case Else
             CloseHandle hStdOutRd
@@ -803,6 +815,44 @@ End Sub
 
 
 '***************************************************************************************************
+'                              ■■■ NativeMessagingの読み書き ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPCoreViaNativeMessaging - GetAsyncMessage`から得たデータを`--remote-debugging-pipe`処理ロジックで扱えるように蓄積します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：CDPCoreViaNativeMessaging-GetAsyncMessage を行うことで内部で`RaiseEvent`が起こり、ここのプロシージャが呼ばれます
+'            `viaWebSocket_WebSocketReceive`と同じく、生バイトを`CDPPipeStream`にそのまま書き込みます
+'            （WebView2のような`responseCDP.strBuffer`直書き込みバイパスはしません）
+'* 注意事項：受信サイズ0あるいは、`TakeNativeMessaging`にて破棄モードで指定した場合は、呼ばれません
+'***************************************************************************************************
+Private Sub viaNativeMessaging_NativeMessageReceived(res() As Byte, resSize As Long, EOS As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".viaNativeMessaging_NativeMessageReceived"
+
+
+    'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
+    CDPPipeStream.Write res
+    printMsg Trace_, "Storing received messages (NativeMessaging)...", FromProcedureName
+
+    'メッセージの終わりであれば、その目印も追記
+    If EOS Then CDPPipeStream.Write m_NullTerminator
+
+    '取得サイズをcursor管理へ反映し、バッファー拡張判定を行う
+    StrBufferCheck resSize + EOS * -1
+    printMsg Trace_, "ResSize = " & resSize & " , EOS: " & EOS, FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：NativeMessaging経由で、ブラウザへ命令を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strData    完成したCDP-Json文字列コマンド
+'***************************************************************************************************
+Private Sub writeNativeMessagingCDP(strData As String)
+    'NativeMessagingオブジェクト経由で送信処理を委ねる
+    LastPipeError.WriteFile = viaNativeMessaging.SendCommandCDP(strData)
+End Sub
+
+
+
+'***************************************************************************************************
 '                               ■■■ CDPコマンド実行前の下準備 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
@@ -846,6 +896,7 @@ Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As Stri
     Select Case False
         Case viaWebSocket Is Nothing:  writeWebSocketCDP strMessage
         Case viaWebView2 Is Nothing:    writeWebView2CDP strMessage
+        Case viaNativeMessaging Is Nothing: writeNativeMessagingCDP strMessage
         Case Else:                          writeProcCDP strMessage
     End Select
 End Function
@@ -1231,6 +1282,73 @@ Private Sub TakeWebView2(StopApiError As Boolean, destruction As Boolean)
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：NativeMessaging(標準入力)から、データ欠損がなくなるまで、ループして取り出していきます
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：StopApiError   `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
+'                           `False`：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあっても停止しません
+'                                    別途、`LastError○○`で後で確認可能です
+'
+'            destruction    `True` :ストリームに蓄積しません。破棄用にどうぞ
+'                           `False`:ストリームに蓄積し、ID、イベント解析に備えます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・不整合を防ぐため、1メッセージ分の受信(`EndOfData:=True`)が来るまで、受信を繰り返すようにしてます
+'            ・`viaNativeMessaging.GetAsyncMessage`自体は、1回の呼び出しにつき`PeekNamedPipe`/`ReadFile`を
+'            　1回ずつしか行わない契約なので、完了までの反復はこの外側ループの責務です(`TakeWebSocket`と同じ考え方)
+'***************************************************************************************************
+Private Sub TakeNativeMessaging(StopApiError As Boolean, destruction As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".TakeNativeMessaging"
+
+
+    Dim intRes As Long
+    printMsg Trace_, "Starts retrieving data from the NativeMessaging...", FromProcedureName
+
+    '終了サインかつ、受信データなしになるまで、ループ受信を行います
+    Dim LoopCounter As Long
+    Dim EndOfData As Boolean: EndOfData = True  '初期化
+    Do
+        '一定の回数ごとに`DoEvents`を呼ぶ。※初回ループは、必ず呼ぶ
+        If LoopCounter Mod RunDoEventsCount = 0 Then DoEvents
+        LoopCounter = LoopCounter + 1
+
+
+        '受信処理
+        intRes = viaNativeMessaging.GetAsyncMessage(EndOfData, destruction)   '※内部で`WithEvents`が走り、そこで`ADODB.Stream`へバイト配列が蓄積されます
+
+        '返り値チェック
+        If intRes > 0 Then
+            '破棄モードかの判定 ※ログメッセージ分岐のみ
+            If destruction Then
+                '解析などせず、そのまんま出して破棄します
+                printMsg Trace_, "Discarding data in NativeMessaging...", FromProcedureName
+            Else
+                '中身の解析に備えて、蓄積準備
+                printMsg Trace_, "Storing received messages...", FromProcedureName
+            End If
+        Else
+            'データなしの場合は、エラーコードチェックを行う
+            If viaNativeMessaging.IsErrorStylePeekNamedPipe Then
+                'PeekNamedPipe にてエラーがあった場合
+                LastPipeError.PeekNamedPipe = viaNativeMessaging.IsErrorStylePeekNamedPipe    'エラーコードを同期させておく
+                printMsg ERROR_, "Error PeekNamedPipe in GetAsyncMessage (NativeMessaging). ErrorCode:" & viaNativeMessaging.IsErrorStylePeekNamedPipe & " - " & WinApiError.GetMessage(viaNativeMessaging.IsErrorStylePeekNamedPipe, "kernel32"), FromProcedureName, doRaiseError:=StopApiError
+                Exit Sub
+
+            ElseIf viaNativeMessaging.IsErrorStyleReadFile Then
+                'ReadFile にてエラーがあった場合
+                LastPipeError.ReadFile = viaNativeMessaging.IsErrorStyleReadFile              'エラーコードを同期させておく
+                printMsg ERROR_, "Error ReadFile in GetAsyncMessage (NativeMessaging). ErrorCode:" & viaNativeMessaging.IsErrorStyleReadFile & " - " & WinApiError.GetMessage(viaNativeMessaging.IsErrorStyleReadFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError
+                Exit Sub
+
+            Else
+                'パイプ内は空あるいは、まだメッセージ単位として届いていない
+                printMsg Trace_, "The NativeMessaging pipe is currently empty.", FromProcedureName
+
+            End If
+        End If
+    Loop Until EndOfData And intRes < 1
+
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：CDPからバイト配列を一括で受け取り、テキストに変換します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：StopApiError   `True` ：`PeekNamedPipe` OR `ReadFile`いずれかに、エラーがあったら停止します
@@ -1248,6 +1366,7 @@ Public Sub AnalyzeCDP(Optional StopApiError As Boolean, Optional destruction As 
     Select Case False
         Case viaWebSocket Is Nothing:  TakeWebSocket StopApiError, destruction
         Case viaWebView2 Is Nothing:    TakeWebView2 StopApiError, destruction
+        Case viaNativeMessaging Is Nothing: TakeNativeMessaging StopApiError, destruction
         Case Else:                          TakePipe StopApiError, destruction
     End Select
     
@@ -1462,6 +1581,13 @@ End Property
 '***************************************************************************************************
 Property Set WebView2Mode(wv As CDPCoreViaWebView2)
     Set viaWebView2 = wv
+End Property
+
+'***************************************************************************************************
+'* 機能　　：NativeMessaging(Chrome拡張機能)モードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set NativeMessagingMode(nm As CDPCoreViaNativeMessaging)
+    Set viaNativeMessaging = nm
 End Property
 
 

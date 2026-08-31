@@ -315,6 +315,35 @@ Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWeb
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：事前に接続済みの`NativeMessaging`(Chrome拡張機能のchrome.debugger経由)オブジェクトを渡して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：NativeMessaging生存論理値
+'* 引数　　：userProfile            再アタッチしたいユーザー名(user-data-dirに基づく)
+'            NativeMessagingMode    CDPへ接続済みの`CDPCoreViaNativeMessaging`オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：NativeMessagingオブジェクトが機能してない場合は、VBAエラーで止まります
+'***************************************************************************************************
+Public Sub reattachNativeMessaging(userProfile As String, NativeMessagingMode As CDPCoreViaNativeMessaging)
+    Const FromProcedureName As String = ThisClassName & ".reattachNativeMessaging"
+
+
+    '1. 識別名称を設定
+    br.User = userProfile
+
+    '2. CDP制御するための初期化
+    Set PipeCore = New CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
+
+    '3. 引数を基に、NativeMessagingの接続情報を適用
+    '※オブジェクトなしの場合は、エラーとする
+    If NativeMessagingMode Is Nothing Then printMsg ERROR_, "NativeMessaging connection information is not configured.", FromProcedureName, doRaiseError:=True
+    Set PipeCore.NativeMessagingMode = NativeMessagingMode
+
+    '4. 生存確認フェーズへ
+    reattach
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：ハンドルが生きれるか確認します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：生存論理値

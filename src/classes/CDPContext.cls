@@ -366,6 +366,26 @@ Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreV
 End Function
 
 '***************************************************************************************************
+'* 機能　　：事前に接続済みの`NativeMessaging`(Chrome拡張機能のchrome.debugger経由)オブジェクトを渡して、再接続を試みます
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：NativeMessaging生存論理値
+'* 引数　　：userProfile            再アタッチしたいユーザー名(user-data-dirに基づく)
+'            NativeMessagingMode    CDPへ接続済みの`CDPCoreViaNativeMessaging`オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：NativeMessagingオブジェクトが機能してない場合は、VBAエラーで止まります
+'***************************************************************************************************
+Public Function reattachNativeMessaging(userProfile As String, NativeMessagingMode As CDPCoreViaNativeMessaging, Optional reuseSession As Boolean) As Boolean
+    '1. 新オブジェクトを用意
+    Set BrowserCore = New CDPBrowser
+
+    '2. NativeMessaging情報を再セット
+    BrowserCore.reattachNativeMessaging userProfile, NativeMessagingMode
+
+    '3. 既存のタブ(TargetID)への再接続を試みる
+    reattachNativeMessaging = reattach(reuseSession)
+End Function
+
+'***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のタブ(TargetID)情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：TargetIDの生存論理値
