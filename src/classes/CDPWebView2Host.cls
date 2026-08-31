@@ -93,7 +93,7 @@ Private WebView2UserDataDirPath As String
 '            AttachHwnd WebView2を貼り付けるハンドル
 '***************************************************************************************************
 Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
-    WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
+    WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName   'Officeのルールに従うようなパスにしておく
     m_hostHwnd = AttachHwnd
 End Sub
 
@@ -116,7 +116,6 @@ Public Function RunWebView2() As Boolean
     End If
 
     '2. Environment作成
-    '※Officeのルールに従うようなパスにしておく
     Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
     If m_envHandler Is Nothing Then
         Debug.Print FromProcedureName & ": Environment用ハンドラのAcquireに失敗しました"
