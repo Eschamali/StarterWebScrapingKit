@@ -1,0 +1,14 @@
+{
+    "manifest_version": 3,
+    "name": "StarterWebScrapingKit CDP Bridge",
+    "version": "0.0.1",
+    "description": "chrome.debugger経由のCDP(Chrome DevTools Protocol)通信を、Native Messagingでローカルの Excel(VBA) に中継します。",
+    "minimum_chrome_version": "125",
+    "permissions": ["debugger", "nativeMessaging", "tabs", "contextMenus"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_title": "StarterWebScrapingKit: このタブをCDPブリッジに接続 / 切断"
+    }
+}
