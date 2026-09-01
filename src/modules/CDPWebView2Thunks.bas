@@ -101,6 +101,9 @@ Private Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
 Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
     ByVal pv As LongPtr)
 
+Private Declare PtrSafe Function CoTaskMemAlloc Lib "ole32" ( _
+    ByVal cb As LongPtr) As LongPtr
+
 Private Declare PtrSafe Function lstrcpyW Lib "kernel32" ( _
     ByVal lpString1 As LongPtr, _
     ByVal lpString2 As LongPtr) As LongPtr
@@ -167,6 +170,18 @@ Private Const HEADER_SIZE      As Long = 64
 Private Const REGION_SIZE      As Long = HEADER_SIZE + SLOT_SIZE * SLOT_COUNT
 Private Const THUNK_BUF_SIZE   As Long = 80
 
+' --- EnvOpt(ICoreWebView2EnvironmentOptions)用の複合fakeオブジェクト、メモリレイアウト定数 ---
+' `EnvOpt_CreateNative`が確保するブロックは、2つのCOMインターフェース識別(this)を1つの
+' ブロックに同居させる。オフセット0/8がそれぞれの識別(this)セルで、その中身(vtable配列の
+' 先頭アドレス)がオフセット24/112を指す。`EnvOpt_ResolveBlockBase`はこの関係の逆算で
+' 「どちらのthisで呼ばれたか」からブロック先頭を復元する
+Private Const ENVOPT_THISBASE_OFFSET   As Long = 0     ' ICoreWebView2EnvironmentOptions識別(this)
+Private Const ENVOPT_THISOPTS6_OFFSET  As Long = 8     ' ICoreWebView2EnvironmentOptions6識別(this)
+Private Const ENVOPT_REFCOUNT_OFFSET   As Long = 16
+Private Const ENVOPT_VTABLE_BASE_OFFSET  As Long = 24   ' 11スロット(IUnknown3+基底8) * 8bytes = 88
+Private Const ENVOPT_VTABLE_OPTS6_OFFSET As Long = 112  ' 5スロット(IUnknown3+Options6用2) * 8bytes = 40
+Private Const ENVOPT_BLOCK_SIZE        As Long = 256    ' 152byte使用。余裕を持たせて256確保
+
 
 
 '***************************************************************************************************
@@ -185,6 +200,21 @@ Public Enum HandlerKind
     HK_ControllerCompleted = 2
     HK_CdpMethodCompleted = 3    ' ICoreWebView2CallDevToolsProtocolMethodCompletedHandler(通常版/ForSession版で共用)
     HK_CdpEventReceived = 4      ' ICoreWebView2DevToolsProtocolEventReceivedEventHandler(永続)
+
+    ' --- EnvOpt(ICoreWebView2EnvironmentOptions/Options6)の各get_/put_専用 ---
+    ' 1個のkind = 1個のvtableスロット(=1個のプロパティのget_またはput_)。
+    ' `EnvOpt_CreateNative`が、これら1個ずつに専用のスロットを`AcquireHandlerFor`で
+    ' 確保し、その`.Slot`(生の呼び出しエントリ)を自前組み立てのvtable配列へ直接埋め込む
+    HK_EnvOpt_GetAdditionalBrowserArguments = 5
+    HK_EnvOpt_PutAdditionalBrowserArguments = 6
+    HK_EnvOpt_GetLanguage = 7
+    HK_EnvOpt_PutLanguage = 8
+    HK_EnvOpt_GetTargetCompatibleBrowserVersion = 9
+    HK_EnvOpt_PutTargetCompatibleBrowserVersion = 10
+    HK_EnvOpt_GetAllowSingleSignOnUsingOSPrimaryAccount = 11
+    HK_EnvOpt_PutAllowSingleSignOnUsingOSPrimaryAccount = 12
+    HK_EnvOpt_GetAreBrowserExtensionsEnabled = 13
+    HK_EnvOpt_PutAreBrowserExtensionsEnabled = 14
 End Enum
 
 
@@ -196,6 +226,11 @@ Private m_pHandler_QI       As LongPtr
 Private m_pHandler_AddRef   As LongPtr
 Private m_pHandler_Release  As LongPtr
 
+' --- EnvOpt(複合fakeオブジェクト)専用のQI/AddRef/Release実アドレス ---
+Private m_pEnvOptQI      As LongPtr
+Private m_pEnvOptAddRef  As LongPtr
+Private m_pEnvOptRelease As LongPtr
+
 Private m_pRegionBase As LongPtr
 Private m_freeHead    As Long
 Private m_freeNext()  As Long
@@ -204,6 +239,10 @@ Private m_inUse       As Long
 Private m_handlers(0 To SLOT_COUNT - 1) As CDPWebView2CallbackHandler
 Private m_iidTable(HK_None To HK_CdpEventReceived) As GUID
 Private m_iidIUnknown As GUID
+
+' --- EnvOptが実装するインターフェースのIID ---
+Private m_iidEnvOptBase  As GUID   ' ICoreWebView2EnvironmentOptions
+Private m_iidEnvOptOpts6 As GUID   ' ICoreWebView2EnvironmentOptions6
 
 Private m_loaderModule As LongPtr   ' EnsureWebView2LoaderResolvedが解決したHMODULE。0なら未解決
 
@@ -243,6 +282,283 @@ Public Function AcquireHandlerFor( _
     h.Init kind, owner, pSlot
 
     Set AcquireHandlerFor = h
+End Function
+
+
+
+'***************************************************************************************************
+'                              ■■■ EnvOpt(ICoreWebView2EnvironmentOptions) ■■■
+'***************************************************************************************************
+'   `ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler`等の「1メソッドだけのfake
+'   オブジェクト」とは異なり、`ICoreWebView2EnvironmentOptions`は8個(get/put4組)、
+'   `ICoreWebView2EnvironmentOptions6`はさらに2個(get/put1組)のメソッドを持つ**複合**インター
+'   フェースで、しかも両者は継承チェーンではなく独立している(`Settings`/`Controller`/`Profile`の
+'   ようにQueryInterfaceで1本のポインタに寄せられない)。そのため、1個のfakeオブジェクトに
+'   2本のvtable配列(2種類のthis識別)を持たせる自前実装が必要になる。
+'
+'   ★方式★
+'     ・プロパティ1個(get_またはput_1個)につき、`AcquireHandlerFor`で専用スロットを1個確保し、
+'       その`.Slot`(生の呼び出しエントリ。`.Slot + VTABLE_OBJ_OFFSET`ではない点に注意)を
+'       自前のvtable配列へ直接埋め込む
+'     ・QueryInterface/AddRef/Releaseは複合オブジェクト専用の実装(`EnvOpt_QueryInterface`等、
+'       本モジュールの標準Function・AddressOf直結)を新設し、共有する
+'     ・ブロックレイアウトは固定オフセット(`ENVOPT_*`定数)。thisポインタ(オフセット0/8)から
+'       ブロック先頭を逆算できるよう設計してあり、複数インスタンスが同時に存在してもよい
+'     ・参照カウントは実装するが、`Release`が0になっても実メモリ解放は行わない(WebView2Loaderが
+'       いつまで参照を保持するか保証がないため)。実解放は`EnvOpt_DestroyNative`をVBA側から
+'       明示的に呼んだときのみ行う(`CDPWebView2Host.RunWebView2`が、Environment作成の完了
+'       待ち後に呼ぶ)
+'***************************************************************************************************
+'* 機能　　：`ICoreWebView2EnvironmentOptions`(+`Options6`)を実装するfakeオブジェクトを構築します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：owner  `EnvOpt_OnGetXxx`/`EnvOpt_OnPutXxx`(全てPublic Sub必須)を持つ
+'            `CDPWebView2EnvOptions`インスタンス
+'* 返り値  ：`CreateCoreWebView2EnvironmentWithOptions`へそのまま渡せるポインタ(失敗時0)
+'***************************************************************************************************
+Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
+    Const FromProcedureName As String = "CDPWebView2Thunks.EnvOpt_CreateNative"
+
+    If m_pRegionBase = 0 Then
+        If Not Thunks_Init() Then Exit Function
+    End If
+
+    Dim blockBase As LongPtr
+    blockBase = VirtualAlloc(0, ENVOPT_BLOCK_SIZE, MEM_COMMIT Or MEM_RESERVE, PAGE_READWRITE)
+    If blockBase = 0 Then Exit Function
+
+    Dim k As Long
+    For k = 0 To ENVOPT_BLOCK_SIZE - 1 Step 8
+        MemLongPtr(blockBase + k) = 0^
+    Next k
+
+    ' --- プロパティ10個分(get/put4組+get/put1組)の専用スロットを確保 ---
+    Dim hGetArgs As CDPWebView2CallbackHandler, hPutArgs As CDPWebView2CallbackHandler
+    Dim hGetLang As CDPWebView2CallbackHandler, hPutLang As CDPWebView2CallbackHandler
+    Dim hGetVer  As CDPWebView2CallbackHandler, hPutVer  As CDPWebView2CallbackHandler
+    Dim hGetSSO  As CDPWebView2CallbackHandler, hPutSSO  As CDPWebView2CallbackHandler
+    Dim hGetExt  As CDPWebView2CallbackHandler, hPutExt  As CDPWebView2CallbackHandler
+
+    Set hGetArgs = AcquireHandlerFor(HK_EnvOpt_GetAdditionalBrowserArguments, owner)
+    Set hPutArgs = AcquireHandlerFor(HK_EnvOpt_PutAdditionalBrowserArguments, owner)
+    Set hGetLang = AcquireHandlerFor(HK_EnvOpt_GetLanguage, owner)
+    Set hPutLang = AcquireHandlerFor(HK_EnvOpt_PutLanguage, owner)
+    Set hGetVer = AcquireHandlerFor(HK_EnvOpt_GetTargetCompatibleBrowserVersion, owner)
+    Set hPutVer = AcquireHandlerFor(HK_EnvOpt_PutTargetCompatibleBrowserVersion, owner)
+    Set hGetSSO = AcquireHandlerFor(HK_EnvOpt_GetAllowSingleSignOnUsingOSPrimaryAccount, owner)
+    Set hPutSSO = AcquireHandlerFor(HK_EnvOpt_PutAllowSingleSignOnUsingOSPrimaryAccount, owner)
+    Set hGetExt = AcquireHandlerFor(HK_EnvOpt_GetAreBrowserExtensionsEnabled, owner)
+    Set hPutExt = AcquireHandlerFor(HK_EnvOpt_PutAreBrowserExtensionsEnabled, owner)
+
+    If hGetArgs Is Nothing Or hPutArgs Is Nothing Or hGetLang Is Nothing Or hPutLang Is Nothing _
+        Or hGetVer Is Nothing Or hPutVer Is Nothing Or hGetSSO Is Nothing Or hPutSSO Is Nothing _
+        Or hGetExt Is Nothing Or hPutExt Is Nothing Then
+
+        Debug.Print FromProcedureName & ": ハンドラスロットの確保に失敗しました"
+        If Not (hGetArgs Is Nothing) Then Thunks_ReleaseSlot hGetArgs.Slot
+        If Not (hPutArgs Is Nothing) Then Thunks_ReleaseSlot hPutArgs.Slot
+        If Not (hGetLang Is Nothing) Then Thunks_ReleaseSlot hGetLang.Slot
+        If Not (hPutLang Is Nothing) Then Thunks_ReleaseSlot hPutLang.Slot
+        If Not (hGetVer Is Nothing) Then Thunks_ReleaseSlot hGetVer.Slot
+        If Not (hPutVer Is Nothing) Then Thunks_ReleaseSlot hPutVer.Slot
+        If Not (hGetSSO Is Nothing) Then Thunks_ReleaseSlot hGetSSO.Slot
+        If Not (hPutSSO Is Nothing) Then Thunks_ReleaseSlot hPutSSO.Slot
+        If Not (hGetExt Is Nothing) Then Thunks_ReleaseSlot hGetExt.Slot
+        If Not (hPutExt Is Nothing) Then Thunks_ReleaseSlot hPutExt.Slot
+        VirtualFree blockBase, 0, MEM_RELEASE
+        Exit Function
+    End If
+
+    ' --- thisセル(オフセット0/8に、対応するvtable配列の先頭アドレスを書く) ---
+    MemLongPtr(blockBase + ENVOPT_THISBASE_OFFSET) = blockBase + ENVOPT_VTABLE_BASE_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS6_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS6_OFFSET
+
+    ' --- vtable配列(base、11スロット:IUnknown3+get/put4組) ---
+    Dim vb As LongPtr: vb = blockBase + ENVOPT_VTABLE_BASE_OFFSET
+    MemLongPtr(vb + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(vb + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(vb + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(vb + 3 * PtrSize) = hGetArgs.Slot
+    MemLongPtr(vb + 4 * PtrSize) = hPutArgs.Slot
+    MemLongPtr(vb + 5 * PtrSize) = hGetLang.Slot
+    MemLongPtr(vb + 6 * PtrSize) = hPutLang.Slot
+    MemLongPtr(vb + 7 * PtrSize) = hGetVer.Slot
+    MemLongPtr(vb + 8 * PtrSize) = hPutVer.Slot
+    MemLongPtr(vb + 9 * PtrSize) = hGetSSO.Slot
+    MemLongPtr(vb + 10 * PtrSize) = hPutSSO.Slot
+
+    ' --- vtable配列(Options6、5スロット:IUnknown3+get/put1組) ---
+    Dim v6 As LongPtr: v6 = blockBase + ENVOPT_VTABLE_OPTS6_OFFSET
+    MemLongPtr(v6 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v6 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v6 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v6 + 3 * PtrSize) = hGetExt.Slot
+    MemLongPtr(v6 + 4 * PtrSize) = hPutExt.Slot
+
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = 1^
+
+    EnvOpt_CreateNative = blockBase + ENVOPT_THISBASE_OFFSET
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`EnvOpt_CreateNative`が確保した全リソース(10個のスロット+ブロック本体)を解放します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：pThisBase  `EnvOpt_CreateNative`の返り値(=ブロック先頭アドレス)
+'* 注意事項：参照カウントの状態に関わらず、無条件に解放する。呼び出し側(`CDPWebView2Host`)が
+'            「WebView2Loaderがもう参照しない」と判断できたタイミング(Environment作成の
+'            完了待ち後)で呼ぶこと
+'***************************************************************************************************
+Public Sub EnvOpt_DestroyNative(ByVal pThisBase As LongPtr)
+    If pThisBase = 0 Then Exit Sub
+
+    Dim blockBase As LongPtr: blockBase = pThisBase   ' レイアウト上、pThisBase = blockBase
+
+    Dim vb As LongPtr: vb = blockBase + ENVOPT_VTABLE_BASE_OFFSET
+    Dim v6 As LongPtr: v6 = blockBase + ENVOPT_VTABLE_OPTS6_OFFSET
+
+    Dim i As Long
+    For i = 3 To 10
+        Thunks_ReleaseSlot ReadLongPtr(vb + i * PtrSize)
+    Next i
+    For i = 3 To 4
+        Thunks_ReleaseSlot ReadLongPtr(v6 + i * PtrSize)
+    Next i
+
+    VirtualFree blockBase, 0, MEM_RELEASE
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：get_Xxx(LPWSTR* value)へ、文字列値を書き出します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：pOut  [out]ポインタ(呼び出し元がCoTaskMemFreeする前提)
+'            s     書き出す文字列。空文字なら`nullptr`(未設定扱い)を書く
+'***************************************************************************************************
+Public Sub EnvOpt_WriteStringOut(ByVal pOut As LongPtr, ByVal s As String)
+    If pOut = 0 Then Exit Sub
+    If LenB(s) = 0 Then
+        MemLongPtr(pOut) = 0^
+    Else
+        MemLongPtr(pOut) = StringToCoTaskMem(s)
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：get_Xxx(BOOL* value)へ、真偽値を書き出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`BOOL`は4byteだが、この基盤の書き込みプリミティブは8byte単位(`MemLongPtr`)しか
+'            持たない。8byte書き込みで隣接メモリを破壊しないよう、まず既存の8byteを読み、
+'            上位4byteは元の値を保持したまま、下位4byteだけを差し替えて書き戻す
+'***************************************************************************************************
+Public Sub EnvOpt_WriteBoolOut(ByVal pOut As LongPtr, ByVal v As Boolean)
+    If pOut = 0 Then Exit Sub
+
+    Dim existing As LongLong
+    existing = CLngLng(ReadLongPtr(pOut))
+
+    Dim merged As LongLong
+    merged = (existing And &HFFFFFFFF00000000^) Or CLngLng(IIf(v, 1, 0))
+
+    MemLongPtr(pOut) = merged
+End Sub
+
+'* 機能　　：VBAの文字列をCoTaskMemAllocされたLPWSTRへ複製します(呼び出し元がCoTaskMemFreeする)
+Private Function StringToCoTaskMem(ByVal s As String) As LongPtr
+    Dim cb As LongPtr
+    cb = CLngLng(Len(s) + 1) * 2
+
+    Dim p As LongPtr
+    p = CoTaskMemAlloc(cb)
+    If p <> 0 Then lstrcpyW p, StrPtr(s)
+
+    StringToCoTaskMem = p
+End Function
+
+'***************************************************************************************************
+'* 機能　　：EnvOptの`this`ポインタ(base側/Options6側のどちらか)から、ブロック先頭アドレスを
+'            逆算します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：レイアウトが固定なので、2通りの仮説を順に検算するだけで一意に求まる
+'            (仮説A: This=blockBase、仮説B: This=blockBase+ENVOPT_THISOPTS6_OFFSET)
+'***************************************************************************************************
+Private Function EnvOpt_ResolveBlockBase(ByVal This As LongPtr) As LongPtr
+    If This = 0 Then Exit Function
+
+    ' 仮説A: baseインターフェース側のthis
+    If ReadLongPtr(This) = This + ENVOPT_VTABLE_BASE_OFFSET Then
+        EnvOpt_ResolveBlockBase = This
+        Exit Function
+    End If
+
+    ' 仮説B: Options6インターフェース側のthis
+    Dim cand As LongPtr
+    cand = This - ENVOPT_THISOPTS6_OFFSET
+    If ReadLongPtr(This) = cand + ENVOPT_VTABLE_OPTS6_OFFSET Then
+        EnvOpt_ResolveBlockBase = cand
+    End If
+End Function
+
+Private Function EnvOpt_QueryInterface( _
+    ByVal This As LongPtr, _
+    ByVal riid As LongPtr, _
+    ByRef ppvObject As LongPtr) As Long
+
+    If riid = 0 Then
+        ppvObject = 0
+        EnvOpt_QueryInterface = &H80004003   ' E_POINTER
+        Exit Function
+    End If
+
+    Dim blockBase As LongPtr
+    blockBase = EnvOpt_ResolveBlockBase(This)
+    If blockBase = 0 Then
+        ppvObject = 0
+        EnvOpt_QueryInterface = E_NOINTERFACE
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidIUnknown) Or IsEqualGUIDInPlace(riid, m_iidEnvOptBase) Then
+        ppvObject = blockBase + ENVOPT_THISBASE_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts6) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS6_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    ppvObject = 0
+    EnvOpt_QueryInterface = E_NOINTERFACE
+End Function
+
+Private Function EnvOpt_AddRef(ByVal This As LongPtr) As Long
+    EnvOpt_AddRef = EnvOpt_AddRefInternal(EnvOpt_ResolveBlockBase(This))
+End Function
+
+'* 機能　　：参照カウントを減らすのみ。0になっても実メモリ解放はしない(`EnvOpt_DestroyNative`参照)
+Private Function EnvOpt_Release(ByVal This As LongPtr) As Long
+    Dim blockBase As LongPtr
+    blockBase = EnvOpt_ResolveBlockBase(This)
+    If blockBase = 0 Then Exit Function
+
+    Dim n As LongLong
+    n = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) - 1
+    If n < 0 Then n = 0
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = n
+
+    EnvOpt_Release = CLng(n)
+End Function
+
+Private Function EnvOpt_AddRefInternal(ByVal blockBase As LongPtr) As Long
+    If blockBase = 0 Then Exit Function
+
+    Dim n As LongLong
+    n = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) + 1
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = n
+
+    EnvOpt_AddRefInternal = CLng(n)
 End Function
 
 
@@ -388,6 +704,13 @@ Public Function Thunks_Init() As Boolean
     m_pHandler_AddRef = GetAddr(AddressOf Handler_AddRef)
     m_pHandler_Release = GetAddr(AddressOf Handler_Release)
     If m_pHandler_QI = 0 Or m_pHandler_AddRef = 0 Or m_pHandler_Release = 0 Then
+        Exit Function
+    End If
+
+    m_pEnvOptQI = GetAddr(AddressOf EnvOpt_QueryInterface)
+    m_pEnvOptAddRef = GetAddr(AddressOf EnvOpt_AddRef)
+    m_pEnvOptRelease = GetAddr(AddressOf EnvOpt_Release)
+    If m_pEnvOptQI = 0 Or m_pEnvOptAddRef = 0 Or m_pEnvOptRelease = 0 Then
         Exit Function
     End If
 
@@ -724,6 +1047,12 @@ Private Sub InitIIDTable()
     ' ICoreWebView2DevToolsProtocolEventReceivedEventHandler
     FillGUID m_iidTable(HK_CdpEventReceived), _
              "e2fda4be-5456-406c-a261-3d452138362c"
+
+    ' ICoreWebView2EnvironmentOptions
+    FillGUID m_iidEnvOptBase, "2fde08a8-1e9a-4766-8c05-95a9ceb9d1c5"
+
+    ' ICoreWebView2EnvironmentOptions6
+    FillGUID m_iidEnvOptOpts6, "57d29cc3-c84f-42a0-b0e2-effbd5e179de"
 End Sub
 
 '* 機能　　："xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"形式の文字列からGUID構造体を埋めます

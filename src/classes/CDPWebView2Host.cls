@@ -38,7 +38,7 @@ Option Explicit
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
     ByVal userDataFolder As LongPtr, _
-    ByVal additionalBrowserArguments As LongPtr, _
+    ByVal environmentOptions As LongPtr, _
     ByVal environmentCreatedHandler As LongPtr) As Long
 
 'DJP 20241105 to solve problems with terminating sessions on terminal server
@@ -92,6 +92,9 @@ Private m_closed        As Boolean
 Private m_hostHwnd              As LongPtr
 Private WebView2UserDataDirPath As String
 
+'Environment作成オプション(`RunWebView2`を呼ぶ前に、必要ならこのプロパティ経由で設定する)
+Private m_envOptions As CDPWebView2EnvOptions
+
 
 
 '***************************************************************************************************
@@ -106,6 +109,17 @@ Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
     WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName   'Officeのルールに従うようなパスにしておく
     m_hostHwnd = AttachHwnd
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：Environment作成時に使うオプション(`ICoreWebView2EnvironmentOptions`系)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 必ず`RunWebView2`を呼ぶ**前**にこのプロパティ経由で値を設定すること。
+'            Environment生成時にしか読まれないため、生成後の変更は反映されない
+'***************************************************************************************************
+Public Property Get EnvironmentOptions() As CDPWebView2EnvOptions
+    If m_envOptions Is Nothing Then Set m_envOptions = New CDPWebView2EnvOptions
+    Set EnvironmentOptions = m_envOptions
+End Property
 
 '***************************************************************************************************
 '* 機能　　：ICoreWebView2Environment→ICoreWebView2Controller→ICoreWebView2の生成を、
@@ -140,19 +154,28 @@ Public Function RunWebView2() As Boolean
     'コールバックを発火させるケースがあるため(実機で確認済みの罠)
     m_envState = Whs_Waiting
 
+    '3-1. Environmentオプション(設定されていれば、ネイティブ側のfakeオブジェクトを構築)
+    Dim pOptions As LongPtr
+    If Not (m_envOptions Is Nothing) Then pOptions = m_envOptions.BuildNativePointer()
+
     Dim hr As Long
-    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(WebView2UserDataDirPath), 0, pEnvHandlerObj)
+    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(WebView2UserDataDirPath), pOptions, pEnvHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2EnvironmentWithOptions失敗 hr=&H" & Hex(hr)
         m_envState = Whs_Failed
         m_lastError = hr
+        DisposeEnvOptions
         Exit Function
     End If
 
     If Not WaitFor(m_envState) Then
         Debug.Print FromProcedureName & ": Environment完了待ちがタイムアウトしました"
+        DisposeEnvOptions
         Exit Function
     End If
+    '3-2. オプションはEnvironment作成の完了待ちが終わった時点でもう不要(WebView2Loaderが
+    '     読み終えている)。以降のController/View生成では参照されないため、ここで解放する
+    DisposeEnvOptions
     If m_envState <> Whs_Ready Then Exit Function
 
     '4. Controller作成
@@ -331,6 +354,16 @@ Private Sub DetectProfileLevel()
 End Sub
 
 '***************************************************************************************************
+'* 機能　　：Environmentオプションのネイティブリソースを、設定済みなら解放します
+'***************************************************************************************************
+Private Sub DisposeEnvOptions()
+    If Not (m_envOptions Is Nothing) Then
+        m_envOptions.CLOSE_
+        Set m_envOptions = Nothing
+    End If
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 '***************************************************************************************************
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
@@ -390,6 +423,8 @@ End Sub
 '***************************************************************************************************
 Public Sub CLOSE_()
     If m_closed Then Exit Sub
+
+    DisposeEnvOptions   ' 通常は`RunWebView2`内で既に解放済みだが、早期return経路への保険
 
     If m_pController <> 0 Then
         CDPWebView2Thunks.dcf m_pController, 24, "Ctrl.Close"

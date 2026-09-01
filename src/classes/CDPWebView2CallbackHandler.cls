@@ -119,6 +119,9 @@ End Sub
 '                             ※CallDevToolsProtocolMethod/…ForSessionの両方で共用
 '   HK_CdpEventReceived     : Invoke(this, sender, args)
 '                             ※argsはICoreWebView2DevToolsProtocolEventReceivedEventArgs*
+'   HK_EnvOpt_*             : Invoke(this, arg1, 未使用)
+'                             ※ICoreWebView2EnvironmentOptions系のget_/put_1個につき1つのkind。
+'                             詳細は`CDPWebView2Thunks`の「EnvOpt」セクション参照
 '***************************************************************************************************
 Public Function Handler_Invoke( _
     ByVal This As LongPtr, _
@@ -161,6 +164,34 @@ Public Function Handler_Invoke( _
             If Not (m_owner Is Nothing) Then
                 m_owner.OnCdpEventReceived m_eventName, arg2
             End If
+
+        ' --- ICoreWebView2EnvironmentOptions/Options6の各get_/put_ ---
+        ' SDKシグネチャ: get_Xxx(this, [out]value) / put_Xxx(this, value) のいずれも1引数のみ。
+        ' arg1が「get_ なら[out]ポインタ」「put_ なら渡された値そのもの」に対応する
+        Case HK_EnvOpt_GetAdditionalBrowserArguments
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAdditionalBrowserArguments arg1
+        Case HK_EnvOpt_PutAdditionalBrowserArguments
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAdditionalBrowserArguments arg1
+
+        Case HK_EnvOpt_GetLanguage
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetLanguage arg1
+        Case HK_EnvOpt_PutLanguage
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutLanguage arg1
+
+        Case HK_EnvOpt_GetTargetCompatibleBrowserVersion
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetTargetCompatibleBrowserVersion arg1
+        Case HK_EnvOpt_PutTargetCompatibleBrowserVersion
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutTargetCompatibleBrowserVersion arg1
+
+        Case HK_EnvOpt_GetAllowSingleSignOnUsingOSPrimaryAccount
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAllowSingleSignOnUsingOSPrimaryAccount arg1
+        Case HK_EnvOpt_PutAllowSingleSignOnUsingOSPrimaryAccount
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAllowSingleSignOnUsingOSPrimaryAccount arg1
+
+        Case HK_EnvOpt_GetAreBrowserExtensionsEnabled
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAreBrowserExtensionsEnabled arg1
+        Case HK_EnvOpt_PutAreBrowserExtensionsEnabled
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAreBrowserExtensionsEnabled arg1
 
         Case Else
             Debug.Print "CDPWebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind

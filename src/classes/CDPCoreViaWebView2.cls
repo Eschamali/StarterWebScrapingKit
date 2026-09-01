@@ -132,6 +132,11 @@ Private m_Host          As CDPWebView2Host
 Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
 Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
 
+' Environment作成オプション(`ConnectCDP`実行前=`m_Host`未生成の間、値をここに一時保持する。
+' `ICoreWebView2EnvironmentOptions`系はEnvironment生成時にしか読まれないため、`ConnectCDP`が
+' `m_Host`を新規作成した直後・`RunWebView2`を呼ぶ前に、ここから`m_Host.EnvironmentOptions`へ反映する)
+Private m_pendingAreBrowserExtensionsEnabled As Boolean
+
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
@@ -197,7 +202,10 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         '3-2. セッションを閉じる(保険用)
         .cleanUpSessions
 
-        '3-3. 起動！
+        '3-3. 保留中のEnvironmentオプションを反映(`RunWebView2`より前でなければ意味がない)
+        .EnvironmentOptions.AreBrowserExtensionsEnabled = m_pendingAreBrowserExtensionsEnabled
+
+        '3-4. 起動！
         RunRes = .RunWebView2
     End With
 
@@ -724,6 +732,24 @@ End Property
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
     m_Host.ContextMenuEnabled = v
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2EnvironmentOptions
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：ブラウザ拡張機能(Extensions)の使用可否を切り替えます(既定False)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 他のプロパティと異なり、Environment生成時にしか読まれない値のため、
+'            必ず`ConnectCDP`を呼ぶ**前**に設定すること(`ConnectCDP`内で新規作成される
+'            `m_Host`へ、`RunWebView2`実行前に反映される)。接続後に設定しても無視される
+'***************************************************************************************************
+Property Get AreBrowserExtensionsEnabled() As Boolean
+    AreBrowserExtensionsEnabled = m_pendingAreBrowserExtensionsEnabled
+End Property
+
+Property Let AreBrowserExtensionsEnabled(v As Boolean)
+    m_pendingAreBrowserExtensionsEnabled = v
 End Property
 
 '--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`CDPWebView2Host`側のコメント参照) ---
