@@ -38,7 +38,7 @@ Option Explicit
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
     ByVal userDataFolder As LongPtr, _
-    ByVal environmentOptions As LongPtr, _
+    ByVal EnvironmentOptions As LongPtr, _
     ByVal environmentCreatedHandler As LongPtr) As Long
 
 'DJP 20241105 to solve problems with terminating sessions on terminal server
