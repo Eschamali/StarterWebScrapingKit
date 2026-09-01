@@ -1095,13 +1095,13 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
         '5-2. データ有無チェック
         If Not tmp Is Nothing Then
             '6. あったらその情報を適用し、抜ける
-            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), D_port, D_host)
+            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), port, Host)
             Exit Function
         End If
     End If
 
     '6. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , D_port, D_host)
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , port, Host)
 End Function
 
 '***************************************************************************************************
