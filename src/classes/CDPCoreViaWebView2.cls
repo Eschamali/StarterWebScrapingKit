@@ -66,8 +66,7 @@ Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal l
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const ThisClassName         As String = "CDPCoreViaWebView2"                    'ログのトレース用
-Private Const IID_ICoreWebView2_11  As String = "0be78e56-c193-4051-b943-23b460c08bdb"  ' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
+Private Const ThisClassName         As String = "CDPCoreViaWebView2"    'ログのトレース用
 
 
 
@@ -298,6 +297,9 @@ End Function
 '* 機能　　：`ICoreWebView2`から`ICoreWebView2_11`をQueryInterfaceで取得します(1回だけ試行)
 '***************************************************************************************************
 Private Function EnsureView11(ByVal pView As LongPtr) As LongPtr
+    Const IID_ICoreWebView2_11  As String = "0be78e56-c193-4051-b943-23b460c08bdb"  ' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
+
+
     If m_pView11 <> 0 Then EnsureView11 = m_pView11: Exit Function
     If m_pView11Failed Then Exit Function
 
