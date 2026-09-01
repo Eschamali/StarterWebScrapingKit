@@ -73,36 +73,34 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 Friend Function StartCDPModeWebView2(Optional SwitchUser As String, Optional addArgs As String) As Boolean
     '1. WebView2の追加起動引数準備
     Set fWebView2 = New CDPCoreViaWebView2
-    fWebView2.EnvironmentOptions = addArgs
+    fWebView2.AdditionalBrowserArguments = addArgs
 
     '2. `SwitchUser`引数が省略されてる場合は、ワークシートの設定を適用
     If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
 
     '3. WebView2を起動
     Dim isActive As Boolean
+    fWebView2.AreBrowserExtensionsEnabled = True
     isActive = fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd)
 
-    '4. クリア
-    fWebView2.EnvironmentOptions = vbNullString
-
-    '5. 起動失敗したら、抜ける
+    '4. 起動失敗したら、抜ける
     If Not isActive Then Set fWebView2 = Nothing: Exit Function
 
-    '6. サイズをセット
+    '5. サイズをセット
     AdjustEdgeSize
 
-    '7. 可視化
+    '6. 可視化
     SwitchVisible.value = True
     fWebView2.Visible = True
 
-    '8. タブ接続まで行う
+    '7. タブ接続まで行う
     Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
     Set fCDPContext = t.getTab(setMain:=True, Url:="about:blank")
 
-    '9. 非同期イベント処理に備える
+    '8. 非同期イベント処理に備える
     Set fCDPEvent = t.ThisCDPCore
 
-    '10. 成功signを返す
+    '9. 成功signを返す
     StartCDPModeWebView2 = True
 End Function
 

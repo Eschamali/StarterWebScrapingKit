@@ -57,13 +57,6 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                               ■■■ 必要なWindowsAPI定義 ■■■
-'***************************************************************************************************
-Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'WebView2用追加起動引数設定用
-
-
-
-'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ThisClassName         As String = "CDPCoreViaWebView2"    'ログのトレース用
@@ -136,6 +129,7 @@ Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は�
 ' `ICoreWebView2EnvironmentOptions`系はEnvironment生成時にしか読まれないため、`ConnectCDP`が
 ' `m_Host`を新規作成した直後・`RunWebView2`を呼ぶ前に、ここから`m_Host.EnvironmentOptions`へ反映する)
 Private m_pendingAreBrowserExtensionsEnabled As Boolean
+Private m_pendingAdditionalBrowserArguments  As String
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
@@ -205,9 +199,12 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         '3-3. 保留中のEnvironmentオプションを反映(`RunWebView2`より前でなければ意味がない)
         '     ★重要★ 実際に使う場合のみ`.EnvironmentOptions`へ触れる。未使用なら触れないことで
         '     (`CDPWebView2Host`内で遅延生成される)ネイティブfakeオブジェクトを一切構築せず、
-        '     従来通り`environmentOptions=nullptr`のまま接続する(EnvOpt関連の不具合調査中の保険)
+        '     従来通り`environmentOptions=nullptr`のまま接続する(無駄な構築コストを避けるため)
         If m_pendingAreBrowserExtensionsEnabled Then
             .EnvironmentOptions.AreBrowserExtensionsEnabled = True
+        End If
+        If LenB(m_pendingAdditionalBrowserArguments) > 0 Then
+            .EnvironmentOptions.AdditionalBrowserArguments = m_pendingAdditionalBrowserArguments
         End If
 
         '3-4. 起動！
@@ -585,32 +582,6 @@ End Function
 '                                ■■■ WebView2の挙動変更 ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
-' [ SECTION ] `EnvironmentOptions`相当
-'---------------------------------------------------------------------------------------------------
-'***************************************************************************************************
-'* 機能　　：WebView2に追加引数を渡します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：args   `--`始まりの引数群。`vbnullstring`でクリア可能です
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：現時点では、VBAで作った「EnvironmentOptions のVTable」への直設定はできない(E_INVALIDARG)ようなので、
-'            Process内環境変数で代用してます
-'***************************************************************************************************
-Property Let EnvironmentOptions(args As String)
-    Const FromProcedureName As String = ThisClassName & ".EnvironmentOptions"
-    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
-
-
-    If StrPtr(args) Then
-        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(args)
-        printMsg info_, "Additional startup arguments for WebView2: " & args, FromProcedureName
-
-    Else
-        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
-        printMsg info_, "There are no additional startup arguments for WebView2.", FromProcedureName
-    End If
-End Property
-
-'---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の構成系
 '---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
@@ -784,12 +755,12 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2EnvironmentOptions
 '---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ このセクションのプロパティは全て、Environment生成時にしか読まれない値のため、
+'            必ず`ConnectCDP`を呼ぶ**前**に設定すること(`ConnectCDP`内で新規作成される`m_Host`へ、
+'            `RunWebView2`実行前に反映される)。接続後に設定しても無視される
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
 '* 機能　　：ブラウザ拡張機能(Extensions)の使用可否を切り替えます(既定False)
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：★重要★ 他のプロパティと異なり、Environment生成時にしか読まれない値のため、
-'            必ず`ConnectCDP`を呼ぶ**前**に設定すること(`ConnectCDP`内で新規作成される
-'            `m_Host`へ、`RunWebView2`実行前に反映される)。接続後に設定しても無視される
 '***************************************************************************************************
 Property Get AreBrowserExtensionsEnabled() As Boolean
     AreBrowserExtensionsEnabled = m_pendingAreBrowserExtensionsEnabled
@@ -797,6 +768,23 @@ End Property
 
 Property Let AreBrowserExtensionsEnabled(v As Boolean)
     m_pendingAreBrowserExtensionsEnabled = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザプロセス起動時に追加するコマンドライン引数を指定します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `--`始まりの引数群
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：以前はProcess内環境変数(`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`)で代用していたが、
+'            `ICoreWebView2EnvironmentOptions`のネイティブ実装(`CDPWebView2EnvOptions`)が
+'            出来たため、素直にそちらへ委譲する形に置き換えた
+'***************************************************************************************************
+Property Get AdditionalBrowserArguments() As String
+    AdditionalBrowserArguments = m_pendingAdditionalBrowserArguments
+End Property
+
+Property Let AdditionalBrowserArguments(v As String)
+    m_pendingAdditionalBrowserArguments = v
 End Property
 
 '--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`CDPWebView2Host`側のコメント参照) ---
