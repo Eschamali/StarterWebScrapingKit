@@ -298,7 +298,7 @@ Public Sub cleanUpSessions()
         '4. 起動中のブラウザ名であるか確認
         If LCase$(proc.Name) = LCase$(exeName) Then
             '5. Killタイプ判定
-            If InStr(1, proc.CommandLine, "--user-data-dir=""" & WebView2UserDataDirPath & Chr(34)) > 0 Then
+            If InStr(1, proc.CommandLine, "--user-data-dir=""" & getUserDataDirPath & Chr(34)) > 0 Then
                 '6. 対象ユーザー名のWebView2なら、Killします
                 proc.Terminate
             End If
