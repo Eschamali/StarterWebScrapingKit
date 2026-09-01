@@ -203,6 +203,26 @@ Public Function Handler_Invoke( _
                 m_owner.OnAddBrowserExtensionCompleted errorCode4, arg2
             End If
 
+        Case HK_GetBrowserExtensionsCompleted
+            ' SDKシグネチャ: ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler::
+            '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtensionList* result)
+            Dim errorCode5 As Long
+            errorCode5 = LongPtrLowDword(arg1)
+
+            If Not (m_owner Is Nothing) Then
+                m_owner.OnGetBrowserExtensionsCompleted errorCode5, arg2
+            End If
+
+        Case HK_RemoveBrowserExtensionCompleted
+            ' SDKシグネチャ: ICoreWebView2BrowserExtensionRemoveCompletedHandler::
+            '   Invoke(HRESULT errorCode)  ※引数1個のみ(結果オブジェクトは無い)
+            Dim errorCode6 As Long
+            errorCode6 = LongPtrLowDword(arg1)
+
+            If Not (m_owner Is Nothing) Then
+                m_owner.OnRemoveBrowserExtensionCompleted errorCode6
+            End If
+
         Case Else
             Debug.Print "CDPWebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind
     End Select

@@ -78,17 +78,28 @@ Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterface�
 Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
 
 'COMコールバック系
-Private m_envHandler    As CDPWebView2CallbackHandler
-Private m_ctrlHandler   As CDPWebView2CallbackHandler
-Private m_addExtHandler As CDPWebView2CallbackHandler
+Private m_envHandler       As CDPWebView2CallbackHandler
+Private m_ctrlHandler      As CDPWebView2CallbackHandler
+Private m_addExtHandler    As CDPWebView2CallbackHandler
+Private m_getExtHandler    As CDPWebView2CallbackHandler
+Private m_removeExtHandler As CDPWebView2CallbackHandler
 
 '状態値
 Private m_envState      As WebView2HostState
 Private m_ctrlState     As WebView2HostState
 Private m_addExtState   As WebView2HostState
+Private m_getExtState   As WebView2HostState
+Private m_removeExtState As WebView2HostState
 
 '`AddBrowserExtension`の結果(`OnAddBrowserExtensionCompleted`が書き込む)
 Private m_addExtResultId As String
+
+'`GetBrowserExtensions`の結果(`OnGetBrowserExtensionsCompleted`が書き込む)。
+'2本の並行配列で保持する(`m_getExtPtrs`は`ICoreWebView2BrowserExtension`への新規参照。
+'`RemoveBrowserExtension`が対象を特定した後、使い終わり次第`ReleaseGetExtPtrs`で解放すること)
+Private m_getExtIds()  As String
+Private m_getExtPtrs() As LongPtr
+Private m_getExtCount  As Long
 
 Private m_lastError     As Long
 Private m_closed        As Boolean
@@ -433,6 +444,55 @@ Public Sub OnAddBrowserExtensionCompleted(ByVal ErrorCode As Long, ByVal pResult
         m_addExtState = Whs_Failed
     End If
     Set m_addExtHandler = Nothing   ' 1ショットハンドラパターン
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`GetBrowserExtensions`の完了コールバックです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`pResult`(ICoreWebView2BrowserExtensionList*)は借用ポインタ。一方、
+'            `GetValueAtIndex`で得る各`ICoreWebView2BrowserExtension`は[retval]の新規参照なので、
+'            `m_getExtPtrs`に保持したまま返し、解放責任は呼び出し元(`ReleaseGetExtPtrs`)に委ねる
+'***************************************************************************************************
+Public Sub OnGetBrowserExtensionsCompleted(ByVal ErrorCode As Long, ByVal pResult As LongPtr)
+    m_lastError = ErrorCode
+
+    If ErrorCode = 0 And pResult <> 0 Then
+        Dim cnt As Long
+        Dim hr As Long
+        hr = CDPWebView2Thunks.dcf(pResult, 3, "BrowserExtensionList.get_Count", VarPtr(cnt))
+        If hr = 0 And cnt > 0 Then
+            ReDim m_getExtIds(0 To cnt - 1)
+            ReDim m_getExtPtrs(0 To cnt - 1)
+
+            Dim i As Long
+            For i = 0 To cnt - 1
+                Dim pExt As LongPtr
+                hr = CDPWebView2Thunks.dcf(pResult, 4, "BrowserExtensionList.GetValueAtIndex", CLng(i), VarPtr(pExt))
+                If hr = 0 And pExt <> 0 Then
+                    m_getExtPtrs(i) = pExt
+                    m_getExtIds(i) = CDPWebView2Thunks.GetStringProperty(pExt, 3, "BrowserExtension.get_Id")
+                End If
+            Next i
+            m_getExtCount = cnt
+        End If
+        m_getExtState = Whs_Ready
+    Else
+        m_getExtState = Whs_Failed
+    End If
+
+    Set m_getExtHandler = Nothing   ' 1ショットハンドラパターン
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`ICoreWebView2BrowserExtension::Remove`の完了コールバックです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：SDKシグネチャが`Invoke(HRESULT errorCode)`のみ(結果オブジェクトが無い)ため、
+'            引数は`ErrorCode`だけになる
+'***************************************************************************************************
+Public Sub OnRemoveBrowserExtensionCompleted(ByVal ErrorCode As Long)
+    m_lastError = ErrorCode
+    m_removeExtState = IIf(ErrorCode = 0, Whs_Ready, Whs_Failed)
+    Set m_removeExtHandler = Nothing   ' 1ショットハンドラパターン
 End Sub
 
 
@@ -992,6 +1052,160 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
 
     AddBrowserExtension = m_addExtResultId
 End Function
+
+'***************************************************************************************************
+'* 機能　　：インストール済みの拡張機能IDを一覧取得します(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：拡張機能IDの配列(String)。0件/失敗時は要素数0の配列
+'***************************************************************************************************
+Public Function GetBrowserExtensionIds() As Variant
+    If Not RunGetBrowserExtensions() Then
+        ReleaseGetExtPtrs
+        GetBrowserExtensionIds = Array()
+        Exit Function
+    End If
+
+    If m_getExtCount = 0 Then
+        GetBrowserExtensionIds = Array()
+    Else
+        Dim resultArr() As String
+        ReDim resultArr(0 To m_getExtCount - 1)
+        Dim i As Long
+        For i = 0 To m_getExtCount - 1
+            resultArr(i) = m_getExtIds(i)
+        Next i
+        GetBrowserExtensionIds = resultArr
+    End If
+
+    ReleaseGetExtPtrs
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionId  `AddBrowserExtension`/`GetBrowserExtensionIds`で得られる拡張機能ID
+'* 返り値  ：成功可否
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2にはID指定の直接アンインストールAPIが無いため、`GetBrowserExtensions`で
+'            一覧を取得して対象を特定してから`ICoreWebView2BrowserExtension::Remove`を呼ぶ、
+'            という2段構えになる(CDPの`Extensions.uninstall`はWebView2では使えないため代替不可)
+'***************************************************************************************************
+Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
+    Const FromProcedureName As String = "CDPWebView2Host.RemoveBrowserExtension"
+
+
+    If Not RunGetBrowserExtensions() Then
+        ReleaseGetExtPtrs
+        Exit Function
+    End If
+
+    Dim targetIndex As Long: targetIndex = -1
+    Dim i As Long
+    For i = 0 To m_getExtCount - 1
+        If targetIndex = -1 And m_getExtIds(i) = extensionId Then targetIndex = i
+    Next i
+    ReleaseGetExtPtrs targetIndex
+
+    If targetIndex = -1 Then
+        Debug.Print FromProcedureName & ": 指定IDの拡張機能が見つかりません: " & extensionId
+        Exit Function
+    End If
+
+    Dim pTarget As LongPtr: pTarget = m_getExtPtrs(targetIndex)
+
+    Set m_removeExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
+    If m_removeExtHandler Is Nothing Then
+        Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
+        CDPWebView2Thunks.ComRelease pTarget
+        Exit Function
+    End If
+
+    Dim pHandlerObj As LongPtr
+    pHandlerObj = m_removeExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+
+    m_removeExtState = Whs_Waiting
+
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
+    CDPWebView2Thunks.ComRelease pTarget   ' GetValueAtIndexで得た参照はもう不要(Remove自体は非同期に継続する)
+
+    If hr <> 0 Then
+        Debug.Print FromProcedureName & ": Remove失敗 hr=&H" & Hex(hr)
+        m_lastError = hr
+        m_removeExtState = Whs_Failed
+        Exit Function
+    End If
+
+    If Not WaitFor(m_removeExtState) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    RemoveBrowserExtension = (m_removeExtState = Whs_Ready)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`GetBrowserExtensions`を実行し、結果を`m_getExtIds`/`m_getExtPtrs`へ格納します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功可否
+'* 注意事項：`m_getExtPtrs`の各要素は`ICoreWebView2BrowserExtension`への新規参照であり、
+'            呼び出し元が`ReleaseGetExtPtrs`で解放する責任を持つ
+'***************************************************************************************************
+Private Function RunGetBrowserExtensions() As Boolean
+    Const FromProcedureName As String = "CDPWebView2Host.RunGetBrowserExtensions"
+
+
+    m_getExtCount = 0
+    Erase m_getExtIds
+    Erase m_getExtPtrs
+
+    If m_profileLevel < 7 Then
+        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
+        Exit Function
+    End If
+
+    Set m_getExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
+    If m_getExtHandler Is Nothing Then
+        Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
+        Exit Function
+    End If
+
+    Dim pHandlerObj As LongPtr
+    pHandlerObj = m_getExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+
+    m_getExtState = Whs_Waiting
+
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
+    If hr <> 0 Then
+        Debug.Print FromProcedureName & ": GetBrowserExtensions失敗 hr=&H" & Hex(hr)
+        m_lastError = hr
+        m_getExtState = Whs_Failed
+        Exit Function
+    End If
+
+    If Not WaitFor(m_getExtState) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    RunGetBrowserExtensions = (m_getExtState = Whs_Ready)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`m_getExtPtrs`を解放します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：keepIndex  このインデックスの参照だけは解放せず残す(既定-1で全解放)
+'***************************************************************************************************
+Private Sub ReleaseGetExtPtrs(Optional ByVal keepIndex As Long = -1)
+    Dim i As Long
+    For i = 0 To m_getExtCount - 1
+        If i <> keepIndex And m_getExtPtrs(i) <> 0 Then
+            CDPWebView2Thunks.ComRelease m_getExtPtrs(i)
+            m_getExtPtrs(i) = 0
+        End If
+    Next i
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：Service Worker内からWebView固有のスクリプトAPIを使えるようにするか切り替えます

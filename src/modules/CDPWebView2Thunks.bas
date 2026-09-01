@@ -216,7 +216,9 @@ Public Enum HandlerKind
     HK_EnvOpt_GetAreBrowserExtensionsEnabled = 13
     HK_EnvOpt_PutAreBrowserExtensionsEnabled = 14
 
-    HK_AddBrowserExtensionCompleted = 15   ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
+    HK_AddBrowserExtensionCompleted = 15    ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
+    HK_GetBrowserExtensionsCompleted = 16   ' ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler
+    HK_RemoveBrowserExtensionCompleted = 17 ' ICoreWebView2BrowserExtensionRemoveCompletedHandler
 End Enum
 
 
@@ -239,7 +241,7 @@ Private m_freeNext()  As Long
 Private m_inUse       As Long
 
 Private m_handlers(0 To SLOT_COUNT - 1) As CDPWebView2CallbackHandler
-Private m_iidTable(HK_None To HK_AddBrowserExtensionCompleted) As GUID
+Private m_iidTable(HK_None To HK_RemoveBrowserExtensionCompleted) As GUID
 Private m_iidIUnknown As GUID
 
 ' --- EnvOptが実装するインターフェースのIID ---
@@ -1059,6 +1061,14 @@ Private Sub InitIIDTable()
     ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
     FillGUID m_iidTable(HK_AddBrowserExtensionCompleted), _
              "df1aab27-82b9-4ab6-aae8-017a49398c14"
+
+    ' ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler
+    FillGUID m_iidTable(HK_GetBrowserExtensionsCompleted), _
+             "fce16a1c-f107-4601-8b75-fc4940ae25d0"
+
+    ' ICoreWebView2BrowserExtensionRemoveCompletedHandler
+    FillGUID m_iidTable(HK_RemoveBrowserExtensionCompleted), _
+             "8e41909a-9b18-4bb1-8cdf-930f467a50be"
 End Sub
 
 '* 機能　　："xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"形式の文字列からGUID構造体を埋めます

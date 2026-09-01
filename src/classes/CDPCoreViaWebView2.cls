@@ -730,6 +730,33 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
     AddBrowserExtension = m_Host.AddBrowserExtension(extensionFolderPath)
 End Function
 
+'***************************************************************************************************
+'* 機能　　：インストール済みの拡張機能IDを一覧取得します(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：拡張機能IDの配列(String)。0件/失敗時は要素数0の配列
+'***************************************************************************************************
+Public Function GetBrowserExtensionIds() As Variant
+    If m_Host Is Nothing Then
+        GetBrowserExtensionIds = Array()
+        Exit Function
+    End If
+    GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionId  `AddBrowserExtension`/`GetBrowserExtensionIds`で得られる拡張機能ID
+'* 返り値  ：成功可否
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2にはID指定の直接アンインストールAPIが無いため、内部で一覧取得→対象特定→
+'            `Remove`という2段構えになります(CDPの`Extensions.uninstall`は使えないため代替不可)
+'***************************************************************************************************
+Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
+    If m_Host Is Nothing Then Exit Function
+    RemoveBrowserExtension = m_Host.RemoveBrowserExtension(extensionId)
+End Function
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の機能制限系
 '---------------------------------------------------------------------------------------------------
