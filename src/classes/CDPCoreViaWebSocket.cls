@@ -1261,7 +1261,7 @@ End Function
 '* 注意事項：閉じる場合は、0未満にしてください
 '***************************************************************************************************
 Property Let EnsureWebView2DebugPort(port As Long)
-    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+    Const FromProcedureName As String = ThisClassName & ".EnsureWebView2DebugPort"
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
 
 
