@@ -50,12 +50,11 @@ Private m_areBrowserExtensionsEnabled            As Boolean
 '***************************************************************************************************
 '* 機能　　：`TargetCompatibleBrowserVersion`の既定値を設定します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：★調査中★ 公式のC++ラッパー(`WebView2EnvironmentOptions.h`)はこの値を常に
-'            (SDKバンドル版の)具体的なバージョン文字列で初期化しており、`nullptr`のまま
-'            渡された場合の挙動はSDKのドキュメントで明言されていない。put_AreBrowserExtensions
-'            Enabled等を追加した際に`CreateCoreWebView2EnvironmentWithOptions`が
-'            hr=&H80070057(E_INVALIDARG)で即失敗する事象が発生したため、疑わしい箇所として
-'            ここだけ空文字(nullptr相当)を避け、SDKバンドル版に合わせた値を既定にしている
+'* 注意事項：★実機検証済み★ 公式のC++ラッパー(`WebView2EnvironmentOptions.h`)はこの値を常に
+'            (SDKバンドル版の)具体的なバージョン文字列で初期化している。ここを空文字
+'            (nullptr相当)のままにすると`CreateCoreWebView2EnvironmentWithOptions`が
+'            hr=&H80070057(E_INVALIDARG)で即失敗することを実機で確認した。SDKバンドル版に
+'            合わせた値を既定にすることで解消する
 '***************************************************************************************************
 Private Sub Class_Initialize()
     m_targetCompatibleBrowserVersion = "152.0.4181.0"
@@ -167,53 +166,42 @@ End Sub
 '* 注意事項：★重要★ 以下は全て`CDPWebView2CallbackHandler.Handler_Invoke`から`owner As Object`
 '            経由(動的束縛)で呼ばれるため、全てPublic Subでなければならない
 '***************************************************************************************************
-'--- ★調査用の一時ログ★ 原因特定のため、当面は全get_/put_呼び出しをDebug.Printする ---
 Public Sub EnvOpt_OnGetAdditionalBrowserArguments(ByVal pOut As LongPtr)
-    Debug.Print "EnvOpt: get_AdditionalBrowserArguments called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
 End Sub
 
 Public Sub EnvOpt_OnPutAdditionalBrowserArguments(ByVal pValue As LongPtr)
-    Debug.Print "EnvOpt: put_AdditionalBrowserArguments called"
     If pValue <> 0 Then m_additionalBrowserArguments = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetLanguage(ByVal pOut As LongPtr)
-    Debug.Print "EnvOpt: get_Language called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_language
 End Sub
 
 Public Sub EnvOpt_OnPutLanguage(ByVal pValue As LongPtr)
-    Debug.Print "EnvOpt: put_Language called"
     If pValue <> 0 Then m_language = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetTargetCompatibleBrowserVersion(ByVal pOut As LongPtr)
-    Debug.Print "EnvOpt: get_TargetCompatibleBrowserVersion called, pOut=&H" & Hex(pOut) & " value=" & m_targetCompatibleBrowserVersion
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_targetCompatibleBrowserVersion
 End Sub
 
 Public Sub EnvOpt_OnPutTargetCompatibleBrowserVersion(ByVal pValue As LongPtr)
-    Debug.Print "EnvOpt: put_TargetCompatibleBrowserVersion called"
     If pValue <> 0 Then m_targetCompatibleBrowserVersion = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetAllowSingleSignOnUsingOSPrimaryAccount(ByVal pOut As LongPtr)
-    Debug.Print "EnvOpt: get_AllowSingleSignOnUsingOSPrimaryAccount called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_allowSingleSignOnUsingOSPrimaryAccount
 End Sub
 
 Public Sub EnvOpt_OnPutAllowSingleSignOnUsingOSPrimaryAccount(ByVal rawValue As LongPtr)
-    Debug.Print "EnvOpt: put_AllowSingleSignOnUsingOSPrimaryAccount called"
     m_allowSingleSignOnUsingOSPrimaryAccount = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
 Public Sub EnvOpt_OnGetAreBrowserExtensionsEnabled(ByVal pOut As LongPtr)
-    Debug.Print "EnvOpt: get_AreBrowserExtensionsEnabled called, pOut=&H" & Hex(pOut) & " value=" & m_areBrowserExtensionsEnabled
     CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_areBrowserExtensionsEnabled
 End Sub
 
 Public Sub EnvOpt_OnPutAreBrowserExtensionsEnabled(ByVal rawValue As LongPtr)
-    Debug.Print "EnvOpt: put_AreBrowserExtensionsEnabled called"
     m_areBrowserExtensionsEnabled = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
