@@ -70,6 +70,7 @@ Private m_pEnvironment  As LongPtr
 Private m_pController   As LongPtr
 Private m_pView         As LongPtr
 Private m_pSettings     As LongPtr
+Private m_controllerLevel As Long ' `m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
 
 Private m_envHandler    As CDPWebView2CallbackHandler
 Private m_ctrlHandler   As CDPWebView2CallbackHandler
@@ -195,6 +196,38 @@ Public Function RunWebView2() As Boolean
     RunWebView2 = True
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`m_pController`が実際にQueryInterfaceで辿り着ける`ICoreWebView2ControllerN`の最大の
+'            Nを判定し、`m_pController`/`m_controllerLevel`を更新します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`ICoreWebView2Controller2`~`4`も`Settings`系と同様、一本の継承チェーン
+'            (`Controller2 : Controller`→`Controller3 : Controller2`→…)なので、対応してる
+'            最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで基底からそのバージョン
+'            までの全プロパティ/メソッドに(スロット番号さえ合わせれば)アクセスできる
+'***************************************************************************************************
+Private Sub DetectControllerLevel()
+    Dim iids(1 To 3) As String
+    iids(1) = "97d418d5-a426-4e49-a151-e1a10f327d9e"   ' ICoreWebView2Controller4
+    iids(2) = "f9614724-5d2b-41dc-aef7-73d62b51543b"   ' ICoreWebView2Controller3
+    iids(3) = "c979903e-d4ca-4228-92eb-47ee3fa96eab"   ' ICoreWebView2Controller2
+
+    Dim levels(1 To 3) As Long
+    levels(1) = 4: levels(2) = 3: levels(3) = 2
+
+    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    For i = 1 To 3
+        CDPWebView2Thunks.FillGUID iid, iids(i)
+        hrQ = CDPWebView2Thunks.dcf(m_pController, 0, "Ctrl.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        If hrQ = 0 And pTry <> 0 Then
+            CDPWebView2Thunks.ComRelease m_pController   ' 基底(または下位)の分の参照は不要になるので解放
+            m_pController = pTry
+            m_controllerLevel = levels(i)
+            Exit Sub
+        End If
+    Next i
+    m_controllerLevel = 1
+End Sub
+
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Const MaxTick As Long = 100 '無難に10.0s待機
@@ -232,6 +265,7 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
     If ErrorCode = 0 And pController <> 0 Then
         m_pController = pController
         CDPWebView2Thunks.ComAddRef m_pController
+DetectControllerLevel
         m_ctrlState = Whs_Ready
     Else
         m_pController = 0
@@ -368,6 +402,108 @@ End Sub
 '***************************************************************************************************
 Property Let Visible(v As Boolean)
     CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ブラウザUIレベルのズーム倍率を設定します(CDPの`Emulation.setPageScaleFactor`とは別物)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  ズーム倍率(1.0が等倍)
+'***************************************************************************************************
+Property Let ZoomFactor(v As Double)
+    CDPWebView2Thunks.dcf m_pController, 8, "Ctrl.put_ZoomFactor", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：表示位置/サイズとズーム倍率を、1回のレイアウト計算でまとめて設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：WV2_Right/WV2_Bottom/WV2_Top/WV2_Left  `Resize`と同じ
+'            zoomFactor                              ズーム倍率(1.0が等倍)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`Resize`+`ZoomFactor`を別々に呼ぶより、こちらでまとめた方が描画の無駄が少ない
+'***************************************************************************************************
+Public Sub SetBoundsAndZoomFactor(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long, ZoomFactor As Double)
+    Dim rc As CDPWebView2Thunks.RECT
+    rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
+    CDPWebView2Thunks.dcf m_pController, 11, "Ctrl.SetBoundsAndZoomFactor", VarPtr(rc), ZoomFactor
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：フォーカスをWebView2側へプログラム的に移動します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：reason  `COREWEBVIEW2_MOVE_FOCUS_REASON`(Long。0=Programmatic, 1=Next, 2=Previous。
+'            `CDPCoreViaWebView2`側の`WV2MoveFocusReason`Enum使用を推奨)
+'***************************************************************************************************
+Public Sub MoveFocus(reason As Long)
+    CDPWebView2Thunks.dcf m_pController, 12, "Ctrl.MoveFocus", reason
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：親ウィンドウの位置が動いたことをWebView2へ明示的に通知します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ポップアップ/ドロップダウン等、親ウィンドウの画面上の絶対位置に依存する描画がある場合に
+'            呼ぶためのものです。このプロジェクトの非表示運用では基本的に不要です
+'***************************************************************************************************
+Public Sub NotifyParentWindowPositionChanged()
+    CDPWebView2Thunks.dcf m_pController, 23, "Ctrl.NotifyParentWindowPositionChanged"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2のページ読み込み前に表示される既定の背景色を設定します(Controller2以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：a/r/g/b  各0~255。`a`(アルファ値)は現状255(不透明)のみサポート
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`COREWEBVIEW2_COLOR`はA/R/G/B各1バイトの4バイト構造体で、x64呼び出し規約上
+'            ポインタ経由ではなく32bit整数1個としてレジスタに直接乗る(メモリ上A,R,G,Bの順に
+'            並ぶリトルエンディアンの4バイト値として組み立てて渡す)。4引数全てが対等な色成分で
+'            あり「代入値」の形にそぐわないため、`Property Let`ではなく`Sub`にしている
+'***************************************************************************************************
+Public Sub SetDefaultBackgroundColor(a As Byte, r As Byte, g As Byte, b As Byte)
+    If m_controllerLevel < 2 Then Exit Sub
+    Dim packed As Long
+    packed = CLng(a) Or (CLng(r) * &H100) Or (CLng(g) * &H10000) Or (CLng(b) * &H1000000)
+    CDPWebView2Thunks.dcf m_pController, 27, "Ctrl2.put_DefaultBackgroundColor", packed
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：DPIスケールを手動指定します(Controller3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  DPIスケール値(例:1.0=100%、1.5=150%)
+'***************************************************************************************************
+Property Let RasterizationScale(v As Double)
+    If m_controllerLevel < 3 Then Exit Property
+    CDPWebView2Thunks.dcf m_pController, 29, "Ctrl3.put_RasterizationScale", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：モニターのDPIスケール変更を自動検知するか切り替えます(Controller3以降、既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで自動検知、Falseで`RasterizationScale`を手動管理する
+'***************************************************************************************************
+Property Let ShouldDetectMonitorScaleChanges(v As Boolean)
+    If m_controllerLevel < 3 Then Exit Property
+    CDPWebView2Thunks.dcf m_pController, 31, "Ctrl3.put_ShouldDetectMonitorScaleChanges", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`Bounds`(位置/サイズ)の解釈方式を切り替えます(Controller3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_BOUNDS_MODE`(Long。0=USE_RAW_PIXELS(既定)、1=USE_RASTERIZATION_SCALE。
+'            `CDPCoreViaWebView2`側の`WV2BoundsMode`Enum使用を推奨)
+'***************************************************************************************************
+Property Let BoundsMode(v As Long)
+    If m_controllerLevel < 3 Then Exit Property
+    CDPWebView2Thunks.dcf m_pController, 35, "Ctrl3.put_BoundsMode", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：外部(エクスプローラー等)からのドラッグ&ドロップ受け入れ可否を切り替えます
+'            (Controller4以降、既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let AllowExternalDrop(v As Boolean)
+    If m_controllerLevel < 4 Then Exit Property
+    CDPWebView2Thunks.dcf m_pController, 37, "Ctrl4.put_AllowExternalDrop", CLng(v * -1)
 End Property
 
 

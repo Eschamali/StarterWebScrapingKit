@@ -574,6 +574,51 @@ Property Let Visible(v As Boolean)
     m_Host.Visible = v
 End Property
 
+'* 機能　　：ブラウザUIレベルのズーム倍率を設定します(CDPの`Emulation.setPageScaleFactor`とは別物)
+Property Let ZoomFactor(v As Double)
+    m_Host.ZoomFactor = v
+End Property
+
+'* 機能　　：表示位置/サイズとズーム倍率を1回のレイアウト計算でまとめて設定します
+Public Sub SetBoundsAndZoomFactor(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long, ZoomFactor As Double)
+    m_Host.SetBoundsAndZoomFactor WV2_Right, WV2_Bottom, WV2_Top, WV2_Left, ZoomFactor
+End Sub
+
+'* 機能　　：フォーカスをWebView2側へプログラム的に移動します
+Public Sub MoveFocus(Optional reason As WV2MoveFocusReason = MoveFocus_Programmatic)
+    m_Host.MoveFocus reason
+End Sub
+
+'* 機能　　：親ウィンドウの位置が動いたことをWebView2へ明示的に通知します
+Public Sub NotifyParentWindowPositionChanged()
+    m_Host.NotifyParentWindowPositionChanged
+End Sub
+
+'* 機能　　：WebView2のページ読み込み前に表示される既定の背景色を設定します(Controller2以降)
+Public Sub SetDefaultBackgroundColor(a As Byte, r As Byte, g As Byte, b As Byte)
+    m_Host.SetDefaultBackgroundColor a, r, g, b
+End Sub
+
+'* 機能　　：DPIスケールを手動指定します(Controller3以降)
+Property Let RasterizationScale(v As Double)
+    m_Host.RasterizationScale = v
+End Property
+
+'* 機能　　：モニターのDPIスケール変更を自動検知するか切り替えます(Controller3以降、既定True)
+Property Let ShouldDetectMonitorScaleChanges(v As Boolean)
+    m_Host.ShouldDetectMonitorScaleChanges = v
+End Property
+
+'* 機能　　：`Bounds`(位置/サイズ)の解釈方式を切り替えます(Controller3以降)
+Property Let BoundsMode(v As WV2BoundsMode)
+    m_Host.BoundsMode = v
+End Property
+
+'* 機能　　：外部からのドラッグ&ドロップ受け入れ可否を切り替えます(Controller4以降、既定True)
+Property Let AllowExternalDrop(v As Boolean)
+    m_Host.AllowExternalDrop = v
+End Property
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の機能制限系
 '---------------------------------------------------------------------------------------------------
