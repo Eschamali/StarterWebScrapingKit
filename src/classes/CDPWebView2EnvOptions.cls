@@ -153,42 +153,53 @@ End Sub
 '* 注意事項：★重要★ 以下は全て`CDPWebView2CallbackHandler.Handler_Invoke`から`owner As Object`
 '            経由(動的束縛)で呼ばれるため、全てPublic Subでなければならない
 '***************************************************************************************************
+'--- ★調査用の一時ログ★ 原因特定のため、当面は全get_/put_呼び出しをDebug.Printする ---
 Public Sub EnvOpt_OnGetAdditionalBrowserArguments(ByVal pOut As LongPtr)
+    Debug.Print "EnvOpt: get_AdditionalBrowserArguments called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
 End Sub
 
 Public Sub EnvOpt_OnPutAdditionalBrowserArguments(ByVal pValue As LongPtr)
+    Debug.Print "EnvOpt: put_AdditionalBrowserArguments called"
     If pValue <> 0 Then m_additionalBrowserArguments = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetLanguage(ByVal pOut As LongPtr)
+    Debug.Print "EnvOpt: get_Language called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_language
 End Sub
 
 Public Sub EnvOpt_OnPutLanguage(ByVal pValue As LongPtr)
+    Debug.Print "EnvOpt: put_Language called"
     If pValue <> 0 Then m_language = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetTargetCompatibleBrowserVersion(ByVal pOut As LongPtr)
+    Debug.Print "EnvOpt: get_TargetCompatibleBrowserVersion called, pOut=&H" & Hex(pOut) & " value=" & m_targetCompatibleBrowserVersion
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_targetCompatibleBrowserVersion
 End Sub
 
 Public Sub EnvOpt_OnPutTargetCompatibleBrowserVersion(ByVal pValue As LongPtr)
+    Debug.Print "EnvOpt: put_TargetCompatibleBrowserVersion called"
     If pValue <> 0 Then m_targetCompatibleBrowserVersion = CDPWebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetAllowSingleSignOnUsingOSPrimaryAccount(ByVal pOut As LongPtr)
+    Debug.Print "EnvOpt: get_AllowSingleSignOnUsingOSPrimaryAccount called, pOut=&H" & Hex(pOut)
     CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_allowSingleSignOnUsingOSPrimaryAccount
 End Sub
 
 Public Sub EnvOpt_OnPutAllowSingleSignOnUsingOSPrimaryAccount(ByVal rawValue As LongPtr)
+    Debug.Print "EnvOpt: put_AllowSingleSignOnUsingOSPrimaryAccount called"
     m_allowSingleSignOnUsingOSPrimaryAccount = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
 Public Sub EnvOpt_OnGetAreBrowserExtensionsEnabled(ByVal pOut As LongPtr)
+    Debug.Print "EnvOpt: get_AreBrowserExtensionsEnabled called, pOut=&H" & Hex(pOut) & " value=" & m_areBrowserExtensionsEnabled
     CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_areBrowserExtensionsEnabled
 End Sub
 
 Public Sub EnvOpt_OnPutAreBrowserExtensionsEnabled(ByVal rawValue As LongPtr)
+    Debug.Print "EnvOpt: put_AreBrowserExtensionsEnabled called"
     m_areBrowserExtensionsEnabled = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
