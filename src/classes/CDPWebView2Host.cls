@@ -72,6 +72,8 @@ Private m_pView         As LongPtr
 Private m_pSettings     As LongPtr
 Private m_settingsLevel As Long   ' `m_pSettings`が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
 Private m_controllerLevel As Long ' `m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
+Private m_pProfile        As LongPtr
+Private m_profileLevel    As Long ' `m_pProfile`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
 
 Private m_envHandler    As CDPWebView2CallbackHandler
 Private m_ctrlHandler   As CDPWebView2CallbackHandler
@@ -197,7 +199,25 @@ Public Function RunWebView2() As Boolean
         DetectSettingsLevel
     End If
 
-    '7. 成功サインを返す
+    '7. ICoreWebView2Profileを取得(View→ICoreWebView2_13へQueryInterface→get_Profile、
+    '   vtable index 105)。取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、
+    '   `m_pProfile=0`のままにする(各プロパティは`m_profileLevel`ガードで静かに無視されるだけ)
+    Dim p13 As LongPtr
+    Dim iid13 As CDPWebView2Thunks.GUID
+    CDPWebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
+    hr = CDPWebView2Thunks.dcf(m_pView, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
+    If hr = 0 And p13 <> 0 Then
+        Dim pProfile As LongPtr
+        hr = CDPWebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
+        CDPWebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
+        If hr = 0 And pProfile <> 0 Then
+            m_pProfile = pProfile
+            m_profileLevel = 1
+            DetectProfileLevel
+        End If
+    End If
+
+    '8. 成功サインを返す
     RunWebView2 = True
 End Function
 
@@ -272,6 +292,38 @@ Private Sub DetectControllerLevel()
     m_controllerLevel = 1
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：`m_pProfile`が実際にQueryInterfaceで辿り着ける`ICoreWebView2ProfileN`の最大のNを
+'            判定し、`m_pProfile`/`m_profileLevel`を更新します(`Settings`/`Controller`と同じ方式)
+'***************************************************************************************************
+Private Sub DetectProfileLevel()
+    Dim iids(1 To 8) As String
+    iids(1) = "40c764d0-12fc-5d23-816d-971b353174c1"   ' ICoreWebView2Profile9
+    iids(2) = "fbf70c2f-eb1f-4383-85a0-163e92044011"   ' ICoreWebView2Profile8
+    iids(3) = "7b4c7906-a1aa-4cb4-b723-db09f813d541"   ' ICoreWebView2Profile7
+    iids(4) = "bd82fa6a-1d65-4c33-b2b4-0393020cc61b"   ' ICoreWebView2Profile6
+    iids(5) = "2ee5b76e-6e80-4df2-bcd3-d4ec3340a01b"   ' ICoreWebView2Profile5
+    iids(6) = "8f4ae680-192e-4ec8-833a-21cfadaef628"   ' ICoreWebView2Profile4
+    iids(7) = "b188e659-5685-4e05-bdba-fc640e0f1992"   ' ICoreWebView2Profile3
+    iids(8) = "fa740d4b-5eae-4344-a8ad-74be31925397"   ' ICoreWebView2Profile2
+
+    Dim levels(1 To 8) As Long
+    levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
+    levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
+
+    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    For i = 1 To 8
+        CDPWebView2Thunks.FillGUID iid, iids(i)
+        hrQ = CDPWebView2Thunks.dcf(m_pProfile, 0, "Profile.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        If hrQ = 0 And pTry <> 0 Then
+            CDPWebView2Thunks.ComRelease m_pProfile   ' 基底(または下位)の分の参照は不要になるので解放
+            m_pProfile = pTry
+            m_profileLevel = levels(i)
+            Exit Sub
+        End If
+    Next i
+End Sub
+
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Const MaxTick As Long = 100 '無難に10.0s待機
@@ -309,7 +361,7 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
     If ErrorCode = 0 And pController <> 0 Then
         m_pController = pController
         CDPWebView2Thunks.ComAddRef m_pController
-DetectControllerLevel
+        DetectControllerLevel
         m_ctrlState = Whs_Ready
     Else
         m_pController = 0
@@ -337,6 +389,10 @@ Public Sub CLOSE_()
     If m_pSettings <> 0 Then
         CDPWebView2Thunks.ComRelease m_pSettings
         m_pSettings = 0
+    End If
+    If m_pProfile <> 0 Then
+        CDPWebView2Thunks.ComRelease m_pProfile
+        m_pProfile = 0
     End If
     If m_pView <> 0 Then
         CDPWebView2Thunks.ComRelease m_pView
@@ -756,6 +812,80 @@ Property Let NonClientRegionSupportEnabled(v As Boolean)
     If m_settingsLevel < 9 Then Exit Property
     CDPWebView2Thunks.dcf m_pSettings, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
 End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2Profile 一式 ■■■
+'***************************************************************************************************
+'* 注意事項：`ICoreWebView2Profile`は`ICoreWebView2Settings`と紛らわしい同名プロパティ
+'            (`IsPasswordAutosaveEnabled`/`IsGeneralAutofillEnabled`)を持つが、こちらは
+'            **プロファイル単位**(同じ`user-data-dir`を使う全WebViewに共通)の設定であり、
+'            Settings側の**WebViewインスタンス単位**の設定とは別物。名前衝突を避けるため
+'            `Profile`を頭に付けている
+'***************************************************************************************************
+'* 機能　　：既定のダウンロード先フォルダを設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  フォルダの絶対パス
+'***************************************************************************************************
+Property Let DefaultDownloadFolderPath(v As String)
+    If m_profileLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 7, "Profile.put_DefaultDownloadFolderPath", StrPtr(v)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：優先カラースキームを設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_PREFERRED_COLOR_SCHEME`(Long。0=Auto(既定), 1=Light, 2=Dark。
+'            `CDPCoreViaWebView2`側の`WV2PreferredColorScheme`Enum使用を推奨)
+'***************************************************************************************************
+Property Let PreferredColorScheme(v As Long)
+    If m_profileLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 9, "Profile.put_PreferredColorScheme", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：トラッキング防止レベルを設定します(Profile3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_TRACKING_PREVENTION_LEVEL`(Long。0=None, 1=Basic, 2=Balanced(既定),
+'            3=Strict。`CDPCoreViaWebView2`側の`WV2TrackingPreventionLevel`Enum使用を推奨)
+'***************************************************************************************************
+Property Let PreferredTrackingPreventionLevel(v As Long)
+    If m_profileLevel < 3 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 14, "Profile3.put_PreferredTrackingPreventionLevel", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：パスワード自動保存機能の有効可否を、**プロファイル単位**で切り替えます(Profile6以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let ProfilePasswordAutosaveEnabled(v As Boolean)
+    If m_profileLevel < 6 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 19, "Profile6.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：一般オートフィル機能の有効可否を、**プロファイル単位**で切り替えます(Profile6以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let ProfileGeneralAutofillEnabled(v As Boolean)
+    If m_profileLevel < 6 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Service Worker内からWebView固有のスクリプトAPIを使えるようにするか切り替えます
+'            (Profile9以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
+    If m_profileLevel < 9 Then Exit Property
+    CDPWebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
+End Property
+
 
 
 '***************************************************************************************************

@@ -87,6 +87,34 @@ Public Enum WV2PdfToolbarItems
     PDF_MoreSettings = &H1000
 End Enum
 
+'* `BoundsMode`用(`COREWEBVIEW2_BOUNDS_MODE`)
+Public Enum WV2BoundsMode
+    BoundsMode_UseRawPixels = 0             ' 既定
+    BoundsMode_UseRasterizationScale = 1
+End Enum
+
+'* `MoveFocus`用(`COREWEBVIEW2_MOVE_FOCUS_REASON`)
+Public Enum WV2MoveFocusReason
+    MoveFocus_Programmatic = 0
+    MoveFocus_Next = 1
+    MoveFocus_Previous = 2
+End Enum
+
+'* `PreferredColorScheme`用(`COREWEBVIEW2_PREFERRED_COLOR_SCHEME`)
+Public Enum WV2PreferredColorScheme
+    ColorScheme_Auto = 0             ' 既定
+    ColorScheme_Light = 1
+    ColorScheme_Dark = 2
+End Enum
+
+'* `PreferredTrackingPreventionLevel`用(`COREWEBVIEW2_TRACKING_PREVENTION_LEVEL`)
+Public Enum WV2TrackingPreventionLevel
+    TrackingPrevention_None = 0
+    TrackingPrevention_Basic = 1
+    TrackingPrevention_Balanced = 2  ' 既定
+    TrackingPrevention_Strict = 3
+End Enum
+
 
 
 '***************************************************************************************************
@@ -636,6 +664,42 @@ End Property
 '* 機能　　：外部からのドラッグ&ドロップ受け入れ可否を切り替えます(Controller4以降、既定True)
 Property Let AllowExternalDrop(v As Boolean)
     m_Host.AllowExternalDrop = v
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2Profile
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`IsPasswordAutosaveEnabled`/`IsGeneralAutofillEnabled`はSettings側と紛らわしいので
+'            `Profile`を頭に付けている(詳細は`CDPWebView2Host`側のコメント参照)
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：既定のダウンロード先フォルダを設定します
+Property Let DefaultDownloadFolderPath(v As String)
+    m_Host.DefaultDownloadFolderPath = v
+End Property
+
+'* 機能　　：優先カラースキームを設定します(既定Auto)
+Property Let PreferredColorScheme(v As WV2PreferredColorScheme)
+    m_Host.PreferredColorScheme = v
+End Property
+
+'* 機能　　：トラッキング防止レベルを設定します(Profile3以降、既定Balanced)
+Property Let PreferredTrackingPreventionLevel(v As WV2TrackingPreventionLevel)
+    m_Host.PreferredTrackingPreventionLevel = v
+End Property
+
+'* 機能　　：パスワード自動保存機能の有効可否を、プロファイル単位で切り替えます(Profile6以降)
+Property Let ProfilePasswordAutosaveEnabled(v As Boolean)
+    m_Host.ProfilePasswordAutosaveEnabled = v
+End Property
+
+'* 機能　　：一般オートフィル機能の有効可否を、プロファイル単位で切り替えます(Profile6以降)
+Property Let ProfileGeneralAutofillEnabled(v As Boolean)
+    m_Host.ProfileGeneralAutofillEnabled = v
+End Property
+
+'* 機能　　：Service Worker内からWebView固有のスクリプトAPIを使えるようにするか切り替えます(Profile9以降)
+Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
+    m_Host.WebViewScriptApisEnabledForServiceWorkers = v
 End Property
 
 '---------------------------------------------------------------------------------------------------
