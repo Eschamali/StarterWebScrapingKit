@@ -245,38 +245,6 @@ Friend Property Get TableBrowserContext(UserName As String, ErrorSource As Strin
     Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource)
 End Property
 
-'***************************************************************************************************
-'* 機能　　：ホワイトプロトコルリスト設定情報をテーブルから読み取ります
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：プロトコルリストを記録した1次元配列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・1次元配列への変換コストが入るため、1度のみ呼び出すこと
-'            ・最初の要素番号は、`1`始まりです
-'            ・1件以上ある前提です
-'***************************************************************************************************
-Property Get TableProtocolWhiteList()
-    '1. 指定のデータテーブル、列配列を取得
-    Dim WhiteList: WhiteList = Me.ListObjects(TableName03).DataBodyRange.Columns(Table03ColumnID.接頭辞)
-
-    '2. 配列か？
-    If IsArray(WhiteList) Then
-        '1次元配列に変換して返却
-        ReDim tmp(1 To UBound(WhiteList))
-        Dim i As Long
-        For i = 1 To UBound(WhiteList)
-            tmp(i) = WhiteList(i, 1)
-        Next
-
-        TableProtocolWhiteList = tmp
-    Else
-        '配列じゃない場合は1次元配列にしておく
-        ReDim tmp(1 To 1)
-        tmp(1) = WhiteList
-
-        TableProtocolWhiteList = tmp
-    End If
-End Property
-
 
 
 '***************************************************************************************************

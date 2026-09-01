@@ -1870,7 +1870,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
    'Check if already navigated
     Dim curURL As String
     curURL = jsEval("window.location.href")
-    If curURL = checkURI(strURL) Then
+    If curURL = strURL Then
         printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
     End If
@@ -2823,15 +2823,6 @@ End Property
 Private Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
     PipeCore.AnalyzeCDP StopApiError, destruction
 End Sub
-
-
-
-'***************************************************************************************************
-'                               ■■■ CDPBrowser.cls 直通メソッド ■■■
-'***************************************************************************************************
-Private Function checkURI(URI As String) As String
-    checkURI = BrowserCore.checkURI(URI)
-End Function
 
 
 
