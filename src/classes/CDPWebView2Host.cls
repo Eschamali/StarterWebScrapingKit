@@ -331,6 +331,15 @@ Public Property Get LastErrorMessage() As String
     LastErrorMessage = WinApiError.GetMessage(m_lastError, "WebView2Loader")
 End Property
 
+'***************************************************************************************************
+'* 機能　　：実際の`--user-data-dir`情報を返します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2に渡す情報は`WebView2UserDataDirPath`ですが実際に作られるパスはその末尾に"\EBWebView"が付与されるためその補正を考慮します
+'***************************************************************************************************
+Public Property Get getUserDataDirPath() As String
+    getUserDataDirPath = WebView2UserDataDirPath & "\EBWebView"
+End Property
+
 
 
 '***************************************************************************************************
