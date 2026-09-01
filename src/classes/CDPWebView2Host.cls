@@ -65,25 +65,31 @@ End Enum
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private m_hostHwnd      As LongPtr
-Private m_pEnvironment  As LongPtr
-Private m_pController   As LongPtr
-Private m_pView         As LongPtr
-Private m_pSettings     As LongPtr
-Private m_settingsLevel As Long   ' `m_pSettings`が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
-Private m_controllerLevel As Long ' `m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
-Private m_pProfile        As LongPtr
-Private m_profileLevel    As Long ' `m_pProfile`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
+'メイン制御ポインター
+Private m_pView         As LongPtr  'ICoreWebView2
+Private m_pController   As LongPtr  'ICoreWebView2Controller
+Private m_pEnvironment  As LongPtr  'ICoreWebView2Environment
+Private m_pSettings     As LongPtr  'ICoreWebView2Settings
+Private m_pProfile      As LongPtr  'ICoreWebView2Profile
 
+'たどり着けた階層レベル
+Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
+Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
+Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
+
+'COMコールバック系
 Private m_envHandler    As CDPWebView2CallbackHandler
 Private m_ctrlHandler   As CDPWebView2CallbackHandler
 
+'状態値
 Private m_envState      As WebView2HostState
 Private m_ctrlState     As WebView2HostState
 
 Private m_lastError     As Long
 Private m_closed        As Boolean
 
+'活動場所
+Private m_hostHwnd              As LongPtr
 Private WebView2UserDataDirPath As String
 
 
@@ -324,7 +330,9 @@ Private Sub DetectProfileLevel()
     Next i
 End Sub
 
+'***************************************************************************************************
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
+'***************************************************************************************************
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     Const MaxTick As Long = 100 '無難に10.0s待機
 
