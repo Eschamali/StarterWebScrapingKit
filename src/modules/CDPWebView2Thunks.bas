@@ -543,22 +543,22 @@ Private Function EnvOpt_Release(ByVal This As LongPtr) As Long
     blockBase = EnvOpt_ResolveBlockBase(This)
     If blockBase = 0 Then Exit Function
 
-    Dim n As LongLong
-    n = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) - 1
-    If n < 0 Then n = 0
-    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = n
+    Dim N As LongLong
+    N = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) - 1
+    If N < 0 Then N = 0
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = N
 
-    EnvOpt_Release = CLng(n)
+    EnvOpt_Release = CLng(N)
 End Function
 
 Private Function EnvOpt_AddRefInternal(ByVal blockBase As LongPtr) As Long
     If blockBase = 0 Then Exit Function
 
-    Dim n As LongLong
-    n = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) + 1
-    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = n
+    Dim N As LongLong
+    N = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) + 1
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = N
 
-    EnvOpt_AddRefInternal = CLng(n)
+    EnvOpt_AddRefInternal = CLng(N)
 End Function
 
 
