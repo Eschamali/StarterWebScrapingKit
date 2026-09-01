@@ -53,7 +53,7 @@ Public Sub RunAll_CDPElement_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
-    br.InheritanceCDPBrowser.quit
+    br.ThisCDPBrowser.quit
 End Sub
 
 '==============================================================================
@@ -340,7 +340,7 @@ End Sub
 Private Sub Test14_GetIFrame(br As CDPContext)
     PrintSection "‡M getIFrame"
 
-    br.InheritanceCDPBrowser.sleep 0.5
+    CDPHelpers.sleep 0.5
 
     Dim iframeDoc As CDPElement: Set iframeDoc = br.getElementByID("testIFrame").getIFrame
     Dim iframeTarget As CDPElement: Set iframeTarget = iframeDoc.getElementByID("iframeTarget")

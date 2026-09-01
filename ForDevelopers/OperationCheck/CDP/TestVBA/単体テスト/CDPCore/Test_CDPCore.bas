@@ -16,7 +16,6 @@ Private Const ThisClassName As String = "Test_CDPCore"
 '***************************************************************************************************
 Sub バッファー拡張テスト()
     Const FromProcedureName As String = ThisClassName & ".バッファー拡張テスト"
-    Const LogID             As String = "Test001"
     
     '----- テスト値 ※基本、CDPCore.cls と合わせる-----
     Const MaxVresSize       As Long = 2 ^ 20 + 2 ^ 16
@@ -33,15 +32,15 @@ Sub バッファー拡張テスト()
     'バッファー拡張ループ
     Do
         If MAX_STR_LEN - NowEndCursor < MaxVresSize Then UseResSize = MAX_STR_LEN - NowEndCursor Else UseResSize = MaxVresSize
-        testCDPCore.printMsg info_, LogID, "Add buffer...               : " & UseResSize, FromProcedureName
+        testCDPCore.printMsg info_, "Add buffer...               : " & UseResSize, FromProcedureName
         NowEndCursor = testCDPCore.Test_StrBufferCheck(UseResSize)
-        testCDPCore.printMsg info_, LogID, "`responseCDP.EndCursor`     : " & NowEndCursor, FromProcedureName
+        testCDPCore.printMsg info_, "`responseCDP.EndCursor`     : " & NowEndCursor, FromProcedureName
         i = i + 1
         
         If NowEndCursor = MAX_STR_LEN Then Exit Do
     Loop
 
-    testCDPCore.printMsg info_, LogID, "String変数の上限まで満たせました！", FromProcedureName
+    testCDPCore.printMsg info_, "String変数の上限まで満たせました！", FromProcedureName
 End Sub
 
 '***************************************************************************************************
@@ -53,20 +52,19 @@ End Sub
 '***************************************************************************************************
 Sub 結果リセットテスト()
     Const FromProcedureName As String = ThisClassName & ".結果リセットテスト"
-    Const LogID             As String = "Test002"
     Const LimitCommandID    As Long = 2000000000    'CDPコマンド送信時のID上限値　※基本、CDPCore.cls と合わせる
 
 
     Dim testCDPCore     As New CDPCore
-    Dim testCDPBrowser  As New CDPBrowser: Set testCDPBrowser.InheritanceCDPCore = testCDPCore
-    Dim testCDPContext  As New CDPContext: Set testCDPContext.InheritanceCDPCore = testCDPCore
+    Dim testCDPBrowser  As New CDPBrowser: Set testCDPBrowser.ThisCDPCore = testCDPCore
+    Dim testCDPContext  As New CDPContext: Set testCDPContext.ThisCDPCore = testCDPCore
     
     'テスト用に結果を送信
     testCDPCore.Test_SendEvent
 
     '結果を回収
-    testCDPCore.printMsg info_, LogID, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
+    testCDPCore.printMsg info_, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
+    testCDPCore.printMsg info_, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
 
     '再度、テスト用に結果を送信
     testCDPCore.Test_SendEvent
@@ -75,14 +73,14 @@ Sub 結果リセットテスト()
     Dim NowCount As Long
     Do
         NowCount = testCDPCore.Test_RunCountUPcommandID
-        If NowCount Mod 2 ^ 22 = 0 Then DoEvents: testCDPCore.printMsg info_, LogID, "Counting... : " & Format(NowCount, "###,#"), FromProcedureName
+        If NowCount Mod 2 ^ 22 = 0 Then DoEvents: testCDPCore.printMsg info_, "Counting... : " & Format(NowCount, "###,#"), FromProcedureName
     Loop While NowCount < LimitCommandID
 
     '結果を回収　※まだ取れるはず
-    testCDPCore.printMsg info_, LogID, "-------- 上限ぴったりで取り出し: " & NowCount & " --------", FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`----------------------------------------------------------", FromProcedureName
+    testCDPCore.printMsg info_, "-------- 上限ぴったりで取り出し: " & NowCount & " --------", FromProcedureName
+    testCDPCore.printMsg info_, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
+    testCDPCore.printMsg info_, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
+    testCDPCore.printMsg info_, "`----------------------------------------------------------", FromProcedureName
     
     '再度、テスト用に結果を送信
     testCDPCore.Test_SendEvent
@@ -91,9 +89,9 @@ Sub 結果リセットテスト()
     NowCount = testCDPCore.Test_RunCountUPcommandID
     
     '結果を回収　※取れなくなってるはず
-    testCDPCore.printMsg info_, LogID, "-------- リセット後: " & NowCount & " --------", FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
-    testCDPCore.printMsg info_, LogID, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
-    testCDPCore.printMsg info_, LogID, "----------------------------", FromProcedureName
+    testCDPCore.printMsg info_, "-------- リセット後: " & NowCount & " --------", FromProcedureName
+    testCDPCore.printMsg info_, "`CDPBrowser - Result`: " & testCDPBrowser.TakeResultCDP(1001), FromProcedureName
+    testCDPCore.printMsg info_, "`CDPContext - Result`: " & testCDPContext.TakeResultCDP(1000), FromProcedureName
+    testCDPCore.printMsg info_, "----------------------------", FromProcedureName
     End
 End Sub

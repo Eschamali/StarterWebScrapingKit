@@ -27,7 +27,7 @@ Sub ForCDP(hoge As CDPCoreViaWebSocket)
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブに再接続して、そこから処理を再開します。"
 
         '2-1. 新しいタブを作成してそこを確立
-        Set RPAChallenge = RPAChallenge.InheritanceCDPBrowser.newTab(setMain:=True)
+        Set RPAChallenge = RPAChallenge.ThisCDPBrowser.newTab(setMain:=True)
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
     End If
@@ -53,7 +53,7 @@ Sub ForBiDi(hoge As CDPCoreViaWebSocket)
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブに再接続して、そこから処理を再開します。"
 
         '2-1. 新しいタブを作成してそこを確立
-        Set RPAChallenge = RPAChallenge.InheritanceWebDriverBiDiMode.newTab(setMain:=True)
+        Set RPAChallenge = RPAChallenge.ThisWebDriverBiDiMode.newTab(setMain:=True)
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"
     End If
@@ -69,6 +69,6 @@ Sub ForBiDi(hoge As CDPCoreViaWebSocket)
     paramsBiDi.Add "target", paramsBiDi_target
     paramsBiDi.Add "awaitPromise", True
 
-    RPAChallenge.InheritanceWebDriverBiDiMode.ExecuteBiDi "script.evaluate", paramsBiDi
+    RPAChallenge.ThisWebDriverBiDiMode.ExecuteBiDi "script.evaluate", paramsBiDi
 
 End Sub

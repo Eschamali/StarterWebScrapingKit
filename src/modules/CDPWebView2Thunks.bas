@@ -12,13 +12,6 @@ Attribute VB_Name = "CDPWebView2Thunks"
 '       HK_CdpMethodCompleted/HK_CdpEventReceived)に絞った
 '     ・`InitIIDTable`に、CallDevToolsProtocolMethodCompletedHandler と
 '       DevToolsProtocolEventReceivedEventHandler の実IIDを追加した
-'     ・`EnsureWebView2LoaderResolved`(WebView2Loader.dll探索ヘルパー)を新設した
-'         → StarterWebScrapingKitのCLAUDE.mdは「外部バイナリの配置」を禁止しているため、
-'           このプロジェクト専用のWebView2Loader.dllは同梱しない。代わりに、Excelの
-'           Power Query統合アドインに同梱されている実物を実行時に探索してLoadLibraryする。
-'     ・UserFormマウスリサイズ用API(GetClientRect/GetAncestor/SetWindowLongPtrW/
-'       SetWindowPos)や、この用途で使わないTest_系Subは移植対象外とした
-'     ・初期表示タブは犠牲にし、`newtab`からスタートすることで、UserFormなしで一応、可視化状態で制御可。※タブ化はしない
 '
 '   ★重要(既知の落とし穴、継承不可避)★
 '     ・全てのCOMコールバックはこのモジュールの機械語サンクを経由する。VBEでブレーク/
@@ -34,6 +27,8 @@ Option Explicit
 #Else
     #Error "このモジュールは64ビットVBA(x64)が必要です"
 #End If
+
+
 
 '***************************************************************************************************
 '                                   ■■■ SafeArray / PointerAccessor ■■■
@@ -66,6 +61,8 @@ Private Type PointerAccessor
     sa As SAFEARRAY_1D
 End Type
 
+
+
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
@@ -85,11 +82,6 @@ Private Declare PtrSafe Function VirtualQuery Lib "kernel32" ( _
     ByVal lpAddress As LongPtr, _
     ByRef lpBuffer As MEMORY_BASIC_INFORMATION, _
     ByVal dwLength As LongPtr) As LongPtr
-
-Private Declare PtrSafe Function GetLastError Lib "kernel32" () As Long
-
-Private Declare PtrSafe Function LoadLibraryW Lib "kernel32" ( _
-    ByVal lpLibFileName As LongPtr) As LongPtr
 
 ' --- oleaut32: DispCallFunc ---
 Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
@@ -144,6 +136,8 @@ Private Type MEMORY_BASIC_INFORMATION
     pad2 As Long
 End Type
 
+
+
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
@@ -173,6 +167,8 @@ Private Const HEADER_SIZE      As Long = 64
 Private Const REGION_SIZE      As Long = HEADER_SIZE + SLOT_SIZE * SLOT_COUNT
 Private Const THUNK_BUF_SIZE   As Long = 80
 
+
+
 '***************************************************************************************************
 '                                   ■■■ GUID型 / HandlerKind ■■■
 '***************************************************************************************************
@@ -190,6 +186,8 @@ Public Enum HandlerKind
     HK_CdpMethodCompleted = 3    ' ICoreWebView2CallDevToolsProtocolMethodCompletedHandler(通常版/ForSession版で共用)
     HK_CdpEventReceived = 4      ' ICoreWebView2DevToolsProtocolEventReceivedEventHandler(永続)
 End Enum
+
+
 
 '***************************************************************************************************
 '                                   ■■■ 各種モジュール変数 ■■■
@@ -212,63 +210,7 @@ Private m_loaderModule As LongPtr   ' EnsureWebView2LoaderResolvedが解決し�
 ' EntryPointスタブのソース(空Sub。AddressOfでVBAランタイム生成のトランポリンを取得するために存在)
 Private Sub EntryPoint(): End Sub
 
-'***************************************************************************************************
-'                              ■■■ WebView2Loader.dll 探索ヘルパー ■■■
-'***************************************************************************************************
-'* 機能　　：`WebView2Loader.dll`を実行時に探索し、既に読み込み済みのモジュールとして解決します
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：解決できたかの論理値
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：1. まず`LoadLibraryW("WebView2Loader.dll")`をベース名のみで試す
-'            2. 失敗したら、Excel(Power Query統合アドイン)に同梱されている実物を
-'               `%ProgramFiles%`/`%ProgramFiles(x86)%`配下の`Microsoft Office\root\Office*\
-'               ADDINS\Microsoft Power Query for Excel Integrated\bin\WebView2Loader.dll`から
-'               探索し、見つかった実パスで`LoadLibraryW`する
-'            3. 一度でも解決したら`m_loaderModule`にキャッシュし、以後は即`True`を返す
-'* 注意事項：ここでこのDLLを一度LoadLibraryしておくことで、以後の
-'            `Declare ... Lib "WebView2Loader.dll"`はこの既読み込み済みモジュールを
-'            ベース名一致で再利用する(Win32ローダーの標準動作)。
-'            見つからない場合、ダウンロード等のフォールバックは一切行わない
-'            (外部バイナリの配置禁止というCLAUDE.mdの制約に従う)
-'***************************************************************************************************
-Public Function EnsureWebView2LoaderResolved() As Boolean
-    If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
 
-    '1. 既に解決可能ならそれで良い
-    m_loaderModule = LoadLibraryW(StrPtr("WebView2Loader.dll"))
-    If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
-
-    '2. Power Query統合アドインに同梱されている実物を探す
-    Dim roots(1) As String
-    roots(0) = Environ$("ProgramFiles")
-    roots(1) = Environ$("ProgramFiles(x86)")
-
-    Dim r As Long, candidate As String
-    For r = 0 To 1
-        If LenB(roots(r)) = 0 Then GoTo NextRoot
-        candidate = FindPowerQueryLoaderUnder(roots(r))
-        If LenB(candidate) > 0 Then
-            m_loaderModule = LoadLibraryW(StrPtr(candidate))
-            If m_loaderModule <> 0 Then EnsureWebView2LoaderResolved = True: Exit Function
-        End If
-NextRoot:
-    Next r
-
-    '3. 見つからなかった(m_loaderModule = 0のまま)
-End Function
-
-Private Function FindPowerQueryLoaderUnder(root As String) As String
-    Dim officeRoot As String: officeRoot = root & "\Microsoft Office\root\"
-    Dim d As String: d = Dir$(officeRoot, vbDirectory)
-    Do While LenB(d) > 0
-        If d Like "Office*" Then
-            Dim candidate As String
-            candidate = officeRoot & d & "\ADDINS\Microsoft Power Query for Excel Integrated\bin\WebView2Loader.dll"
-            If LenB(Dir$(candidate)) > 0 Then FindPowerQueryLoaderUnder = candidate: Exit Function
-        End If
-        d = Dir$()
-    Loop
-End Function
 
 '***************************************************************************************************
 '                              ■■■ AcquireHandlerFor ■■■
@@ -302,6 +244,8 @@ Public Function AcquireHandlerFor( _
 
     Set AcquireHandlerFor = h
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ dcf(汎用vtable呼び出し) ■■■
@@ -379,6 +323,8 @@ Public Function ComAddRef(ByVal pInterface As LongPtr) As Long
     If pInterface <> 0 Then ComAddRef = dcf(pInterface, 1, "AddRef")
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ 文字列/プロパティヘルパー ■■■
 '***************************************************************************************************
@@ -412,6 +358,8 @@ Public Function GetStringProperty( _
         CoTaskMemFree pStr
     End If
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ Thunks_Init / AcquireSlot / ReleaseSlot / Shutdown ■■■
@@ -597,6 +545,8 @@ Private Function SlotIndexFromVTableObjAddr(ByVal pVTableObj As LongPtr) As Long
     SlotIndexFromVTableObjAddr = idx
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ サンクの機械語生成 ■■■
 '***************************************************************************************************
@@ -667,6 +617,8 @@ End Function
 Private Function GetAddr(ByVal addr As LongPtr) As LongPtr
     GetAddr = addr
 End Function
+
+
 
 '***************************************************************************************************
 '                              ■■■ IUnknownスタブ群(標準モジュール) ■■■
@@ -748,6 +700,8 @@ Private Function LongPtrLowDword(ByVal v As LongPtr) As Long
     End If
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ IIDテーブル ■■■
 '***************************************************************************************************
@@ -808,6 +762,8 @@ Private Function HexStrToInt(ByVal s As String) As Integer
     End If
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ 参照カウント管理 ■■■
 '***************************************************************************************************
@@ -850,6 +806,8 @@ Private Function HandlerReleaseInternal(ByVal This As LongPtr) As Long
     HandlerReleaseInternal = N
 End Function
 
+
+
 '***************************************************************************************************
 '                              ■■■ メモリプリミティブ(PointerAccessor経由) ■■■
 '***************************************************************************************************
@@ -888,6 +846,8 @@ End Function
 Private Sub WritePtrNatively(ByRef ptrs() As LONG_PTR, ByVal ptr As LongPtr)
     ptrs(0) = ptr
 End Sub
+
+
 
 '***************************************************************************************************
 '                              ■■■ センチネル機構(VBAリセット耐性) ■■■

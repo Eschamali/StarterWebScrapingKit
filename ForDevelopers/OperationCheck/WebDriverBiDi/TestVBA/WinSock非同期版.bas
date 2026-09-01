@@ -162,10 +162,10 @@ Public Function Main10_TryTakeAsyncCompletion( _
     End If
 
     'Drain currently available WinSock data without entering a response-wait loop.
-    browser.InheritanceWebDriverBiDiMode.TakeEvents True
+    browser.ThisWebDriverBiDiMode.TakeEvents True
 
     Dim rawJson As String
-    rawJson = browser.InheritanceWebDriverBiDiMode.TakeResultBiDi(commandId)
+    rawJson = browser.ThisWebDriverBiDiMode.TakeResultBiDi(commandId)
 
     'No result yet. The caller can return to Excel and check again later.
     If StrPtr(rawJson) = 0 Then Exit Function
@@ -302,7 +302,7 @@ Private Sub Main10_ReleaseBrowser()
     On Error Resume Next
 
     If Not g_Main10Browser Is Nothing Then
-        g_Main10Browser.InheritanceWebDriverBiDiMode.quit
+        g_Main10Browser.ThisWebDriverBiDiMode.quit
     End If
 
     Set g_Main10Browser = Nothing

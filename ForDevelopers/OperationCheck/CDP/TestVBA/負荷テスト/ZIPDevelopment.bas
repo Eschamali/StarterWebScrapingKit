@@ -7,34 +7,47 @@ Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
      ByVal pszPath As String, _
      ByVal psa As LongPtr) As Long
 
-Private Const WebSocketTest As Boolean = True
+Private Const TestType As Long = 0  '0:pipe,1:WebSocket,2:WebView2
 
 
 
 Sub Webブラウザ操作でZIPテスト()
     '設定シートに基づくブラウザ立ち上げ
+    Dim chrome As New CDPBrowser
     Dim ZIPテスト As CDPContext
-    If WebSocketTest Then
-        '---- WebSocket版 ----
-        '設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = ShSetting01_StartBrowser.CurrentUserName
+    Select Case TestType
+        Case 1
+            '---- WebSocket版 ----
+            '3. 設定セルから、ユーザ名を取得
+            Dim UserName As String
+            UserName = ShSetting01_StartBrowser.CurrentUserName
+        
+            '4. 指定のWebSocketForCDPへ接続
+            Dim WebSocketCDP As New CDPCoreViaWebSocket
+            Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+        
+            '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+            chrome.reattachWebSocket UserName, WebSocketCDP
+            Set ZIPテスト = chrome.newTab(setMain:=True)
 
-        '指定のWebSocketForCDPへ接続
-        Dim WebSocketCDP As New CDPCoreViaWebSocket
-        Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+        Case 2
+            '---- WebView2版 ----
+            With WebView2Form
+                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+                Set ZIPテスト = .ThisCDPContext
 
-        '繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-        Dim chrome As New CDPBrowser
-        If Not chrome.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-        Set ZIPテスト = chrome.newTab(setMain:=True)
-        '---------------------
-    Else
-        '---- Pipe版 ----
-        Set ZIPテスト = ShSetting01_StartBrowser.StartCDPModeContext
-        '----------------
-    End If
+                '1つ目のフォームを表示
+                .show False
+            End With
 
+        Case Else
+            '---- Pipe版 ----
+            Set chrome = ShSetting01_StartBrowser.StartCDPMode
+            Set ZIPテスト = chrome.getTab(setMain:=True)
+    End Select
+    
+
+    
     ' 1. zip.js (UMD版) を動的にロードするJSを実行
     Dim injectCode As String
     injectCode = "var script = document.createElement('script');" & _
@@ -89,7 +102,10 @@ Sub Webブラウザ操作でZIPテスト()
     '   returnByValue:=True で中身のデータを直接取得します。
     Dim resCDP As BiDiCDPJson
     Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
-    ZIPテスト.InheritanceCDPBrowser.quit
+
+    If TestType = 2 Then WebView2Form.hide
+    ZIPテスト.ThisCDPBrowser.quit
+    If TestType = 2 Then Unload WebView2Form
 
     '6．展開
     Dim ベース展開先 As String

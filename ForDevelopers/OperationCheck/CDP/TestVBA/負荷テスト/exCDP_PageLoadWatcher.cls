@@ -28,7 +28,7 @@ Private ex_CDPContext               As CDPContext   '継承元のタブ
 Private Const ThisClassName         As String = "exCDP_PageLoadWatcher"
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean      'デバッグメッセージ表示用
+Private currentLog                 As StateLog     'ログ設定
 Private EnableBrowserEvents         As Boolean      '非同期イベント処理を有効化するかのスイッチング
 Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
 
@@ -85,7 +85,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
     Select Case methodName
         Case "Page.loadEventFired"
             HasLoadedFlag = True
-            If seeRawSendMsgDbg Then printMsg Debug_, "`" & methodName & "` was detected.", FromProcedureName
+            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "`" & methodName & "` was detected.", FromProcedureName
 
         Case "Network.requestWillBeSent"
             NetworkEventCountValue = NetworkEventCountValue + 1
@@ -127,20 +127,20 @@ Public Function AutoWaitLoaded(Optional TimeOutSecond As Double = 30) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitLoaded"
 
 
-    Dim timerStart As Double: timerStart = TimerCounter
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
     Do
         If HasLoadedFlag Then
             AutoWaitLoaded = True
             Exit Function
         End If
 
-        If TimerCounter - timerStart > TimeOutSecond * 1000 Then
+        If CDPHelpers.TimerCounter - timerStart > TimeOutSecond * 1000 Then
             printMsg WARN_, "AutoWaitLoaded timed out.", FromProcedureName
             Exit Function
         End If
 
         TakeEvents  '内部でパイプをポンプします
-        sleep 0.05
+        CDPHelpers.Sleep 0.05
     Loop
 End Function
 
@@ -150,20 +150,15 @@ End Function
 '                           ■■■ `CDPContext/CDPBrowser/CDPCore`直通メソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    ex_CDPBrowser.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
-End Sub
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
     ex_CDPCore.TakeEvents StopPipeError, destruction
 End Sub
-
-Private Function TimerCounter() As Double
-    TimerCounter = ex_CDPCore.GetTicksMs
-End Function
 
 
 
@@ -178,8 +173,9 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
 
     'このタブのSessionIdを記録（他タブの非同期イベントを無視するため）
     CurrentSessionID = ex_CDPContext.CurrentSessionID
@@ -199,6 +195,5 @@ Private Sub Class_Initialize()
     'タブ非同期イベント処理を有効化
     EnableBrowserEvents = True
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "PLID" & Format(Rnd * 1000, "000")
 End Sub

@@ -156,7 +156,7 @@ Public Sub RunAll_jsEval_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
-    br.InheritanceCDPBrowser.quit
+    br.ThisCDPBrowser.quit
 End Sub
 
 '==============================================================================
@@ -543,12 +543,12 @@ Private Sub Test16_RunAsyncCDP_alert(br As CDPContext)
     Dim i As Long
     Dim found As Boolean
     For i = 1 To 100
-        br.InheritanceCDPBrowser.TakeEvents
+        br.ThisCDPBrowser.TakeEvents
         If br.BrowserEvents("EventMethods").Exists(evName) Then
             found = True
             Exit For
         End If
-        br.InheritanceCDPBrowser.sleep 0.05
+        CDPHelpers.sleep 0.05
     Next i
 
     If found Then

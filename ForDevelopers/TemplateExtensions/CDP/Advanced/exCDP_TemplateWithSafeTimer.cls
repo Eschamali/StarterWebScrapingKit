@@ -33,7 +33,7 @@ Attribute st.VB_VarHelpID = -1
 Private Const ThisClassName         As String = "exCDP_TemplateWithSafeTimer"
 
 'ステート管理
-Private seeRawSendMsgDbg            As Boolean      'ログ表示管理
+Private currentLog                 As StateLog     'ログ設定
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionId            As String       '`CDPContext.cls`継承時のSesssionID
 
@@ -190,17 +190,16 @@ End Sub
 '***************************************************************************************************
 '                           ■■■ `CDPContext,CDPBrowser`直通メソッド ■■■
 '***************************************************************************************************
-'* 機能　　：いちいち、`○○.sleep`といったチェーンメソッド記述を防ぐ措置となります。
+'* 機能　　：親クラスへの直通ラッパーです。
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：下記3つは一例ですが、必要に応じて削除や追加も可能です
+'* 詳細説明：下記は一例です。待機は`CDPHelpers.Sleep` / `CDPHelpers.TimerCounter`を直接使ってください。必要に応じて削除や追加も可能です
 '* 注意事項：各種メソッドを行う前後の処理等も出来ますが基本は、1行だけに留めておき、Private化すること
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    ex_CDPContext.printMsg LogLevel_, strMsg, From, isHeader, doRaiseError
-End Sub
+    Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
-Private Sub sleep(Optional seconds As Double = 0.5)
-    ex_CDPBrowser.sleep seconds
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
@@ -221,15 +220,16 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPBrowser = Inheritance.InheritanceCDPBrowser
-    Set ex_CDPCore = Inheritance.InheritanceCDPCore
+    Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
+    Set ex_CDPCore = Inheritance.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
 
     'SessionIdを取得
     CurrentSessionId = ex_CDPContext.CurrentSessionId
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ワークシートから、必要な設定値を適用します
+'* 機能　　：`LogID`を採番します
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
@@ -238,6 +238,5 @@ Private Sub Class_Initialize()
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    '設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)    'ブラウザから受信した生のJSONメッセージをイミディエイトに表示させるか？
+    currentLog.LogID = "STID" & Format(Rnd * 1000, "000")
 End Sub

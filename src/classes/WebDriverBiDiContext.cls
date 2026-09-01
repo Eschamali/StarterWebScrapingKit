@@ -40,7 +40,7 @@ Private InfoList As browsingContextInfo
 
 'その他
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
-Private LogID                   As String
+Private currentLog              As StateLog     'ログ設定
 
 
 
@@ -49,19 +49,15 @@ Private LogID                   As String
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させ、非同期イベント：`browsingContext.contextCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           使用ブラウザ名※現時点では、Edgeとchromeのみです
+'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
-'            KioskMode                      0(省略)：通常モード(キオスクモードは使いません)
-'                                           1      ：キオスクモード デジタル/対話型サイネージ
-'                                           2      ：キオスクモード パブリック ブラウジング
-'
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiModeAndConnectTab(Optional Name As String = "chrome", _
+Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, Optional KioskMode As edgeKioskType, _
+    Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
@@ -69,10 +65,10 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As String = "chrome", _
     Set m_BiDiMode = New WebDriverBiDiMode
 
     '2. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
-    m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, KioskMode, sessionCapabilitiesRequest
+    m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest
 
     '3. イベントを継承
-    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '4. タブの接続へ
     attachToContext
@@ -101,7 +97,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest, WebSocketMode) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
-    Set m_BiDiCore = m_BiDiMode.InheritanceBiDiCore
+    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -599,21 +595,17 @@ Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As B
 
 
     Dim strState As String, targetState As String
-    Select Case till
-        Case isLoading: targetState = "loading"
-        Case isInteractive: targetState = "interactive"
-        Case isComplete: targetState = "complete"
-    End Select
+    targetState = EnumToStringReadyState(till)
 
     '初期値を設定しておく
     '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = "loading"
+    strState = EnumToStringReadyState(isLoading)
 
     Do Until strState = targetState
         strState = jsEval("document.readyState", StopException:=dbgState)
         printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = "interactive" And strState = "complete" Then Exit Do   'also exit if better than interactive is satisfied
-        sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
+        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
     Loop
 
     printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
@@ -647,10 +639,10 @@ Public Function ConvertToCDPContext() As CDPContext
     Set ConvertToCDPContext = New CDPContext
     With ConvertToCDPContext
         '4. BiDiブラウザのパイプハンドル情報を渡す
-        Set .InheritanceCDPCore = m_BiDiCore.DirectControlCDP.InheritanceCDPCore
+        Set .ThisCDPCore = m_BiDiCore.DirectControlCDP.ThisCDPCore
 
         '5. BiDiブラウザ情報を渡す
-        Set .InheritanceCDPBrowser = m_BiDiCore.DirectControlCDP
+        Set .ThisCDPBrowser = m_BiDiCore.DirectControlCDP
 
         '6. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
@@ -675,16 +667,13 @@ End Property
 
 
 '***************************************************************************************************
-'                        ■■■ WebDriverBiDiCore.cls 直通メソッド ■■■
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
-    m_BiDiCore.printMsg LogLevel_, LogID, strMsg, From, isHeader, doRaiseError
-End Sub
+    Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
-Private Sub sleep(Optional seconds As Double = 0.5)
-    m_BiDiCore.sleep seconds
+
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -694,21 +683,25 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiMode.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiMode() As WebDriverBiDiMode
-    Set InheritanceWebDriverBiDiMode = m_BiDiMode
+Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
+    Set ThisWebDriverBiDiMode = m_BiDiMode
 End Property
-Property Set InheritanceWebDriverBiDiMode(Target As WebDriverBiDiMode)
+Property Set ThisWebDriverBiDiMode(Target As WebDriverBiDiMode)
     Set m_BiDiMode = Target
 End Property
 
 '***************************************************************************************************
 '* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ったり継承させます
 '***************************************************************************************************
-Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
-    Set InheritanceWebDriverBiDiCore = m_BiDiCore
+Property Get ThisWebDriverBiDiCore() As WebDriverBiDiCore
+    Set ThisWebDriverBiDiCore = m_BiDiCore
 End Property
-Property Set InheritanceWebDriverBiDiCore(Target As WebDriverBiDiCore)
+Property Set ThisWebDriverBiDiCore(Target As WebDriverBiDiCore)
+    '1. コア本体を継承
     Set m_BiDiCore = Target
+
+    '2. ログ設定もついでに継承
+    CDPHelpers.InheritLogSettings currentLog, Target.DirectControlCDP.ThisCDPCore.LogSettings
 End Property
 
 '***************************************************************************************************
@@ -727,8 +720,11 @@ End Property
 '                       ■■■ このClassオブジェクト生成/破棄時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
+
+
     'Assign an objID for easy debug identification
-    LogID = "BTID" & Format(Rnd * 1000, "000")
+    currentLog.LogID = "BTID" & Format(Rnd * 1000, "000")
 End Sub
 
 Private Sub Class_Terminate()

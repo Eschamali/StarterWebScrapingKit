@@ -42,7 +42,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.InheritanceCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
 End Sub
 
 
@@ -79,7 +79,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "Event.json"
@@ -94,7 +94,7 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/youtube/20200714b.htm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存しますが、無効中なので0バイトになります
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "NotEvent.json"
@@ -108,14 +108,14 @@ Sub ネットワークイベントの確認()
     Demo_NetworkEvent.navigate "http://officetanaka.net/index.stm"
 
     '先ほどのURL遷移で発生した非同期イベントを取り出す処理を行う
-    Demo_NetworkEvent.InheritanceCDPBrowser.TakeEvents
+    Demo_NetworkEvent.ThisCDPBrowser.TakeEvents
 
     'イベント情報をDownloadsフォルダに保存
     CharConvObj.BytesToSaveFile CharConvObj.BytesFromString(WebJsonConverter.serialize(Demo_NetworkEvent.BrowserEvents)), Environ("UserProfile") & "\Downloads", "EventFromSaveData.json"
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.InheritanceCDPBrowser.quit
+    Demo_NetworkEvent.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -135,25 +135,25 @@ Sub JapaneseElementTest()
     '日本語と絵文字入力テスト
     height.sendString "うみねこ！" & WorksheetFunction.Unichar(128566) & WorksheetFunction.Unichar(8205) & WorksheetFunction.Unichar(127787) & WorksheetFunction.Unichar(65039) & "みゃ～お！" & WorksheetFunction.Unichar(129442)  '日本語兼サロゲートペア絵文字入力テスト(U+1F636 U+200D U+1F32B U+FE0F、U+1F9A2)
     Demo_Japanese.notify "身長を入力しました" & WorksheetFunction.Unichar(129418)       '日本語兼絵文字通知表示テスト(U+1F98A)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     'ちゃんと数字で入力しなおす
     height.sendString "170.5"
     Demo_Japanese.notify "身長を入力し直しました" & WorksheetFunction.Unichar(128397) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+1F58D U+FE0F)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' 体重をセット
     Dim weight As CDPElement
     Set weight = Demo_Japanese.getElementByID("var_体重")
     weight.sendString "48.5"
     Demo_Japanese.notify "体重を入力しました" & WorksheetFunction.Unichar(9878) & WorksheetFunction.Unichar(65039)    '日本語兼サロゲートペア絵文字通知表示テスト(U+2696 U+FE0F)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' ボタンクリック
     Demo_Japanese.getElementByID("executebtn").SimpleClick
     Demo_Japanese.wait
     Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
-    Demo_Japanese.InheritanceCDPBrowser.sleep 3
+    CDPHelpers.Sleep 3
 
     ' 体脂肪率を取得
     Dim 体脂肪率 As Double
@@ -162,7 +162,7 @@ Sub JapaneseElementTest()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_Japanese.InheritanceCDPBrowser.quit
+    Demo_Japanese.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -194,16 +194,16 @@ Sub UseExtensions()
     Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
     Set CDPparams = New Dictionary
     CDPparams.Add "path", ExtensionsFolderPath
-    Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
+    Set ResultCDP = controlExtensions.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
 
     '読み込まれたか確認する
     '※コマンド実行に失敗すると、`nothing`で返るので、この仕様を利用します
     If ResultCDP Is Nothing Then
         'CDP-Json結果に`error`要素あり
-        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("code")
+        MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.quit
         Exit Sub
 
     ElseIf ResultCDP.ExistsKey("id") Then
@@ -213,19 +213,19 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.InheritanceCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.quit
     End If
 
 
     '拡張機能をアンインストール
     Set CDPparams = New Dictionary
     CDPparams.Add "id", ResultCDP("id")
-    Set ResultCDP = controlExtensions.InheritanceCDPBrowser.ExecuteCDP("Extensions.uninstall", CDPparams, False)
+    Set ResultCDP = controlExtensions.ThisCDPBrowser.ExecuteCDP("Extensions.uninstall", CDPparams, False)
 
     '消えたか確認する
     If ResultCDP Is Nothing Then
         'CDP-Json結果に`error`要素あり
-        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.InheritanceCDPBrowser.LastCDPJsonError("code")
+        MsgBox "拡張機能のアンインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
     Else
         MsgBox "拡張機能のアンインストールに成功しました。ブラウザをご確認ください。", vbInformation, "Uninstall Done!"
@@ -233,7 +233,7 @@ Sub UseExtensions()
 
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.InheritanceCDPBrowser.quit
+    controlExtensions.ThisCDPBrowser.quit
 End Sub
 
 '***************************************************************************************************
@@ -287,7 +287,7 @@ Sub TestAlert()
             Const SearchEventName As String = "Page.javascriptDialogOpening"
             Do
                 '非同期イベントを取り出す
-                .InheritanceCDPBrowser.TakeEvents
+                .ThisCDPBrowser.TakeEvents
 
                 'イベント名の確認
                 If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
@@ -325,33 +325,25 @@ Sub TestAlert()
         Dim Htmlの表示内容 As String: Htmlの表示内容 = .getElementByXPath("//*[@id='text']/p").innerText
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .InheritanceCDPBrowser.quit
+        .ThisCDPBrowser.quit
     End With
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：WebView2を使わず、ブラウザそのものを、ExcelUserFromに埋め込み、疑似WebView2を表現します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebView2らしさを追及するべく、キオスクモードで立ち上げ、URL遷移のみのユーザーフォームを起動します
-'* 注意事項：Edgeへの入力フォーカスが正しく認識できないため現状は、特定領域でのマウスフォーカスで妥協してます
+'* 機能　　：WebView2を起動します
 '***************************************************************************************************
-Sub ExcelのユーザーフォームにEdgeを埋め込む()
-    '1. CDPでEdgeを起動
-    Dim 実質WebView2 As CDPContext: Set 実質WebView2 = ShSetting01_StartBrowser.StartCDPModeContext(KioskMode:=fullscreen)
-    実質WebView2.navigate "https://github.com/Eschamali/StarterWebScrapingKit"      'このツールのリポジトリURLとして、遷移します
+Sub ExcelのユーザーフォームにWebView2を埋め込む()
+    '1. UserForm側のWebView2の初期化を済ませる
+    With WebView2Form
+        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
+                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
 
-    '2. フォームをロード（まだ表示はしない）
-    Load EdgeInExcelForm
+        '2. 遷移
+        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
 
-    '3. 誘拐（ドッキング）処理を実行させる！
-    実質WebView2.InheritanceCDPCore.sleep  'ちょこっとクールタイム
-    If Not (EdgeInExcelForm.AttachEdge(実質WebView2)) Then MsgBox "Edgeのハンドル情報の取得に失敗しました", vbCritical: Exit Sub
-
-    '4. フォームを表示
-    EdgeInExcelForm.show
-
-    '5. ブラウザを正常に閉じる
-    実質WebView2.InheritanceCDPBrowser.quit
+        '3. フォームを表示
+        .show
+    End With
 End Sub
 
 '***************************************************************************************************
@@ -386,7 +378,7 @@ Sub SimpleShadowRootTest()
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
         Do
             '非同期イベントを取り出す
-            .InheritanceCDPBrowser.TakeEvents
+            .ThisCDPBrowser.TakeEvents
 
             'イベント名の確認
             If .BrowserEvents("EventMethods").Exists(SearchEventName) Then
@@ -399,7 +391,7 @@ Sub SimpleShadowRootTest()
                 Next
 
                 '1件、見つかったので少し待って、抜ける
-                .InheritanceCDPBrowser.sleep 2
+                CDPHelpers.Sleep 2
                 Exit Do
             End If
         Loop While True
@@ -408,10 +400,10 @@ Sub SimpleShadowRootTest()
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "accept", True
         .ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
-        .InheritanceCDPBrowser.sleep
+        CDPHelpers.Sleep
 
         '8. ブラウザを正常に閉じる
-        .InheritanceCDPBrowser.quit
+        .ThisCDPBrowser.quit
     End With
 End Sub
 
@@ -432,12 +424,12 @@ Sub iframeShadowRootTest()
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
 
         '4. 少し待って、閉じる
-        .sleep 2
+        CDPHelpers.Sleep 2
         .quit
     End With
 End Sub
 
-Sub runEdge()
+Sub RunChromium()
 '------------------------------------------------------
 ' This is an example of how to use the browser classes
 ' This demo tries to access a webpage of a famous movie
@@ -506,7 +498,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.InheritanceCDPBrowser.quit
+    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -544,7 +536,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.InheritanceCDPBrowser.quit
+    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -561,11 +553,11 @@ Sub runTabsAsOne()
 
    'Automate Tabs
     chrome.Url = "https://google.com"   'or [chrome.navigate "https://google.com"]
-    chrome.InheritanceCDPBrowser.newTab "https://sg.yahoo.com"
-    chrome.InheritanceCDPBrowser.newTab "https://bing.com"
+    chrome.ThisCDPBrowser.newTab "https://sg.yahoo.com"
+    chrome.ThisCDPBrowser.newTab "https://bing.com"
 
    'Resize to complete
-    chrome.InheritanceCDPBrowser.sleep    'ちょこっとクールタイムが必要みたい
+    CDPHelpers.Sleep    'ちょこっとクールタイムが必要みたい
     chrome.show xywh:="0 20 1000 700"
 
 End Sub
@@ -636,7 +628,7 @@ Sub runNewTab()
 
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
-    Set targetTab = chrome.InheritanceCDPBrowser.getTab
+    Set targetTab = chrome.ThisCDPBrowser.getTab
     targetTab.wait
 
    'Feed the top news title for today
@@ -752,8 +744,8 @@ Sub switchMain()
 
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
-    chrome.InheritanceCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
-    chrome.InheritanceCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
+    chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
+    chrome.ThisCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub
@@ -836,7 +828,7 @@ End Sub
 '* 機能　　：ブラウザのパイプハンドルの接続まで担うリアタッチです
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、ブラウザの接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
-'            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
+'            ・ブラウザのパイプハンドルが生きてない場合は、VBAエラーになります。`demoReattachmentPart1`からやり直しです
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
     Dim c As New CDPBrowser
@@ -846,8 +838,8 @@ Sub demoReattachmentPart2ForBrowser()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '1. Excelに記録されてるパイプハンドル情報の生存確認
-    If Not c.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。パイプハンドル情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    '1. Excelに記録されてるパイプハンドル情報から復旧を試みる
+    c.reattachPipe UserName
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -872,7 +864,7 @@ Sub demoReattachmentPart2ForTab()
 
     '1. Excelに記録されてる`TargetID`の生存確認
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-    If Not c.reattach(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
@@ -885,7 +877,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：タブ/ブラウザ/今目の前のブラウザ の3種のDemoをご用意しております
+'* 詳細説明：タブへ接続します
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
 '            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
@@ -898,9 +890,9 @@ Sub AutoConnectTab()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim t As New CDPContext
-    If Not t.reattach(UserName, , WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
     '4. ページ遷移
     t.navigate "https://www.youtube.com/@islandfox6864"
@@ -909,24 +901,22 @@ Sub AutoConnectTab()
     WebSocketCDP.DisconnectCDP
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ローカルブラウザ起動から一通りの制御を行います
+'***************************************************************************************************
 Sub AutoConnectBrowser()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 指定のWebSocketForCDPへ接続
+    '2. WebSocket制御で、ブラウザを起動
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    Dim BrowserControl As CDPBrowser
+    Set BrowserControl = WebSocketCDP.RunWebSocketModeBrowserCDP(IIf(ShSetting01_StartBrowser.UseRangeID(4, "Demo_CDP.AutoConnectBrowser"), BrowserList.RunChrome, BrowserList.RunEdge), , UserName, ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.AutoConnectBrowser"))
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-    Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-
-    '4. 未接続のタブに接続
+    '3. 未接続のタブに接続
     Dim t As CDPContext
-    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-'    Set t = b.getTab(setMain:=True)
-    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+    Set t = BrowserControl.getTab(setMain:=True)
 
     '5. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
@@ -935,29 +925,27 @@ Sub AutoConnectBrowser()
     WebSocketCDP.DisconnectCDP
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：今、目の前のブラウザを制御します
+'***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
-    '1. 設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    '2. 指定のWebSocketForCDPへ接続
+    '1. 指定のWebSocketForCDPへ接続
+    '※「edge://inspect/#remote-debugging」にて事前準備が必要です
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort(UserName)
+    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort
 
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    b.reattachWebSocket "User Data", WebSocketCDP
 
-    '4. 未接続のタブに接続
+    '3. 未接続のタブに接続
     Dim t As CDPContext
-    '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-'    Set t = b.getTab(setMain:=True)
     Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
 
-    '5. ページ遷移
+    '4. ページ遷移
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
 
-    '6. WebSocketから切断
+    '5. WebSocketから切断
     WebSocketCDP.DisconnectCDP
 End Sub
 
@@ -974,7 +962,8 @@ End Sub
 '***************************************************************************************************
 Sub OpenExcelWebView2()
     '1. デバッグ用のポートをOpen
-    ShSetting01_StartBrowser.EnsureWebView2Debug = 9222
+    Dim HelpWebView2 As New CDPCoreViaWebSocket
+    HelpWebView2.EnsureWebView2DebugPort = 9222
 
     '2. Helpを開いて、疑似的にWebView2を始動させる
     CommandBars.ExecuteMso "Help"
@@ -984,12 +973,11 @@ Sub OpenExcelWebView2()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '4. 指定のWebSocketForCDPへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    Debug.Print HelpWebView2.AutoConnectBrowserCDP(UserName)
 
-    '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '5. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    If Not b.reattach(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    b.reattachWebSocket UserName, HelpWebView2
 
     '6. 新しいタブに接続
     Dim t As CDPContext
@@ -999,6 +987,6 @@ Sub OpenExcelWebView2()
     t.navigate "https://www.youtube.com/@humboldtpenguin2619"
 
     '8. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
-    ShSetting01_StartBrowser.EnsureWebView2Debug = 0
+    HelpWebView2.DisconnectCDP
+    HelpWebView2.EnsureWebView2DebugPort = -1
 End Sub

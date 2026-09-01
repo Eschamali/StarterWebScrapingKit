@@ -14,10 +14,7 @@ Attribute VB_Exposed = False
 '   WebView2はForm/Env/Controller/Viewという生成順序・Releaseチェーンが伴うため、
 '   CDP送受信ロジックと混ぜるとClass_Terminateの順序管理が事故りやすいためです)。
 '
-'   ホスト用の親ウィンドウは、UserForm(.frm/.frx)を使わず、システム標準の"Static"
-'   ウィンドウクラスで非表示ネイティブウィンドウを都度生成する方式を採用しています
-'   (このプロジェクトはCDP専用でWebView2を可視化する必要がなく、.frxバイナリを
-'   手作業で正しく生成するのは事故のリスクが高いため)。
+'   ホスト用の親ウィンドウは、利用者が使いたいハンドルを指定する方式です。
 '
 '   ★注意(既知の落とし穴、継承不可避)★
 '     コールバック待ち中(このClassのInit実行中?完了まで)にVBEでブレーク/ステップ
@@ -27,29 +24,36 @@ Option Explicit
 
 
 
-'***************************************************************************************************
-'                                   ■■■ WindowsAPI宣言 ■■■
-'***************************************************************************************************
-' --- WebView2Loader.dll ---
-'   Excel(Power Query)に同梱されている実物を`EnsureWebView2LoaderResolved`で
-'   事前にLoadLibraryしておくことで、この`Declare`はその既読み込み済みモジュールを
-'   ベース名で再利用する(Win32ローダーの標準動作)。
-Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader.dll" ( _
-    ByVal browserExecutableFolder As LongPtr, _
-    ByVal userDataFolder As LongPtr, _
-    ByVal additionalBrowserArguments As LongPtr, _
-    ByVal environmentCreatedHandler As LongPtr) As Long
-
-Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMilliseconds As Long)
-
-
-
 #If Win64 Then
     ' OK
 #Else
     #Error "このクラスは64ビットVBA(x64)が必要です"
 #End If
 
+
+
+'***************************************************************************************************
+'                                   ■■■ WindowsAPI宣言 ■■■
+'***************************************************************************************************
+Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader" ( _
+    ByVal browserExecutableFolder As LongPtr, _
+    ByVal userDataFolder As LongPtr, _
+    ByVal additionalBrowserArguments As LongPtr, _
+    ByVal environmentCreatedHandler As LongPtr) As Long
+
+'DJP 20241105 to solve problems with terminating sessions on terminal server
+Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
+    ) As Long
+
+Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
+    ByVal dwProcessId As Long, _
+    ByRef pSessionId As Long) As Long
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 各種定数 ■■■
+'***************************************************************************************************
 Public Enum WebView2HostState
     Whs_Created = 0
     Whs_Waiting = 1
@@ -57,32 +61,40 @@ Public Enum WebView2HostState
     Whs_Failed = 3
 End Enum
 
-Private Const ClassNameStatic As String = "Static"
-Private Const InitWaitBudget  As Long = 1000   ' DoEventsを回す上限回数(残量チェックが出来ないための保険)
-
-Private m_hostHwnd     As LongPtr
-Private m_pEnvironment As LongPtr
-Private m_pController  As LongPtr
-Private m_pView        As LongPtr
-
-Private m_envHandler  As CDPWebView2CallbackHandler
-Private m_ctrlHandler As CDPWebView2CallbackHandler
-
-Private m_envState  As WebView2HostState
-Private m_ctrlState As WebView2HostState
-Private m_lastError As Long
-Private m_closed    As Boolean
 
 '***************************************************************************************************
-'                              ■■■ 初期化/後始末 ■■■
+'                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private Sub Class_Initialize()
-    m_envState = Whs_Created
-    m_ctrlState = Whs_Created
-End Sub
+Private m_hostHwnd      As LongPtr
+Private m_pEnvironment  As LongPtr
+Private m_pController   As LongPtr
+Private m_pView         As LongPtr
+Private m_pSettings     As LongPtr
 
-Private Sub Class_Terminate()
-    If Not m_closed Then CLOSE_
+Private m_envHandler    As CDPWebView2CallbackHandler
+Private m_ctrlHandler   As CDPWebView2CallbackHandler
+
+Private m_envState      As WebView2HostState
+Private m_ctrlState     As WebView2HostState
+
+Private m_lastError     As Long
+Private m_closed        As Boolean
+
+Private WebView2UserDataDirPath As String
+
+
+
+'***************************************************************************************************
+'                                   ■■■ 起動前準備 ■■■
+'***************************************************************************************************
+'* 機能　　：このClassが機能する必要な情報を渡します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'            AttachHwnd WebView2を貼り付けるハンドル
+'***************************************************************************************************
+Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
+    WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName   'Officeのルールに従うようなパスにしておく
+    m_hostHwnd = AttachHwnd
 End Sub
 
 '***************************************************************************************************
@@ -90,33 +102,20 @@ End Sub
 '            完了まで同期的に待って実行します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功可否
-'* 引数　　：userDataPath   WebView2のユーザーデータフォルダ(省略時は%TEMP%\CDPWebView2)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`InitInfo`にて、情報を渡すこと
 '***************************************************************************************************
-Public Function Init(Optional userDataPath As String) As Boolean
-    Const FromProcedureName As String = "CDPWebView2Host.Init"
+Public Function RunWebView2() As Boolean
+    Const FromProcedureName As String = "CDPWebView2Host.RunWebView2"
 
+
+    '1. 2重インスタンス保持はさせない
     If m_envState <> Whs_Created Then
         Debug.Print FromProcedureName & ": 二重呼び出しは不可です"
         Exit Function
     End If
 
-    '1. WebView2Loader.dllの解決
-    If Not CDPWebView2Thunks.EnsureWebView2LoaderResolved() Then
-        Debug.Print FromProcedureName & ": WebView2Loader.dllが見つかりませんでした。" & _
-                    "Power Query for Excelが導入されているか確認してください。"
-        m_envState = Whs_Failed
-        Exit Function
-    End If
-
-    '2. Excelのハンドルを直接使用する
-    m_hostHwnd = Application.hWnd
-
-    '3. Environment作成
-    Dim Path As String
-    Path = userDataPath
-    If LenB(Path) = 0 Then Path = Environ$("TEMP") & "\CDPWebView2"
-    EnsureFolderExists Path
-
+    '2. Environment作成
     Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
     If m_envHandler Is Nothing Then
         Debug.Print FromProcedureName & ": Environment用ハンドラのAcquireに失敗しました"
@@ -127,12 +126,12 @@ Public Function Init(Optional userDataPath As String) As Boolean
     Dim pEnvHandlerObj As LongPtr
     pEnvHandlerObj = m_envHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
 
-    '重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
+    '3. 重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
     'コールバックを発火させるケースがあるため(実機で確認済みの罠)
     m_envState = Whs_Waiting
 
     Dim hr As Long
-    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(Path), 0, pEnvHandlerObj)
+    hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(WebView2UserDataDirPath), 0, pEnvHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2EnvironmentWithOptions失敗 hr=&H" & Hex(hr)
         m_envState = Whs_Failed
@@ -183,39 +182,34 @@ Public Function Init(Optional userDataPath As String) As Boolean
     End If
     m_pView = pv
 
-    '6. CDP専用のため、非表示・最小サイズのまま維持する
-    Dim rc As CDPWebView2Thunks.RECT
-    rc.Left = 0: rc.Top = 0: rc.Right = 4: rc.Bottom = 4
-    CDPWebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)          ' put_Bounds
-    CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(0)          ' put_IsVisible(False)
+    '6. ICoreWebView2Settingsを取得(View::get_Settings、vtable index 3)
+    '   ★毎回取得/解放していると呼び出しごとにQI相当のオーバーヘッドが発生するため、
+    '   ここで1回だけ取得してキャッシュし、`CLOSE_`でまとめて解放する方式に統一する。
+    '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_pSettings=0`の
+    '   ままにする(DevToolsEnabled等の各プロパティは0ガードで静かに無視するだけなので安全)。
+    Dim ps As LongPtr
+    hr = CDPWebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
+    If hr = 0 And ps <> 0 Then m_pSettings = ps
 
-    Init = True
+    '7. 成功サインを返す
+    RunWebView2 = True
 End Function
 
 '* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
+    Const MaxTick As Long = 100 '無難に10.0s待機
+
+
     Dim tick As Long
-    Do While state = Whs_Waiting And tick < InitWaitBudget
+    Do While state = Whs_Waiting And tick < MaxTick
         DoEvents
-        sleep2 1
+        CDPHelpers.Sleep 0.1
         tick = tick + 1
     Loop
     WaitFor = (state <> Whs_Waiting)
 End Function
 
-Private Sub EnsureFolderExists(ByVal Path As String)
-    If LenB(Path) = 0 Then Exit Sub
-    Dim parentDir As String
-    Dim slashPos As Long
-    slashPos = InStrRev(Path, "\")
-    If slashPos > 0 Then
-        parentDir = Left$(Path, slashPos - 1)
-        If LenB(parentDir) > 0 Then
-            If Dir(parentDir, vbDirectory) = "" Then MkDir parentDir
-        End If
-    End If
-    If Dir(Path, vbDirectory) = "" Then MkDir Path
-End Sub
+
 
 '***************************************************************************************************
 '                              ■■■ 完了コールバック(Public Sub必須) ■■■
@@ -246,6 +240,8 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
     Set m_ctrlHandler = Nothing  ' 1ショットハンドラパターン
 End Sub
 
+
+
 '***************************************************************************************************
 '                              ■■■ 明示的な後始末 ■■■
 '***************************************************************************************************
@@ -259,6 +255,10 @@ Public Sub CLOSE_()
 
     If m_pController <> 0 Then
         CDPWebView2Thunks.dcf m_pController, 24, "Ctrl.Close"
+    End If
+    If m_pSettings <> 0 Then
+        CDPWebView2Thunks.ComRelease m_pSettings
+        m_pSettings = 0
     End If
     If m_pView <> 0 Then
         CDPWebView2Thunks.ComRelease m_pView
@@ -277,7 +277,43 @@ Public Sub CLOSE_()
 End Sub
 
 '***************************************************************************************************
-'                              ■■■ プロパティ群 ■■■
+'* 機能　　：新しいWebView2セッションを開始する前にクリーンアップを行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・基本は対象WebView2の`user-data-dir`に属するプロセスのみを終了します
+'            ・コマンドライン引数に加えて、ターミナルサーバー上で (このユーザーに属さない) セッションを閉じる際の問題も解決しています
+'***************************************************************************************************
+Public Sub cleanUpSessions()
+    '1. 今、Excelが動いてるプロセスIDとそのログインユーザーのセッションIDを取得します
+    Dim lProcessId As Long, lSessionId As Long
+    lProcessId = GetCurrentProcessId()          'Get the current(Excel) process ID
+    ProcessIdToSessionId lProcessId, lSessionId 'Get the Session ID for the current(Excel) process
+
+    '2. WebView2のexe名 ※1つしかないので固定値
+    Const exeName As String = "msedgewebview2.exe"
+
+    '3. 起動中のプロセスを巡る
+    Dim proc As Object
+    On Error Resume Next
+    For Each proc In GetObject("winmgmts:").ExecQuery("Select * from Win32_Process Where SessionId = " & lSessionId)
+        '4. 起動中のブラウザ名であるか確認
+        If LCase$(proc.Name) = LCase$(exeName) Then
+            '5. Killタイプ判定
+            If InStr(1, proc.CommandLine, "--user-data-dir=""" & WebView2UserDataDirPath & Chr(34)) > 0 Then
+                '6. 対象ユーザー名のWebView2なら、Killします
+                proc.Terminate
+            End If
+        End If
+        DoEvents
+    Next
+    On Error GoTo 0
+    Err.Clear
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                                       ■■■ プロパティ群 ■■■
 '***************************************************************************************************
 Public Property Get ViewPtr() As LongPtr
     ViewPtr = m_pView
@@ -290,3 +326,84 @@ End Property
 Public Property Get LastError() As Long
     LastError = m_lastError
 End Property
+
+Public Property Get LastErrorMessage() As String
+    LastErrorMessage = WinApiError.GetMessage(m_lastError, "WebView2Loader")
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2Controller 一式 ■■■
+'***************************************************************************************************
+'* 機能　　：リサイズ処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：WV2_Right      横の長さ
+'            WV2_Bottom     縦の長さ
+'            WV2_Top        上端からのオフセット値
+'            WV2_Left       左端からのオフセット値
+'***************************************************************************************************
+Public Sub Resize(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long)
+    '1. ひとまとまりにする
+    Dim rc As CDPWebView2Thunks.RECT
+    rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
+
+    '2. リサイズ
+    CDPWebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：表示/非表示切り替え
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Web描画の表示/非表示
+'***************************************************************************************************
+Property Let Visible(v As Boolean)
+    CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
+End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2Settings 一式 ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2Settings
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：DevTools(F12キー・右クリック「検証」から起動するWebView2内蔵のDevToolsウィンドウ)の
+'            起動可否を切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`ICoreWebView2Settings::put_AreDevToolsEnabled`はブラウザ上のDevTools UIのみを
+'            制御するものであり、このプロジェクトが依存するCDPリモートデバッグ
+'            (`--remote-debugging-pipe`)経由の自動操作には一切影響しません
+'***************************************************************************************************
+Property Let DevToolsEnabled(v As Boolean)
+    If m_pSettings = 0 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定の右クリックコンテキストメニューの表示可否を切り替えます
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let ContextMenuEnabled(v As Boolean)
+    If m_pSettings = 0 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
+End Property
+
+
+
+'***************************************************************************************************
+'                              ■■■ 初期化/後始末 ■■■
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    m_envState = Whs_Created
+    m_ctrlState = Whs_Created
+End Sub
+
+Private Sub Class_Terminate()
+    If Not m_closed Then CLOSE_
+End Sub
