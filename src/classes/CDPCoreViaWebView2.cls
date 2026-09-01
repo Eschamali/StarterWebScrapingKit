@@ -715,6 +715,21 @@ Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
     m_Host.WebViewScriptApisEnabledForServiceWorkers = v
 End Property
 
+'***************************************************************************************************
+'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionFolderPath  拡張機能の`manifest.json`を含むトップフォルダの絶対パス
+'* 返り値  ：インストールされた拡張機能のID(失敗時は空文字)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 事前に`AreBrowserExtensionsEnabled = True`を設定して`ConnectCDP`していないと
+'            `ERROR_NOT_SUPPORTED`で失敗します。CDPの`Extensions.loadUnpacked`はWebView2では
+'            使えない(`Method not available`)ため、この専用APIを使う必要があります
+'***************************************************************************************************
+Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
+    If m_Host Is Nothing Then Exit Function
+    AddBrowserExtension = m_Host.AddBrowserExtension(extensionFolderPath)
+End Function
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の機能制限系
 '---------------------------------------------------------------------------------------------------

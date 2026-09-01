@@ -80,10 +80,15 @@ Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterface�
 'COMコールバック系
 Private m_envHandler    As CDPWebView2CallbackHandler
 Private m_ctrlHandler   As CDPWebView2CallbackHandler
+Private m_addExtHandler As CDPWebView2CallbackHandler
 
 '状態値
 Private m_envState      As WebView2HostState
 Private m_ctrlState     As WebView2HostState
+Private m_addExtState   As WebView2HostState
+
+'`AddBrowserExtension`の結果(`OnAddBrowserExtensionCompleted`が書き込む)
+Private m_addExtResultId As String
 
 Private m_lastError     As Long
 Private m_closed        As Boolean
@@ -409,6 +414,25 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
         m_ctrlState = Whs_Failed
     End If
     Set m_ctrlHandler = Nothing  ' 1ショットハンドラパターン
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`AddBrowserExtension`の完了コールバックです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`pResult`(ICoreWebView2BrowserExtension*)は借用ポインタ(このコールバックの間だけ
+'            有効。WebView2側が呼び出し後にReleaseする)。`get_Id`(vtableスロット3)を読むだけで
+'            AddRef/Releaseは行わない
+'***************************************************************************************************
+Public Sub OnAddBrowserExtensionCompleted(ByVal ErrorCode As Long, ByVal pResult As LongPtr)
+    m_lastError = ErrorCode
+    If ErrorCode = 0 And pResult <> 0 Then
+        m_addExtResultId = CDPWebView2Thunks.GetStringProperty(pResult, 3, "BrowserExtension.get_Id")
+        m_addExtState = Whs_Ready
+    Else
+        m_addExtResultId = ""
+        m_addExtState = Whs_Failed
+    End If
+    Set m_addExtHandler = Nothing   ' 1ショットハンドラパターン
 End Sub
 
 
@@ -917,6 +941,57 @@ Property Let ProfileGeneralAutofillEnabled(v As Boolean)
     If m_profileLevel < 6 Then Exit Property
     CDPWebView2Thunks.dcf m_pProfile, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
 End Property
+
+'***************************************************************************************************
+'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionFolderPath  拡張機能の`manifest.json`を含むトップフォルダの絶対パス
+'* 返り値  ：インストールされた拡張機能のID(失敗時は空文字。詳細は`LastError`/`LastErrorMessage`)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`EnvironmentOptions.AreBrowserExtensionsEnabled=True`でEnvironmentを作成していないと
+'              `ERROR_NOT_SUPPORTED`で失敗します(SDK仕様)
+'            ・`ICoreWebView2::CallDevToolsProtocolMethod`経由の`Extensions.loadUnpacked`は
+'              WebView2では`Method not available`で拒否されるため、本メソッド(SDK公式API)を
+'              使う必要がある
+'***************************************************************************************************
+Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
+    Const FromProcedureName As String = "CDPWebView2Host.AddBrowserExtension"
+
+
+    If m_profileLevel < 7 Then
+        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
+        Exit Function
+    End If
+
+    Set m_addExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
+    If m_addExtHandler Is Nothing Then
+        Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
+        Exit Function
+    End If
+
+    Dim pHandlerObj As LongPtr
+    pHandlerObj = m_addExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+
+    m_addExtResultId = ""
+    m_addExtState = Whs_Waiting
+
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
+                               StrPtr(extensionFolderPath), pHandlerObj)
+    If hr <> 0 Then
+        Debug.Print FromProcedureName & ": AddBrowserExtension失敗 hr=&H" & Hex(hr)
+        m_lastError = hr
+        m_addExtState = Whs_Failed
+        Exit Function
+    End If
+
+    If Not WaitFor(m_addExtState) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    AddBrowserExtension = m_addExtResultId
+End Function
 
 '***************************************************************************************************
 '* 機能　　：Service Worker内からWebView固有のスクリプトAPIを使えるようにするか切り替えます

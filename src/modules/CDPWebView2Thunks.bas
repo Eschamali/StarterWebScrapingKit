@@ -215,6 +215,8 @@ Public Enum HandlerKind
     HK_EnvOpt_PutAllowSingleSignOnUsingOSPrimaryAccount = 12
     HK_EnvOpt_GetAreBrowserExtensionsEnabled = 13
     HK_EnvOpt_PutAreBrowserExtensionsEnabled = 14
+
+    HK_AddBrowserExtensionCompleted = 15   ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
 End Enum
 
 
@@ -237,7 +239,7 @@ Private m_freeNext()  As Long
 Private m_inUse       As Long
 
 Private m_handlers(0 To SLOT_COUNT - 1) As CDPWebView2CallbackHandler
-Private m_iidTable(HK_None To HK_CdpEventReceived) As GUID
+Private m_iidTable(HK_None To HK_AddBrowserExtensionCompleted) As GUID
 Private m_iidIUnknown As GUID
 
 ' --- EnvOptが実装するインターフェースのIID ---
@@ -1053,6 +1055,10 @@ Private Sub InitIIDTable()
 
     ' ICoreWebView2EnvironmentOptions6
     FillGUID m_iidEnvOptOpts6, "57d29cc3-c84f-42a0-b0e2-effbd5e179de"
+
+    ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
+    FillGUID m_iidTable(HK_AddBrowserExtensionCompleted), _
+             "df1aab27-82b9-4ab6-aae8-017a49398c14"
 End Sub
 
 '* 機能　　："xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"形式の文字列からGUID構造体を埋めます

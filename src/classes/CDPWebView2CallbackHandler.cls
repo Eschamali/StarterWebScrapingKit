@@ -193,6 +193,16 @@ Public Function Handler_Invoke( _
         Case HK_EnvOpt_PutAreBrowserExtensionsEnabled
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAreBrowserExtensionsEnabled arg1
 
+        Case HK_AddBrowserExtensionCompleted
+            ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
+            '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
+            Dim errorCode4 As Long
+            errorCode4 = LongPtrLowDword(arg1)
+
+            If Not (m_owner Is Nothing) Then
+                m_owner.OnAddBrowserExtensionCompleted errorCode4, arg2
+            End If
+
         Case Else
             Debug.Print "CDPWebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind
     End Select
