@@ -203,7 +203,12 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         .cleanUpSessions
 
         '3-3. 保留中のEnvironmentオプションを反映(`RunWebView2`より前でなければ意味がない)
-        .EnvironmentOptions.AreBrowserExtensionsEnabled = m_pendingAreBrowserExtensionsEnabled
+        '     ★重要★ 実際に使う場合のみ`.EnvironmentOptions`へ触れる。未使用なら触れないことで
+        '     (`CDPWebView2Host`内で遅延生成される)ネイティブfakeオブジェクトを一切構築せず、
+        '     従来通り`environmentOptions=nullptr`のまま接続する(EnvOpt関連の不具合調査中の保険)
+        If m_pendingAreBrowserExtensionsEnabled Then
+            .EnvironmentOptions.AreBrowserExtensionsEnabled = True
+        End If
 
         '3-4. 起動！
         RunRes = .RunWebView2
