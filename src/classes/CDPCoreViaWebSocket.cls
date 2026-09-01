@@ -1084,7 +1084,7 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
 
     '4. うまいぐあいに、接続パラメーターを取り出す
     Dim browserID As String
-    browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
+    browserID = Right$(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos)
 
     '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
     If ReuseContext Then
