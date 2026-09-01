@@ -331,17 +331,23 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：WebView2を起動します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
 '***************************************************************************************************
 Sub ExcelのユーザーフォームにWebView2を埋め込む()
     '1. UserForm側のWebView2の初期化を済ませる
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
+        If Not .StartCDPModeWebView2(addArgs:=ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む")) Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
                                                         "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
 
-        '2. 遷移
+        '2. 事前設定を施す(任意)
+        .ThisWebView2.DevToolsEnabled = False
+        .ThisWebView2.ContextMenuEnabled = False
+
+        '3. ページ遷移
         .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
 
-        '3. フォームを表示
+        '4. フォームを表示
         .show
     End With
 End Sub

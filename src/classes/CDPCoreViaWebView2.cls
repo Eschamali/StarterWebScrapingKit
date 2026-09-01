@@ -57,6 +57,13 @@ Option Explicit
 
 
 '***************************************************************************************************
+'                               ■■■ 必要なWindowsAPI定義 ■■■
+'***************************************************************************************************
+Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'WebView2用追加起動引数設定用
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ThisClassName         As String = "CDPCoreViaWebView2"                    'ログのトレース用
@@ -515,6 +522,32 @@ End Function
 '***************************************************************************************************
 '                                ■■■ WebView2の挙動変更 ■■■
 '***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] `EnvironmentOptions`相当
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：WebView2に追加引数を渡します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：args   `--`始まりの引数群。`vbnullstring`でクリア可能です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：現時点では、VBAで作った「EnvironmentOptions のVTable」への直設定はできない(E_INVALIDARG)ようなので、
+'            Process内環境変数で代用してます
+'***************************************************************************************************
+Property Let EnvironmentOptions(args As String)
+    Const FromProcedureName As String = ThisClassName & ".EnvironmentOptions"
+    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+
+
+    If StrPtr(args) Then
+        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr(args)
+        printMsg info_, "Additional startup arguments for WebView2: " & args, FromProcedureName
+
+    Else
+        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
+        printMsg info_, "There are no additional startup arguments for WebView2.", FromProcedureName
+    End If
+End Property
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の構成系
 '---------------------------------------------------------------------------------------------------
