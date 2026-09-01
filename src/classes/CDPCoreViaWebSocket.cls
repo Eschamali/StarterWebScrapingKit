@@ -1267,11 +1267,11 @@ Property Let EnsureWebView2DebugPort(port As Long)
 
     If port >= 0 Then
         SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
-        printMsg info_, "WebView2のデバッグポートを開けました: " & port, FromProcedureName
+        printMsg info_, "I opened the debug port for WebView2: " & port, FromProcedureName
 
     Else
         SetEnvironmentVariableW StrPtr(EnvironmentName), 0
-        printMsg info_, "WebView2のデバッグポートを閉じました", FromProcedureName
+        printMsg info_, "I closed the debug port for WebView2.", FromProcedureName
 
     End If
 End Property
