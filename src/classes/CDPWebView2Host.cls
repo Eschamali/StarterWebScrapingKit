@@ -70,6 +70,7 @@ Private m_pEnvironment  As LongPtr
 Private m_pController   As LongPtr
 Private m_pView         As LongPtr
 Private m_pSettings     As LongPtr
+Private m_settingsLevel As Long   ' `m_pSettings`が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
 Private m_controllerLevel As Long ' `m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
 
 Private m_envHandler    As CDPWebView2CallbackHandler
@@ -190,11 +191,54 @@ Public Function RunWebView2() As Boolean
     '   ままにする(DevToolsEnabled等の各プロパティは0ガードで静かに無視するだけなので安全)。
     Dim ps As LongPtr
     hr = CDPWebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
-    If hr = 0 And ps <> 0 Then m_pSettings = ps
+    If hr = 0 And ps <> 0 Then
+        m_pSettings = ps
+        m_settingsLevel = 1
+        DetectSettingsLevel
+    End If
 
     '7. 成功サインを返す
     RunWebView2 = True
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`m_pSettings`が実際にQueryInterfaceで辿り着ける`ICoreWebView2SettingsN`の最大のNを
+'            判定し、`m_pSettings`/`m_settingsLevel`を更新します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`ICoreWebView2Settings2`~`9`は(`EnvironmentOptions2`~`8`のような並列独立継承ではなく)
+'            `Settings2 : Settings`→`Settings3 : Settings2`→…という一本の継承チェーンなので、
+'            1個のCOMオブジェクトは実質1枚の(どんどん後ろへ延びていく)vtableしか持たない。
+'            そのため、対応している最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで
+'            基底からそのバージョンまでの全プロパティに(スロット番号さえ合わせれば)アクセスできる。
+'            高い方から順に試し、最初に成功したものを採用する(全滅時は基底のまま=level1)。
+'***************************************************************************************************
+Private Sub DetectSettingsLevel()
+    Dim iids(1 To 8) As String
+    iids(1) = "0528a73b-e92d-49f4-927a-e547dddaa37d"   ' ICoreWebView2Settings9
+    iids(2) = "9e6b0e8f-86ad-4e81-8147-a9b5edb68650"   ' ICoreWebView2Settings8
+    iids(3) = "488dc902-35ef-42d2-bc7d-94b65c4bc49c"   ' ICoreWebView2Settings7
+    iids(4) = "11cb3acd-9bc8-43b8-83bf-f40753714f87"   ' ICoreWebView2Settings6
+    iids(5) = "183e7052-1d03-43a0-ab99-98e043b66b39"   ' ICoreWebView2Settings5
+    iids(6) = "cb56846c-4168-4d53-b04f-03b6d6796ff2"   ' ICoreWebView2Settings4
+    iids(7) = "fdb5ab74-af33-4854-84f0-0a631deb5eba"   ' ICoreWebView2Settings3
+    iids(8) = "ee9a0f68-f46c-4e32-ac23-ef8cac224d2a"   ' ICoreWebView2Settings2
+
+    Dim levels(1 To 8) As Long
+    levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
+    levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
+
+    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    For i = 1 To 8
+        CDPWebView2Thunks.FillGUID iid, iids(i)
+        hrQ = CDPWebView2Thunks.dcf(m_pSettings, 0, "Settings.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        If hrQ = 0 And pTry <> 0 Then
+            CDPWebView2Thunks.ComRelease m_pSettings   ' 基底(または下位)の分の参照は不要になるので解放
+            m_pSettings = pTry
+            m_settingsLevel = levels(i)
+            Exit Sub
+        End If
+    Next i
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：`m_pController`が実際にQueryInterfaceで辿り着ける`ICoreWebView2ControllerN`の最大の
@@ -539,6 +583,179 @@ Property Let ContextMenuEnabled(v As Boolean)
     CDPWebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
 
+'--- 以下、`ICoreWebView2Settings`(基底、level1)の残りのプロパティ ---
+'***************************************************************************************************
+'* 機能　　：ページ内のJavaScript実行可否を切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let ScriptEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 4, "Settings.put_IsScriptEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`postMessage`/`WebMessageReceived`によるWebページ⇔ホストアプリ間の通信可否を
+'            切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let WebMessageEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 6, "Settings.put_IsWebMessageEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`alert`/`confirm`/`prompt`/離脱確認等、既定のJavaScriptダイアログ表示可否を
+'            切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：Falseにすると、ダイアログは表示されず既定値で即座に処理されます
+'***************************************************************************************************
+Property Let DefaultScriptDialogsEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 8, "Settings.put_AreDefaultScriptDialogsEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：リンクにマウスオーバーした際のURLプレビュー等、ステータスバーの表示可否を
+'            切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let StatusBarEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 10, "Settings.put_IsStatusBarEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`AddHostObjectToScript`で追加したホストオブジェクトへ、スクリプト側からアクセスできるか
+'            切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let HostObjectsAllowed(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 16, "Settings.put_AreHostObjectsAllowed", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Ctrl+ホイール/ピンチ/キーボードショートカット等によるユーザー操作でのズーム可否を
+'            切り替えます(既定True)
+'***************************************************************************************************
+Property Let ZoomControlEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 18, "Settings.put_IsZoomControlEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ページ読み込み失敗時等に表示される、WebView2内蔵のエラーページ表示可否を
+'            切り替えます(既定True)
+'***************************************************************************************************
+Property Let BuiltInErrorPageEnabled(v As Boolean)
+    If m_settingsLevel < 1 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
+End Property
+
+'--- 以下、`ICoreWebView2Settings2`~`9`(古いWebView2 Runtimeでは`m_settingsLevel`不足によりNo-op) ---
+'***************************************************************************************************
+'* 機能　　：リクエストヘッダーおよび`navigator.userAgent`に使われるUser-Agent文字列を上書きします
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  上書きするUser-Agent文字列
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`ICoreWebView2EnvironmentOptions2`とは別物(こちらは実行時にいつでも変更可能)
+'***************************************************************************************************
+Property Let UserAgentOverride(v As String)
+    If m_settingsLevel < 2 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 22, "Settings2.put_UserAgent", StrPtr(v)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`Ctrl+F`/`F3`/`F5`/`F6`/`F7`/`F12`/`Ctrl+P`等、ブラウザ的なアクセラレータキーの
+'            有効可否を切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`DevToolsEnabled=False`と組み合わせても、`F12`キー自体を無効化したい場合はこちらも
+'            合わせて`False`にする必要があります(`DevToolsEnabled`はDevTools機能自体のON/OFF、
+'            こちらはキー入力の割り当て自体のON/OFF)
+'***************************************************************************************************
+Property Let BrowserAcceleratorKeysEnabled(v As Boolean)
+    If m_settingsLevel < 3 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 24, "Settings3.put_AreBrowserAcceleratorKeysEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：パスワードの自動保存機能(保存確認ダイアログ含む)の有効可否を切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで許可、Falseで禁止
+'***************************************************************************************************
+Property Let PasswordAutosaveEnabled(v As Boolean)
+    If m_settingsLevel < 4 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 26, "Settings4.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：住所/フォーム入力内容等の一般的なオートフィル機能(パスワード以外)の有効可否を
+'            切り替えます(既定True)
+'***************************************************************************************************
+Property Let GeneralAutofillEnabled(v As Boolean)
+    If m_settingsLevel < 4 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 28, "Settings4.put_IsGeneralAutofillEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：タッチ操作によるピンチズームジェスチャーの有効可否を切り替えます(既定True)
+'***************************************************************************************************
+Property Let PinchZoomEnabled(v As Boolean)
+    If m_settingsLevel < 5 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 30, "Settings5.put_IsPinchZoomEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：左右スワイプによる進む/戻るナビゲーションジェスチャーの有効可否を切り替えます(既定True)
+'***************************************************************************************************
+Property Let SwipeNavigationEnabled(v As Boolean)
+    If m_settingsLevel < 6 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 32, "Settings6.put_IsSwipeNavigationEnabled", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：PDFビューア内蔵ツールバーの、非表示にしたいボタンをビットマスクで指定します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_PDF_TOOLBAR_ITEMS`のビットマスク(Long)。既定は`0`(全表示)
+'            例: `SAVE(&H1) Or PRINT(&H2)`で保存・印刷ボタンを非表示にする、等
+'            (SAVE=&H1, PRINT=&H2, SAVE_AS=&H4, ZOOM_IN=&H8, ZOOM_OUT=&H10, ROTATE=&H20,
+'             FIT_PAGE=&H40, PAGE_LAYOUT=&H80, BOOKMARKS=&H100, PAGE_SELECTOR=&H200,
+'             SEARCH=&H400, FULL_SCREEN=&H800, MORE_SETTINGS=&H1000)
+'***************************************************************************************************
+Property Let HiddenPdfToolbarItems(v As Long)
+    If m_settingsLevel < 7 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 34, "Settings7.put_HiddenPdfToolbarItems", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：SmartScreen(フィッシング/マルウェア報告済みサイトの検知)の要否を切り替えます(既定True)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueで有効、Falseで無効
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：同じ`user-data-dir`を共有する全`ICoreWebView2`にまたがる設定です。いずれか1つでも
+'            Trueなら全体でSmartScreenが有効になり、全てFalseの場合のみ無効になります
+'***************************************************************************************************
+Property Let ReputationCheckingRequired(v As Boolean)
+    If m_settingsLevel < 8 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 36, "Settings8.put_IsReputationCheckingRequired", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Webページ側でCSSの`app-region: drag`/`no-drag`を使った独自タイトルバー領域(ドラッグで
+'            ウィンドウ自体を移動できる領域)の指定を有効にするか切り替えます(既定False)
+'***************************************************************************************************
+Property Let NonClientRegionSupportEnabled(v As Boolean)
+    If m_settingsLevel < 9 Then Exit Property
+    CDPWebView2Thunks.dcf m_pSettings, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
+End Property
 
 
 '***************************************************************************************************

@@ -68,6 +68,25 @@ Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal l
 '***************************************************************************************************
 Private Const ThisClassName         As String = "CDPCoreViaWebView2"    'ログのトレース用
 
+'* `HiddenPdfToolbarItems`用。`COREWEBVIEW2_PDF_TOOLBAR_ITEMS`のビットマスク値をEnum化したもの。
+'  `Or`で組み合わせて指定する(例: `PDF_Save Or PDF_PrintItem`)。VBEはEnum型引数に対して、
+'  `Or `と打った直後に同じEnumの候補一覧を再表示してくれるため、複数選択がしやすい
+Public Enum WV2PdfToolbarItems
+    PDF_Save = &H1
+    PDF_PrintItem = &H2
+    PDF_SaveAs = &H4
+    PDF_ZoomIn = &H8
+    PDF_ZoomOut = &H10
+    PDF_Rotate = &H20
+    PDF_FitPage = &H40
+    PDF_PageLayout = &H80
+    PDF_Bookmarks = &H100
+    PDF_PageSelector = &H200
+    PDF_Search = &H400
+    PDF_FullScreen = &H800
+    PDF_MoreSettings = &H1000
+End Enum
+
 
 
 '***************************************************************************************************
@@ -641,6 +660,97 @@ End Property
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
     m_Host.ContextMenuEnabled = v
+End Property
+
+'--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`CDPWebView2Host`側のコメント参照) ---
+'* 機能　　：JavaScript実行可否を切り替えます(既定True)
+Property Let ScriptEnabled(v As Boolean)
+    m_Host.ScriptEnabled = v
+End Property
+
+'* 機能　　：`postMessage`等によるWebページ⇔ホストアプリ間の通信可否を切り替えます(既定True)
+Property Let WebMessageEnabled(v As Boolean)
+    m_Host.WebMessageEnabled = v
+End Property
+
+'* 機能　　：`alert`/`confirm`/`prompt`等、既定のJavaScriptダイアログ表示可否を切り替えます(既定True)
+Property Let DefaultScriptDialogsEnabled(v As Boolean)
+    m_Host.DefaultScriptDialogsEnabled = v
+End Property
+
+'* 機能　　：ステータスバーの表示可否を切り替えます(既定True)
+Property Let StatusBarEnabled(v As Boolean)
+    m_Host.StatusBarEnabled = v
+End Property
+
+'* 機能　　：`AddHostObjectToScript`で追加したホストオブジェクトへのスクリプト側アクセス可否を
+'            切り替えます(既定True)
+Property Let HostObjectsAllowed(v As Boolean)
+    m_Host.HostObjectsAllowed = v
+End Property
+
+'* 機能　　：ユーザー操作(Ctrl+ホイール等)によるズーム可否を切り替えます(既定True)
+Property Let ZoomControlEnabled(v As Boolean)
+    m_Host.ZoomControlEnabled = v
+End Property
+
+'* 機能　　：WebView2内蔵のエラーページ表示可否を切り替えます(既定True)
+Property Let BuiltInErrorPageEnabled(v As Boolean)
+    m_Host.BuiltInErrorPageEnabled = v
+End Property
+
+'--- 以下、`ICoreWebView2Settings2`~`9`(古いWebView2 Runtimeでは無視されるだけで安全) ---
+'* 機能　　：User-Agent文字列を上書きします
+Property Let UserAgentOverride(v As String)
+    m_Host.UserAgentOverride = v
+End Property
+
+'* 機能　　：`Ctrl+F`/`F5`/`F12`等、ブラウザ的なアクセラレータキーの有効可否を切り替えます(既定True)
+Property Let BrowserAcceleratorKeysEnabled(v As Boolean)
+    m_Host.BrowserAcceleratorKeysEnabled = v
+End Property
+
+'* 機能　　：パスワード自動保存機能の有効可否を切り替えます(既定True)
+Property Let PasswordAutosaveEnabled(v As Boolean)
+    m_Host.PasswordAutosaveEnabled = v
+End Property
+
+'* 機能　　：住所/フォーム入力等の一般オートフィル機能(パスワード以外)の有効可否を切り替えます(既定True)
+Property Let GeneralAutofillEnabled(v As Boolean)
+    m_Host.GeneralAutofillEnabled = v
+End Property
+
+'* 機能　　：ピンチズームジェスチャーの有効可否を切り替えます(既定True)
+Property Let PinchZoomEnabled(v As Boolean)
+    m_Host.PinchZoomEnabled = v
+End Property
+
+'* 機能　　：スワイプによる進む/戻るナビゲーションジェスチャーの有効可否を切り替えます(既定True)
+Property Let SwipeNavigationEnabled(v As Boolean)
+    m_Host.SwipeNavigationEnabled = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：PDFビューア内蔵ツールバーの非表示ボタンを、`WV2PdfToolbarItems`のEnumを`Or`で
+'            組み合わせて指定します(例: `PDF_Save Or PDF_PrintItem`)
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：v  非表示にしたい項目を`Or`でつないだもの(既定0相当=何も非表示にしない=全表示)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：呼び出すたびに全項目を上書きします(前回の指定は引き継がれません)
+'***************************************************************************************************
+Property Let HiddenPdfToolbarItems(v As WV2PdfToolbarItems)
+    m_Host.HiddenPdfToolbarItems = v
+End Property
+
+'* 機能　　：SmartScreen(フィッシング/マルウェア検知)の要否を切り替えます(既定True)
+Property Let ReputationCheckingRequired(v As Boolean)
+    m_Host.ReputationCheckingRequired = v
+End Property
+
+'* 機能　　：CSS`app-region`による独自タイトルバー領域(ドラッグでウィンドウ移動可能な領域)の
+'            指定を有効にするか切り替えます(既定False)
+Property Let NonClientRegionSupportEnabled(v As Boolean)
+    m_Host.NonClientRegionSupportEnabled = v
 End Property
 
 
