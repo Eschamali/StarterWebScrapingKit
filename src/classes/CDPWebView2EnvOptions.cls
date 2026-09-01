@@ -47,6 +47,20 @@ Private m_targetCompatibleBrowserVersion         As String
 Private m_allowSingleSignOnUsingOSPrimaryAccount As Boolean
 Private m_areBrowserExtensionsEnabled            As Boolean
 
+'***************************************************************************************************
+'* 機能　　：`TargetCompatibleBrowserVersion`の既定値を設定します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★調査中★ 公式のC++ラッパー(`WebView2EnvironmentOptions.h`)はこの値を常に
+'            (SDKバンドル版の)具体的なバージョン文字列で初期化しており、`nullptr`のまま
+'            渡された場合の挙動はSDKのドキュメントで明言されていない。put_AreBrowserExtensions
+'            Enabled等を追加した際に`CreateCoreWebView2EnvironmentWithOptions`が
+'            hr=&H80070057(E_INVALIDARG)で即失敗する事象が発生したため、疑わしい箇所として
+'            ここだけ空文字(nullptr相当)を避け、SDKバンドル版に合わせた値を既定にしている
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    m_targetCompatibleBrowserVersion = "152.0.4181.0"
+End Sub
+
 
 
 '***************************************************************************************************
