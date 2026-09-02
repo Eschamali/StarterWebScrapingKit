@@ -166,6 +166,7 @@ End Sub
 '* 注意事項：★重要★ 以下は全て`CDPWebView2CallbackHandler.Handler_Invoke`から`owner As Object`
 '            経由(動的束縛)で呼ばれるため、全てPublic Subでなければならない
 '***************************************************************************************************
+' --- ICoreWebView2EnvironmentOptions ---
 Public Sub EnvOpt_OnGetAdditionalBrowserArguments(ByVal pOut As LongPtr)
     CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
 End Sub
