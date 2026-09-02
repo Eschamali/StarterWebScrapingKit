@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPWebView2Host"
+Attribute VB_Name = "WebView2Host"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -80,11 +80,11 @@ Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterface�
 Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
 
 'COMコールバック系
-Private m_envHandler       As CDPWebView2CallbackHandler
-Private m_ctrlHandler      As CDPWebView2CallbackHandler
-Private m_addExtHandler    As CDPWebView2CallbackHandler
-Private m_getExtHandler    As CDPWebView2CallbackHandler
-Private m_removeExtHandler As CDPWebView2CallbackHandler
+Private m_envHandler       As WebView2CallbackHandler
+Private m_ctrlHandler      As WebView2CallbackHandler
+Private m_addExtHandler    As WebView2CallbackHandler
+Private m_getExtHandler    As WebView2CallbackHandler
+Private m_removeExtHandler As WebView2CallbackHandler
 
 '状態値
 Private m_envState      As WebView2HostState
@@ -147,7 +147,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     End If
 
     '2. Environment作成
-    Set m_envHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
+    Set m_envHandler = WebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
     If m_envHandler Is Nothing Then
         Debug.Print FromProcedureName & ": Environment用ハンドラのAcquireに失敗しました"
         m_envState = Whs_Failed
@@ -155,7 +155,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     End If
 
     Dim pEnvHandlerObj As LongPtr
-    pEnvHandlerObj = m_envHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pEnvHandlerObj = m_envHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     '3. 重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
     'コールバックを発火させるケースがあるため(実機で確認済みの罠)
@@ -177,7 +177,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     If m_envState <> Whs_Ready Then Exit Function
 
     '4. Controller作成
-    Set m_ctrlHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_ControllerCompleted, Me)
+    Set m_ctrlHandler = WebView2Thunks.AcquireHandlerFor(HK_ControllerCompleted, Me)
     If m_ctrlHandler Is Nothing Then
         Debug.Print FromProcedureName & ": Controller用ハンドラのAcquireに失敗しました"
         m_ctrlState = Whs_Failed
@@ -185,11 +185,11 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     End If
 
     Dim pCtrlHandlerObj As LongPtr
-    pCtrlHandlerObj = m_ctrlHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pCtrlHandlerObj = m_ctrlHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     m_ctrlState = Whs_Waiting
 
-    hr = CDPWebView2Thunks.dcf(m_pEnvironment, 3, "Env.CreateCoreWebView2Controller", m_hostHwnd, pCtrlHandlerObj)
+    hr = WebView2Thunks.dcf(m_pEnvironment, 3, "Env.CreateCoreWebView2Controller", m_hostHwnd, pCtrlHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2Controller失敗 hr=&H" & Hex(hr)
         m_ctrlState = Whs_Failed
@@ -205,7 +205,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
 
     '5. ICoreWebView2を取得(Controller::get_CoreWebView2、vtable index 25)
     Dim pv As LongPtr
-    hr = CDPWebView2Thunks.dcf(m_pController, 25, "Ctrl.get_CoreWebView2", VarPtr(pv))
+    hr = WebView2Thunks.dcf(m_pController, 25, "Ctrl.get_CoreWebView2", VarPtr(pv))
     If hr <> 0 Or pv = 0 Then
         Debug.Print FromProcedureName & ": get_CoreWebView2失敗 hr=&H" & Hex(hr)
         m_lastError = hr
@@ -221,7 +221,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_pSettings=0`の
     '   ままにする(DevToolsEnabled等の各プロパティは0ガードで静かに無視するだけなので安全)。
     Dim ps As LongPtr
-    hr = CDPWebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
+    hr = WebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
     If hr = 0 And ps <> 0 Then
         m_pSettings = ps
         m_settingsLevel = 1
@@ -232,13 +232,13 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     '   vtable index 105)。取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、
     '   `m_pProfile=0`のままにする(各プロパティは`m_profileLevel`ガードで静かに無視されるだけ)
     Dim p13 As LongPtr
-    Dim iid13 As CDPWebView2Thunks.GUID
-    CDPWebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
-    hr = CDPWebView2Thunks.dcf(m_pView, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
+    Dim iid13 As WebView2Thunks.GUID
+    WebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
+    hr = WebView2Thunks.dcf(m_pView, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
     If hr = 0 And p13 <> 0 Then
         Dim pProfile As LongPtr
-        hr = CDPWebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
-        CDPWebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
+        hr = WebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
+        WebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
         If hr = 0 And pProfile <> 0 Then
             m_pProfile = pProfile
             m_profileLevel = 1
@@ -295,12 +295,12 @@ Private Sub DetectViewLevel()
         levels(i) = 30 - i   ' iids(1)=29, iids(2)=28, ... iids(28)=2
     Next i
 
-    Dim iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    Dim iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
     For i = 1 To 28
-        CDPWebView2Thunks.FillGUID iid, iids(i)
-        hrQ = CDPWebView2Thunks.dcf(m_pView, 0, "View.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        WebView2Thunks.FillGUID iid, iids(i)
+        hrQ = WebView2Thunks.dcf(m_pView, 0, "View.QueryInterface", VarPtr(iid), VarPtr(pTry))
         If hrQ = 0 And pTry <> 0 Then
-            CDPWebView2Thunks.ComRelease m_pView   ' 基底(または下位)の分の参照は不要になるので解放
+            WebView2Thunks.ComRelease m_pView   ' 基底(または下位)の分の参照は不要になるので解放
             m_pView = pTry
             m_viewLevel = levels(i)
             Exit Sub
@@ -334,12 +334,12 @@ Private Sub DetectSettingsLevel()
     levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
     levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
 
-    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
     For i = 1 To 8
-        CDPWebView2Thunks.FillGUID iid, iids(i)
-        hrQ = CDPWebView2Thunks.dcf(m_pSettings, 0, "Settings.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        WebView2Thunks.FillGUID iid, iids(i)
+        hrQ = WebView2Thunks.dcf(m_pSettings, 0, "Settings.QueryInterface", VarPtr(iid), VarPtr(pTry))
         If hrQ = 0 And pTry <> 0 Then
-            CDPWebView2Thunks.ComRelease m_pSettings   ' 基底(または下位)の分の参照は不要になるので解放
+            WebView2Thunks.ComRelease m_pSettings   ' 基底(または下位)の分の参照は不要になるので解放
             m_pSettings = pTry
             m_settingsLevel = levels(i)
             Exit Sub
@@ -365,12 +365,12 @@ Private Sub DetectControllerLevel()
     Dim levels(1 To 3) As Long
     levels(1) = 4: levels(2) = 3: levels(3) = 2
 
-    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
     For i = 1 To 3
-        CDPWebView2Thunks.FillGUID iid, iids(i)
-        hrQ = CDPWebView2Thunks.dcf(m_pController, 0, "Ctrl.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        WebView2Thunks.FillGUID iid, iids(i)
+        hrQ = WebView2Thunks.dcf(m_pController, 0, "Ctrl.QueryInterface", VarPtr(iid), VarPtr(pTry))
         If hrQ = 0 And pTry <> 0 Then
-            CDPWebView2Thunks.ComRelease m_pController   ' 基底(または下位)の分の参照は不要になるので解放
+            WebView2Thunks.ComRelease m_pController   ' 基底(または下位)の分の参照は不要になるので解放
             m_pController = pTry
             m_controllerLevel = levels(i)
             Exit Sub
@@ -398,12 +398,12 @@ Private Sub DetectProfileLevel()
     levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
     levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
 
-    Dim i As Long, iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
     For i = 1 To 8
-        CDPWebView2Thunks.FillGUID iid, iids(i)
-        hrQ = CDPWebView2Thunks.dcf(m_pProfile, 0, "Profile.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        WebView2Thunks.FillGUID iid, iids(i)
+        hrQ = WebView2Thunks.dcf(m_pProfile, 0, "Profile.QueryInterface", VarPtr(iid), VarPtr(pTry))
         If hrQ = 0 And pTry <> 0 Then
-            CDPWebView2Thunks.ComRelease m_pProfile   ' 基底(または下位)の分の参照は不要になるので解放
+            WebView2Thunks.ComRelease m_pProfile   ' 基底(または下位)の分の参照は不要になるので解放
             m_pProfile = pTry
             m_profileLevel = levels(i)
             Exit Sub
@@ -436,7 +436,7 @@ Public Sub OnEnvironmentCompleted(ByVal ErrorCode As Long, ByVal pEnvironment As
     m_lastError = ErrorCode
     If ErrorCode = 0 And pEnvironment <> 0 Then
         m_pEnvironment = pEnvironment
-        CDPWebView2Thunks.ComAddRef m_pEnvironment
+        WebView2Thunks.ComAddRef m_pEnvironment
         m_envState = Whs_Ready
     Else
         m_pEnvironment = 0
@@ -449,7 +449,7 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
     m_lastError = ErrorCode
     If ErrorCode = 0 And pController <> 0 Then
         m_pController = pController
-        CDPWebView2Thunks.ComAddRef m_pController
+        WebView2Thunks.ComAddRef m_pController
         DetectControllerLevel
         m_ctrlState = Whs_Ready
     Else
@@ -469,7 +469,7 @@ End Sub
 Public Sub OnAddBrowserExtensionCompleted(ByVal ErrorCode As Long, ByVal pResult As LongPtr)
     m_lastError = ErrorCode
     If ErrorCode = 0 And pResult <> 0 Then
-        m_addExtResultId = CDPWebView2Thunks.GetStringProperty(pResult, 3, "BrowserExtension.get_Id")
+        m_addExtResultId = WebView2Thunks.GetStringProperty(pResult, 3, "BrowserExtension.get_Id")
         m_addExtState = Whs_Ready
     Else
         m_addExtResultId = ""
@@ -491,7 +491,7 @@ Public Sub OnGetBrowserExtensionsCompleted(ByVal ErrorCode As Long, ByVal pResul
     If ErrorCode = 0 And pResult <> 0 Then
         Dim cnt As Long
         Dim hr As Long
-        hr = CDPWebView2Thunks.dcf(pResult, 3, "BrowserExtensionList.get_Count", VarPtr(cnt))
+        hr = WebView2Thunks.dcf(pResult, 3, "BrowserExtensionList.get_Count", VarPtr(cnt))
         If hr = 0 And cnt > 0 Then
             ReDim m_getExtIds(0 To cnt - 1)
             ReDim m_getExtPtrs(0 To cnt - 1)
@@ -499,10 +499,10 @@ Public Sub OnGetBrowserExtensionsCompleted(ByVal ErrorCode As Long, ByVal pResul
             Dim i As Long
             For i = 0 To cnt - 1
                 Dim pExt As LongPtr
-                hr = CDPWebView2Thunks.dcf(pResult, 4, "BrowserExtensionList.GetValueAtIndex", CLng(i), VarPtr(pExt))
+                hr = WebView2Thunks.dcf(pResult, 4, "BrowserExtensionList.GetValueAtIndex", CLng(i), VarPtr(pExt))
                 If hr = 0 And pExt <> 0 Then
                     m_getExtPtrs(i) = pExt
-                    m_getExtIds(i) = CDPWebView2Thunks.GetStringProperty(pExt, 3, "BrowserExtension.get_Id")
+                    m_getExtIds(i) = WebView2Thunks.GetStringProperty(pExt, 3, "BrowserExtension.get_Id")
                 End If
             Next i
             m_getExtCount = cnt
@@ -533,7 +533,7 @@ End Sub
 '                              ■■■ 明示的な後始末 ■■■
 '***************************************************************************************************
 '* 機能　　：Controller::Close → 各種ポインタのRelease → ホストウィンドウの破棄を行います
-'* 注意事項：ここでは`CDPWebView2Thunks.Thunks_Shutdown`は呼ばない。あちらはこのモジュール内で
+'* 注意事項：ここでは`WebView2Thunks.Thunks_Shutdown`は呼ばない。あちらはこのモジュール内で
 '            全`CDPWebView2Host`インスタンス共通(グローバル)のスロットプールを解体するため、
 '            他のインスタンスがまだ使用中の可能性がある間に呼ぶと事故になる
 '***************************************************************************************************
@@ -541,30 +541,30 @@ Public Sub CLOSE_()
     If m_closed Then Exit Sub
 
     If m_pController <> 0 Then
-        CDPWebView2Thunks.dcf m_pController, 24, "Ctrl.Close"
+        WebView2Thunks.dcf m_pController, 24, "Ctrl.Close"
     End If
     If m_pSettings <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pSettings
+        WebView2Thunks.ComRelease m_pSettings
         m_pSettings = 0
     End If
     If m_pProfile <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pProfile
+        WebView2Thunks.ComRelease m_pProfile
         m_pProfile = 0
     End If
     If m_pFind <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pFind
+        WebView2Thunks.ComRelease m_pFind
         m_pFind = 0
     End If
     If m_pView <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pView
+        WebView2Thunks.ComRelease m_pView
         m_pView = 0
     End If
     If m_pController <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pController
+        WebView2Thunks.ComRelease m_pController
         m_pController = 0
     End If
     If m_pEnvironment <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pEnvironment
+        WebView2Thunks.ComRelease m_pEnvironment
         m_pEnvironment = 0
     End If
 
@@ -652,11 +652,11 @@ End Property
 '***************************************************************************************************
 Public Sub Resize(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long)
     '1. ひとまとまりにする
-    Dim rc As CDPWebView2Thunks.RECT
+    Dim rc As WebView2Thunks.RECT
     rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
 
     '2. リサイズ
-    CDPWebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
+    WebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
 End Sub
 
 '***************************************************************************************************
@@ -665,7 +665,7 @@ End Sub
 '* 引数    ：v  Web描画の表示/非表示
 '***************************************************************************************************
 Property Let Visible(v As Boolean)
-    CDPWebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
+    WebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
 End Property
 
 '***************************************************************************************************
@@ -674,7 +674,7 @@ End Property
 '* 引数    ：v  ズーム倍率(1.0が等倍)
 '***************************************************************************************************
 Property Let ZoomFactor(v As Double)
-    CDPWebView2Thunks.dcf m_pController, 8, "Ctrl.put_ZoomFactor", v
+    WebView2Thunks.dcf m_pController, 8, "Ctrl.put_ZoomFactor", v
 End Property
 
 '***************************************************************************************************
@@ -686,9 +686,9 @@ End Property
 '* 注意事項：`Resize`+`ZoomFactor`を別々に呼ぶより、こちらでまとめた方が描画の無駄が少ない
 '***************************************************************************************************
 Public Sub SetBoundsAndZoomFactor(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long, ZoomFactor As Double)
-    Dim rc As CDPWebView2Thunks.RECT
+    Dim rc As WebView2Thunks.RECT
     rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
-    CDPWebView2Thunks.dcf m_pController, 11, "Ctrl.SetBoundsAndZoomFactor", VarPtr(rc), ZoomFactor
+    WebView2Thunks.dcf m_pController, 11, "Ctrl.SetBoundsAndZoomFactor", VarPtr(rc), ZoomFactor
 End Sub
 
 '***************************************************************************************************
@@ -698,7 +698,7 @@ End Sub
 '            `CDPCoreViaWebView2`側の`WV2MoveFocusReason`Enum使用を推奨)
 '***************************************************************************************************
 Public Sub MoveFocus(reason As Long)
-    CDPWebView2Thunks.dcf m_pController, 12, "Ctrl.MoveFocus", reason
+    WebView2Thunks.dcf m_pController, 12, "Ctrl.MoveFocus", reason
 End Sub
 
 '***************************************************************************************************
@@ -708,7 +708,7 @@ End Sub
 '            呼ぶためのものです。このプロジェクトの非表示運用では基本的に不要です
 '***************************************************************************************************
 Public Sub NotifyParentWindowPositionChanged()
-    CDPWebView2Thunks.dcf m_pController, 23, "Ctrl.NotifyParentWindowPositionChanged"
+    WebView2Thunks.dcf m_pController, 23, "Ctrl.NotifyParentWindowPositionChanged"
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -728,7 +728,7 @@ Public Sub SetDefaultBackgroundColor(a As Byte, r As Byte, g As Byte, b As Byte)
     If m_controllerLevel < 2 Then Exit Sub
     Dim packed As Long
     packed = CLng(a) Or (CLng(r) * &H100) Or (CLng(g) * &H10000) Or (CLng(b) * &H1000000)
-    CDPWebView2Thunks.dcf m_pController, 27, "Ctrl2.put_DefaultBackgroundColor", packed
+    WebView2Thunks.dcf m_pController, 27, "Ctrl2.put_DefaultBackgroundColor", packed
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -741,7 +741,7 @@ End Sub
 '***************************************************************************************************
 Property Let RasterizationScale(v As Double)
     If m_controllerLevel < 3 Then Exit Property
-    CDPWebView2Thunks.dcf m_pController, 29, "Ctrl3.put_RasterizationScale", v
+    WebView2Thunks.dcf m_pController, 29, "Ctrl3.put_RasterizationScale", v
 End Property
 
 '***************************************************************************************************
@@ -751,7 +751,7 @@ End Property
 '***************************************************************************************************
 Property Let ShouldDetectMonitorScaleChanges(v As Boolean)
     If m_controllerLevel < 3 Then Exit Property
-    CDPWebView2Thunks.dcf m_pController, 31, "Ctrl3.put_ShouldDetectMonitorScaleChanges", CLng(v * -1)
+    WebView2Thunks.dcf m_pController, 31, "Ctrl3.put_ShouldDetectMonitorScaleChanges", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -762,7 +762,7 @@ End Property
 '***************************************************************************************************
 Property Let BoundsMode(v As Long)
     If m_controllerLevel < 3 Then Exit Property
-    CDPWebView2Thunks.dcf m_pController, 35, "Ctrl3.put_BoundsMode", v
+    WebView2Thunks.dcf m_pController, 35, "Ctrl3.put_BoundsMode", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -776,7 +776,7 @@ End Property
 '***************************************************************************************************
 Property Let AllowExternalDrop(v As Boolean)
     If m_controllerLevel < 4 Then Exit Property
-    CDPWebView2Thunks.dcf m_pController, 37, "Ctrl4.put_AllowExternalDrop", CLng(v * -1)
+    WebView2Thunks.dcf m_pController, 37, "Ctrl4.put_AllowExternalDrop", CLng(v * -1)
 End Property
 
 
@@ -799,7 +799,7 @@ End Property
 '***************************************************************************************************
 Property Let DevToolsEnabled(v As Boolean)
     If m_pSettings = 0 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
+    WebView2Thunks.dcf m_pSettings, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
 End Property
 
 '***************************************************************************************************
@@ -809,7 +809,7 @@ End Property
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
     If m_pSettings = 0 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
+    WebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
 
 '--- 以下、`ICoreWebView2Settings`(基底、level1)の残りのプロパティ ---
@@ -820,7 +820,7 @@ End Property
 '***************************************************************************************************
 Property Let ScriptEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 4, "Settings.put_IsScriptEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 4, "Settings.put_IsScriptEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -831,7 +831,7 @@ End Property
 '***************************************************************************************************
 Property Let WebMessageEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 6, "Settings.put_IsWebMessageEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 6, "Settings.put_IsWebMessageEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -844,7 +844,7 @@ End Property
 '***************************************************************************************************
 Property Let DefaultScriptDialogsEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 8, "Settings.put_AreDefaultScriptDialogsEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 8, "Settings.put_AreDefaultScriptDialogsEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -855,7 +855,7 @@ End Property
 '***************************************************************************************************
 Property Let StatusBarEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 10, "Settings.put_IsStatusBarEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 10, "Settings.put_IsStatusBarEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -866,7 +866,7 @@ End Property
 '***************************************************************************************************
 Property Let HostObjectsAllowed(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 16, "Settings.put_AreHostObjectsAllowed", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 16, "Settings.put_AreHostObjectsAllowed", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -875,7 +875,7 @@ End Property
 '***************************************************************************************************
 Property Let ZoomControlEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 18, "Settings.put_IsZoomControlEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 18, "Settings.put_IsZoomControlEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -884,7 +884,7 @@ End Property
 '***************************************************************************************************
 Property Let BuiltInErrorPageEnabled(v As Boolean)
     If m_settingsLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
 End Property
 
 '--- 以下、`ICoreWebView2Settings2`~`9`(古いWebView2 Runtimeでは`m_settingsLevel`不足によりNo-op) ---
@@ -900,7 +900,7 @@ End Property
 '***************************************************************************************************
 Property Let UserAgentOverride(v As String)
     If m_settingsLevel < 2 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 22, "Settings2.put_UserAgent", StrPtr(v)
+    WebView2Thunks.dcf m_pSettings, 22, "Settings2.put_UserAgent", StrPtr(v)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -918,7 +918,7 @@ End Property
 '***************************************************************************************************
 Property Let BrowserAcceleratorKeysEnabled(v As Boolean)
     If m_settingsLevel < 3 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 24, "Settings3.put_AreBrowserAcceleratorKeysEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 24, "Settings3.put_AreBrowserAcceleratorKeysEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -931,7 +931,7 @@ End Property
 '***************************************************************************************************
 Property Let PasswordAutosaveEnabled(v As Boolean)
     If m_settingsLevel < 4 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 26, "Settings4.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 26, "Settings4.put_IsPasswordAutosaveEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -940,7 +940,7 @@ End Property
 '***************************************************************************************************
 Property Let GeneralAutofillEnabled(v As Boolean)
     If m_settingsLevel < 4 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 28, "Settings4.put_IsGeneralAutofillEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 28, "Settings4.put_IsGeneralAutofillEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -951,7 +951,7 @@ End Property
 '***************************************************************************************************
 Property Let PinchZoomEnabled(v As Boolean)
     If m_settingsLevel < 5 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 30, "Settings5.put_IsPinchZoomEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 30, "Settings5.put_IsPinchZoomEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -962,7 +962,7 @@ End Property
 '***************************************************************************************************
 Property Let SwipeNavigationEnabled(v As Boolean)
     If m_settingsLevel < 6 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 32, "Settings6.put_IsSwipeNavigationEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 32, "Settings6.put_IsSwipeNavigationEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -979,7 +979,7 @@ End Property
 '***************************************************************************************************
 Property Let HiddenPdfToolbarItems(v As Long)
     If m_settingsLevel < 7 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 34, "Settings7.put_HiddenPdfToolbarItems", v
+    WebView2Thunks.dcf m_pSettings, 34, "Settings7.put_HiddenPdfToolbarItems", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -995,7 +995,7 @@ End Property
 '***************************************************************************************************
 Property Let ReputationCheckingRequired(v As Boolean)
     If m_settingsLevel < 8 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 36, "Settings8.put_IsReputationCheckingRequired", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 36, "Settings8.put_IsReputationCheckingRequired", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1007,7 +1007,7 @@ End Property
 '***************************************************************************************************
 Property Let NonClientRegionSupportEnabled(v As Boolean)
     If m_settingsLevel < 9 Then Exit Property
-    CDPWebView2Thunks.dcf m_pSettings, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pSettings, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
 End Property
 
 
@@ -1030,7 +1030,7 @@ End Property
 '***************************************************************************************************
 Property Let DefaultDownloadFolderPath(v As String)
     If m_profileLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 7, "Profile.put_DefaultDownloadFolderPath", StrPtr(v)
+    WebView2Thunks.dcf m_pProfile, 7, "Profile.put_DefaultDownloadFolderPath", StrPtr(v)
 End Property
 
 '***************************************************************************************************
@@ -1041,7 +1041,7 @@ End Property
 '***************************************************************************************************
 Property Let PreferredColorScheme(v As Long)
     If m_profileLevel < 1 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 9, "Profile.put_PreferredColorScheme", v
+    WebView2Thunks.dcf m_pProfile, 9, "Profile.put_PreferredColorScheme", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1055,7 +1055,7 @@ End Property
 '***************************************************************************************************
 Property Let PreferredTrackingPreventionLevel(v As Long)
     If m_profileLevel < 3 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 14, "Profile3.put_PreferredTrackingPreventionLevel", v
+    WebView2Thunks.dcf m_pProfile, 14, "Profile3.put_PreferredTrackingPreventionLevel", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1068,7 +1068,7 @@ End Property
 '***************************************************************************************************
 Property Let ProfilePasswordAutosaveEnabled(v As Boolean)
     If m_profileLevel < 6 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 19, "Profile6.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pProfile, 19, "Profile6.put_IsPasswordAutosaveEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1078,7 +1078,7 @@ End Property
 '***************************************************************************************************
 Property Let ProfileGeneralAutofillEnabled(v As Boolean)
     If m_profileLevel < 6 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
+    WebView2Thunks.dcf m_pProfile, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1105,20 +1105,20 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
         Exit Function
     End If
 
-    Set m_addExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
+    Set m_addExtHandler = WebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
     If m_addExtHandler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_addExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_addExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     m_addExtResultId = ""
     m_addExtState = Whs_Waiting
 
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
+    hr = WebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
                                StrPtr(extensionFolderPath), pHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": AddBrowserExtension失敗 hr=&H" & Hex(hr)
@@ -1195,21 +1195,21 @@ Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
 
     Dim pTarget As LongPtr: pTarget = m_getExtPtrs(targetIndex)
 
-    Set m_removeExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
+    Set m_removeExtHandler = WebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
     If m_removeExtHandler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
-        CDPWebView2Thunks.ComRelease pTarget
+        WebView2Thunks.ComRelease pTarget
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_removeExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_removeExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     m_removeExtState = Whs_Waiting
 
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
-    CDPWebView2Thunks.ComRelease pTarget   ' GetValueAtIndexで得た参照はもう不要(Remove自体は非同期に継続する)
+    hr = WebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
+    WebView2Thunks.ComRelease pTarget   ' GetValueAtIndexで得た参照はもう不要(Remove自体は非同期に継続する)
 
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": Remove失敗 hr=&H" & Hex(hr)
@@ -1246,19 +1246,19 @@ Private Function RunGetBrowserExtensions() As Boolean
         Exit Function
     End If
 
-    Set m_getExtHandler = CDPWebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
+    Set m_getExtHandler = WebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
     If m_getExtHandler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_getExtHandler.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_getExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     m_getExtState = Whs_Waiting
 
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
+    hr = WebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": GetBrowserExtensions失敗 hr=&H" & Hex(hr)
         m_lastError = hr
@@ -1283,7 +1283,7 @@ Private Sub ReleaseGetExtPtrs(Optional ByVal keepIndex As Long = -1)
     Dim i As Long
     For i = 0 To m_getExtCount - 1
         If i <> keepIndex And m_getExtPtrs(i) <> 0 Then
-            CDPWebView2Thunks.ComRelease m_getExtPtrs(i)
+            WebView2Thunks.ComRelease m_getExtPtrs(i)
             m_getExtPtrs(i) = 0
         End If
     Next i
@@ -1300,7 +1300,7 @@ End Sub
 '***************************************************************************************************
 Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
     If m_profileLevel < 9 Then Exit Property
-    CDPWebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
+    WebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
 End Property
 
 
@@ -1326,7 +1326,7 @@ Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVa
     If m_viewLevel < 3 Then Exit Function
 
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(m_pView, 71, "View3.SetVirtualHostNameToFolderMapping", _
+    hr = WebView2Thunks.dcf(m_pView, 71, "View3.SetVirtualHostNameToFolderMapping", _
         StrPtr(hostname), StrPtr(FolderPath), accessKind)
     SetVirtualHostNameToFolderMapping = (hr = 0)
 End Function
@@ -1338,7 +1338,7 @@ End Function
 '***************************************************************************************************
 Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
     If m_viewLevel < 3 Then Exit Sub
-    CDPWebView2Thunks.dcf m_pView, 72, "View3.ClearVirtualHostNameToFolderMapping", StrPtr(hostname)
+    WebView2Thunks.dcf m_pView, 72, "View3.ClearVirtualHostNameToFolderMapping", StrPtr(hostname)
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1351,12 +1351,12 @@ End Sub
 '***************************************************************************************************
 Property Get IsMuted() As Boolean
     If m_viewLevel < 8 Then Exit Property
-    IsMuted = CDPWebView2Thunks.GetBoolProperty(m_pView, 83, "View8.get_IsMuted")
+    IsMuted = WebView2Thunks.GetBoolProperty(m_pView, 83, "View8.get_IsMuted")
 End Property
 
 Property Let IsMuted(v As Boolean)
     If m_viewLevel < 8 Then Exit Property
-    CDPWebView2Thunks.dcf m_pView, 84, "View8.put_IsMuted", CLng(v * -1)
+    WebView2Thunks.dcf m_pView, 84, "View8.put_IsMuted", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1366,7 +1366,7 @@ End Property
 '***************************************************************************************************
 Property Get IsDocumentPlayingAudio() As Boolean
     If m_viewLevel < 8 Then Exit Property
-    IsDocumentPlayingAudio = CDPWebView2Thunks.GetBoolProperty(m_pView, 87, "View8.get_IsDocumentPlayingAudio")
+    IsDocumentPlayingAudio = WebView2Thunks.GetBoolProperty(m_pView, 87, "View8.get_IsDocumentPlayingAudio")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1380,7 +1380,7 @@ End Property
 '***************************************************************************************************
 Property Get StatusBarText() As String
     If m_viewLevel < 12 Then Exit Property
-    StatusBarText = CDPWebView2Thunks.GetStringProperty(m_pView, 104, "View12.get_StatusBarText")
+    StatusBarText = WebView2Thunks.GetStringProperty(m_pView, 104, "View12.get_StatusBarText")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1394,7 +1394,7 @@ End Property
 '***************************************************************************************************
 Property Get FaviconUri() As String
     If m_viewLevel < 15 Then Exit Property
-    FaviconUri = CDPWebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
+    FaviconUri = WebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1417,7 +1417,7 @@ Private Function EnsureFind() As Boolean
 
     Dim pFind As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(m_pView, 135, "View28.get_Find", VarPtr(pFind))
+    hr = WebView2Thunks.dcf(m_pView, 135, "View28.get_Find", VarPtr(pFind))
     If hr <> 0 Or pFind = 0 Then Exit Function
 
     m_pFind = pFind
@@ -1431,7 +1431,7 @@ End Function
 '***************************************************************************************************
 Property Get FindActiveMatchIndex() As Long
     If Not EnsureFind() Then Exit Property
-    FindActiveMatchIndex = CDPWebView2Thunks.GetLongProperty(m_pFind, 3, "Find.get_ActiveMatchIndex")
+    FindActiveMatchIndex = WebView2Thunks.GetLongProperty(m_pFind, 3, "Find.get_ActiveMatchIndex")
 End Property
 
 '***************************************************************************************************
@@ -1439,7 +1439,7 @@ End Property
 '***************************************************************************************************
 Property Get FindMatchCount() As Long
     If Not EnsureFind() Then Exit Property
-    FindMatchCount = CDPWebView2Thunks.GetLongProperty(m_pFind, 4, "Find.get_MatchCount")
+    FindMatchCount = WebView2Thunks.GetLongProperty(m_pFind, 4, "Find.get_MatchCount")
 End Property
 
 '***************************************************************************************************
@@ -1447,7 +1447,7 @@ End Property
 '***************************************************************************************************
 Public Sub FindNext()
     If Not EnsureFind() Then Exit Sub
-    CDPWebView2Thunks.dcf m_pFind, 10, "Find.FindNext"
+    WebView2Thunks.dcf m_pFind, 10, "Find.FindNext"
 End Sub
 
 '***************************************************************************************************
@@ -1455,7 +1455,7 @@ End Sub
 '***************************************************************************************************
 Public Sub FindPrevious()
     If Not EnsureFind() Then Exit Sub
-    CDPWebView2Thunks.dcf m_pFind, 11, "Find.FindPrevious"
+    WebView2Thunks.dcf m_pFind, 11, "Find.FindPrevious"
 End Sub
 
 '***************************************************************************************************
@@ -1465,7 +1465,7 @@ End Sub
 '***************************************************************************************************
 Public Sub FindStop()
     If Not EnsureFind() Then Exit Sub
-    CDPWebView2Thunks.dcf m_pFind, 12, "Find.Stop"
+    WebView2Thunks.dcf m_pFind, 12, "Find.Stop"
 End Sub
 
 

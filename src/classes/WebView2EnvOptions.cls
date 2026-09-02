@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPWebView2EnvOptions"
+Attribute VB_Name = "WebView2EnvOptions"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -20,9 +20,9 @@ Attribute VB_Exposed = False
 '     `CDPCoreViaWebView2`側で直接保持するため、接続前から自由にアクセスできる。
 '
 '   ★実装方式★
-'     ネイティブ側のvtable組み立て/QueryInterface実装は`CDPWebView2Thunks`の「EnvOpt」
+'     ネイティブ側のvtable組み立て/QueryInterface実装は`WebView2Thunks`の「EnvOpt」
 '     セクションが担う。このクラスは値の保持と、WebView2からのget_/put_コールバックの
-'     受け皿(`EnvOpt_OnGetXxx`/`EnvOpt_OnPutXxx`、`CDPWebView2CallbackHandler`から動的束縛で
+'     受け皿(`EnvOpt_OnGetXxx`/`EnvOpt_OnPutXxx`、`WebView2CallbackHandler`から動的束縛で
 '     呼ばれるため全てPublic Sub必須)に徹する。
 '***************************************************************************************************
 Option Explicit
@@ -268,7 +268,7 @@ End Property
 '***************************************************************************************************
 Friend Function BuildNativePointer() As LongPtr
     If m_pNative = 0 Then
-        m_pNative = CDPWebView2Thunks.EnvOpt_CreateNative(Me)
+        m_pNative = WebView2Thunks.EnvOpt_CreateNative(Me)
     End If
     BuildNativePointer = m_pNative
 End Function
@@ -276,7 +276,7 @@ End Function
 '***************************************************************************************************
 '* 機能　　：自分(VBA所有者側)が持っていた分の参照を手放します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：ここで即座に実メモリが解放されるとは限らない。`CDPWebView2Thunks`側が参照カウント
+'* 注意事項：ここで即座に実メモリが解放されるとは限らない。`WebView2Thunks`側が参照カウント
 '            方式で管理しており、WebView2Loaderがまだ内部でQueryInterface済みの参照を保持している
 '            間は、実解放(`VirtualFree`)は行われない。両方(VBA側/WebView2Loader側)が全て
 '            手放した時点で初めて解放されるため、呼ぶタイミングを厳密に見計らう必要はない
@@ -285,7 +285,7 @@ Friend Sub CLOSE_()
     If m_closed Then Exit Sub
 
     If m_pNative <> 0 Then
-        CDPWebView2Thunks.EnvOpt_DestroyNative m_pNative
+        WebView2Thunks.EnvOpt_DestroyNative m_pNative
         m_pNative = 0
     End If
 
@@ -301,36 +301,36 @@ End Sub
 '***************************************************************************************************
 '                    ■■■ WebView2からのコールバック受け皿(動的束縛経由) ■■■
 '***************************************************************************************************
-'* 注意事項：★重要★ 以下は全て`CDPWebView2CallbackHandler.Handler_Invoke`から`owner As Object`
+'* 注意事項：★重要★ 以下は全て`WebView2CallbackHandler.Handler_Invoke`から`owner As Object`
 '            経由(動的束縛)で呼ばれるため、全てPublic Subでなければならない
 '***************************************************************************************************
 ' --- ICoreWebView2EnvironmentOptions ---
 Public Sub EnvOpt_OnGetAdditionalBrowserArguments(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
+    WebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
 End Sub
 
 Public Sub EnvOpt_OnPutAdditionalBrowserArguments(ByVal pValue As LongPtr)
-    If pValue <> 0 Then m_additionalBrowserArguments = CDPWebView2Thunks.PtrToString(pValue)
+    If pValue <> 0 Then m_additionalBrowserArguments = WebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetLanguage(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_language
+    WebView2Thunks.EnvOpt_WriteStringOut pOut, m_language
 End Sub
 
 Public Sub EnvOpt_OnPutLanguage(ByVal pValue As LongPtr)
-    If pValue <> 0 Then m_language = CDPWebView2Thunks.PtrToString(pValue)
+    If pValue <> 0 Then m_language = WebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetTargetCompatibleBrowserVersion(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteStringOut pOut, m_targetCompatibleBrowserVersion
+    WebView2Thunks.EnvOpt_WriteStringOut pOut, m_targetCompatibleBrowserVersion
 End Sub
 
 Public Sub EnvOpt_OnPutTargetCompatibleBrowserVersion(ByVal pValue As LongPtr)
-    If pValue <> 0 Then m_targetCompatibleBrowserVersion = CDPWebView2Thunks.PtrToString(pValue)
+    If pValue <> 0 Then m_targetCompatibleBrowserVersion = WebView2Thunks.PtrToString(pValue)
 End Sub
 
 Public Sub EnvOpt_OnGetAllowSingleSignOnUsingOSPrimaryAccount(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_allowSingleSignOnUsingOSPrimaryAccount
+    WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_allowSingleSignOnUsingOSPrimaryAccount
 End Sub
 
 Public Sub EnvOpt_OnPutAllowSingleSignOnUsingOSPrimaryAccount(ByVal rawValue As LongPtr)
@@ -338,7 +338,7 @@ Public Sub EnvOpt_OnPutAllowSingleSignOnUsingOSPrimaryAccount(ByVal rawValue As 
 End Sub
 
 Public Sub EnvOpt_OnGetAreBrowserExtensionsEnabled(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_areBrowserExtensionsEnabled
+    WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_areBrowserExtensionsEnabled
 End Sub
 
 Public Sub EnvOpt_OnPutAreBrowserExtensionsEnabled(ByVal rawValue As LongPtr)
@@ -347,7 +347,7 @@ End Sub
 
 ' --- ICoreWebView2EnvironmentOptions2 ---
 Public Sub EnvOpt_OnGetExclusiveUserDataFolderAccess(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_exclusiveUserDataFolderAccess
+    WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_exclusiveUserDataFolderAccess
 End Sub
 
 Public Sub EnvOpt_OnPutExclusiveUserDataFolderAccess(ByVal rawValue As LongPtr)
@@ -356,7 +356,7 @@ End Sub
 
 ' --- ICoreWebView2EnvironmentOptions3 ---
 Public Sub EnvOpt_OnGetIsCustomCrashReportingEnabled(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_isCustomCrashReportingEnabled
+    WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_isCustomCrashReportingEnabled
 End Sub
 
 Public Sub EnvOpt_OnPutIsCustomCrashReportingEnabled(ByVal rawValue As LongPtr)
@@ -365,7 +365,7 @@ End Sub
 
 ' --- ICoreWebView2EnvironmentOptions5 ---
 Public Sub EnvOpt_OnGetEnableTrackingPrevention(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteBoolOut pOut, m_enableTrackingPrevention
+    WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_enableTrackingPrevention
 End Sub
 
 Public Sub EnvOpt_OnPutEnableTrackingPrevention(ByVal rawValue As LongPtr)
@@ -374,7 +374,7 @@ End Sub
 
 ' --- ICoreWebView2EnvironmentOptions7 ---
 Public Sub EnvOpt_OnGetChannelSearchKind(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteLongOut pOut, m_channelSearchKind
+    WebView2Thunks.EnvOpt_WriteLongOut pOut, m_channelSearchKind
 End Sub
 
 Public Sub EnvOpt_OnPutChannelSearchKind(ByVal rawValue As LongPtr)
@@ -382,7 +382,7 @@ Public Sub EnvOpt_OnPutChannelSearchKind(ByVal rawValue As LongPtr)
 End Sub
 
 Public Sub EnvOpt_OnGetReleaseChannels(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteLongOut pOut, m_releaseChannels
+    WebView2Thunks.EnvOpt_WriteLongOut pOut, m_releaseChannels
 End Sub
 
 Public Sub EnvOpt_OnPutReleaseChannels(ByVal rawValue As LongPtr)
@@ -391,7 +391,7 @@ End Sub
 
 ' --- ICoreWebView2EnvironmentOptions8 ---
 Public Sub EnvOpt_OnGetScrollBarStyle(ByVal pOut As LongPtr)
-    CDPWebView2Thunks.EnvOpt_WriteLongOut pOut, m_scrollBarStyle
+    WebView2Thunks.EnvOpt_WriteLongOut pOut, m_scrollBarStyle
 End Sub
 
 Public Sub EnvOpt_OnPutScrollBarStyle(ByVal rawValue As LongPtr)

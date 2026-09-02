@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPWebView2CallbackHandler"
+Attribute VB_Name = "WebView2CallbackHandler"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -11,7 +11,7 @@ Attribute VB_Exposed = False
 '   WebView2からのCOMコールバック(サンク経由)を受け取るVBA側の受け皿クラスです。
 '
 '   出典・移植元：WebView2-For-Excel-VBA プロジェクトの`ComCallbackHandler.cls`。
-'   `Handler_Invoke`(vtableスロット7固定、`CDPWebView2Thunks.GetClassMethodAddrAtFixedSlot`が
+'   `Handler_Invoke`(vtableスロット7固定、`WebView2Thunks.GetClassMethodAddrAtFixedSlot`が
 '   この位置を前提に呼び出す)以降の骨格は無変更。`Select Case m_kind`の分岐を、このプロジェクトの
 '   スコープ(CDPメソッド呼び出し完了・CDPイベント受信)向けの2種類に絞り、既存の
 '   HK_EnvironmentCompleted/HK_ControllerCompletedはそのまま残しています。
@@ -49,7 +49,7 @@ Private m_eventName As String
 '***************************************************************************************************
 '                              ■■■ 初期化 ■■■
 '***************************************************************************************************
-'* 機能　　：`CDPWebView2Thunks.AcquireHandlerFor`/`Thunks_AcquireSlot`から呼ばれる初期化処理
+'* 機能　　：`WebView2Thunks.AcquireHandlerFor`/`Thunks_AcquireSlot`から呼ばれる初期化処理
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：refcountは0から開始する。WebView2にハンドラを渡した後はWebView2自身がAddRefして
 '            責任を持つため、VBA側では参照を保持しない
@@ -121,7 +121,7 @@ End Sub
 '                             ※argsはICoreWebView2DevToolsProtocolEventReceivedEventArgs*
 '   HK_EnvOpt_*             : Invoke(this, arg1, 未使用)
 '                             ※ICoreWebView2EnvironmentOptions(base/2/3/5/6/7/8)系のget_/put_
-'                             1個につき1つのkind。詳細は`CDPWebView2Thunks`の「EnvOpt」セクション参照
+'                             1個につき1つのkind。詳細は`WebView2Thunks`の「EnvOpt」セクション参照
 '***************************************************************************************************
 Public Function Handler_Invoke( _
     ByVal This As LongPtr, _
@@ -255,7 +255,7 @@ Public Function Handler_Invoke( _
             End If
 
         Case Else
-            Debug.Print "CDPWebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind
+            Debug.Print "WebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind
     End Select
 
     Handler_Invoke = 0   ' S_OK
@@ -265,7 +265,7 @@ End Function
 '* 機能　　：HK_CdpEventReceived用のイベント名プロパティです
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：★重要★ この2メンバーは、`Handler_Invoke`(vtableスロット7固定)より後方に置くこと。
-'            `CDPWebView2Thunks.GetClassMethodAddrAtFixedSlot`は、このClassの
+'            `WebView2Thunks.GetClassMethodAddrAtFixedSlot`は、このClassの
 '            Public/Friendメンバーの宣言順([Init]→[RefCount Get/Let]→[Slot Get]→[kind Get]→
 '            [callbackId Get/Let]→[ClearOwner]→[Handler_Invoke]、移植元と同じ順序)に基づいて
 '            固定スロット番号でHandler_Invokeのアドレスを取得している。この並び順より前に

@@ -128,14 +128,14 @@ Public Event CDPMessageReceived(RawJson As String)
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private m_Host          As CDPWebView2Host
+Private m_Host          As WebView2Host
 Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
 Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
 
 ' Environment作成オプション(`ICoreWebView2EnvironmentOptions`系)。`m_Host`の生死とは独立に
 ' こちらで直接保持するため、`ConnectCDP`実行前(=`m_Host`がまだ存在しない間)から自由に設定できる。
 ' Environment生成時にしか読まれない値のため、必ず`ConnectCDP`を呼ぶ**前**に設定すること
-Private m_envOptions As CDPWebView2EnvOptions
+Private m_envOptions As WebView2EnvOptions
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
@@ -175,8 +175,8 @@ End Property
 '* 注意事項：★重要★ 必ず`ConnectCDP`を呼ぶ**前**にこのプロパティ経由で値を設定すること。
 '            Environment生成時にしか読まれないため、生成後の変更は反映されない
 '***************************************************************************************************
-Public Property Get EnvironmentOptions() As CDPWebView2EnvOptions
-    If m_envOptions Is Nothing Then Set m_envOptions = New CDPWebView2EnvOptions
+Public Property Get EnvironmentOptions() As WebView2EnvOptions
+    If m_envOptions Is Nothing Then Set m_envOptions = New WebView2EnvOptions
     Set EnvironmentOptions = m_envOptions
 End Property
 
@@ -205,7 +205,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     '3. 専用のホストオブジェクトを新規作成
     Dim RunRes As Boolean
-    Set m_Host = New CDPWebView2Host
+    Set m_Host = New WebView2Host
 
     '3-1. Environmentオプション(設定されていれば、ネイティブ側のfakeオブジェクトを構築)
     '     ★重要★ 実際に使う場合(=`m_envOptions`が既に生成済み)のみ構築する。未使用なら
@@ -250,7 +250,7 @@ Public Sub DisconnectCDP()
 
     '2. ICoreWebView2_11(QI取得分)を解放
     If m_pView11 <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pView11
+        WebView2Thunks.ComRelease m_pView11
         m_pView11 = 0
     End If
     m_pView11Failed = False
@@ -337,8 +337,8 @@ Public Function SendCommandCDP(strData As String) As Long
     End If
 
     '2-3. `commandID`をコールバックIDとして登録して、来たるべき結果の紐づけを行う
-    Dim h As CDPWebView2CallbackHandler
-    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
+    Dim h As WebView2CallbackHandler
+    Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
     If h Is Nothing Then
         printMsg ERROR_, "Failed to acquire the handler.", FromProcedureName
 
@@ -350,14 +350,14 @@ Public Function SendCommandCDP(strData As String) As Long
 
     '3. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
     Dim pVTableObj As LongPtr
-    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
     Dim hr As Long
     If LenB(sessionID) = 0 Then
         printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
 
         'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
         'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
-        hr = CDPWebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
+        hr = WebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
                                     StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
     Else
         'ICoreWebView2_11::CallDevToolsProtocolMethodForSession(vtableスロット99)
@@ -372,7 +372,7 @@ Public Function SendCommandCDP(strData As String) As Long
         End If
 
         printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
-        hr = CDPWebView2Thunks.dcf(pView11, 99, "View11.CallDevToolsProtocolMethodForSession", _
+        hr = WebView2Thunks.dcf(pView11, 99, "View11.CallDevToolsProtocolMethodForSession", _
                                     StrPtr(sessionID), StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
     End If
 
@@ -393,12 +393,12 @@ Private Function EnsureView11(ByVal pView As LongPtr) As LongPtr
     If m_pView11 <> 0 Then EnsureView11 = m_pView11: Exit Function
     If m_pView11Failed Then Exit Function
 
-    Dim iid As CDPWebView2Thunks.GUID
-    CDPWebView2Thunks.FillGUID iid, IID_ICoreWebView2_11
+    Dim iid As WebView2Thunks.GUID
+    WebView2Thunks.FillGUID iid, IID_ICoreWebView2_11
 
     Dim pOut As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pView, 0, "View.QueryInterface(ICoreWebView2_11)", VarPtr(iid), VarPtr(pOut))
+    hr = WebView2Thunks.dcf(pView, 0, "View.QueryInterface(ICoreWebView2_11)", VarPtr(iid), VarPtr(pOut))
     If hr = 0 And pOut <> 0 Then
         m_pView11 = pOut
         EnsureView11 = m_pView11
@@ -416,7 +416,7 @@ End Function
 '            組み立てて発信します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：いわゆる、コマンド結果を受け取るところです。`SendCommandCDP`で、`commandID`を`callbackId`に登録したのと一致するのが来ます
-'* 注意事項：`CDPWebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
+'* 注意事項：`WebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
 '***************************************************************************************************
 Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Long, ByVal resultJson As String)
     Const FromProcedureName As String = ThisClassName & ".OnCdpMethodCompleted"
@@ -454,7 +454,7 @@ End Sub
 '***************************************************************************************************
 Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
     Dim paramJson As String
-    paramJson = CDPWebView2Thunks.GetStringProperty(pArgs, 3, "Args.get_ParameterObjectAsJson")
+    paramJson = WebView2Thunks.GetStringProperty(pArgs, 3, "Args.get_ParameterObjectAsJson")
     If LenB(paramJson) = 0 Then paramJson = "{}"
 
     Dim sessionID As String
@@ -480,18 +480,18 @@ End Sub
 Private Function TryGetEventSessionId(ByVal pArgs As LongPtr) As String
     Const IID_Args2 As String = "2dc4959d-1494-4393-95ba-bea4cb9ebd1b"   ' ICoreWebView2DevToolsProtocolEventReceivedEventArgs2
 
-    Dim iid As CDPWebView2Thunks.GUID
-    CDPWebView2Thunks.FillGUID iid, IID_Args2
+    Dim iid As WebView2Thunks.GUID
+    WebView2Thunks.FillGUID iid, IID_Args2
 
     Dim pArgs2 As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pArgs, 0, "Args.QueryInterface(Args2)", VarPtr(iid), VarPtr(pArgs2))
+    hr = WebView2Thunks.dcf(pArgs, 0, "Args.QueryInterface(Args2)", VarPtr(iid), VarPtr(pArgs2))
     If hr <> 0 Or pArgs2 = 0 Then Exit Function
 
-    TryGetEventSessionId = CDPWebView2Thunks.GetStringProperty(pArgs2, 4, "Args2.get_SessionId")
+    TryGetEventSessionId = WebView2Thunks.GetStringProperty(pArgs2, 4, "Args2.get_SessionId")
 
     'QueryInterfaceで確保した分の参照を解放(GetStringPropertyはQI自体はしない)
-    CDPWebView2Thunks.ComRelease pArgs2
+    WebView2Thunks.ComRelease pArgs2
 End Function
 
 
@@ -521,32 +521,32 @@ Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
 
     Dim pReceiver As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
+    hr = WebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
                                StrPtr(EventName), VarPtr(pReceiver))
     If hr <> 0 Or pReceiver = 0 Then
         printMsg ERROR_, "Failed to GetDevToolsProtocolEventReceiver.  hr=&H" & Hex(hr), FromProcedureName
         Exit Function
     End If
 
-    Dim h As CDPWebView2CallbackHandler
-    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
+    Dim h As WebView2CallbackHandler
+    Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
     If h Is Nothing Then
-        CDPWebView2Thunks.ComRelease pReceiver
+        WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
     h.EventName = EventName
 
     Dim pVTableObj As LongPtr
-    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     Dim token As LongLong
-    hr = CDPWebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
+    hr = WebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
                                pVTableObj, VarPtr(token))
     If hr <> 0 Then
         printMsg ERROR_, "Failed to add_DevToolsProtocolEventReceived.  hr=&H" & Hex(hr), FromProcedureName
 
         Set h = Nothing
-        CDPWebView2Thunks.ComRelease pReceiver
+        WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
 
@@ -568,8 +568,8 @@ Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
     Dim pReceiver As LongPtr: pReceiver = m_subReceiver(EventName)
     Dim token As LongLong: token = m_subToken(EventName)
 
-    CDPWebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
-    CDPWebView2Thunks.ComRelease pReceiver
+    WebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
+    WebView2Thunks.ComRelease pReceiver
 
     m_subReceiver.Remove EventName
     m_subToken.Remove EventName

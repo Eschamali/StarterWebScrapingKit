@@ -1,4 +1,4 @@
-Attribute VB_Name = "CDPWebView2Thunks"
+Attribute VB_Name = "WebView2Thunks"
 '***************************************************************************************************
 '   WebView2用の機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブを担う基盤モジュールです。
 '
@@ -265,7 +265,7 @@ Private m_freeHead    As Long
 Private m_freeNext()  As Long
 Private m_inUse       As Long
 
-Private m_handlers(0 To SLOT_COUNT - 1) As CDPWebView2CallbackHandler
+Private m_handlers(0 To SLOT_COUNT - 1) As WebView2CallbackHandler
 Private m_iidTable(HK_None To HK_RemoveBrowserExtensionCompleted) As GUID
 Private m_iidIUnknown As GUID
 
@@ -290,20 +290,20 @@ Private Sub EntryPoint(): End Sub
 '***************************************************************************************************
 '* 機能　　：新規のCOMコールバックハンドラを1個確保します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：初期化済みの`CDPWebView2CallbackHandler`(失敗時`Nothing`)
+'* 返り値  ：初期化済みの`WebView2CallbackHandler`(失敗時`Nothing`)
 '* 引数　　：kind    このハンドラの種別
 '            owner   コールバック受信先オブジェクト(`Public`メソッドが動的束縛で呼ばれる)
 '***************************************************************************************************
 Public Function AcquireHandlerFor( _
     ByVal kind As HandlerKind, _
-    ByVal owner As Object) As CDPWebView2CallbackHandler
+    ByVal owner As Object) As WebView2CallbackHandler
 
     If m_pRegionBase = 0 Then
         If Not Thunks_Init() Then Exit Function
     End If
 
-    Dim h As CDPWebView2CallbackHandler
-    Set h = New CDPWebView2CallbackHandler
+    Dim h As WebView2CallbackHandler
+    Set h = New WebView2CallbackHandler
 
     Dim pHandlerInvoke As LongPtr
     pHandlerInvoke = GetClassMethodAddrAtFixedSlot(h, 7)
@@ -350,7 +350,7 @@ End Function
 '* 返り値  ：`CreateCoreWebView2EnvironmentWithOptions`へそのまま渡せるポインタ(失敗時0)
 '***************************************************************************************************
 Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
-    Const FromProcedureName As String = "CDPWebView2Thunks.EnvOpt_CreateNative"
+    Const FromProcedureName As String = "WebView2Thunks.EnvOpt_CreateNative"
 
     If m_pRegionBase = 0 Then
         If Not Thunks_Init() Then Exit Function
@@ -366,11 +366,11 @@ Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
     Next k
 
     ' --- プロパティ10個分(get/put4組+get/put1組)の専用スロットを確保 ---
-    Dim hGetArgs As CDPWebView2CallbackHandler, hPutArgs As CDPWebView2CallbackHandler
-    Dim hGetLang As CDPWebView2CallbackHandler, hPutLang As CDPWebView2CallbackHandler
-    Dim hGetVer  As CDPWebView2CallbackHandler, hPutVer  As CDPWebView2CallbackHandler
-    Dim hGetSSO  As CDPWebView2CallbackHandler, hPutSSO  As CDPWebView2CallbackHandler
-    Dim hGetExt  As CDPWebView2CallbackHandler, hPutExt  As CDPWebView2CallbackHandler
+    Dim hGetArgs As WebView2CallbackHandler, hPutArgs As WebView2CallbackHandler
+    Dim hGetLang As WebView2CallbackHandler, hPutLang As WebView2CallbackHandler
+    Dim hGetVer  As WebView2CallbackHandler, hPutVer  As WebView2CallbackHandler
+    Dim hGetSSO  As WebView2CallbackHandler, hPutSSO  As WebView2CallbackHandler
+    Dim hGetExt  As WebView2CallbackHandler, hPutExt  As WebView2CallbackHandler
 
     Set hGetArgs = AcquireHandlerFor(HK_EnvOpt_GetAdditionalBrowserArguments, owner)
     Set hPutArgs = AcquireHandlerFor(HK_EnvOpt_PutAdditionalBrowserArguments, owner)
@@ -384,12 +384,12 @@ Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
     Set hPutExt = AcquireHandlerFor(HK_EnvOpt_PutAreBrowserExtensionsEnabled, owner)
 
     ' --- プロパティ6個分(Options2/3/5/7[2組]/8)の専用スロットを新規確保 ---
-    Dim hGetExcl As CDPWebView2CallbackHandler, hPutExcl As CDPWebView2CallbackHandler
-    Dim hGetCrash As CDPWebView2CallbackHandler, hPutCrash As CDPWebView2CallbackHandler
-    Dim hGetTrack As CDPWebView2CallbackHandler, hPutTrack As CDPWebView2CallbackHandler
-    Dim hGetChKind As CDPWebView2CallbackHandler, hPutChKind As CDPWebView2CallbackHandler
-    Dim hGetRelCh As CDPWebView2CallbackHandler, hPutRelCh As CDPWebView2CallbackHandler
-    Dim hGetScroll As CDPWebView2CallbackHandler, hPutScroll As CDPWebView2CallbackHandler
+    Dim hGetExcl As WebView2CallbackHandler, hPutExcl As WebView2CallbackHandler
+    Dim hGetCrash As WebView2CallbackHandler, hPutCrash As WebView2CallbackHandler
+    Dim hGetTrack As WebView2CallbackHandler, hPutTrack As WebView2CallbackHandler
+    Dim hGetChKind As WebView2CallbackHandler, hPutChKind As WebView2CallbackHandler
+    Dim hGetRelCh As WebView2CallbackHandler, hPutRelCh As WebView2CallbackHandler
+    Dim hGetScroll As WebView2CallbackHandler, hPutScroll As WebView2CallbackHandler
 
     Set hGetExcl = AcquireHandlerFor(HK_EnvOpt_GetExclusiveUserDataFolderAccess, owner)
     Set hPutExcl = AcquireHandlerFor(HK_EnvOpt_PutExclusiveUserDataFolderAccess, owner)
@@ -1014,7 +1014,7 @@ End Function
 
 '* 機能　　：フリーリストから空きスロットを1個取得し、サンクを書き込みます
 Public Function Thunks_AcquireSlot( _
-    ByVal handler As CDPWebView2CallbackHandler, _
+    ByVal handler As WebView2CallbackHandler, _
     ByVal pSelfObj As LongPtr, _
     ByVal pTargetFunc As LongPtr) As LongPtr
 
@@ -1073,7 +1073,7 @@ Public Sub Thunks_Shutdown()
 
     Dim shutFreeResult As Long
     shutFreeResult = VirtualFree(m_pRegionBase, 0, MEM_RELEASE)
-    Debug.Print "CDPWebView2Thunks.Thunks_Shutdown: VirtualFree(" & m_pRegionBase & ") returned " & shutFreeResult
+    Debug.Print "WebView2Thunks.Thunks_Shutdown: VirtualFree(" & m_pRegionBase & ") returned " & shutFreeResult
 
     m_pRegionBase = 0
     m_freeHead = -1
@@ -1398,7 +1398,7 @@ Private Function HandlerReleaseInternal(ByVal This As LongPtr) As Long
     m_handlers(idx).refCount = N
 
     If N = 0 Then
-        Dim h As CDPWebView2CallbackHandler
+        Dim h As WebView2CallbackHandler
         Set h = m_handlers(idx)
 
         Dim pSlot As LongPtr
@@ -1520,7 +1520,7 @@ Private Sub Sentinel_RecoverIfNeeded()
 
     Dim freeResult As Long
     freeResult = VirtualFree(prevBase, 0, MEM_RELEASE)
-    Debug.Print "CDPWebView2Thunks.Sentinel: recovered previous region " & prevBase & _
+    Debug.Print "WebView2Thunks.Sentinel: recovered previous region " & prevBase & _
                 " (VirtualFree result=" & freeResult & ")"
 
     Sentinel_ClearPrevRegion
