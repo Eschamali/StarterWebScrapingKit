@@ -8,14 +8,16 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   `ICoreWebView2EnvironmentOptions`(+`ICoreWebView2EnvironmentOptions6`)を実装する
-'   VBA側COMオブジェクトです。`CDPWebView2Host.RunWebView2`が
-'   `CreateCoreWebView2EnvironmentWithOptions`へ渡す`environmentOptions`引数として使います。
+'   `ICoreWebView2EnvironmentOptions`(+`Options2`/`3`/`5`/`6`/`7`/`8`)を実装する
+'   VBA側COMオブジェクトです。`BuildNativePointer`が返すポインタを、`CDPWebView2Host.RunWebView2`の
+'   引数経由で`CreateCoreWebView2EnvironmentWithOptions`の`environmentOptions`引数として渡します。
+'   (`Options4`[CustomSchemeRegistrations]は配列を扱う特殊な形のため未実装)
 '
 '   ★使い方★
-'     `CDPWebView2Host.EnvironmentOptions`(このクラスのインスタンス)のプロパティを、
-'     必ず`RunWebView2`を呼ぶ**前**に設定すること。Environment生成時にしか読まれない値のため、
-'     生成後に変更しても反映されない。
+'     `CDPCoreViaWebView2.EnvironmentOptions`(このクラスのインスタンス)のプロパティを、
+'     必ず`ConnectCDP`を呼ぶ**前**に設定すること。Environment生成時にしか読まれない値のため、
+'     生成後に変更しても反映されない。`m_Host`(`CDPWebView2Host`)の生死とは無関係に
+'     `CDPCoreViaWebView2`側で直接保持するため、接続前から自由にアクセスできる。
 '
 '   ★実装方式★
 '     ネイティブ側のvtable組み立て/QueryInterface実装は`CDPWebView2Thunks`の「EnvOpt」

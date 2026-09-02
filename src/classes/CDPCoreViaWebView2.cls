@@ -125,11 +125,10 @@ Private m_Host          As CDPWebView2Host
 Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
 Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
 
-' Environment作成オプション(`ConnectCDP`実行前=`m_Host`未生成の間、値をここに一時保持する。
-' `ICoreWebView2EnvironmentOptions`系はEnvironment生成時にしか読まれないため、`ConnectCDP`が
-' `m_Host`を新規作成した直後・`RunWebView2`を呼ぶ前に、ここから`m_Host.EnvironmentOptions`へ反映する)
-Private m_pendingAreBrowserExtensionsEnabled As Boolean
-Private m_pendingAdditionalBrowserArguments  As String
+' Environment作成オプション(`ICoreWebView2EnvironmentOptions`系)。`m_Host`の生死とは独立に
+' こちらで直接保持するため、`ConnectCDP`実行前(=`m_Host`がまだ存在しない間)から自由に設定できる。
+' Environment生成時にしか読まれない値のため、必ず`ConnectCDP`を呼ぶ**前**に設定すること
+Private m_envOptions As CDPWebView2EnvOptions
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
@@ -163,6 +162,17 @@ Property Get SubscribeCdpEventDetails()
     SubscribeCdpEventDetails = m_subToken.keys
 End Property
 
+'***************************************************************************************************
+'* 機能　　：Environment作成時に使うオプション(`ICoreWebView2EnvironmentOptions`系)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 必ず`ConnectCDP`を呼ぶ**前**にこのプロパティ経由で値を設定すること。
+'            Environment生成時にしか読まれないため、生成後の変更は反映されない
+'***************************************************************************************************
+Public Property Get EnvironmentOptions() As CDPWebView2EnvOptions
+    If m_envOptions Is Nothing Then Set m_envOptions = New CDPWebView2EnvOptions
+    Set EnvironmentOptions = m_envOptions
+End Property
+
 
 
 '***************************************************************************************************
@@ -189,27 +199,28 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '3. 専用のホストオブジェクトを新規作成
     Dim RunRes As Boolean
     Set m_Host = New CDPWebView2Host
+
+    '3-1. Environmentオプション(設定されていれば、ネイティブ側のfakeオブジェクトを構築)
+    '     ★重要★ 実際に使う場合(=`m_envOptions`が既に生成済み)のみ構築する。未使用なら
+    '     ネイティブfakeオブジェクトを一切構築せず、従来通り`environmentOptions=nullptr`の
+    '     まま接続する(無駄な構築コストを避けるため)
+    Dim pEnvOptions As LongPtr
+    If Not (m_envOptions Is Nothing) Then pEnvOptions = m_envOptions.BuildNativePointer()
+
     With m_Host
-        '3-1. 必要な情報を渡す
+        '3-2. 必要な情報を渡す
         .InitInfo UserName, AttachHwnd
 
-        '3-2. セッションを閉じる(保険用)
+        '3-3. セッションを閉じる(保険用)
         .cleanUpSessions
 
-        '3-3. 保留中のEnvironmentオプションを反映(`RunWebView2`より前でなければ意味がない)
-        '     ★重要★ 実際に使う場合のみ`.EnvironmentOptions`へ触れる。未使用なら触れないことで
-        '     (`CDPWebView2Host`内で遅延生成される)ネイティブfakeオブジェクトを一切構築せず、
-        '     従来通り`environmentOptions=nullptr`のまま接続する(無駄な構築コストを避けるため)
-        If m_pendingAreBrowserExtensionsEnabled Then
-            .EnvironmentOptions.AreBrowserExtensionsEnabled = True
-        End If
-        If LenB(m_pendingAdditionalBrowserArguments) > 0 Then
-            .EnvironmentOptions.AdditionalBrowserArguments = m_pendingAdditionalBrowserArguments
-        End If
-
         '3-4. 起動！
-        RunRes = .RunWebView2
+        RunRes = .RunWebView2(pEnvOptions)
     End With
+
+    '3-5. Environmentオプションのネイティブリソースは、ここで(成功/失敗問わず)解放してよい
+    '     (`RunWebView2`内の完了待ちで、WebView2Loaderは既に読み終えている)
+    DisposeEnvOptions
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
@@ -241,6 +252,21 @@ Public Sub DisconnectCDP()
     If Not (m_Host Is Nothing) Then
         m_Host.CLOSE_
         Set m_Host = Nothing
+    End If
+
+    '4. Environmentオプションが未使用のまま残っていれば、保険として解放
+    '   (通常は`ConnectCDP`内で既に解放済みだが、一度も`ConnectCDP`を呼ばずに
+    '   切断/破棄された場合への保険)
+    DisposeEnvOptions
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：Environmentオプションのネイティブリソースを、設定済みなら解放します
+'***************************************************************************************************
+Private Sub DisposeEnvOptions()
+    If Not (m_envOptions Is Nothing) Then
+        m_envOptions.CLOSE_
+        Set m_envOptions = Nothing
     End If
 End Sub
 
@@ -750,41 +776,6 @@ End Property
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
     m_Host.ContextMenuEnabled = v
-End Property
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] interface - ICoreWebView2EnvironmentOptions
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：★重要★ このセクションのプロパティは全て、Environment生成時にしか読まれない値のため、
-'            必ず`ConnectCDP`を呼ぶ**前**に設定すること(`ConnectCDP`内で新規作成される`m_Host`へ、
-'            `RunWebView2`実行前に反映される)。接続後に設定しても無視される
-'---------------------------------------------------------------------------------------------------
-'***************************************************************************************************
-'* 機能　　：ブラウザ拡張機能(Extensions)の使用可否を切り替えます(既定False)
-'***************************************************************************************************
-Property Get AreBrowserExtensionsEnabled() As Boolean
-    AreBrowserExtensionsEnabled = m_pendingAreBrowserExtensionsEnabled
-End Property
-
-Property Let AreBrowserExtensionsEnabled(v As Boolean)
-    m_pendingAreBrowserExtensionsEnabled = v
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ブラウザプロセス起動時に追加するコマンドライン引数を指定します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：v  `--`始まりの引数群
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：以前はProcess内環境変数(`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`)で代用していたが、
-'            `ICoreWebView2EnvironmentOptions`のネイティブ実装(`CDPWebView2EnvOptions`)が
-'            出来たため、素直にそちらへ委譲する形に置き換えた
-'***************************************************************************************************
-Property Get AdditionalBrowserArguments() As String
-    AdditionalBrowserArguments = m_pendingAdditionalBrowserArguments
-End Property
-
-Property Let AdditionalBrowserArguments(v As String)
-    m_pendingAdditionalBrowserArguments = v
 End Property
 
 '--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`CDPWebView2Host`側のコメント参照) ---
