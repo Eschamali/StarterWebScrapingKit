@@ -68,19 +68,18 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '            addArgs    追加起動引数
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・フォーム表示までは行いません。bas側で`.show`をしてください
-'            ・CDP操作は、property経由でやるのが基本とします
+'            ・CDP/WebView2操作は、property経由でやるのが基本とします
+'            ・`EnvironmentOptions`系は、このプロシージャを呼び出す前に設定して下さい
 '***************************************************************************************************
-Friend Function StartCDPModeWebView2(Optional SwitchUser As String, Optional addArgs As String) As Boolean
+Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     '1. WebView2の追加起動引数準備
-    Set fWebView2 = New CDPCoreViaWebView2
-    fWebView2.AdditionalBrowserArguments = addArgs
+    fWebView2.EnvironmentOptions.AdditionalBrowserArguments = ShSetting01_StartBrowser.UseRangeID(3, "WebView2Form.StartCDPModeWebView2")
 
     '2. `SwitchUser`引数が省略されてる場合は、ワークシートの設定を適用
     If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
 
     '3. WebView2を起動
     Dim isActive As Boolean
-    fWebView2.AreBrowserExtensionsEnabled = True
     isActive = fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd)
 
     '4. 起動失敗したら、抜ける
@@ -180,7 +179,7 @@ End Property
 
 
 '***************************************************************************************************
-'                                       ■■■ 初期化 ■■■
+'                                 ■■■ 初期化/後始末 ■■■
 '***************************************************************************************************
 '* 機能　　：操作に必要なハンドル情報を取得します
 '***************************************************************************************************
@@ -200,4 +199,12 @@ Private Sub UserForm_Initialize()
     '4. フレームの右下マージン計算
     RightMargin = Me.InsideWidth - Me.EdgeFrame.Width - Me.EdgeFrame.Left
     BottomMargin = Me.InsideHeight - Me.EdgeFrame.height - Me.EdgeFrame.Top
+
+    '5. WebView2のコアオブジェクトを初期化
+    Set fWebView2 = New CDPCoreViaWebView2
+End Sub
+
+Private Sub UserForm_Terminate()
+    fWebView2.DisconnectCDP
+    Set fWebView2 = Nothing
 End Sub
