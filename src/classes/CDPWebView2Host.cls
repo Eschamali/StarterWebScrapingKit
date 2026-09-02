@@ -71,8 +71,10 @@ Private m_pController   As LongPtr  'ICoreWebView2Controller
 Private m_pEnvironment  As LongPtr  'ICoreWebView2Environment
 Private m_pSettings     As LongPtr  'ICoreWebView2Settings
 Private m_pProfile      As LongPtr  'ICoreWebView2Profile
+Private m_pFind         As LongPtr  'ICoreWebView2Find(ICoreWebView2_28::get_Findで初回アクセス時に遅延取得)
 
 'たどり着けた階層レベル
+Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN(基底のみなら1)
 Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
 Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
 Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
@@ -210,6 +212,8 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
         Exit Function
     End If
     m_pView = pv
+    m_viewLevel = 1
+    DetectViewLevel
 
     '6. ICoreWebView2Settingsを取得(View::get_Settings、vtable index 3)
     '   ★毎回取得/解放していると呼び出しごとにQI相当のオーバーヘッドが発生するため、
@@ -245,6 +249,64 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     '8. 成功サインを返す
     RunWebView2 = True
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`m_pView`が実際にQueryInterfaceで辿り着ける`ICoreWebView2_N`の最大のNを判定し、
+'            `m_pView`/`m_viewLevel`を更新します(`Settings`/`Controller`/`Profile`と同じ方式)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`ICoreWebView2_2`~`_29`も一本の継承チェーン(`_2 : ICoreWebView2`→`_3 : _2`→…)なので、
+'            対応している最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで基底から
+'            そのバージョンまでの全メンバーに(スロット番号さえ合わせれば)アクセスできる
+'***************************************************************************************************
+Private Sub DetectViewLevel()
+    Dim iids(1 To 28) As String
+    iids(1) = "650f917e-cc16-5c8c-9287-b0bbc8a4ab2c"    ' ICoreWebView2_29
+    iids(2) = "62e50381-5bf5-51a8-aae0-f20a3a9c8a90"    ' ICoreWebView2_28
+    iids(3) = "00fbe33b-8c07-517c-aa23-0ddd4b5f6fa0"    ' ICoreWebView2_27
+    iids(4) = "806268b8-f897-5685-88e5-c45fca0b1a48"    ' ICoreWebView2_26
+    iids(5) = "b5a86092-df50-5b4f-a17b-6c8f8b40b771"    ' ICoreWebView2_25
+    iids(6) = "39a7ad55-4287-5cc1-88a1-c6f458593824"    ' ICoreWebView2_24
+    iids(7) = "508f0db5-90c4-5872-90a7-267a91377502"    ' ICoreWebView2_23
+    iids(8) = "db75dfc7-a857-4632-a398-6969dde26c0a"    ' ICoreWebView2_22
+    iids(9) = "c4980dea-587b-43b9-8143-3ef3bf552d95"    ' ICoreWebView2_21
+    iids(10) = "b4bc1926-7305-11ee-b962-0242ac120002"   ' ICoreWebView2_20
+    iids(11) = "6921f954-79b0-437f-a997-c85811897c68"   ' ICoreWebView2_19
+    iids(12) = "7a626017-28be-49b2-b865-3ba2b3522d90"   ' ICoreWebView2_18
+    iids(13) = "702e75d4-fd44-434d-9d70-1a68a6b1192a"   ' ICoreWebView2_17
+    iids(14) = "0eb34dc9-9f91-41e1-8639-95cd5943906b"   ' ICoreWebView2_16
+    iids(15) = "517b2d1d-7dae-4a66-a4f4-10352ffb9518"   ' ICoreWebView2_15
+    iids(16) = "6daa4f10-4a90-4753-8898-77c5df534165"   ' ICoreWebView2_14
+    iids(17) = "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
+    iids(18) = "35d69927-bcfa-4566-9349-6b3e0d154cac"   ' ICoreWebView2_12
+    iids(19) = "0be78e56-c193-4051-b943-23b460c08bdb"   ' ICoreWebView2_11
+    iids(20) = "b1690564-6f5a-4983-8e48-31d1143fecdb"   ' ICoreWebView2_10
+    iids(21) = "4d7b2eab-9fdc-468d-b998-a9260b5ed651"   ' ICoreWebView2_9
+    iids(22) = "e9632730-6e1e-43ab-b7b8-7b2c9e62e094"   ' ICoreWebView2_8
+    iids(23) = "79c24d83-09a3-45ae-9418-487f32a58740"   ' ICoreWebView2_7
+    iids(24) = "499aadac-d92c-4589-8a75-111bfc167795"   ' ICoreWebView2_6
+    iids(25) = "bedb11b8-d63c-11eb-b8bc-0242ac130003"   ' ICoreWebView2_5
+    iids(26) = "20d02d59-6df2-42dc-bd06-f98a694b1302"   ' ICoreWebView2_4
+    iids(27) = "a0d6df20-3b92-416d-aa0c-437a9c727857"   ' ICoreWebView2_3
+    iids(28) = "9e8f0cf8-e670-4b5e-b2bc-73e061e3184c"   ' ICoreWebView2_2
+
+    Dim levels(1 To 28) As Long
+    Dim i As Long
+    For i = 1 To 28
+        levels(i) = 30 - i   ' iids(1)=29, iids(2)=28, ... iids(28)=2
+    Next i
+
+    Dim iid As CDPWebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    For i = 1 To 28
+        CDPWebView2Thunks.FillGUID iid, iids(i)
+        hrQ = CDPWebView2Thunks.dcf(m_pView, 0, "View.QueryInterface", VarPtr(iid), VarPtr(pTry))
+        If hrQ = 0 And pTry <> 0 Then
+            CDPWebView2Thunks.ComRelease m_pView   ' 基底(または下位)の分の参照は不要になるので解放
+            m_pView = pTry
+            m_viewLevel = levels(i)
+            Exit Sub
+        End If
+    Next i
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：`m_pSettings`が実際にQueryInterfaceで辿り着ける`ICoreWebView2SettingsN`の最大のNを
@@ -488,6 +550,10 @@ Public Sub CLOSE_()
     If m_pProfile <> 0 Then
         CDPWebView2Thunks.ComRelease m_pProfile
         m_pProfile = 0
+    End If
+    If m_pFind <> 0 Then
+        CDPWebView2Thunks.ComRelease m_pFind
+        m_pFind = 0
     End If
     If m_pView <> 0 Then
         CDPWebView2Thunks.ComRelease m_pView
@@ -1236,6 +1302,171 @@ Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
     If m_profileLevel < 9 Then Exit Property
     CDPWebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
 End Property
+
+
+
+'***************************************************************************************************
+'                               ■■■ ICoreWebView2 一式 ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_3
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：ローカルフォルダを、仮想ホスト名経由(`https://<hostName>/`のような形)で配信されている
+'            かのように見せます(ICoreWebView2_3以降)。`file://`のCORS/CSP制約を回避しつつ、
+'            ローカルのHTML/JS/CSSをページに読み込ませたい場合に使う
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：hostName    仮想ホスト名(例:"my.app")
+'            folderPath  配信対象のローカルフォルダの絶対パス
+'            accessKind  `COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND`(Long。0=Deny、1=Allow、
+'            2=DenyCors。`CDPCoreViaWebView2`側の`WV2HostResourceAccessKind`Enum使用を推奨)
+'* 返り値  ：成功可否
+'***************************************************************************************************
+Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, ByVal accessKind As Long) As Boolean
+    If m_viewLevel < 3 Then Exit Function
+
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(m_pView, 71, "View3.SetVirtualHostNameToFolderMapping", _
+        StrPtr(hostname), StrPtr(FolderPath), accessKind)
+    SetVirtualHostNameToFolderMapping = (hr = 0)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：hostName  解除する仮想ホスト名
+'***************************************************************************************************
+Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
+    If m_viewLevel < 3 Then Exit Sub
+    CDPWebView2Thunks.dcf m_pView, 72, "View3.ClearVirtualHostNameToFolderMapping", StrPtr(hostname)
+End Sub
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_8
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  Trueでミュート、Falseで解除
+'***************************************************************************************************
+Property Get IsMuted() As Boolean
+    If m_viewLevel < 8 Then Exit Property
+    IsMuted = CDPWebView2Thunks.GetBoolProperty(m_pView, 83, "View8.get_IsMuted")
+End Property
+
+Property Let IsMuted(v As Boolean)
+    If m_viewLevel < 8 Then Exit Property
+    CDPWebView2Thunks.dcf m_pView, 84, "View8.put_IsMuted", CLng(v * -1)
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在ドキュメントが音声を再生中かどうかを取得します(ICoreWebView2_8以降)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：読み取り専用(SDK仕様上、書き込みはできない)
+'***************************************************************************************************
+Property Get IsDocumentPlayingAudio() As Boolean
+    If m_viewLevel < 8 Then Exit Property
+    IsDocumentPlayingAudio = CDPWebView2Thunks.GetBoolProperty(m_pView, 87, "View8.get_IsDocumentPlayingAudio")
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_12
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：リンクホバー時のリンク先URL等、ステータスバーに表示される文字列を取得します
+'            (ICoreWebView2_12以降)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：読み取り専用。`StatusBarEnabled=False`にしていても値自体は取得できる
+'***************************************************************************************************
+Property Get StatusBarText() As String
+    If m_viewLevel < 12 Then Exit Property
+    StatusBarText = CDPWebView2Thunks.GetStringProperty(m_pView, 104, "View12.get_StatusBarText")
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_15
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：現在のページのfavicon URI(Chromium本体が解決した実際のURI。`<link rel="icon">`未指定時の
+'            `/favicon.ico`フォールバックも考慮済み)を取得します(ICoreWebView2_15以降)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：読み取り専用。未解決/存在しない場合は空文字
+'***************************************************************************************************
+Property Get FaviconUri() As String
+    If m_viewLevel < 15 Then Exit Property
+    FaviconUri = CDPWebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_28
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：CDPには標準のfind-in-pageドメインが存在しないため、これはCDPで代用できない数少ない
+'            機能の1つ。`ICoreWebView2Find`(ICoreWebView2_28::get_Find)への参照を、初回アクセス時に
+'            遅延取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`Start`(検索語等を指定して検索を開始するメソッド)は、別途`ICoreWebView2FindOptions`の
+'            フェイクCOMオブジェクト実装が必要なためいったん見送り、まずは既存の検索結果を操作する
+'            軽量なメンバー(件数取得/次候補・前候補への移動/終了)のみ先行実装する
+'***************************************************************************************************
+Private Function EnsureFind() As Boolean
+    If m_pFind <> 0 Then
+        EnsureFind = True
+        Exit Function
+    End If
+    If m_viewLevel < 28 Then Exit Function
+
+    Dim pFind As LongPtr
+    Dim hr As Long
+    hr = CDPWebView2Thunks.dcf(m_pView, 135, "View28.get_Find", VarPtr(pFind))
+    If hr <> 0 Or pFind = 0 Then Exit Function
+
+    m_pFind = pFind
+    EnsureFind = True
+End Function
+
+'***************************************************************************************************
+'* 機能　　：現在アクティブな検索結果の(1始まりの)インデックスを取得します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`Start`で検索を開始していない状態では`0`
+'***************************************************************************************************
+Property Get FindActiveMatchIndex() As Long
+    If Not EnsureFind() Then Exit Property
+    FindActiveMatchIndex = CDPWebView2Thunks.GetLongProperty(m_pFind, 3, "Find.get_ActiveMatchIndex")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在の検索結果の総件数を取得します
+'***************************************************************************************************
+Property Get FindMatchCount() As Long
+    If Not EnsureFind() Then Exit Property
+    FindMatchCount = CDPWebView2Thunks.GetLongProperty(m_pFind, 4, "Find.get_MatchCount")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：次の検索結果へ移動します
+'***************************************************************************************************
+Public Sub FindNext()
+    If Not EnsureFind() Then Exit Sub
+    CDPWebView2Thunks.dcf m_pFind, 10, "Find.FindNext"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：前の検索結果へ移動します
+'***************************************************************************************************
+Public Sub FindPrevious()
+    If Not EnsureFind() Then Exit Sub
+    CDPWebView2Thunks.dcf m_pFind, 11, "Find.FindPrevious"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：検索を終了し、ハイライト表示を消去します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`Stop`はVBAの予約語のため、`FindStop`という名前にしている
+'***************************************************************************************************
+Public Sub FindStop()
+    If Not EnsureFind() Then Exit Sub
+    CDPWebView2Thunks.dcf m_pFind, 12, "Find.Stop"
+End Sub
 
 
 

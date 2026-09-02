@@ -108,6 +108,13 @@ Public Enum WV2TrackingPreventionLevel
     TrackingPrevention_Strict = 3
 End Enum
 
+'* `SetVirtualHostNameToFolderMapping`用(`COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND`)
+Public Enum WV2HostResourceAccessKind
+    HostAccess_Deny = 0
+    HostAccess_Allow = 1
+    HostAccess_DenyCors = 2
+End Enum
+
 
 
 '***************************************************************************************************
@@ -753,6 +760,108 @@ Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
     If m_Host Is Nothing Then Exit Function
     RemoveBrowserExtension = m_Host.RemoveBrowserExtension(extensionId)
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルフォルダを、仮想ホスト名経由(`https://<hostName>/`のような形)で配信されている
+'            かのように見せます(ICoreWebView2_3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：hostName    仮想ホスト名(例:"my.app")
+'            folderPath  配信対象のローカルフォルダの絶対パス
+'            accessKind  既定は`HostAccess_Allow`
+'* 返り値  ：成功可否
+'***************************************************************************************************
+Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, _
+    Optional ByVal accessKind As WV2HostResourceAccessKind = HostAccess_Allow) As Boolean
+
+    If m_Host Is Nothing Then Exit Function
+    SetVirtualHostNameToFolderMapping = m_Host.SetVirtualHostNameToFolderMapping(hostname, FolderPath, accessKind)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
+'***************************************************************************************************
+Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.ClearVirtualHostNameToFolderMapping hostname
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
+'***************************************************************************************************
+Property Get IsMuted() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsMuted = m_Host.IsMuted
+End Property
+
+Property Let IsMuted(v As Boolean)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.IsMuted = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在ドキュメントが音声を再生中かどうかを取得します(ICoreWebView2_8以降、読み取り専用)
+'***************************************************************************************************
+Property Get IsDocumentPlayingAudio() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
+End Property
+
+'***************************************************************************************************
+'* 機能　　：リンクホバー時のリンク先URL等、ステータスバーに表示される文字列を取得します
+'            (ICoreWebView2_12以降、読み取り専用)
+'***************************************************************************************************
+Property Get StatusBarText() As String
+    If m_Host Is Nothing Then Exit Property
+    StatusBarText = m_Host.StatusBarText
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のページのfavicon URIを取得します(ICoreWebView2_15以降、読み取り専用)
+'***************************************************************************************************
+Property Get FaviconUri() As String
+    If m_Host Is Nothing Then Exit Property
+    FaviconUri = m_Host.FaviconUri
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在アクティブな検索結果の(1始まりの)インデックスを取得します(ICoreWebView2_28以降)
+'***************************************************************************************************
+Property Get FindActiveMatchIndex() As Long
+    If m_Host Is Nothing Then Exit Property
+    FindActiveMatchIndex = m_Host.FindActiveMatchIndex
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在の検索結果の総件数を取得します(ICoreWebView2_28以降)
+'***************************************************************************************************
+Property Get FindMatchCount() As Long
+    If m_Host Is Nothing Then Exit Property
+    FindMatchCount = m_Host.FindMatchCount
+End Property
+
+'***************************************************************************************************
+'* 機能　　：次の検索結果へ移動します(ICoreWebView2_28以降)
+'***************************************************************************************************
+Public Sub FindNext()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.FindNext
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：前の検索結果へ移動します(ICoreWebView2_28以降)
+'***************************************************************************************************
+Public Sub FindPrevious()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.FindPrevious
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：検索を終了し、ハイライト表示を消去します(ICoreWebView2_28以降)
+'***************************************************************************************************
+Public Sub FindStop()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.FindStop
+End Sub
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の機能制限系
