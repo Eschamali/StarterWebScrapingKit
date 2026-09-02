@@ -376,7 +376,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
 
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
+    With New CDPHost
         '1-1. 起動情報を伝達し、委託準備
         UserDataDirName = userProfile
         .InitInfo userProfile, BrowserType, False
@@ -1229,7 +1229,7 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
 
 
     '1. `DevToolsActivePort`のファイルパスを特定
-    Dim checkDevToolsActivePort As New CDPCoreHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
 
     '2. 情報があるか？
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
