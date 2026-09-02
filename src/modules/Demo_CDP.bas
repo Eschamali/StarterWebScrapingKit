@@ -905,24 +905,19 @@ End Sub
 '* 機能　　：ローカルブラウザ起動から一通りの制御を行います
 '***************************************************************************************************
 Sub AutoConnectBrowser()
-    '1. 設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    '2. WebSocket制御で、ブラウザを起動
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    '1. WebSocket制御で、ブラウザを起動
     Dim BrowserControl As CDPBrowser
-    Set BrowserControl = WebSocketCDP.RunWebSocketModeBrowserCDP(IIf(ShSetting01_StartBrowser.UseRangeID(4, "Demo_CDP.AutoConnectBrowser"), BrowserList.RunChrome, BrowserList.RunEdge), , UserName, ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.AutoConnectBrowser"))
+    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
-    '3. 未接続のタブに接続
+    '2. 未接続のタブに接続
     Dim t As CDPContext
     Set t = BrowserControl.getTab(setMain:=True)
 
-    '5. ページ遷移
+    '3. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '6. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '4. 終了
+    BrowserControl.quit
 End Sub
 
 '***************************************************************************************************
