@@ -171,10 +171,11 @@ Private m_IsConnected       As Boolean          '既にWebSocketに接続済み�
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
-'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ特別に使用
+'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
+Private UserDataDirName     As String           '使用ブラウザユーザ名
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -1272,6 +1273,46 @@ Property Let EnsureWebView2DebugPort(port As Long)
 
     End If
 End Property
+
+
+
+'***************************************************************************************************
+'                       ■■■ ローカルブラウザへの新規接続アシスト ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPBrowser`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartCDPMode() As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartCDPMode = New CDPBrowser
+    StartCDPMode.reattachWebSocket UserDataDirName, Me
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`WebDriverBiDiMode`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartBiDiMode = New WebDriverBiDiMode
+    StartBiDiMode.reattach UserDataDirName, sessionCapabilitiesRequest, Me
+End Function
 
 
 
