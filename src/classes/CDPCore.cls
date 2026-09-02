@@ -186,8 +186,7 @@ Public Event ResetCommandID()
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'各種クラスオブジェクト
-Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+'各種制御経路オブジェクト ※PipeはこのClass自身(Me - FastPath)で所有します
 Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
 Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
@@ -237,7 +236,8 @@ Private dwProcessId     As LongPtr
 Private DictionarySessionID As Dictionary
 
 'その他
-Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
+Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
+Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 
 
 
