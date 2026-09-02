@@ -171,10 +171,11 @@ Private m_IsConnected       As Boolean          '既にWebSocketに接続済み�
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
-'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ特別に使用
+'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
+Private UserDataDirName     As String           '使用ブラウザユーザ名
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -430,6 +431,75 @@ Private Function ReadHandshakeResponse() As Boolean
         ReadHandshakeResponse = True
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：BrowserType        ブラウザタイプ
+'            FirstURL           `-app`に渡すURL
+'            UserName           記録する識別名称
+'            addArgs            追加引数
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
+'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`Start○○`プロシージャで、CDPかBiDiで制御を開始します
+'            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
+'***************************************************************************************************
+Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String)
+    Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPCoreHost
+        '1-1. 起動情報を伝達し、委託準備
+        UserDataDirName = userProfile
+        .InitInfo userProfile, BrowserType, False
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. WebSocket接続に備えて、古い情報を削除
+        .DeleteFileDevToolsActivePort
+
+        '1-6. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(appUrl), _
+                                    addArgs))
+
+        '2. 実際に起動を行います
+        printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
+        dwProcessId = Shell(RunCommandLine, setShowWindow)
+
+        '3. エラー時は、Stop
+        If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
+
+        '4. プロセスハンドルを取る
+        hProcess = .OpenProcessHandle(dwProcessId)
+
+        '5. DevToolsActivePort ファイルが出現するまで待機
+        If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
+
+        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
+        '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
+        Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
+    End With
+
+    '7. 接続
+    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+End Sub
 
 
 
@@ -1184,78 +1254,6 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ローカルのブラウザをWebSocketモードで起動し、自動制御まで準備します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：起動時のコマンドライン。
-'* 引数　　：BrowserType    ブラウザタイプ
-'            FirstURL       `-app`に渡すURL
-'            UserName       記録する識別名称
-'            addArgs        追加引数
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
-'* 注意事項：このメソッドで開始する場合は、`CDPBrowser`から始める仕様とします
-'***************************************************************************************************
-Public Function RunWebSocketModeBrowserCDP(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String) As CDPBrowser
-    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
-
-
-    '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
-        '1-1. 起動情報を伝達し、委託準備
-        .InitInfo userProfile, BrowserType, False
-
-        '1-2. ポリシーチェック
-        .CheckRemoteDebuggingBlockedByPolicy
-
-        '1-3. デバッグブラウザを閉じる(開いてたら)
-        .cleanUpSessions
-
-        '1-4. 「ページを復元しました」といったお節介機能を無効化
-        .setCrashStateNormal
-
-        '1-5. WebSocket接続に備えて、古い情報を削除
-        .DeleteFileDevToolsActivePort
-
-        '1-6. コマンドラインを生成
-        ' ブラウザexeフルパス
-        ' デバッグ方法
-        ' データ保存先
-        ' 初期URL
-        ' 追加引数
-        Dim RunCommandLine As String
-        RunCommandLine = Join(Array(.getBrowserPath, _
-                                    .GenerateArgRemoteDebugging, _
-                                    .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl), _
-                                    addArgs))
-
-        '2. 実際に起動を行います
-        printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
-        dwProcessId = Shell(RunCommandLine, setShowWindow)
-
-        '3. エラー時は、Stop
-        If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
-
-        '4. プロセスハンドルを取る
-        hProcess = .OpenProcessHandle(dwProcessId)
-
-        '5. DevToolsActivePort ファイルが出現するまで待機
-        If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
-
-        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
-        '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
-        Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
-    End With
-
-    '7. 接続
-    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-
-    '8. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡し、返却
-    Set RunWebSocketModeBrowserCDP = New CDPBrowser
-    RunWebSocketModeBrowserCDP.reattachWebSocket userProfile, Me
-End Function
-
-'***************************************************************************************************
 '* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：閉じる場合は、0未満にしてください
@@ -1275,6 +1273,46 @@ Property Let EnsureWebView2DebugPort(port As Long)
 
     End If
 End Property
+
+
+
+'***************************************************************************************************
+'                       ■■■ ローカルブラウザへの新規接続アシスト ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPBrowser`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartCDPMode() As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartCDPMode = New CDPBrowser
+    StartCDPMode.reattachWebSocket UserDataDirName, Me
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`WebDriverBiDiMode`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartBiDiMode = New WebDriverBiDiMode
+    StartBiDiMode.reattach UserDataDirName, sessionCapabilitiesRequest, Me
+End Function
 
 
 
