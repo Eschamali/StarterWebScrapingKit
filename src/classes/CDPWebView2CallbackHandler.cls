@@ -120,8 +120,8 @@ End Sub
 '   HK_CdpEventReceived     : Invoke(this, sender, args)
 '                             ※argsはICoreWebView2DevToolsProtocolEventReceivedEventArgs*
 '   HK_EnvOpt_*             : Invoke(this, arg1, 未使用)
-'                             ※ICoreWebView2EnvironmentOptions系のget_/put_1個につき1つのkind。
-'                             詳細は`CDPWebView2Thunks`の「EnvOpt」セクション参照
+'                             ※ICoreWebView2EnvironmentOptions(base/2/3/5/6/7/8)系のget_/put_
+'                             1個につき1つのkind。詳細は`CDPWebView2Thunks`の「EnvOpt」セクション参照
 '***************************************************************************************************
 Public Function Handler_Invoke( _
     ByVal This As LongPtr, _
@@ -192,6 +192,37 @@ Public Function Handler_Invoke( _
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAreBrowserExtensionsEnabled arg1
         Case HK_EnvOpt_PutAreBrowserExtensionsEnabled
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAreBrowserExtensionsEnabled arg1
+
+        ' --- ICoreWebView2EnvironmentOptions2/3/5/7/8の各get_/put_ ---
+        Case HK_EnvOpt_GetExclusiveUserDataFolderAccess
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetExclusiveUserDataFolderAccess arg1
+        Case HK_EnvOpt_PutExclusiveUserDataFolderAccess
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutExclusiveUserDataFolderAccess arg1
+
+        Case HK_EnvOpt_GetIsCustomCrashReportingEnabled
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetIsCustomCrashReportingEnabled arg1
+        Case HK_EnvOpt_PutIsCustomCrashReportingEnabled
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutIsCustomCrashReportingEnabled arg1
+
+        Case HK_EnvOpt_GetEnableTrackingPrevention
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetEnableTrackingPrevention arg1
+        Case HK_EnvOpt_PutEnableTrackingPrevention
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutEnableTrackingPrevention arg1
+
+        Case HK_EnvOpt_GetChannelSearchKind
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetChannelSearchKind arg1
+        Case HK_EnvOpt_PutChannelSearchKind
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutChannelSearchKind arg1
+
+        Case HK_EnvOpt_GetReleaseChannels
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetReleaseChannels arg1
+        Case HK_EnvOpt_PutReleaseChannels
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutReleaseChannels arg1
+
+        Case HK_EnvOpt_GetScrollBarStyle
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetScrollBarStyle arg1
+        Case HK_EnvOpt_PutScrollBarStyle
+            If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutScrollBarStyle arg1
 
         Case HK_AddBrowserExtensionCompleted
             ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::

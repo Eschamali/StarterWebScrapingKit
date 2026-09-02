@@ -171,16 +171,27 @@ Private Const REGION_SIZE      As Long = HEADER_SIZE + SLOT_SIZE * SLOT_COUNT
 Private Const THUNK_BUF_SIZE   As Long = 80
 
 ' --- EnvOpt(ICoreWebView2EnvironmentOptions)用の複合fakeオブジェクト、メモリレイアウト定数 ---
-' `EnvOpt_CreateNative`が確保するブロックは、2つのCOMインターフェース識別(this)を1つの
-' ブロックに同居させる。オフセット0/8がそれぞれの識別(this)セルで、その中身(vtable配列の
-' 先頭アドレス)がオフセット24/112を指す。`EnvOpt_ResolveBlockBase`はこの関係の逆算で
-' 「どちらのthisで呼ばれたか」からブロック先頭を復元する
+' `EnvOpt_CreateNative`が確保するブロックは、7つのCOMインターフェース識別(this)を1つの
+' ブロックに同居させる(base+Options2/3/5/6/7/8。Options4[CustomSchemeRegistrations]は
+' 配列を扱う特殊な形のため対象外)。各`ENVOPT_THISxxx_OFFSET`がそれぞれの識別(this)セルで、
+' その中身(vtable配列の先頭アドレス)が対応する`ENVOPT_VTABLE_xxx_OFFSET`を指す。
+' `EnvOpt_ResolveBlockBase`はこの関係の逆算で「どのthisで呼ばれたか」からブロック先頭を復元する
 Private Const ENVOPT_THISBASE_OFFSET   As Long = 0     ' ICoreWebView2EnvironmentOptions識別(this)
 Private Const ENVOPT_THISOPTS6_OFFSET  As Long = 8     ' ICoreWebView2EnvironmentOptions6識別(this)
+Private Const ENVOPT_THISOPTS2_OFFSET  As Long = 152   ' ICoreWebView2EnvironmentOptions2識別(this)
+Private Const ENVOPT_THISOPTS3_OFFSET  As Long = 160   ' ICoreWebView2EnvironmentOptions3識別(this)
+Private Const ENVOPT_THISOPTS5_OFFSET  As Long = 168   ' ICoreWebView2EnvironmentOptions5識別(this)
+Private Const ENVOPT_THISOPTS7_OFFSET  As Long = 176   ' ICoreWebView2EnvironmentOptions7識別(this)
+Private Const ENVOPT_THISOPTS8_OFFSET  As Long = 184   ' ICoreWebView2EnvironmentOptions8識別(this)
 Private Const ENVOPT_REFCOUNT_OFFSET   As Long = 16
 Private Const ENVOPT_VTABLE_BASE_OFFSET  As Long = 24   ' 11スロット(IUnknown3+基底8) * 8bytes = 88
 Private Const ENVOPT_VTABLE_OPTS6_OFFSET As Long = 112  ' 5スロット(IUnknown3+Options6用2) * 8bytes = 40
-Private Const ENVOPT_BLOCK_SIZE        As Long = 256    ' 152byte使用。余裕を持たせて256確保
+Private Const ENVOPT_VTABLE_OPTS2_OFFSET As Long = 192  ' 5スロット(IUnknown3+Options2用2) * 8bytes = 40
+Private Const ENVOPT_VTABLE_OPTS3_OFFSET As Long = 232  ' 5スロット(IUnknown3+Options3用2) * 8bytes = 40
+Private Const ENVOPT_VTABLE_OPTS5_OFFSET As Long = 272  ' 5スロット(IUnknown3+Options5用2) * 8bytes = 40
+Private Const ENVOPT_VTABLE_OPTS7_OFFSET As Long = 312  ' 7スロット(IUnknown3+Options7用4) * 8bytes = 56
+Private Const ENVOPT_VTABLE_OPTS8_OFFSET As Long = 368  ' 5スロット(IUnknown3+Options8用2) * 8bytes = 40
+Private Const ENVOPT_BLOCK_SIZE        As Long = 512    ' 408byte使用。余裕を持たせて512確保
 
 
 
@@ -219,6 +230,20 @@ Public Enum HandlerKind
     HK_AddBrowserExtensionCompleted = 15    ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
     HK_GetBrowserExtensionsCompleted = 16   ' ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler
     HK_RemoveBrowserExtensionCompleted = 17 ' ICoreWebView2BrowserExtensionRemoveCompletedHandler
+
+    ' --- EnvOpt(ICoreWebView2EnvironmentOptions2/3/5/7/8)の各get_/put_専用 ---
+    HK_EnvOpt_GetExclusiveUserDataFolderAccess = 18
+    HK_EnvOpt_PutExclusiveUserDataFolderAccess = 19
+    HK_EnvOpt_GetIsCustomCrashReportingEnabled = 20
+    HK_EnvOpt_PutIsCustomCrashReportingEnabled = 21
+    HK_EnvOpt_GetEnableTrackingPrevention = 22
+    HK_EnvOpt_PutEnableTrackingPrevention = 23
+    HK_EnvOpt_GetChannelSearchKind = 24
+    HK_EnvOpt_PutChannelSearchKind = 25
+    HK_EnvOpt_GetReleaseChannels = 26
+    HK_EnvOpt_PutReleaseChannels = 27
+    HK_EnvOpt_GetScrollBarStyle = 28
+    HK_EnvOpt_PutScrollBarStyle = 29
 End Enum
 
 
@@ -247,6 +272,11 @@ Private m_iidIUnknown As GUID
 ' --- EnvOptが実装するインターフェースのIID ---
 Private m_iidEnvOptBase  As GUID   ' ICoreWebView2EnvironmentOptions
 Private m_iidEnvOptOpts6 As GUID   ' ICoreWebView2EnvironmentOptions6
+Private m_iidEnvOptOpts2 As GUID   ' ICoreWebView2EnvironmentOptions2
+Private m_iidEnvOptOpts3 As GUID   ' ICoreWebView2EnvironmentOptions3
+Private m_iidEnvOptOpts5 As GUID   ' ICoreWebView2EnvironmentOptions5
+Private m_iidEnvOptOpts7 As GUID   ' ICoreWebView2EnvironmentOptions7
+Private m_iidEnvOptOpts8 As GUID   ' ICoreWebView2EnvironmentOptions8
 
 Private m_loaderModule As LongPtr   ' EnsureWebView2LoaderResolvedが解決したHMODULE。0なら未解決
 
@@ -353,9 +383,33 @@ Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
     Set hGetExt = AcquireHandlerFor(HK_EnvOpt_GetAreBrowserExtensionsEnabled, owner)
     Set hPutExt = AcquireHandlerFor(HK_EnvOpt_PutAreBrowserExtensionsEnabled, owner)
 
+    ' --- プロパティ6個分(Options2/3/5/7[2組]/8)の専用スロットを新規確保 ---
+    Dim hGetExcl As CDPWebView2CallbackHandler, hPutExcl As CDPWebView2CallbackHandler
+    Dim hGetCrash As CDPWebView2CallbackHandler, hPutCrash As CDPWebView2CallbackHandler
+    Dim hGetTrack As CDPWebView2CallbackHandler, hPutTrack As CDPWebView2CallbackHandler
+    Dim hGetChKind As CDPWebView2CallbackHandler, hPutChKind As CDPWebView2CallbackHandler
+    Dim hGetRelCh As CDPWebView2CallbackHandler, hPutRelCh As CDPWebView2CallbackHandler
+    Dim hGetScroll As CDPWebView2CallbackHandler, hPutScroll As CDPWebView2CallbackHandler
+
+    Set hGetExcl = AcquireHandlerFor(HK_EnvOpt_GetExclusiveUserDataFolderAccess, owner)
+    Set hPutExcl = AcquireHandlerFor(HK_EnvOpt_PutExclusiveUserDataFolderAccess, owner)
+    Set hGetCrash = AcquireHandlerFor(HK_EnvOpt_GetIsCustomCrashReportingEnabled, owner)
+    Set hPutCrash = AcquireHandlerFor(HK_EnvOpt_PutIsCustomCrashReportingEnabled, owner)
+    Set hGetTrack = AcquireHandlerFor(HK_EnvOpt_GetEnableTrackingPrevention, owner)
+    Set hPutTrack = AcquireHandlerFor(HK_EnvOpt_PutEnableTrackingPrevention, owner)
+    Set hGetChKind = AcquireHandlerFor(HK_EnvOpt_GetChannelSearchKind, owner)
+    Set hPutChKind = AcquireHandlerFor(HK_EnvOpt_PutChannelSearchKind, owner)
+    Set hGetRelCh = AcquireHandlerFor(HK_EnvOpt_GetReleaseChannels, owner)
+    Set hPutRelCh = AcquireHandlerFor(HK_EnvOpt_PutReleaseChannels, owner)
+    Set hGetScroll = AcquireHandlerFor(HK_EnvOpt_GetScrollBarStyle, owner)
+    Set hPutScroll = AcquireHandlerFor(HK_EnvOpt_PutScrollBarStyle, owner)
+
     If hGetArgs Is Nothing Or hPutArgs Is Nothing Or hGetLang Is Nothing Or hPutLang Is Nothing _
         Or hGetVer Is Nothing Or hPutVer Is Nothing Or hGetSSO Is Nothing Or hPutSSO Is Nothing _
-        Or hGetExt Is Nothing Or hPutExt Is Nothing Then
+        Or hGetExt Is Nothing Or hPutExt Is Nothing _
+        Or hGetExcl Is Nothing Or hPutExcl Is Nothing Or hGetCrash Is Nothing Or hPutCrash Is Nothing _
+        Or hGetTrack Is Nothing Or hPutTrack Is Nothing Or hGetChKind Is Nothing Or hPutChKind Is Nothing _
+        Or hGetRelCh Is Nothing Or hPutRelCh Is Nothing Or hGetScroll Is Nothing Or hPutScroll Is Nothing Then
 
         Debug.Print FromProcedureName & ": ハンドラスロットの確保に失敗しました"
         If Not (hGetArgs Is Nothing) Then Thunks_ReleaseSlot hGetArgs.Slot
@@ -368,13 +422,30 @@ Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
         If Not (hPutSSO Is Nothing) Then Thunks_ReleaseSlot hPutSSO.Slot
         If Not (hGetExt Is Nothing) Then Thunks_ReleaseSlot hGetExt.Slot
         If Not (hPutExt Is Nothing) Then Thunks_ReleaseSlot hPutExt.Slot
+        If Not (hGetExcl Is Nothing) Then Thunks_ReleaseSlot hGetExcl.Slot
+        If Not (hPutExcl Is Nothing) Then Thunks_ReleaseSlot hPutExcl.Slot
+        If Not (hGetCrash Is Nothing) Then Thunks_ReleaseSlot hGetCrash.Slot
+        If Not (hPutCrash Is Nothing) Then Thunks_ReleaseSlot hPutCrash.Slot
+        If Not (hGetTrack Is Nothing) Then Thunks_ReleaseSlot hGetTrack.Slot
+        If Not (hPutTrack Is Nothing) Then Thunks_ReleaseSlot hPutTrack.Slot
+        If Not (hGetChKind Is Nothing) Then Thunks_ReleaseSlot hGetChKind.Slot
+        If Not (hPutChKind Is Nothing) Then Thunks_ReleaseSlot hPutChKind.Slot
+        If Not (hGetRelCh Is Nothing) Then Thunks_ReleaseSlot hGetRelCh.Slot
+        If Not (hPutRelCh Is Nothing) Then Thunks_ReleaseSlot hPutRelCh.Slot
+        If Not (hGetScroll Is Nothing) Then Thunks_ReleaseSlot hGetScroll.Slot
+        If Not (hPutScroll Is Nothing) Then Thunks_ReleaseSlot hPutScroll.Slot
         VirtualFree blockBase, 0, MEM_RELEASE
         Exit Function
     End If
 
-    ' --- thisセル(オフセット0/8に、対応するvtable配列の先頭アドレスを書く) ---
+    ' --- thisセル(それぞれのオフセットに、対応するvtable配列の先頭アドレスを書く) ---
     MemLongPtr(blockBase + ENVOPT_THISBASE_OFFSET) = blockBase + ENVOPT_VTABLE_BASE_OFFSET
     MemLongPtr(blockBase + ENVOPT_THISOPTS6_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS6_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS2_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS2_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS3_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS3_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS5_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS5_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS7_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS7_OFFSET
+    MemLongPtr(blockBase + ENVOPT_THISOPTS8_OFFSET) = blockBase + ENVOPT_VTABLE_OPTS8_OFFSET
 
     ' --- vtable配列(base、11スロット:IUnknown3+get/put4組) ---
     Dim vb As LongPtr: vb = blockBase + ENVOPT_VTABLE_BASE_OFFSET
@@ -398,26 +469,85 @@ Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
     MemLongPtr(v6 + 3 * PtrSize) = hGetExt.Slot
     MemLongPtr(v6 + 4 * PtrSize) = hPutExt.Slot
 
+    ' --- vtable配列(Options2、5スロット:IUnknown3+get/put1組) ---
+    Dim v2 As LongPtr: v2 = blockBase + ENVOPT_VTABLE_OPTS2_OFFSET
+    MemLongPtr(v2 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v2 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v2 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v2 + 3 * PtrSize) = hGetExcl.Slot
+    MemLongPtr(v2 + 4 * PtrSize) = hPutExcl.Slot
+
+    ' --- vtable配列(Options3、5スロット:IUnknown3+get/put1組) ---
+    Dim v3 As LongPtr: v3 = blockBase + ENVOPT_VTABLE_OPTS3_OFFSET
+    MemLongPtr(v3 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v3 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v3 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v3 + 3 * PtrSize) = hGetCrash.Slot
+    MemLongPtr(v3 + 4 * PtrSize) = hPutCrash.Slot
+
+    ' --- vtable配列(Options5、5スロット:IUnknown3+get/put1組) ---
+    Dim v5 As LongPtr: v5 = blockBase + ENVOPT_VTABLE_OPTS5_OFFSET
+    MemLongPtr(v5 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v5 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v5 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v5 + 3 * PtrSize) = hGetTrack.Slot
+    MemLongPtr(v5 + 4 * PtrSize) = hPutTrack.Slot
+
+    ' --- vtable配列(Options7、7スロット:IUnknown3+ChannelSearchKind/ReleaseChannels各get/put) ---
+    Dim v7 As LongPtr: v7 = blockBase + ENVOPT_VTABLE_OPTS7_OFFSET
+    MemLongPtr(v7 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v7 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v7 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v7 + 3 * PtrSize) = hGetChKind.Slot
+    MemLongPtr(v7 + 4 * PtrSize) = hPutChKind.Slot
+    MemLongPtr(v7 + 5 * PtrSize) = hGetRelCh.Slot
+    MemLongPtr(v7 + 6 * PtrSize) = hPutRelCh.Slot
+
+    ' --- vtable配列(Options8、5スロット:IUnknown3+get/put1組) ---
+    Dim v8 As LongPtr: v8 = blockBase + ENVOPT_VTABLE_OPTS8_OFFSET
+    MemLongPtr(v8 + 0 * PtrSize) = m_pEnvOptQI
+    MemLongPtr(v8 + 1 * PtrSize) = m_pEnvOptAddRef
+    MemLongPtr(v8 + 2 * PtrSize) = m_pEnvOptRelease
+    MemLongPtr(v8 + 3 * PtrSize) = hGetScroll.Slot
+    MemLongPtr(v8 + 4 * PtrSize) = hPutScroll.Slot
+
     MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = 1^
 
     EnvOpt_CreateNative = blockBase + ENVOPT_THISBASE_OFFSET
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`EnvOpt_CreateNative`が確保した全リソース(10個のスロット+ブロック本体)を解放します
+'* 機能　　：VBA(所有者)側が持っている分の参照を1つ手放します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：pThisBase  `EnvOpt_CreateNative`の返り値(=ブロック先頭アドレス)
-'* 注意事項：参照カウントの状態に関わらず、無条件に解放する。呼び出し側(`CDPWebView2Host`)が
-'            「WebView2Loaderがもう参照しない」と判断できたタイミング(Environment作成の
-'            完了待ち後)で呼ぶこと
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 実メモリの解放(`EnvOpt_FreeBlock`)は、ここで無条件には行わない。
+'            参照カウントが実際に0になった時(=WebView2Loader側も含め、誰も参照していない
+'            ことが確定した時)にのみ`EnvOpt_ReleaseInternal`経由で行われる。
+'            (以前は「Environment作成の完了待ち後だから、もう誰も見てないはず」という
+'            タイミングの推測だけで無条件`VirtualFree`していたが、WebView2Loader内部の
+'            Release呼び出しがそれより後にずれ込むケースがあり、解放済みメモリの読み取り
+'            [use-after-free]を引き起こすことが実機で確認された。参照カウントの実値だけを
+'            根拠にすることで、どちらが最後に手放しても確実に・二重に壊れず解放される)
 '***************************************************************************************************
 Public Sub EnvOpt_DestroyNative(ByVal pThisBase As LongPtr)
     If pThisBase = 0 Then Exit Sub
+    EnvOpt_ReleaseInternal pThisBase   ' レイアウト上、pThisBase = blockBase
+End Sub
 
-    Dim blockBase As LongPtr: blockBase = pThisBase   ' レイアウト上、pThisBase = blockBase
-
+'***************************************************************************************************
+'* 機能　　：`EnvOpt_CreateNative`が確保した全リソース(10個のスロット+ブロック本体)を実際に解放します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`EnvOpt_ReleaseInternal`が参照カウント0を検知した時にのみ呼ぶこと
+'***************************************************************************************************
+Private Sub EnvOpt_FreeBlock(ByVal blockBase As LongPtr)
     Dim vb As LongPtr: vb = blockBase + ENVOPT_VTABLE_BASE_OFFSET
     Dim v6 As LongPtr: v6 = blockBase + ENVOPT_VTABLE_OPTS6_OFFSET
+    Dim v2 As LongPtr: v2 = blockBase + ENVOPT_VTABLE_OPTS2_OFFSET
+    Dim v3 As LongPtr: v3 = blockBase + ENVOPT_VTABLE_OPTS3_OFFSET
+    Dim v5 As LongPtr: v5 = blockBase + ENVOPT_VTABLE_OPTS5_OFFSET
+    Dim v7 As LongPtr: v7 = blockBase + ENVOPT_VTABLE_OPTS7_OFFSET
+    Dim v8 As LongPtr: v8 = blockBase + ENVOPT_VTABLE_OPTS8_OFFSET
 
     Dim i As Long
     For i = 3 To 10
@@ -425,6 +555,13 @@ Public Sub EnvOpt_DestroyNative(ByVal pThisBase As LongPtr)
     Next i
     For i = 3 To 4
         Thunks_ReleaseSlot ReadLongPtr(v6 + i * PtrSize)
+        Thunks_ReleaseSlot ReadLongPtr(v2 + i * PtrSize)
+        Thunks_ReleaseSlot ReadLongPtr(v3 + i * PtrSize)
+        Thunks_ReleaseSlot ReadLongPtr(v5 + i * PtrSize)
+        Thunks_ReleaseSlot ReadLongPtr(v8 + i * PtrSize)
+    Next i
+    For i = 3 To 6
+        Thunks_ReleaseSlot ReadLongPtr(v7 + i * PtrSize)
     Next i
 
     VirtualFree blockBase, 0, MEM_RELEASE
@@ -464,6 +601,24 @@ Public Sub EnvOpt_WriteBoolOut(ByVal pOut As LongPtr, ByVal v As Boolean)
     MemLongPtr(pOut) = merged
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：get_Xxx(enumへのポインタ、またはビットマスクのLong* value)へ、Long値を書き出します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`EnvOpt_WriteBoolOut`と同じ「上位4byte保持」ロジックをLong値向けに汎用化したもの
+'            (`ChannelSearchKind`/`ReleaseChannels`/`ScrollBarStyle`用)
+'***************************************************************************************************
+Public Sub EnvOpt_WriteLongOut(ByVal pOut As LongPtr, ByVal v As Long)
+    If pOut = 0 Then Exit Sub
+
+    Dim existing As LongLong
+    existing = CLngLng(ReadLongPtr(pOut))
+
+    Dim merged As LongLong
+    merged = (existing And &HFFFFFFFF00000000^) Or (CLngLng(v) And &HFFFFFFFF^)
+
+    MemLongPtr(pOut) = merged
+End Sub
+
 '* 機能　　：VBAの文字列をCoTaskMemAllocされたLPWSTRへ複製します(呼び出し元がCoTaskMemFreeする)
 Private Function StringToCoTaskMem(ByVal s As String) As LongPtr
     Dim cb As LongPtr
@@ -477,27 +632,45 @@ Private Function StringToCoTaskMem(ByVal s As String) As LongPtr
 End Function
 
 '***************************************************************************************************
-'* 機能　　：EnvOptの`this`ポインタ(base側/Options6側のどちらか)から、ブロック先頭アドレスを
-'            逆算します
+'* 機能　　：EnvOptの`this`ポインタ(7つのCOMインターフェース識別のいずれか)から、ブロック先頭
+'            アドレスを逆算します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：レイアウトが固定なので、2通りの仮説を順に検算するだけで一意に求まる
-'            (仮説A: This=blockBase、仮説B: This=blockBase+ENVOPT_THISOPTS6_OFFSET)
+'* 詳細説明：レイアウトが固定なので、「(thisセルのオフセット, 対応vtable配列のオフセット)」の
+'            全組み合わせ(7通り)を検算するだけで求まる…はずだったが、実機で誤検知が発生した。
+'            `ReadLongPtr(This) = cand + vtblOffset(i)`という1本の等式だけでは、
+'            `thisOffset(i) - vtblOffset(i)`の値が別のiと偶然一致してしまうと、本来とは違う
+'            iで先にマッチしてしまう(実際に`i=1`[Opts6: 8-112=-104]と`i=4`[Opts5: 168-272=-104]が
+'            衝突し、`This`=本物のOpts5識別セルなのに`i=1`の式で誤ってマッチしてしまうバグが
+'            実機で確認された)。そのため、候補が見つかった時点で「その候補自身のbase識別セルが、
+'            自分自身のvtable配列(base)を指しているか」という独立した等式でも裏付けを取り、
+'            本物のブロック先頭であることを二重に保証する
 '***************************************************************************************************
 Private Function EnvOpt_ResolveBlockBase(ByVal This As LongPtr) As LongPtr
     If This = 0 Then Exit Function
 
-    ' 仮説A: baseインターフェース側のthis
-    If ReadLongPtr(This) = This + ENVOPT_VTABLE_BASE_OFFSET Then
-        EnvOpt_ResolveBlockBase = This
-        Exit Function
-    End If
+    ' 「(thisセルのオフセット, 対応vtable配列のオフセット)」の全組み合わせ(7通り)を検算する。
+    ' 正しい組み合わせだけが「候補ブロック先頭 + vtable配列オフセット」= 「thisの中身」になる
+    Dim thisOffsets(0 To 6) As Long, vtblOffsets(0 To 6) As Long
+    thisOffsets(0) = ENVOPT_THISBASE_OFFSET:  vtblOffsets(0) = ENVOPT_VTABLE_BASE_OFFSET
+    thisOffsets(1) = ENVOPT_THISOPTS6_OFFSET: vtblOffsets(1) = ENVOPT_VTABLE_OPTS6_OFFSET
+    thisOffsets(2) = ENVOPT_THISOPTS2_OFFSET: vtblOffsets(2) = ENVOPT_VTABLE_OPTS2_OFFSET
+    thisOffsets(3) = ENVOPT_THISOPTS3_OFFSET: vtblOffsets(3) = ENVOPT_VTABLE_OPTS3_OFFSET
+    thisOffsets(4) = ENVOPT_THISOPTS5_OFFSET: vtblOffsets(4) = ENVOPT_VTABLE_OPTS5_OFFSET
+    thisOffsets(5) = ENVOPT_THISOPTS7_OFFSET: vtblOffsets(5) = ENVOPT_VTABLE_OPTS7_OFFSET
+    thisOffsets(6) = ENVOPT_THISOPTS8_OFFSET: vtblOffsets(6) = ENVOPT_VTABLE_OPTS8_OFFSET
 
-    ' 仮説B: Options6インターフェース側のthis
-    Dim cand As LongPtr
-    cand = This - ENVOPT_THISOPTS6_OFFSET
-    If ReadLongPtr(This) = cand + ENVOPT_VTABLE_OPTS6_OFFSET Then
-        EnvOpt_ResolveBlockBase = cand
-    End If
+    Dim i As Long, cand As LongPtr
+    For i = 0 To 6
+        cand = This - thisOffsets(i)
+        If ReadLongPtr(This) = cand + vtblOffsets(i) Then
+            ' ★裏付けチェック★ 候補自身のbase識別セル(cand+0)が、候補自身のbase vtable配列
+            ' (cand+24)を指しているか。他のiとの偶然の一致(上記詳細説明参照)を弾くための独立検算
+            If ReadLongPtr(cand + ENVOPT_THISBASE_OFFSET) = cand + ENVOPT_VTABLE_BASE_OFFSET Then
+                EnvOpt_ResolveBlockBase = cand
+                Exit Function
+            End If
+        End If
+    Next i
 End Function
 
 Private Function EnvOpt_QueryInterface( _
@@ -533,6 +706,41 @@ Private Function EnvOpt_QueryInterface( _
         Exit Function
     End If
 
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts2) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS2_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts3) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS3_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts5) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS5_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts7) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS7_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
+    If IsEqualGUIDInPlace(riid, m_iidEnvOptOpts8) Then
+        ppvObject = blockBase + ENVOPT_THISOPTS8_OFFSET
+        EnvOpt_AddRefInternal blockBase
+        EnvOpt_QueryInterface = S_OK
+        Exit Function
+    End If
+
     ppvObject = 0
     EnvOpt_QueryInterface = E_NOINTERFACE
 End Function
@@ -541,20 +749,14 @@ Private Function EnvOpt_AddRef(ByVal This As LongPtr) As Long
     EnvOpt_AddRef = EnvOpt_AddRefInternal(EnvOpt_ResolveBlockBase(This))
 End Function
 
-'* 機能　　：参照カウントを減らすのみ。0になっても実メモリ解放はしない(`EnvOpt_DestroyNative`参照)
+'* 機能　　：参照カウントを減らし、実際に0になった時だけ`EnvOpt_FreeBlock`で実メモリ解放する
 Private Function EnvOpt_Release(ByVal This As LongPtr) As Long
-    Dim blockBase As LongPtr
-    blockBase = EnvOpt_ResolveBlockBase(This)
-    If blockBase = 0 Then Exit Function
-
-    Dim N As LongLong
-    N = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) - 1
-    If N < 0 Then N = 0
-    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = N
-
-    EnvOpt_Release = CLng(N)
+    EnvOpt_Release = EnvOpt_ReleaseInternal(EnvOpt_ResolveBlockBase(This))
 End Function
 
+'* 機能　　：参照カウントを1増やす(`IUnknown::AddRef`はULONG[32bit]契約のため、内部でも
+'            `Long`で完結させる。8バイト単位でしか読み書きできない`ReadLongPtr`/`MemLongPtr`
+'            との境界だけ、読み取った直後に一度だけ`Long`へ narrow する)
 Private Function EnvOpt_AddRefInternal(ByVal blockBase As LongPtr) As Long
     If blockBase = 0 Then Exit Function
 
@@ -563,6 +765,25 @@ Private Function EnvOpt_AddRefInternal(ByVal blockBase As LongPtr) As Long
     MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = N
 
     EnvOpt_AddRefInternal = CLng(N)
+End Function
+
+'* 機能　　：参照カウントを1減らす。0になった場合のみ、実メモリ(スロット+ブロック本体)を解放する
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`EnvOpt_AddRef`(WebView2Loader経由)と`EnvOpt_DestroyNative`(VBA所有者側)の
+'            両方から、同じ1つのカウンタに対して呼ばれる。どちら経由で最後の1つを手放しても、
+'            ここで初めて`EnvOpt_FreeBlock`が呼ばれるため、解放タイミングの推測が不要になる
+'***************************************************************************************************
+Private Function EnvOpt_ReleaseInternal(ByVal blockBase As LongPtr) As Long
+    If blockBase = 0 Then Exit Function
+
+    Dim N As LongLong
+    N = ReadLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) - 1
+    If N < 0 Then N = 0
+    MemLongPtr(blockBase + ENVOPT_REFCOUNT_OFFSET) = N
+
+    If N = 0 Then EnvOpt_FreeBlock blockBase
+
+    EnvOpt_ReleaseInternal = CLng(N)
 End Function
 
 
@@ -677,6 +898,32 @@ Public Function GetStringProperty( _
         GetStringProperty = PtrToString(pStr)
         CoTaskMemFree pStr
     End If
+End Function
+
+'* 機能　　：`HRESULT get_Xxx([out,retval] BOOL *value)`形のCOMメソッドを呼び、Booleanで返します
+Public Function GetBoolProperty( _
+    ByVal pInterface As LongPtr, _
+    ByVal vtblIndex As Long, _
+    Optional ByVal funcName As String = "") As Boolean
+
+    If pInterface = 0 Then Exit Function
+
+    Dim v As Long
+    dcf pInterface, vtblIndex, funcName, VarPtr(v)
+    GetBoolProperty = (v <> 0)
+End Function
+
+'* 機能　　：`HRESULT get_Xxx([out,retval] LONG/INT32/enum *value)`形のCOMメソッドを呼び、Longで返します
+Public Function GetLongProperty( _
+    ByVal pInterface As LongPtr, _
+    ByVal vtblIndex As Long, _
+    Optional ByVal funcName As String = "") As Long
+
+    If pInterface = 0 Then Exit Function
+
+    Dim v As Long
+    dcf pInterface, vtblIndex, funcName, VarPtr(v)
+    GetLongProperty = v
 End Function
 
 
@@ -1057,6 +1304,21 @@ Private Sub InitIIDTable()
 
     ' ICoreWebView2EnvironmentOptions6
     FillGUID m_iidEnvOptOpts6, "57d29cc3-c84f-42a0-b0e2-effbd5e179de"
+
+    ' ICoreWebView2EnvironmentOptions2
+    FillGUID m_iidEnvOptOpts2, "ff85c98a-1ba7-4a6b-90c8-2b752c89e9e2"
+
+    ' ICoreWebView2EnvironmentOptions3
+    FillGUID m_iidEnvOptOpts3, "4a5c436e-a9e3-4a2e-89c3-910d3513f5cc"
+
+    ' ICoreWebView2EnvironmentOptions5
+    FillGUID m_iidEnvOptOpts5, "0ae35d64-c47f-4464-814e-259c345d1501"
+
+    ' ICoreWebView2EnvironmentOptions7
+    FillGUID m_iidEnvOptOpts7, "c48d539f-e39f-441c-ae68-1f66e570bdc5"
+
+    ' ICoreWebView2EnvironmentOptions8
+    FillGUID m_iidEnvOptOpts8, "7c7ecf51-e918-5caf-853c-e9a2bcc27775"
 
     ' ICoreWebView2ProfileAddBrowserExtensionCompletedHandler
     FillGUID m_iidTable(HK_AddBrowserExtensionCompleted), _
