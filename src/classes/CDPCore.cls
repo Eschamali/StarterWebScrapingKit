@@ -257,7 +257,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
 
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
+    With New CDPHost
         '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
         .InitInfo UserName, BrowserType, True
 
