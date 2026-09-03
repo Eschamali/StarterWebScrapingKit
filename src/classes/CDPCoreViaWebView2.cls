@@ -524,17 +524,28 @@ End Function
 '            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
 '            ・1つでも購読した場合、VBEの`Stop`やブレイクポイントを行うとクラッシュします。
 '              どうしてもデバッグが必要な場合は､`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
+'            ・このイベント購読は、各SessionIDごとに適用する必要はありません。`.newtab`で複製しても購読情報は継承されます
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEvent"
 
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: 事前チェック】
+    '-----------------------------------------------------------------------------------------------
+    ' 1-1. WebView2のホストが死んでたら何もできないので即終了
     If m_Host Is Nothing Then Exit Function
     Dim pView As LongPtr: pView = m_Host.ViewPtr
     If pView = 0 Then Exit Function
 
+    ' 1-2. すでに同じイベント(例: "Page.loadEventFired")を購読済みなら、二重登録せず成功扱いで抜ける
     If m_subReceiver.Exists(EventName) Then SubscribeCdpEvent = True: Exit Function
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: イベント専用の「受話器(Receiver)」をもらいに行く】
+    '-----------------------------------------------------------------------------------------------
+    ' WebView2に「"Page.loadEventFired" 専用の窓口オブジェクトを作ってくれ！」と注文する
+    ' Vtable出席番号[42]: ICoreWebView2::GetDevToolsProtocolEventReceiver
     Dim pReceiver As LongPtr
     Dim hr As Long
     hr = WebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
@@ -544,33 +555,56 @@ Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
         Exit Function
     End If
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: ニセC++窓口(配達員)をプールから借りて準備する】
+    '-----------------------------------------------------------------------------------------------
+    ' 3-1. 共有スロットプールから空き部屋を1つ借りて、ニセの受付ブース(h)を作る
     Dim h As WebView2CallbackHandler
     Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
     If h Is Nothing Then
+        ' 失敗したらステップ2でもらった受話器(pReceiver)をお片付け(Release)して抜ける
         WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
+
+    ' 3-2. ★超重要: イベント通知が届いた時に「何のイベントか」識別できるよう、
+    '               ハンドラーのポケットにイベント名をメモしておく！
     h.EventName = EventName
 
+    ' 3-3. C++に見せるための「お面(Vtableポインタ)」の先頭アドレスを計算
     Dim pVTableObj As LongPtr
     pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ4: 受話器にニセ窓口をガッチャンコして登録する】
+    '-----------------------------------------------------------------------------------------------
+    ' 受話器の Vtable出席番号[3]: add_DevToolsProtocolEventReceived を叩く
+    ' 登録に成功すると、あとで購読解除(解約)するときに使う「解約用チケット(token: 64bit整数)」がもらえる
     Dim token As LongLong
     hr = WebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
                                pVTableObj, VarPtr(token))
     If hr <> 0 Then
         printMsg ERROR_, "Failed to add_DevToolsProtocolEventReceived.  hr=&H" & Hex(hr), FromProcedureName
 
+        ' 失敗したら配達員と受話器を両方片付けて抜ける
         Set h = Nothing
         WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
 
-    'WebView2側がハンドラをAddRef済みなので、ローカル参照はこれ以上不要(捨ててよい)
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ5: 送りっぱなし ＆ 解約用チケットの保管】
+    '-----------------------------------------------------------------------------------------------
+    ' 5-1. ★出前完了: WebView2(C++)側がハンドラーをAddRefしてキープしてくれたので、
+    '                  VBA側の手元の変数は捨てて「送りっぱなし」にしてOK！
     Set h = Nothing
 
+    ' 5-2. 将来「このイベントの購読をやめる(Unsubscribe)」ときのために、
+    '      受話器のアドレス(pReceiver)と解約チケット(token)を辞書にメモしておく
     m_subReceiver.Add EventName, (pReceiver)
     m_subToken.Add EventName, (token)
+
+    '6. 成功サインを返す
     SubscribeCdpEvent = True
 End Function
 
