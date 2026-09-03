@@ -742,7 +742,7 @@ End Property
 ' [ SECTION ] interface - ICoreWebView2Profile
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`IsPasswordAutosaveEnabled`/`IsGeneralAutofillEnabled`はSettings側と紛らわしいので
-'            `Profile`を頭に付けている(詳細は`CDPWebView2Host`側のコメント参照)
+'            `Profile`を頭に付けている(詳細は`WebView2Host`側のコメント参照)
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：既定のダウンロード先フォルダを設定します
 Property Let DefaultDownloadFolderPath(v As String)
@@ -927,7 +927,7 @@ End Sub
 '* 引数    ：v  Trueで許可、Falseで禁止
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：CDPリモートデバッグ(`--remote-debugging-pipe`)経由の自動操作には影響しません
-'            (詳細は`CDPWebView2Host.DevToolsEnabled`のコメント参照)
+'            (詳細は`WebView2Host.DevToolsEnabled`のコメント参照)
 '***************************************************************************************************
 Property Let DevToolsEnabled(v As Boolean)
     m_Host.DevToolsEnabled = v
@@ -942,7 +942,7 @@ Property Let ContextMenuEnabled(v As Boolean)
     m_Host.ContextMenuEnabled = v
 End Property
 
-'--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`CDPWebView2Host`側のコメント参照) ---
+'--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`WebView2Host`側のコメント参照) ---
 '* 機能　　：JavaScript実行可否を切り替えます(既定True)
 Property Let ScriptEnabled(v As Boolean)
     m_Host.ScriptEnabled = v

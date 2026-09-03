@@ -340,13 +340,13 @@ End Function
 '       ブロック先頭を逆算できるよう設計してあり、複数インスタンスが同時に存在してもよい
 '     ・参照カウントは実装するが、`Release`が0になっても実メモリ解放は行わない(WebView2Loaderが
 '       いつまで参照を保持するか保証がないため)。実解放は`EnvOpt_DestroyNative`をVBA側から
-'       明示的に呼んだときのみ行う(`CDPWebView2Host.RunWebView2`が、Environment作成の完了
+'       明示的に呼んだときのみ行う(`WebView2Host.RunWebView2`が、Environment作成の完了
 '       待ち後に呼ぶ)
 '***************************************************************************************************
 '* 機能　　：`ICoreWebView2EnvironmentOptions`(+`Options6`)を実装するfakeオブジェクトを構築します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：owner  `EnvOpt_OnGetXxx`/`EnvOpt_OnPutXxx`(全てPublic Sub必須)を持つ
-'            `CDPWebView2EnvOptions`インスタンス
+'            `WebView2EnvOptions`インスタンス
 '* 返り値  ：`CreateCoreWebView2EnvironmentWithOptions`へそのまま渡せるポインタ(失敗時0)
 '***************************************************************************************************
 Public Function EnvOpt_CreateNative(ByVal owner As Object) As LongPtr
