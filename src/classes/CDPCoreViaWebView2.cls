@@ -440,16 +440,18 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     Dim synthesized As String
     If ErrorCode = 0 Then
         '上手い具合に、`id`付きで復元させる
-        If LenB(resultJson) = 0 Then resultJson = "null"
-        synthesized = "{""id"":" & callbackId & ",""result"":" & resultJson & "}"
+        If LenB(ResultJsonStr) = 0 Then ResultJsonStr = "null"
+        synthesized = "{""id"":" & callbackId & ",""result"":" & ResultJsonStr & "}"
     Else
         'エラーログを出す
         printMsg ERROR_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - ErrorCode: " & ErrorCode & " - " & WinApiError.GetMessage(ErrorCode), FromProcedureName
 
         '上手い具合に、`id`付きで、返ったエラーもくっつけて、復元させる
-        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(resultJson).NodeKey("error")
+        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(ResultJsonStr).NodeKey("error")
         synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify & "}"
     End If
+
+    '3. `CDPCore.cls`へ発信！
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
 
