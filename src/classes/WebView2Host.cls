@@ -250,13 +250,49 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     RunWebView2 = True
 End Function
 
+
+
 '***************************************************************************************************
-'* 機能　　：`m_pView`が実際にQueryInterfaceで辿り着ける`ICoreWebView2_N`の最大のNを判定し、
-'            `m_pView`/`m_viewLevel`を更新します(`Settings`/`Controller`/`Profile`と同じ方式)
+'                          ■■■ 最新インターフェース番号チェック ■■■
+'***************************************************************************************************
+'* 機能　　：`pInterface`が実際にQueryInterfaceで辿り着ける最大のインターフェースバージョンNを判定し、
+'            `pInterface`をそのバージョンのポインタへ差し替えます
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`ICoreWebView2_2`~`_29`も一本の継承チェーン(`_2 : ICoreWebView2`→`_3 : _2`→…)なので、
-'            対応している最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで基底から
-'            そのバージョンまでの全メンバーに(スロット番号さえ合わせれば)アクセスできる
+'* 引数    ：pInterface  probe対象のポインタ(ByRef。成功時はその場で最大バージョンのポインタに
+'                        差し替わり、元(下位バージョン)の参照は解放される)
+'            iids        高いバージョン→低いバージョンの順に並べたIID文字列配列(1 To N)。
+'                        `iids(N)`が対応する最低バージョンは常に2という前提で、最高位のバージョン
+'                        番号は`UBound(iids) + 1`として逆算する
+'            funcName    `dcf`呼び出し時のトレース用ラベル(省略可)
+'* 返り値  ：実際に辿り着けた最大のバージョン番号(全滅時は基底のまま1)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`ICoreWebView2`本体/`Settings`/`Controller`/`Profile`は、いずれも`SettingsN : Settings
+'            (N-1)`のような一本の継承チェーンで出来ているため、対応している最大のバージョンへ
+'            1回QueryInterfaceすれば、そのポインタ1本だけで基底からそのバージョンまでの全メンバーに
+'            (スロット番号さえ合わせれば)アクセスできる。高い方から順に試し、最初に成功したものを
+'            採用する
+'***************************************************************************************************
+Private Function DetectLevel(ByRef pInterface As LongPtr, iids() As String, Optional ByVal funcName As String = "QueryInterface") As Long
+    Dim highestLevel As Long
+    highestLevel = UBound(iids) + 1
+
+    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
+    For i = 1 To UBound(iids)
+        WebView2Thunks.FillGUID iid, iids(i)
+        hrQ = WebView2Thunks.dcf(pInterface, 0, funcName, VarPtr(iid), VarPtr(pTry))
+        If hrQ = 0 And pTry <> 0 Then
+            WebView2Thunks.ComRelease pInterface   ' 基底(または下位)の分の参照は不要になるので解放
+            pInterface = pTry
+            DetectLevel = highestLevel - i + 1
+            Exit Function
+        End If
+    Next i
+
+    DetectLevel = 1   ' 全滅時は基底のまま
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`m_pView`の`ICoreWebView2_N`最新対応バージョンを判定し、`m_viewLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectViewLevel()
     Dim iids(1 To 28) As String
@@ -289,35 +325,11 @@ Private Sub DetectViewLevel()
     iids(27) = "a0d6df20-3b92-416d-aa0c-437a9c727857"   ' ICoreWebView2_3
     iids(28) = "9e8f0cf8-e670-4b5e-b2bc-73e061e3184c"   ' ICoreWebView2_2
 
-    Dim levels(1 To 28) As Long
-    Dim i As Long
-    For i = 1 To 28
-        levels(i) = 30 - i   ' iids(1)=29, iids(2)=28, ... iids(28)=2
-    Next i
-
-    Dim iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
-    For i = 1 To 28
-        WebView2Thunks.FillGUID iid, iids(i)
-        hrQ = WebView2Thunks.dcf(m_pView, 0, "View.QueryInterface", VarPtr(iid), VarPtr(pTry))
-        If hrQ = 0 And pTry <> 0 Then
-            WebView2Thunks.ComRelease m_pView   ' 基底(または下位)の分の参照は不要になるので解放
-            m_pView = pTry
-            m_viewLevel = levels(i)
-            Exit Sub
-        End If
-    Next i
+    m_viewLevel = DetectLevel(m_pView, iids, "View.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pSettings`が実際にQueryInterfaceで辿り着ける`ICoreWebView2SettingsN`の最大のNを
-'            判定し、`m_pSettings`/`m_settingsLevel`を更新します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`ICoreWebView2Settings2`~`9`は(`EnvironmentOptions2`~`8`のような並列独立継承ではなく)
-'            `Settings2 : Settings`→`Settings3 : Settings2`→…という一本の継承チェーンなので、
-'            1個のCOMオブジェクトは実質1枚の(どんどん後ろへ延びていく)vtableしか持たない。
-'            そのため、対応している最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで
-'            基底からそのバージョンまでの全プロパティに(スロット番号さえ合わせれば)アクセスできる。
-'            高い方から順に試し、最初に成功したものを採用する(全滅時は基底のまま=level1)。
+'* 機能　　：`m_pSettings`の`ICoreWebView2SettingsN`最新対応バージョンを判定し、`m_settingsLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectSettingsLevel()
     Dim iids(1 To 8) As String
@@ -330,31 +342,11 @@ Private Sub DetectSettingsLevel()
     iids(7) = "fdb5ab74-af33-4854-84f0-0a631deb5eba"   ' ICoreWebView2Settings3
     iids(8) = "ee9a0f68-f46c-4e32-ac23-ef8cac224d2a"   ' ICoreWebView2Settings2
 
-    Dim levels(1 To 8) As Long
-    levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
-    levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
-
-    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
-    For i = 1 To 8
-        WebView2Thunks.FillGUID iid, iids(i)
-        hrQ = WebView2Thunks.dcf(m_pSettings, 0, "Settings.QueryInterface", VarPtr(iid), VarPtr(pTry))
-        If hrQ = 0 And pTry <> 0 Then
-            WebView2Thunks.ComRelease m_pSettings   ' 基底(または下位)の分の参照は不要になるので解放
-            m_pSettings = pTry
-            m_settingsLevel = levels(i)
-            Exit Sub
-        End If
-    Next i
+    m_settingsLevel = DetectLevel(m_pSettings, iids, "Settings.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pController`が実際にQueryInterfaceで辿り着ける`ICoreWebView2ControllerN`の最大の
-'            Nを判定し、`m_pController`/`m_controllerLevel`を更新します
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：`ICoreWebView2Controller2`~`4`も`Settings`系と同様、一本の継承チェーン
-'            (`Controller2 : Controller`→`Controller3 : Controller2`→…)なので、対応してる
-'            最大のバージョンへ1回QueryInterceすれば、そのポインタ1本だけで基底からそのバージョン
-'            までの全プロパティ/メソッドに(スロット番号さえ合わせれば)アクセスできる
+'* 機能　　：`m_pController`の`ICoreWebView2ControllerN`最新対応バージョンを判定し、`m_controllerLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectControllerLevel()
     Dim iids(1 To 3) As String
@@ -362,26 +354,11 @@ Private Sub DetectControllerLevel()
     iids(2) = "f9614724-5d2b-41dc-aef7-73d62b51543b"   ' ICoreWebView2Controller3
     iids(3) = "c979903e-d4ca-4228-92eb-47ee3fa96eab"   ' ICoreWebView2Controller2
 
-    Dim levels(1 To 3) As Long
-    levels(1) = 4: levels(2) = 3: levels(3) = 2
-
-    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
-    For i = 1 To 3
-        WebView2Thunks.FillGUID iid, iids(i)
-        hrQ = WebView2Thunks.dcf(m_pController, 0, "Ctrl.QueryInterface", VarPtr(iid), VarPtr(pTry))
-        If hrQ = 0 And pTry <> 0 Then
-            WebView2Thunks.ComRelease m_pController   ' 基底(または下位)の分の参照は不要になるので解放
-            m_pController = pTry
-            m_controllerLevel = levels(i)
-            Exit Sub
-        End If
-    Next i
-    m_controllerLevel = 1
+    m_controllerLevel = DetectLevel(m_pController, iids, "Ctrl.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pProfile`が実際にQueryInterfaceで辿り着ける`ICoreWebView2ProfileN`の最大のNを
-'            判定し、`m_pProfile`/`m_profileLevel`を更新します(`Settings`/`Controller`と同じ方式)
+'* 機能　　：`m_pProfile`の`ICoreWebView2ProfileN`最新対応バージョンを判定し、`m_profileLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectProfileLevel()
     Dim iids(1 To 8) As String
@@ -394,21 +371,7 @@ Private Sub DetectProfileLevel()
     iids(7) = "b188e659-5685-4e05-bdba-fc640e0f1992"   ' ICoreWebView2Profile3
     iids(8) = "fa740d4b-5eae-4344-a8ad-74be31925397"   ' ICoreWebView2Profile2
 
-    Dim levels(1 To 8) As Long
-    levels(1) = 9: levels(2) = 8: levels(3) = 7: levels(4) = 6
-    levels(5) = 5: levels(6) = 4: levels(7) = 3: levels(8) = 2
-
-    Dim i As Long, iid As WebView2Thunks.GUID, pTry As LongPtr, hrQ As Long
-    For i = 1 To 8
-        WebView2Thunks.FillGUID iid, iids(i)
-        hrQ = WebView2Thunks.dcf(m_pProfile, 0, "Profile.QueryInterface", VarPtr(iid), VarPtr(pTry))
-        If hrQ = 0 And pTry <> 0 Then
-            WebView2Thunks.ComRelease m_pProfile   ' 基底(または下位)の分の参照は不要になるので解放
-            m_pProfile = pTry
-            m_profileLevel = levels(i)
-            Exit Sub
-        End If
-    Next i
+    m_profileLevel = DetectLevel(m_pProfile, iids, "Profile.QueryInterface")
 End Sub
 
 '***************************************************************************************************
