@@ -612,17 +612,25 @@ End Function
 '* 機能　　：指定したCDPイベント名の購読を解除します
 '***************************************************************************************************
 Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
+    ' 1. 未購読なら即抜け
     If m_subReceiver Is Nothing Then Exit Function
     If Not m_subReceiver.Exists(EventName) Then Exit Function
 
+    ' 2. 対象購読イベントに紐づくレシーバーポインター/トークンを取り出す
     Dim pReceiver As LongPtr: pReceiver = m_subReceiver(EventName)
     Dim token As LongLong: token = m_subToken(EventName)
 
+    ' 3. トークンを渡して、購読解除する
     WebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
+
+    ' 4. レシーバーポインターの参照をカット
     WebView2Thunks.ComRelease pReceiver
 
+    ' 5. 必要な解放を終えたので、Dictionaryからも消しておく
     m_subReceiver.Remove EventName
     m_subToken.Remove EventName
+
+    ' 6. 成功サインを返す
     UnsubscribeCdpEvent = True
 End Function
 
