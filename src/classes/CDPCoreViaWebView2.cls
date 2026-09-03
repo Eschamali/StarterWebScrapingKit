@@ -427,11 +427,16 @@ End Function
 '* 詳細説明：いわゆる、コマンド結果を受け取るところです。`SendCommandCDP`で、`commandID`を`callbackId`に登録したのと一致するのが来ます
 '* 注意事項：`WebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
 '***************************************************************************************************
-Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Long, ByVal resultJson As String)
+Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Long, ByVal resultJsonPtr As LongPtr)
     Const FromProcedureName As String = ThisClassName & ".OnCdpMethodCompleted"
 
 
-    printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & resultJson, FromProcedureName
+    '1. 文字列ポインターから、CDPのコマンド応答結果Json文字列を取得
+    Dim ResultJsonStr As String
+    ResultJsonStr = WebView2Thunks.PtrToString(resultJsonPtr)
+
+    '2. エラーコードに応じた分岐
+    printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & ResultJsonStr, FromProcedureName
     Dim synthesized As String
     If ErrorCode = 0 Then
         '上手い具合に、`id`付きで復元させる

@@ -103,7 +103,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ Handler_Invoke(vTableスロット7固定) ■■■
+'               ■■■ Handler_Invoke(vTableスロット7固定 - メインディッシュ) ■■■
 '***************************************************************************************************
 '* 機能　　：WebView2からのコールバックを受ける唯一のエントリです
 '---------------------------------------------------------------------------------------------------
@@ -127,46 +127,58 @@ Public Function Handler_Invoke( _
     ByVal arg1 As LongPtr, _
     ByVal arg2 As LongPtr) As Long
 
+    '1. `Init`で、事前に設定したコールバックタイプに応じて、定義したClassオブジェクトメソッドで、呼び出す
+    '   ※各Caseは同時に1つしか実行されないので、エラーコード復元用の変数は使い回す
+    Dim ErrorCode As Long
+
     Select Case m_kind
+        '---------------- 必須系 ----------------
         Case HK_EnvironmentCompleted
-            Dim ErrorCode As Long
+            '2. 第2引数を基に、エラーコードを復元
             ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
             If Not (m_owner Is Nothing) Then
                 m_owner.OnEnvironmentCompleted ErrorCode, arg2
             End If
 
         Case HK_ControllerCompleted
-            Dim errorCode2 As Long
-            errorCode2 = LongPtrLowDword(arg1)
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `WebView2Host.cls`のメソッドへ
             If Not (m_owner Is Nothing) Then
-                m_owner.OnControllerCompleted errorCode2, arg2
+                m_owner.OnControllerCompleted ErrorCode, arg2
             End If
 
+
+        '---------------- CDP系 ----------------
+        ' SDKシグネチャ: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler::
+        '   Invoke(HRESULT errorCode, LPCWSTR returnObjectAsJson)
         Case HK_CdpMethodCompleted
-            ' SDKシグネチャ: ICoreWebView2CallDevToolsProtocolMethodCompletedHandler::
-            '   Invoke(HRESULT errorCode, LPCWSTR returnObjectAsJson)
-            Dim errorCode3 As Long
-            errorCode3 = LongPtrLowDword(arg1)
-            Dim resultStr As String
-            If arg2 <> 0 Then resultStr = PtrToString(arg2)
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `CDPCoreViaWebView2.SendCommandCDP`で設定した`m_callbackId`をコマンドID応答として、`CDPCoreViaWebView2.OnCdpMethodCompleted`へ渡す
             If Not (m_owner Is Nothing) Then
-                m_owner.OnCdpMethodCompleted m_callbackId, errorCode3, resultStr
+                m_owner.OnCdpMethodCompleted m_callbackId, ErrorCode, arg2
             End If
 
+        ' SDKシグネチャ: ICoreWebView2DevToolsProtocolEventReceivedEventHandler::
+        '   Invoke(ICoreWebView2* sender, ICoreWebView2DevToolsProtocolEventReceivedEventArgs* args)
+        '   arg1 = sender、arg2 = args
         Case HK_CdpEventReceived
-            ' SDKシグネチャ: ICoreWebView2DevToolsProtocolEventReceivedEventHandler::
-            '   Invoke(ICoreWebView2* sender, ICoreWebView2DevToolsProtocolEventReceivedEventArgs* args)
-            '   arg1 = sender、arg2 = args
+            '2. `CDPCoreViaWebView2.SubscribeCdpEvent`で確保したCOMコールバック領域にて設定したCDPイベント名を、引数に渡して、`CDPCoreViaWebView2.OnCdpEventReceived`へ渡す
+            '※これは実行結果ではなく、WebView2自身で起こったイベント情報なので、実行時エラーコードの概念はない
             If Not (m_owner Is Nothing) Then
                 m_owner.OnCdpEventReceived m_eventName, arg2
             End If
 
-        ' --- ICoreWebView2EnvironmentOptions/Options6の各get_/put_ ---
+
+        '---------------- ICoreWebView2EnvironmentOptions系 ----------------
         ' SDKシグネチャ: get_Xxx(this, [out]value) / put_Xxx(this, value) のいずれも1引数のみ。
         ' arg1が「get_ なら[out]ポインタ」「put_ なら渡された値そのもの」に対応する
+        '・`WebView2EnvOptions.BuildNativePointer`で構築した「m_kind」を基に、単純に結果を各メソッドに渡すだけのシンプルな処理なので、各Caseの詳細説明はしない
         Case HK_EnvOpt_GetAdditionalBrowserArguments
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAdditionalBrowserArguments arg1
         Case HK_EnvOpt_PutAdditionalBrowserArguments
@@ -191,8 +203,7 @@ Public Function Handler_Invoke( _
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAreBrowserExtensionsEnabled arg1
         Case HK_EnvOpt_PutAreBrowserExtensionsEnabled
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAreBrowserExtensionsEnabled arg1
-
-        ' --- ICoreWebView2EnvironmentOptions2/3/5/7/8の各get_/put_ ---
+        
         Case HK_EnvOpt_GetExclusiveUserDataFolderAccess
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetExclusiveUserDataFolderAccess arg1
         Case HK_EnvOpt_PutExclusiveUserDataFolderAccess
@@ -223,34 +234,40 @@ Public Function Handler_Invoke( _
         Case HK_EnvOpt_PutScrollBarStyle
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutScrollBarStyle arg1
 
+
+        '---------------- ICoreWebView2Profile系 ----------------
+        '+++++++++ 拡張機能系 +++++++++
+        ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
+        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
         Case HK_AddBrowserExtensionCompleted
-            ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
-            '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
-            Dim errorCode4 As Long
-            errorCode4 = LongPtrLowDword(arg1)
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
             If Not (m_owner Is Nothing) Then
-                m_owner.OnAddBrowserExtensionCompleted errorCode4, arg2
+                m_owner.OnAddBrowserExtensionCompleted ErrorCode, arg2
             End If
 
+        ' SDKシグネチャ: ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler::
+        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtensionList* result)
         Case HK_GetBrowserExtensionsCompleted
-            ' SDKシグネチャ: ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler::
-            '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtensionList* result)
-            Dim errorCode5 As Long
-            errorCode5 = LongPtrLowDword(arg1)
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
             If Not (m_owner Is Nothing) Then
-                m_owner.OnGetBrowserExtensionsCompleted errorCode5, arg2
+                m_owner.OnGetBrowserExtensionsCompleted ErrorCode, arg2
             End If
 
+        ' SDKシグネチャ: ICoreWebView2BrowserExtensionRemoveCompletedHandler::
+        '   Invoke(HRESULT errorCode)  ※引数1個のみ(結果オブジェクトは無い)
         Case HK_RemoveBrowserExtensionCompleted
-            ' SDKシグネチャ: ICoreWebView2BrowserExtensionRemoveCompletedHandler::
-            '   Invoke(HRESULT errorCode)  ※引数1個のみ(結果オブジェクトは無い)
-            Dim errorCode6 As Long
-            errorCode6 = LongPtrLowDword(arg1)
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
 
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
             If Not (m_owner Is Nothing) Then
-                m_owner.OnRemoveBrowserExtensionCompleted errorCode6
+                m_owner.OnRemoveBrowserExtensionCompleted ErrorCode
             End If
 
         Case Else
@@ -302,6 +319,10 @@ Friend Property Let EventName(ByVal v As String)
     m_eventName = v
 End Property
 
+
+
+'***************************************************************************************************
+'                               ■■■ ヘルパープロシージャ ■■■
 '***************************************************************************************************
 '* 機能　　：LongPtrの下位32bitを符号付きLongとして取り出します(HRESULT等の抽出用)
 '***************************************************************************************************
