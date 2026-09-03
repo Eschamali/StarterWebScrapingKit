@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   WebView2のEnvironment→Controller→ICoreWebView2生成だけを担うホスティング専用Classです。
+'   WebView2のEnvironment→Controller→ICoreWebView2 + α生成を担うホスティング専用Classです。
 '
 '   `CDPCoreViaWebView2.cls`とは責務を分離しています(WebSocket版が1ハンドルで済むのに対し、
 '   WebView2はForm/Env/Controller/Viewという生成順序・Releaseチェーンが伴うため、
@@ -54,12 +54,14 @@ Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Public Enum WebView2HostState
+'完了コールバック管理用
+Private Enum WebView2HostState
     Whs_Created = 0
     Whs_Waiting = 1
     Whs_Ready = 2
     Whs_Failed = 3
 End Enum
+
 
 
 '***************************************************************************************************
@@ -71,38 +73,105 @@ Private m_pController   As LongPtr  'ICoreWebView2Controller
 Private m_pEnvironment  As LongPtr  'ICoreWebView2Environment
 Private m_pSettings     As LongPtr  'ICoreWebView2Settings
 Private m_pProfile      As LongPtr  'ICoreWebView2Profile
-Private m_pFind         As LongPtr  'ICoreWebView2Find(ICoreWebView2_28::get_Findで初回アクセス時に遅延取得)
+Private m_pFind         As LongPtr  'ICoreWebView2Find  ※ICoreWebView2_28::get_Findで初回アクセス時に遅延取得)
 
 'たどり着けた階層レベル
-Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN(基底のみなら1)
-Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN(基底のみなら1)
-Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN(基底のみなら1)
-Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN(基底のみなら1、未取得なら0)
+Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN          (基底のみなら1)
+Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN   (基底のみなら1)
+Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN (基底のみなら1)
+Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN    (基底のみなら1、未取得なら0)
 
-'COMコールバック系
-Private m_envHandler       As WebView2CallbackHandler
-Private m_ctrlHandler      As WebView2CallbackHandler
-Private m_addExtHandler    As WebView2CallbackHandler
-Private m_getExtHandler    As WebView2CallbackHandler
-Private m_removeExtHandler As WebView2CallbackHandler
+'==============================================COM管理==============================================
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+' [ SECTION ] 必須系COM一式定義
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：`ICoreWebView2Environment`の**作成**1回分の状態+ハンドラをまとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：結果は`m_pEnvironment`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
+'            (`WebView2RemoveExtState`と同じ、state+handlerのみの型)
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2EnvState
+    state   As WebView2HostState        '完了待機
+    handler As WebView2CallbackHandler
+End Type
 
-'状態値
-Private m_envState      As WebView2HostState
-Private m_ctrlState     As WebView2HostState
-Private m_addExtState   As WebView2HostState
-Private m_getExtState   As WebView2HostState
-Private m_removeExtState As WebView2HostState
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：`ICoreWebView2Controller`の**作成**1回分の状態+ハンドラをまとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：結果は`m_pController`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2CtrlState
+    state   As WebView2HostState        '完了待機
+    handler As WebView2CallbackHandler
+End Type
 
-'`AddBrowserExtension`の結果(`OnAddBrowserExtensionCompleted`が書き込む)
-Private m_addExtResultId As String
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：WebView2生成に必須の非同期処理(Environment/Controller)を、操作(env/ctrl)ごとに
+'            まとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：これが無いと何も始まらない、という意味で「必須機能」。`WebView2ExtensionAsyncState`と
+'            同じ「操作ごとにstate+handler[+結果]をまとめる」構成に揃えている
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2CoreAsyncState
+    env  As WebView2EnvState
+    ctrl As WebView2CtrlState
+End Type
 
-'`GetBrowserExtensions`の結果(`OnGetBrowserExtensionsCompleted`が書き込む)。
-'2本の並行配列で保持する(`m_getExtPtrs`は`ICoreWebView2BrowserExtension`への新規参照。
-'`RemoveBrowserExtension`が対象を特定した後、使い終わり次第`ReleaseGetExtPtrs`で解放すること)
-Private m_getExtIds()  As String
-Private m_getExtPtrs() As LongPtr
-Private m_getExtCount  As Long
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+' [ SECTION ] 拡張機能系COM一式定義
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：拡張機能の**インストール**(`AddBrowserExtension`)1回分の状態+ハンドラ+結果をまとめます
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2AddExtState
+    state    As WebView2HostState      '完了待機
+    handler  As WebView2CallbackHandler
+    resultId As String                 '結果(`OnAddBrowserExtensionCompleted`が書き込む)
+End Type
 
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：インストール済み拡張機能の**一覧取得**(`GetBrowserExtensions`)1回分の状態+ハンドラ+結果を
+'            まとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：結果は「拡張機能ID(String) → ICoreWebView2BrowserExtensionへの新規参照(LongPtr)」の
+'            Dictionaryで保持する(`RemoveBrowserExtension`が対象を特定した後、使い終わり次第
+'            `ReleaseGetExtPtrs`で解放すること)
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2GetExtState
+    state   As WebView2HostState        '完了待機
+    handler As WebView2CallbackHandler
+    Items   As Dictionary               '結果(`OnGetBrowserExtensionsCompleted`が書き込む)
+End Type
+
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：拡張機能の**アンインストール**(`ICoreWebView2BrowserExtension::Remove`)1回分の
+'            状態+ハンドラをまとめます(結果は成功可否[state]のみのため、専用フィールドは無し)
+Private Type WebView2RemoveExtState
+    state   As WebView2HostState        '完了待機
+    handler As WebView2CallbackHandler
+End Type
+
+'* 機能　　：拡張機能管理(ICoreWebView2Profile7)関連の非同期処理を、操作(add/get/remove)ごとに
+'            まとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：CDPの`Extensions.loadUnpacked`がWebView2越しには使えないための代替として、
+'            後から追加した機能一式(拡張機能を一切使わないなら出番がない)
+'---------------------------------------------------------------------------------------------------
+Private Type WebView2ExtensionAsyncState
+    addExt    As WebView2AddExtState
+    getExt    As WebView2GetExtState
+    removeExt As WebView2RemoveExtState
+End Type
+
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+' [ SECTION ] 使用するCOM一式変数
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Private m_core As WebView2CoreAsyncState        '必須機能 ※これがないと始まらない
+Private m_ext  As WebView2ExtensionAsyncState   '拡張機能系
+'===================================================================================================
+
+'状態管理
 Private m_lastError     As Long
 Private m_closed        As Boolean
 
@@ -125,6 +194,10 @@ Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
     m_hostHwnd = AttachHwnd
 End Sub
 
+
+
+'***************************************************************************************************
+'                                 ■■■ WebView2起動フロー ■■■
 '***************************************************************************************************
 '* 機能　　：ICoreWebView2Environment→ICoreWebView2Controller→ICoreWebView2の生成を、
 '            完了まで同期的に待って実行します
@@ -137,73 +210,84 @@ End Sub
 '            呼び出し元の責務(このFunctionが戻った時点で、WebView2Loaderは読み終えている)
 '***************************************************************************************************
 Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
-    Const FromProcedureName As String = "CDPWebView2Host.RunWebView2"
+    Const FromProcedureName As String = "WebView2Host.RunWebView2"
 
 
     '1. 2重インスタンス保持はさせない
-    If m_envState <> Whs_Created Then
+    If m_core.env.state <> Whs_Created Then
         Debug.Print FromProcedureName & ": 二重呼び出しは不可です"
         Exit Function
     End If
 
-    '2. Environment作成
-    Set m_envHandler = WebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
-    If m_envHandler Is Nothing Then
+
+    '--------------------------------- 必須コントロールポインター取得フェーズ ---------------------------------
+
+
+    '2. `CreateCoreWebView2EnvironmentWithOptions`の第4引数に渡すための、`ICoreWebView2Environment`用COMコールバックオブジェクトを生成する
+    Set m_core.env.handler = WebView2Thunks.AcquireHandlerFor(HK_EnvironmentCompleted, Me)
+    If m_core.env.handler Is Nothing Then
         Debug.Print FromProcedureName & ": Environment用ハンドラのAcquireに失敗しました"
-        m_envState = Whs_Failed
+        m_core.env.state = Whs_Failed
         Exit Function
     End If
 
     Dim pEnvHandlerObj As LongPtr
-    pEnvHandlerObj = m_envHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+    pEnvHandlerObj = m_core.env.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
     '3. 重要: 状態をAPI呼び出しの「前」にWaitingへ。WebView2Loaderが内部で同期的に
     'コールバックを発火させるケースがあるため(実機で確認済みの罠)
-    m_envState = Whs_Waiting
+    m_core.env.state = Whs_Waiting
 
+    '4. 2で作った「COMコールバックオブジェクト」と事前準備した`EnvironmentOptions`ポインター、`WebView2UserDataDirPath`を渡して、WebView2を呼び出す
     Dim hr As Long
     hr = CreateCoreWebView2EnvironmentWithOptions(0, StrPtr(WebView2UserDataDirPath), EnvironmentOptions, pEnvHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2EnvironmentWithOptions失敗 hr=&H" & Hex(hr)
-        m_envState = Whs_Failed
+        m_core.env.state = Whs_Failed
         m_lastError = hr
         Exit Function
     End If
 
-    If Not WaitFor(m_envState) Then
+    '5. `WebView2Loader`の処理が終わるまで、待機
+    '※終了すると、COMコールバックにより`OnEnvironmentCompleted`プロシージャにワープします
+    If Not WaitFor(m_core.env.state) Then
         Debug.Print FromProcedureName & ": Environment完了待ちがタイムアウトしました"
         Exit Function
     End If
-    If m_envState <> Whs_Ready Then Exit Function
+    If m_core.env.state <> Whs_Ready Then Exit Function
 
-    '4. Controller作成
-    Set m_ctrlHandler = WebView2Thunks.AcquireHandlerFor(HK_ControllerCompleted, Me)
-    If m_ctrlHandler Is Nothing Then
+    '6. `ICoreWebView2Controller`用COMコールバックオブジェクトを生成する
+    Set m_core.ctrl.handler = WebView2Thunks.AcquireHandlerFor(HK_ControllerCompleted, Me)
+    If m_core.ctrl.handler Is Nothing Then
         Debug.Print FromProcedureName & ": Controller用ハンドラのAcquireに失敗しました"
-        m_ctrlState = Whs_Failed
+        m_core.ctrl.state = Whs_Failed
         Exit Function
     End If
 
     Dim pCtrlHandlerObj As LongPtr
-    pCtrlHandlerObj = m_ctrlHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+    pCtrlHandlerObj = m_core.ctrl.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
-    m_ctrlState = Whs_Waiting
+    '7. 3と同様、処理前に待機ステータスをセット
+    m_core.ctrl.state = Whs_Waiting
 
+    '8. DispCallFunc経由で、`ICoreWebView2Controller`オブジェクトを作成依頼する
     hr = WebView2Thunks.dcf(m_pEnvironment, 3, "Env.CreateCoreWebView2Controller", m_hostHwnd, pCtrlHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2Controller失敗 hr=&H" & Hex(hr)
-        m_ctrlState = Whs_Failed
+        m_core.ctrl.state = Whs_Failed
         m_lastError = hr
         Exit Function
     End If
 
-    If Not WaitFor(m_ctrlState) Then
+    '9. 8の処理が終わるまで、待機
+    '※終了すると、COMコールバックにより`OnControllerCompleted`プロシージャにワープします
+    If Not WaitFor(m_core.ctrl.state) Then
         Debug.Print FromProcedureName & ": Controller完了待ちがタイムアウトしました"
         Exit Function
     End If
-    If m_ctrlState <> Whs_Ready Then Exit Function
+    If m_core.ctrl.state <> Whs_Ready Then Exit Function
 
-    '5. ICoreWebView2を取得(Controller::get_CoreWebView2、vtable index 25)
+    '10. ICoreWebView2ポインターを取得(Controller::get_CoreWebView2、vtable index 25)
     Dim pv As LongPtr
     hr = WebView2Thunks.dcf(m_pController, 25, "Ctrl.get_CoreWebView2", VarPtr(pv))
     If hr <> 0 Or pv = 0 Then
@@ -212,10 +296,15 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
         Exit Function
     End If
     m_pView = pv
-    m_viewLevel = 1
+
+    '11. ICoreWebView2のどの最新番号まで対応してるか探る
     DetectViewLevel
 
-    '6. ICoreWebView2Settingsを取得(View::get_Settings、vtable index 3)
+
+    '--------------------------------- WebView2設定用ポインター取得フェーズ ---------------------------------
+
+
+    '12. ICoreWebView2Settingsポインターを取得(View::get_Settings、vtable index 3)
     '   ★毎回取得/解放していると呼び出しごとにQI相当のオーバーヘッドが発生するため、
     '   ここで1回だけ取得してキャッシュし、`CLOSE_`でまとめて解放する方式に統一する。
     '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_pSettings=0`の
@@ -224,29 +313,34 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     hr = WebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
     If hr = 0 And ps <> 0 Then
         m_pSettings = ps
-        m_settingsLevel = 1
+
+        '13. ICoreWebView2Settingsのどの最新番号まで対応してるか探る
         DetectSettingsLevel
     End If
 
-    '7. ICoreWebView2Profileを取得(View→ICoreWebView2_13へQueryInterface→get_Profile、
+    '14. ICoreWebView2Profileポインターを取得(View→ICoreWebView2_13へQueryInterface→get_Profile、
     '   vtable index 105)。取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、
     '   `m_pProfile=0`のままにする(各プロパティは`m_profileLevel`ガードで静かに無視されるだけ)
     Dim p13 As LongPtr
     Dim iid13 As WebView2Thunks.GUID
+
+    '14-1. ICoreWebView2Profileポインターは、ICoreWebView2_13の所に所属する`get_Profile`でないと取れないのでまずそこのポインターを取得
     WebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
     hr = WebView2Thunks.dcf(m_pView, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
     If hr = 0 And p13 <> 0 Then
+        '14-2. 存在したら実際に、ICoreWebView2Profileポインターを取得していく
         Dim pProfile As LongPtr
         hr = WebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
         WebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
         If hr = 0 And pProfile <> 0 Then
             m_pProfile = pProfile
-            m_profileLevel = 1
+
+            '14-3. ICoreWebView2Profileのどの最新番号まで対応してるか探る
             DetectProfileLevel
         End If
     End If
 
-    '8. 成功サインを返す
+    '15. 成功サインを返す
     RunWebView2 = True
 End Function
 
@@ -395,33 +489,74 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ 完了コールバック(Public Sub必須) ■■■
 '***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 必須系完了コールバック
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：`RunWebView2`の`CreateCoreWebView2EnvironmentWithOptions`の処理を終えると呼び出されます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Step5 の待機中に、COMコールバックによって、呼ばれる想定です
+'***************************************************************************************************
 Public Sub OnEnvironmentCompleted(ByVal ErrorCode As Long, ByVal pEnvironment As LongPtr)
+    '1. 完了コールバック全般の最後のエラーコードを記録
     m_lastError = ErrorCode
+
+    '2. エラーチェック
     If ErrorCode = 0 And pEnvironment <> 0 Then
+        '2-1. ICoreWebView2Environment ポインターを取得
         m_pEnvironment = pEnvironment
+
+        '2-2. VBA用として今後も使うので、保持する合図を出して、参照カウントUPする
         WebView2Thunks.ComAddRef m_pEnvironment
-        m_envState = Whs_Ready
+
+        '2-3. 準備完了statusに更新
+        m_core.env.state = Whs_Ready
     Else
+        '2-1. 失敗として記述
         m_pEnvironment = 0
-        m_envState = Whs_Failed
+        m_core.env.state = Whs_Failed
     End If
-    Set m_envHandler = Nothing   ' 1ショットハンドラパターン
+
+    '3. もう使わないので解放。1ショットハンドラパターン
+    Set m_core.env.handler = Nothing
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：`RunWebView2`の`ICoreWebView2Controller`オブジェクトの作成が終わると呼び出されます
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・Step9 の待機の間に来る想定です
+'            ・ついでに、`ICoreWebView2Controller`の最新番号も調査します
+'***************************************************************************************************
 Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As LongPtr)
+    '1. 完了コールバック全般の最後のエラーコードを記録
     m_lastError = ErrorCode
+
+    '2. エラーチェック
     If ErrorCode = 0 And pController <> 0 Then
+        '2-1. `ICoreWebView2Controller`ポインターを取得
         m_pController = pController
+
+        '2-2. VBA用として今後も使うので、保持する合図を出して、参照カウントUPする
         WebView2Thunks.ComAddRef m_pController
+
+        '2-3. `ICoreWebView2Controller`の最新番号を調査
         DetectControllerLevel
-        m_ctrlState = Whs_Ready
+
+        '2-4. 準備完了statusに更新
+        m_core.ctrl.state = Whs_Ready
     Else
+        '2-1. 失敗として記述
         m_pController = 0
-        m_ctrlState = Whs_Failed
+        m_core.ctrl.state = Whs_Failed
     End If
-    Set m_ctrlHandler = Nothing  ' 1ショットハンドラパターン
+
+    '3. もう使わないので解放。1ショットハンドラパターン
+    Set m_core.ctrl.handler = Nothing
 End Sub
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 拡張機能系完了コールバック
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
 '* 機能　　：`AddBrowserExtension`の完了コールバックです
 '---------------------------------------------------------------------------------------------------
@@ -430,15 +565,24 @@ End Sub
 '            AddRef/Releaseは行わない
 '***************************************************************************************************
 Public Sub OnAddBrowserExtensionCompleted(ByVal ErrorCode As Long, ByVal pResult As LongPtr)
+    '1. 完了コールバック全般の最後のエラーコードを記録
     m_lastError = ErrorCode
+
+    '2. エラーチェック
     If ErrorCode = 0 And pResult <> 0 Then
-        m_addExtResultId = WebView2Thunks.GetStringProperty(pResult, 3, "BrowserExtension.get_Id")
-        m_addExtState = Whs_Ready
+        '2-1. 結果ポインターから`ICoreWebView2BrowserExtension`Vtableの`get_Id`を読みに行って、読み込んだ拡張機能IDを取り出す
+        m_ext.addExt.resultId = WebView2Thunks.GetStringProperty(pResult, 3, "BrowserExtension.get_Id")
+
+        '2-2. 準備完了statusに更新
+        m_ext.addExt.state = Whs_Ready
     Else
-        m_addExtResultId = ""
-        m_addExtState = Whs_Failed
+        '2-1. 失敗として記述
+        m_ext.addExt.resultId = vbNullString    '空で上書き。前回値を残さないように
+        m_ext.addExt.state = Whs_Failed
     End If
-    Set m_addExtHandler = Nothing   ' 1ショットハンドラパターン
+
+    '3. もう使わないので解放。1ショットハンドラパターン
+    Set m_ext.addExt.handler = Nothing
 End Sub
 
 '***************************************************************************************************
@@ -446,36 +590,41 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`pResult`(ICoreWebView2BrowserExtensionList*)は借用ポインタ。一方、
 '            `GetValueAtIndex`で得る各`ICoreWebView2BrowserExtension`は[retval]の新規参照なので、
-'            `m_getExtPtrs`に保持したまま返し、解放責任は呼び出し元(`ReleaseGetExtPtrs`)に委ねる
+'            `m_ext.getExt.items`に保持したまま返し、解放責任は呼び出し元(`ReleaseGetExtPtrs`)に委ねる
 '***************************************************************************************************
 Public Sub OnGetBrowserExtensionsCompleted(ByVal ErrorCode As Long, ByVal pResult As LongPtr)
+    '1. 完了コールバック全般の最後のエラーコードを記録
     m_lastError = ErrorCode
 
+    '2. エラーチェック
     If ErrorCode = 0 And pResult <> 0 Then
+        '2-1. 結果ポインターから`ICoreWebView2BrowserExtensionList`Vtableの`get_Count`を読みに行って、インストール済み拡張機能ID数を取り出す
         Dim cnt As Long
         Dim hr As Long
         hr = WebView2Thunks.dcf(pResult, 3, "BrowserExtensionList.get_Count", VarPtr(cnt))
         If hr = 0 And cnt > 0 Then
-            ReDim m_getExtIds(0 To cnt - 1)
-            ReDim m_getExtPtrs(0 To cnt - 1)
-
+            '2-2. 見つけた数分、ループで、拡張機能IDを取り出していく
             Dim i As Long
             For i = 0 To cnt - 1
+                '2-3. 配列番号を基に、`ICoreWebView2BrowserExtensionList`Vtableの`GetValueAtIndex`から、`ICoreWebView2BrowserExtension`というオブジェクトポインターを取り出す
                 Dim pExt As LongPtr
                 hr = WebView2Thunks.dcf(pResult, 4, "BrowserExtensionList.GetValueAtIndex", CLng(i), VarPtr(pExt))
                 If hr = 0 And pExt <> 0 Then
-                    m_getExtPtrs(i) = pExt
-                    m_getExtIds(i) = WebView2Thunks.GetStringProperty(pExt, 3, "BrowserExtension.get_Id")
+                    '2-4. 拡張機能ID(2-3のオブジェクトポインターから、文字列取り出し)と、2-3のオブジェクトポインターを紐づける
+                    m_ext.getExt.Items.Add WebView2Thunks.GetStringProperty(pExt, 3, "BrowserExtension.get_Id"), pExt
                 End If
             Next i
-            m_getExtCount = cnt
         End If
-        m_getExtState = Whs_Ready
+
+        '2-5. 必要なループを終えたら、準備完了statusに更新
+        m_ext.getExt.state = Whs_Ready
     Else
-        m_getExtState = Whs_Failed
+        '2-1. 失敗として更新
+        m_ext.getExt.state = Whs_Failed
     End If
 
-    Set m_getExtHandler = Nothing   ' 1ショットハンドラパターン
+    '3. もう使わないので解放。1ショットハンドラパターン
+    Set m_ext.getExt.handler = Nothing
 End Sub
 
 '***************************************************************************************************
@@ -485,9 +634,14 @@ End Sub
 '            引数は`ErrorCode`だけになる
 '***************************************************************************************************
 Public Sub OnRemoveBrowserExtensionCompleted(ByVal ErrorCode As Long)
+    '1. 完了コールバック全般の最後のエラーコードを記録
     m_lastError = ErrorCode
-    m_removeExtState = IIf(ErrorCode = 0, Whs_Ready, Whs_Failed)
-    Set m_removeExtHandler = Nothing   ' 1ショットハンドラパターン
+
+    '2. エラーコードに応じたstatusに更新
+    m_ext.removeExt.state = IIf(ErrorCode = 0, Whs_Ready, Whs_Failed)
+
+    '3. もう使わないので解放。1ショットハンドラパターン
+    Set m_ext.removeExt.handler = Nothing
 End Sub
 
 
@@ -775,7 +929,6 @@ Property Let ContextMenuEnabled(v As Boolean)
     WebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
 
-'--- 以下、`ICoreWebView2Settings`(基底、level1)の残りのプロパティ ---
 '***************************************************************************************************
 '* 機能　　：ページ内のJavaScript実行可否を切り替えます(既定True)
 '---------------------------------------------------------------------------------------------------
@@ -850,7 +1003,6 @@ Property Let BuiltInErrorPageEnabled(v As Boolean)
     WebView2Thunks.dcf m_pSettings, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
 End Property
 
-'--- 以下、`ICoreWebView2Settings2`~`9`(古いWebView2 Runtimeでは`m_settingsLevel`不足によりNo-op) ---
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2Settings2
 '---------------------------------------------------------------------------------------------------
@@ -1060,7 +1212,7 @@ End Property
 '              使う必要がある
 '***************************************************************************************************
 Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
-    Const FromProcedureName As String = "CDPWebView2Host.AddBrowserExtension"
+    Const FromProcedureName As String = "WebView2Host.AddBrowserExtension"
 
 
     If m_profileLevel < 7 Then
@@ -1068,17 +1220,17 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
         Exit Function
     End If
 
-    Set m_addExtHandler = WebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
-    If m_addExtHandler Is Nothing Then
+    Set m_ext.addExt.handler = WebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
+    If m_ext.addExt.handler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_addExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_ext.addExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
-    m_addExtResultId = ""
-    m_addExtState = Whs_Waiting
+    m_ext.addExt.resultId = vbNullString
+    m_ext.addExt.state = Whs_Waiting
 
     Dim hr As Long
     hr = WebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
@@ -1086,16 +1238,16 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": AddBrowserExtension失敗 hr=&H" & Hex(hr)
         m_lastError = hr
-        m_addExtState = Whs_Failed
+        m_ext.addExt.state = Whs_Failed
         Exit Function
     End If
 
-    If Not WaitFor(m_addExtState) Then
+    If Not WaitFor(m_ext.addExt.state) Then
         Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
         Exit Function
     End If
 
-    AddBrowserExtension = m_addExtResultId
+    AddBrowserExtension = m_ext.addExt.resultId
 End Function
 
 '***************************************************************************************************
@@ -1110,16 +1262,10 @@ Public Function GetBrowserExtensionIds() As Variant
         Exit Function
     End If
 
-    If m_getExtCount = 0 Then
+    If m_ext.getExt.Items.Count = 0 Then
         GetBrowserExtensionIds = Array()
     Else
-        Dim resultArr() As String
-        ReDim resultArr(0 To m_getExtCount - 1)
-        Dim i As Long
-        For i = 0 To m_getExtCount - 1
-            resultArr(i) = m_getExtIds(i)
-        Next i
-        GetBrowserExtensionIds = resultArr
+        GetBrowserExtensionIds = m_ext.getExt.Items.keys
     End If
 
     ReleaseGetExtPtrs
@@ -1136,7 +1282,7 @@ End Function
 '            という2段構えになる(CDPの`Extensions.uninstall`はWebView2では使えないため代替不可)
 '***************************************************************************************************
 Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
-    Const FromProcedureName As String = "CDPWebView2Host.RemoveBrowserExtension"
+    Const FromProcedureName As String = "WebView2Host.RemoveBrowserExtension"
 
 
     If Not RunGetBrowserExtensions() Then
@@ -1144,31 +1290,26 @@ Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
         Exit Function
     End If
 
-    Dim targetIndex As Long: targetIndex = -1
-    Dim i As Long
-    For i = 0 To m_getExtCount - 1
-        If targetIndex = -1 And m_getExtIds(i) = extensionId Then targetIndex = i
-    Next i
-    ReleaseGetExtPtrs targetIndex
-
-    If targetIndex = -1 Then
+    If Not m_ext.getExt.Items.Exists(extensionId) Then
         Debug.Print FromProcedureName & ": 指定IDの拡張機能が見つかりません: " & extensionId
+        ReleaseGetExtPtrs
         Exit Function
     End If
 
-    Dim pTarget As LongPtr: pTarget = m_getExtPtrs(targetIndex)
+    Dim pTarget As LongPtr: pTarget = m_ext.getExt.Items(extensionId)
+    ReleaseGetExtPtrs extensionId   ' 対象(extensionId)以外を全解放
 
-    Set m_removeExtHandler = WebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
-    If m_removeExtHandler Is Nothing Then
+    Set m_ext.removeExt.handler = WebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
+    If m_ext.removeExt.handler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         WebView2Thunks.ComRelease pTarget
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_removeExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_ext.removeExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
-    m_removeExtState = Whs_Waiting
+    m_ext.removeExt.state = Whs_Waiting
 
     Dim hr As Long
     hr = WebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
@@ -1177,79 +1318,80 @@ Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": Remove失敗 hr=&H" & Hex(hr)
         m_lastError = hr
-        m_removeExtState = Whs_Failed
+        m_ext.removeExt.state = Whs_Failed
         Exit Function
     End If
 
-    If Not WaitFor(m_removeExtState) Then
+    If Not WaitFor(m_ext.removeExt.state) Then
         Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
         Exit Function
     End If
 
-    RemoveBrowserExtension = (m_removeExtState = Whs_Ready)
+    RemoveBrowserExtension = (m_ext.removeExt.state = Whs_Ready)
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`GetBrowserExtensions`を実行し、結果を`m_getExtIds`/`m_getExtPtrs`へ格納します
+'* 機能　　：`GetBrowserExtensions`を実行し、結果を`m_ext.getExt.items`へ格納します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功可否
-'* 注意事項：`m_getExtPtrs`の各要素は`ICoreWebView2BrowserExtension`への新規参照であり、
+'* 注意事項：`m_ext.getExt.items`の各値は`ICoreWebView2BrowserExtension`への新規参照であり、
 '            呼び出し元が`ReleaseGetExtPtrs`で解放する責任を持つ
 '***************************************************************************************************
 Private Function RunGetBrowserExtensions() As Boolean
-    Const FromProcedureName As String = "CDPWebView2Host.RunGetBrowserExtensions"
+    Const FromProcedureName As String = "WebView2Host.RunGetBrowserExtensions"
 
 
-    m_getExtCount = 0
-    Erase m_getExtIds
-    Erase m_getExtPtrs
+    Set m_ext.getExt.Items = New Dictionary   ' 毎回リセット
 
     If m_profileLevel < 7 Then
         Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
         Exit Function
     End If
 
-    Set m_getExtHandler = WebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
-    If m_getExtHandler Is Nothing Then
+    Set m_ext.getExt.handler = WebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
+    If m_ext.getExt.handler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
     Dim pHandlerObj As LongPtr
-    pHandlerObj = m_getExtHandler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+    pHandlerObj = m_ext.getExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
-    m_getExtState = Whs_Waiting
+    m_ext.getExt.state = Whs_Waiting
 
     Dim hr As Long
     hr = WebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": GetBrowserExtensions失敗 hr=&H" & Hex(hr)
         m_lastError = hr
-        m_getExtState = Whs_Failed
+        m_ext.getExt.state = Whs_Failed
         Exit Function
     End If
 
-    If Not WaitFor(m_getExtState) Then
+    If Not WaitFor(m_ext.getExt.state) Then
         Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
         Exit Function
     End If
 
-    RunGetBrowserExtensions = (m_getExtState = Whs_Ready)
+    RunGetBrowserExtensions = (m_ext.getExt.state = Whs_Ready)
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`m_getExtPtrs`を解放します
+'* 機能　　：`m_ext.getExt.items`の参照を解放します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：keepIndex  このインデックスの参照だけは解放せず残す(既定-1で全解放)
+'* 引数    ：keepId  この拡張機能ID分の参照だけは解放せず残す(既定は空文字で全解放)
 '***************************************************************************************************
-Private Sub ReleaseGetExtPtrs(Optional ByVal keepIndex As Long = -1)
-    Dim i As Long
-    For i = 0 To m_getExtCount - 1
-        If i <> keepIndex And m_getExtPtrs(i) <> 0 Then
-            WebView2Thunks.ComRelease m_getExtPtrs(i)
-            m_getExtPtrs(i) = 0
+Private Sub ReleaseGetExtPtrs(Optional ByVal keepId As String = "")
+    If m_ext.getExt.Items Is Nothing Then Exit Sub
+
+    Dim k As Variant
+    For Each k In m_ext.getExt.Items.keys
+        If CStr(k) <> keepId Then
+            Dim p As LongPtr
+            p = m_ext.getExt.Items(k)
+            If p <> 0 Then WebView2Thunks.ComRelease p
         End If
-    Next i
+    Next k
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1437,8 +1579,8 @@ End Sub
 '                              ■■■ 初期化/後始末 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    m_envState = Whs_Created
-    m_ctrlState = Whs_Created
+    m_core.env.state = Whs_Created
+    m_core.ctrl.state = Whs_Created
 End Sub
 
 Private Sub Class_Terminate()
