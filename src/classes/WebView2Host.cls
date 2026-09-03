@@ -250,6 +250,22 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     RunWebView2 = True
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`m_core.env.state`/`m_core.ctrl.state`がWhs_Waitingを脱するまでDoEventsで待ちます
+'***************************************************************************************************
+Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
+    Const MaxTick As Long = 100 '無難に10.0s待機
+
+
+    Dim tick As Long
+    Do While state = Whs_Waiting And tick < MaxTick
+        DoEvents
+        CDPHelpers.Sleep 0.1
+        tick = tick + 1
+    Loop
+    WaitFor = (state <> Whs_Waiting)
+End Function
+
 
 
 '***************************************************************************************************
@@ -373,22 +389,6 @@ Private Sub DetectProfileLevel()
 
     m_profileLevel = DetectLevel(m_pProfile, iids, "Profile.QueryInterface")
 End Sub
-
-'***************************************************************************************************
-'* 機能　　：`m_envState`/`m_ctrlState`がWhs_Waitingを脱するまでDoEventsで待ちます
-'***************************************************************************************************
-Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
-    Const MaxTick As Long = 100 '無難に10.0s待機
-
-
-    Dim tick As Long
-    Do While state = Whs_Waiting And tick < MaxTick
-        DoEvents
-        CDPHelpers.Sleep 0.1
-        tick = tick + 1
-    Loop
-    WaitFor = (state <> Whs_Waiting)
-End Function
 
 
 
