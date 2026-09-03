@@ -310,6 +310,8 @@ Public Function SendCommandCDP(strData As String) As Long
         SendCommandCDP = E_HANDLE
         Exit Function
     End If
+
+    '2. `ICoreWebView2_1`ポインターの取得を試みる
     Dim pView As LongPtr: pView = m_Host.ViewPtr
     If pView = 0 Then
         printMsg ERROR_, "ViewPtr is 0 (disconnected or initialization incomplete).", FromProcedureName
@@ -318,15 +320,15 @@ Public Function SendCommandCDP(strData As String) As Long
         Exit Function
     End If
 
-    '2. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡すため、パラメータを分解する
+    '3. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡すため、パラメータを分解する
     Dim Node As BiDiCDPJson: Set Node = BiDiCDPJson.Parse(strData)
 
-    '2-1. スカラー値部分
+    '3-1. スカラー値部分
     Dim commandID   As Long:                                       commandID = Node.NumberKey("id")
     Dim methodName  As String:                                    methodName = Node.StringKey("method")
     Dim sessionID   As String: If Node.ExistsKey("sessionId") Then sessionID = Node.StringKey("sessionId")
 
-    '2-2.`params`オブジェクトのJson文字列化
+    '3-2.`params`オブジェクトのJson文字列化
     Dim paramsRaw As String
     If Node.ExistsKey("params") Then
         Dim paramsNode As BiDiCDPJson
@@ -336,7 +338,7 @@ Public Function SendCommandCDP(strData As String) As Long
         paramsRaw = "{}"
     End If
 
-    '2-3. `commandID`をコールバックIDとして登録して、来たるべき結果の紐づけを行う
+    '3-3. `commandID`をCOMコールバックメモリ領域の補助情報として登録して、来たるべき結果の紐づけを行う
     Dim h As WebView2CallbackHandler
     Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
     If h Is Nothing Then
@@ -348,22 +350,19 @@ Public Function SendCommandCDP(strData As String) As Long
     h.callbackId = commandID
     printMsg Debug_, "Registered with callback ID: " & commandID & ".", FromProcedureName
 
-    '3. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
+    '4. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
     Dim pVTableObj As LongPtr
     pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
     Dim hr As Long
-    If LenB(sessionID) = 0 Then
-        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+    If StrPtr(sessionID) Then
+        '`SessionID`がある場合は、`CallDevToolsProtocolMethodForSession`で送る
 
-        'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
-        'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
-        hr = WebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
-                                    StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
-    Else
+        '4-1. 初代WebView2にはないため1度だけまず、インターフェース存在確認を行う
         'ICoreWebView2_11::CallDevToolsProtocolMethodForSession(vtableスロット99)
         'https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodforsessionasync
         Dim pView11 As LongPtr: pView11 = EnsureView11(pView)
         If pView11 = 0 Then
+            '対象のインターフェースがない場合は、取り扱えないので失敗とみなす
             printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` could not be obtained.", FromProcedureName
 
             Set h = Nothing
@@ -371,15 +370,25 @@ Public Function SendCommandCDP(strData As String) As Long
             Exit Function
         End If
 
+        '4-2. `CallDevToolsProtocolMethodForSession`で、`SessionID`付きで実行
         printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
         hr = WebView2Thunks.dcf(pView11, 99, "View11.CallDevToolsProtocolMethodForSession", _
                                     StrPtr(sessionID), StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
+    Else
+        '`SessionID`がない場合は、`CallDevToolsProtocolMethod`で送る
+        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+
+        '4-1. 初代WebView2で既にあるため、そのまま実行へ
+        'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
+        'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
+        hr = WebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
+                                    StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
     End If
 
     '4. WebView2側がAddRef済みなので、こちらのローカル参照は捨てる
     Set h = Nothing
 
-    '5. 結果コード
+    '5. 結果コードを返却
     SendCommandCDP = hr
 End Function
 
