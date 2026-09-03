@@ -66,7 +66,7 @@ Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
 Private Const SYNCHRONIZE                       As Long = &H100000
 
 'その他
-Private Const ThisClassName             As String = "CDPCoreHost"           'ログのトレース用
+Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
 Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
 
 

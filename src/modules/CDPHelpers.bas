@@ -28,7 +28,7 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
-'起動する Chromium 系ブラウザ。`CDPCoreHost` に置くと、こちらの `StateLog` と循環参照になる
+'起動する Chromium 系ブラウザ。`CDPHost` に置くと、こちらの `StateLog` と循環参照になる
 Public Enum BrowserList
     RunEdge
     RunChrome
