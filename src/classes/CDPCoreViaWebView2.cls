@@ -452,31 +452,38 @@ End Sub
 '* 機能　　：`GetDevToolsProtocolEventReceived`の発火通知を受け取り、CDP形式のJsonに組み立てて
 '            発信します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読する
-'            だけで、`Target.setAutoAttach`等でアタッチされた子セッション(iframe/worker等)からの
-'            同名イベントも同じコールバックに届く(公式サンプルコードで確認済みの仕様)。
-'            どのセッション由来かは`args`を`ICoreWebView2DevToolsProtocolEventReceivedEventArgs2`
-'            へQueryInterfaceし、`get_SessionId`で判別する(既定のトップレベルターゲット由来なら
-'            空文字が返る)。これにより`sessionId`を含めて再構成し、`CDPCore.
-'            BrowserReceivedDataCheck`が`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`
-'            (ブラウザ向け)を正しく振り分けられるようにする。
+'* 詳細説明：・いわゆる、CDPイベントを受け取るところです。
+'            ・どのセッション由来かは`args`を`ICoreWebView2DevToolsProtocolEventReceivedEventArgs2`
+'            　へQueryInterfaceし、`get_SessionId`で判別する(既定のトップレベルターゲット由来なら
+'            　空文字が返る)。これにより`sessionId`を含めて再構成し、`CDPCore.
+'            　BrowserReceivedDataCheck`が`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`
+'            　(ブラウザ向け)を正しく振り分けられるようにする。
+'            ・`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読する
+'            　だけで、`Target.setAutoAttach`等でアタッチされた子セッション(iframe/worker等)からの
+'            　同名イベントも同じコールバックに届く(公式サンプルコードで確認済みの仕様)。
 '***************************************************************************************************
 Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
+    '1. `pArgs`ポインターから、`param`部分のJson文字列を取り出す
     Dim paramJson As String
     paramJson = WebView2Thunks.GetStringProperty(pArgs, 3, "Args.get_ParameterObjectAsJson")
     If LenB(paramJson) = 0 Then paramJson = "{}"
 
+    '2. `pArgs`ポインターに紐づく、`SessionID`を取り出す
     Dim sessionID As String
     sessionID = TryGetEventSessionId(pArgs)
 
-
+    '3. `SessinID`有無に応じた分岐
     Dim synthesized As String
     If LenB(sessionID) = 0 Then
+        'ブラウザ単位として組み立て
         synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & "}"
     Else
+        '`SessionID`単位として組み立て
         synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & _
                       ",""sessionId"":""" & sessionID & """}"
     End If
+
+    '4. `CDPCore.cls`へ発信！
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
 
