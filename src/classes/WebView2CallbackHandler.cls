@@ -31,11 +31,18 @@ Option Explicit
     #Error "このクラスは64ビットVBA(x64)が必要です"
 #End If
 
-Private m_kind      As HandlerKind
-Private m_owner     As Object
-Private m_pSlot     As LongPtr
-Private m_refCount  As Long
 
+
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'--- COMコールバック管理全般系 ---
+Private m_kind      As HandlerKind  'どんなCOMコールバックか？
+Private m_owner     As Object       '転送先VBAClassオブジェクト
+Private m_pSlot     As LongPtr      '共有スロットプールのポインター。`WebView2Thunks.AcquireHandlerFor`で作成したCOMコールバックメモリ領域の場所(ポインター)
+Private m_refCount  As Long         'このClassオブジェクトの参照カウント値
+
+'--- CDP系に関する管理変数 ---
 ' HK_CdpMethodCompleted用: CDPコマンドの`id`をそのまま格納し、完了コールバックで
 ' `OnCdpMethodCompleted`に渡す(1ショット系、同時並行呼び出し可)
 Private m_callbackId As Long
