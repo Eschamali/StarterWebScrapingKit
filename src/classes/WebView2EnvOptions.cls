@@ -299,12 +299,14 @@ End Sub
 
 
 '***************************************************************************************************
-'                    ■■■ WebView2からのコールバック受け皿(動的束縛経由) ■■■
+'                  ■■■ WebView2からのコールバック受け皿(動的束縛経由) ■■■
 '***************************************************************************************************
 '* 注意事項：★重要★ 以下は全て`WebView2CallbackHandler.Handler_Invoke`から`owner As Object`
 '            経由(動的束縛)で呼ばれるため、全てPublic Subでなければならない
 '***************************************************************************************************
-' --- ICoreWebView2EnvironmentOptions ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetAdditionalBrowserArguments(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteStringOut pOut, m_additionalBrowserArguments
 End Sub
@@ -345,7 +347,9 @@ Public Sub EnvOpt_OnPutAreBrowserExtensionsEnabled(ByVal rawValue As LongPtr)
     m_areBrowserExtensionsEnabled = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
-' --- ICoreWebView2EnvironmentOptions2 ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions2
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetExclusiveUserDataFolderAccess(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_exclusiveUserDataFolderAccess
 End Sub
@@ -354,7 +358,9 @@ Public Sub EnvOpt_OnPutExclusiveUserDataFolderAccess(ByVal rawValue As LongPtr)
     m_exclusiveUserDataFolderAccess = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
-' --- ICoreWebView2EnvironmentOptions3 ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions3
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetIsCustomCrashReportingEnabled(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_isCustomCrashReportingEnabled
 End Sub
@@ -363,7 +369,9 @@ Public Sub EnvOpt_OnPutIsCustomCrashReportingEnabled(ByVal rawValue As LongPtr)
     m_isCustomCrashReportingEnabled = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
-' --- ICoreWebView2EnvironmentOptions5 ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions5
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetEnableTrackingPrevention(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteBoolOut pOut, m_enableTrackingPrevention
 End Sub
@@ -372,7 +380,9 @@ Public Sub EnvOpt_OnPutEnableTrackingPrevention(ByVal rawValue As LongPtr)
     m_enableTrackingPrevention = (CLngLng(rawValue) And &HFFFFFFFF^) <> 0
 End Sub
 
-' --- ICoreWebView2EnvironmentOptions7 ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions7
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetChannelSearchKind(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteLongOut pOut, m_channelSearchKind
 End Sub
@@ -389,7 +399,9 @@ Public Sub EnvOpt_OnPutReleaseChannels(ByVal rawValue As LongPtr)
     m_releaseChannels = CLng(CLngLng(rawValue) And &HFFFFFFFF^)
 End Sub
 
-' --- ICoreWebView2EnvironmentOptions8 ---
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ICoreWebView2EnvironmentOptions8
+'---------------------------------------------------------------------------------------------------
 Public Sub EnvOpt_OnGetScrollBarStyle(ByVal pOut As LongPtr)
     WebView2Thunks.EnvOpt_WriteLongOut pOut, m_scrollBarStyle
 End Sub
