@@ -1557,7 +1557,7 @@ Private Sub Class_Initialize()
 End Sub
 
 Private Sub Class_Terminate()
-    On Error Resume Next
+    'ストリームをClose
     CDPPipeStream.Close
     Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub
