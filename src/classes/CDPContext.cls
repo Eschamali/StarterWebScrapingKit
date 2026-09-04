@@ -97,7 +97,6 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
 
 

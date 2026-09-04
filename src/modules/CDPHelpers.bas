@@ -69,7 +69,7 @@ Public Const EventsKey_EventMethods As String = "EventMethods"
 'その他
 Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値
 Public Const chromeWindowClass As String = "Chrome_WidgetWin_1" 'same window class for Edge
-Private Const ThisModuleName   As String = "CDPHelpers"         'トレース用
+Public Const TIMEOUT_DEFAULT   As Double = 30                   '初期タイムアウト秒数
 
 
 
