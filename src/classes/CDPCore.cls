@@ -1551,7 +1551,7 @@ Private Sub Class_Initialize()
     '3. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
 
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶する
+    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
     CDPHelpers.InitQueryPerformanceFrequency
     '------------------------------------------------------------------------------
 End Sub
