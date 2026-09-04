@@ -55,7 +55,6 @@ End Enum
 Private Const CDPVer                    As String = "3.1.0"
 
 'その他
-Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 
 
