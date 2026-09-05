@@ -374,10 +374,10 @@ Public Function SendCommandCDP(strData As String) As Long
         '  差し替え済みのため、ここで改めて`ICoreWebView2_11`をQueryInterfaceし直す必要は無い)
         If m_Host.ICoreWebView2LastLevel < 11 Then
             '対象のインターフェースがない場合は、取り扱えないので失敗とみなす
-            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` is not supported.", FromProcedureName
-
             Set h = Nothing
             SendCommandCDP = &H80004002   ' E_NOINTERFACE
+            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` is not supported.", FromProcedureName, doRaiseError:=True
+
             Exit Function
         End If
 
