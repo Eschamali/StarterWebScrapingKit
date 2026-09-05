@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'   WebView2のEnvironment→Controller→ICoreWebView2 + α生成を担うホスティング専用Classです。
+'   WebView2のEnvironment→Controller→ICoreWebView2 + 拡張機能周りのインターフェース生成を担うホスティング専用Classです。
 '
 '   `CDPCoreViaWebView2.cls`とは責務を分離しています(WebSocket版が1ハンドルで済むのに対し、
 '   WebView2はForm/Env/Controller/Viewという生成順序・Releaseチェーンが伴うため、
@@ -330,7 +330,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     '14. ICoreWebView2Profileポインターを取得(View13::get_Profile、vtable index 105)。
     '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_Profile.Pointer=0`の
     '   ままにする(各プロパティは`m_Profile.LastLevel`ガードで静かに無視されるだけ)
-    '---------------------------------------------------------------------------------------------------
+    '
     '   `get_Profile`はICoreWebView2_13所属だが、`DetectViewLevel`が既に`m_View.Pointer`を
     '   辿り着いた最新版へ差し替え済みのため、ここで改めてICoreWebView2_13をQueryInterface
     '   し直す必要は無く、`m_View.LastLevel`のガードだけで済む

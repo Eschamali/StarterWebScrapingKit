@@ -25,21 +25,27 @@ Attribute VB_Exposed = False
 '     文字列1件そのままの、より単純な形のイベントを発火します。
 '
 '   ★既知の制約(CDP-over-WebSocketとの違い)★
-'     CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
-'     モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
-'     が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
-'     明示的なAPIとして公開しています(一括購読はWebView2側に概念自体が無いため未対応。
-'     一括解除のみ`UnsubscribeAllCdpEvents`として提供)。
-'     `GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読するだけで、
-'     `Target.setAutoAttach`等でアタッチされた子セッション(タブ/iframe/worker等)からの同名イベントも
-'     同じコールバックに届きます。どのセッション由来かは`ICoreWebView2DevToolsProtocolEventReceived
-'     EventArgs2::get_SessionId`で判別し(`OnCdpEventReceived`/`TryGetEventSessionId`)、有効な
-'     `sessionId`があれば再構成後のJsonへ含めるため、`CDPCore.BrowserReceivedDataCheck`は
-'     Pipe/WebSocket版と同様に`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`(ブラウザ向け)を
-'     正しく振り分けます。
+'     ・CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
+'       モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
+'       が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
+'       明示的なAPIとして公開しています。一括購読はWebView2側に概念自体が無いため未対応。
+'       ※一括解除のみ`UnsubscribeAllCdpEvents`として提供。
+'     ・`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読するだけで、
+'       `Target.setAutoAttach`等でアタッチされた子セッション(タブ/iframe/worker等)からの同名イベントも
+'       同じコールバックに届きます。どのセッション由来かは`ICoreWebView2DevToolsProtocolEventReceived
+'       EventArgs2::get_SessionId`で判別し(`OnCdpEventReceived`/`TryGetEventSessionId`)、有効な
+'       `sessionId`があれば再構成後のJsonへ含めるため、`CDPCore.BrowserReceivedDataCheck`は
+'       Pipe/WebSocket版と同様に`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`(ブラウザ向け)を
+'       正しく振り分けます。
+'     ・拡張機能系(https://chromedevtools.github.io/devtools-protocol/tot/Extensions/)のみ
+'       `CallDevToolsProtocolMethod/ForSession`経由では`Method not available.`エラーとなり機能しません。
+'       `SessionID`を空欄/vbnullstringにしても効果はありませんでした。
+'       恐らく内部では`Page`単位(/json/list)としての実行となっているためと推測してます。また、この拡張機能は、
+'       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
+'       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
 '
 '   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見より)★
-'     ・コールバック待ち中(コマンド送信?完了、イベント購読中)にVBEでブレーク/ステップ実行すると
+'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行すると
 '       Excelがクラッシュする可能性がある(サンク技法そのものの制約)
 '     ・`OnCdpMethodCompleted`/`OnCdpEventReceived`の中から`ExecuteCDP`のような同期待ちの
 '       メソッドを呼ばないこと(再入デッドロックの原因になる)
