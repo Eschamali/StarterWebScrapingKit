@@ -39,8 +39,12 @@ End Sub
 '* 機能　　：WebView2にて拡張機能をインストール/アンインストールする際のDemoです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：拡張機能系のみ、CDPコマンドでは出来ないため、WebView2側で用意されてる拡張機能用APIでやるためのDemoとなります
+'            恐らく内部では`Page`単位(/json/list)としての実行となっているため`Method not available.`エラーと推測してます
 '***************************************************************************************************
 Sub 拡張機能インストールアンインストール()
+    Const UseCDP As Boolean = False
+
+
     Dim インストールパス As String
     With Application.FileDialog(4)  'msoFileDialogFolderPicker
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
@@ -66,6 +70,19 @@ Sub 拡張機能インストールアンインストール()
 
         '5. 拡張機能インストール
         Dim InstallID As String
+        If UseCDP Then
+            Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
+            Set CDPparams = New Dictionary
+            CDPparams.Add "path", インストールパス
+            Set ResultCDP = .ThisCDPContext.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
+
+            If ResultCDP Is Nothing Then MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("code"): Unload WebView2Form: Exit Sub
+
+            '6. アンインストール
+            InstallID = ResultCDP("id")
+            MsgBox "拡張機能のインストールに成功しました。", vbInformation, "exID: " & InstallID
+        
+        Else
         InstallID = .ThisWebView2.AddBrowserExtension(インストールパス)
         If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
         MsgBox "拡張機能のインストールに成功しました。OKを押すとアンインストールします", vbInformation, "exID: " & InstallID
@@ -73,6 +90,7 @@ Sub 拡張機能インストールアンインストール()
         '6. アンインストール
         If Not .ThisWebView2.RemoveBrowserExtension(InstallID) Then MsgBox "拡張機能のアンインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
         MsgBox "拡張機能のアンインストールに成功しました。", vbInformation
+        End If
     End With
 
     '7. Demo終了
