@@ -330,23 +330,6 @@ Sub TestAlert()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：WebView2を起動します
-'***************************************************************************************************
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
-    '1. UserForm側のWebView2の初期化を済ませる
-    With WebView2Form
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
-
-        '2. 遷移
-        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
-
-        '3. フォームを表示
-        .show
-    End With
-End Sub
-
-'***************************************************************************************************
 '* 機能　　：ShadowRootに関するDemoです。シンプル版です
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：Open/Close 問わず、メソッドチェーン操作で利用できます

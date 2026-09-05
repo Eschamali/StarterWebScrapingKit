@@ -25,21 +25,27 @@ Attribute VB_Exposed = False
 '     文字列1件そのままの、より単純な形のイベントを発火します。
 '
 '   ★既知の制約(CDP-over-WebSocketとの違い)★
-'     CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
-'     モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
-'     が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
-'     明示的なAPIとして公開しています(一括購読はWebView2側に概念自体が無いため未対応。
-'     一括解除のみ`UnsubscribeAllCdpEvents`として提供)。
-'     `GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読するだけで、
-'     `Target.setAutoAttach`等でアタッチされた子セッション(タブ/iframe/worker等)からの同名イベントも
-'     同じコールバックに届きます。どのセッション由来かは`ICoreWebView2DevToolsProtocolEventReceived
-'     EventArgs2::get_SessionId`で判別し(`OnCdpEventReceived`/`TryGetEventSessionId`)、有効な
-'     `sessionId`があれば再構成後のJsonへ含めるため、`CDPCore.BrowserReceivedDataCheck`は
-'     Pipe/WebSocket版と同様に`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`(ブラウザ向け)を
-'     正しく振り分けます。
+'     ・CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
+'       モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
+'       が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
+'       明示的なAPIとして公開しています。一括購読はWebView2側に概念自体が無いため未対応。
+'       ※一括解除のみ`UnsubscribeAllCdpEvents`として提供。
+'     ・`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読するだけで、
+'       `Target.setAutoAttach`等でアタッチされた子セッション(タブ/iframe/worker等)からの同名イベントも
+'       同じコールバックに届きます。どのセッション由来かは`ICoreWebView2DevToolsProtocolEventReceived
+'       EventArgs2::get_SessionId`で判別し(`OnCdpEventReceived`/`TryGetEventSessionId`)、有効な
+'       `sessionId`があれば再構成後のJsonへ含めるため、`CDPCore.BrowserReceivedDataCheck`は
+'       Pipe/WebSocket版と同様に`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`(ブラウザ向け)を
+'       正しく振り分けます。
+'     ・拡張機能系(https://chromedevtools.github.io/devtools-protocol/tot/Extensions/)のみ
+'       `CallDevToolsProtocolMethod/ForSession`経由では`Method not available.`エラーとなり機能しません。
+'       `SessionID`を空欄/vbnullstringにしても効果はありませんでした。
+'       恐らく内部では`Page`単位(/json/list)としての実行となっているためと推測してます。また、この拡張機能は、
+'       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
+'       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
 '
 '   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見より)★
-'     ・コールバック待ち中(コマンド送信?完了、イベント購読中)にVBEでブレーク/ステップ実行すると
+'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行すると
 '       Excelがクラッシュする可能性がある(サンク技法そのものの制約)
 '     ・`OnCdpMethodCompleted`/`OnCdpEventReceived`の中から`ExecuteCDP`のような同期待ちの
 '       メソッドを呼ばないこと(再入デッドロックの原因になる)
@@ -59,8 +65,81 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const ThisClassName         As String = "CDPCoreViaWebView2"                    'ログのトレース用
-Private Const IID_ICoreWebView2_11  As String = "0be78e56-c193-4051-b943-23b460c08bdb"  ' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
+Private Const ThisClassName         As String = "CDPCoreViaWebView2"    'ログのトレース用
+
+'* `HiddenPdfToolbarItems`用。`COREWEBVIEW2_PDF_TOOLBAR_ITEMS`のビットマスク値をEnum化したもの。
+'  `Or`で組み合わせて指定する(例: `PDF_Save Or PDF_PrintItem`)。VBEはEnum型引数に対して、
+'  `Or `と打った直後に同じEnumの候補一覧を再表示してくれるため、複数選択がしやすい
+Public Enum WV2PdfToolbarItems
+    PDF_Save = &H1
+    PDF_PrintItem = &H2
+    PDF_SaveAs = &H4
+    PDF_ZoomIn = &H8
+    PDF_ZoomOut = &H10
+    PDF_Rotate = &H20
+    PDF_FitPage = &H40
+    PDF_PageLayout = &H80
+    PDF_Bookmarks = &H100
+    PDF_PageSelector = &H200
+    PDF_Search = &H400
+    PDF_FullScreen = &H800
+    PDF_MoreSettings = &H1000
+End Enum
+
+'* `BoundsMode`用(`COREWEBVIEW2_BOUNDS_MODE`)
+Public Enum WV2BoundsMode
+    BoundsMode_UseRawPixels = 0             ' 既定
+    BoundsMode_UseRasterizationScale = 1
+End Enum
+
+'* `MoveFocus`用(`COREWEBVIEW2_MOVE_FOCUS_REASON`)
+Public Enum WV2MoveFocusReason
+    MoveFocus_Programmatic = 0
+    MoveFocus_Next = 1
+    MoveFocus_Previous = 2
+End Enum
+
+'* `PreferredColorScheme`用(`COREWEBVIEW2_PREFERRED_COLOR_SCHEME`)
+Public Enum WV2PreferredColorScheme
+    ColorScheme_Auto = 0             ' 既定
+    ColorScheme_Light = 1
+    ColorScheme_Dark = 2
+End Enum
+
+'* `PreferredTrackingPreventionLevel`用(`COREWEBVIEW2_TRACKING_PREVENTION_LEVEL`)
+Public Enum WV2TrackingPreventionLevel
+    TrackingPrevention_None = 0
+    TrackingPrevention_Basic = 1
+    TrackingPrevention_Balanced = 2  ' 既定
+    TrackingPrevention_Strict = 3
+End Enum
+
+'* `SetVirtualHostNameToFolderMapping`用(`COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND`)
+Public Enum WV2HostResourceAccessKind
+    HostAccess_Deny = 0
+    HostAccess_Allow = 1
+    HostAccess_DenyCors = 2
+End Enum
+
+'* `ShowPrintUI`用(`COREWEBVIEW2_PRINT_DIALOG_KIND`)
+Public Enum WV2PrintDialogKind
+    PrintDialog_Browser = 0          ' 既定。ブラウザ内蔵の印刷プレビュー
+    PrintDialog_System = 1           ' OSの印刷ダイアログ
+End Enum
+
+'* `MemoryUsageTargetLevel`用(`COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL`)
+Public Enum WV2MemoryUsageTargetLevel
+    MemoryUsage_Normal = 0           ' 既定
+    MemoryUsage_Low = 1
+End Enum
+
+'* `DefaultDownloadDialogCornerAlignment`用(`COREWEBVIEW2_DEFAULT_DOWNLOAD_DIALOG_CORNER_ALIGNMENT`)
+Public Enum WV2DownloadDialogCornerAlignment
+    DownloadDialog_TopLeft = 0
+    DownloadDialog_TopRight = 1      ' 既定
+    DownloadDialog_BottomLeft = 2
+    DownloadDialog_BottomRight = 3
+End Enum
 
 
 
@@ -75,15 +154,24 @@ Public Event CDPMessageReceived(RawJson As String)
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private m_Host          As CDPWebView2Host
-Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
-Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
+'WebView2の各種ポインターや設定プロパティとなるメインディッシュ
+Private m_Host       As WebView2Host
+
+' Environment作成オプション(`ICoreWebView2EnvironmentOptions`系)。`m_Host`の生死とは独立に
+' こちらで直接保持するため、`ConnectCDP`実行前(=`m_Host`がまだ存在しない間)から自由に設定できる。
+' Environment生成時にしか読まれない値のため、必ず`ConnectCDP`を呼ぶ**前**に設定すること
+Private m_envOptions As WebView2EnvOptions
+
+' Trueにしておくと、`DisconnectCDP`実行時にこのプロファイルを削除対象としてマークする
+' (使い切り[ワンショット]プロファイル用。`WebView2Host.Delete`自体は非公開のまま、このフラグ
+' 経由でのみ発動させる)
+Private m_deleteProfileOnDisconnect As Boolean
 
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
-'--- ログ設定状況 ---
+' ログ設定状況
 Private currentLog As StateLog
 
 
@@ -136,17 +224,29 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     '3. 専用のホストオブジェクトを新規作成
     Dim RunRes As Boolean
-    Set m_Host = New CDPWebView2Host
+    Set m_Host = New WebView2Host
+
+    '3-1. Environmentオプション(設定されていれば、ネイティブ側のfakeオブジェクトを構築)
+    '     ★重要★ 実際に使う場合(=`m_envOptions`が既に生成済み)のみ構築する。未使用なら
+    '     ネイティブfakeオブジェクトを一切構築せず、従来通り`environmentOptions=nullptr`の
+    '     まま接続する(無駄な構築コストを避けるため)
+    Dim pEnvOptions As LongPtr
+    If Not (m_envOptions Is Nothing) Then pEnvOptions = m_envOptions.BuildNativePointer()
+
     With m_Host
-        '3-1. 必要な情報を渡す
+        '3-2. 必要な情報を渡す
         .InitInfo UserName, AttachHwnd
 
-        '3-2. セッションを閉じる(保険用)
+        '3-3. セッションを閉じる(保険用)
         .cleanUpSessions
 
-        '3-3. 起動！
-        RunRes = .RunWebView2
+        '3-4. 起動！
+        RunRes = .RunWebView2(pEnvOptions)
     End With
+
+    '3-5. Environmentオプションのネイティブリソースは、ここで(成功/失敗問わず)解放してよい
+    '     (`RunWebView2`内の完了待ちで、WebView2Loaderは既に読み終えている)
+    DisposeEnvOptions
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
@@ -167,17 +267,29 @@ Public Sub DisconnectCDP()
     '1. 残っている購読を全解除
     UnsubscribeAllCdpEvents
 
-    '2. ICoreWebView2_11(QI取得分)を解放
-    If m_pView11 <> 0 Then
-        CDPWebView2Thunks.ComRelease m_pView11
-        m_pView11 = 0
-    End If
-    m_pView11Failed = False
-
-    '3. ホスト(Environment/Controller/View)を解放
+    '2. ホスト(Environment/Controller/View)を解放
     If Not (m_Host Is Nothing) Then
+        '2-1. 使い切り[ワンショット]運用が指定されていれば、解放(`CLOSE_`)の前にプロファイルを
+        '     削除対象としてマークする(`CLOSE_`後だとProfileポインタが解放済みで呼べないため)
+        If m_deleteProfileOnDisconnect Then m_Host.Delete
+
         m_Host.CLOSE_
         Set m_Host = Nothing
+    End If
+
+    '3. Environmentオプションが未使用のまま残っていれば、保険として解放
+    '   (通常は`ConnectCDP`内で既に解放済みだが、一度も`ConnectCDP`を呼ばずに
+    '   切断/破棄された場合への保険)
+    DisposeEnvOptions
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：Environmentオプションのネイティブリソースを、設定済みなら解放します
+'***************************************************************************************************
+Private Sub DisposeEnvOptions()
+    If Not (m_envOptions Is Nothing) Then
+        m_envOptions.CLOSE_
+        Set m_envOptions = Nothing
     End If
 End Sub
 
@@ -214,7 +326,9 @@ Public Function SendCommandCDP(strData As String) As Long
         SendCommandCDP = E_HANDLE
         Exit Function
     End If
-    Dim pView As LongPtr: pView = m_Host.ViewPtr
+
+    '2. `ICoreWebView2`ポインターの取得を試みる
+    Dim pView As LongPtr: pView = m_Host.ICoreWebView2Ptr
     If pView = 0 Then
         printMsg ERROR_, "ViewPtr is 0 (disconnected or initialization incomplete).", FromProcedureName
 
@@ -222,15 +336,15 @@ Public Function SendCommandCDP(strData As String) As Long
         Exit Function
     End If
 
-    '2. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡すため、パラメータを分解する
+    '3. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡すため、パラメータを分解する
     Dim Node As BiDiCDPJson: Set Node = BiDiCDPJson.Parse(strData)
 
-    '2-1. スカラー値部分
+    '3-1. スカラー値部分
     Dim commandID   As Long:                                       commandID = Node.NumberKey("id")
     Dim methodName  As String:                                    methodName = Node.StringKey("method")
     Dim sessionID   As String: If Node.ExistsKey("sessionId") Then sessionID = Node.StringKey("sessionId")
 
-    '2-2.`params`オブジェクトのJson文字列化
+    '3-2.`params`オブジェクトのJson文字列化
     Dim paramsRaw As String
     If Node.ExistsKey("params") Then
         Dim paramsNode As BiDiCDPJson
@@ -240,9 +354,9 @@ Public Function SendCommandCDP(strData As String) As Long
         paramsRaw = "{}"
     End If
 
-    '2-3. `commandID`をコールバックIDとして登録して、来たるべき結果の紐づけを行う
-    Dim h As CDPWebView2CallbackHandler
-    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
+    '3-3. `commandID`をCOMコールバックメモリ領域の補助情報として登録して、来たるべき結果の紐づけを行う
+    Dim h As WebView2CallbackHandler
+    Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
     If h Is Nothing Then
         printMsg ERROR_, "Failed to acquire the handler.", FromProcedureName
 
@@ -252,60 +366,47 @@ Public Function SendCommandCDP(strData As String) As Long
     h.callbackId = commandID
     printMsg Debug_, "Registered with callback ID: " & commandID & ".", FromProcedureName
 
-    '3. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
+    '4. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
     Dim pVTableObj As LongPtr
-    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
     Dim hr As Long
-    If LenB(sessionID) = 0 Then
-        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+    If StrPtr(sessionID) Then
+        '`SessionID`がある場合は、`CallDevToolsProtocolMethodForSession`で送る
 
-        'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
-        'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
-        hr = CDPWebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
-                                    StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
-    Else
+        '4-1. 初代WebView2にはないため、`m_Host`が既に持っているバージョン判定結果で存在確認する
         'ICoreWebView2_11::CallDevToolsProtocolMethodForSession(vtableスロット99)
         'https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodforsessionasync
-        Dim pView11 As LongPtr: pView11 = EnsureView11(pView)
-        If pView11 = 0 Then
-            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` could not be obtained.", FromProcedureName
-
+        '(`m_Host.ViewPtr`は`WebView2Host`内部の`DetectLevel`によって既に辿り着けた最新版へ
+        '  差し替え済みのため、ここで改めて`ICoreWebView2_11`をQueryInterfaceし直す必要は無い)
+        If m_Host.ICoreWebView2LastLevel < 11 Then
+            '対象のインターフェースがない場合は、取り扱えないので失敗とみなす
             Set h = Nothing
             SendCommandCDP = &H80004002   ' E_NOINTERFACE
+            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` is not supported.", FromProcedureName, doRaiseError:=True
+
             Exit Function
         End If
 
+        '4-2. `CallDevToolsProtocolMethodForSession`で、`SessionID`付きで実行
         printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
-        hr = CDPWebView2Thunks.dcf(pView11, 99, "View11.CallDevToolsProtocolMethodForSession", _
+        hr = WebView2Thunks.dcf(pView, 99, "View11.CallDevToolsProtocolMethodForSession", _
                                     StrPtr(sessionID), StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
+    Else
+        '`SessionID`がない場合は、`CallDevToolsProtocolMethod`で送る
+        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+
+        '4-1. 初代WebView2で既にあるため、そのまま実行へ
+        'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
+        'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
+        hr = WebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
+                                    StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
     End If
 
     '4. WebView2側がAddRef済みなので、こちらのローカル参照は捨てる
     Set h = Nothing
 
-    '5. 結果コード
+    '5. 結果コードを返却
     SendCommandCDP = hr
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`ICoreWebView2`から`ICoreWebView2_11`をQueryInterfaceで取得します(1回だけ試行)
-'***************************************************************************************************
-Private Function EnsureView11(ByVal pView As LongPtr) As LongPtr
-    If m_pView11 <> 0 Then EnsureView11 = m_pView11: Exit Function
-    If m_pView11Failed Then Exit Function
-
-    Dim iid As CDPWebView2Thunks.GUID
-    CDPWebView2Thunks.FillGUID iid, IID_ICoreWebView2_11
-
-    Dim pOut As LongPtr
-    Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pView, 0, "View.QueryInterface(ICoreWebView2_11)", VarPtr(iid), VarPtr(pOut))
-    If hr = 0 And pOut <> 0 Then
-        m_pView11 = pOut
-        EnsureView11 = m_pView11
-    Else
-        m_pView11Failed = True
-    End If
 End Function
 
 
@@ -317,26 +418,33 @@ End Function
 '            組み立てて発信します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：いわゆる、コマンド結果を受け取るところです。`SendCommandCDP`で、`commandID`を`callbackId`に登録したのと一致するのが来ます
-'* 注意事項：`CDPWebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
+'* 注意事項：`WebView2CallbackHandler.Handler_Invoke`から動的束縛で呼ばれるため、Public必須
 '***************************************************************************************************
-Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Long, ByVal resultJson As String)
+Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Long, ByVal resultJsonPtr As LongPtr)
     Const FromProcedureName As String = ThisClassName & ".OnCdpMethodCompleted"
 
 
-    printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & resultJson, FromProcedureName
+    '1. 文字列ポインターから、CDPのコマンド応答結果Json文字列を取得
+    Dim ResultJsonStr As String
+    ResultJsonStr = WebView2Thunks.PtrToString(resultJsonPtr)
+
+    '2. エラーコードに応じた分岐
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & ResultJsonStr, FromProcedureName
     Dim synthesized As String
     If ErrorCode = 0 Then
         '上手い具合に、`id`付きで復元させる
-        If LenB(resultJson) = 0 Then resultJson = "null"
-        synthesized = "{""id"":" & callbackId & ",""result"":" & resultJson & "}"
+        If LenB(ResultJsonStr) = 0 Then ResultJsonStr = "null"
+        synthesized = "{""id"":" & callbackId & ",""result"":" & ResultJsonStr & "}"
     Else
         'エラーログを出す
         printMsg ERROR_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - ErrorCode: " & ErrorCode & " - " & WinApiError.GetMessage(ErrorCode), FromProcedureName
 
         '上手い具合に、`id`付きで、返ったエラーもくっつけて、復元させる
-        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(resultJson).NodeKey("error")
+        Dim ErrorNode As BiDiCDPJson: Set ErrorNode = BiDiCDPJson.Parse(ResultJsonStr).NodeKey("error")
         synthesized = "{""id"":" & callbackId & ",""error"":" & ErrorNode.Stringify & "}"
     End If
+
+    '3. `CDPCore.cls`へ発信！
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
 
@@ -344,31 +452,38 @@ End Sub
 '* 機能　　：`GetDevToolsProtocolEventReceived`の発火通知を受け取り、CDP形式のJsonに組み立てて
 '            発信します
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読する
-'            だけで、`Target.setAutoAttach`等でアタッチされた子セッション(iframe/worker等)からの
-'            同名イベントも同じコールバックに届く(公式サンプルコードで確認済みの仕様)。
-'            どのセッション由来かは`args`を`ICoreWebView2DevToolsProtocolEventReceivedEventArgs2`
-'            へQueryInterfaceし、`get_SessionId`で判別する(既定のトップレベルターゲット由来なら
-'            空文字が返る)。これにより`sessionId`を含めて再構成し、`CDPCore.
-'            BrowserReceivedDataCheck`が`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`
-'            (ブラウザ向け)を正しく振り分けられるようにする。
+'* 詳細説明：・いわゆる、CDPイベントを受け取るところです。
+'            ・どのセッション由来かは`args`を`ICoreWebView2DevToolsProtocolEventReceivedEventArgs2`
+'            　へQueryInterfaceし、`get_SessionId`で判別する(既定のトップレベルターゲット由来なら
+'            　空文字が返る)。これにより`sessionId`を含めて再構成し、`CDPCore.
+'            　BrowserReceivedDataCheck`が`CDPContextEvent`(タブ向け)/`CDPBrowserEvent`
+'            　(ブラウザ向け)を正しく振り分けられるようにする。
+'            ・`GetDevToolsProtocolEventReceiver`はトップレベルの`ICoreWebView2`に対して1回購読する
+'            　だけで、`Target.setAutoAttach`等でアタッチされた子セッション(iframe/worker等)からの
+'            　同名イベントも同じコールバックに届く(公式サンプルコードで確認済みの仕様)。
 '***************************************************************************************************
 Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
+    '1. `pArgs`ポインターから、`param`部分のJson文字列を取り出す
     Dim paramJson As String
-    paramJson = CDPWebView2Thunks.GetStringProperty(pArgs, 3, "Args.get_ParameterObjectAsJson")
+    paramJson = WebView2Thunks.GetStringProperty(pArgs, 3, "Args.get_ParameterObjectAsJson")
     If LenB(paramJson) = 0 Then paramJson = "{}"
 
+    '2. `pArgs`ポインターに紐づく、`SessionID`を取り出す
     Dim sessionID As String
     sessionID = TryGetEventSessionId(pArgs)
 
-
+    '3. `SessinID`有無に応じた分岐
     Dim synthesized As String
     If LenB(sessionID) = 0 Then
+        'ブラウザ単位として組み立て
         synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & "}"
     Else
+        '`SessionID`単位として組み立て
         synthesized = "{""method"":""" & EventName & """,""params"":" & paramJson & _
                       ",""sessionId"":""" & sessionID & """}"
     End If
+
+    '4. `CDPCore.cls`へ発信！
     RaiseEvent CDPMessageReceived(synthesized)
 End Sub
 
@@ -377,22 +492,46 @@ End Sub
 '            セッションIDを取得します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：セッションID(トップレベルの既定ターゲット由来、または未対応環境の場合は空文字)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：iframeやWeb Worker、子画面などで発生したイベントかを識別するために使う
 '***************************************************************************************************
 Private Function TryGetEventSessionId(ByVal pArgs As LongPtr) As String
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: バージョン2の身分証番号(IID)を用意する】
+    '-----------------------------------------------------------------------------------------------
+    ' 初代ArgsにはSessionIdが無い！後から増築された「Args2」の身分証番号(GUID)を定義
     Const IID_Args2 As String = "2dc4959d-1494-4393-95ba-bea4cb9ebd1b"   ' ICoreWebView2DevToolsProtocolEventReceivedEventArgs2
 
-    Dim iid As CDPWebView2Thunks.GUID
-    CDPWebView2Thunks.FillGUID iid, IID_Args2
+    ' 文字列のGUIDを、Windows APIが読める16バイトのGUID構造体に変換して iid 変数にセット
+    Dim iid As WebView2Thunks.GUID
+    WebView2Thunks.FillGUID iid, IID_Args2
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 親の遺産[0番] QueryInterface で「Args2」に着せ替える！】
+    '-----------------------------------------------------------------------------------------------
+    ' Vtable出席番号[0] ＝ 全てのCOM共通の「QueryInterface」！
+    ' 「あなたArgs2の身分証持ってますか？持ってるならArgs2の姿(pArgs2)を見せて！」と交渉する
     Dim pArgs2 As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pArgs, 0, "Args.QueryInterface(Args2)", VarPtr(iid), VarPtr(pArgs2))
+    hr = WebView2Thunks.dcf(pArgs, 0, "Args.QueryInterface(Args2)", VarPtr(iid), VarPtr(pArgs2))
+
+    ' 古いEdgeでArgs2に対応していない場合などは、無理せず空文字のまま安全に脱出(TryGetの精神)
     If hr <> 0 Or pArgs2 = 0 Then Exit Function
 
-    TryGetEventSessionId = CDPWebView2Thunks.GetStringProperty(pArgs2, 4, "Args2.get_SessionId")
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: Args2の出席番号[4番]から「SessionId」を引っこ抜く】
+    '-----------------------------------------------------------------------------------------------
+    ' Args2に変身成功！Vtable出席番号[4] ＝ get_SessionId を叩いて文字列(BSTR)を取り出す！
+    ' (※0:QI, 1:AddRef, 2:Release, 3:ParameterObject, 4:SessionId)
+    TryGetEventSessionId = WebView2Thunks.GetStringProperty(pArgs2, 4, "Args2.get_SessionId")
 
-    'QueryInterfaceで確保した分の参照を解放(GetStringPropertyはQI自体はしない)
-    CDPWebView2Thunks.ComRelease pArgs2
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ4: ★超重要！ QueryInterfaceで増えた参照カウントを解放する】
+    '-----------------------------------------------------------------------------------------------
+    ' COMの鉄の掟: 「QueryInterfaceに成功したら、裏で参照カウントが+1されている」
+    ' SessionIdを取り終わったら、変身させた pArgs2 はもう用済みなので、
+    ' 必ず ComRelease(Vtable[2]) を呼んで参照カウントを-1して後片付けする！(メモリリーク防止)
+    WebView2Thunks.ComRelease pArgs2
 End Function
 
 
@@ -409,53 +548,87 @@ End Function
 '            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
 '            ・1つでも購読した場合、VBEの`Stop`やブレイクポイントを行うとクラッシュします。
 '              どうしてもデバッグが必要な場合は､`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
+'            ・このイベント購読は、各SessionIDごとに適用する必要はありません。`.newtab`で複製しても購読情報は継承されます
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEvent"
 
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: 事前チェック】
+    '-----------------------------------------------------------------------------------------------
+    ' 1-1. WebView2のホストが死んでたら何もできないので即終了
     If m_Host Is Nothing Then Exit Function
-    Dim pView As LongPtr: pView = m_Host.ViewPtr
+    Dim pView As LongPtr: pView = m_Host.ICoreWebView2Ptr
     If pView = 0 Then Exit Function
 
+    ' 1-2. すでに同じイベント(例: "Page.loadEventFired")を購読済みなら、二重登録せず成功扱いで抜ける
     If m_subReceiver.Exists(EventName) Then SubscribeCdpEvent = True: Exit Function
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: イベント専用の「受話器(Receiver)」をもらいに行く】
+    '-----------------------------------------------------------------------------------------------
+    ' WebView2に「"Page.loadEventFired" 専用の窓口オブジェクトを作ってくれ！」と注文する
+    ' Vtable出席番号[42]: ICoreWebView2::GetDevToolsProtocolEventReceiver
     Dim pReceiver As LongPtr
     Dim hr As Long
-    hr = CDPWebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
+    hr = WebView2Thunks.dcf(pView, 42, "View.GetDevToolsProtocolEventReceiver", _
                                StrPtr(EventName), VarPtr(pReceiver))
     If hr <> 0 Or pReceiver = 0 Then
         printMsg ERROR_, "Failed to GetDevToolsProtocolEventReceiver.  hr=&H" & Hex(hr), FromProcedureName
         Exit Function
     End If
 
-    Dim h As CDPWebView2CallbackHandler
-    Set h = CDPWebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: ニセC++窓口(配達員)をプールから借りて準備する】
+    '-----------------------------------------------------------------------------------------------
+    ' 3-1. 共有スロットプールから空き部屋を1つ借りて、ニセの受付ブース(h)を作る
+    Dim h As WebView2CallbackHandler
+    Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpEventReceived, Me)
     If h Is Nothing Then
-        CDPWebView2Thunks.ComRelease pReceiver
+        ' 失敗したらステップ2でもらった受話器(pReceiver)をお片付け(Release)して抜ける
+        WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
+
+    ' 3-2. ★超重要: イベント通知が届いた時に「何のイベントか」識別できるよう、
+    '               ハンドラーのポケットにイベント名をメモしておく！
     h.EventName = EventName
 
+    ' 3-3. C++に見せるための「お面(Vtableポインタ)」の先頭アドレスを計算
     Dim pVTableObj As LongPtr
-    pVTableObj = h.Slot + CDPWebView2Thunks.VTABLE_OBJ_OFFSET
+    pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ4: 受話器にニセ窓口をガッチャンコして登録する】
+    '-----------------------------------------------------------------------------------------------
+    ' 受話器の Vtable出席番号[3]: add_DevToolsProtocolEventReceived を叩く
+    ' 登録に成功すると、あとで購読解除(解約)するときに使う「解約用チケット(token: 64bit整数)」がもらえる
     Dim token As LongLong
-    hr = CDPWebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
+    hr = WebView2Thunks.dcf(pReceiver, 3, "Receiver.add_DevToolsProtocolEventReceived", _
                                pVTableObj, VarPtr(token))
     If hr <> 0 Then
         printMsg ERROR_, "Failed to add_DevToolsProtocolEventReceived.  hr=&H" & Hex(hr), FromProcedureName
 
+        ' 失敗したら配達員と受話器を両方片付けて抜ける
         Set h = Nothing
-        CDPWebView2Thunks.ComRelease pReceiver
+        WebView2Thunks.ComRelease pReceiver
         Exit Function
     End If
 
-    'WebView2側がハンドラをAddRef済みなので、ローカル参照はこれ以上不要(捨ててよい)
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ5: 送りっぱなし ＆ 解約用チケットの保管】
+    '-----------------------------------------------------------------------------------------------
+    ' 5-1. ★出前完了: WebView2(C++)側がハンドラーをAddRefしてキープしてくれたので、
+    '                  VBA側の手元の変数は捨てて「送りっぱなし」にしてOK！
     Set h = Nothing
 
+    ' 5-2. 将来「このイベントの購読をやめる(Unsubscribe)」ときのために、
+    '      受話器のアドレス(pReceiver)と解約チケット(token)を辞書にメモしておく
     m_subReceiver.Add EventName, (pReceiver)
     m_subToken.Add EventName, (token)
+
+    '6. 成功サインを返す
     SubscribeCdpEvent = True
 End Function
 
@@ -463,17 +636,25 @@ End Function
 '* 機能　　：指定したCDPイベント名の購読を解除します
 '***************************************************************************************************
 Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
+    ' 1. 未購読なら即抜け
     If m_subReceiver Is Nothing Then Exit Function
     If Not m_subReceiver.Exists(EventName) Then Exit Function
 
+    ' 2. 対象購読イベントに紐づくレシーバーポインター/トークンを取り出す
     Dim pReceiver As LongPtr: pReceiver = m_subReceiver(EventName)
     Dim token As LongLong: token = m_subToken(EventName)
 
-    CDPWebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
-    CDPWebView2Thunks.ComRelease pReceiver
+    ' 3. トークンを渡して、購読解除する
+    WebView2Thunks.dcf pReceiver, 4, "Receiver.remove_DevToolsProtocolEventReceived", token
 
+    ' 4. レシーバーポインターの参照をカット
+    WebView2Thunks.ComRelease pReceiver
+
+    ' 5. 必要な解放を終えたので、Dictionaryからも消しておく
     m_subReceiver.Remove EventName
     m_subToken.Remove EventName
+
+    ' 6. 成功サインを返す
     UnsubscribeCdpEvent = True
 End Function
 
@@ -492,22 +673,19 @@ End Function
 Public Function UnsubscribeAllCdpEvents() As Long
     If m_subReceiver Is Nothing Then Exit Function
 
+    '1. 購読中のイベント数を確認し、1つもない場合は、即抜け
     Dim N As Long: N = m_subReceiver.Count
     If N = 0 Then Exit Function
 
-    Dim keys() As String
-    ReDim keys(0 To N - 1)
+    '2. 購読中のイベント名リストを取り出す
+    Dim EventNames
+    EventNames = m_subReceiver.keys
+
+    '3. Forで、１つずつ購読解除していく
     Dim i As Long
     For i = 0 To N - 1
-        keys(i) = m_subReceiver.KeyAtIndex(i)
+        If UnsubscribeCdpEvent(EventNames(i)) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
     Next i
-
-    Dim removedCount As Long
-    For i = 0 To N - 1
-        If UnsubscribeCdpEvent(keys(i)) Then removedCount = removedCount + 1
-    Next i
-
-    UnsubscribeAllCdpEvents = removedCount
 End Function
 
 
@@ -515,6 +693,21 @@ End Function
 '***************************************************************************************************
 '                                ■■■ WebView2の挙動変更 ■■■
 '***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] WebView2起動前設定
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：Environment作成時に使うオプション(`ICoreWebView2EnvironmentOptions`系)を取得します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：チェーンLETプロパティとして設定していきます
+'* 注意事項：★重要★ 必ず`ConnectCDP`を呼ぶ**前**にこのプロパティ経由で値を設定すること。
+'            Environment生成時にしか読まれないため、生成後の変更は反映されない
+'***************************************************************************************************
+Public Property Get EnvironmentOptions() As WebView2EnvOptions
+    If m_envOptions Is Nothing Then Set m_envOptions = New WebView2EnvOptions
+    Set EnvironmentOptions = m_envOptions
+End Property
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の構成系
 '---------------------------------------------------------------------------------------------------
@@ -539,6 +732,317 @@ Property Let Visible(v As Boolean)
     m_Host.Visible = v
 End Property
 
+'* 機能　　：ブラウザUIレベルのズーム倍率を設定します(CDPの`Emulation.setPageScaleFactor`とは別物)
+Property Let ZoomFactor(v As Double)
+    m_Host.ZoomFactor = v
+End Property
+
+'* 機能　　：表示位置/サイズとズーム倍率を1回のレイアウト計算でまとめて設定します
+Public Sub SetBoundsAndZoomFactor(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long, ZoomFactor As Double)
+    m_Host.SetBoundsAndZoomFactor WV2_Right, WV2_Bottom, WV2_Top, WV2_Left, ZoomFactor
+End Sub
+
+'* 機能　　：フォーカスをWebView2側へプログラム的に移動します
+Public Sub MoveFocus(Optional reason As WV2MoveFocusReason = MoveFocus_Programmatic)
+    m_Host.MoveFocus reason
+End Sub
+
+'* 機能　　：WebView2の親ウィンドウを差し替えます(再親子化。書き込み専用)
+Property Let ParentWindow(v As LongPtr)
+    m_Host.ParentWindow = v
+End Property
+
+'* 機能　　：親ウィンドウの位置が動いたことをWebView2へ明示的に通知します
+Public Sub NotifyParentWindowPositionChanged()
+    m_Host.NotifyParentWindowPositionChanged
+End Sub
+
+'* 機能　　：WebView2のページ読み込み前に表示される既定の背景色を設定します(Controller2以降)
+Public Sub SetDefaultBackgroundColor(a As Byte, r As Byte, g As Byte, b As Byte)
+    m_Host.SetDefaultBackgroundColor a, r, g, b
+End Sub
+
+'* 機能　　：DPIスケールを手動指定します(Controller3以降)
+Property Let RasterizationScale(v As Double)
+    m_Host.RasterizationScale = v
+End Property
+
+'* 機能　　：モニターのDPIスケール変更を自動検知するか切り替えます(Controller3以降、既定True)
+Property Let ShouldDetectMonitorScaleChanges(v As Boolean)
+    m_Host.ShouldDetectMonitorScaleChanges = v
+End Property
+
+'* 機能　　：`Bounds`(位置/サイズ)の解釈方式を切り替えます(Controller3以降)
+Property Let BoundsMode(v As WV2BoundsMode)
+    m_Host.BoundsMode = v
+End Property
+
+'* 機能　　：外部からのドラッグ&ドロップ受け入れ可否を切り替えます(Controller4以降、既定True)
+Property Let AllowExternalDrop(v As Boolean)
+    m_Host.AllowExternalDrop = v
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2Profile
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`IsPasswordAutosaveEnabled`/`IsGeneralAutofillEnabled`はSettings側と紛らわしいので
+'            `Profile`を頭に付けている(詳細は`WebView2Host`側のコメント参照)
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：プロファイル名を取得します(読み取り専用)
+Property Get ProfileName() As String
+    If m_Host Is Nothing Then Exit Property
+    ProfileName = m_Host.ProfileName
+End Property
+
+'* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
+Property Get IsInPrivateModeEnabled() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsInPrivateModeEnabled = m_Host.IsInPrivateModeEnabled
+End Property
+
+'* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
+Property Get ProfilePath() As String
+    If m_Host Is Nothing Then Exit Property
+    ProfilePath = m_Host.ProfilePath
+End Property
+
+'* 機能　　：既定のダウンロード先フォルダを設定します
+Property Let DefaultDownloadFolderPath(v As String)
+    m_Host.DefaultDownloadFolderPath = v
+End Property
+
+'* 機能　　：優先カラースキームを設定します(既定Auto)
+Property Let PreferredColorScheme(v As WV2PreferredColorScheme)
+    m_Host.PreferredColorScheme = v
+End Property
+
+'* 機能　　：トラッキング防止レベルを設定します(Profile3以降、既定Balanced)
+Property Let PreferredTrackingPreventionLevel(v As WV2TrackingPreventionLevel)
+    m_Host.PreferredTrackingPreventionLevel = v
+End Property
+
+'* 機能　　：パスワード自動保存機能の有効可否を、プロファイル単位で切り替えます(Profile6以降)
+Property Let ProfilePasswordAutosaveEnabled(v As Boolean)
+    m_Host.ProfilePasswordAutosaveEnabled = v
+End Property
+
+'* 機能　　：一般オートフィル機能の有効可否を、プロファイル単位で切り替えます(Profile6以降)
+Property Let ProfileGeneralAutofillEnabled(v As Boolean)
+    m_Host.ProfileGeneralAutofillEnabled = v
+End Property
+
+'* 機能　　：Service Worker内からWebView固有のスクリプトAPIを使えるようにするか切り替えます(Profile9以降)
+Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
+    m_Host.WebViewScriptApisEnabledForServiceWorkers = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionFolderPath  拡張機能の`manifest.json`を含むトップフォルダの絶対パス
+'* 返り値  ：インストールされた拡張機能のID(失敗時は空文字)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★重要★ 事前に`AreBrowserExtensionsEnabled = True`を設定して`ConnectCDP`していないと
+'            `ERROR_NOT_SUPPORTED`で失敗します。CDPの`Extensions.loadUnpacked`はWebView2では
+'            使えない(`Method not available`)ため、この専用APIを使う必要があります
+'***************************************************************************************************
+Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
+    If m_Host Is Nothing Then Exit Function
+    AddBrowserExtension = m_Host.AddBrowserExtension(extensionFolderPath)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：インストール済みの拡張機能を、ID/名前/有効状態付きで一覧取得します(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：各要素が`Dictionary`(キー:"ID"/"Name"/"IsEnabled")の`Collection`。
+'            失敗時は`nothing`
+'---------------------------------------------------------------------------------------------------
+'* 使い方例：Dim ext As Variant
+'            For Each ext In wv2.GetBrowserExtensionIds()
+'                Debug.Print ext("ID"), ext("Name"), ext("IsEnabled")
+'            Next ext
+'***************************************************************************************************
+Public Function GetBrowserExtensionIds() As Collection
+    If m_Host Is Nothing Then Exit Function
+    Set GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionId  `AddBrowserExtension`の戻り値、または`GetBrowserExtensionIds`の各要素の
+'            "ID"キーで得られる拡張機能ID
+'* 返り値  ：成功可否
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2にはID指定の直接アンインストールAPIが無いため、内部で一覧取得→対象特定→
+'            `Remove`という2段構えになります(CDPの`Extensions.uninstall`は使えないため代替不可)
+'***************************************************************************************************
+Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
+    If m_Host Is Nothing Then Exit Function
+    RemoveBrowserExtension = m_Host.RemoveBrowserExtension(extensionId)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルフォルダを、仮想ホスト名経由(`https://<hostName>/`のような形)で配信されている
+'            かのように見せます(ICoreWebView2_3以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：hostName    仮想ホスト名(例:"my.app")
+'            folderPath  配信対象のローカルフォルダの絶対パス
+'            accessKind  既定は`HostAccess_Allow`
+'* 返り値  ：成功可否
+'***************************************************************************************************
+Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, _
+    Optional ByVal accessKind As WV2HostResourceAccessKind = HostAccess_Allow) As Boolean
+
+    If m_Host Is Nothing Then Exit Function
+    SetVirtualHostNameToFolderMapping = m_Host.SetVirtualHostNameToFolderMapping(hostname, FolderPath, accessKind)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：Trueにすると、`DisconnectCDP`実行時にこのプロファイルを削除対象としてマークします
+'            (`ICoreWebView2Profile8::Delete`。使い切り[ワンショット]プロファイル用)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★破壊的操作★ 既定はFalse(通常通りプロファイルを永続化)。`Delete`自体はこのクラスから
+'            直接呼び出せないようにしており、このフラグ経由でのみ`DisconnectCDP`から発動する
+'***************************************************************************************************
+Property Let DeleteProfileOnDisconnect(v As Boolean)
+    m_deleteProfileOnDisconnect = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
+'***************************************************************************************************
+Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.ClearVirtualHostNameToFolderMapping hostname
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
+'***************************************************************************************************
+Property Let IsMuted(v As Boolean)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.IsMuted = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在ドキュメントが音声を再生中かどうかを取得します(ICoreWebView2_8以降、読み取り専用)
+'***************************************************************************************************
+Property Get IsDocumentPlayingAudio() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログ(WebView2標準のダウンロード完了通知UI)を開きます
+'            (ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub OpenDefaultDownloadDialog()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.OpenDefaultDownloadDialog
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub CloseDefaultDownloadDialog()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.CloseDefaultDownloadDialog
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを表示するコーナー位置を設定します(ICoreWebView2_9以降)
+'***************************************************************************************************
+Property Let DefaultDownloadDialogCornerAlignment(v As WV2DownloadDialogCornerAlignment)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.DefaultDownloadDialogCornerAlignment = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログの、コーナーからのオフセットを設定します(ICoreWebView2_9以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：x/y  `DefaultDownloadDialogCornerAlignment`で指定したコーナーからのオフセット(px)
+'***************************************************************************************************
+Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.SetDefaultDownloadDialogMargin x, y
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：リンクホバー時のリンク先URL等、ステータスバーに表示される文字列を取得します
+'            (ICoreWebView2_12以降、読み取り専用)
+'***************************************************************************************************
+Property Get StatusBarText() As String
+    If m_Host Is Nothing Then Exit Property
+    StatusBarText = m_Host.StatusBarText
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のページのfavicon URIを取得します(ICoreWebView2_15以降、読み取り専用)
+'***************************************************************************************************
+Property Get FaviconUri() As String
+    If m_Host Is Nothing Then Exit Property
+    FaviconUri = m_Host.FaviconUri
+End Property
+
+'***************************************************************************************************
+'* 機能　　：タスクマネージャーウィンドウを開きます(ICoreWebView2_6以降)
+'***************************************************************************************************
+Public Sub OpenTaskManagerWindow()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.OpenTaskManagerWindow
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：印刷ダイアログを表示します(ICoreWebView2_16以降)
+'***************************************************************************************************
+Public Sub ShowPrintUI(Optional kind As WV2PrintDialogKind = PrintDialog_Browser)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.ShowPrintUI kind
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを設定します(ICoreWebView2_19以降)
+'***************************************************************************************************
+Property Let MemoryUsageTargetLevel(v As WV2MemoryUsageTargetLevel)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.MemoryUsageTargetLevel = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
+'***************************************************************************************************
+Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
+    If m_Host Is Nothing Then Exit Property
+    MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
+End Property
+
+'***************************************************************************************************
+'* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します(読み取り専用)
+'***************************************************************************************************
+Property Get BrowserVersionString() As String
+    If m_Host Is Nothing Then Exit Property
+    BrowserVersionString = m_Host.BrowserVersionString
+End Property
+
+'***************************************************************************************************
+'* 機能　　：実際に使用されているユーザーデータフォルダの絶対パスを取得します
+'            (ICoreWebView2Environment7以降、読み取り専用)
+'***************************************************************************************************
+Property Get userDataFolder() As String
+    If m_Host Is Nothing Then Exit Property
+    userDataFolder = m_Host.userDataFolder
+End Property
+
+'***************************************************************************************************
+'* 機能　　：クラッシュ時のminidumpファイルが書き出されるフォルダのパスを取得します
+'            (ICoreWebView2Environment11以降、読み取り専用)
+'***************************************************************************************************
+Property Get FailureReportFolderPath() As String
+    If m_Host Is Nothing Then Exit Property
+    FailureReportFolderPath = m_Host.FailureReportFolderPath
+End Property
+
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] WebView2の機能制限系
 '---------------------------------------------------------------------------------------------------
@@ -548,7 +1052,7 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：CDPリモートデバッグ(`--remote-debugging-pipe`)経由の自動操作には影響しません
-'            (詳細は`CDPWebView2Host.DevToolsEnabled`のコメント参照)
+'            (詳細は`WebView2Host.DevToolsEnabled`のコメント参照)
 '***************************************************************************************************
 Property Let DevToolsEnabled(v As Boolean)
     m_Host.DevToolsEnabled = v
@@ -561,6 +1065,97 @@ End Property
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
     m_Host.ContextMenuEnabled = v
+End Property
+
+'--- 以下、`ICoreWebView2Settings`(基底)の残りのプロパティ(詳細は`WebView2Host`側のコメント参照) ---
+'* 機能　　：JavaScript実行可否を切り替えます(既定True)
+Property Let ScriptEnabled(v As Boolean)
+    m_Host.ScriptEnabled = v
+End Property
+
+'* 機能　　：`postMessage`等によるWebページ⇔ホストアプリ間の通信可否を切り替えます(既定True)
+Property Let WebMessageEnabled(v As Boolean)
+    m_Host.WebMessageEnabled = v
+End Property
+
+'* 機能　　：`alert`/`confirm`/`prompt`等、既定のJavaScriptダイアログ表示可否を切り替えます(既定True)
+Property Let DefaultScriptDialogsEnabled(v As Boolean)
+    m_Host.DefaultScriptDialogsEnabled = v
+End Property
+
+'* 機能　　：ステータスバーの表示可否を切り替えます(既定True)
+Property Let StatusBarEnabled(v As Boolean)
+    m_Host.StatusBarEnabled = v
+End Property
+
+'* 機能　　：`AddHostObjectToScript`で追加したホストオブジェクトへのスクリプト側アクセス可否を
+'            切り替えます(既定True)
+Property Let HostObjectsAllowed(v As Boolean)
+    m_Host.HostObjectsAllowed = v
+End Property
+
+'* 機能　　：ユーザー操作(Ctrl+ホイール等)によるズーム可否を切り替えます(既定True)
+Property Let ZoomControlEnabled(v As Boolean)
+    m_Host.ZoomControlEnabled = v
+End Property
+
+'* 機能　　：WebView2内蔵のエラーページ表示可否を切り替えます(既定True)
+Property Let BuiltInErrorPageEnabled(v As Boolean)
+    m_Host.BuiltInErrorPageEnabled = v
+End Property
+
+'--- 以下、`ICoreWebView2Settings2`~`9`(古いWebView2 Runtimeでは無視されるだけで安全) ---
+'* 機能　　：User-Agent文字列を上書きします
+Property Let UserAgentOverride(v As String)
+    m_Host.UserAgentOverride = v
+End Property
+
+'* 機能　　：`Ctrl+F`/`F5`/`F12`等、ブラウザ的なアクセラレータキーの有効可否を切り替えます(既定True)
+Property Let BrowserAcceleratorKeysEnabled(v As Boolean)
+    m_Host.BrowserAcceleratorKeysEnabled = v
+End Property
+
+'* 機能　　：パスワード自動保存機能の有効可否を切り替えます(既定True)
+Property Let PasswordAutosaveEnabled(v As Boolean)
+    m_Host.PasswordAutosaveEnabled = v
+End Property
+
+'* 機能　　：住所/フォーム入力等の一般オートフィル機能(パスワード以外)の有効可否を切り替えます(既定True)
+Property Let GeneralAutofillEnabled(v As Boolean)
+    m_Host.GeneralAutofillEnabled = v
+End Property
+
+'* 機能　　：ピンチズームジェスチャーの有効可否を切り替えます(既定True)
+Property Let PinchZoomEnabled(v As Boolean)
+    m_Host.PinchZoomEnabled = v
+End Property
+
+'* 機能　　：スワイプによる進む/戻るナビゲーションジェスチャーの有効可否を切り替えます(既定True)
+Property Let SwipeNavigationEnabled(v As Boolean)
+    m_Host.SwipeNavigationEnabled = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：PDFビューア内蔵ツールバーの非表示ボタンを、`WV2PdfToolbarItems`のEnumを`Or`で
+'            組み合わせて指定します(例: `PDF_Save Or PDF_PrintItem`)
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：v  非表示にしたい項目を`Or`でつないだもの(既定0相当=何も非表示にしない=全表示)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：呼び出すたびに全項目を上書きします(前回の指定は引き継がれません)
+'***************************************************************************************************
+Property Let HiddenPdfToolbarItems(v As WV2PdfToolbarItems)
+    m_Host.HiddenPdfToolbarItems = v
+End Property
+
+'* 機能　　：SmartScreen(フィッシング/マルウェア検知)の要否を切り替えます(既定True)
+Property Let ReputationCheckingRequired(v As Boolean)
+    m_Host.ReputationCheckingRequired = v
+End Property
+
+'* 機能　　：CSS`app-region`による独自タイトルバー領域(ドラッグでウィンドウ移動可能な領域)の
+'            指定を有効にするか切り替えます(既定False)
+Property Let NonClientRegionSupportEnabled(v As Boolean)
+    m_Host.NonClientRegionSupportEnabled = v
 End Property
 
 
@@ -584,13 +1179,16 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
+    'CDPイベント購読管理の初期化
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
-    currentLog.LogID = "WVID" & Format(Rnd * 1000, "000")
 
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        .LogID = "WVID" & Format(Rnd * 1000, "000")                                     'ユニークID
+        .seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   '`OnCdpMethodCompleted`のRaw表示
+        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)            'ログフォルダパス
+    End With
 End Sub
 
 Private Sub Class_Terminate()
