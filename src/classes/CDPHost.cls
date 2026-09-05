@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "CDPCoreHost"
+Attribute VB_Name = "CDPHost"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -66,7 +66,7 @@ Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
 Private Const SYNCHRONIZE                       As Long = &H100000
 
 'その他
-Private Const ThisClassName             As String = "CDPCoreHost"           'ログのトレース用
+Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
 Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
 
 
@@ -633,10 +633,9 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'Assign an objID for easy debug identification
-    currentLog.LogID = "CHID" & Format(Rnd * 1000, "000")
-
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        .LogID = "CHID" & Format(Rnd * 1000, "000")                             'ユニークID
+        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)    'ログフォルダパス
+    End With
 End Sub

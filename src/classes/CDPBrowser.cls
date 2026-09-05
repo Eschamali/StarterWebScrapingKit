@@ -55,7 +55,6 @@ End Enum
 Private Const CDPVer                    As String = "3.1.0"
 
 'その他
-Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
 
 
@@ -88,7 +87,6 @@ Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の
 Private timerOut                As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
-Private ProtocolWhiteList                       'URL遷移時の許可されたプロトコルリスト(1次元配列)
 Private currentLog              As StateLog     'ログ設定
 
 
@@ -422,7 +420,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     '1. パラメーター準備
     Dim params As New Dictionary
-    params("url") = checkURI(Url)
+    params("url") = Url
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
     If LenB(browserContextId) Then params("browserContextId") = browserContextId
@@ -1184,7 +1182,7 @@ Private Sub getBrowserInfo()
         End Select
 
         '2. ブラウザパスの取得を試みる
-        With New CDPCoreHost
+        With New CDPHost
             .InitInfo br.User, BrowserType, False
             br.Path = .getBrowserPath
         End With
@@ -1248,58 +1246,6 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     Else
         printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
     End If
-End Function
-
-
-
-'***************************************************************************************************
-'                               ■■■ その他ヘルパーメソッド ■■■
-'***************************************************************************************************
-'* 機能　　：URIのプロトコルチェックを行います
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：引数の内容そのまんま
-'* 引数　　：URI   ブラウザのURLに渡す予定の文字列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・セキュリティ重視により、ホワイトリスト外のプロトコルが来たら、エラーで止まります
-'            ・既に開いてるURIに関して(`getTab`メソッド)はチェック対象外とします
-'***************************************************************************************************
-Public Function checkURI(URI As String) As String
-    Const FromProcedureName As String = ThisClassName & ".checkURI"
-
-
-    '0. 空文字の場合は、チェックしません
-    printMsg Debug_, "Checking the protocol of the URI...", FromProcedureName
-    If LenB(URI) = 0 Then
-        printMsg Debug_, "Checking is skipped because the URI is empty.", FromProcedureName
-
-        checkURI = URI
-        Exit Function
-    End If
-
-    '1. 先頭始まりかチェック
-    Dim i As Long
-    For i = LBound(ProtocolWhiteList) To UBound(ProtocolWhiteList)
-        '先頭始まりなら、引数の内容そのまんまを返して抜ける
-        If Left$(URI, Len(ProtocolWhiteList(i))) = ProtocolWhiteList(i) Then
-            printMsg Debug_, "Protocol check passed：" & ProtocolWhiteList(i), FromProcedureName
-
-            checkURI = URI
-            Exit Function
-        End If
-    Next
-
-    '2. プロトコル名をチェック
-    Dim ProtocolName, ErrorMes As String
-    ProtocolName = Split(URI, ":")
-    If UBound(ProtocolName) = 0 Then
-        ErrorMes = "URLの形式が正しくありません。" & vbCrLf & "安全のため省略せず、`https://`や`file://`のような、プロトコル名を、URLの先頭に付けてください。" & vbCrLf & vbCrLf & "[問題のURL]" & vbCrLf & URI
-    Else
-        ErrorMes = "プロトコル`" & ProtocolName(0) & "`は、ホワイトリストに登録されていません。" & vbCrLf & "意図しないアプリケーションの起動などを防ぐため、処理を中断しました。" & vbCrLf & vbCrLf & "【解決策】" & vbCrLf & "このプロトコルへのアクセスが、本当に必要である場合は、シート「ブラウザ起動設定」のテーブル「ProtocolWhiteList」に、`" & ProtocolName(0) & "`を追加してから、もう一度、お試しください。"
-    End If
-
-    '4. エラーで中断
-    printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
-
 End Function
 
 
@@ -1407,9 +1353,6 @@ Private Sub Class_Initialize()
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
-    'ホワイトプロトコルリストを取得
-    ProtocolWhiteList = ShSetting01_StartBrowser.TableProtocolWhiteList
-
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 

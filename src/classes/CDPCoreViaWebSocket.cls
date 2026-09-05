@@ -138,6 +138,7 @@ Private Const FIONREAD      As Long = &H4004667F    ' 受信可能バイト数
 Private Const SOL_SOCKET    As Long = 65535         ' ソケットレベルのオプション
 Private Const SO_RCVBUF     As Long = &H1002&       ' 受信バッファサイズ設定フラグ
 Private Const MSG_WAITALL   As Long = &H8           ' 要求したバイト数のデータがすべて揃うか、エラーや接続終了が発生するまで関数の処理をブロック（待機）する上級者向け。いわゆる、Pipe版と同等の挙動
+Private Const SOCKET_ERROR  As Long = -1            ' ioctlsocket や recv、send などの関数が失敗したことを示します
 
 'デフォルト値
 Private Const D_port        As Long = 9222
@@ -170,10 +171,11 @@ Private m_IsConnected       As Boolean          '既にWebSocketに接続済み�
 Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た完成受信データ(バイト配列)
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
-'ローカルブラウザ起動情報　※`RunWebSocketModeBrowser`から起動した場合のみ特別に使用
+'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
+Private UserDataDirName     As String           '使用ブラウザユーザ名
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -302,7 +304,7 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
 
     '3. ソケット生成
     m_hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-    If m_hSocket = -1 Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If m_hSocket = SOCKET_ERROR Then printMsg ERROR_, "Failed to create WinSock handle. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '4. 適度なバッファーを設定
     Call setsockopt(m_hSocket, SOL_SOCKET, SO_RCVBUF, InitialBuffer, 4)
@@ -312,12 +314,12 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     addr.sin_family = AF_INET
     addr.sin_port = SwapBytes16(port) ' ポートのエンディアン変換 (純VBA)
     addr.sin_addr = inet_addr(Host)
-    If addr.sin_addr = -1 Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If addr.sin_addr = SOCKET_ERROR Then printMsg ERROR_, "IP address translation failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '6. 接続実行 (TCPコネクションの確立)
     Dim ret As Long
     ret = Connect(m_hSocket, addr, LenB(addr))
-    If ret <> 0 Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
+    If ret = SOCKET_ERROR Then printMsg ERROR_, "Failed to connect to `Chrome DevTools Protocol`. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
 
     '7. WebSocketハンドシェイクの実行
     If Not SendHandshake(Host, port, Path) Then printMsg ERROR_, "The WebSocket-`Chrome DevTools Protocol` handshake failed. ErrorCode:" & Err.LastDllError, FromProcedureName, doRaiseError:=True
@@ -356,6 +358,75 @@ Private Function SwapBytes16(value As Long) As Integer
         SwapBytes16 = CInt(temp)
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：BrowserType        ブラウザタイプ
+'            FirstURL           `-app`に渡すURL
+'            UserName           記録する識別名称
+'            addArgs            追加引数
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
+'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`Start○○`プロシージャで、CDPかBiDiで制御を開始します
+'            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
+'***************************************************************************************************
+Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String)
+    Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
+
+
+    '1. ブラウザ起動前に、いくつかチェックを行います
+    With New CDPHost
+        '1-1. 起動情報を伝達し、委託準備
+        UserDataDirName = userProfile
+        .InitInfo userProfile, BrowserType, False
+
+        '1-2. ポリシーチェック
+        .CheckRemoteDebuggingBlockedByPolicy
+
+        '1-3. デバッグブラウザを閉じる(開いてたら)
+        .cleanUpSessions
+
+        '1-4. 「ページを復元しました」といったお節介機能を無効化
+        .setCrashStateNormal
+
+        '1-5. WebSocket接続に備えて、古い情報を削除
+        .DeleteFileDevToolsActivePort
+
+        '1-6. コマンドラインを生成
+        ' ブラウザexeフルパス
+        ' デバッグ方法
+        ' データ保存先
+        ' 初期URL
+        ' 追加引数
+        Dim RunCommandLine As String
+        RunCommandLine = Join(Array(.getBrowserPath, _
+                                    .GenerateArgRemoteDebugging, _
+                                    .GenerateArgUseUserData, _
+                                    .GenerateArgApp(appUrl), _
+                                    addArgs))
+
+        '2. 実際に起動を行います
+        printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
+        dwProcessId = Shell(RunCommandLine, setShowWindow)
+
+        '3. エラー時は、Stop
+        If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
+
+        '4. プロセスハンドルを取る
+        hProcess = .OpenProcessHandle(dwProcessId)
+
+        '5. DevToolsActivePort ファイルが出現するまで待機
+        If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
+
+        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
+        '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
+        Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
+    End With
+
+    '7. 接続
+    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+End Sub
 
 
 
@@ -569,7 +640,7 @@ Private Sub RawSend(ByRef Data() As Byte)
     ' 全バイトが完全にソケットに乗り切るまでループで送信を継続します
     Do While totalSent < toSend
         ret = Send(m_hSocket, Data(totalSent), toSend - totalSent, 0)
-        If ret = -1 Then
+        If ret = SOCKET_ERROR Then
             ' SOCKET_ERRORが発生した場合、エラーコードを返却
             LastWinSockError.StyleErrWriteFile = Err.LastDllError
             printMsg WARN_, "An error occurred while processing `send`. ErrorCode: " & LastWinSockError.StyleErrWriteFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrWriteFile, "ws2_32"), FromProcedureName
@@ -607,7 +678,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
     Dim bytesAvailable As Long
     Dim retIoctl As Long
     retIoctl = ioctlsocket(m_hSocket, FIONREAD, bytesAvailable)
-    If retIoctl <> 0 Then
+    If retIoctl = SOCKET_ERROR Then
         ' ソケットがすでに死んでいる場合、エラー情報を記録して抜ける
         LastWinSockError.StyleErrPeekNamedPipe = Err.LastDllError
         printMsg WARN_, "An error occurred while processing `ioctlsocket`. ErrorCode: " & LastWinSockError.StyleErrPeekNamedPipe & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrPeekNamedPipe, "ws2_32"), FromProcedureName
@@ -631,8 +702,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         ReDim destructionData(bytesAvailable - 1) As Byte
         dSuccess = recv(m_hSocket, destructionData(0), bytesAvailable, MSG_WAITALL)
 
-        '0以下の場合は失敗なので、エラー情報を記録
-        If dSuccess <= 0 Then LastWinSockError.StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
+        'SOCKET_ERRORの場合は失敗なので、エラー情報を記録
+        If dSuccess = SOCKET_ERROR Then LastWinSockError.StyleErrReadFile = Err.LastDllError: printMsg WARN_, "An error occurred while using `recv` for disposal. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
 
         '破棄したサイズを返却して、抜ける
         GetAsyncMessage = dSuccess
@@ -681,8 +752,8 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
         ReDim payloadBuffer(TakePayloadSize - 1) As Byte
         bSuccess = recv(m_hSocket, payloadBuffer(0), TakePayloadSize, MSG_WAITALL)
 
-        '4-1. 0より大きければ、成功です
-        If bSuccess > 0 Then
+        '4-1. `SOCKET_ERROR`じゃなければ成功です
+        If Not bSuccess = SOCKET_ERROR Then
             '受信サイズを記録
             m_WebSocketFrame.CurrentCursor = m_WebSocketFrame.CurrentCursor + TakePayloadSize
 
@@ -773,11 +844,9 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
 
     '2. フレームヘッダーを解析
     With m_WebSocketFrame
-        '有効なフラグとして適用
-        .ValidTags = True
-
-        'カーソル位置をリセット
-        .CurrentCursor = 0
+        '2-1. 各種リセット
+        .ValidTags = True   '有効なフラグとして適用
+        .CurrentCursor = 0  'カーソル位置をリセット
 
         '2-2. 先頭の基本ヘッダー2バイトを受信
         '[!NOTE] 最初の2バイトに書かれている「タグ情報」の中身
@@ -794,7 +863,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
         Dim header(0 To 1) As Byte
         Dim ret As Long
         ret = recv(m_hSocket, header(0), 2, MSG_WAITALL): .FrameHeaderSize = 2: resSize = resSize - 2
-        If ret <= 0 Then
+        If ret = SOCKET_ERROR Then
             '取り出しに失敗したら、エラー情報を記録して抜ける
             LastWinSockError.StyleErrReadFile = Err.LastDllError
             printMsg WARN_, "An error occurred while retrieving header using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
@@ -836,7 +905,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             '次の2バイト（16bit）に、これからの受信サイズを表現してるので、その分を追加で、取り出す
             Dim extLen16(0 To 1) As Byte
             ret = recv(m_hSocket, extLen16(0), 2, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 2: resSize = resSize - 2
-            If ret <= 0 Then
+            If ret = SOCKET_ERROR Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
                 LastWinSockError.StyleErrReadFile = Err.LastDllError
                 printMsg WARN_, "An error occurred while retrieving the payload size from the following 2 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
@@ -853,7 +922,7 @@ Private Function UpdateFrameHeader(ByRef resSize As Long) As Boolean
             '次の8バイト（64bit） に、これからの受信サイズを表現してるので、その分を追加で、取り出す
             Dim extLen64(0 To 7) As Byte
             ret = recv(m_hSocket, extLen64(0), 8, MSG_WAITALL): .FrameHeaderSize = .FrameHeaderSize + 8: resSize = resSize - 8
-            If ret <= 0 Then
+            If ret = SOCKET_ERROR Then
                 '取り出しに失敗したら、エラー情報を記録して抜ける
                 LastWinSockError.StyleErrReadFile = Err.LastDllError
                 printMsg WARN_, "An error occurred while retrieving the payload size from the following 8 bytes using `recv`. ErrorCode: " & LastWinSockError.StyleErrReadFile & " - Detail: " & WinApiError.GetMessage(LastWinSockError.StyleErrReadFile, "ws2_32"), FromProcedureName
@@ -1085,7 +1154,7 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
 
     '4. うまいぐあいに、接続パラメーターを取り出す
     Dim browserID As String
-    browserID = Mid(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos + 2)
+    browserID = Right$(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos)
 
     '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
     If ReuseContext Then
@@ -1096,13 +1165,13 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
         '5-2. データ有無チェック
         If Not tmp Is Nothing Then
             '6. あったらその情報を適用し、抜ける
-            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), D_port, D_host)
+            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), port, Host)
             Exit Function
         End If
     End If
 
     '6. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , D_port, D_host)
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1160,7 +1229,7 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
 
 
     '1. `DevToolsActivePort`のファイルパスを特定
-    Dim checkDevToolsActivePort As New CDPCoreHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
 
     '2. 情報があるか？
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
@@ -1185,97 +1254,65 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ローカルのブラウザをWebSocketモードで起動し、自動制御まで準備します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：起動時のコマンドライン。
-'* 引数　　：BrowserType    ブラウザタイプ
-'            FirstURL       `-app`に渡すURL
-'            UserName       記録する識別名称
-'            addArgs        追加引数
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
-'* 注意事項：このメソッドで開始する場合は、`CDPBrowser`から始める仕様とします
-'***************************************************************************************************
-Public Function RunWebSocketModeBrowserCDP(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String) As CDPBrowser
-    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
-
-
-    '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
-        '1-1. 起動情報を伝達し、委託準備
-        .InitInfo userProfile, BrowserType, False
-
-        '1-2. ポリシーチェック
-        .CheckRemoteDebuggingBlockedByPolicy
-
-        '1-3. デバッグブラウザを閉じる(開いてたら)
-        .cleanUpSessions
-
-        '1-4. 「ページを復元しました」といったお節介機能を無効化
-        .setCrashStateNormal
-
-        '1-5. WebSocket接続に備えて、古い情報を削除
-        .DeleteFileDevToolsActivePort
-
-        '1-6. コマンドラインを生成
-        ' ブラウザexeフルパス
-        ' デバッグ方法
-        ' データ保存先
-        ' 初期URL
-        ' 追加引数
-        Dim RunCommandLine As String
-        RunCommandLine = Join(Array(.getBrowserPath, _
-                                    .GenerateArgRemoteDebugging, _
-                                    .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl), _
-                                    addArgs))
-
-        '2. 実際に起動を行います
-        printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
-        dwProcessId = Shell(RunCommandLine, setShowWindow)
-
-        '3. エラー時は、Stop
-        If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
-
-        '4. プロセスハンドルを取る
-        hProcess = .OpenProcessHandle(dwProcessId)
-
-        '5. DevToolsActivePort ファイルが出現するまで待機
-        If Not .AutoWaitExistsFileDevToolsActivePort Then printMsg ERROR_, "The DevToolsActivePort file did not appear within the allotted time.", FromProcedureName, doRaiseError:=True
-
-        '6. DevToolsActivePort ファイルから、空いてるポート情報を取得
-        '前述でファイルが出なかったらエラーで止まるのでここでの`vbEmpty`判定は省略
-        Dim DevToolsActivePortInfo: DevToolsActivePortInfo = .AnalysisDevToolsActivePort
-    End With
-
-    '7. 接続
-    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-
-    '8. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡し、返却
-    Set RunWebSocketModeBrowserCDP = New CDPBrowser
-    RunWebSocketModeBrowserCDP.reattachWebSocket userProfile, Me
-End Function
-
-'***************************************************************************************************
 '* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：閉じる場合は、0未満にしてください
 '***************************************************************************************************
 Property Let EnsureWebView2DebugPort(port As Long)
-    Const FromProcedureName As String = ThisClassName & ".RunWebSocketModeBrowserCDP"
+    Const FromProcedureName As String = ThisClassName & ".EnsureWebView2DebugPort"
     Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
 
 
     If port >= 0 Then
         SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
-        printMsg info_, "WebView2のデバッグポートを開けました: " & port, FromProcedureName
+        printMsg info_, "I opened the debug port for WebView2: " & port, FromProcedureName
 
     Else
         SetEnvironmentVariableW StrPtr(EnvironmentName), 0
-        printMsg info_, "WebView2のデバッグポートを閉じました", FromProcedureName
+        printMsg info_, "I closed the debug port for WebView2.", FromProcedureName
 
     End If
 End Property
+
+
+
+'***************************************************************************************************
+'                       ■■■ ローカルブラウザへの新規接続アシスト ■■■
+'***************************************************************************************************
+'* 機能　　：`CDPBrowser`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartCDPMode() As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartCDPMode = New CDPBrowser
+    StartCDPMode.reattachWebSocket UserDataDirName, Me
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`WebDriverBiDiMode`ブラウザ制御として準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
+'***************************************************************************************************
+Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
+
+
+    '1. 未接続の場合は止める
+    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
+
+    '2. ブラウザ単位として準備
+    Set StartBiDiMode = New WebDriverBiDiMode
+    StartBiDiMode.reattach UserDataDirName, sessionCapabilitiesRequest, Me
+End Function
 
 
 
@@ -1368,11 +1405,12 @@ Private Sub Class_Initialize()
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
-    currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")
 
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                   'ユニークID
+        currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)          'ログフォルダパス
+    End With
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
