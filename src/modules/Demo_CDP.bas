@@ -178,7 +178,7 @@ Sub UseExtensions()
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(4)  'msoFileDialogFolderPicker
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
-        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
+        .InitialFileName = Environ("LOCALAPPDATA")    '初期位置
 
         If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
     End With
@@ -326,23 +326,6 @@ Sub TestAlert()
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
         .ThisCDPBrowser.quit
-    End With
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：WebView2を起動します
-'***************************************************************************************************
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
-    '1. UserForm側のWebView2の初期化を済ませる
-    With WebView2Form
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
-
-        '2. 遷移
-        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
-
-        '3. フォームを表示
-        .show
     End With
 End Sub
 
@@ -905,24 +888,19 @@ End Sub
 '* 機能　　：ローカルブラウザ起動から一通りの制御を行います
 '***************************************************************************************************
 Sub AutoConnectBrowser()
-    '1. 設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    '2. WebSocket制御で、ブラウザを起動
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    '1. WebSocket制御で、ブラウザを起動
     Dim BrowserControl As CDPBrowser
-    Set BrowserControl = WebSocketCDP.RunWebSocketModeBrowserCDP(IIf(ShSetting01_StartBrowser.UseRangeID(4, "Demo_CDP.AutoConnectBrowser"), BrowserList.RunChrome, BrowserList.RunEdge), , UserName, ShSetting01_StartBrowser.UseRangeID(3, "Demo_CDP.AutoConnectBrowser"))
+    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
-    '3. 未接続のタブに接続
+    '2. 未接続のタブに接続
     Dim t As CDPContext
     Set t = BrowserControl.getTab(setMain:=True)
 
-    '5. ページ遷移
+    '3. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '6. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '4. 終了
+    BrowserControl.quit
 End Sub
 
 '***************************************************************************************************

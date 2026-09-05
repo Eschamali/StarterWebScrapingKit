@@ -186,8 +186,7 @@ Public Event ResetCommandID()
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'各種クラスオブジェクト
-Private Utf8Converter           As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+'各種制御経路オブジェクト ※PipeはこのClass自身(Me - FastPath)で所有します
 Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebSocket.VB_VarHelpID = -1
 Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
@@ -237,7 +236,8 @@ Private dwProcessId     As LongPtr
 Private DictionarySessionID As Dictionary
 
 'その他
-Private m_NullTerminator(0) As Byte     'バイト配列で送るヌル文字用
+Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
+Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 
 
 
@@ -257,7 +257,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
 
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPCoreHost
+    With New CDPHost
         '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
         .InitInfo UserName, BrowserType, True
 
@@ -1551,13 +1551,13 @@ Private Sub Class_Initialize()
     '3. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
 
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶する
+    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
     CDPHelpers.InitQueryPerformanceFrequency
     '------------------------------------------------------------------------------
 End Sub
 
 Private Sub Class_Terminate()
-    On Error Resume Next
+    'ストリームをClose
     CDPPipeStream.Close
     Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub

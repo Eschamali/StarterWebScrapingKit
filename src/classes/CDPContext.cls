@@ -97,7 +97,6 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private Const TIMEOUT_DEFAULT   As Double = 30              '初期タイムアウト秒数
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
 
 
@@ -1870,7 +1869,7 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
    'Check if already navigated
     Dim curURL As String
     curURL = jsEval("window.location.href")
-    If curURL = checkURI(strURL) Then
+    If curURL = strURL Then
         printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
         Exit Sub
     End If
@@ -2823,15 +2822,6 @@ End Property
 Private Sub AnalyzeCDP(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
     PipeCore.AnalyzeCDP StopApiError, destruction
 End Sub
-
-
-
-'***************************************************************************************************
-'                               ■■■ CDPBrowser.cls 直通メソッド ■■■
-'***************************************************************************************************
-Private Function checkURI(URI As String) As String
-    checkURI = BrowserCore.checkURI(URI)
-End Function
 
 
 

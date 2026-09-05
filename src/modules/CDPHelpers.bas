@@ -28,7 +28,7 @@ Public Enum ReadyState      'Used for .wait method
     isComplete = 2          'equivalence of the browser's "complete" state
 End Enum
 
-'起動する Chromium 系ブラウザ。`CDPCoreHost` に置くと、こちらの `StateLog` と循環参照になる
+'起動する Chromium 系ブラウザ。`CDPHost` に置くと、こちらの `StateLog` と循環参照になる
 Public Enum BrowserList
     RunEdge
     RunChrome
@@ -37,7 +37,7 @@ End Enum
 '各 Class のログ設定（`Private currentLog As StateLog`）。
 '`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
 Public Type StateLog
-    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or CDPからのコマンド結果 or 非同期イベントの生Json文字列
+    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
     logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
     LogID               As String   '"○○○○" & Format(Rnd * 1000, "000")　(○は4文字)
 End Type
@@ -69,7 +69,7 @@ Public Const EventsKey_EventMethods As String = "EventMethods"
 'その他
 Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値
 Public Const chromeWindowClass As String = "Chrome_WidgetWin_1" 'same window class for Edge
-Private Const ThisModuleName   As String = "CDPHelpers"         'トレース用
+Public Const TIMEOUT_DEFAULT   As Double = 30                   '初期タイムアウト秒数
 
 
 

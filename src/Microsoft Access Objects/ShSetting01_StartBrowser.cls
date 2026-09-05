@@ -19,18 +19,10 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                              ■■■ WebView2用設定API ■■■
-'***************************************************************************************************
-Private Declare PtrSafe Function SetEnvironmentVariableW Lib "kernel32" (ByVal lpName As LongPtr, ByVal lpValue As LongPtr) As Long 'プロセス内環境変数用API
-
-
-
-'***************************************************************************************************
 '                              ■■■ テーブルの列操作用 ■■■
 '***************************************************************************************************
 Private Const TableName01 As String = "BrowserHandleInfo"
 Private Const TableName02 As String = "BrowserContextInfo"
-Private Const TableName03 As String = "ProtocolWhiteList"
 
 
 
@@ -54,6 +46,7 @@ Private Const PrimaryKeyName            As String = "UserName"
 '            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します。省略時は設定シートに記載されてる名称になります
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：ここでの起動は、Pipe経路に限ります
 '***************************************************************************************************
 Friend Function StartCDPModeContext(Optional StartURL As String, Optional SwitchUser As String) As CDPContext
     '設定シートの各セルから設定値を取得し、適用
@@ -75,14 +68,14 @@ End Function
 '* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでのパイプ通信確保まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - CDPBrowser
-'* 引数　　：前述と一緒なので省略
+'* 引数　　：基本は、前述と一緒なので省略。`WebSocketMode`でWebSocketモードに切り替え可能です。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
 '              `StartCDPModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
 '              この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '            ・Demoプロシージャ：`runTabsAsMany`が分かりやすいと思います
 '***************************************************************************************************
-Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
+Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '起動ブラウザ種類の設定
@@ -94,7 +87,15 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.start BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+        If WebSocketMode Then
+            'WebSocket経路で起動
+            Dim ReadyWebSocket As New CDPCoreViaWebSocket
+            ReadyWebSocket.ConnectCDPWithLocalBrowser BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+            Set StartCDPMode = ReadyWebSocket.StartCDPMode
+        Else
+            'Pipe経路で起動
+            StartCDPMode.start BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+        End If
     End With
 End Function
 
@@ -111,6 +112,7 @@ End Function
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
+'* 注意事項：ここでの起動は、Pipe経路に限ります
 '***************************************************************************************************
 Friend Function StartBiDiModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
     '設定シートの各セルから設定値を取得し、適用
@@ -132,13 +134,13 @@ End Function
 '* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - WebDriverBiDiMode
-'* 引数　　：前述と一緒なので省略
+'* 引数　　：基本は、前述と一緒なので省略。`WebSocketMode`でWebSocketモードに切り替え可能です。
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
 '             `StartBiDiModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
 '             この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '***************************************************************************************************
-Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As Boolean) As WebDriverBiDiMode
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '起動ブラウザ種類の設定
@@ -150,7 +152,13 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.StartBiDiMode BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+        If WebSocketMode Then
+            Dim ReadyWebSocket As New CDPCoreViaWebSocket
+            ReadyWebSocket.ConnectCDPWithLocalBrowser BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+            Set StartBiDiMode = ReadyWebSocket.StartBiDiMode(sessionCapabilitiesRequest)
+        Else
+            StartBiDiMode.StartBiDiMode BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+        End If
     End With
 End Function
 
@@ -307,48 +315,6 @@ End Property
 Friend Property Get TableBrowserContext(UserName As String, ErrorSource As String) As Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
     Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ホワイトプロトコルリスト設定情報をテーブルから読み取ります
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：プロトコルリストを記録した1次元配列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・1次元配列への変換コストが入るため、1度のみ呼び出すこと
-'            ・最初の要素番号は、`1`始まりです
-'            ・1件以上ある前提です
-'***************************************************************************************************
-Property Get TableProtocolWhiteList()
-    'DB操作用オブジェクトを用意
-    Dim db As DAO.Database: Set db = CurrentDb
-    Dim rs As DAO.Recordset
-    Dim rawArray As Variant
-
-
-    '1. DCountで、テーブル全体のレコード数を動的に、100%正確に数え上げる
-    Dim targetCount As Long
-    targetCount = DCount("*", TableName03)
-
-    '2. SQLで「CheckInstr」列（またはそれに相当するフィールド名）だけをピンポイントで取得
-    Set rs = db.OpenRecordset("SELECT CheckInstr FROM " & TableName03, dbOpenSnapshot)
-
-    '3. GetRowsで一瞬で二次元配列（0始まり・列と行が逆転した状態）として取得
-    ' ※rawArrayは (0, 0 To 行数-1) という構造の2次元配列になります
-    rawArray = rs.GetRows(targetCount)
-
-    '4. データ数取得
-    Dim rowCount As Long
-    rowCount = UBound(rawArray, 2) + 1
-
-    '5. 1次元配列に変換させる
-    ReDim tmp(1 To rowCount)
-    Dim i As Long
-    For i = 1 To rowCount
-        tmp(i) = rawArray(0, i - 1)
-    Next
-
-    '6. 返却
-    TableProtocolWhiteList = tmp
 End Property
 
 
@@ -539,24 +505,6 @@ End Sub
 
 '***************************************************************************************************
 '                               ■■■ ヘルパープロシージャ ■■■
-'***************************************************************************************************
-'* 機能　　：実行プロセス内のWebView2デバッグポートを開く際に使います。迷ったら、`9222`に設定して下さい
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：閉じる場合は、`0`にしてください
-'***************************************************************************************************
-Property Let EnsureWebView2Debug(port As Long)
-    Const EnvironmentName As String = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
-
-
-    If port > 0 Then
-        SetEnvironmentVariableW StrPtr(EnvironmentName), StrPtr("--remote-debugging-port=" & port)
-        Debug.Print "WebView2のデバッグポートを開けました: " & port
-    Else
-        SetEnvironmentVariableW StrPtr(EnvironmentName), 0
-        Debug.Print "WebView2のデバッグポートを閉じました"
-    End If
-End Property
-
 '***************************************************************************************************
 '* 機能　　：現在設定中の識別名称を取得/設定します
 '***************************************************************************************************

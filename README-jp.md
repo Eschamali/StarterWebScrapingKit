@@ -45,7 +45,7 @@
 | --- | --- | --- |
 | 🥇 **Pipe** | **迷ったらこれ** | `--remote-debugging-pipe`によるパイプ通信。既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用でき、安定性・デバッグ容易性ともに最も実績のある主流の方式です |
 | 🥈 **WebSocket** | Android や、今目の前のブラウザ | 既に起動しているブラウザへの後付け接続に対応。※設定次第では別PCのブラウザ操作も可能です。v3.0.0からはローカルブラウザの**起動から接続まで**を1メソッドで完結できるようにもなりました |
-| 🥉 **WebView2** | Port も Pipe も使えない環境に | デバッグポートも名前付きパイプも一切開かず、WebView2 SDKを直接叩いてCDPをやり取りします。**「UserForm完結」という美**——外部プロセスなしで、Excelのメモリ空間だけでブラウザを完全制御できます |
+| 🥉 **WebView2** | Port も Pipe も使えない環境に | デバッグポートもデバッグパイプも一切開かず、WebView2 SDKを直接叩いてCDPをやり取りします。**「UserForm完結」という美**——外部プロセスなしで、Excelのメモリ空間だけでブラウザを完全制御できます |
 
 いずれのルートでも、`CDPContext.navigate` や `CDPElement.getElementByQuery` など**まったく同じAPI**でそのまま操作できます。詳しい使い分けは後述のデモコード、または [公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) を参照してください。
 
