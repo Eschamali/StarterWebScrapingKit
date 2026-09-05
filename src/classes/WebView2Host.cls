@@ -348,7 +348,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`m_core.env.state`/`m_core.ctrl.state`がWhs_Waitingを脱するまでDoEventsで待ちます
+'* 機能　　：同期的に完了コールバックが来るまでの`DoEvents`で待ちます
 '***************************************************************************************************
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
     '1. 今の経過時間を記録し、取り出し開始
@@ -591,7 +591,7 @@ End Function
 '***************************************************************************************************
 Public Function GetBrowserExtensionIds() As Collection
     '1. 拡張機能一覧取得依頼を行い、結果受け取りに失敗したら、即抜け
-    If Not RunGetBrowserExtensions() Then ReleaseGetExtPtrs : Exit Function
+    If Not RunGetBrowserExtensions() Then ReleaseGetExtPtrs: Exit Function
 
     '2. 必要な変数を用意、初期化
     Set GetBrowserExtensionIds = New Collection
