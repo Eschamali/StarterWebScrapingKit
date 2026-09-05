@@ -423,7 +423,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     ResultJsonStr = WebView2Thunks.PtrToString(resultJsonPtr)
 
     '2. エラーコードに応じた分岐
-    printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & ResultJsonStr, FromProcedureName
+    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ICoreWebView2CallDevToolsProtocolMethodCompletedHandler - callbackId:=" & callbackId & " , errorCode:=" & ErrorCode & " , result:=" & ResultJsonStr, FromProcedureName
     Dim synthesized As String
     If ErrorCode = 0 Then
         '上手い具合に、`id`付きで復元させる
@@ -1173,13 +1173,16 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
+    'CDPイベント購読管理の初期化
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
-    currentLog.LogID = "WVID" & Format(Rnd * 1000, "000")
 
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        .LogID = "WVID" & Format(Rnd * 1000, "000")                                     'ユニークID
+        .seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   '`OnCdpMethodCompleted`のRaw表示
+        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)            'ログフォルダパス
+    End With
 End Sub
 
 Private Sub Class_Terminate()
