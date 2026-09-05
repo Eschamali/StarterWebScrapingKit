@@ -11,7 +11,7 @@ description: Excel 単体・外部依存なしで真の WebView2 を UserForm �
 **外部プロセス（PowerShellなど）に頼らず、Excel VBAのメモリ空間上だけで WebView2 を直接起動・制御します。**
 
 ::: tip v3.0.0でネイティブ実装済み
-以前このページは「理論上は可能だが本キット未実装、詳しくは他プロジェクトへ」という紹介記事でした。v3.0.0で、この技法を本キット自身に `CDPCoreViaWebView2.cls` / `CDPWebView2Thunks.bas` / `WebView2Form.frm` として本実装しています。接続後は、Pipe / WebSocket と同じ `CDPContext` / `CDPElement` の API でそのまま操作できます。実際の使い方は[このページの後半](#本キットでの使い方)を参照してください。
+以前このページは「理論上は可能だが本キット未実装、詳しくは他プロジェクトへ」という紹介記事でした。v3.0.0で、この技法を本キット自身に `CDPCoreViaWebView2.cls` / `WebView2Thunks.bas`（v3.0.0時点では`CDPWebView2Thunks.bas`、v3.1.0で改名） / `WebView2Form.frm` として本実装しています。接続後は、Pipe / WebSocket と同じ `CDPContext` / `CDPElement` の API でそのまま操作できます。実際の使い方は[このページの後半](#本キットでの使い方)を参照してください。
 :::
 
 <blockquote class="twitter-tweet"><p lang="ja" dir="ltr">ふはははははは！！！Excel VBAのユーザーフォーム上でWebView2を動作させて、イベントを検知することに成功したぞ <a href="https://t.co/lwDDCylQYq">pic.twitter.com/lwDDCylQYq</a></p>&mdash; たーぼー（インコ） (@fenblen_puyo) <a href="https://x.com/fenblen_puyo/status/2032821182924468312?ref_src=twsrc%5Etfw">March 14, 2026</a></blockquote>
@@ -80,7 +80,7 @@ End Sub
 しかし、この手法をマスターすれば、TLBや外部DLLに一切頼ることなく、最新のブラウザエンジンをExcelのUserFormに完全に支配下に置くことができます。
 
 ::: info 移植元
-この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（`Wv2Thunks.bas`）のロジックを、バイト列やオフセット値を一切変更せずそのまま移植したものです。本キット向けに追加したのは、CDP用に絞った4種類のハンドラ種別と、`CallDevToolsProtocolMethodForSessionAsync` / `DevToolsProtocolEventReceivedEventHandler` のIID登録のみです。
+この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（`Wv2Thunks.bas`）のロジックを、バイト列やオフセット値を一切変更せずそのまま移植したものです。本キット向けに追加したのは、CDP用のハンドラ種別（`CallDevToolsProtocolMethodForSessionAsync` / `DevToolsProtocolEventReceivedEventHandler` のIID登録含む）と、v3.1.0で追加した拡張機能対応（`EnvironmentOptions`エミュレーション）用の`get_`/`put_`ハンドラ群です。
 :::
 
 ## 本キットでの使い方
@@ -102,7 +102,7 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
 End Sub
 ```
 
-同梱デモ: `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`
+同梱デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
 
 内部では `CDPCoreViaWebView2.ConnectCDP` がWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。つまり、いったん埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 

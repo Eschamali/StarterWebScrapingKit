@@ -26,7 +26,7 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
 End Sub
 ```
 
-同梱デモ: `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`
+同梱デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
 
 内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
@@ -86,6 +86,97 @@ wv2.UnsubscribeAllCdpEvents
 Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの全イベントが自動で流れてくる」モデルですが、WebView2は`GetDevToolsProtocolEventReceiver`の仕様上、**イベント名ごとの個別購読**が必要です。一括購読の概念はWebView2側に無いため未対応です（一括解除のみ`UnsubscribeAllCdpEvents`として提供）。
 :::
 
+## 拡張機能のインストール（v3.1.0〜）
+
+CDPの`Extensions`ドメイン（`Extensions.loadUnpacked`等）は、**WebView2経路だけ`Method not available`で弾かれます**。そのため、拡張機能まわりだけはCDPを介さない専用APIを使います。
+
+```vb
+Public Function AddBrowserExtension(extensionFolderPath As String) As String   ' 戻り値: インストールした拡張機能のID(失敗時は空文字)
+Public Function GetBrowserExtensionIds() As Collection                         ' 各要素はDictionary(キー:"ID"/"Name"/"IsEnabled")
+Public Function RemoveBrowserExtension(extensionId As String) As Boolean
+```
+
+```vb
+With WebView2Form
+    '1. 接続前に、拡張機能を有効化しておく(★必須)
+    .ThisWebView2.EnvironmentOptions.Set_AreBrowserExtensionsEnabled = True
+
+    '2. WebView2を起動
+    If Not .StartCDPModeWebView2 Then Exit Sub
+    .show vbModeless
+
+    '3. インストール
+    Dim InstallID As String
+    InstallID = .ThisWebView2.AddBrowserExtension("C:\path\to\unpacked-extension")
+    If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました": Exit Sub
+
+    '4. 一覧確認
+    Dim ext As Variant
+    For Each ext In .ThisWebView2.GetBrowserExtensionIds
+        Debug.Print ext("ID"), ext("Name"), ext("IsEnabled")
+    Next
+
+    '5. アンインストール
+    .ThisWebView2.RemoveBrowserExtension InstallID
+End With
+```
+
+同梱デモ: `Demo_WebView2.拡張機能インストールアンインストール`
+
+::: warning 必ず接続前に有効化する
+`AreBrowserExtensionsEnabled` は Environment 生成時にしか読まれない設定です。`ConnectCDP`（`StartCDPModeWebView2`）を呼んだ**あとに** `Set_AreBrowserExtensionsEnabled = True` にしても反映されません。次節の`EnvironmentOptions`と合わせて、**接続前に**設定してください。未設定のままインストールを試みると`ERROR_NOT_SUPPORTED`で失敗します。
+:::
+
+## 起動前オプションの設定（`EnvironmentOptions`、v3.1.0〜）
+
+`ICoreWebView2EnvironmentOptions`（`WebView2Loader`がネイティブに提供するはずのオプション）を、VBA側でエミュレーションしたクラスです。`CDPCoreViaWebView2.EnvironmentOptions` から取得し、**`ConnectCDP`を呼ぶ前に**チェーン的に設定します。
+
+```vb
+Public Property Get EnvironmentOptions() As WebView2EnvOptions
+```
+
+| プロパティ（すべてLet） | 意味 |
+| --- | --- |
+| `Set_AdditionalBrowserArguments` | ブラウザプロセス起動時の追加コマンドライン引数 |
+| `Set_Language` | UI言語 |
+| `Set_TargetCompatibleBrowserVersion` | 対象ブラウザバージョン（既定値あり。空文字にすると起動失敗） |
+| `Set_AllowSingleSignOnUsingOSPrimaryAccount` | Windowsサインイン中のアカウントでのシングルサインオン可否 |
+| `Set_ExclusiveUserDataFolderAccess` | ユーザーデータフォルダの排他アクセス |
+| `Set_IsCustomCrashReportingEnabled` | カスタムクラッシュレポートの有効化 |
+| `Set_EnableTrackingPrevention` | トラッキング防止の有効化 |
+| `Set_AreBrowserExtensionsEnabled` | 拡張機能の使用可否（既定`False`） |
+| `Set_ChannelSearchKind` | 探索するEdgeチャンネルの優先順位（`WV2ChannelSearchKind`） |
+| `Set_ReleaseChannels` | 探索対象チャンネルのビットマスク（`WV2ReleaseChannels`） |
+| `Set_ScrollBarStyle` | スクロールバーの見た目（`WV2ScrollBarStyle`） |
+
+```vb
+With WebView2Form.ThisWebView2.EnvironmentOptions
+    .Set_AllowSingleSignOnUsingOSPrimaryAccount = False
+    .Set_AreBrowserExtensionsEnabled = True
+End With
+```
+
+同梱デモ: `Demo_WebView2.RunEnvironmentOptionsDemo`
+
+## その他のインターフェースのプロパティ（v3.1.0〜）
+
+拡張機能対応のために`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`のvtableを組み上げたので、ついでにコールバック・イベントを伴わない**スカラー値のプロパティ**は一通り公開しています。用途別に代表例を挙げます（全量はソースコードのコメント、または`Demo_WebView2`内の`Run○○FamilyDemo`各プロシージャを参照）。
+
+| 系統 | 例 | 用途 |
+| --- | --- | --- |
+| `ICoreWebView2Controller` | `ZoomFactor`（Let）/ `RasterizationScale`（Let）/ `SetBoundsAndZoomFactor` / `MoveFocus` / `SetDefaultBackgroundColor` | 表示倍率・DPI・フォーカス・背景色 |
+| `ICoreWebView2` | `IsMuted`（Let）/ `IsDocumentPlayingAudio`（Get）/ `StatusBarText`（Get）/ `FaviconUri`（Get） | 音声ミュート、再生中判定、ステータスバー、favicon |
+| `ICoreWebView2Environment` | `userDataFolder`（Get）/ `FailureReportFolderPath`（Get） | 実際に使われているフォルダパスの確認 |
+| `ICoreWebView2Settings` | `ScriptEnabled` / `WebMessageEnabled` / `UserAgentOverride` / `GeneralAutofillEnabled`（いずれもLet） | JS実行・WebMessage・UA偽装・オートフィルの可否 |
+| `ICoreWebView2Profile` | `ProfileName`（Get）/ `IsInPrivateModeEnabled`（Get）/ `DefaultDownloadFolderPath`（Let）/ `PreferredTrackingPreventionLevel`（Let） | プロファイル情報、ダウンロード先、トラッキング防止レベル |
+
+::: info あえて実装していないもの
+「あくまでもCDP制御主体のツール」という線引きのため、次の3種類は対象外です。
+- 完了コールバックが必要なメソッド（`ExecuteScriptAsync`等）
+- WebView2ネイティブのイベント（`NavigationCompleted`等）— CDPの`Page.*`イベントで代替してください
+- 他のインターフェースへネストして依存するもの
+:::
+
 ## 再接続 (reattach)
 
 Pipe / WebSocket と同じく、`reattachWebView2` で既存のWebView2接続情報に再接続できます。
@@ -101,4 +192,4 @@ Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreV
 - [設計思想について](/webview2/design) — 機械語サンク・vtable、移植元へのクレジット
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only) — UserForm埋め込みの詳しい解説
 - [再接続 (reattach)](/guides/reattach)
-- デモ: `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`
+- デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`

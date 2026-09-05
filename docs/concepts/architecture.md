@@ -22,7 +22,7 @@ flowchart TB
   coreBidi --> coreCdp
   brCdp -.->|reattachWebSocket| coreWs[CDPCoreViaWebSocket]
   brCdp -.->|reattachWebView2| coreWv2[CDPCoreViaWebView2]
-  coreCdp -.->|ローカル起動を委託| coreHost[CDPCoreHost]
+  coreCdp -.->|ローカル起動を委託| coreHost[CDPHost]
   coreWs -.->|ローカル起動を委託| coreHost
 ```
 
@@ -31,9 +31,9 @@ flowchart TB
 | クラス | 役割 |
 | --- | --- |
 | `CDPCore` | `--remote-debugging-pipe` ロジックで CDP 送受信 |
-| `CDPCoreViaWebSocket` | WebSocket(`--remote-debugging-port`)ロジックでの CDP 送受信（既存セッション、または `RunWebSocketModeBrowserCDP` による起動込み接続） |
-| `CDPCoreViaWebView2` | WebView2（`ICoreWebView2`）を直接叩く3つ目のtransport。COM/vtableと機械語サンク経由でCDPコマンドを送受信（v3.0.0〜） |
-| `CDPCoreHost` | ローカルPC上のブラウザプロセスに関する機能（起動・ポリシーチェック・後始末など）を集約。WebView2は対象外（v3.0.0〜、[`CDPBrowser`/`CDPCore`から分離](/stories/birth-story)） |
+| `CDPCoreViaWebSocket` | WebSocket(`--remote-debugging-port`)ロジックでの CDP 送受信（既存セッション、または `ConnectCDPWithLocalBrowser` による起動込み接続） |
+| `CDPCoreViaWebView2` | WebView2（`ICoreWebView2`）を直接叩く3つ目のtransport。COM/vtableと機械語サンク経由でCDPコマンドを送受信。拡張機能インストール等、CDPの外側にあるWebView2固有機能も一部プロパティ/メソッドとして公開（v3.0.0〜、v3.1.0で拡張機能対応） |
+| `CDPHost` | ローカルPC上のブラウザプロセスに関する機能（起動・ポリシーチェック・後始末など）を集約。WebView2は対象外（v3.0.0〜、[`CDPBrowser`/`CDPCore`から分離](/stories/birth-story)。v3.1.0で`CDPCoreHost`から改名） |
 | `CDPBrowser` | プロセス起動・タブ一覧・ブラウザ単位の `ExecuteCDP` |
 | `CDPContext` | 1 タブ分のナビ・JS・要素検索・イベント |
 | `CDPElement` | クリック・入力・属性・Shadow DOM / iframe |
@@ -63,7 +63,7 @@ BiDi は内部的に CDP パイプ（または WebSocket）の上で動きます
 Pipe・WebSocket・WebView2 の3ルートに対応しております。
 
 - **Pipeルート**: `--remote-debugging-pipe`として起動します。同一PCで自動化する場合はこれ1択です。
-- **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。`RunWebSocketModeBrowserCDP` を使えばローカルブラウザの起動から一気に行うことも可能です。[WebSocket モードでの制御について](/websocket/design) を参照。
+- **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。`ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)` のように指定すれば、ローカルブラウザの起動から一気に行うことも可能です。[WebSocket モードでの制御について](/websocket/design) を参照。
 - **WebView2ルート**（v3.0.0〜）: デバッグポートもパイプも使わず、WebView2 SDK（`ICoreWebView2`）を直接叩いて CDP をやり取りします。ExcelのUserFormにブラウザを埋め込みたい場合の経路です。[WebView2モードでの制御について](/webview2/design) を参照。
 
 ## 関連

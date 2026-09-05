@@ -325,14 +325,13 @@ End Sub
 
 ### 🆕 WebSocketモードでのローカルブラウザ起動にも対応（v3.0.0〜）
 
-これまでのWebSocketモードは「すでに起動しているブラウザへの後付け接続」専用でしたが、v3.0.0より **ローカルブラウザの起動から接続までを1メソッドで完結**できるようになりました。事前に対象ブラウザを手動起動しておく必要はありません。
+これまでのWebSocketモードは「すでに起動しているブラウザへの後付け接続」専用でしたが、v3.0.0より **ローカルブラウザの起動から接続までを完結**できるようになりました。事前に対象ブラウザを手動起動しておく必要はありません。一番簡単なのは、設定シート経由の `ShSetting01_StartBrowser.StartCDPMode` に `WebSocketMode:=True` を渡す方法です（v3.1.0〜）。
 
 ```vb
 Sub WebSocketモードで新規にブラウザを起動する()
     '1. WebSocketモードでローカルブラウザを起動し、そのまま接続まで行う
-    Dim ws As New CDPCoreViaWebSocket
     Dim b As CDPBrowser
-    Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+    Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
     '2. あとはいつも通り
     Dim t As CDPContext
@@ -365,7 +364,7 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
 End Sub
 ```
 
-一度埋め込んでしまえば、`CDPContext` / `CDPElement` のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
+一度埋め込んでしまえば、`CDPContext` / `CDPElement` のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
 
 > [!NOTE]
 > この機能の心臓部（機械語サンク・vtable呼び出し）は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックをそのまま移植したものです。改めて感謝申し上げます🙏 詳しい経緯は[公式ドキュメントの開発秘話](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story)をご覧ください。

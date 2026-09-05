@@ -18,8 +18,9 @@ description: 3プロジェクトが選んだ3つの異なるファイル分割�
 src/classes/
 ├── CDPCore.cls / CDPCoreViaWebSocket.cls   ← 通信層（Pipe / WebSocket）
 ├── CDPCoreViaWebView2.cls                  ← 通信層（WebView2、v3.0.0〜）
-├── CDPCoreHost.cls                         ← ローカルブラウザの起動・後始末（v3.0.0〜）
-├── CDPWebView2Host.cls / CallbackHandler.cls ← WebView2 COMコールバックの受け皿（v3.0.0〜）
+├── CDPHost.cls                              ← ローカルブラウザの起動・後始末（v3.0.0〜、v3.1.0で`CDPCoreHost`から改名）
+├── WebView2Host.cls / WebView2CallbackHandler.cls ← WebView2 COMコールバックの受け皿（v3.0.0〜、v3.1.0で拡張・改名）
+├── WebView2EnvOptions.cls                  ← `ICoreWebView2EnvironmentOptions`エミュレーション（v3.1.0〜）
 ├── CDPBrowser.cls                          ← ブラウザ単位
 ├── CDPContext.cls                          ← タブ単位
 ├── CDPElement.cls                          ← 要素単位

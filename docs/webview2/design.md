@@ -18,6 +18,24 @@ Pipe・WebSocket がどちらも「**外にいるブラウザプロセス**」�
 
 WebSocket 版は「バイト列の断片を都度 `RaiseEvent` で流す」設計でしたが、WebView2 は COM コールバック経由で「UTF-16 デコード済み・欠けのない完成 JSON 文字列」を1件ずつ届けてくれます。そのため `CDPCoreViaWebView2` は `RaiseEvent CDPMessageReceived(RawJson As String)` という、文字列1件そのままの、より単純な形のイベントを発火するだけで済みます。
 
+## CDPの外側にある機能（v3.1.0〜）
+
+「CDPフォーマットしか扱わない」という上記の原則には、実は1つだけ穴がありました。**拡張機能（Extensions）関連のCDPコマンドが、WebView2経路では丸ごと`Method not available`で弾かれる**のです（`Extensions.loadUnpacked`等。おそらく内部的に`Page`単位のセッションとして実行されているためと推測しています）。
+
+CDPだけでは拡張機能を扱えない以上、WebView2 SDK側の専用APIを直接叩くしかありません。そこで`CDPCoreViaWebView2`に、CDPを介さない拡張機能専用のメソッドを追加しました。
+
+```vb
+Public Function AddBrowserExtension(extensionFolderPath As String) As String       ' 戻り値: インストールした拡張機能のID
+Public Function GetBrowserExtensionIds() As Collection                             ' 各要素はDictionary(キー: "ID"/"Name"/"IsEnabled")
+Public Function RemoveBrowserExtension(extensionId As String) As Boolean
+```
+
+この対応には、`ICoreWebView2Environment`を生成する時点の設定（`AreBrowserExtensionsEnabled`等）を差し込む必要がありました。ところが、この設定を渡す`ICoreWebView2EnvironmentOptions`自体もCOMインターフェースで、公式にはネイティブDLL経由でしかインスタンス化できません。そこで`WebView2EnvOptions.cls`が、**このインターフェースそのものをVBA側のvtable偽造で丸ごとエミュレーション**しています（`Set_AreBrowserExtensionsEnabled`等のプロパティで設定し、`CDPCoreViaWebView2.EnvironmentOptions`経由で`ConnectCDP`前にアクセスします）。詳しい使い方は[WebView2モードでできること](/webview2/capabilities)を参照してください。
+
+::: tip ついでに全部載せた
+`ICoreWebView2EnvironmentOptions`のvtableを一度組み上げてしまうと、他の関連インターフェース（`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`）についても、コールバックが要らない**スカラー値のプロパティ**であれば追加コストがほぼ無いことがわかりました。そこで、CDPで完結しないWebView2固有の見た目・挙動設定（ズーム倍率、ダウンロード先フォルダ、DevTools有効/無効等）も、まとめてプロパティメソッドとして公開しています。ただし、①完了コールバックが要るもの、②イベント系、③さらに別インターフェースへ依存するネスト系、の3種類は「あくまでCDP制御主体のツール」という線引きのため対象外です。
+:::
+
 ## 既知の制約
 
 ::: warning WebView2独自のイベント購読モデル
@@ -39,12 +57,13 @@ CDP-over-Pipe / CDP-over-WebSocket は「ドメインを `enable` すれば、�
 WebView2は`IUnknown`ベースのCOMオブジェクトで、VBAの`Object`変数（IDispatchベース）としては直接扱えません。関数の呼び出しには`DispCallFunc`（vtableのインデックスを直接指定して実行するWindows API）を使い、コールバックを受け取るには、`AddressOf`で取得した関数ポインタをメモリ上に構造体として詰め込み、「COMオブジェクトのフリをしたデータ」を構築する（**vtable偽造**）必要があります。
 
 ::: tip 移植元へのクレジット
-この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部（`CDPWebView2Thunks.bas`）は、[**WebView2-For-Excel-VBA**](https://github.com/tarboh/WebView2-For-Excel-VBA)（作者：たーぼー(インコ) 氏、MIT License）の `Wv2Thunks.bas` を、バイト列やオフセット値を一切変更せずそのまま移植したものです。
+この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部（`WebView2Thunks.bas`。v3.0.0時点では`CDPWebView2Thunks.bas`という名前でした）は、[**WebView2-For-Excel-VBA**](https://github.com/tarboh/WebView2-For-Excel-VBA)（作者：たーぼー(インコ) 氏、MIT License）の `Wv2Thunks.bas` を、バイト列やオフセット値を一切変更せずそのまま移植したものです。
 
-このツール向けに追加/変更したのはCDP専用の薄い層だけです。
+このツール向けに追加/変更したのはCDP専用の薄い層と、v3.1.0で追加した拡張機能対応です。
 
-- `HandlerKind` を、CDP用の4種類（`HK_EnvironmentCompleted` / `HK_ControllerCompleted` / `HK_CdpMethodCompleted` / `HK_CdpEventReceived`）に絞り込み
+- `HandlerKind` に、CDP用の種別（`HK_EnvironmentCompleted` / `HK_ControllerCompleted` / `HK_CdpMethodCompleted` / `HK_CdpEventReceived`）を追加
 - `CallDevToolsProtocolMethodCompletedHandler` と `DevToolsProtocolEventReceivedEventHandler` の実IIDを、内部のIIDテーブルへ追加
+- v3.1.0：`ICoreWebView2EnvironmentOptions`エミュレーション（`WebView2EnvOptions.cls`）用に、プロパティの数だけ`get_`/`put_`ハンドラ種別を追加
 
 低レベルの死闘（QueryInterfaceがE_NOINTERFACEを返す、vtableオフセットが1つずれるだけでクラッシュする等）をすでに乗り越えてくれていた先人の実装があったからこそ、CDP側は安心して「その上に何を乗せるか」だけに集中できました。改めて感謝します。
 :::

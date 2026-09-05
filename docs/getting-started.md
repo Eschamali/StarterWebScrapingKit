@@ -91,6 +91,15 @@ End Sub
 
 BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引数を用意しています。必要に応じて事前に `Dictionary` を組み立て、引数に渡してください。
 
+`StartCDPMode` / `StartBiDiMode`（`CDPContext`/`WebDriverBiDiContext` を返す `Context` 版には無し）には、追加で `WebSocketMode As Boolean` 引数があります（v3.1.0〜）。`True` にすると、Pipe ではなく WebSocket 経由でローカルブラウザを起動・接続します。
+
+```vb
+Dim b As CDPBrowser
+Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+```
+
+詳細は [WebSocket モードでできること](/websocket/capabilities) を参照してください。
+
 ::: tip UserForm へのブラウザ埋め込み
 「UserForm の中にブラウザ画面を表示したい」場合は、この4種類とは別に [UserForm への WebView2 埋め込み](/userform/intro) を参照してください。v3.0.0 で、本キット自身が WebView2 をネイティブに CDP 制御できるようになりました。
 :::

@@ -23,15 +23,50 @@ Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだ�
 
 ## ローカルブラウザの起動から行う場合
 
-`RunWebSocketModeBrowserCDP` を使うと、ローカルブラウザの**起動から接続まで**を一気に行えます（v3.0.0〜）。
+ローカルブラウザの**起動から接続まで**を一気に行う方法が2通りあります（v3.0.0〜、v3.1.0でAPI整理）。
+
+### 設定シート経由（もっとも簡単）
+
+`ShSetting01_StartBrowser.StartCDPMode` / `StartBiDiMode` に `WebSocketMode:=True` を渡すだけで、WebSocket経由でローカルブラウザを起動し、接続済みの `CDPBrowser` / `WebDriverBiDiMode` をそのまま受け取れます。
 
 ```vb
-Public Function RunWebSocketModeBrowserCDP( _
+Public Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
+Public Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As Boolean) As WebDriverBiDiMode
+```
+
+```vb
+Sub AutoConnectBrowser()
+    '1. WebSocket制御で、ブラウザを起動
+    Dim BrowserControl As CDPBrowser
+    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+
+    '2. 未接続のタブに接続
+    Dim t As CDPContext
+    Set t = BrowserControl.getTab(setMain:=True)
+
+    '3. ページ遷移
+    t.navigate "https://example.com"
+
+    '4. 終了
+    BrowserControl.quit
+End Sub
+```
+
+`StartCDPModeContext` / `StartBiDiModeContext`（`CDPContext` / `WebDriverBiDiContext` を返す方）には、この引数はありません。WebSocket経由で起動したい場合は `StartCDPMode` / `StartBiDiMode` を使い、`getTab` からタブ操作を始めてください。
+
+### `CDPCoreViaWebSocket` を直接使う場合
+
+内部で何が起きているかを制御したい場合は、`ConnectCDPWithLocalBrowser`（起動＋接続のみ）と `StartCDPMode` / `StartBiDiMode`（接続済みの状態を `CDPBrowser` / `WebDriverBiDiMode` として受け取る）を分けて呼べます。
+
+```vb
+Public Sub ConnectCDPWithLocalBrowser( _
     Optional BrowserType As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
     Optional addArgs As String _
-) As CDPBrowser
+)
+Public Function StartCDPMode() As CDPBrowser
+Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
 ```
 
 | 引数 | 意味 |
@@ -43,21 +78,27 @@ Public Function RunWebSocketModeBrowserCDP( _
 
 ```vb
 Dim ws As New CDPCoreViaWebSocket
+ws.ConnectCDPWithLocalBrowser BrowserList.RunChrome, "https://example.com"
+
 Dim b As CDPBrowser
-Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+Set b = ws.StartCDPMode()
 
 Dim t As CDPContext
 Set t = b.getTab(setMain:=True)
 t.navigate "https://example.com"
 ```
 
-内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化・起動コマンドライン生成・`DevToolsActivePort` の出現待機・接続までを [`CDPCoreHost`](/concepts/architecture) に委託したうえで自動的に行い、接続済みの `CDPBrowser`（`reattachWebSocket` 済み）を返します。
+内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化・起動コマンドライン生成・`DevToolsActivePort` の出現待機・接続までを [`CDPHost`](/concepts/architecture) に委託したうえで自動的に行います。`StartCDPMode`/`StartBiDiMode`が返すのは、内部で`reattachWebSocket`済みの`CDPBrowser`/`WebDriverBiDiMode`です。
 
-`Start○○ModeContext`（Pipe版）と違い、返るのは `CDPBrowser` です。タブ操作は `getTab` / `newTab` から始めてください。
+`Start○○ModeContext`（Pipe版）と違い、返るのは `CDPBrowser` / `WebDriverBiDiMode` です。タブ操作は `getTab` / `newTab` から始めてください。
+
+::: warning v3.1.0での変更
+以前このセクションでは `CDPCoreViaWebSocket.RunWebSocketModeBrowserCDP`（起動から`CDPBrowser`取得まで1メソッド）を紹介していましたが、v3.1.0で`ConnectCDPWithLocalBrowser`（起動＋接続）と`StartCDPMode`/`StartBiDiMode`（`CDPBrowser`/`WebDriverBiDiMode`化）に分割されました。日常利用では、上記の設定シート経由（`ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)`）の方が簡単です。
+:::
 
 ## 基本的な接続方法（既存ブラウザへの後付け接続）
 
-前節の `RunWebSocketModeBrowserCDP` を除き、WebSocket は「後付け」接続のため、Pipe 版の `Start○○ModeContext` とは流れが違います。大まかには次のとおりです。
+前節の「起動から行う場合」を除き、WebSocket は「後付け」接続のため、Pipe 版の `Start○○ModeContext` とは流れが違います。大まかには次のとおりです。
 
 1. **接続の識別名称を取得／設定** — セル（`ShSetting01_StartBrowser.CurrentUserName`）から取ってもよいし、独自の名前でも OK
 2. **目的に合った接続メソッドを呼ぶ** — 下の 3 種類から選択（`CDPCoreViaWebSocket`）
@@ -89,7 +130,7 @@ ws.DisconnectCDP
 | `AutoConnectPageCDP` | `/json/list` → Page | [`CDPContext`](/api/cdp/CDPContext) |
 | `AutoConnectBrowserCDP` | `/json/version` → Browser | [`CDPBrowser`](/api/cdp/CDPBrowser) |
 | `AutoConnectDevToolsActivePort` | `DevToolsActivePort` ファイル | [`CDPBrowser`](/api/cdp/CDPBrowser) |
-| `RunWebSocketModeBrowserCDP` | ローカルブラウザを起動してから接続 | （内部で `reattachWebSocket` 済み。[前述](#ローカルブラウザの起動から行う場合)） |
+| `ConnectCDPWithLocalBrowser` + `StartCDPMode`/`StartBiDiMode` | ローカルブラウザを起動してから接続 | （内部で `reattachWebSocket` 済み。[前述](#ローカルブラウザの起動から行う場合)） |
 
 ### `AutoConnectPageCDP`
 

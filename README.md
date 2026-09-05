@@ -330,14 +330,13 @@ End Sub
 
 ### 🆕 WebSocket Mode Can Now Also Launch a Local Browser (v3.0.0〜)
 
-Until now, WebSocket mode was exclusively for "attaching to an already-running browser." As of v3.0.0, you can **launch a local browser and connect to it in a single method call**. There's no need to manually start the target browser beforehand.
+Until now, WebSocket mode was exclusively for "attaching to an already-running browser." As of v3.0.0, you can **launch a local browser and connect to it**, with no need to manually start the target browser beforehand. The easiest way (v3.1.0〜) is to pass `WebSocketMode:=True` to `ShSetting01_StartBrowser.StartCDPMode`.
 
 ```vb
 Sub LaunchNewBrowserInWebSocketMode()
     ' 1. Launch a local browser in WebSocket mode and connect to it in one go
-    Dim ws As New CDPCoreViaWebSocket
     Dim b As CDPBrowser
-    Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+    Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
     ' 2. Proceed as usual
     Dim t As CDPContext
@@ -370,7 +369,7 @@ Sub EmbedWebView2InAnExcelUserForm()
 End Sub
 ```
 
-Once embedded, the `CDPContext` / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`.
+Once embedded, the `CDPContext` / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`.
 
 > [!NOTE]
 > The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
