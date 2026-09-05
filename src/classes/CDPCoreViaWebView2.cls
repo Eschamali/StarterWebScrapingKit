@@ -506,21 +506,45 @@ End Sub
 '            セッションIDを取得します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：セッションID(トップレベルの既定ターゲット由来、または未対応環境の場合は空文字)
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：iframeやWeb Worker、子画面などで発生したイベントかを識別するために使う
 '***************************************************************************************************
 Private Function TryGetEventSessionId(ByVal pArgs As LongPtr) As String
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: バージョン2の身分証番号(IID)を用意する】
+    '-----------------------------------------------------------------------------------------------
+    ' 初代ArgsにはSessionIdが無い！後から増築された「Args2」の身分証番号(GUID)を定義
     Const IID_Args2 As String = "2dc4959d-1494-4393-95ba-bea4cb9ebd1b"   ' ICoreWebView2DevToolsProtocolEventReceivedEventArgs2
 
+    ' 文字列のGUIDを、Windows APIが読める16バイトのGUID構造体に変換して iid 変数にセット
     Dim iid As WebView2Thunks.GUID
     WebView2Thunks.FillGUID iid, IID_Args2
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 親の遺産[0番] QueryInterface で「Args2」に着せ替える！】
+    '-----------------------------------------------------------------------------------------------
+    ' Vtable出席番号[0] ＝ 全てのCOM共通の「QueryInterface」！
+    ' 「あなたArgs2の身分証持ってますか？持ってるならArgs2の姿(pArgs2)を見せて！」と交渉する
     Dim pArgs2 As LongPtr
     Dim hr As Long
     hr = WebView2Thunks.dcf(pArgs, 0, "Args.QueryInterface(Args2)", VarPtr(iid), VarPtr(pArgs2))
+
+    ' 古いEdgeでArgs2に対応していない場合などは、無理せず空文字のまま安全に脱出(TryGetの精神)
     If hr <> 0 Or pArgs2 = 0 Then Exit Function
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: Args2の出席番号[4番]から「SessionId」を引っこ抜く】
+    '-----------------------------------------------------------------------------------------------
+    ' Args2に変身成功！Vtable出席番号[4] ＝ get_SessionId を叩いて文字列(BSTR)を取り出す！
+    ' (※0:QI, 1:AddRef, 2:Release, 3:ParameterObject, 4:SessionId)
     TryGetEventSessionId = WebView2Thunks.GetStringProperty(pArgs2, 4, "Args2.get_SessionId")
 
-    'QueryInterfaceで確保した分の参照を解放(GetStringPropertyはQI自体はしない)
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ4: ★超重要！ QueryInterfaceで増えた参照カウントを解放する】
+    '-----------------------------------------------------------------------------------------------
+    ' COMの鉄の掟: 「QueryInterfaceに成功したら、裏で参照カウントが+1されている」
+    ' SessionIdを取り終わったら、変身させた pArgs2 はもう用済みなので、
+    ' 必ず ComRelease(Vtable[2]) を呼んで参照カウントを-1して後片付けする！(メモリリーク防止)
     WebView2Thunks.ComRelease pArgs2
 End Function
 
