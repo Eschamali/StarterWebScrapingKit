@@ -23,7 +23,6 @@ Option Explicit
 '***************************************************************************************************
 Private Const TableName01 As String = "BrowserHandleInfo"
 Private Const TableName02 As String = "BrowserContextInfo"
-Private Const TableName03 As String = "ProtocolWhiteList"
 
 
 
@@ -316,48 +315,6 @@ End Property
 Friend Property Get TableBrowserContext(UserName As String, ErrorSource As String) As Dictionary
     '1. 取り出しヘルパーメソッドを呼び出す
     Set TableBrowserContext = deserializeFromTable(TableName02, UserName, ErrorSource)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ホワイトプロトコルリスト設定情報をテーブルから読み取ります
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：プロトコルリストを記録した1次元配列
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・1次元配列への変換コストが入るため、1度のみ呼び出すこと
-'            ・最初の要素番号は、`1`始まりです
-'            ・1件以上ある前提です
-'***************************************************************************************************
-Property Get TableProtocolWhiteList()
-    'DB操作用オブジェクトを用意
-    Dim db As DAO.Database: Set db = CurrentDb
-    Dim rs As DAO.Recordset
-    Dim rawArray As Variant
-
-
-    '1. DCountで、テーブル全体のレコード数を動的に、100%正確に数え上げる
-    Dim targetCount As Long
-    targetCount = DCount("*", TableName03)
-
-    '2. SQLで「CheckInstr」列（またはそれに相当するフィールド名）だけをピンポイントで取得
-    Set rs = db.OpenRecordset("SELECT CheckInstr FROM " & TableName03, dbOpenSnapshot)
-
-    '3. GetRowsで一瞬で二次元配列（0始まり・列と行が逆転した状態）として取得
-    ' ※rawArrayは (0, 0 To 行数-1) という構造の2次元配列になります
-    rawArray = rs.GetRows(targetCount)
-
-    '4. データ数取得
-    Dim rowCount As Long
-    rowCount = UBound(rawArray, 2) + 1
-
-    '5. 1次元配列に変換させる
-    ReDim tmp(1 To rowCount)
-    Dim i As Long
-    For i = 1 To rowCount
-        tmp(i) = rawArray(0, i - 1)
-    Next
-
-    '6. 返却
-    TableProtocolWhiteList = tmp
 End Property
 
 
