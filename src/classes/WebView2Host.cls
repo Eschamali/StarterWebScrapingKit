@@ -73,7 +73,6 @@ Private m_pController   As LongPtr  'ICoreWebView2Controller
 Private m_pEnvironment  As LongPtr  'ICoreWebView2Environment
 Private m_pSettings     As LongPtr  'ICoreWebView2Settings
 Private m_pProfile      As LongPtr  'ICoreWebView2Profile
-Private m_pFind         As LongPtr  'ICoreWebView2Find  ※ICoreWebView2_28::get_Findで初回アクセス時に遅延取得)
 
 'たどり着けた階層レベル
 Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN          (基底のみなら1)
@@ -692,10 +691,6 @@ Public Sub CLOSE_()
     If m_pProfile <> 0 Then
         WebView2Thunks.ComRelease m_pProfile
         m_pProfile = 0
-    End If
-    If m_pFind <> 0 Then
-        WebView2Thunks.ComRelease m_pFind
-        m_pFind = 0
     End If
     If m_pView <> 0 Then
         WebView2Thunks.ComRelease m_pView
@@ -1526,79 +1521,6 @@ Property Get FaviconUri() As String
     If m_viewLevel < 15 Then Exit Property
     FaviconUri = WebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
 End Property
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] interface - ICoreWebView2_28
-'---------------------------------------------------------------------------------------------------
-'* 機能　　：CDPには標準のfind-in-pageドメインが存在しないため、これはCDPで代用できない数少ない
-'            機能の1つ。`ICoreWebView2Find`(ICoreWebView2_28::get_Find)への参照を、初回アクセス時に
-'            遅延取得します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`Start`(検索語等を指定して検索を開始するメソッド)は、別途`ICoreWebView2FindOptions`の
-'            フェイクCOMオブジェクト実装が必要なためいったん見送り、まずは既存の検索結果を操作する
-'            軽量なメンバー(件数取得/次候補・前候補への移動/終了)のみ先行実装する
-'***************************************************************************************************
-Private Function EnsureFind() As Boolean
-    If m_pFind <> 0 Then
-        EnsureFind = True
-        Exit Function
-    End If
-    If m_viewLevel < 28 Then Exit Function
-
-    Dim pFind As LongPtr
-    Dim hr As Long
-    hr = WebView2Thunks.dcf(m_pView, 135, "View28.get_Find", VarPtr(pFind))
-    If hr <> 0 Or pFind = 0 Then Exit Function
-
-    m_pFind = pFind
-    EnsureFind = True
-End Function
-
-'***************************************************************************************************
-'* 機能　　：現在アクティブな検索結果の(1始まりの)インデックスを取得します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`Start`で検索を開始していない状態では`0`
-'***************************************************************************************************
-Property Get FindActiveMatchIndex() As Long
-    If Not EnsureFind() Then Exit Property
-    FindActiveMatchIndex = WebView2Thunks.GetLongProperty(m_pFind, 3, "Find.get_ActiveMatchIndex")
-End Property
-
-'***************************************************************************************************
-'* 機能　　：現在の検索結果の総件数を取得します
-'***************************************************************************************************
-Property Get FindMatchCount() As Long
-    If Not EnsureFind() Then Exit Property
-    FindMatchCount = WebView2Thunks.GetLongProperty(m_pFind, 4, "Find.get_MatchCount")
-End Property
-
-'***************************************************************************************************
-'* 機能　　：次の検索結果へ移動します
-'***************************************************************************************************
-Public Sub FindNext()
-    If Not EnsureFind() Then Exit Sub
-    WebView2Thunks.dcf m_pFind, 10, "Find.FindNext"
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：前の検索結果へ移動します
-'***************************************************************************************************
-Public Sub FindPrevious()
-    If Not EnsureFind() Then Exit Sub
-    WebView2Thunks.dcf m_pFind, 11, "Find.FindPrevious"
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：検索を終了し、ハイライト表示を消去します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`Stop`はVBAの予約語のため、`FindStop`という名前にしている
-'***************************************************************************************************
-Public Sub FindStop()
-    If Not EnsureFind() Then Exit Sub
-    WebView2Thunks.dcf m_pFind, 12, "Find.Stop"
-End Sub
-
-
 
 '***************************************************************************************************
 '                              ■■■ 初期化/後始末 ■■■
