@@ -76,8 +76,9 @@ Private m_pProfile      As LongPtr  'ICoreWebView2Profile
 
 'たどり着けた階層レベル
 Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN          (基底のみなら1)
-Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN   (基底のみなら1)
 Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN (基底のみなら1)
+Private m_environmentLevel  As Long '`m_pEnvironment`が実際にQueryInterfaceで辿り着けた`ICoreWebView2EnvironmentN`のN(基底のみなら1。_11までしか使わないためそこまでしか探らない)
+Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN   (基底のみなら1)
 Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN    (基底のみなら1、未取得なら0)
 
 '==============================================COM管理==============================================
