@@ -148,7 +148,8 @@ Public Event CDPMessageReceived(RawJson As String)
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-Private m_Host          As WebView2Host
+'WebView2の各種ポインターや設定プロパティとなるメインディッシュ
+Private m_Host       As WebView2Host
 
 ' Environment作成オプション(`ICoreWebView2EnvironmentOptions`系)。`m_Host`の生死とは独立に
 ' こちらで直接保持するため、`ConnectCDP`実行前(=`m_Host`がまだ存在しない間)から自由に設定できる。
@@ -164,7 +165,7 @@ Private m_deleteProfileOnDisconnect As Boolean
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
-'--- ログ設定状況 ---
+' ログ設定状況
 Private currentLog As StateLog
 
 
@@ -342,7 +343,7 @@ Public Function SendCommandCDP(strData As String) As Long
         Exit Function
     End If
 
-    '2. `ICoreWebView2_1`ポインターの取得を試みる
+    '2. `ICoreWebView2`ポインターの取得を試みる
     Dim pView As LongPtr: pView = m_Host.ICoreWebView2Ptr
     If pView = 0 Then
         printMsg ERROR_, "ViewPtr is 0 (disconnected or initialization incomplete).", FromProcedureName
