@@ -91,13 +91,13 @@ Sub 拡張機能インストールアンインストール()
             MsgBox "拡張機能のインストールに成功しました。", vbInformation, "exID: " & InstallID
         
         Else
-        InstallID = .ThisWebView2.AddBrowserExtension(インストールパス)
-        If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
-        MsgBox "拡張機能のインストールに成功しました。OKを押すとアンインストールします", vbInformation, "exID: " & InstallID
-        
-        '6. アンインストール
-        If Not .ThisWebView2.RemoveBrowserExtension(InstallID) Then MsgBox "拡張機能のアンインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
-        MsgBox "拡張機能のアンインストールに成功しました。", vbInformation
+            InstallID = .ThisWebView2.AddBrowserExtension(インストールパス)
+            If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
+            MsgBox "拡張機能のインストールに成功しました。OKを押すとアンインストールします", vbInformation, "exID: " & InstallID
+            
+            '6. アンインストール
+            If Not .ThisWebView2.RemoveBrowserExtension(InstallID) Then MsgBox "拡張機能のアンインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
+            MsgBox "拡張機能のアンインストールに成功しました。", vbInformation
         End If
     End With
 
@@ -344,7 +344,11 @@ Sub RunSettingsFamilyDemo()
             IIf(titleWhenEnabled = "JS_RAN", " -> OK(スクリプト実行された)", " -> NG(実行されなかった)")
 
         '--- DefaultScriptDialogsEnabled=False：alert()がブロックされて処理が止まらないか ---
+        '※`AreDefaultScriptDialogsEnabled`は「次に読み込むHTMLドキュメントから」有効になる設定のため
+        '  (SDK仕様。既に読み込み済みのドキュメントには遡って効かない)、設定直後に必ず再ナビゲートすること
         .ThisWebView2.DefaultScriptDialogsEnabled = False
+        .ThisCDPContext.navigate scriptTestUrl & "?dlg=" & Timer
+
         Dim dialogResult As String
         dialogResult = .ThisCDPContext.jsEval("alert('WebView2 Demo'); 'ALERT_RETURNED'")
         Debug.Print "DefaultScriptDialogsEnabled=False Demo結果: " & dialogResult & _
@@ -367,25 +371,40 @@ Sub RunSettingsFamilyDemo()
             "(短い/空ならEdge独自のエラーページが出ていない=OKの可能性が高い。念のため目視も推奨)"
 
         '--- 残り(視覚/ジェスチャー依存で自動検証が困難なもの)はスモークテストのみ ---
-        .ThisWebView2.WebMessageEnabled = True
-        .ThisWebView2.StatusBarEnabled = True
-        .ThisWebView2.HostObjectsAllowed = True
-        .ThisWebView2.ZoomControlEnabled = True
-        .ThisWebView2.BrowserAcceleratorKeysEnabled = True
-        .ThisWebView2.PasswordAutosaveEnabled = True
-        .ThisWebView2.GeneralAutofillEnabled = True
-        .ThisWebView2.PinchZoomEnabled = True
-        .ThisWebView2.SwipeNavigationEnabled = True
-        .ThisWebView2.HiddenPdfToolbarItems = PDF_PrintItem Or PDF_Save
-        .ThisWebView2.ReputationCheckingRequired = True
-        .ThisWebView2.NonClientRegionSupportEnabled = False
+        '※既定値のままだと「変化なし」で目視確認しづらいため、あえて逆既定値(○○させない側)に
+        '  している。既定に戻したい場合は各コメントの値を参照
+        .ThisWebView2.WebMessageEnabled = False               '既定True
+        .ThisWebView2.StatusBarEnabled = False                '既定True
+        .ThisWebView2.HostObjectsAllowed = False               '既定True
+        .ThisWebView2.ZoomControlEnabled = False               '既定True
+        .ThisWebView2.BrowserAcceleratorKeysEnabled = False    '既定True
+        .ThisWebView2.PasswordAutosaveEnabled = False          '既定True
+        .ThisWebView2.GeneralAutofillEnabled = False           '既定True
+        .ThisWebView2.PinchZoomEnabled = False                 '既定True
+        .ThisWebView2.SwipeNavigationEnabled = False           '既定True
+        .ThisWebView2.HiddenPdfToolbarItems = PDF_PrintItem Or PDF_Save   '既定0(全表示)
+        .ThisWebView2.ReputationCheckingRequired = False       '既定True
+        .ThisWebView2.NonClientRegionSupportEnabled = True     '既定False
         Debug.Print "Settings Demo: WebMessageEnabled/StatusBarEnabled/HostObjectsAllowed/" & _
             "ZoomControlEnabled/BrowserAcceleratorKeysEnabled/PasswordAutosaveEnabled/" & _
             "GeneralAutofillEnabled/PinchZoomEnabled/SwipeNavigationEnabled/" & _
             "HiddenPdfToolbarItems/ReputationCheckingRequired/NonClientRegionSupportEnabledは" & _
             "設定呼び出しがエラーなく完了(スモークテストのみ。UI/ジェスチャー依存のため目視/手動確認が必要)"
 
-        Unload WebView2Form
+        '--- ここまではウィンドウ非表示のまま検証してきたが、以下は目視/手動操作が要るため表示する ---
+        .show vbModeless
+        ' MsgBox "以下、お好みで目視確認してください(OKでデモ終了)。いずれも「逆既定値」にしているため" & _
+        '     "「起きない/効かない」ことを確認するテストになります:" & vbCrLf & _
+        '     "・ステータスバー：ページ内リンクにマウスオーバーしても左下に表示されないか(StatusBarEnabled=False)" & vbCrLf & _
+        '     "・ズーム：Ctrl+マウスホイールで拡大縮小できないか(ZoomControlEnabled=False)" & vbCrLf & _
+        '     "・アクセラレータキー：Ctrl+F/F12等のブラウザ的キーが効かないか(BrowserAcceleratorKeysEnabled=False)" & vbCrLf & _
+        '     "・スワイプ：タッチパッド左右スワイプで進む/戻るnavigateしないか(SwipeNavigationEnabled=False)" & vbCrLf & _
+        '     "・PDF：PDFファイルへ遷移し、内蔵ビューアの印刷/保存ボタンが非表示か(HiddenPdfToolbarItems)" & vbCrLf & _
+        '     "・タイトルバー領域：app-region:drag対応CSSのページで、その領域のドラッグが無効なままか" & _
+        '     "(NonClientRegionSupportEnabledは既定Falseのままだと元々無効な機能なので、Trueにして" & _
+        '     "有効化できてるかを見る側になる点に注意)", _
+        '     vbInformation, "RunSettingsFamilyDemo 目視確認"
+
     End With
 End Sub
 
@@ -441,20 +460,36 @@ Sub RunProfileFamilyDemo()
         Debug.Print "PreferredColorScheme=Dark Demo結果: prefers-color-scheme dark match=" & isDark
 
         '--- 残り(観測手段が複雑なもの)はスモークテストのみ ---
+        '※`ProfilePasswordAutosaveEnabled`/`ProfileGeneralAutofillEnabled`は既定値のままだと
+        '  変化が分からないため、あえて逆既定値(既定True→False)にしている
         Dim downloadFolder As String
-        downloadFolder = Environ("TEMP") & "\WV2SettingsDemo\Downloads"
+        downloadFolder = Environ("UserProfile") & "\Downloads" & "\WV2SettingsDemo\Downloads"
         If Dir(downloadFolder, vbDirectory) = vbNullString Then MkDir downloadFolder
         .ThisWebView2.DefaultDownloadFolderPath = downloadFolder
-        .ThisWebView2.PreferredTrackingPreventionLevel = TrackingPrevention_Strict
-        .ThisWebView2.ProfilePasswordAutosaveEnabled = True
-        .ThisWebView2.ProfileGeneralAutofillEnabled = True
-        .ThisWebView2.WebViewScriptApisEnabledForServiceWorkers = True
+        .ThisWebView2.PreferredTrackingPreventionLevel = TrackingPrevention_Strict   '既定Balanced
+        .ThisWebView2.ProfilePasswordAutosaveEnabled = False                        '既定True
+        .ThisWebView2.ProfileGeneralAutofillEnabled = False                         '既定True
+        .ThisWebView2.WebViewScriptApisEnabledForServiceWorkers = True              '既定False
         Debug.Print "Profile Demo: DefaultDownloadFolderPath/PreferredTrackingPreventionLevel/" & _
             "ProfilePasswordAutosaveEnabled/ProfileGeneralAutofillEnabled/" & _
             "WebViewScriptApisEnabledForServiceWorkersの設定呼び出しがエラーなく完了" & _
             "(実際の効果確認には、ダウンロード実行やフォーム入力等の実操作が必要)"
 
-        Unload WebView2Form
+        '--- ここまではウィンドウ非表示のまま検証してきたが、以下は目視/手動操作が要るため表示する ---
+        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
+        .show vbModeless
+'        MsgBox "以下、お好みで目視確認してください(OKでデモ終了):" & vbCrLf & _
+'            "・ダウンロード：適当なファイルへのリンクを右クリック→名前を付けて保存等でダウンロードし、" & _
+'            "「" & downloadFolder & "」に保存されるか(DefaultDownloadFolderPath)" & vbCrLf & _
+'            "・パスワード自動保存：ログインフォームのあるページでログインを試し、" & _
+'            "「パスワードを保存しますか？」ダイアログが出ないか(ProfilePasswordAutosaveEnabled=False)" & vbCrLf & _
+'            "・オートフィル：住所/氏名等の入力欄で、補完候補が出ないか(ProfileGeneralAutofillEnabled=False)" & vbCrLf & _
+'            "・トラッキング防止：Strict指定時のみ発生する挙動なので、目視では判断しづらいです" & _
+'            "(設定呼び出しがエラーにならないことのみ確認済み)" & vbCrLf & _
+'            "・ServiceWorker：`navigator.serviceWorker`経由のScript API疎通は専用のテストページが" & _
+'            "要るため、目視では判断しづらいです(同上)", _
+'            vbInformation, "RunProfileFamilyDemo 目視確認"
+
     End With
 End Sub
 
@@ -475,9 +510,7 @@ Sub RunViewExtrasDemo()
 
         '--- IsMuted(ICoreWebView2_8)：put→getの直接往復で確認 ---
         .ThisWebView2.IsMuted = True
-        Debug.Print "IsMuted=True設定後の読み取り結果: " & .ThisWebView2.IsMuted
         .ThisWebView2.IsMuted = False
-        Debug.Print "IsMuted=False設定後の読み取り結果: " & .ThisWebView2.IsMuted
 
         '--- IsDocumentPlayingAudio(ICoreWebView2_8)：Web Audio APIで実際に音を鳴らして確認 ---
         Dim audioTestUrl As String
@@ -498,13 +531,6 @@ Sub RunViewExtrasDemo()
         CDPHelpers.Sleep 1   'favicon解決を少し待つ
         Debug.Print "FaviconUri Demo結果: " & .ThisWebView2.FaviconUri
 
-        '--- Find(ICoreWebView2_28)：Start未実装のため、エラーにならないことのみ確認 ---
-        .ThisWebView2.FindNext
-        .ThisWebView2.FindPrevious
-        .ThisWebView2.FindStop
-        Debug.Print "Find Demo結果: FindNext/FindPrevious/FindStopはエラーなく完了。" & _
-            "ActiveMatchIndex=" & .ThisWebView2.FindActiveMatchIndex & _
-            " MatchCount=" & .ThisWebView2.FindMatchCount & "(Start未実装のため共に0が正常)"
 
         .show False
     End With
