@@ -856,6 +856,18 @@ Public Function dcf( _
     End If
 End Function
 
+'***************************************************************************************************
+'* 機能　　：`POINT`等、8バイトぴったりの構造体を`dcf`へ「値渡し」するための変換ヘルパー
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：x64呼び出し規約上、8バイト以下の構造体はポインタ経由ではなく、生のビット列がその
+'            まま1個の64bit整数としてレジスタに乗る(`SetDefaultBackgroundColor`が4バイト構造体を
+'            `Long`へパックして渡しているのと同じ理由)。`VarPtr(構造体)`をそのまま`dcf`へ渡すと
+'            「アドレス値」が構造体の値と誤認されてしまうため、必ず本関数経由で変換すること
+'***************************************************************************************************
+Public Function PackStruct8(ByVal addr As LongPtr) As LongLong
+    PackStruct8 = ReadLongPtr(addr)
+End Function
+
 Public Function ComRelease(ByVal pInterface As LongPtr) As Long
     If pInterface <> 0 Then ComRelease = dcf(pInterface, 2, "Release")
 End Function

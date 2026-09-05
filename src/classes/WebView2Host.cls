@@ -1811,7 +1811,7 @@ Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
     If m_viewLevel < 9 Then Exit Sub
     Dim pt As WebView2Thunks.POINT
     pt.x = x: pt.y = y
-    WebView2Thunks.dcf m_pView, 96, "View9.put_DefaultDownloadDialogMargin", VarPtr(pt)
+    WebView2Thunks.dcf m_pView, 96, "View9.put_DefaultDownloadDialogMargin", WebView2Thunks.PackStruct8(VarPtr(pt))
 End Sub
 
 '---------------------------------------------------------------------------------------------------
