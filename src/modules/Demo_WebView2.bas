@@ -144,7 +144,7 @@ End Sub
 Sub RunVirtualHostMappingDemo()
     Const hostname As String = "wv2demo.local"
     Dim FolderPath As String
-    FolderPath = Environ("TEMP") & "\WV2VirtualHostDemo"
+    FolderPath = Environ("UserProfile") & "\Downloads" & "\WV2VirtualHostDemo"
 
     '1. デモ用のローカルファイル(index.html/data.json)を一時フォルダへ用意
     PrepareVirtualHostDemoFiles FolderPath
@@ -238,7 +238,7 @@ End Sub
 '***************************************************************************************************
 Private Function WriteDemoHtmlFile(ByVal FileName As String, ByVal HtmlContent As String) As String
     Dim Folder As String
-    Folder = Environ("TEMP") & "\WV2SettingsDemo"
+    Folder = Environ("UserProfile") & "\Downloads" & "\WV2SettingsDemo"
     If Dir(Folder, vbDirectory) = vbNullString Then MkDir Folder
 
     Dim conv As New CharacterCodeConversion
