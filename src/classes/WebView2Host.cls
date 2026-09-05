@@ -512,6 +512,205 @@ End Sub
 
 
 '***************************************************************************************************
+'                                 ■■■ 拡張機能 操作一式 ■■■
+'***************************************************************************************************
+'* 注意事項：`ICoreWebView2Profile7`/`ICoreWebView2BrowserExtension`をまたぐ複合フロー(要求発行→
+'            完了待ち→結果の取り出し)をここに集約する。個々のインターフェース呼び出し自体
+'            (バージョンチェック/Vtable発行/ハンドラ準備)は上の`ICoreWebView2Profile7`セクション内の
+'            `IssueXxx`系プロシージャに任せ、ここでは`WaitFor`による待機と結果の取り出しのみを行う
+'***************************************************************************************************
+'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionFolderPath  拡張機能の`manifest.json`を含むトップフォルダの絶対パス
+'* 返り値  ：インストールされた拡張機能のID(失敗時は空文字。詳細は`LastError`/`LastErrorMessage`)
+'***************************************************************************************************
+Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
+    Const FromProcedureName As String = "WebView2Host.AddBrowserExtension"
+
+
+    '1. 予め定義した拡張機能インストールプロシージャに処理を委託
+    If Not IssueAddBrowserExtension(extensionFolderPath) Then Exit Function
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 非同期処理が終わるまで「郵便ポストを見ながら」待つ！】
+    '-----------------------------------------------------------------------------------------------
+    ' ★ここがポイント！
+    ' C++側のインストール作業は裏で進むので、終わるまでWaitForで待機する。
+    ' (WaitForの中でメッセージループが回ることで、完了時のWindowsメッセージを開封され、対象の「完了コールバック」プロシージャへワープする)
+    If Not WaitFor(m_ext.addExt.state) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    '3. インストールIDを返す
+    AddBrowserExtension = m_ext.addExt.resultId
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`GetBrowserExtensions`要求の発行から完了待ちまでを行い、結果を`m_ext.getExt.items`へ
+'            格納します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：成功可否
+'* 注意事項：`m_ext.getExt.items`の各値は`ICoreWebView2BrowserExtension`への新規参照であり、
+'            呼び出し元が`ReleaseGetExtPtrs`で解放する責任を持つ
+'***************************************************************************************************
+Private Function RunGetBrowserExtensions() As Boolean
+    Const FromProcedureName As String = "WebView2Host.RunGetBrowserExtensions"
+
+    
+    '1. 予め定義した拡張機能インストールプロシージャに処理を委託
+    If Not IssueGetBrowserExtensions Then Exit Function
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 自前await(WaitFor)で待つ！ ── 裏で起きる大スペクタクル】
+    '-----------------------------------------------------------------------------------------------
+    ' ここでメッセージループを回しながら、C++の返事を待つ！
+    '
+    ' ★この待機中に、今日の前半の「あのコード」が裏で発火します！↓
+    '   ① C++からポストに手紙が届く！
+    '   ② 配達員が`WebView2Host.OnGetBrowserExtensionsCompleted`を呼び出す！
+    '   ③ 3番(get_Count)で個数を調べてループ！
+    '   ④ 4番(GetValueAtIndex)で拡張機能オブジェクトを取り出す！
+    '   ⑤ 3番(get_Id)でID文字列を引っこ抜いて、ステップ1で作った m_ext.getExt.Items に Add！
+    '   ⑥ ぜんぶ終わったら state を「準備完了(Whs_Ready)」に書き換える！
+    '
+    If Not WaitFor(m_ext.getExt.state) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    '3. 成功有無を返す
+    RunGetBrowserExtensions = (m_ext.getExt.state = Whs_Ready)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：インストール済みの拡張機能を、ID/名前/有効状態付きで一覧取得します(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：各要素が`Dictionary`(キー:"ID"/"Name"/"IsEnabled")の`Collection`。
+'            0件/失敗時は空の`Collection`
+'***************************************************************************************************
+Public Function GetBrowserExtensionIds() As Collection
+    Dim results As New Collection
+
+    If Not RunGetBrowserExtensions() Then
+        ReleaseGetExtPtrs
+        Set GetBrowserExtensionIds = results
+        Exit Function
+    End If
+
+    Dim Key As Variant, pExt As LongPtr, info As Dictionary
+    For Each Key In m_ext.getExt.Items.keys
+        pExt = m_ext.getExt.Items(Key)
+
+        Set info = New Dictionary
+        info.Add "ID", CStr(Key)
+        info.Add "Name", WebView2Thunks.GetStringProperty(pExt, 4, "BrowserExtension.get_Name")
+        info.Add "IsEnabled", WebView2Thunks.GetBoolProperty(pExt, 6, "BrowserExtension.get_IsEnabled")
+        results.Add info
+    Next Key
+
+    Set GetBrowserExtensionIds = results
+    ReleaseGetExtPtrs
+End Function
+
+'***************************************************************************************************
+'* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：extensionId  `AddBrowserExtension`の戻り値、または`GetBrowserExtensionIds`の各要素の
+'            "ID"キーで得られる拡張機能ID
+'* 返り値  ：成功可否
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：WebView2にはID指定の直接アンインストールAPIが無いため、`GetBrowserExtensions`で
+'            一覧を取得して対象を特定してから`ICoreWebView2BrowserExtension::Remove`を呼ぶ、
+'            という2段構えになる(CDPの`Extensions.uninstall`はWebView2では使えないため代替不可)
+'***************************************************************************************************
+Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
+    Const FromProcedureName As String = "WebView2Host.RemoveBrowserExtension"
+
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【第1段: マンション(拡張機能)の住人を全員ロビーに集める(全件取得)】
+    '-----------------------------------------------------------------------------------------------
+    ' 1-1. 全拡張機能の一覧を取得する(裏でGetBrowserExtensions → WaitForが走る)
+    If Not RunGetBrowserExtensions() Then
+        ' 失敗した場合は、途中で確保されたポインタたちを安全に全解放してお掃除
+        ReleaseGetExtPtrs
+        Exit Function
+    End If
+
+    ' 1-2. 取得した一覧の中に、消したいIDの住人が存在するかチェック！
+    If Not m_ext.getExt.Items.Exists(extensionId) Then
+        Debug.Print FromProcedureName & ": 指定IDの拡張機能が見つかりません: " & extensionId
+
+        ' いなかったので、集めた住人ポインタたちを全員解放してお見送り
+        ReleaseGetExtPtrs
+        Exit Function
+    End If
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【第2段の手前: お目当ての住人を確保し、無関係な住人を全員解放する】
+    '-----------------------------------------------------------------------------------------------
+    ' 2-1. 消したい対象のオブジェクトポインタ(pTarget)をキープ！
+    Dim pTarget As LongPtr: pTarget = m_ext.getExt.Items(extensionId)
+
+    ' 2-2. ★超重要(メモリ管理):
+    '      対象(extensionId)「以外」の無関係なポインタはもう用済みなので、
+    '      この瞬間に全員 Release してメモリから解放する！(メモリリーク防止)
+    ReleaseGetExtPtrs extensionId
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【第2段: 本人に「退去届」を出させる(Remove実行)】
+    '-----------------------------------------------------------------------------------------------
+    ' 3-1. 対象オブジェクト(pTarget)の Remove メソッドを非同期で叩く！
+    '      (内部で HK_RemoveBrowserExtensionCompleted の配達員がセットされる)
+    Dim issued As Boolean
+    issued = IssueRemoveBrowserExtension(pTarget)
+
+    ' 3-2. ★超神業(メモリ管理):
+    '      GetValueAtIndex で取得した時に増えていた参照カウント(+1)を、ここで手放す(-1)！
+    '      ※Remove処理自体は裏のC++側でキープされて継続するので、
+    '        VBA側の手元の参照はここで解放してしまって全く問題ない。
+    WebView2Thunks.ComRelease pTarget
+    
+    ' 発行自体に失敗していたら終了
+    If Not issued Then Exit Function
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【第2段の完了待ち: 退去が完了するまで自前await(WaitFor)で待つ】
+    '-----------------------------------------------------------------------------------------------
+    ' 削除完了コールバックが届いて、state が Whs_Ready になるまでメッセージループ待機！
+    If Not WaitFor(m_ext.removeExt.state) Then
+        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
+        Exit Function
+    End If
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【ゴール: 成功判定を返却】
+    '-----------------------------------------------------------------------------------------------
+    RemoveBrowserExtension = (m_ext.removeExt.state = Whs_Ready)
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`m_ext.getExt.items`の参照を解放します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：keepId  この拡張機能ID分の参照だけは解放せず残す(既定は空文字で全解放)
+'***************************************************************************************************
+Private Sub ReleaseGetExtPtrs(Optional ByVal keepId As String)
+    If m_ext.getExt.Items Is Nothing Then Exit Sub
+
+    Dim k As Variant
+    For Each k In m_ext.getExt.Items.keys
+        If CStr(k) <> keepId Then
+            Dim p As LongPtr
+            p = m_ext.getExt.Items(k)
+            If p <> 0 Then WebView2Thunks.ComRelease p
+        End If
+    Next k
+End Sub
+
+
+
+'***************************************************************************************************
 '                              ■■■ 完了コールバック(Public Sub必須) ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
@@ -1220,39 +1419,61 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2Profile7
 '---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでの各`IssueXxx`は「バージョンチェック→Vtable呼び出し→(完了通知が要るものは)
+'            ハンドラ準備」までを担当し、完了待ち(`WaitFor`)自体はここでは行わない
+'            (待機/結果の取り出しは「■■■ 拡張機能 操作一式 ■■■」セクション側の責務)
 '***************************************************************************************************
-'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールします(Profile7以降)
+'* 機能　　：指定フォルダの未パック拡張機能を、プロファイルへインストールする要求を発行します
+'            (Profile7以降)
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：extensionFolderPath  拡張機能の`manifest.json`を含むトップフォルダの絶対パス
-'* 返り値  ：インストールされた拡張機能のID(失敗時は空文字。詳細は`LastError`/`LastErrorMessage`)
+'* 返り値  ：要求の発行に成功したか(完了自体はまだ先。完了通知は`WebView2Host.OnAddBrowserExtensionCompleted`に届く)
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`EnvironmentOptions.AreBrowserExtensionsEnabled=True`でEnvironmentを作成していないと
 '              `ERROR_NOT_SUPPORTED`で失敗します(SDK仕様)
 '            ・`ICoreWebView2::CallDevToolsProtocolMethod`経由の`Extensions.loadUnpacked`は
 '              WebView2では`Method not available`で拒否されるため、本メソッド(SDK公式API)を
 '              使う必要がある
+'            ・完了通知作成を伴うため、ここのフローのみ詳細化してます
 '***************************************************************************************************
-Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
-    Const FromProcedureName As String = "WebView2Host.AddBrowserExtension"
+Private Function IssueAddBrowserExtension(ByVal extensionFolderPath As String) As Boolean
+    Const FromProcedureName As String = "WebView2Host.IssueAddBrowserExtension"
 
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: バージョン確認(身分証チェック)】
+    '-----------------------------------------------------------------------------------------------
+    ' 拡張機能の追加は「ICoreWebView2Profile7」以降でしか使えない最新機能！
+    ' 実行環境のEdgeが古くてProfile7未満なら、門前払いで抜ける(クラッシュ防止)
     If m_profileLevel < 7 Then
         Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
         Exit Function
     End If
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 完了通知を受け取る配達員(ハンドラー)を準備する】
+    '-----------------------------------------------------------------------------------------------
+    ' 2-1. 共有スロットプールから「拡張機能完了用(HK_AddBrowserExtensionCompleted)」の空きブースを借りる
     Set m_ext.addExt.handler = WebView2Thunks.AcquireHandlerFor(HK_AddBrowserExtensionCompleted, Me)
     If m_ext.addExt.handler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
+    ' 2-2. C++に見せるための「お面(Vtableポインタ)」の先頭アドレスを計算
     Dim pHandlerObj As LongPtr
     pHandlerObj = m_ext.addExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
+    ' 2-3. 結果受け取り用の変数をリセットし、「待機中(Whs_Waiting)」の看板を立てる
     m_ext.addExt.resultId = vbNullString
     m_ext.addExt.state = Whs_Waiting
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: C++(Profile7)に拡張機能の追加を命令する！】
+    '-----------------------------------------------------------------------------------------------
+    ' Profile7の Vtable出席番号[22]: AddBrowserExtension を叩く！
+    '  - 第1引数: 拡張機能フォルダのパス文字列(StrPtr)
+    '  - 第2引数: さっき作った配達員の住所(pHandlerObj)
     Dim hr As Long
     hr = WebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
                                StrPtr(extensionFolderPath), pHandlerObj)
@@ -1263,123 +1484,53 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
         Exit Function
     End If
 
-    If Not WaitFor(m_ext.addExt.state) Then
-        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
-        Exit Function
-    End If
-
-    AddBrowserExtension = m_ext.addExt.resultId
+    '4. 依頼完了サインを返す
+    IssueAddBrowserExtension = True
 End Function
 
 '***************************************************************************************************
-'* 機能　　：インストール済みの拡張機能IDを一覧取得します(Profile7以降)
+'* 機能　　：インストール済み拡張機能一覧の取得要求を発行します(Profile7以降)
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：拡張機能IDの配列(String)。0件/失敗時は要素数0の配列
+'* 返り値  ：要求の発行に成功したか(完了自体はまだ先。完了通知は`WebView2Host.OnGetBrowserExtensionsCompleted`に届く)
 '***************************************************************************************************
-Public Function GetBrowserExtensionIds() As Variant
-    If Not RunGetBrowserExtensions() Then
-        ReleaseGetExtPtrs
-        GetBrowserExtensionIds = Array()
-        Exit Function
-    End If
-
-    If m_ext.getExt.Items.Count = 0 Then
-        GetBrowserExtensionIds = Array()
-    Else
-        GetBrowserExtensionIds = m_ext.getExt.Items.keys
-    End If
-
-    ReleaseGetExtPtrs
-End Function
-
-'***************************************************************************************************
-'* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：extensionId  `AddBrowserExtension`/`GetBrowserExtensionIds`で得られる拡張機能ID
-'* 返り値  ：成功可否
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：WebView2にはID指定の直接アンインストールAPIが無いため、`GetBrowserExtensions`で
-'            一覧を取得して対象を特定してから`ICoreWebView2BrowserExtension::Remove`を呼ぶ、
-'            という2段構えになる(CDPの`Extensions.uninstall`はWebView2では使えないため代替不可)
-'***************************************************************************************************
-Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
-    Const FromProcedureName As String = "WebView2Host.RemoveBrowserExtension"
+Private Function IssueGetBrowserExtensions() As Boolean
+    Const FromProcedureName As String = "WebView2Host.IssueGetBrowserExtensions"
 
 
-    If Not RunGetBrowserExtensions() Then
-        ReleaseGetExtPtrs
-        Exit Function
-    End If
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: 受け皿の準備 & 身分証チェック】
+    '-----------------------------------------------------------------------------------------------
+    ' 1-1. 前回取得した古いデータが残っていると困るので、結果格納用Dictionaryを新品にリセット！
+    Set m_ext.getExt.Items = New Dictionary
 
-    If Not m_ext.getExt.Items.Exists(extensionId) Then
-        Debug.Print FromProcedureName & ": 指定IDの拡張機能が見つかりません: " & extensionId
-        ReleaseGetExtPtrs
-        Exit Function
-    End If
-
-    Dim pTarget As LongPtr: pTarget = m_ext.getExt.Items(extensionId)
-    ReleaseGetExtPtrs extensionId   ' 対象(extensionId)以外を全解放
-
-    Set m_ext.removeExt.handler = WebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
-    If m_ext.removeExt.handler Is Nothing Then
-        Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
-        WebView2Thunks.ComRelease pTarget
-        Exit Function
-    End If
-
-    Dim pHandlerObj As LongPtr
-    pHandlerObj = m_ext.removeExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
-
-    m_ext.removeExt.state = Whs_Waiting
-
-    Dim hr As Long
-    hr = WebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
-    WebView2Thunks.ComRelease pTarget   ' GetValueAtIndexで得た参照はもう不要(Remove自体は非同期に継続する)
-
-    If hr <> 0 Then
-        Debug.Print FromProcedureName & ": Remove失敗 hr=&H" & Hex(hr)
-        m_lastError = hr
-        m_ext.removeExt.state = Whs_Failed
-        Exit Function
-    End If
-
-    If Not WaitFor(m_ext.removeExt.state) Then
-        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
-        Exit Function
-    End If
-
-    RemoveBrowserExtension = (m_ext.removeExt.state = Whs_Ready)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`GetBrowserExtensions`を実行し、結果を`m_ext.getExt.items`へ格納します
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：成功可否
-'* 注意事項：`m_ext.getExt.items`の各値は`ICoreWebView2BrowserExtension`への新規参照であり、
-'            呼び出し元が`ReleaseGetExtPtrs`で解放する責任を持つ
-'***************************************************************************************************
-Private Function RunGetBrowserExtensions() As Boolean
-    Const FromProcedureName As String = "WebView2Host.RunGetBrowserExtensions"
-
-
-    Set m_ext.getExt.Items = New Dictionary   ' 毎回リセット
-
+    ' 1-2. 拡張機能の取得機能も「ICoreWebView2Profile7」以降でしか使えない！
     If m_profileLevel < 7 Then
         Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
         Exit Function
     End If
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: 一覧取得専用の配達員(ハンドラー)を準備する】
+    '-----------------------------------------------------------------------------------------------
+    ' 2-1. 共有スロットプールから「一覧取得完了用(HK_GetBrowserExtensionsCompleted)」の空き部屋を借りる
     Set m_ext.getExt.handler = WebView2Thunks.AcquireHandlerFor(HK_GetBrowserExtensionsCompleted, Me)
     If m_ext.getExt.handler Is Nothing Then
         Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
         Exit Function
     End If
 
+    ' 2-2. C++に見せるための「お面(Vtableポインタ)」のアドレスを計算
     Dim pHandlerObj As LongPtr
     pHandlerObj = m_ext.getExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
 
+    ' 2-3. 「待機中(Whs_Waiting)」の看板を立てておく
     m_ext.getExt.state = Whs_Waiting
 
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ3: C++(Profile7)に「一覧をちょうだい！」と命令する】
+    '-----------------------------------------------------------------------------------------------
+    ' Profile7::GetBrowserExtensions を叩く！
+    ' (引数は結果を届けてもらうための配達員の住所 pHandlerObj だけ！)
     Dim hr As Long
     hr = WebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
     If hr <> 0 Then
@@ -1389,31 +1540,9 @@ Private Function RunGetBrowserExtensions() As Boolean
         Exit Function
     End If
 
-    If Not WaitFor(m_ext.getExt.state) Then
-        Debug.Print FromProcedureName & ": 完了待ちがタイムアウトしました"
-        Exit Function
-    End If
-
-    RunGetBrowserExtensions = (m_ext.getExt.state = Whs_Ready)
+    '4. 依頼完了サインを返す
+    IssueGetBrowserExtensions = True
 End Function
-
-'***************************************************************************************************
-'* 機能　　：`m_ext.getExt.items`の参照を解放します
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：keepId  この拡張機能ID分の参照だけは解放せず残す(既定は空文字で全解放)
-'***************************************************************************************************
-Private Sub ReleaseGetExtPtrs(Optional ByVal keepId As String = "")
-    If m_ext.getExt.Items Is Nothing Then Exit Sub
-
-    Dim k As Variant
-    For Each k In m_ext.getExt.Items.keys
-        If CStr(k) <> keepId Then
-            Dim p As LongPtr
-            p = m_ext.getExt.Items(k)
-            If p <> 0 Then WebView2Thunks.ComRelease p
-        End If
-    Next k
-End Sub
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2Profile9
@@ -1428,6 +1557,55 @@ Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
     If m_profileLevel < 9 Then Exit Property
     WebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
 End Property
+
+
+
+'***************************************************************************************************
+'                          ■■■ ICoreWebView2BrowserExtension 一式 ■■■
+'***************************************************************************************************
+'* 機能　　：指定の`ICoreWebView2BrowserExtension`に対する、アンインストール要求を発行します
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：pTarget  対象の`ICoreWebView2BrowserExtension`ポインタ(借用。呼び出し元がRelease管理する)
+'* 返り値  ：要求の発行に成功したか(完了自体はまだ先。完了通知は`WebView2Host.OnRemoveBrowserExtensionCompleted`に届く)
+'***************************************************************************************************
+Private Function IssueRemoveBrowserExtension(ByVal pTarget As LongPtr) As Boolean
+    Const FromProcedureName As String = "WebView2Host.IssueRemoveBrowserExtension"
+
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ1: 完了通知を受け取る配達員(ハンドラー)を準備する】
+    '-----------------------------------------------------------------------------------------------
+    ' 1-1. 共有スロットプールから「削除完了用(HK_RemoveBrowserExtensionCompleted)」の空き部屋を借りる
+    Set m_ext.removeExt.handler = WebView2Thunks.AcquireHandlerFor(HK_RemoveBrowserExtensionCompleted, Me)
+    If m_ext.removeExt.handler Is Nothing Then
+        Debug.Print FromProcedureName & ": ハンドラのAcquireに失敗しました"
+        Exit Function
+    End If
+
+    ' 1-2. C++に見せるための「お面(Vtableポインタ)」のアドレスを計算
+    Dim pHandlerObj As LongPtr
+    pHandlerObj = m_ext.removeExt.handler.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
+
+    ' 1-3. 「待機中(Whs_Waiting)」の看板を立てておく
+    m_ext.removeExt.state = Whs_Waiting
+
+    '-----------------------------------------------------------------------------------------------
+    ' 【ステップ2: C++(ICoreWebView2BrowserExtension)に「拡張機能アンインストールして！」と命令する】
+    '-----------------------------------------------------------------------------------------------
+    ' ICoreWebView2BrowserExtension::Remove を叩く！
+    ' (引数は結果を届けてもらうための配達員の住所 pHandlerObj だけ！)
+    Dim hr As Long
+    hr = WebView2Thunks.dcf(pTarget, 5, "BrowserExtension.Remove", pHandlerObj)
+    If hr <> 0 Then
+        Debug.Print FromProcedureName & ": Remove失敗 hr=&H" & Hex(hr)
+        m_lastError = hr
+        m_ext.removeExt.state = Whs_Failed
+        Exit Function
+    End If
+
+    '3. 依頼完了サインを返す
+    IssueRemoveBrowserExtension = True
+End Function
 
 
 
