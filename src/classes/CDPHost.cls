@@ -633,10 +633,9 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    'Assign an objID for easy debug identification
-    currentLog.LogID = "CHID" & Format(Rnd * 1000, "000")
-
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        .LogID = "CHID" & Format(Rnd * 1000, "000")                             'ユニークID
+        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)    'ログフォルダパス
+    End With
 End Sub

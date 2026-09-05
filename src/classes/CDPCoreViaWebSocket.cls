@@ -1405,11 +1405,12 @@ Private Sub Class_Initialize()
     '各種ステータスを初期化
     m_hSocket = -1
     m_LastBufferType = WS_NOT_MESSAGE
-    currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")
 
     'ログ設定
-    currentLog.seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)
-    currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)
+    With currentLog
+        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                   'ユニークID
+        currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)          'ログフォルダパス
+    End With
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
