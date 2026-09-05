@@ -286,10 +286,6 @@ End Function
 '***************************************************************************************************
 '* 機能　　：HK_CdpMethodCompleted用のコマンドIDプロパティです
 '***************************************************************************************************
-Friend Property Get callbackId() As Long
-    callbackId = m_callbackId
-End Property
-
 Friend Property Let callbackId(ByVal v As Long)
     m_callbackId = v
 End Property
@@ -297,10 +293,6 @@ End Property
 '***************************************************************************************************
 '* 機能　　：HK_CdpEventReceived用のイベント名プロパティです
 '***************************************************************************************************
-Friend Property Get EventName() As String
-    EventName = m_eventName
-End Property
-
 Friend Property Let EventName(ByVal v As String)
     m_eventName = v
 End Property
