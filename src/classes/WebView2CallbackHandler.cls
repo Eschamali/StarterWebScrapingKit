@@ -138,18 +138,14 @@ Public Function Handler_Invoke( _
             ErrorCode = LongPtrLowDword(arg1)
 
             '3. `WebView2Host.cls`の完了コールバックプロシージャへ
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnEnvironmentCompleted ErrorCode, arg2
-            End If
+            If Not (m_owner Is Nothing) Then m_owner.OnEnvironmentCompleted ErrorCode, arg2
 
         Case HK_ControllerCompleted
             '2. 第2引数を基に、エラーコードを復元
             ErrorCode = LongPtrLowDword(arg1)
 
             '3. `WebView2Host.cls`のメソッドへ
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnControllerCompleted ErrorCode, arg2
-            End If
+            If Not (m_owner Is Nothing) Then m_owner.OnControllerCompleted ErrorCode, arg2
 
 
         '---------------- CDP系 ----------------
@@ -160,9 +156,7 @@ Public Function Handler_Invoke( _
             ErrorCode = LongPtrLowDword(arg1)
 
             '3. `CDPCoreViaWebView2.SendCommandCDP`で設定した`m_callbackId`をコマンドID応答として、`CDPCoreViaWebView2.OnCdpMethodCompleted`へ渡す
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnCdpMethodCompleted m_callbackId, ErrorCode, arg2
-            End If
+            If Not (m_owner Is Nothing) Then m_owner.OnCdpMethodCompleted m_callbackId, ErrorCode, arg2
 
         ' SDKシグネチャ: ICoreWebView2DevToolsProtocolEventReceivedEventHandler::
         '   Invoke(ICoreWebView2* sender, ICoreWebView2DevToolsProtocolEventReceivedEventArgs* args)
@@ -170,9 +164,7 @@ Public Function Handler_Invoke( _
         Case HK_CdpEventReceived
             '2. `CDPCoreViaWebView2.SubscribeCdpEvent`で確保したCOMコールバック領域にて設定したCDPイベント名を、引数に渡して、`CDPCoreViaWebView2.OnCdpEventReceived`へ渡す
             '※これは実行結果ではなく、WebView2自身で起こったイベント情報なので、実行時エラーコードの概念はない
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnCdpEventReceived m_eventName, arg2
-            End If
+            If Not (m_owner Is Nothing) Then m_owner.OnCdpEventReceived m_eventName, arg2
 
 
         '---------------- 拡張機能系 ----------------
@@ -207,7 +199,7 @@ Public Function Handler_Invoke( _
         '---------------- ICoreWebView2EnvironmentOptions系 ----------------
         ' SDKシグネチャ: get_Xxx(this, [out]value) / put_Xxx(this, value) のいずれも1引数のみ。
         ' arg1が「get_ なら[out]ポインタ」「put_ なら渡された値そのもの」に対応する
-        '・`WebView2EnvOptions.BuildNativePointer`で構築した「m_kind」を基に、単純に結果を各メソッドに渡すだけのシンプルな処理なので、各Caseの詳細説明はしない
+        '・`WebView2EnvOptions.BuildNativePointer`で構築した「m_kind」を基に、`WebView2Loader`側からVBEでセットしたプロパティ値を取りに行きます
         Case HK_EnvOpt_GetAdditionalBrowserArguments
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAdditionalBrowserArguments arg1
         Case HK_EnvOpt_PutAdditionalBrowserArguments
@@ -232,7 +224,7 @@ Public Function Handler_Invoke( _
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetAreBrowserExtensionsEnabled arg1
         Case HK_EnvOpt_PutAreBrowserExtensionsEnabled
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutAreBrowserExtensionsEnabled arg1
-        
+
         Case HK_EnvOpt_GetExclusiveUserDataFolderAccess
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnGetExclusiveUserDataFolderAccess arg1
         Case HK_EnvOpt_PutExclusiveUserDataFolderAccess
