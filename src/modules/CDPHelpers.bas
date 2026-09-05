@@ -37,7 +37,7 @@ End Enum
 '各 Class のログ設定（`Private currentLog As StateLog`）。
 '`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
 Public Type StateLog
-    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or CDPからのコマンド結果 or 非同期イベントの生Json文字列
+    seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
     logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
     LogID               As String   '"○○○○" & Format(Rnd * 1000, "000")　(○は4文字)
 End Type
