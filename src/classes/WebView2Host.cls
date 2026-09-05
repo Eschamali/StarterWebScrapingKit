@@ -327,24 +327,20 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
         DetectSettingsLevel
     End If
 
-    '14. ICoreWebView2Profileポインターを取得(View→ICoreWebView2_13へQueryInterface→get_Profile、
-    '   vtable index 105)。取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、
-    '   `m_Profile.Pointer=0`のままにする(各プロパティは`m_Profile.LastLevel`ガードで静かに無視されるだけ)
-    Dim p13 As LongPtr
-    Dim iid13 As WebView2Thunks.GUID
-
-    '14-1. ICoreWebView2Profileポインターは、ICoreWebView2_13の所に所属する`get_Profile`でないと取れないのでまずそこのポインターを取得
-    WebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
-    hr = WebView2Thunks.dcf(m_View.Pointer, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
-    If hr = 0 And p13 <> 0 Then
-        '14-2. 存在したら実際に、ICoreWebView2Profileポインターを取得していく
+    '14. ICoreWebView2Profileポインターを取得(View13::get_Profile、vtable index 105)。
+    '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_Profile.Pointer=0`の
+    '   ままにする(各プロパティは`m_Profile.LastLevel`ガードで静かに無視されるだけ)
+    '---------------------------------------------------------------------------------------------------
+    '   `get_Profile`はICoreWebView2_13所属だが、`DetectViewLevel`が既に`m_View.Pointer`を
+    '   辿り着いた最新版へ差し替え済みのため、ここで改めてICoreWebView2_13をQueryInterface
+    '   し直す必要は無く、`m_View.LastLevel`のガードだけで済む
+    If m_View.LastLevel >= 13 Then
         Dim pProfile As LongPtr
-        hr = WebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
-        WebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
+        hr = WebView2Thunks.dcf(m_View.Pointer, 105, "View13.get_Profile", VarPtr(pProfile))
         If hr = 0 And pProfile <> 0 Then
             m_Profile.Pointer = pProfile
 
-            '14-3. ICoreWebView2Profileのどの最新番号まで対応してるか探る
+            '14-1. ICoreWebView2Profileのどの最新番号まで対応してるか探る
             DetectProfileLevel
         End If
     End If
