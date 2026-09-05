@@ -115,6 +115,26 @@ Public Enum WV2HostResourceAccessKind
     HostAccess_DenyCors = 2
 End Enum
 
+'* `ShowPrintUI`用(`COREWEBVIEW2_PRINT_DIALOG_KIND`)
+Public Enum WV2PrintDialogKind
+    PrintDialog_Browser = 0          ' 既定。ブラウザ内蔵の印刷プレビュー
+    PrintDialog_System = 1           ' OSの印刷ダイアログ
+End Enum
+
+'* `MemoryUsageTargetLevel`用(`COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL`)
+Public Enum WV2MemoryUsageTargetLevel
+    MemoryUsage_Normal = 0           ' 既定
+    MemoryUsage_Low = 1
+End Enum
+
+'* `DefaultDownloadDialogCornerAlignment`用(`COREWEBVIEW2_DEFAULT_DOWNLOAD_DIALOG_CORNER_ALIGNMENT`)
+Public Enum WV2DownloadDialogCornerAlignment
+    DownloadDialog_TopLeft = 0
+    DownloadDialog_TopRight = 1      ' 既定
+    DownloadDialog_BottomLeft = 2
+    DownloadDialog_BottomRight = 3
+End Enum
+
 
 
 '***************************************************************************************************
@@ -183,6 +203,17 @@ End Property
 Public Property Get EnvironmentOptions() As WebView2EnvOptions
     If m_envOptions Is Nothing Then Set m_envOptions = New WebView2EnvOptions
     Set EnvironmentOptions = m_envOptions
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Trueにすると、`DisconnectCDP`実行時にこのプロファイルを削除対象としてマークします
+'            (`ICoreWebView2Profile8::Delete`。使い切り[ワンショット]プロファイル用)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★破壊的操作★ 既定はFalse(通常通りプロファイルを永続化)。`Delete`自体はこのクラスから
+'            直接呼び出せないようにしており、このフラグ経由でのみ`DisconnectCDP`から発動する
+'***************************************************************************************************
+Property Let DeleteProfileOnDisconnect(v As Boolean)
+    m_deleteProfileOnDisconnect = v
 End Property
 
 
@@ -724,6 +755,11 @@ Public Sub MoveFocus(Optional reason As WV2MoveFocusReason = MoveFocus_Programma
     m_Host.MoveFocus reason
 End Sub
 
+'* 機能　　：WebView2の親ウィンドウを差し替えます(再親子化。書き込み専用)
+Property Let ParentWindow(v As LongPtr)
+    m_Host.ParentWindow = v
+End Property
+
 '* 機能　　：親ウィンドウの位置が動いたことをWebView2へ明示的に通知します
 Public Sub NotifyParentWindowPositionChanged()
     m_Host.NotifyParentWindowPositionChanged
@@ -760,6 +796,24 @@ End Property
 '* 注意事項：`IsPasswordAutosaveEnabled`/`IsGeneralAutofillEnabled`はSettings側と紛らわしいので
 '            `Profile`を頭に付けている(詳細は`WebView2Host`側のコメント参照)
 '---------------------------------------------------------------------------------------------------
+'* 機能　　：プロファイル名を取得します(読み取り専用)
+Property Get ProfileName() As String
+    If m_Host Is Nothing Then Exit Property
+    ProfileName = m_Host.ProfileName
+End Property
+
+'* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
+Property Get IsInPrivateModeEnabled() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsInPrivateModeEnabled = m_Host.IsInPrivateModeEnabled
+End Property
+
+'* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
+Property Get ProfilePath() As String
+    If m_Host Is Nothing Then Exit Property
+    ProfilePath = m_Host.ProfilePath
+End Property
+
 '* 機能　　：既定のダウンロード先フォルダを設定します
 Property Let DefaultDownloadFolderPath(v As String)
     m_Host.DefaultDownloadFolderPath = v
@@ -863,11 +917,6 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
 '***************************************************************************************************
-Property Get IsMuted() As Boolean
-    If m_Host Is Nothing Then Exit Property
-    IsMuted = m_Host.IsMuted
-End Property
-
 Property Let IsMuted(v As Boolean)
     If m_Host Is Nothing Then Exit Property
     m_Host.IsMuted = v
@@ -879,6 +928,116 @@ End Property
 Property Get IsDocumentPlayingAudio() As Boolean
     If m_Host Is Nothing Then Exit Property
     IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログ(WebView2標準のダウンロード完了通知UI)を開きます
+'            (ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub OpenDefaultDownloadDialog()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.OpenDefaultDownloadDialog
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub CloseDefaultDownloadDialog()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.CloseDefaultDownloadDialog
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを表示するコーナー位置を設定します(ICoreWebView2_9以降)
+'***************************************************************************************************
+Property Let DefaultDownloadDialogCornerAlignment(v As WV2DownloadDialogCornerAlignment)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.DefaultDownloadDialogCornerAlignment = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログの、コーナーからのオフセットを設定します(ICoreWebView2_9以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：x/y  `DefaultDownloadDialogCornerAlignment`で指定したコーナーからのオフセット(px)
+'***************************************************************************************************
+Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.SetDefaultDownloadDialogMargin x, y
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：リンクホバー時のリンク先URL等、ステータスバーに表示される文字列を取得します
+'            (ICoreWebView2_12以降、読み取り専用)
+'***************************************************************************************************
+Property Get StatusBarText() As String
+    If m_Host Is Nothing Then Exit Property
+    StatusBarText = m_Host.StatusBarText
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のページのfavicon URIを取得します(ICoreWebView2_15以降、読み取り専用)
+'***************************************************************************************************
+Property Get FaviconUri() As String
+    If m_Host Is Nothing Then Exit Property
+    FaviconUri = m_Host.FaviconUri
+End Property
+
+'***************************************************************************************************
+'* 機能　　：タスクマネージャーウィンドウを開きます(ICoreWebView2_6以降)
+'***************************************************************************************************
+Public Sub OpenTaskManagerWindow()
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.OpenTaskManagerWindow
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：印刷ダイアログを表示します(ICoreWebView2_16以降)
+'***************************************************************************************************
+Public Sub ShowPrintUI(Optional kind As WV2PrintDialogKind = PrintDialog_Browser)
+    If m_Host Is Nothing Then Exit Sub
+    m_Host.ShowPrintUI kind
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを設定します(ICoreWebView2_19以降)
+'***************************************************************************************************
+Property Let MemoryUsageTargetLevel(v As WV2MemoryUsageTargetLevel)
+    If m_Host Is Nothing Then Exit Property
+    m_Host.MemoryUsageTargetLevel = v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
+'***************************************************************************************************
+Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
+    If m_Host Is Nothing Then Exit Property
+    MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
+End Property
+
+'***************************************************************************************************
+'* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します(読み取り専用)
+'***************************************************************************************************
+Property Get BrowserVersionString() As String
+    If m_Host Is Nothing Then Exit Property
+    BrowserVersionString = m_Host.BrowserVersionString
+End Property
+
+'***************************************************************************************************
+'* 機能　　：実際に使用されているユーザーデータフォルダの絶対パスを取得します
+'            (ICoreWebView2Environment7以降、読み取り専用)
+'***************************************************************************************************
+Property Get userDataFolder() As String
+    If m_Host Is Nothing Then Exit Property
+    userDataFolder = m_Host.userDataFolder
+End Property
+
+'***************************************************************************************************
+'* 機能　　：クラッシュ時のminidumpファイルが書き出されるフォルダのパスを取得します
+'            (ICoreWebView2Environment11以降、読み取り専用)
+'***************************************************************************************************
+Property Get FailureReportFolderPath() As String
+    If m_Host Is Nothing Then Exit Property
+    FailureReportFolderPath = m_Host.FailureReportFolderPath
 End Property
 
 '---------------------------------------------------------------------------------------------------

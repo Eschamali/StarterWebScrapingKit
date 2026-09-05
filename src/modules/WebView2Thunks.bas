@@ -126,6 +126,12 @@ Public Type RECT
     Bottom As Long
 End Type
 
+' --- POINT構造体(ICoreWebView2_9::put_DefaultDownloadDialogMarginに渡す) ---
+Public Type POINT
+    x As Long
+    y As Long
+End Type
+
 ' --- VirtualQuery用構造体(センチネルの健在判定用) ---
 Private Type MEMORY_BASIC_INFORMATION
     BaseAddress As LongPtr
