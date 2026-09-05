@@ -94,7 +94,13 @@ Sub 拡張機能インストールアンインストール()
             InstallID = .ThisWebView2.AddBrowserExtension(インストールパス)
             If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
             MsgBox "拡張機能のインストールに成功しました。OKを押すとアンインストールします", vbInformation, "exID: " & InstallID
-            
+
+            '拡張機能がインストールされてるリストを取得
+            Dim ext As Variant
+            For Each ext In .ThisWebView2.GetBrowserExtensionIds
+                Debug.Print ext("ID"), ext("Name"), ext("IsEnabled")
+            Next ext
+
             '6. アンインストール
             If Not .ThisWebView2.RemoveBrowserExtension(InstallID) Then MsgBox "拡張機能のアンインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
             MsgBox "拡張機能のアンインストールに成功しました。", vbInformation
