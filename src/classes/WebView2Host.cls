@@ -1677,6 +1677,20 @@ Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
 End Sub
 
 '---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_6
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：タスクマネージャーウィンドウを開きます(ICoreWebView2_6以降)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：Chromiumの各プロセス(レンダラー/GPU等)のCPU/メモリ使用状況を確認できる、
+'            開発時のデバッグ用ウィンドウです
+'***************************************************************************************************
+Public Sub OpenTaskManagerWindow()
+    If m_viewLevel < 6 Then Exit Sub
+    WebView2Thunks.dcf m_pView, 79, "View6.OpenTaskManagerWindow"
+End Sub
+
+'---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_8
 '---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
@@ -1698,6 +1712,53 @@ Property Get IsDocumentPlayingAudio() As Boolean
     If m_viewLevel < 8 Then Exit Property
     IsDocumentPlayingAudio = WebView2Thunks.GetBoolProperty(m_pView, 87, "View8.get_IsDocumentPlayingAudio")
 End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_9
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログ(WebView2標準のダウンロード完了通知UI)を開きます
+'            (ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub OpenDefaultDownloadDialog()
+    If m_viewLevel < 9 Then Exit Sub
+    WebView2Thunks.dcf m_pView, 91, "View9.OpenDefaultDownloadDialog"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
+'***************************************************************************************************
+Public Sub CloseDefaultDownloadDialog()
+    If m_viewLevel < 9 Then Exit Sub
+    WebView2Thunks.dcf m_pView, 92, "View9.CloseDefaultDownloadDialog"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログを表示するコーナー位置を設定します(ICoreWebView2_9以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_DEFAULT_DOWNLOAD_DIALOG_CORNER_ALIGNMENT`(Long。0=TopLeft、
+'            1=TopRight(既定)、2=BottomLeft、3=BottomRight。`CDPCoreViaWebView2`側の
+'            `WV2DownloadDialogCornerAlignment`Enum使用を推奨)
+'***************************************************************************************************
+Property Let DefaultDownloadDialogCornerAlignment(v As Long)
+    If m_viewLevel < 9 Then Exit Property
+    WebView2Thunks.dcf m_pView, 94, "View9.put_DefaultDownloadDialogCornerAlignment", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログの、コーナーからのオフセットを設定します(ICoreWebView2_9以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：x/y  `DefaultDownloadDialogCornerAlignment`で指定したコーナーからのオフセット(px)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：x/yが対等な1組の値であり「代入値」の形にそぐわないため、`Property Let`ではなく
+'            `Sub`にしている(`SetDefaultBackgroundColor`と同じ理由)
+'***************************************************************************************************
+Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
+    If m_viewLevel < 9 Then Exit Sub
+    Dim pt As WebView2Thunks.POINT
+    pt.x = x: pt.y = y
+    WebView2Thunks.dcf m_pView, 96, "View9.put_DefaultDownloadDialogMargin", VarPtr(pt)
+End Sub
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_12
@@ -1726,6 +1787,44 @@ Property Get FaviconUri() As String
     If m_viewLevel < 15 Then Exit Property
     FaviconUri = WebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
 End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_16
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：印刷ダイアログを表示します(ICoreWebView2_16以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：kind  `COREWEBVIEW2_PRINT_DIALOG_KIND`(Long。0=Browser、1=System。
+'            `CDPCoreViaWebView2`側の`WV2PrintDialogKind`Enum使用を推奨)
+'***************************************************************************************************
+Public Sub ShowPrintUI(kind As Long)
+    If m_viewLevel < 16 Then Exit Sub
+    WebView2Thunks.dcf m_pView, 114, "View16.ShowPrintUI", kind
+End Sub
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_19
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを設定します(ICoreWebView2_19以降)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：v  `COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL`(Long。0=Normal、1=Low。
+'            `CDPCoreViaWebView2`側の`WV2MemoryUsageTargetLevel`Enum使用を推奨)
+'***************************************************************************************************
+Property Let MemoryUsageTargetLevel(v As Long)
+    If m_viewLevel < 19 Then Exit Property
+    WebView2Thunks.dcf m_pView, 120, "View19.put_MemoryUsageTargetLevel", v
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
+'***************************************************************************************************
+Property Get MemoryUsageTargetLevel() As Long
+    If m_viewLevel < 19 Then Exit Property
+    MemoryUsageTargetLevel = WebView2Thunks.GetLongProperty(m_pView, 119, "View19.get_MemoryUsageTargetLevel")
+End Property
+
+
 
 '***************************************************************************************************
 '                              ■■■ 初期化/後始末 ■■■
