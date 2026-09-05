@@ -149,8 +149,6 @@ Public Event CDPMessageReceived(RawJson As String)
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 Private m_Host          As WebView2Host
-Private m_pView11       As LongPtr      ' QueryInterfaceで取得したICoreWebView2_11(未対応環境では0のまま)
-Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は再試行しない
 
 ' Environment作成オプション(`ICoreWebView2EnvironmentOptions`系)。`m_Host`の生死とは独立に
 ' こちらで直接保持するため、`ConnectCDP`実行前(=`m_Host`がまだ存在しない間)から自由に設定できる。
@@ -284,16 +282,9 @@ Public Sub DisconnectCDP()
     '1. 残っている購読を全解除
     UnsubscribeAllCdpEvents
 
-    '2. ICoreWebView2_11(QI取得分)を解放
-    If m_pView11 <> 0 Then
-        WebView2Thunks.ComRelease m_pView11
-        m_pView11 = 0
-    End If
-    m_pView11Failed = False
-
-    '3. ホスト(Environment/Controller/View)を解放
+    '2. ホスト(Environment/Controller/View)を解放
     If Not (m_Host Is Nothing) Then
-        '3-1. 使い切り[ワンショット]運用が指定されていれば、解放(`CLOSE_`)の前にプロファイルを
+        '2-1. 使い切り[ワンショット]運用が指定されていれば、解放(`CLOSE_`)の前にプロファイルを
         '     削除対象としてマークする(`CLOSE_`後だとProfileポインタが解放済みで呼べないため)
         If m_deleteProfileOnDisconnect Then m_Host.Delete
 
@@ -301,7 +292,7 @@ Public Sub DisconnectCDP()
         Set m_Host = Nothing
     End If
 
-    '4. Environmentオプションが未使用のまま残っていれば、保険として解放
+    '3. Environmentオプションが未使用のまま残っていれば、保険として解放
     '   (通常は`ConnectCDP`内で既に解放済みだが、一度も`ConnectCDP`を呼ばずに
     '   切断/破棄された場合への保険)
     DisposeEnvOptions
@@ -352,7 +343,7 @@ Public Function SendCommandCDP(strData As String) As Long
     End If
 
     '2. `ICoreWebView2_1`ポインターの取得を試みる
-    Dim pView As LongPtr: pView = m_Host.ViewPtr
+    Dim pView As LongPtr: pView = m_Host.ICoreWebView2Ptr
     If pView = 0 Then
         printMsg ERROR_, "ViewPtr is 0 (disconnected or initialization incomplete).", FromProcedureName
 
@@ -397,13 +388,14 @@ Public Function SendCommandCDP(strData As String) As Long
     If StrPtr(sessionID) Then
         '`SessionID`がある場合は、`CallDevToolsProtocolMethodForSession`で送る
 
-        '4-1. 初代WebView2にはないため1度だけまず、インターフェース存在確認を行う
+        '4-1. 初代WebView2にはないため、`m_Host`が既に持っているバージョン判定結果で存在確認する
         'ICoreWebView2_11::CallDevToolsProtocolMethodForSession(vtableスロット99)
         'https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodforsessionasync
-        Dim pView11 As LongPtr: pView11 = EnsureView11(pView)
-        If pView11 = 0 Then
+        '(`m_Host.ViewPtr`は`WebView2Host`内部の`DetectLevel`によって既に辿り着けた最新版へ
+        '  差し替え済みのため、ここで改めて`ICoreWebView2_11`をQueryInterfaceし直す必要は無い)
+        If m_Host.ICoreWebView2LastLevel < 11 Then
             '対象のインターフェースがない場合は、取り扱えないので失敗とみなす
-            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` could not be obtained.", FromProcedureName
+            printMsg ERROR_, "Cannot send a command specifying a `sessionId` because `ICoreWebView2_11` is not supported.", FromProcedureName
 
             Set h = Nothing
             SendCommandCDP = &H80004002   ' E_NOINTERFACE
@@ -412,7 +404,7 @@ Public Function SendCommandCDP(strData As String) As Long
 
         '4-2. `CallDevToolsProtocolMethodForSession`で、`SessionID`付きで実行
         printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
-        hr = WebView2Thunks.dcf(pView11, 99, "View11.CallDevToolsProtocolMethodForSession", _
+        hr = WebView2Thunks.dcf(pView, 99, "View11.CallDevToolsProtocolMethodForSession", _
                                     StrPtr(sessionID), StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
     Else
         '`SessionID`がない場合は、`CallDevToolsProtocolMethod`で送る
@@ -431,32 +423,6 @@ Public Function SendCommandCDP(strData As String) As Long
     '5. 結果コードを返却
     SendCommandCDP = hr
 End Function
-
-'***************************************************************************************************
-'* 機能　　：`ICoreWebView2`から`ICoreWebView2_11`をQueryInterfaceで取得します(1回だけ試行)
-'***************************************************************************************************
-Private Function EnsureView11(ByVal pView As LongPtr) As LongPtr
-    Const IID_ICoreWebView2_11  As String = "0be78e56-c193-4051-b943-23b460c08bdb"  ' ICoreWebView2_11(CallDevToolsProtocolMethodForSessionを持つ派生IF)のIID
-
-
-    If m_pView11 <> 0 Then EnsureView11 = m_pView11: Exit Function
-    If m_pView11Failed Then Exit Function
-
-    Dim iid As WebView2Thunks.GUID
-    WebView2Thunks.FillGUID iid, IID_ICoreWebView2_11
-
-    Dim pOut As LongPtr
-    Dim hr As Long
-    hr = WebView2Thunks.dcf(pView, 0, "View.QueryInterface(ICoreWebView2_11)", VarPtr(iid), VarPtr(pOut))
-    If hr = 0 And pOut <> 0 Then
-        m_pView11 = pOut
-        EnsureView11 = m_pView11
-    Else
-        m_pView11Failed = True
-    End If
-End Function
-
-
 
 '***************************************************************************************************
 '                               ■■■ CDP受信関連 ■■■
@@ -582,7 +548,7 @@ Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
     '-----------------------------------------------------------------------------------------------
     ' 1-1. WebView2のホストが死んでたら何もできないので即終了
     If m_Host Is Nothing Then Exit Function
-    Dim pView As LongPtr: pView = m_Host.ViewPtr
+    Dim pView As LongPtr: pView = m_Host.ICoreWebView2Ptr
     If pView = 0 Then Exit Function
 
     ' 1-2. すでに同じイベント(例: "Page.loadEventFired")を購読済みなら、二重登録せず成功扱いで抜ける

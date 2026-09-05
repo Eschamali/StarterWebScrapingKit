@@ -952,8 +952,12 @@ End Sub
 '***************************************************************************************************
 '                                       ■■■ プロパティ群 ■■■
 '***************************************************************************************************
-Public Property Get ViewPtr() As LongPtr
-    ViewPtr = m_View.Pointer
+Public Property Get ICoreWebView2Ptr() As LongPtr
+    ICoreWebView2Ptr = m_View.Pointer
+End Property
+
+Public Property Get ICoreWebView2LastLevel() As Long
+    ICoreWebView2LastLevel = m_View.LastLevel
 End Property
 
 Public Property Get IsReady() As Boolean
