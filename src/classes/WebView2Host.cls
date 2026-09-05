@@ -351,15 +351,15 @@ End Function
 '* 機能　　：`m_core.env.state`/`m_core.ctrl.state`がWhs_Waitingを脱するまでDoEventsで待ちます
 '***************************************************************************************************
 Private Function WaitFor(ByRef state As WebView2HostState) As Boolean
-    Const MaxTick As Long = 100 '無難に10.0s待機
+    '1. 今の経過時間を記録し、取り出し開始
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
 
-
-    Dim tick As Long
-    Do While state = Whs_Waiting And tick < MaxTick
+    '2. 30s間、メッセージ取り出しを行う
+    Do
         DoEvents
-        CDPHelpers.Sleep 0.1
-        tick = tick + 1
-    Loop
+    Loop While state = Whs_Waiting And CDPHelpers.TimerCounter - timerStart < TIMEOUT_DEFAULT * 1000
+
+    '3. 最終結果を返す
     WaitFor = (state <> Whs_Waiting)
 End Function
 
@@ -1604,8 +1604,12 @@ End Sub
 '                              ■■■ 初期化/後始末 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    '1. ステータスリセット
     m_core.env.state = Whs_Created
     m_core.ctrl.state = Whs_Created
+
+    '2. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
+    CDPHelpers.InitQueryPerformanceFrequency
 End Sub
 
 Private Sub Class_Terminate()
