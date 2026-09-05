@@ -137,6 +137,11 @@ Private m_pView11Failed As Boolean      ' 1度QIに失敗したら、以後は�
 ' Environment生成時にしか読まれない値のため、必ず`ConnectCDP`を呼ぶ**前**に設定すること
 Private m_envOptions As WebView2EnvOptions
 
+' Trueにしておくと、`DisconnectCDP`実行時にこのプロファイルを削除対象としてマークする
+' (使い切り[ワンショット]プロファイル用。`WebView2Host.Delete`自体は非公開のまま、このフラグ
+' 経由でのみ発動させる)
+Private m_deleteProfileOnDisconnect As Boolean
+
 ' CDPイベント購読の管理(イベント名 → レシーバーポインタ/トークン)
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
@@ -257,6 +262,10 @@ Public Sub DisconnectCDP()
 
     '3. ホスト(Environment/Controller/View)を解放
     If Not (m_Host Is Nothing) Then
+        '3-1. 使い切り[ワンショット]運用が指定されていれば、解放(`CLOSE_`)の前にプロファイルを
+        '     削除対象としてマークする(`CLOSE_`後だとProfileポインタが解放済みで呼べないため)
+        If m_deleteProfileOnDisconnect Then m_Host.Delete
+
         m_Host.CLOSE_
         Set m_Host = Nothing
     End If
