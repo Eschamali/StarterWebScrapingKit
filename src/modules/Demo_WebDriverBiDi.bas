@@ -110,7 +110,7 @@ Sub UseExtensions()
     Dim ExtensionsFolderPath As String
     With Application.FileDialog(4)  'msoFileDialogFolderPicker
         .Title = "拡張機能の基となる`manifest.json`を含むフォルダを選択してください"
-        .InitialFileName = Environ("UserProfile") & "\AppData\Local"    '初期位置
+        .InitialFileName = Environ("LOCALAPPDATA")    '初期位置
 
         If .show = -1 Then ExtensionsFolderPath = .SelectedItems(1) Else Exit Sub
     End With
@@ -434,28 +434,19 @@ End Sub
 '            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
 '***************************************************************************************************
 Sub SetupWebSocketMode()
-    '1. 設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    '2. 指定のWebSocketForBiDiへ接続
-    Dim WebSocketBiDi As New CDPCoreViaWebSocket
-    Debug.Print WebSocketBiDi.AutoConnectBrowserCDP(UserName, True)         '基本はこっち。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
-'    Debug.Print WebSocketBiDi.AutoConnectDevToolsActivePort(UserName,True) '今、目の前のブラウザを制御する場合。ExcelにあるBiDi制御タブ情報を流用するため、第2引数を`True`にしておく
-
-    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    '1. WebSocket制御で、ブラウザを起動
     Dim m As New WebDriverBiDiMode
-    If Not m.reattach(UserName, WebSocketMode:=WebSocketBiDi) Then Debug.Print "Failed to reattach. ブラウザの起動が必要です": Exit Sub
+    Set m = ShSetting01_StartBrowser.StartBiDiMode(WebSocketMode:=True)
 
-    '4. 新しいタブに接続
+    '2. 新しいタブに接続
     Dim c As WebDriverBiDiContext
     Set c = m.newTab(setMain:=True)
 
-    '5．別ページに遷移して終了
+    '3．別ページに遷移
     c.navigate "https://www.youtube.com/@islandfox6864"
 
-    '6. WebSocketから切断
-    WebSocketBiDi.DisconnectCDP
+    '4. 終了
+    m.quit
 End Sub
 
 
