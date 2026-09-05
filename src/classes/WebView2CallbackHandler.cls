@@ -235,8 +235,7 @@ Public Function Handler_Invoke( _
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutScrollBarStyle arg1
 
 
-        '---------------- ICoreWebView2Profile系 ----------------
-        '+++++++++ 拡張機能系 +++++++++
+        '---------------- 拡張機能系 ----------------
         ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
         '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
         Case HK_AddBrowserExtensionCompleted
