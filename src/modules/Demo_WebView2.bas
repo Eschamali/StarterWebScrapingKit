@@ -52,7 +52,7 @@ Sub 拡張機能インストールアンインストール()
 
     With WebView2Form
         '1. 拡張機能を有効にする
-        .ThisWebView2.EnvironmentOptions.AreBrowserExtensionsEnabled = True
+        .ThisWebView2.EnvironmentOptions.Set_AreBrowserExtensionsEnabled = True
 
         '2. WebView2を起動
         If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
@@ -243,13 +243,13 @@ Sub RunEnvironmentOptionsDemo()
     With WebView2Form
         '1. Environment作成前に設定(★重要:ConnectCDPより前でなければ意味がない★)
         With .ThisWebView2.EnvironmentOptions
-            .Language = "fr-FR"
-            .ExclusiveUserDataFolderAccess = False
-            .IsCustomCrashReportingEnabled = False
-            .EnableTrackingPrevention = True
-            .ChannelSearchKind = ChannelSearch_MostStable
-            .ReleaseChannels = Channel_Stable Or Channel_Beta Or Channel_Dev Or Channel_Canary
-            .ScrollBarStyle = ScrollBar_FluentOverlay
+            .Set_Language = "fr-FR"
+            .Set_ExclusiveUserDataFolderAccess = False
+            .Set_IsCustomCrashReportingEnabled = False
+            .Set_EnableTrackingPrevention = True
+            .Set_ChannelSearchKind = ChannelSearch_MostStable
+            .Set_ReleaseChannels = Channel_Stable Or Channel_Beta Or Channel_Dev Or Channel_Canary
+            .Set_ScrollBarStyle = ScrollBar_FluentOverlay
         End With
 
         '2. WebView2を起動(★スモークテスト★ ここで失敗しなければ、6項目とも受理されたことになる)

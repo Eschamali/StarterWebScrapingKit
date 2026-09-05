@@ -92,28 +92,28 @@ Private m_scrollBarStyle                As Long
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2EnvironmentOptions
 '---------------------------------------------------------------------------------------------------
-Property Let AdditionalBrowserArguments(ByVal v As String)
+Property Let Set_AdditionalBrowserArguments(ByVal v As String)
     m_additionalBrowserArguments = v
 End Property
 
 '***************************************************************************************************
 '* 機能　　：ブラウザのUI言語を指定します(既定は空文字=OS既定に従う)
 '***************************************************************************************************
-Property Let Language(ByVal v As String)
+Property Let Set_Language(ByVal v As String)
     m_language = v
 End Property
 
 '***************************************************************************************************
 '* 機能　　：互換性チェック対象のブラウザバージョンを指定します(既定は空文字=チェックなし)
 '***************************************************************************************************
-Property Let TargetCompatibleBrowserVersion(ByVal v As String)
+Property Let Set_TargetCompatibleBrowserVersion(ByVal v As String)
     m_targetCompatibleBrowserVersion = v
 End Property
 
 '***************************************************************************************************
 '* 機能　　：OSのプライマリアカウントを使ったシングルサインオンの許可可否を切り替えます(既定False)
 '***************************************************************************************************
-Property Let AllowSingleSignOnUsingOSPrimaryAccount(ByVal v As Boolean)
+Property Let Set_AllowSingleSignOnUsingOSPrimaryAccount(ByVal v As Boolean)
     m_allowSingleSignOnUsingOSPrimaryAccount = v
 End Property
 
@@ -124,7 +124,7 @@ End Property
 '* 機能　　：同じuser-data-folderから、他プロセスが別のWebView2を作って同じブラウザプロセス
 '            インスタンスに相乗りすることを禁止するか切り替えます(既定False=相乗り許可)
 '***************************************************************************************************
-Property Let ExclusiveUserDataFolderAccess(ByVal v As Boolean)
+Property Let Set_ExclusiveUserDataFolderAccess(ByVal v As Boolean)
     m_exclusiveUserDataFolderAccess = v
 End Property
 
@@ -134,7 +134,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：Trueにすると、クラッシュ時のデータをMicrosoftへ送らなくなります(既定False=OSの同意設定に従う)
 '***************************************************************************************************
-Property Let IsCustomCrashReportingEnabled(ByVal v As Boolean)
+Property Let Set_IsCustomCrashReportingEnabled(ByVal v As Boolean)
     m_isCustomCrashReportingEnabled = v
 End Property
 
@@ -149,7 +149,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：トラッキング防止機能(サードパーティCookie制限等)の有効可否を切り替えます(既定True)
 '***************************************************************************************************
-Property Let EnableTrackingPrevention(ByVal v As Boolean)
+Property Let Set_EnableTrackingPrevention(ByVal v As Boolean)
     m_enableTrackingPrevention = v
 End Property
 
@@ -159,7 +159,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：ブラウザ拡張機能(Extensions)の使用可否を切り替えます(既定False)
 '***************************************************************************************************
-Property Let AreBrowserExtensionsEnabled(ByVal v As Boolean)
+Property Let Set_AreBrowserExtensionsEnabled(ByVal v As Boolean)
     m_areBrowserExtensionsEnabled = v
 End Property
 
@@ -172,7 +172,7 @@ End Property
 '* 引数　　：v  `COREWEBVIEW2_CHANNEL_SEARCH_KIND`(既定0=MostStable。安定版から探す。
 '            1=LeastStableで逆順)
 '***************************************************************************************************
-Property Let ChannelSearchKind(ByVal v As WV2ChannelSearchKind)
+Property Let Set_ChannelSearchKind(ByVal v As WV2ChannelSearchKind)
     m_channelSearchKind = v
 End Property
 
@@ -181,7 +181,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：v  `COREWEBVIEW2_RELEASE_CHANNELS`のビットマスク(Stable=&H1/Beta=&H2/Dev=&H4/Canary=&H8)
 '***************************************************************************************************
-Property Let ReleaseChannels(ByVal v As WV2ReleaseChannels)
+Property Let Set_ReleaseChannels(ByVal v As WV2ReleaseChannels)
     m_releaseChannels = v
 End Property
 
@@ -193,7 +193,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：v  `COREWEBVIEW2_SCROLLBAR_STYLE`(既定0=Default。1=FluentOverlayで細い自動非表示型)
 '***************************************************************************************************
-Property Let ScrollBarStyle(ByVal v As WV2ScrollBarStyle)
+Property Let Set_ScrollBarStyle(ByVal v As WV2ScrollBarStyle)
     m_scrollBarStyle = v
 End Property
 
