@@ -67,19 +67,23 @@ End Enum
 '***************************************************************************************************
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'メイン制御ポインター
-Private m_pView         As LongPtr  'ICoreWebView2
-Private m_pController   As LongPtr  'ICoreWebView2Controller
-Private m_pEnvironment  As LongPtr  'ICoreWebView2Environment
-Private m_pSettings     As LongPtr  'ICoreWebView2Settings
-Private m_pProfile      As LongPtr  'ICoreWebView2Profile
+'メイン制御ポインター＋たどり着けた階層レベル
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：メイン制御ポインターと、そのポインターがQueryInterfaceで実際に辿り着けた
+'            `ICoreWebView2~N`(バージョン付きインターフェース)のNを1組にまとめます
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`LastLevel`は基底のみなら1(`m_Profile`のみ未取得の場合があり、その場合は0)
+'---------------------------------------------------------------------------------------------------
+Private Type WV2InterfaceHandle
+    Pointer   As LongPtr
+    LastLevel As Long
+End Type
 
-'たどり着けた階層レベル
-Private m_viewLevel         As Long '`m_pView`      が実際にQueryInterfaceで辿り着けた`ICoreWebView2_N`のN          (基底のみなら1)
-Private m_controllerLevel   As Long '`m_pController`が実際にQueryInterfaceで辿り着けた`ICoreWebView2ControllerN`のN (基底のみなら1)
-Private m_environmentLevel  As Long '`m_pEnvironment`が実際にQueryInterfaceで辿り着けた`ICoreWebView2EnvironmentN`のN(基底のみなら1。_11までしか使わないためそこまでしか探らない)
-Private m_settingsLevel     As Long '`m_pSettings`  が実際にQueryInterfaceで辿り着けた`ICoreWebView2SettingsN`のN   (基底のみなら1)
-Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterfaceで辿り着けた`ICoreWebView2ProfileN`のN    (基底のみなら1、未取得なら0)
+Private m_View         As WV2InterfaceHandle  'ICoreWebView2
+Private m_Controller   As WV2InterfaceHandle  'ICoreWebView2Controller
+Private m_Environment  As WV2InterfaceHandle  'ICoreWebView2Environment(_11までしか使わないためそこまでしか探らない)
+Private m_Settings     As WV2InterfaceHandle  'ICoreWebView2Settings
+Private m_Profile      As WV2InterfaceHandle  'ICoreWebView2Profile(未取得ならLastLevel=0)
 
 '==============================================COM管理==============================================
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -88,7 +92,7 @@ Private m_profileLevel      As Long '`m_pProfile`   が実際にQueryInterface�
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：`ICoreWebView2Environment`の**作成**1回分の状態+ハンドラをまとめます
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：結果は`m_pEnvironment`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
+'* 注意事項：結果は`m_Environment.Pointer`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
 '            (`WebView2RemoveExtState`と同じ、state+handlerのみの型)
 '---------------------------------------------------------------------------------------------------
 Private Type WebView2EnvState
@@ -99,7 +103,7 @@ End Type
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：`ICoreWebView2Controller`の**作成**1回分の状態+ハンドラをまとめます
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：結果は`m_pController`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
+'* 注意事項：結果は`m_Controller.Pointer`(別枠のメイン制御ポインター)に入るため、専用フィールドは無し
 '---------------------------------------------------------------------------------------------------
 Private Type WebView2CtrlState
     state   As WebView2HostState        '完了待機
@@ -274,7 +278,7 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     m_core.ctrl.state = Whs_Waiting
 
     '8. DispCallFunc経由で、`ICoreWebView2Controller`オブジェクトを作成依頼する
-    hr = WebView2Thunks.dcf(m_pEnvironment, 3, "Env.CreateCoreWebView2Controller", m_hostHwnd, pCtrlHandlerObj)
+    hr = WebView2Thunks.dcf(m_Environment.Pointer, 3, "Env.CreateCoreWebView2Controller", m_hostHwnd, pCtrlHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": CreateCoreWebView2Controller失敗 hr=&H" & Hex(hr)
         m_core.ctrl.state = Whs_Failed
@@ -292,13 +296,13 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
 
     '10. ICoreWebView2ポインターを取得(Controller::get_CoreWebView2、vtable index 25)
     Dim pv As LongPtr
-    hr = WebView2Thunks.dcf(m_pController, 25, "Ctrl.get_CoreWebView2", VarPtr(pv))
+    hr = WebView2Thunks.dcf(m_Controller.Pointer, 25, "Ctrl.get_CoreWebView2", VarPtr(pv))
     If hr <> 0 Or pv = 0 Then
         Debug.Print FromProcedureName & ": get_CoreWebView2失敗 hr=&H" & Hex(hr)
         m_lastError = hr
         Exit Function
     End If
-    m_pView = pv
+    m_View.Pointer = pv
 
     '11. ICoreWebView2のどの最新番号まで対応してるか探る
     DetectViewLevel
@@ -310,12 +314,12 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     '12. ICoreWebView2Settingsポインターを取得(View::get_Settings、vtable index 3)
     '   ★毎回取得/解放していると呼び出しごとにQI相当のオーバーヘッドが発生するため、
     '   ここで1回だけ取得してキャッシュし、`CLOSE_`でまとめて解放する方式に統一する。
-    '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_pSettings=0`の
+    '   取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、`m_Settings.Pointer=0`の
     '   ままにする(DevToolsEnabled等の各プロパティは0ガードで静かに無視するだけなので安全)。
     Dim ps As LongPtr
-    hr = WebView2Thunks.dcf(m_pView, 3, "View.get_Settings", VarPtr(ps))
+    hr = WebView2Thunks.dcf(m_View.Pointer, 3, "View.get_Settings", VarPtr(ps))
     If hr = 0 And ps <> 0 Then
-        m_pSettings = ps
+        m_Settings.Pointer = ps
 
         '13. ICoreWebView2Settingsのどの最新番号まで対応してるか探る
         DetectSettingsLevel
@@ -323,20 +327,20 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
 
     '14. ICoreWebView2Profileポインターを取得(View→ICoreWebView2_13へQueryInterface→get_Profile、
     '   vtable index 105)。取得に失敗しても(古いWebView2 Runtime等)Init自体は成功扱いとし、
-    '   `m_pProfile=0`のままにする(各プロパティは`m_profileLevel`ガードで静かに無視されるだけ)
+    '   `m_Profile.Pointer=0`のままにする(各プロパティは`m_Profile.LastLevel`ガードで静かに無視されるだけ)
     Dim p13 As LongPtr
     Dim iid13 As WebView2Thunks.GUID
 
     '14-1. ICoreWebView2Profileポインターは、ICoreWebView2_13の所に所属する`get_Profile`でないと取れないのでまずそこのポインターを取得
     WebView2Thunks.FillGUID iid13, "f75f09a8-667e-4983-88d6-c8773f315e84"   ' ICoreWebView2_13
-    hr = WebView2Thunks.dcf(m_pView, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
+    hr = WebView2Thunks.dcf(m_View.Pointer, 0, "View.QueryInterface(ICoreWebView2_13)", VarPtr(iid13), VarPtr(p13))
     If hr = 0 And p13 <> 0 Then
         '14-2. 存在したら実際に、ICoreWebView2Profileポインターを取得していく
         Dim pProfile As LongPtr
         hr = WebView2Thunks.dcf(p13, 105, "View13.get_Profile", VarPtr(pProfile))
         WebView2Thunks.ComRelease p13   ' get_Profileを呼ぶためだけに必要だったので、以後は不要
         If hr = 0 And pProfile <> 0 Then
-            m_pProfile = pProfile
+            m_Profile.Pointer = pProfile
 
             '14-3. ICoreWebView2Profileのどの最新番号まで対応してるか探る
             DetectProfileLevel
@@ -405,7 +409,7 @@ Private Function DetectLevel(ByRef pInterface As LongPtr, iids() As String, Opti
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`m_pView`の`ICoreWebView2_N`最新対応バージョンを判定し、`m_viewLevel`を更新します
+'* 機能　　：`m_View.Pointer`の`ICoreWebView2_N`最新対応バージョンを判定し、`m_View.LastLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectViewLevel()
     Dim iids(1 To 28) As String
@@ -438,11 +442,11 @@ Private Sub DetectViewLevel()
     iids(27) = "a0d6df20-3b92-416d-aa0c-437a9c727857"   ' ICoreWebView2_3
     iids(28) = "9e8f0cf8-e670-4b5e-b2bc-73e061e3184c"   ' ICoreWebView2_2
 
-    m_viewLevel = DetectLevel(m_pView, iids, "View.QueryInterface")
+    m_View.LastLevel = DetectLevel(m_View.Pointer, iids, "View.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pSettings`の`ICoreWebView2SettingsN`最新対応バージョンを判定し、`m_settingsLevel`を更新します
+'* 機能　　：`m_Settings.Pointer`の`ICoreWebView2SettingsN`最新対応バージョンを判定し、`m_Settings.LastLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectSettingsLevel()
     Dim iids(1 To 8) As String
@@ -455,11 +459,11 @@ Private Sub DetectSettingsLevel()
     iids(7) = "fdb5ab74-af33-4854-84f0-0a631deb5eba"   ' ICoreWebView2Settings3
     iids(8) = "ee9a0f68-f46c-4e32-ac23-ef8cac224d2a"   ' ICoreWebView2Settings2
 
-    m_settingsLevel = DetectLevel(m_pSettings, iids, "Settings.QueryInterface")
+    m_Settings.LastLevel = DetectLevel(m_Settings.Pointer, iids, "Settings.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pController`の`ICoreWebView2ControllerN`最新対応バージョンを判定し、`m_controllerLevel`を更新します
+'* 機能　　：`m_Controller.Pointer`の`ICoreWebView2ControllerN`最新対応バージョンを判定し、`m_Controller.LastLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectControllerLevel()
     Dim iids(1 To 3) As String
@@ -467,11 +471,11 @@ Private Sub DetectControllerLevel()
     iids(2) = "f9614724-5d2b-41dc-aef7-73d62b51543b"   ' ICoreWebView2Controller3
     iids(3) = "c979903e-d4ca-4228-92eb-47ee3fa96eab"   ' ICoreWebView2Controller2
 
-    m_controllerLevel = DetectLevel(m_pController, iids, "Ctrl.QueryInterface")
+    m_Controller.LastLevel = DetectLevel(m_Controller.Pointer, iids, "Ctrl.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pProfile`の`ICoreWebView2ProfileN`最新対応バージョンを判定し、`m_profileLevel`を更新します
+'* 機能　　：`m_Profile.Pointer`の`ICoreWebView2ProfileN`最新対応バージョンを判定し、`m_Profile.LastLevel`を更新します
 '***************************************************************************************************
 Private Sub DetectProfileLevel()
     Dim iids(1 To 8) As String
@@ -484,12 +488,12 @@ Private Sub DetectProfileLevel()
     iids(7) = "b188e659-5685-4e05-bdba-fc640e0f1992"   ' ICoreWebView2Profile3
     iids(8) = "fa740d4b-5eae-4344-a8ad-74be31925397"   ' ICoreWebView2Profile2
 
-    m_profileLevel = DetectLevel(m_pProfile, iids, "Profile.QueryInterface")
+    m_Profile.LastLevel = DetectLevel(m_Profile.Pointer, iids, "Profile.QueryInterface")
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`m_pEnvironment`の`ICoreWebView2EnvironmentN`最新対応バージョンを判定し、
-'            `m_environmentLevel`を更新します
+'* 機能　　：`m_Environment.Pointer`の`ICoreWebView2EnvironmentN`最新対応バージョンを判定し、
+'            `m_Environment.LastLevel`を更新します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：現状`_11`(`FailureReportFolderPath`)までしか消費していないため、探索もそこまでに留める
 '***************************************************************************************************
@@ -506,7 +510,7 @@ Private Sub DetectEnvironmentLevel()
     iids(9) = "80a22ae3-be7c-4ce2-afe1-5a50056cdeeb"    ' ICoreWebView2Environment3
     iids(10) = "41f3632b-5ef4-404f-ad82-2d606c5a9a21"   ' ICoreWebView2Environment2
 
-    m_environmentLevel = DetectLevel(m_pEnvironment, iids, "Env.QueryInterface")
+    m_Environment.LastLevel = DetectLevel(m_Environment.Pointer, iids, "Env.QueryInterface")
 End Sub
 
 
@@ -729,16 +733,16 @@ Public Sub OnEnvironmentCompleted(ByVal ErrorCode As Long, ByVal pEnvironment As
     '2. エラーチェック
     If ErrorCode = 0 And pEnvironment <> 0 Then
         '2-1. ICoreWebView2Environment ポインターを取得
-        m_pEnvironment = pEnvironment
+        m_Environment.Pointer = pEnvironment
 
         '2-2. VBA用として今後も使うので、保持する合図を出して、参照カウントUPする
-        WebView2Thunks.ComAddRef m_pEnvironment
+        WebView2Thunks.ComAddRef m_Environment.Pointer
 
         '2-3. 準備完了statusに更新
         m_core.env.state = Whs_Ready
     Else
         '2-1. 失敗として記述
-        m_pEnvironment = 0
+        m_Environment.Pointer = 0
         m_core.env.state = Whs_Failed
     End If
 
@@ -759,10 +763,10 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
     '2. エラーチェック
     If ErrorCode = 0 And pController <> 0 Then
         '2-1. `ICoreWebView2Controller`ポインターを取得
-        m_pController = pController
+        m_Controller.Pointer = pController
 
         '2-2. VBA用として今後も使うので、保持する合図を出して、参照カウントUPする
-        WebView2Thunks.ComAddRef m_pController
+        WebView2Thunks.ComAddRef m_Controller.Pointer
 
         '2-3. `ICoreWebView2Controller`の最新番号を調査
         DetectControllerLevel
@@ -771,7 +775,7 @@ Public Sub OnControllerCompleted(ByVal ErrorCode As Long, ByVal pController As L
         m_core.ctrl.state = Whs_Ready
     Else
         '2-1. 失敗として記述
-        m_pController = 0
+        m_Controller.Pointer = 0
         m_core.ctrl.state = Whs_Failed
     End If
 
@@ -882,28 +886,28 @@ End Sub
 Public Sub CLOSE_()
     If m_closed Then Exit Sub
 
-    If m_pController <> 0 Then
-        WebView2Thunks.dcf m_pController, 24, "Ctrl.Close"
+    If m_Controller.Pointer <> 0 Then
+        WebView2Thunks.dcf m_Controller.Pointer, 24, "Ctrl.Close"
     End If
-    If m_pSettings <> 0 Then
-        WebView2Thunks.ComRelease m_pSettings
-        m_pSettings = 0
+    If m_Settings.Pointer <> 0 Then
+        WebView2Thunks.ComRelease m_Settings.Pointer
+        m_Settings.Pointer = 0
     End If
-    If m_pProfile <> 0 Then
-        WebView2Thunks.ComRelease m_pProfile
-        m_pProfile = 0
+    If m_Profile.Pointer <> 0 Then
+        WebView2Thunks.ComRelease m_Profile.Pointer
+        m_Profile.Pointer = 0
     End If
-    If m_pView <> 0 Then
-        WebView2Thunks.ComRelease m_pView
-        m_pView = 0
+    If m_View.Pointer <> 0 Then
+        WebView2Thunks.ComRelease m_View.Pointer
+        m_View.Pointer = 0
     End If
-    If m_pController <> 0 Then
-        WebView2Thunks.ComRelease m_pController
-        m_pController = 0
+    If m_Controller.Pointer <> 0 Then
+        WebView2Thunks.ComRelease m_Controller.Pointer
+        m_Controller.Pointer = 0
     End If
-    If m_pEnvironment <> 0 Then
-        WebView2Thunks.ComRelease m_pEnvironment
-        m_pEnvironment = 0
+    If m_Environment.Pointer <> 0 Then
+        WebView2Thunks.ComRelease m_Environment.Pointer
+        m_Environment.Pointer = 0
     End If
 
     m_closed = True
@@ -949,11 +953,11 @@ End Sub
 '                                       ■■■ プロパティ群 ■■■
 '***************************************************************************************************
 Public Property Get ViewPtr() As LongPtr
-    ViewPtr = m_pView
+    ViewPtr = m_View.Pointer
 End Property
 
 Public Property Get IsReady() As Boolean
-    IsReady = (Not m_closed) And (m_pView <> 0)
+    IsReady = (Not m_closed) And (m_View.Pointer <> 0)
 End Property
 
 Public Property Get LastError() As Long
@@ -981,7 +985,7 @@ End Property
 '* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します
 '***************************************************************************************************
 Property Get BrowserVersionString() As String
-    BrowserVersionString = WebView2Thunks.GetStringProperty(m_pEnvironment, 5, "Env.get_BrowserVersionString")
+    BrowserVersionString = WebView2Thunks.GetStringProperty(m_Environment.Pointer, 5, "Env.get_BrowserVersionString")
 End Property
 
 '***************************************************************************************************
@@ -991,8 +995,8 @@ End Property
 '            ランタイムが実際に認識している値をCOM経由で正式に取得します
 '***************************************************************************************************
 Property Get userDataFolder() As String
-    If m_environmentLevel < 7 Then Exit Property
-    userDataFolder = WebView2Thunks.GetStringProperty(m_pEnvironment, 15, "Env7.get_UserDataFolder")
+    If m_Environment.LastLevel < 7 Then Exit Property
+    userDataFolder = WebView2Thunks.GetStringProperty(m_Environment.Pointer, 15, "Env7.get_UserDataFolder")
 End Property
 
 '***************************************************************************************************
@@ -1000,8 +1004,8 @@ End Property
 '            (ICoreWebView2Environment11以降)
 '***************************************************************************************************
 Property Get FailureReportFolderPath() As String
-    If m_environmentLevel < 11 Then Exit Property
-    FailureReportFolderPath = WebView2Thunks.GetStringProperty(m_pEnvironment, 23, "Env11.get_FailureReportFolderPath")
+    If m_Environment.LastLevel < 11 Then Exit Property
+    FailureReportFolderPath = WebView2Thunks.GetStringProperty(m_Environment.Pointer, 23, "Env11.get_FailureReportFolderPath")
 End Property
 
 
@@ -1025,7 +1029,7 @@ Public Sub Resize(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Le
     rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
 
     '2. リサイズ
-    WebView2Thunks.dcf m_pController, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
+    WebView2Thunks.dcf m_Controller.Pointer, 6, "Ctrl.put_Bounds", VarPtr(rc)       ' put_Bounds
 End Sub
 
 '***************************************************************************************************
@@ -1034,7 +1038,7 @@ End Sub
 '* 引数    ：v  Web描画の表示/非表示
 '***************************************************************************************************
 Property Let Visible(v As Boolean)
-    WebView2Thunks.dcf m_pController, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
+    WebView2Thunks.dcf m_Controller.Pointer, 4, "Ctrl.put_IsVisible", CLng(v * -1)  ' put_IsVisible
 End Property
 
 '***************************************************************************************************
@@ -1043,7 +1047,7 @@ End Property
 '* 引数    ：v  ズーム倍率(1.0が等倍)
 '***************************************************************************************************
 Property Let ZoomFactor(v As Double)
-    WebView2Thunks.dcf m_pController, 8, "Ctrl.put_ZoomFactor", v
+    WebView2Thunks.dcf m_Controller.Pointer, 8, "Ctrl.put_ZoomFactor", v
 End Property
 
 '***************************************************************************************************
@@ -1057,7 +1061,7 @@ End Property
 Public Sub SetBoundsAndZoomFactor(WV2_Right As Long, WV2_Bottom As Long, WV2_Top As Long, WV2_Left As Long, ZoomFactor As Double)
     Dim rc As WebView2Thunks.RECT
     rc.Left = WV2_Left: rc.Top = WV2_Top: rc.Right = WV2_Right: rc.Bottom = WV2_Bottom
-    WebView2Thunks.dcf m_pController, 11, "Ctrl.SetBoundsAndZoomFactor", VarPtr(rc), ZoomFactor
+    WebView2Thunks.dcf m_Controller.Pointer, 11, "Ctrl.SetBoundsAndZoomFactor", VarPtr(rc), ZoomFactor
 End Sub
 
 '***************************************************************************************************
@@ -1067,7 +1071,7 @@ End Sub
 '            `CDPCoreViaWebView2`側の`WV2MoveFocusReason`Enum使用を推奨)
 '***************************************************************************************************
 Public Sub MoveFocus(reason As Long)
-    WebView2Thunks.dcf m_pController, 12, "Ctrl.MoveFocus", reason
+    WebView2Thunks.dcf m_Controller.Pointer, 12, "Ctrl.MoveFocus", reason
 End Sub
 
 '***************************************************************************************************
@@ -1080,7 +1084,7 @@ End Sub
 '            (対応する`get_ParentWindow`は未実装)
 '***************************************************************************************************
 Property Let ParentWindow(v As LongPtr)
-    WebView2Thunks.dcf m_pController, 22, "Ctrl.put_ParentWindow", v
+    WebView2Thunks.dcf m_Controller.Pointer, 22, "Ctrl.put_ParentWindow", v
 End Property
 
 '***************************************************************************************************
@@ -1090,7 +1094,7 @@ End Property
 '            呼ぶためのものです。このプロジェクトの非表示運用では基本的に不要です
 '***************************************************************************************************
 Public Sub NotifyParentWindowPositionChanged()
-    WebView2Thunks.dcf m_pController, 23, "Ctrl.NotifyParentWindowPositionChanged"
+    WebView2Thunks.dcf m_Controller.Pointer, 23, "Ctrl.NotifyParentWindowPositionChanged"
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1107,10 +1111,10 @@ End Sub
 '            あり「代入値」の形にそぐわないため、`Property Let`ではなく`Sub`にしている
 '***************************************************************************************************
 Public Sub SetDefaultBackgroundColor(a As Byte, r As Byte, g As Byte, b As Byte)
-    If m_controllerLevel < 2 Then Exit Sub
+    If m_Controller.LastLevel < 2 Then Exit Sub
     Dim packed As Long
     packed = CLng(a) Or (CLng(r) * &H100) Or (CLng(g) * &H10000) Or (CLng(b) * &H1000000)
-    WebView2Thunks.dcf m_pController, 27, "Ctrl2.put_DefaultBackgroundColor", packed
+    WebView2Thunks.dcf m_Controller.Pointer, 27, "Ctrl2.put_DefaultBackgroundColor", packed
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1122,8 +1126,8 @@ End Sub
 '* 引数    ：v  DPIスケール値(例:1.0=100%、1.5=150%)
 '***************************************************************************************************
 Property Let RasterizationScale(v As Double)
-    If m_controllerLevel < 3 Then Exit Property
-    WebView2Thunks.dcf m_pController, 29, "Ctrl3.put_RasterizationScale", v
+    If m_Controller.LastLevel < 3 Then Exit Property
+    WebView2Thunks.dcf m_Controller.Pointer, 29, "Ctrl3.put_RasterizationScale", v
 End Property
 
 '***************************************************************************************************
@@ -1132,8 +1136,8 @@ End Property
 '* 引数    ：v  Trueで自動検知、Falseで`RasterizationScale`を手動管理する
 '***************************************************************************************************
 Property Let ShouldDetectMonitorScaleChanges(v As Boolean)
-    If m_controllerLevel < 3 Then Exit Property
-    WebView2Thunks.dcf m_pController, 31, "Ctrl3.put_ShouldDetectMonitorScaleChanges", CLng(v * -1)
+    If m_Controller.LastLevel < 3 Then Exit Property
+    WebView2Thunks.dcf m_Controller.Pointer, 31, "Ctrl3.put_ShouldDetectMonitorScaleChanges", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1143,8 +1147,8 @@ End Property
 '            `CDPCoreViaWebView2`側の`WV2BoundsMode`Enum使用を推奨)
 '***************************************************************************************************
 Property Let BoundsMode(v As Long)
-    If m_controllerLevel < 3 Then Exit Property
-    WebView2Thunks.dcf m_pController, 35, "Ctrl3.put_BoundsMode", v
+    If m_Controller.LastLevel < 3 Then Exit Property
+    WebView2Thunks.dcf m_Controller.Pointer, 35, "Ctrl3.put_BoundsMode", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1157,8 +1161,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let AllowExternalDrop(v As Boolean)
-    If m_controllerLevel < 4 Then Exit Property
-    WebView2Thunks.dcf m_pController, 37, "Ctrl4.put_AllowExternalDrop", CLng(v * -1)
+    If m_Controller.LastLevel < 4 Then Exit Property
+    WebView2Thunks.dcf m_Controller.Pointer, 37, "Ctrl4.put_AllowExternalDrop", CLng(v * -1)
 End Property
 
 
@@ -1180,8 +1184,8 @@ End Property
 '            (`--remote-debugging-pipe`)経由の自動操作には一切影響しません
 '***************************************************************************************************
 Property Let DevToolsEnabled(v As Boolean)
-    If m_pSettings = 0 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
+    If m_Settings.Pointer = 0 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 12, "Settings.put_AreDevToolsEnabled", CLng(v * -1)   ' put_AreDevToolsEnabled
 End Property
 
 '***************************************************************************************************
@@ -1190,8 +1194,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let ContextMenuEnabled(v As Boolean)
-    If m_pSettings = 0 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
+    If m_Settings.Pointer = 0 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 14, "Settings.put_AreDefaultContextMenusEnabled", CLng(v * -1)   ' put_AreDefaultContextMenusEnabled
 End Property
 
 '***************************************************************************************************
@@ -1200,8 +1204,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let ScriptEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 4, "Settings.put_IsScriptEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 4, "Settings.put_IsScriptEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1211,8 +1215,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let WebMessageEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 6, "Settings.put_IsWebMessageEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 6, "Settings.put_IsWebMessageEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1224,8 +1228,8 @@ End Property
 '* 注意事項：Falseにすると、ダイアログは表示されず既定値で即座に処理されます
 '***************************************************************************************************
 Property Let DefaultScriptDialogsEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 8, "Settings.put_AreDefaultScriptDialogsEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 8, "Settings.put_AreDefaultScriptDialogsEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1235,8 +1239,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let StatusBarEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 10, "Settings.put_IsStatusBarEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 10, "Settings.put_IsStatusBarEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1246,8 +1250,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let HostObjectsAllowed(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 16, "Settings.put_AreHostObjectsAllowed", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 16, "Settings.put_AreHostObjectsAllowed", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1255,8 +1259,8 @@ End Property
 '            切り替えます(既定True)
 '***************************************************************************************************
 Property Let ZoomControlEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 18, "Settings.put_IsZoomControlEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 18, "Settings.put_IsZoomControlEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1264,8 +1268,8 @@ End Property
 '            切り替えます(既定True)
 '***************************************************************************************************
 Property Let BuiltInErrorPageEnabled(v As Boolean)
-    If m_settingsLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 20, "Settings.put_IsBuiltInErrorPageEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1279,8 +1283,8 @@ End Property
 '* 注意事項：`ICoreWebView2EnvironmentOptions2`とは別物(こちらは実行時にいつでも変更可能)
 '***************************************************************************************************
 Property Let UserAgentOverride(v As String)
-    If m_settingsLevel < 2 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 22, "Settings2.put_UserAgent", StrPtr(v)
+    If m_Settings.LastLevel < 2 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 22, "Settings2.put_UserAgent", StrPtr(v)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1297,8 +1301,8 @@ End Property
 '            こちらはキー入力の割り当て自体のON/OFF)
 '***************************************************************************************************
 Property Let BrowserAcceleratorKeysEnabled(v As Boolean)
-    If m_settingsLevel < 3 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 24, "Settings3.put_AreBrowserAcceleratorKeysEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 3 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 24, "Settings3.put_AreBrowserAcceleratorKeysEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1310,8 +1314,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let PasswordAutosaveEnabled(v As Boolean)
-    If m_settingsLevel < 4 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 26, "Settings4.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 4 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 26, "Settings4.put_IsPasswordAutosaveEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1319,8 +1323,8 @@ End Property
 '            切り替えます(既定True)
 '***************************************************************************************************
 Property Let GeneralAutofillEnabled(v As Boolean)
-    If m_settingsLevel < 4 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 28, "Settings4.put_IsGeneralAutofillEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 4 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 28, "Settings4.put_IsGeneralAutofillEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1330,8 +1334,8 @@ End Property
 '* 機能　　：タッチ操作によるピンチズームジェスチャーの有効可否を切り替えます(既定True)
 '***************************************************************************************************
 Property Let PinchZoomEnabled(v As Boolean)
-    If m_settingsLevel < 5 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 30, "Settings5.put_IsPinchZoomEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 5 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 30, "Settings5.put_IsPinchZoomEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1341,8 +1345,8 @@ End Property
 '* 機能　　：左右スワイプによる進む/戻るナビゲーションジェスチャーの有効可否を切り替えます(既定True)
 '***************************************************************************************************
 Property Let SwipeNavigationEnabled(v As Boolean)
-    If m_settingsLevel < 6 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 32, "Settings6.put_IsSwipeNavigationEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 6 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 32, "Settings6.put_IsSwipeNavigationEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1358,8 +1362,8 @@ End Property
 '             SEARCH=&H400, FULL_SCREEN=&H800, MORE_SETTINGS=&H1000)
 '***************************************************************************************************
 Property Let HiddenPdfToolbarItems(v As Long)
-    If m_settingsLevel < 7 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 34, "Settings7.put_HiddenPdfToolbarItems", v
+    If m_Settings.LastLevel < 7 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 34, "Settings7.put_HiddenPdfToolbarItems", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1374,8 +1378,8 @@ End Property
 '            Trueなら全体でSmartScreenが有効になり、全てFalseの場合のみ無効になります
 '***************************************************************************************************
 Property Let ReputationCheckingRequired(v As Boolean)
-    If m_settingsLevel < 8 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 36, "Settings8.put_IsReputationCheckingRequired", CLng(v * -1)
+    If m_Settings.LastLevel < 8 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 36, "Settings8.put_IsReputationCheckingRequired", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1386,8 +1390,8 @@ End Property
 '            ウィンドウ自体を移動できる領域)の指定を有効にするか切り替えます(既定False)
 '***************************************************************************************************
 Property Let NonClientRegionSupportEnabled(v As Boolean)
-    If m_settingsLevel < 9 Then Exit Property
-    WebView2Thunks.dcf m_pSettings, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
+    If m_Settings.LastLevel < 9 Then Exit Property
+    WebView2Thunks.dcf m_Settings.Pointer, 38, "Settings9.put_IsNonClientRegionSupportEnabled", CLng(v * -1)
 End Property
 
 
@@ -1407,24 +1411,24 @@ End Property
 '* 機能　　：プロファイル名を取得します(読み取り専用)
 '***************************************************************************************************
 Property Get ProfileName() As String
-    If m_profileLevel < 1 Then Exit Property
-    ProfileName = WebView2Thunks.GetStringProperty(m_pProfile, 3, "Profile.get_ProfileName")
+    If m_Profile.LastLevel < 1 Then Exit Property
+    ProfileName = WebView2Thunks.GetStringProperty(m_Profile.Pointer, 3, "Profile.get_ProfileName")
 End Property
 
 '***************************************************************************************************
 '* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
 '***************************************************************************************************
 Property Get IsInPrivateModeEnabled() As Boolean
-    If m_profileLevel < 1 Then Exit Property
-    IsInPrivateModeEnabled = WebView2Thunks.GetBoolProperty(m_pProfile, 4, "Profile.get_IsInPrivateModeEnabled")
+    If m_Profile.LastLevel < 1 Then Exit Property
+    IsInPrivateModeEnabled = WebView2Thunks.GetBoolProperty(m_Profile.Pointer, 4, "Profile.get_IsInPrivateModeEnabled")
 End Property
 
 '***************************************************************************************************
 '* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
 '***************************************************************************************************
 Property Get ProfilePath() As String
-    If m_profileLevel < 1 Then Exit Property
-    ProfilePath = WebView2Thunks.GetStringProperty(m_pProfile, 5, "Profile.get_ProfilePath")
+    If m_Profile.LastLevel < 1 Then Exit Property
+    ProfilePath = WebView2Thunks.GetStringProperty(m_Profile.Pointer, 5, "Profile.get_ProfilePath")
 End Property
 
 '***************************************************************************************************
@@ -1433,8 +1437,8 @@ End Property
 '* 引数    ：v  フォルダの絶対パス
 '***************************************************************************************************
 Property Let DefaultDownloadFolderPath(v As String)
-    If m_profileLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 7, "Profile.put_DefaultDownloadFolderPath", StrPtr(v)
+    If m_Profile.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 7, "Profile.put_DefaultDownloadFolderPath", StrPtr(v)
 End Property
 
 '***************************************************************************************************
@@ -1444,8 +1448,8 @@ End Property
 '            `CDPCoreViaWebView2`側の`WV2PreferredColorScheme`Enum使用を推奨)
 '***************************************************************************************************
 Property Let PreferredColorScheme(v As Long)
-    If m_profileLevel < 1 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 9, "Profile.put_PreferredColorScheme", v
+    If m_Profile.LastLevel < 1 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 9, "Profile.put_PreferredColorScheme", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1458,8 +1462,8 @@ End Property
 '            3=Strict。`CDPCoreViaWebView2`側の`WV2TrackingPreventionLevel`Enum使用を推奨)
 '***************************************************************************************************
 Property Let PreferredTrackingPreventionLevel(v As Long)
-    If m_profileLevel < 3 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 14, "Profile3.put_PreferredTrackingPreventionLevel", v
+    If m_Profile.LastLevel < 3 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 14, "Profile3.put_PreferredTrackingPreventionLevel", v
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1471,8 +1475,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let ProfilePasswordAutosaveEnabled(v As Boolean)
-    If m_profileLevel < 6 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 19, "Profile6.put_IsPasswordAutosaveEnabled", CLng(v * -1)
+    If m_Profile.LastLevel < 6 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 19, "Profile6.put_IsPasswordAutosaveEnabled", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1481,8 +1485,8 @@ End Property
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let ProfileGeneralAutofillEnabled(v As Boolean)
-    If m_profileLevel < 6 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
+    If m_Profile.LastLevel < 6 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 21, "Profile6.put_IsGeneralAutofillEnabled", CLng(v * -1)
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1514,8 +1518,8 @@ Private Function IssueAddBrowserExtension(ByVal extensionFolderPath As String) A
     '-----------------------------------------------------------------------------------------------
     ' 拡張機能の追加は「ICoreWebView2Profile7」以降でしか使えない最新機能！
     ' 実行環境のEdgeが古くてProfile7未満なら、門前払いで抜ける(クラッシュ防止)
-    If m_profileLevel < 7 Then
-        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
+    If m_Profile.LastLevel < 7 Then
+        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_Profile.LastLevel=" & m_Profile.LastLevel & ")"
         Exit Function
     End If
 
@@ -1544,7 +1548,7 @@ Private Function IssueAddBrowserExtension(ByVal extensionFolderPath As String) A
     '  - 第1引数: 拡張機能フォルダのパス文字列(StrPtr)
     '  - 第2引数: さっき作った配達員の住所(pHandlerObj)
     Dim hr As Long
-    hr = WebView2Thunks.dcf(m_pProfile, 22, "Profile7.AddBrowserExtension", _
+    hr = WebView2Thunks.dcf(m_Profile.Pointer, 22, "Profile7.AddBrowserExtension", _
                                StrPtr(extensionFolderPath), pHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": AddBrowserExtension失敗 hr=&H" & Hex(hr)
@@ -1573,8 +1577,8 @@ Private Function IssueGetBrowserExtensions() As Boolean
     Set m_ext.getExt.Items = New Dictionary
 
     ' 1-2. 拡張機能の取得機能も「ICoreWebView2Profile7」以降でしか使えない！
-    If m_profileLevel < 7 Then
-        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_profileLevel=" & m_profileLevel & ")"
+    If m_Profile.LastLevel < 7 Then
+        Debug.Print FromProcedureName & ": ICoreWebView2Profile7が未対応です(m_Profile.LastLevel=" & m_Profile.LastLevel & ")"
         Exit Function
     End If
 
@@ -1601,7 +1605,7 @@ Private Function IssueGetBrowserExtensions() As Boolean
     ' Profile7::GetBrowserExtensions を叩く！
     ' (引数は結果を届けてもらうための配達員の住所 pHandlerObj だけ！)
     Dim hr As Long
-    hr = WebView2Thunks.dcf(m_pProfile, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
+    hr = WebView2Thunks.dcf(m_Profile.Pointer, 23, "Profile7.GetBrowserExtensions", pHandlerObj)
     If hr <> 0 Then
         Debug.Print FromProcedureName & ": GetBrowserExtensions失敗 hr=&H" & Hex(hr)
         m_lastError = hr
@@ -1625,8 +1629,8 @@ End Function
 '            設定時に`DisconnectCDP`から`CLOSE_`より**前**に呼ばれる想定(使い切りプロファイル用)
 '***************************************************************************************************
 Public Sub Delete()
-    If m_profileLevel < 8 Then Exit Sub
-    WebView2Thunks.dcf m_pProfile, 24, "Profile8.Delete"
+    If m_Profile.LastLevel < 8 Then Exit Sub
+    WebView2Thunks.dcf m_Profile.Pointer, 24, "Profile8.Delete"
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1639,8 +1643,8 @@ End Sub
 '* 引数    ：v  Trueで許可、Falseで禁止
 '***************************************************************************************************
 Property Let WebViewScriptApisEnabledForServiceWorkers(v As Boolean)
-    If m_profileLevel < 9 Then Exit Property
-    WebView2Thunks.dcf m_pProfile, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
+    If m_Profile.LastLevel < 9 Then Exit Property
+    WebView2Thunks.dcf m_Profile.Pointer, 28, "Profile9.put_AreWebViewScriptApisEnabledForServiceWorkers", CLng(v * -1)
 End Property
 
 
@@ -1712,10 +1716,10 @@ End Function
 '* 返り値  ：成功可否
 '***************************************************************************************************
 Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, ByVal accessKind As Long) As Boolean
-    If m_viewLevel < 3 Then Exit Function
+    If m_View.LastLevel < 3 Then Exit Function
 
     Dim hr As Long
-    hr = WebView2Thunks.dcf(m_pView, 71, "View3.SetVirtualHostNameToFolderMapping", _
+    hr = WebView2Thunks.dcf(m_View.Pointer, 71, "View3.SetVirtualHostNameToFolderMapping", _
         StrPtr(hostname), StrPtr(FolderPath), accessKind)
     SetVirtualHostNameToFolderMapping = (hr = 0)
 End Function
@@ -1726,8 +1730,8 @@ End Function
 '* 引数    ：hostName  解除する仮想ホスト名
 '***************************************************************************************************
 Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
-    If m_viewLevel < 3 Then Exit Sub
-    WebView2Thunks.dcf m_pView, 72, "View3.ClearVirtualHostNameToFolderMapping", StrPtr(hostname)
+    If m_View.LastLevel < 3 Then Exit Sub
+    WebView2Thunks.dcf m_View.Pointer, 72, "View3.ClearVirtualHostNameToFolderMapping", StrPtr(hostname)
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1740,8 +1744,8 @@ End Sub
 '            開発時のデバッグ用ウィンドウです
 '***************************************************************************************************
 Public Sub OpenTaskManagerWindow()
-    If m_viewLevel < 6 Then Exit Sub
-    WebView2Thunks.dcf m_pView, 79, "View6.OpenTaskManagerWindow"
+    If m_View.LastLevel < 6 Then Exit Sub
+    WebView2Thunks.dcf m_View.Pointer, 79, "View6.OpenTaskManagerWindow"
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1753,8 +1757,8 @@ End Sub
 '* 引数    ：v  Trueでミュート、Falseで解除
 '***************************************************************************************************
 Property Let IsMuted(v As Boolean)
-    If m_viewLevel < 8 Then Exit Property
-    WebView2Thunks.dcf m_pView, 84, "View8.put_IsMuted", CLng(v * -1)
+    If m_View.LastLevel < 8 Then Exit Property
+    WebView2Thunks.dcf m_View.Pointer, 84, "View8.put_IsMuted", CLng(v * -1)
 End Property
 
 '***************************************************************************************************
@@ -1763,8 +1767,8 @@ End Property
 '* 注意事項：読み取り専用(SDK仕様上、書き込みはできない)
 '***************************************************************************************************
 Property Get IsDocumentPlayingAudio() As Boolean
-    If m_viewLevel < 8 Then Exit Property
-    IsDocumentPlayingAudio = WebView2Thunks.GetBoolProperty(m_pView, 87, "View8.get_IsDocumentPlayingAudio")
+    If m_View.LastLevel < 8 Then Exit Property
+    IsDocumentPlayingAudio = WebView2Thunks.GetBoolProperty(m_View.Pointer, 87, "View8.get_IsDocumentPlayingAudio")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1775,16 +1779,16 @@ End Property
 '            (ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub OpenDefaultDownloadDialog()
-    If m_viewLevel < 9 Then Exit Sub
-    WebView2Thunks.dcf m_pView, 91, "View9.OpenDefaultDownloadDialog"
+    If m_View.LastLevel < 9 Then Exit Sub
+    WebView2Thunks.dcf m_View.Pointer, 91, "View9.OpenDefaultDownloadDialog"
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub CloseDefaultDownloadDialog()
-    If m_viewLevel < 9 Then Exit Sub
-    WebView2Thunks.dcf m_pView, 92, "View9.CloseDefaultDownloadDialog"
+    If m_View.LastLevel < 9 Then Exit Sub
+    WebView2Thunks.dcf m_View.Pointer, 92, "View9.CloseDefaultDownloadDialog"
 End Sub
 
 '***************************************************************************************************
@@ -1795,8 +1799,8 @@ End Sub
 '            `WV2DownloadDialogCornerAlignment`Enum使用を推奨)
 '***************************************************************************************************
 Property Let DefaultDownloadDialogCornerAlignment(v As Long)
-    If m_viewLevel < 9 Then Exit Property
-    WebView2Thunks.dcf m_pView, 94, "View9.put_DefaultDownloadDialogCornerAlignment", v
+    If m_View.LastLevel < 9 Then Exit Property
+    WebView2Thunks.dcf m_View.Pointer, 94, "View9.put_DefaultDownloadDialogCornerAlignment", v
 End Property
 
 '***************************************************************************************************
@@ -1808,10 +1812,10 @@ End Property
 '            `Sub`にしている(`SetDefaultBackgroundColor`と同じ理由)
 '***************************************************************************************************
 Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
-    If m_viewLevel < 9 Then Exit Sub
+    If m_View.LastLevel < 9 Then Exit Sub
     Dim pt As WebView2Thunks.POINT
     pt.x = x: pt.y = y
-    WebView2Thunks.dcf m_pView, 96, "View9.put_DefaultDownloadDialogMargin", WebView2Thunks.PackStruct8(VarPtr(pt))
+    WebView2Thunks.dcf m_View.Pointer, 96, "View9.put_DefaultDownloadDialogMargin", WebView2Thunks.PackStruct8(VarPtr(pt))
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1824,8 +1828,8 @@ End Sub
 '* 注意事項：読み取り専用。`StatusBarEnabled=False`にしていても値自体は取得できる
 '***************************************************************************************************
 Property Get StatusBarText() As String
-    If m_viewLevel < 12 Then Exit Property
-    StatusBarText = WebView2Thunks.GetStringProperty(m_pView, 104, "View12.get_StatusBarText")
+    If m_View.LastLevel < 12 Then Exit Property
+    StatusBarText = WebView2Thunks.GetStringProperty(m_View.Pointer, 104, "View12.get_StatusBarText")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1838,8 +1842,8 @@ End Property
 '* 注意事項：読み取り専用。未解決/存在しない場合は空文字
 '***************************************************************************************************
 Property Get FaviconUri() As String
-    If m_viewLevel < 15 Then Exit Property
-    FaviconUri = WebView2Thunks.GetStringProperty(m_pView, 111, "View15.get_FaviconUri")
+    If m_View.LastLevel < 15 Then Exit Property
+    FaviconUri = WebView2Thunks.GetStringProperty(m_View.Pointer, 111, "View15.get_FaviconUri")
 End Property
 
 '---------------------------------------------------------------------------------------------------
@@ -1852,8 +1856,8 @@ End Property
 '            `CDPCoreViaWebView2`側の`WV2PrintDialogKind`Enum使用を推奨)
 '***************************************************************************************************
 Public Sub ShowPrintUI(kind As Long)
-    If m_viewLevel < 16 Then Exit Sub
-    WebView2Thunks.dcf m_pView, 114, "View16.ShowPrintUI", kind
+    If m_View.LastLevel < 16 Then Exit Sub
+    WebView2Thunks.dcf m_View.Pointer, 114, "View16.ShowPrintUI", kind
 End Sub
 
 '---------------------------------------------------------------------------------------------------
@@ -1866,16 +1870,16 @@ End Sub
 '            `CDPCoreViaWebView2`側の`WV2MemoryUsageTargetLevel`Enum使用を推奨)
 '***************************************************************************************************
 Property Let MemoryUsageTargetLevel(v As Long)
-    If m_viewLevel < 19 Then Exit Property
-    WebView2Thunks.dcf m_pView, 120, "View19.put_MemoryUsageTargetLevel", v
+    If m_View.LastLevel < 19 Then Exit Property
+    WebView2Thunks.dcf m_View.Pointer, 120, "View19.put_MemoryUsageTargetLevel", v
 End Property
 
 '***************************************************************************************************
 '* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
 '***************************************************************************************************
 Property Get MemoryUsageTargetLevel() As Long
-    If m_viewLevel < 19 Then Exit Property
-    MemoryUsageTargetLevel = WebView2Thunks.GetLongProperty(m_pView, 119, "View19.get_MemoryUsageTargetLevel")
+    If m_View.LastLevel < 19 Then Exit Property
+    MemoryUsageTargetLevel = WebView2Thunks.GetLongProperty(m_View.Pointer, 119, "View19.get_MemoryUsageTargetLevel")
 End Property
 
 
