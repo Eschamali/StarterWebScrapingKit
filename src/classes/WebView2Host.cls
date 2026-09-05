@@ -35,13 +35,15 @@ Option Explicit
 '***************************************************************************************************
 '                                   ■■■ WindowsAPI宣言 ■■■
 '***************************************************************************************************
+'----- 全ての始まり -----
+'※"C:\Program Files\Microsoft Office\root\Office16\WebView2Loader.dll"を読みに行ってるもよう
 Private Declare PtrSafe Function CreateCoreWebView2EnvironmentWithOptions Lib "WebView2Loader" ( _
     ByVal browserExecutableFolder As LongPtr, _
     ByVal userDataFolder As LongPtr, _
     ByVal EnvironmentOptions As LongPtr, _
     ByVal environmentCreatedHandler As LongPtr) As Long
 
-'DJP 20241105 to solve problems with terminating sessions on terminal server
+'----- DJP 20241105 to solve problems with terminating sessions on terminal server -----
 Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" ( _
     ) As Long
 
@@ -984,7 +986,7 @@ End Property
 
 
 '***************************************************************************************************
-'                              ■■■ Environment拡張 一式 ■■■
+'                              ■■■ ICoreWebView2Environment 一式 ■■■
 '***************************************************************************************************
 '* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します
 '***************************************************************************************************
