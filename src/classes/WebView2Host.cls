@@ -256,6 +256,9 @@ Public Function RunWebView2(ByVal EnvironmentOptions As LongPtr) As Boolean
     End If
     If m_core.env.state <> Whs_Ready Then Exit Function
 
+    '5-1. ICoreWebView2Environmentのどの最新番号(_11まで)まで対応してるか探る
+    DetectEnvironmentLevel
+
     '6. `ICoreWebView2Controller`用COMコールバックオブジェクトを生成する
     Set m_core.ctrl.handler = WebView2Thunks.AcquireHandlerFor(HK_ControllerCompleted, Me)
     If m_core.ctrl.handler Is Nothing Then
@@ -482,6 +485,28 @@ Private Sub DetectProfileLevel()
     iids(8) = "fa740d4b-5eae-4344-a8ad-74be31925397"   ' ICoreWebView2Profile2
 
     m_profileLevel = DetectLevel(m_pProfile, iids, "Profile.QueryInterface")
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`m_pEnvironment`の`ICoreWebView2EnvironmentN`最新対応バージョンを判定し、
+'            `m_environmentLevel`を更新します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：現状`_11`(`FailureReportFolderPath`)までしか消費していないため、探索もそこまでに留める
+'***************************************************************************************************
+Private Sub DetectEnvironmentLevel()
+    Dim iids(1 To 10) As String
+    iids(1) = "f0913dc6-a0ec-42ef-9805-91dff3a2966a"    ' ICoreWebView2Environment11
+    iids(2) = "ee0eb9df-6f12-46ce-b53f-3f47b9c928e0"    ' ICoreWebView2Environment10
+    iids(3) = "f06f41bf-4b5a-49d8-b9f6-fa16cd29f274"    ' ICoreWebView2Environment9
+    iids(4) = "d6eb91dd-c3d2-45e5-bd29-6dc2bc4de9cf"    ' ICoreWebView2Environment8
+    iids(5) = "43c22296-3bbd-43a4-9c00-5c0df6dd29a2"    ' ICoreWebView2Environment7
+    iids(6) = "e59ee362-acbd-4857-9a8e-d3644d9459a9"    ' ICoreWebView2Environment6
+    iids(7) = "319e423d-e0d7-4b8d-9254-ae9475de9b17"    ' ICoreWebView2Environment5
+    iids(8) = "20944379-6dcf-41d6-a0a0-abc0fc50de0d"    ' ICoreWebView2Environment4
+    iids(9) = "80a22ae3-be7c-4ce2-afe1-5a50056cdeeb"    ' ICoreWebView2Environment3
+    iids(10) = "41f3632b-5ef4-404f-ad82-2d606c5a9a21"   ' ICoreWebView2Environment2
+
+    m_environmentLevel = DetectLevel(m_pEnvironment, iids, "Env.QueryInterface")
 End Sub
 
 
