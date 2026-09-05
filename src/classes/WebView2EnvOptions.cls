@@ -38,25 +38,8 @@ Option Explicit
 
 
 '***************************************************************************************************
-'                                   ■■■ 各種クラス変数 ■■■
+'                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
-Private m_pNative As LongPtr
-Private m_closed  As Boolean
-
-Private m_additionalBrowserArguments             As String
-Private m_language                               As String
-Private m_targetCompatibleBrowserVersion         As String
-Private m_allowSingleSignOnUsingOSPrimaryAccount As Boolean
-Private m_areBrowserExtensionsEnabled            As Boolean
-
-' --- Options2/3/5/7/8 ---
-Private m_exclusiveUserDataFolderAccess As Boolean
-Private m_isCustomCrashReportingEnabled As Boolean
-Private m_enableTrackingPrevention      As Boolean
-Private m_channelSearchKind             As Long
-Private m_releaseChannels               As Long
-Private m_scrollBarStyle                As Long
-
 '* `ChannelSearchKind`用(`COREWEBVIEW2_CHANNEL_SEARCH_KIND`)
 Public Enum WV2ChannelSearchKind
     ChannelSearch_MostStable = 0     ' 既定。安定版から探す
@@ -77,26 +60,27 @@ Public Enum WV2ScrollBarStyle
     ScrollBar_FluentOverlay = 1
 End Enum
 
-'***************************************************************************************************
-'* 機能　　：`TargetCompatibleBrowserVersion`の既定値を設定します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：★実機検証済み★ 公式のC++ラッパー(`WebView2EnvironmentOptions.h`)はこの値を常に
-'            (SDKバンドル版の)具体的なバージョン文字列で初期化している。ここを空文字
-'            (nullptr相当)のままにすると`CreateCoreWebView2EnvironmentWithOptions`が
-'            hr=&H80070057(E_INVALIDARG)で即失敗することを実機で確認した。SDKバンドル版に
-'            合わせた値を既定にすることで解消する
-'***************************************************************************************************
-Private Sub Class_Initialize()
-    m_targetCompatibleBrowserVersion = "152.0.4181.0"
 
-    ' --- Options2/3/5/7/8の既定値。公式サンプル実装(WebView2EnvironmentOptions.h)と同じ値にする ---
-    ' `ExclusiveUserDataFolderAccess`/`IsCustomCrashReportingEnabled`/`ChannelSearchKind`
-    ' (MOST_STABLE=0)/`ScrollBarStyle`(DEFAULT=0)はVBAのFalse/0既定のままで公式既定と一致するため
-    ' 明示設定不要。`EnableTrackingPrevention`(既定True)と`ReleaseChannels`(既定は全チャンネル
-    ' 許可=15)だけ明示的に上書きする
-    m_enableTrackingPrevention = True
-    m_releaseChannels = &H1 Or &H2 Or &H4 Or &H8   ' STABLE|BETA|DEV|CANARY
-End Sub
+
+'***************************************************************************************************
+'                                   ■■■ 各種クラス変数 ■■■
+'***************************************************************************************************
+'`ICoreWebView2EnvironmentOptions`管理
+Private m_pNative As LongPtr    'Vtableポインター
+Private m_closed  As Boolean    'Closeサイン
+
+'各種設定値保持
+Private m_additionalBrowserArguments             As String
+Private m_language                               As String
+Private m_targetCompatibleBrowserVersion         As String
+Private m_allowSingleSignOnUsingOSPrimaryAccount As Boolean
+Private m_areBrowserExtensionsEnabled            As Boolean
+Private m_exclusiveUserDataFolderAccess As Boolean
+Private m_isCustomCrashReportingEnabled As Boolean
+Private m_enableTrackingPrevention      As Boolean
+Private m_channelSearchKind             As Long
+Private m_releaseChannels               As Long
+Private m_scrollBarStyle                As Long
 
 
 
@@ -272,6 +256,27 @@ Friend Function BuildNativePointer() As LongPtr
     End If
     BuildNativePointer = m_pNative
 End Function
+
+'***************************************************************************************************
+'* 機能　　：`TargetCompatibleBrowserVersion`の既定値を設定します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：★実機検証済み★ 公式のC++ラッパー(`WebView2EnvironmentOptions.h`)はこの値を常に
+'            (SDKバンドル版の)具体的なバージョン文字列で初期化している。ここを空文字
+'            (nullptr相当)のままにすると`CreateCoreWebView2EnvironmentWithOptions`が
+'            hr=&H80070057(E_INVALIDARG)で即失敗することを実機で確認した。SDKバンドル版に
+'            合わせた値を既定にすることで解消する
+'***************************************************************************************************
+Private Sub Class_Initialize()
+    m_targetCompatibleBrowserVersion = "152.0.4181.0"
+
+    ' --- Options2/3/5/7/8の既定値。公式サンプル実装(WebView2EnvironmentOptions.h)と同じ値にする ---
+    ' `ExclusiveUserDataFolderAccess`/`IsCustomCrashReportingEnabled`/`ChannelSearchKind`
+    ' (MOST_STABLE=0)/`ScrollBarStyle`(DEFAULT=0)はVBAのFalse/0既定のままで公式既定と一致するため
+    ' 明示設定不要。`EnableTrackingPrevention`(既定True)と`ReleaseChannels`(既定は全チャンネル
+    ' 許可=15)だけ明示的に上書きする
+    m_enableTrackingPrevention = True
+    m_releaseChannels = &H1 Or &H2 Or &H4 Or &H8   ' STABLE|BETA|DEV|CANARY
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：自分(VBA所有者側)が持っていた分の参照を手放します
