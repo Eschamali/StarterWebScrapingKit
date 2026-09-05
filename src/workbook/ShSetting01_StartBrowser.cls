@@ -24,13 +24,6 @@ Option Explicit
 Private Const TableName01 As String = "BrowserHandleInfo"
 Private Const TableName02 As String = "BrowserContextInfo"
 
-Private Const TableName03 As String = "ProtocolWhiteList"
-Public Enum Table03ColumnID
-    ProtocolName = 1
-    階層
-    接頭辞
-End Enum
-
 
 
 '***************************************************************************************************
