@@ -975,6 +975,37 @@ End Property
 
 
 '***************************************************************************************************
+'                              ■■■ Environment拡張 一式 ■■■
+'***************************************************************************************************
+'* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します
+'***************************************************************************************************
+Property Get BrowserVersionString() As String
+    BrowserVersionString = WebView2Thunks.GetStringProperty(m_pEnvironment, 5, "Env.get_BrowserVersionString")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：実際に使用されているユーザーデータフォルダの絶対パスを取得します(ICoreWebView2Environment7以降)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`getUserDataDirPath`(VBA側で組み立てたパス文字列をそのまま返すだけ)とは別に、
+'            ランタイムが実際に認識している値をCOM経由で正式に取得します
+'***************************************************************************************************
+Property Get userDataFolder() As String
+    If m_environmentLevel < 7 Then Exit Property
+    userDataFolder = WebView2Thunks.GetStringProperty(m_pEnvironment, 15, "Env7.get_UserDataFolder")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：クラッシュ時のminidumpファイルが書き出されるフォルダのパスを取得します
+'            (ICoreWebView2Environment11以降)
+'***************************************************************************************************
+Property Get FailureReportFolderPath() As String
+    If m_environmentLevel < 11 Then Exit Property
+    FailureReportFolderPath = WebView2Thunks.GetStringProperty(m_pEnvironment, 23, "Env11.get_FailureReportFolderPath")
+End Property
+
+
+
+'***************************************************************************************************
 '                               ■■■ ICoreWebView2Controller 一式 ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
