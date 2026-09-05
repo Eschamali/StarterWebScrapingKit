@@ -48,6 +48,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：拡張機能系のみ、CDPコマンドでは出来ないため、WebView2側で用意されてる拡張機能用APIでやるためのDemoとなります
 '            恐らく内部では`Page`単位(/json/list)としての実行となっているため`Method not available.`エラーと推測してます
+'* 注意事項：現時点では、CDPルートでは動作しませんが万が一、動作することに素早く気づけるようにルートは残しておきます
 '***************************************************************************************************
 Sub 拡張機能インストールアンインストール()
     Const UseCDP As Boolean = False
@@ -86,7 +87,6 @@ Sub 拡張機能インストールアンインストール()
 
             If ResultCDP Is Nothing Then MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("code"): Unload WebView2Form: Exit Sub
 
-            '6. アンインストール
             InstallID = ResultCDP("id")
             MsgBox "拡張機能のインストールに成功しました。", vbInformation, "exID: " & InstallID
         
@@ -99,7 +99,7 @@ Sub 拡張機能インストールアンインストール()
             Dim ext As Variant
             For Each ext In .ThisWebView2.GetBrowserExtensionIds
                 Debug.Print ext("ID"), ext("Name"), ext("IsEnabled")
-            Next ext
+            Next
 
             '6. アンインストール
             If Not .ThisWebView2.RemoveBrowserExtension(InstallID) Then MsgBox "拡張機能のアンインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
