@@ -175,6 +175,35 @@ Public Function Handler_Invoke( _
             End If
 
 
+        '---------------- 拡張機能系 ----------------
+        ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
+        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
+        Case HK_AddBrowserExtensionCompleted
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
+
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
+            If Not (m_owner Is Nothing) Then m_owner.OnAddBrowserExtensionCompleted ErrorCode, arg2
+
+        ' SDKシグネチャ: ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler::
+        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtensionList* result)
+        Case HK_GetBrowserExtensionsCompleted
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
+
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
+            If Not (m_owner Is Nothing) Then m_owner.OnGetBrowserExtensionsCompleted ErrorCode, arg2
+
+        ' SDKシグネチャ: ICoreWebView2BrowserExtensionRemoveCompletedHandler::
+        '   Invoke(HRESULT errorCode)  ※引数1個のみ(結果オブジェクトは無い)
+        Case HK_RemoveBrowserExtensionCompleted
+            '2. 第2引数を基に、エラーコードを復元
+            ErrorCode = LongPtrLowDword(arg1)
+
+            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
+            If Not (m_owner Is Nothing) Then m_owner.OnRemoveBrowserExtensionCompleted ErrorCode
+
+
         '---------------- ICoreWebView2EnvironmentOptions系 ----------------
         ' SDKシグネチャ: get_Xxx(this, [out]value) / put_Xxx(this, value) のいずれも1引数のみ。
         ' arg1が「get_ なら[out]ポインタ」「put_ なら渡された値そのもの」に対応する
@@ -234,40 +263,6 @@ Public Function Handler_Invoke( _
         Case HK_EnvOpt_PutScrollBarStyle
             If Not (m_owner Is Nothing) Then m_owner.EnvOpt_OnPutScrollBarStyle arg1
 
-
-        '---------------- 拡張機能系 ----------------
-        ' SDKシグネチャ: ICoreWebView2ProfileAddBrowserExtensionCompletedHandler::
-        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtension* result)
-        Case HK_AddBrowserExtensionCompleted
-            '2. 第2引数を基に、エラーコードを復元
-            ErrorCode = LongPtrLowDword(arg1)
-
-            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnAddBrowserExtensionCompleted ErrorCode, arg2
-            End If
-
-        ' SDKシグネチャ: ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler::
-        '   Invoke(HRESULT errorCode, ICoreWebView2BrowserExtensionList* result)
-        Case HK_GetBrowserExtensionsCompleted
-            '2. 第2引数を基に、エラーコードを復元
-            ErrorCode = LongPtrLowDword(arg1)
-
-            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnGetBrowserExtensionsCompleted ErrorCode, arg2
-            End If
-
-        ' SDKシグネチャ: ICoreWebView2BrowserExtensionRemoveCompletedHandler::
-        '   Invoke(HRESULT errorCode)  ※引数1個のみ(結果オブジェクトは無い)
-        Case HK_RemoveBrowserExtensionCompleted
-            '2. 第2引数を基に、エラーコードを復元
-            ErrorCode = LongPtrLowDword(arg1)
-
-            '3. `WebView2Host.cls`の完了コールバックプロシージャへ
-            If Not (m_owner Is Nothing) Then
-                m_owner.OnRemoveBrowserExtensionCompleted ErrorCode
-            End If
 
         Case Else
             Debug.Print "WebView2CallbackHandler.Handler_Invoke: 未知のkind=" & m_kind
