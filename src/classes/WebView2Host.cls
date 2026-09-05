@@ -1390,6 +1390,30 @@ End Property
 '            Settings側の**WebViewインスタンス単位**の設定とは別物。名前衝突を避けるため
 '            `Profile`を頭に付けている
 '***************************************************************************************************
+'* 機能　　：プロファイル名を取得します(読み取り専用)
+'***************************************************************************************************
+Property Get ProfileName() As String
+    If m_profileLevel < 1 Then Exit Property
+    ProfileName = WebView2Thunks.GetStringProperty(m_pProfile, 3, "Profile.get_ProfileName")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
+'***************************************************************************************************
+Property Get IsInPrivateModeEnabled() As Boolean
+    If m_profileLevel < 1 Then Exit Property
+    IsInPrivateModeEnabled = WebView2Thunks.GetBoolProperty(m_pProfile, 4, "Profile.get_IsInPrivateModeEnabled")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
+'***************************************************************************************************
+Property Get ProfilePath() As String
+    If m_profileLevel < 1 Then Exit Property
+    ProfilePath = WebView2Thunks.GetStringProperty(m_pProfile, 5, "Profile.get_ProfilePath")
+End Property
+
+'***************************************************************************************************
 '* 機能　　：既定のダウンロード先フォルダを設定します
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：v  フォルダの絶対パス
