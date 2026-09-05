@@ -15,6 +15,7 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 '***************************************************************************************************
 '                         ユーザーフォームに本物のWebView2埋め込みます
+'                               テンプレートの参考にどうぞ
 '***************************************************************************************************
 Option Explicit
 
@@ -175,6 +176,30 @@ End Property
 Property Get ThisCDPContext() As CDPContext
     Set ThisCDPContext = fCDPContext
 End Property
+
+
+
+'***************************************************************************************************
+'                        ■■■ このUserForm用のCDP非同期イベント処理 ■■■
+'***************************************************************************************************
+Private Sub fCDPEvent_CDPContextEvent(methodName As String, RawJson As String, sessionID As String)
+    '1. このコンテキスト(タブ)クラスで設定中の`SessionId`以外も即抜け
+    If fCDPContext.CurrentSessionID <> sessionID Then Exit Sub
+
+    '2. 処理したい対象の非同期イベント名を、各Case に記述してください。
+    Select Case methodName
+        Case "○○.△△"
+
+        Case "□□.◇◇"
+
+        Case Else
+            Exit Sub
+
+    End Select
+
+    '基本的には、`Case`内完結が望ましいですが、必要に応じて、下準備や後始末要因で、非同期イベントの処理前後であっても、コードを記述していただいて構いません。
+
+End Sub
 
 
 
