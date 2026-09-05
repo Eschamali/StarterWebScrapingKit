@@ -587,29 +587,30 @@ End Function
 '* 機能　　：インストール済みの拡張機能を、ID/名前/有効状態付きで一覧取得します(Profile7以降)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：各要素が`Dictionary`(キー:"ID"/"Name"/"IsEnabled")の`Collection`。
-'            0件/失敗時は空の`Collection`
+'           失敗時は`Nothing`
 '***************************************************************************************************
 Public Function GetBrowserExtensionIds() As Collection
-    Dim results As New Collection
+    '1. 拡張機能一覧取得依頼を行い、結果受け取りに失敗したら、即抜け
+    If Not RunGetBrowserExtensions() Then ReleaseGetExtPtrs : Exit Function
 
-    If Not RunGetBrowserExtensions() Then
-        ReleaseGetExtPtrs
-        Set GetBrowserExtensionIds = results
-        Exit Function
-    End If
-
+    '2. 必要な変数を用意、初期化
+    Set GetBrowserExtensionIds = New Collection
     Dim Key As Variant, pExt As LongPtr, info As Dictionary
     For Each Key In m_ext.getExt.Items.keys
+        '2-1. 拡張機能情報のポインターを取得
         pExt = m_ext.getExt.Items(Key)
 
+        '2-2. ポインターに紐づく各種情報を取り出す
         Set info = New Dictionary
         info.Add "ID", CStr(Key)
         info.Add "Name", WebView2Thunks.GetStringProperty(pExt, 4, "BrowserExtension.get_Name")
         info.Add "IsEnabled", WebView2Thunks.GetBoolProperty(pExt, 6, "BrowserExtension.get_IsEnabled")
-        results.Add info
-    Next Key
 
-    Set GetBrowserExtensionIds = results
+        '2-3. `Collection`に追加
+        GetBrowserExtensionIds.Add info
+    Next
+
+    '3. 用済みなので、ポインター解放
     ReleaseGetExtPtrs
 End Function
 

@@ -806,22 +806,26 @@ Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As Stri
 End Function
 
 '***************************************************************************************************
-'* 機能　　：インストール済みの拡張機能IDを一覧取得します(Profile7以降)
+'* 機能　　：インストール済みの拡張機能を、ID/名前/有効状態付きで一覧取得します(Profile7以降)
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：拡張機能IDの配列(String)。0件/失敗時は要素数0の配列
+'* 返り値  ：各要素が`Dictionary`(キー:"ID"/"Name"/"IsEnabled")の`Collection`。
+'            失敗時は`nothing`
+'---------------------------------------------------------------------------------------------------
+'* 使い方例：Dim ext As Variant
+'            For Each ext In wv2.GetBrowserExtensionIds()
+'                Debug.Print ext("ID"), ext("Name"), ext("IsEnabled")
+'            Next ext
 '***************************************************************************************************
-Public Function GetBrowserExtensionIds() As Variant
-    If m_Host Is Nothing Then
-        GetBrowserExtensionIds = Array()
-        Exit Function
-    End If
-    GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
+Public Function GetBrowserExtensionIds() As Collection
+    If m_Host Is Nothing Then Exit Function
+    Set GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
 End Function
 
 '***************************************************************************************************
 '* 機能　　：指定IDの拡張機能をアンインストールします(Profile7以降)
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：extensionId  `AddBrowserExtension`/`GetBrowserExtensionIds`で得られる拡張機能ID
+'* 引数    ：extensionId  `AddBrowserExtension`の戻り値、または`GetBrowserExtensionIds`の各要素の
+'            "ID"キーで得られる拡張機能ID
 '* 返り値  ：成功可否
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：WebView2にはID指定の直接アンインストールAPIが無いため、内部で一覧取得→対象特定→
