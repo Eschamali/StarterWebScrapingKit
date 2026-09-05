@@ -1684,11 +1684,6 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数    ：v  Trueでミュート、Falseで解除
 '***************************************************************************************************
-Property Get IsMuted() As Boolean
-    If m_viewLevel < 8 Then Exit Property
-    IsMuted = WebView2Thunks.GetBoolProperty(m_pView, 83, "View8.get_IsMuted")
-End Property
-
 Property Let IsMuted(v As Boolean)
     If m_viewLevel < 8 Then Exit Property
     WebView2Thunks.dcf m_pView, 84, "View8.put_IsMuted", CLng(v * -1)
