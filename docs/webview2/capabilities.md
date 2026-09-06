@@ -4,7 +4,7 @@ description: Excel の UserForm に埋め込んだ WebView2 を、Pipe / WebSock
 
 # WebView2モードでできること
 
-Pipe・WebSocket が「外部のブラウザプロセス」を相手にするのに対し、WebView2 モードは **Excel自身のUserFormに埋め込んだブラウザ**を制御します。デバッグポートも名前付きパイプも使いません。
+Pipe・WebSocket が「外部のブラウザプロセス」を相手にするのに対し、WebView2 モードは **Excel自身のUserFormに埋め込んだブラウザ**を制御します。デバッグポート`--remote-debugging-port`も匿名パイプ`--remote-debugging-pipe`も使いません。
 
 - Excel の UserForm に本物の WebView2 を埋め込み、リッチな画面（React / Vue / SPA など）を表示しつつ、同じタブを CDP で操作したい場合
 - 社内ツールとして、1枚の xlsm だけで「ブラウザ埋め込みUI」を配布したい場合

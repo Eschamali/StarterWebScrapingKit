@@ -6,7 +6,7 @@ description: WebView2 モードを増設した理由と設計。COM/vtable経由
 
 Pipe・WebSocket に続く3つ目の通信路として、v3.0.0 で **WebView2（`ICoreWebView2`）を直接叩くモード**を増設しました。
 
-Pipe・WebSocket がどちらも「**外にいるブラウザプロセス**」を相手にするのに対し、WebView2 モードは「**Excel自身のUserFormに埋め込んだブラウザ**」を相手にします。デバッグポートも名前付きパイプも一切開かず、WebView2 SDK が公開する COM インターフェースを直接呼び出す、まったく別の経路です。
+Pipe・WebSocket がどちらも「**外にいるブラウザプロセス**」を相手にするのに対し、WebView2 モードは「**Excel自身のUserFormに埋め込んだブラウザ**」を相手にします。デバッグポート`--remote-debugging-port`も匿名パイプ`--remote-debugging-pipe`も一切開かず、WebView2 SDK が公開する COM インターフェースを直接呼び出す、まったく別の経路です。
 
 ## 既存のCDPスタックへの繋ぎ込み方
 
