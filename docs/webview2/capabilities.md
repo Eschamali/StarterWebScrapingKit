@@ -90,6 +90,10 @@ Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの�
 
 CDPの`Extensions`ドメイン（`Extensions.loadUnpacked`等）は、**WebView2経路だけ`Method not available`で弾かれます**。そのため、拡張機能まわりだけはCDPを介さない専用APIを使います。
 
+![実際に拡張機能をインストールし、UserForm内のWebView2上で動作している様子](/img/拡張機能がWebView2で動作してる様子.png)
+
+*▲ `AddBrowserExtension` でインストールした拡張機能（画像は「Shadowban Scanner」）が、UserForm に埋め込んだ WebView2 上で実際にポップアップを開いて動作している様子*
+
 ```vb
 Public Function AddBrowserExtension(extensionFolderPath As String) As String   ' 戻り値: インストールした拡張機能のID(失敗時は空文字)
 Public Function GetBrowserExtensionIds() As Collection                         ' 各要素はDictionary(キー:"ID"/"Name"/"IsEnabled")
