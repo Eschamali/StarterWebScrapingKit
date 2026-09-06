@@ -16,11 +16,34 @@ Pipe・WebSocket が「外部のブラウザプロセス」を相手にするの
 いちばん簡単なのは、同梱の `WebView2Form` を使う方法です。
 
 ```vb
+'***************************************************************************************************
+'                                ■■■ Hello World ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2を起動します。基本的な呼び出しフローです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
+'            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
+'***************************************************************************************************
 Sub ExcelのユーザーフォームにWebView2を埋め込む()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+        '1. 起動前設定を施す(任意)
+        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
 
-        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
+        '2. WebView2プロセスを起動
+        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
+                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
+
+        '3. 遷移前の事前設定を施す(任意)
+        .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
+        .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+
+        '3. CDPとして、ページ遷移
+        'シングルサインオンを無効：Microsoftアカウントの紹介
+        'シングルサインオンを有効：あなたのPCでログイン中のMicrosoftアカウント設定ページに自動遷移
+        .ThisCDPContext.navigate "https://account.microsoft.com/"
+
+        '4. フォームを表示
+        '※UserFormを閉じるまで、ブロッキングされます
         .show
     End With
 End Sub
@@ -29,6 +52,17 @@ End Sub
 同梱デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
 
 内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
+
+このデモには、WebView2モードならではの基本操作が3つ詰め込まれています。
+
+::: tip 設定できるタイミングは2種類
+- **起動前**（`StartCDPModeWebView2`より前）：`EnvironmentOptions`経由の設定（例: `Set_AllowSingleSignOnUsingOSPrimaryAccount`）。Environment生成時にしか読まれないため、あとから変更しても反映されません
+- **遷移前**（`StartCDPModeWebView2`のあと・`navigate`より前）：`ICoreWebView2Settings`系のプロパティ（例: `DevToolsEnabled` / `ContextMenuEnabled`）。ページ単位の設定なので、次のページ遷移までに済ませておく必要があります
+:::
+
+`Set_AllowSingleSignOnUsingOSPrimaryAccount` の値によって、同じ`https://account.microsoft.com/`への遷移結果が変わります。`False`（シングルサインオン無効）ならMicrosoftアカウントの紹介ページが、`True`（有効）ならWindowsに現在サインイン中のMicrosoftアカウントの設定ページへ自動的に遷移します。実行前後で切り替えて挙動の違いを確かめてみてください。
+
+`ThisWebView2` / `ThisCDPContext` は、[UserForm への埋め込み](/userform/vba-only)や[reattach](/guides/reattach)など、以降のページ・デモで繰り返し出てくる基本の呼び出し方です。フォーム経由でWebView2固有の設定（`ThisWebView2`）とCDP操作（`ThisCDPContext`）の両方に、同じ`With`ブロックからアクセスできます。
 
 ## 自前のUserFormに組み込む場合
 
