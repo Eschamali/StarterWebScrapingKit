@@ -325,14 +325,13 @@ End Sub
 
 ### 🆕 WebSocketモードでのローカルブラウザ起動にも対応（v3.0.0〜）
 
-これまでのWebSocketモードは「すでに起動しているブラウザへの後付け接続」専用でしたが、v3.0.0より **ローカルブラウザの起動から接続までを1メソッドで完結**できるようになりました。事前に対象ブラウザを手動起動しておく必要はありません。
+これまでのWebSocketモードは「すでに起動しているブラウザへの後付け接続」専用でしたが、v3.0.0より **ローカルブラウザの起動から接続までを完結**できるようになりました。事前に対象ブラウザを手動起動しておく必要はありません。一番簡単なのは、設定シート経由の `ShSetting01_StartBrowser.StartCDPMode` に `WebSocketMode:=True` を渡す方法です（v3.1.0〜）。
 
 ```vb
 Sub WebSocketモードで新規にブラウザを起動する()
     '1. WebSocketモードでローカルブラウザを起動し、そのまま接続まで行う
-    Dim ws As New CDPCoreViaWebSocket
     Dim b As CDPBrowser
-    Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+    Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
     '2. あとはいつも通り
     Dim t As CDPContext
@@ -353,19 +352,34 @@ End Sub
 **外部プロセス（PowerShellなど）に一切頼らず、Excel VBAのメモリ空間だけでWebView2を直接起動・制御**できるようになりました。「Port も Pipe も使えない」という、これまでで一番厳しい制限環境向けの切り札です。
 
 ```vb
+'* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
+'            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
 Sub ExcelのユーザーフォームにWebView2を埋め込む()
     With WebView2Form
+        '1. 起動前設定を施す(任意)
+        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
+
+        '2. WebView2プロセスを起動
         If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
 
-        '設定シートに基づくブラウザ立ち上げと同じ感覚で、そのまま操作できます
-        .ThisCDPContext.navigate "https://www.youtube.com/@islandfox6864"
+        '3. 遷移前の事前設定を施す(任意)
+        .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
+        .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
 
+        '3. CDPとして、ページ遷移
+        'シングルサインオンを無効：Microsoftアカウントの紹介
+        'シングルサインオンを有効：あなたのPCでログイン中のMicrosoftアカウント設定ページに自動遷移
+        .ThisCDPContext.navigate "https://account.microsoft.com/"
+
+        '4. フォームを表示(UserFormを閉じるまでブロッキングされます)
         .show
     End With
 End Sub
 ```
 
-一度埋め込んでしまえば、`CDPContext` / `CDPElement` のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
+設定できるタイミングは2種類あります。**起動前**（`EnvironmentOptions`経由。Environment生成時にしか読まれないため、あとから変更しても反映されません）と、**遷移前**（`ICoreWebView2Settings`系。ページ単位の設定なので次の遷移までに済ませておく必要があります）です。上のデモでは、`Set_AllowSingleSignOnUsingOSPrimaryAccount` の`True`/`False`次第で、同じURLへの遷移結果（アカウント紹介ページか、サインイン中アカウントの設定ページか）が変わる様子も確認できます。
+
+一度埋め込んでしまえば、`ThisCDPContext`（`CDPContext`）/ `ThisWebView2`経由の`CDPElement`のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
 
 > [!NOTE]
 > この機能の心臓部（機械語サンク・vtable呼び出し）は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックをそのまま移植したものです。改めて感謝申し上げます🙏 詳しい経緯は[公式ドキュメントの開発秘話](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story)をご覧ください。

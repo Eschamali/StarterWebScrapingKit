@@ -1,4 +1,4 @@
-# Excel VBA Web Automation Starter Kit
+﻿# Excel VBA Web Automation Starter Kit
 
 ![Logo](doc/Logo.png)
 
@@ -330,14 +330,13 @@ End Sub
 
 ### 🆕 WebSocket Mode Can Now Also Launch a Local Browser (v3.0.0〜)
 
-Until now, WebSocket mode was exclusively for "attaching to an already-running browser." As of v3.0.0, you can **launch a local browser and connect to it in a single method call**. There's no need to manually start the target browser beforehand.
+Until now, WebSocket mode was exclusively for "attaching to an already-running browser." As of v3.0.0, you can **launch a local browser and connect to it**, with no need to manually start the target browser beforehand. The easiest way (v3.1.0〜) is to pass `WebSocketMode:=True` to `ShSetting01_StartBrowser.StartCDPMode`.
 
 ```vb
 Sub LaunchNewBrowserInWebSocketMode()
     ' 1. Launch a local browser in WebSocket mode and connect to it in one go
-    Dim ws As New CDPCoreViaWebSocket
     Dim b As CDPBrowser
-    Set b = ws.RunWebSocketModeBrowserCDP(BrowserList.RunChrome, "https://example.com")
+    Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
 
     ' 2. Proceed as usual
     Dim t As CDPContext
@@ -358,19 +357,34 @@ Internally, this automatically handles checking for policies that block remote d
 You can now **launch and control WebView2 directly from within Excel VBA's own memory space, with no external process (such as PowerShell) required.** This is the ace up the sleeve for the toughest environments yet — those where **neither a port nor a pipe** is permitted.
 
 ```vb
+' Note: Some `ICoreWebView2Settings` properties only take effect before navigation.
+'       `ICoreWebView2EnvironmentOptions` settings only take effect before the WebView2 process starts.
 Sub EmbedWebView2InAnExcelUserForm()
     With WebView2Form
+        ' 1. Apply pre-launch settings (optional)
+        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
+
+        ' 2. Launch the WebView2 process
         If Not .StartCDPModeWebView2 Then Debug.Print "Failed to initialize WebView2.": Exit Sub
 
-        ' Operate it exactly the same way as a browser launched from the settings sheet
-        .ThisCDPContext.navigate "https://www.youtube.com/@islandfox6864"
+        ' 3. Apply pre-navigation settings (optional)
+        .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
+        .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
 
+        ' 4. Navigate, as CDP
+        ' SSO disabled: shows the Microsoft account introduction page
+        ' SSO enabled : auto-navigates to the settings page for the account currently signed in on this PC
+        .ThisCDPContext.navigate "https://account.microsoft.com/"
+
+        ' 5. Show the form (blocks until the UserForm is closed)
         .show
     End With
 End Sub
 ```
 
-Once embedded, the `CDPContext` / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_CDP.ExcelのユーザーフォームにWebView2を埋め込む`.
+There are two moments when settings can be applied: **before launch** (via `EnvironmentOptions` — only read when the Environment is created, so changing it afterward has no effect) and **before navigation** (via `ICoreWebView2Settings`-family properties — a per-page setting, so it must be set before the next navigation). In the demo above, you can also see how toggling `Set_AllowSingleSignOnUsingOSPrimaryAccount` changes the outcome of navigating to the very same URL.
+
+Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`.
 
 > [!NOTE]
 > The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
