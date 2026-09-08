@@ -27,9 +27,10 @@ This tool implements the "Three Sacred Treasures" required to conquer modern web
 
 ## 🔥【Strengths of This Tool】🔥
 
-* **Ultimate Portable Browser Support (Freedom from Driver Version Management!)**
+* **Zero installs. No WebDriver. One xlsm file, and both Chromium and WebView2 are yours to command**
   * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
-  * Whether it's a modified browser, an anti-detect browser, or a portable Chrome on a USB drive, complete automation is possible in an instant just by **"pasting the exe path into a cell on the settings sheet"** 😎
+  * Whether it's a modified browser, an anti-detect browser, or a portable Chrome on a USB drive, complete automation is possible in an instant just by **"pasting the exe path into a cell on the settings sheet"** 😎 (leave the cell blank and it just uses the default Edge/Chrome install)
+  * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
 
 * **Infinite Extensibility: Your Own Custom Tool!**
   * Simply tell an AI about the "[Template](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)" and the "function you want," and complex automation code will be completed in seconds!

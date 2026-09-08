@@ -21,9 +21,10 @@
 
 ## 🔥【本ツールの強み】🔥
 
-* **究極のポータブルブラウザ対応（Driverバージョン管理からの解放！）**
+* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでChromiumもWebView2も思いのまま**
   * Selenium等で悩まされる「ブラウザとWebDriverのバージョン不一致エラー」は一切起こりません！
-  * 改造ブラウザ、アンチディテクトブラウザ、USB内のポータブルChromeでも、 **「設定シートのセルにexeのパスを貼るだけ」** で、一瞬で完全な自動操作が可能です😎
+  * 改造ブラウザ、アンチディテクトブラウザ、USB内のポータブルChromeでも、 **「設定シートのセルにexeのパスを貼るだけ」** で、一瞬で完全な自動操作が可能です😎（セルが空欄なら、既定のEdge/Chromeをそのまま使用します）
+  * WebView2ルートなら、そもそも外部ブラウザexeの起動自体が不要。**xlsmファイル1つ**で、外部ブラウザからExcel自身に埋め込んだWebView2まで、同じ感覚で操れます
 
 * **無限の拡張性で、あなた専用のツールに！**
   * AIに「[テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
