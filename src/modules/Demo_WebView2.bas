@@ -541,3 +541,106 @@ Sub RunViewExtrasDemo()
         .show False
     End With
 End Sub
+
+
+
+'***************************************************************************************************
+'                    ■■■ SubscribeCdpEvent(非同期イベント購読) 検証用デモ ■■■
+'***************************************************************************************************
+'* 機能　　：`Demo_CDP.TestAlert`のWebView2移植版です。JavaScriptダイアログ(alert/空alert/prompt)を
+'            それぞれ発動させ、`Page.javascriptDialogOpening`イベントを実際に捕まえて自動応答します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：CDP-over-Pipe/WebSocketは「ドメインをenableすれば、以後そのドメインの全イベントが
+'            自動で流れてくる」モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は
+'            「イベント名ごとに個別購読が必要」というモデルです(`CDPCoreViaWebView2.cls`参照)。
+'            これまでの`WebView2Form`系Demoには非同期イベントを実際に受け取る例が無かったため、
+'            ここで`SubscribeCdpEvent`を使った最小例を用意します
+'* 注意事項：`SubscribeCdpEvent`を呼ばずに`Page.enable`だけしても、`Page.javascriptDialogOpening`
+'            は一切届かず、後段の`Do...Loop`が無限待機になります(実際に踏んで気づけるよう、
+'            あえて↓のようにコメントアウトで併記しています)
+'***************************************************************************************************
+Sub RunTestAlertDemo()
+    With WebView2Form
+        '1. WebView2を起動
+        If Not .StartCDPModeWebView2 Then
+            MsgBox "WebView2の起動に失敗しました"
+            Exit Sub
+        End If
+        
+        '表示(目視確認用)
+        .show False
+
+        '2. Seleniumの公式テストページ(alert/confirm/promptが揃っている)へ遷移
+        .ThisCDPContext.navigate "https://www.selenium.dev/selenium/web/alerts.html"
+
+        '3. 必要なドメインを有効化
+        .ThisCDPContext.ExecuteCDP "Page.enable"
+
+        '4. ★ここがWebView2特有の必須ポイント★ イベント名ごとの個別購読
+        '   これをコメントアウトすると、`Page.javascriptDialogOpening`が届かなくなり再現できます
+        .ThisWebView2.SubscribeCdpEvent "Page.javascriptDialogOpening"
+'        'コメントアウトすると↓の`Do...Loop`が無限待機になることを確認できます
+'        .ThisWebView2.UnsubscribeCdpEvent "Page.javascriptDialogOpening"
+
+        'テキスト入力用のAlertに入力させる文字列の指定
+        Dim 入力文字内容 As String
+        入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
+
+        Dim paramsCDP As New Dictionary
+        Dim i As Long
+        For i = 1 To 3
+            Dim TargetXpath As String
+            Select Case i
+                Case 1: TargetXpath = "alert"
+                Case 2: TargetXpath = "empty-alert"
+                Case 3: TargetXpath = "prompt"
+            End Select
+
+            ' --- 5. 非同期でコマンド実行(Jsのクリック処理) ---
+            'この瞬間、JavaScriptの`alert`/`confirm`/`prompt`関数が発動されます
+            .ThisCDPContext.jsEval "document.getElementById('" & TargetXpath & "').click()", RunAsyncCDP:=True
+
+            ' --- 6. イベントキャプチャを有効化 ---
+            Set .ThisCDPContext.BrowserEvents = New Dictionary
+
+            ' --- 7. 特定のイベント名が出るまでループ ---
+            Const SearchEventName As String = "Page.javascriptDialogOpening"
+            Do
+                '非同期イベントを取り出す
+                .ThisCDPContext.ThisCDPBrowser.TakeEvents
+
+                'イベント名の確認
+                If .ThisCDPContext.BrowserEvents("EventMethods").Exists(SearchEventName) Then
+                    '出ているダイアログの情報の確認
+                    Dim tmp
+                    For Each tmp In .ThisCDPContext.BrowserEvents("EventMethods")(SearchEventName)
+                        Debug.Print "url    :"; tmp("params")("url")
+                        Debug.Print "message:"; tmp("params")("message")
+                        Debug.Print "type   :"; tmp("params")("type") & vbCrLf
+                    Next
+
+                    '見つかったので抜ける
+                    Exit Do
+                End If
+            Loop While True
+
+            ' --- 8. ダイアログに反応しておく ---
+            paramsCDP.RemoveAll
+            paramsCDP.Add "accept", True
+            paramsCDP.Add "promptText", 入力文字内容
+            .ThisCDPContext.ExecuteCDP "Page.handleJavaScriptDialog", paramsCDP
+        Next
+
+        ' --- 9. 最終的な入力結果をページ上で確認 ---
+        Dim Htmlの表示内容 As String
+        Htmlの表示内容 = .ThisCDPContext.getElementByXPath("//*[@id='text']/p").innerText
+        Debug.Print "htmlの出力文字列：" & Htmlの表示内容
+        Debug.Assert Htmlの表示内容 = 入力文字内容
+
+        '10. 後始末
+        .hide
+        .ThisCDPContext.ThisCDPBrowser.quit
+        Unload WebView2Form
+    End With
+    
+End Sub
