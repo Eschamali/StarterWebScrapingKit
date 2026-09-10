@@ -1089,10 +1089,13 @@ End Property
 '***************************************************************************************************
 '* 機能　　：実際に使用されているユーザーデータフォルダの絶対パスを取得します
 '            (ICoreWebView2Environment7以降、読み取り専用)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：AsIs   `True` ：API側の結果を利用します
+'                   `False`：VBA側による手動判定結果を利用します。こちらのルートでは、「\EBWebView」補正を考慮します
 '***************************************************************************************************
-Property Get userDataFolder() As String
+Property Get userDataFolder(Optional AsIs As Boolean = True) As String
     If m_Host Is Nothing Then Exit Property
-    userDataFolder = m_Host.userDataFolder
+    userDataFolder = IIf(AsIs, m_Host.userDataFolder, m_Host.getUserDataDirPath)
 End Property
 
 '***************************************************************************************************
