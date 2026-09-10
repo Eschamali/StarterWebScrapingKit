@@ -909,6 +909,45 @@ Property Let DeleteProfileOnDisconnect(v As Boolean)
     m_deleteProfileOnDisconnect = v
 End Property
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：現在表示中のページのURLを取得します(読み取り専用)
+Property Get Source() As String
+    If m_Host Is Nothing Then Exit Property
+    Source = m_Host.Source
+End Property
+
+'* 機能　　：このWebView2が使用しているブラウザプロセスのプロセスIDを取得します(読み取り専用)
+Property Get BrowserProcessId() As Long
+    If m_Host Is Nothing Then Exit Property
+    BrowserProcessId = m_Host.BrowserProcessId
+End Property
+
+'* 機能　　：`GoBack`で戻れる履歴があるかどうかを取得します(読み取り専用)
+Property Get CanGoBack() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    CanGoBack = m_Host.CanGoBack
+End Property
+
+'* 機能　　：`GoForward`で進める履歴があるかどうかを取得します(読み取り専用)
+Property Get CanGoForward() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    CanGoForward = m_Host.CanGoForward
+End Property
+
+'* 機能　　：現在のページの`<title>`タグの内容(ページタイトル)を取得します(読み取り専用)
+Property Get DocumentTitle() As String
+    If m_Host Is Nothing Then Exit Property
+    DocumentTitle = m_Host.DocumentTitle
+End Property
+
+'* 機能　　：ページ内で全画面表示中の要素が存在するかどうかを取得します(読み取り専用)
+Property Get ContainsFullScreenElement() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    ContainsFullScreenElement = m_Host.ContainsFullScreenElement
+End Property
+
 '***************************************************************************************************
 '* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
 '***************************************************************************************************
@@ -916,6 +955,13 @@ Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
     If m_Host Is Nothing Then Exit Sub
     m_Host.ClearVirtualHostNameToFolderMapping hostname
 End Sub
+
+'* 機能　　：`TrySuspend`によりサスペンド状態にされているかどうかを取得します
+'            (ICoreWebView2_3以降、読み取り専用)
+Property Get IsSuspended() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsSuspended = m_Host.IsSuspended
+End Property
 
 '***************************************************************************************************
 '* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
@@ -931,6 +977,13 @@ End Property
 Property Get IsDocumentPlayingAudio() As Boolean
     If m_Host Is Nothing Then Exit Property
     IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
+End Property
+
+'* 機能　　：既定のダウンロードダイアログが現在開いているかどうかを取得します
+'            (ICoreWebView2_9以降、読み取り専用)
+Property Get IsDefaultDownloadDialogOpen() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsDefaultDownloadDialogOpen = m_Host.IsDefaultDownloadDialogOpen
 End Property
 
 '***************************************************************************************************
@@ -1015,6 +1068,13 @@ End Property
 Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
     If m_Host Is Nothing Then Exit Property
     MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
+End Property
+
+'* 機能　　：このICoreWebView2インスタンスが指すフレームの一意なID(CDPの`frameId`に相当)を
+'            取得します(ICoreWebView2_20以降、読み取り専用)
+Property Get frameID() As Long
+    If m_Host Is Nothing Then Exit Property
+    frameID = m_Host.frameID
 End Property
 
 '***************************************************************************************************
