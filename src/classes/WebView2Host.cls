@@ -1704,8 +1704,66 @@ End Function
 '                               ■■■ ICoreWebView2 一式 ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：現在表示中のページのURLを取得します(読み取り専用)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：リダイレクト後も含め、実際に表示されているURLを返します
+'***************************************************************************************************
+Property Get Source() As String
+    Source = WebView2Thunks.GetStringProperty(m_View.Pointer, 4, "View.get_Source")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このWebView2が使用しているブラウザプロセス(msedgewebview2.exe)のプロセスIDを
+'            取得します(読み取り専用)
+'***************************************************************************************************
+Property Get BrowserProcessId() As Long
+    BrowserProcessId = WebView2Thunks.GetLongProperty(m_View.Pointer, 37, "View.get_BrowserProcessId")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`GoBack`で戻れる履歴があるかどうかを取得します(読み取り専用)
+'***************************************************************************************************
+Property Get CanGoBack() As Boolean
+    CanGoBack = WebView2Thunks.GetBoolProperty(m_View.Pointer, 38, "View.get_CanGoBack")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`GoForward`で進める履歴があるかどうかを取得します(読み取り専用)
+'***************************************************************************************************
+Property Get CanGoForward() As Boolean
+    CanGoForward = WebView2Thunks.GetBoolProperty(m_View.Pointer, 39, "View.get_CanGoForward")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のページの`<title>`タグの内容(ページタイトル)を取得します(読み取り専用)
+'***************************************************************************************************
+Property Get DocumentTitle() As String
+    DocumentTitle = WebView2Thunks.GetStringProperty(m_View.Pointer, 48, "View.get_DocumentTitle")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ページ内(JavaScriptのFullscreen API)で全画面表示中の要素が存在するかどうかを
+'            取得します(読み取り専用)
+'***************************************************************************************************
+Property Get ContainsFullScreenElement() As Boolean
+    ContainsFullScreenElement = WebView2Thunks.GetBoolProperty(m_View.Pointer, 54, "View.get_ContainsFullScreenElement")
+End Property
+
+'---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_3
 '---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：`TrySuspend`により明示的にサスペンド状態(レンダラーを休止させ、メモリ/CPU使用量を
+'            節約する状態)にされているかどうかを取得します(読み取り専用、ICoreWebView2_3以降)
+'***************************************************************************************************
+Property Get IsSuspended() As Boolean
+    If m_View.LastLevel < 3 Then Exit Property
+    IsSuspended = WebView2Thunks.GetBoolProperty(m_View.Pointer, 70, "View3.get_IsSuspended")
+End Property
+
 '***************************************************************************************************
 '* 機能　　：ローカルフォルダを、仮想ホスト名経由(`https://<hostName>/`のような形)で配信されている
 '            かのように見せます(ICoreWebView2_3以降)。`file://`のCORS/CSP制約を回避しつつ、
@@ -1776,6 +1834,15 @@ End Property
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] interface - ICoreWebView2_9
 '---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：既定のダウンロードダイアログ(`OpenDefaultDownloadDialog`で開くもの)が現在開いているか
+'            どうかを取得します(読み取り専用、ICoreWebView2_9以降)
+'***************************************************************************************************
+Property Get IsDefaultDownloadDialogOpen() As Boolean
+    If m_View.LastLevel < 9 Then Exit Property
+    IsDefaultDownloadDialogOpen = WebView2Thunks.GetBoolProperty(m_View.Pointer, 90, "View9.get_IsDefaultDownloadDialogOpen")
+End Property
+
 '***************************************************************************************************
 '* 機能　　：既定のダウンロードダイアログ(WebView2標準のダウンロード完了通知UI)を開きます
 '            (ICoreWebView2_9以降)
@@ -1882,6 +1949,18 @@ End Property
 Property Get MemoryUsageTargetLevel() As Long
     If m_View.LastLevel < 19 Then Exit Property
     MemoryUsageTargetLevel = WebView2Thunks.GetLongProperty(m_View.Pointer, 119, "View19.get_MemoryUsageTargetLevel")
+End Property
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2_20
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：このICoreWebView2インスタンスが指すフレームの一意なID(CDPの`frameId`に相当)を
+'            取得します(読み取り専用、ICoreWebView2_20以降)
+'***************************************************************************************************
+Property Get frameID() As Long
+    If m_View.LastLevel < 20 Then Exit Property
+    frameID = WebView2Thunks.GetLongProperty(m_View.Pointer, 121, "View20.get_FrameId")
 End Property
 
 

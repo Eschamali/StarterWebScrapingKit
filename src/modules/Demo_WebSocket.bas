@@ -23,7 +23,6 @@ Private Declare PtrSafe Sub sleep3 Lib "kernel32" Alias "Sleep" ( _
 '変数,オブジェクトの使い回し/保持用に、public化
 Private g_WebsocketObj  As WebSocketCommunicator
 Private SendCount       As Long
-Private wsForChromiumobj As WebSocketCommunicator
 
 
 
@@ -95,55 +94,6 @@ Sub WebSocketDemoASync_初期化_wss()
     Else
         Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
     End If
-
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：CDP（Chrome DevTools Protocol）を WebSocket 経由で叩くデモ
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：1. `--remote-debugging-Port=9222`付きでChromium起動か、「edge://inspect/#remote-debugging」で「Allow remote debugging for this browser instance」を有効化
-'            2. 「http://127.0.0.1:9222/json/version」にアクセスか、Environ("UserProfile") & "\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort"で、接続先WebSocketURLを特定
-'            3. このプロシージャを実行。ブラウザから案内が出たら「許可」を選択
-'***************************************************************************************************
-Sub WebSocketModeForCDP()
-    Const CDP_HOST As String = "127.0.0.1"
-    Const CDP_PORT As Long = 9222
-    Const CDP_TARGET_PATH As String = "/devtools/browser/f7a90a36-75b5-4fb7-90dc-c8b871f6cbe2"
-    Dim ResultCode As Long
-
-    ' Chrome は下記のように起動しておく必要があります:
-    ' chrome.exe --remote-debugging-port=9222
-    ' その後、http://127.0.0.1:9222/json を開いて webSocketDebuggerUrl の page id を確認し、
-    ' CDP_TARGET_PATH の REPLACE_WITH_TARGET_ID を置き換えてください。
-
-    Set wsForChromiumobj = New WebSocketCommunicator
-    wsForChromiumobj.connectionWebSocket CDP_HOST, CDP_TARGET_PATH, CDP_PORT, False
-    SendCount = 0
-
-    Debug.Print "CDP WebSocket connect is success. AsyncMode."
-
-    ' 接続直後に受信予約だけ張っておく
-    ResultCode = wsForChromiumobj.RequestWebSocketReceive
-    If ResultCode Then
-        Debug.Print "受信予約エラー。ErrorCode：" & ResultCode & ",Description：" & WinApiError.GetMessage(ResultCode, "winhttp")
-    Else
-        Debug.Print "受信予約結果：" & WinApiError.GetMessage(ResultCode, "WinHttp")
-    End If
-
-    '設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    'データ枠のみ確保 ※Pipe版ロジックとの互換性を保つため
-    Dim hoge1 As New CDPCore: hoge1.serialize UserName
-    '1. 必要なデータを`Dictionary`に詰める
-    Dim BrowserInfo As New Dictionary
-    BrowserInfo.Add "BiDi-context", vbNullString
-    BrowserInfo.Add "sessionID", vbNullString
-    BrowserInfo.Add "targetID", vbNullString
-
-    '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "Demo_WebSocket.WebSocketModeForCDP") = BrowserInfo
 
 End Sub
 
