@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  package-sanity:
+    name: Package sanity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate package class
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f package/JSON.cls
+          grep -q "VERSION 1.0 CLASS" package/JSON.cls
+          grep -q "Option Explicit" package/JSON.cls
+          grep -q "Public Function Parse" package/JSON.cls
+          grep -q "Public Function Stringify" package/JSON.cls
+          grep -q "Public Function StringifyValue" package/JSON.cls
+          grep -q "Public Function Exists" package/JSON.cls
+          grep -q "Public Function Node" package/JSON.cls
+          grep -q "Public Property Get Count" package/JSON.cls
+
+      - name: Validate public API surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "Public Function StringValue" package/JSON.cls
+          grep -q "Public Function NumberValue" package/JSON.cls
+          grep -q "Public Function BoolValue" package/JSON.cls
+          grep -q "Public Function StringAt" package/JSON.cls
+          grep -q "Public Function NumberAt" package/JSON.cls
+          grep -q "Public Function BoolAt" package/JSON.cls
+          grep -q "Public Function FirstChildToken" package/JSON.cls
+          grep -q "Public Function NextToken" package/JSON.cls
+
+      - name: Validate release asset workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/workflows/release-assets.yml
+          grep -q "release:" .github/workflows/release-assets.yml
+          grep -q "package/JSON.cls" .github/workflows/release-assets.yml
+          grep -q "gh release upload" .github/workflows/release-assets.yml

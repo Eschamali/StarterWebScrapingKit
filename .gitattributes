@@ -1,0 +1,4 @@
+# VBA extensions: Prevent LF normalization
+*.bas  -text eol=crlf
+*.cls  -text eol=crlf
+*.frm  -text eol=crlf

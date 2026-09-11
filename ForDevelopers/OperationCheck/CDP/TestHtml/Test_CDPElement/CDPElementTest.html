@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>CDPElement 動作確認</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d2e; --surface2: #252840;
+      --border: #2e3160; --accent: #6c63ff; --accent2: #00d4aa;
+      --text: #e2e8f0; --text2: #8892a4; --pass: #00d4aa; --fail: #ff6b6b; --info: #ffd93d;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
+    #test-panel { flex: 1; padding: 20px; overflow-y: auto; max-width: 900px; }
+    #log-panel { width: 340px; background: var(--surface); border-left: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    #log-panel h2 { color: var(--accent); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    #log-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-family: Consolas, monospace; }
+    .log-entry { font-size: 11px; padding: 5px 8px; border-radius: 4px; border-left: 3px solid var(--border); background: var(--surface2); word-break: break-all; }
+    .log-pass  { border-left-color: var(--pass);  color: var(--pass); }
+    .log-fail  { border-left-color: var(--fail);  color: var(--fail); }
+    .log-info  { border-left-color: var(--info);  color: var(--info); }
+    #btn-clear-log { margin-top: 8px; background: #2e1f4a; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+    h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 10px; }
+    .status-box { padding: 6px 10px; border-radius: 6px; font-size: 12px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); min-height: 30px; transition: border-color .25s, color .25s, box-shadow .25s; display: flex; align-items: center; }
+    .status-box.changed { border-color: var(--pass); color: var(--pass); box-shadow: 0 0 0 1px rgba(0,212,170,.25); }
+    .hint { font-size: 11px; color: var(--text2); margin-top: 6px; line-height: 1.45; }
+    input[type="text"], textarea, select { width: 100%; padding: 8px; margin-top: 6px; background: #1a1d2e; border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+    button { padding: 8px 14px; background: var(--surface2); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 6px; }
+    button:hover { background: #241f4a; }
+    .status-grid { display: flex; flex-direction: column; gap: 6px; }
+    .status-row { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 10px; align-items: stretch; }
+    @media (max-width: 760px) { .status-row { grid-template-columns: 1fr; } }
+    .status-lbl { font-size: 11px; color: var(--text2); padding: 6px 0; line-height: 1.35; border-left: 3px solid var(--border); padding-left: 8px; }
+    .status-row.done .status-lbl { border-left-color: var(--pass); color: var(--text); }
+    #s-summary { font-size: 13px; font-weight: 600; min-height: 36px; }
+    #traversalParent > div { padding: 4px 8px; margin: 2px 0; background: #1a1d2e; border: 1px solid var(--border); border-radius: 4px; }
+    #collectionList { list-style: none; }
+    #collectionList li { padding: 4px 8px; margin: 2px 0; background: #1a1d2e; border: 1px solid var(--border); border-radius: 4px; }
+    iframe { width: 100%; height: 60px; border: 1px dashed var(--accent); border-radius: 8px; background: #fff; }
+    .hover-target { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: #1a1d2e; border: 2px solid var(--border); border-radius: 8px; transition: background .25s, border-color .25s, color .25s, transform .15s; font-size: 13px; }
+    .hover-target.is-hovered { background: var(--pass); border-color: var(--pass); color: #0f1117; font-weight: 700; transform: scale(1.03); }
+    .hover-reveal { display: inline-flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1a1d2e; border: 2px solid var(--border); border-radius: 8px; font-size: 13px; }
+    .hover-reveal .reveal-btn { visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; }
+    .hover-reveal.is-revealed .reveal-btn { visibility: visible; opacity: 1; }
+    .hover-reveal .reveal-btn.was-clicked { background: var(--pass); border-color: var(--pass); color: #0f1117; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<div id="log-panel">
+  <h2>CDPElement テストログ</h2>
+  <div id="log-list"></div>
+  <button type="button" id="btn-clear-log">ログクリア</button>
+</div>
+
+<div id="test-panel">
+  <h1>CDPElement.cls 検証ページ</h1>
+  <p class="hint">VBA の <code>RunAll_CDPElement_Tests</code> を実行すると、下の各行が順に <strong>緑（完了）</strong> に変わります。<code>WORKSPACE_PATH</code> をルートに設定してください。</p>
+
+  <section>
+    <h3>テスト別結果（1 行ずつ更新）</h3>
+    <div class="status-grid">
+      <div class="status-row" id="row-ce01"><span class="status-lbl">① value / sendString / clearValue</span><div class="status-box" id="s-ce01">未実行</div></div>
+      <div class="status-row" id="row-ce02"><span class="status-lbl">② innerText / innerHTML</span><div class="status-box" id="s-ce02">未実行</div></div>
+      <div class="status-row" id="row-ce03"><span class="status-lbl">③ checked</span><div class="status-box" id="s-ce03">未実行</div></div>
+      <div class="status-row" id="row-ce04"><span class="status-lbl">④ selected / setSelection</span><div class="status-box" id="s-ce04">未実行</div></div>
+      <div class="status-row" id="row-ce05"><span class="status-lbl">⑤ click / SimpleClick / fireEvent</span><div class="status-box" id="s-ce05">未実行</div></div>
+      <div class="status-row" id="row-ce06"><span class="status-lbl">⑥ sendClick / sendKey</span><div class="status-box" id="s-ce06">未実行</div></div>
+      <div class="status-row" id="row-ce07"><span class="status-lbl">⑦ getAttribute / setAttribute</span><div class="status-box" id="s-ce07">未実行</div></div>
+      <div class="status-row" id="row-ce08"><span class="status-lbl">⑧ focus / selectText</span><div class="status-box" id="s-ce08">未実行</div></div>
+      <div class="status-row" id="row-ce09"><span class="status-lbl">⑨ submit</span><div class="status-box" id="s-ce09">未実行</div></div>
+      <div class="status-row" id="row-ce10"><span class="status-lbl">⑩ getParent / getNextSibling / getPrevSibling / getFirstChild</span><div class="status-box" id="s-ce10">未実行</div></div>
+      <div class="status-row" id="row-ce11"><span class="status-lbl">⑪ getChildren / getElementsByQuery / getElementsByXPath</span><div class="status-box" id="s-ce11">未実行</div></div>
+      <div class="status-row" id="row-ce12"><span class="status-lbl">⑫ getElementByID / getElementByQuery / getElementByXPath（スコープ）</span><div class="status-box" id="s-ce12">未実行</div></div>
+      <div class="status-row" id="row-ce13"><span class="status-lbl">⑬ isExist / ifExist / onExist / onExistNot</span><div class="status-box" id="s-ce13">未実行</div></div>
+      <div class="status-row" id="row-ce14"><span class="status-lbl">⑭ getIFrame</span><div class="status-box" id="s-ce14">未実行</div></div>
+      <div class="status-row" id="row-ce15a"><span class="status-lbl">⑮-a GetShadowRoot（open）</span><div class="status-box" id="s-ce15a">未実行</div></div>
+      <div class="status-row" id="row-ce15b"><span class="status-lbl">⑮-b GetShadowRoots（closed）</span><div class="status-box" id="s-ce15b">未実行</div></div>
+      <div class="status-row" id="row-ce16"><span class="status-lbl">⑯ SetFileInputFiles</span><div class="status-box" id="s-ce16">未実行</div></div>
+      <div class="status-row" id="row-ce17"><span class="status-lbl">⑰ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-ce17">未実行</div></div>
+      <div class="status-row" id="row-ce18"><span class="status-lbl">⑱ sendHover</span><div class="status-box" id="s-ce18">未実行</div></div>
+      <div class="status-row" id="row-ce19"><span class="status-lbl">⑲ ホバーで出現するボタン</span><div class="status-box" id="s-ce19">未実行</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>テスト別結果（ShadowDOM内操作編・結合テスト／open+closed 両方で判定）</h3>
+    <div class="status-grid">
+      <div class="status-row" id="row-sce01"><span class="status-lbl">SD① value / sendString / clearValue</span><div class="status-box" id="s-sce01">未実行</div></div>
+      <div class="status-row" id="row-sce02"><span class="status-lbl">SD② innerText / innerHTML</span><div class="status-box" id="s-sce02">未実行</div></div>
+      <div class="status-row" id="row-sce03"><span class="status-lbl">SD③ checked</span><div class="status-box" id="s-sce03">未実行</div></div>
+      <div class="status-row" id="row-sce04"><span class="status-lbl">SD④ selected / setSelection</span><div class="status-box" id="s-sce04">未実行</div></div>
+      <div class="status-row" id="row-sce05"><span class="status-lbl">SD⑤ click / SimpleClick / fireEvent</span><div class="status-box" id="s-sce05">未実行</div></div>
+      <div class="status-row" id="row-sce06"><span class="status-lbl">SD⑥ sendClick / sendKey</span><div class="status-box" id="s-sce06">未実行</div></div>
+      <div class="status-row" id="row-sce07"><span class="status-lbl">SD⑦ getAttribute / setAttribute</span><div class="status-box" id="s-sce07">未実行</div></div>
+      <div class="status-row" id="row-sce08"><span class="status-lbl">SD⑧ focus / selectText</span><div class="status-box" id="s-sce08">未実行</div></div>
+      <div class="status-row" id="row-sce09"><span class="status-lbl">SD⑨ submit</span><div class="status-box" id="s-sce09">未実行</div></div>
+      <div class="status-row" id="row-sce10"><span class="status-lbl">SD⑩ getParent / getNextSibling / getPrevSibling / getFirstChild</span><div class="status-box" id="s-sce10">未実行</div></div>
+      <div class="status-row" id="row-sce11"><span class="status-lbl">SD⑪ getChildren / getElementsByQuery（XPathは対象外）</span><div class="status-box" id="s-sce11">未実行</div></div>
+      <div class="status-row" id="row-sce12"><span class="status-lbl">SD⑫ getElementByID / getElementByQuery（スコープ・XPathは対象外）</span><div class="status-box" id="s-sce12">未実行</div></div>
+      <div class="status-row" id="row-sce13"><span class="status-lbl">SD⑬ isExist / ifExist / onExist / onExistNot</span><div class="status-box" id="s-sce13">未実行</div></div>
+      <div class="status-row" id="row-sce14"><span class="status-lbl">SD⑭ SetFileInputFiles</span><div class="status-box" id="s-sce14">未実行</div></div>
+      <div class="status-row" id="row-sce15"><span class="status-lbl">SD⑮ 診断プロパティ / 実行オプション</span><div class="status-box" id="s-sce15">未実行</div></div>
+      <div class="status-row" id="row-sce16"><span class="status-lbl">SD⑯ sendHover</span><div class="status-box" id="s-sce16">未実行</div></div>
+      <div class="status-row" id="row-sce17"><span class="status-lbl">SD⑰ ホバーで出現するボタン</span><div class="status-box" id="s-sce17">未実行</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>① value / sendString / clearValue</h3>
+    <input type="text" id="testInput" value="" autocomplete="off">
+  </section>
+
+  <section>
+    <h3>② innerText / innerHTML</h3>
+    <div id="testTextDiv">initial text</div>
+    <div id="testHtmlDiv"><b>bold</b></div>
+  </section>
+
+  <section>
+    <h3>③ checked</h3>
+    <input type="checkbox" id="testCheckbox">
+  </section>
+
+  <section>
+    <h3>④ selected / setSelection</h3>
+    <select id="testSelect">
+      <option value="opt1">Option 1</option>
+      <option value="opt2">Option 2</option>
+      <option value="opt3">Option 3</option>
+    </select>
+  </section>
+
+  <section>
+    <h3>⑤ click / SimpleClick / fireEvent</h3>
+    <button type="button" id="testClickBtn" data-clickcount="0" data-customfired="false">Click Me</button>
+  </section>
+
+  <section>
+    <h3>⑥ sendClick / sendKey</h3>
+    <button type="button" id="testSendClickBtn" data-clickcount="0">Send Click</button>
+    <input type="text" id="testKeyInput" data-lastkeycode="" autocomplete="off">
+  </section>
+
+  <section>
+    <h3>⑦ getAttribute / setAttribute</h3>
+    <div id="testAttrTarget" data-foo="bar">attribute target</div>
+  </section>
+
+  <section>
+    <h3>⑧ focus / selectText</h3>
+    <input type="text" id="testFocusInput" value="focus me" autocomplete="off">
+    <div id="testSelectTextTarget">Select this whole text</div>
+  </section>
+
+  <section>
+    <h3>⑨ submit</h3>
+    <form id="testForm" data-submitted="false">
+      <input type="text" id="testSubmitInput" name="q" autocomplete="off">
+    </form>
+    <p class="hint">検証時のページ遷移を避けるため、この <code>&lt;form&gt;</code> の <code>submit</code> メソッドはJSでオーバーライドされています。</p>
+  </section>
+
+  <section>
+    <h3>⑩ DOM階層</h3>
+    <div id="traversalParent">
+      <div id="child1">1</div>
+      <div id="child2">2</div>
+      <div id="child3">3</div>
+    </div>
+  </section>
+
+  <section>
+    <h3>⑪⑫ コレクション / スコープ検索</h3>
+    <ul id="collectionList">
+      <li class="list-item" data-n="1">A</li>
+      <li class="list-item" data-n="2">B</li>
+      <li id="collectionItem3" class="list-item" data-n="3">C</li>
+      <li class="list-item" data-n="4">D</li>
+      <li class="list-item" data-n="5">E</li>
+    </ul>
+  </section>
+
+  <section>
+    <h3>⑬ isExist / ifExist / onExist / onExistNot（動的追加・削除）</h3>
+    <button type="button" id="btnAddDynamic">要素を追加（1秒後）</button>
+    <button type="button" id="btnRemoveDynamic">要素を削除（1秒後）</button>
+    <div id="dynamicContainer"></div>
+  </section>
+
+  <section>
+    <h3>⑭ getIFrame（同一オリジン・srcdoc）</h3>
+    <iframe id="testIFrame" srcdoc="&lt;div id=&quot;iframeTarget&quot;&gt;iframe content&lt;/div&gt;"></iframe>
+  </section>
+
+  <section>
+    <h3>⑮ Shadow DOM（open / closed）</h3>
+    <div id="shadowHostOpen"></div>
+    <div id="shadowHostClosed"></div>
+  </section>
+
+  <section>
+    <h3>⑯ SetFileInputFiles</h3>
+    <input type="file" id="testFileInput">
+  </section>
+
+  <section>
+    <h3>⑱ sendHover</h3>
+    <div id="testHoverTarget" class="hover-target" data-hovered="false" data-hovercount="0">🖱️ Hover Target（未ホバー）</div>
+  </section>
+
+  <section>
+    <h3>⑲ ホバーで出現するボタン（sendHover → sendClick）</h3>
+    <div id="hoverRevealContainer" class="hover-reveal">
+      <span>ここにカーソルを合わせると…</span>
+      <button type="button" id="hoverRevealBtn" class="reveal-btn" data-clickcount="0">隠れボタン</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>最終サマリー</h3>
+    <div class="status-box" id="s-summary">テスト未実行</div>
+  </section>
+
+  <section>
+    <h3>最終サマリー（ShadowDOM内操作編）</h3>
+    <div class="status-box" id="s-sce-summary">テスト未実行</div>
+  </section>
+</div>
+
+<script>
+(function () {
+  function addLog(msg, kind) {
+    var list = document.getElementById('log-list');
+    if (!list) return;
+    var row = document.createElement('div');
+    row.className = 'log-entry log-' + (kind || 'info');
+    row.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  window.updateStatus = function (id, msg, ok) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-box' + (ok !== false ? ' changed' : '');
+    var row = el.closest('.status-row');
+    if (row && ok !== false) row.classList.add('done');
+    addLog(msg, ok !== false ? 'pass' : 'fail');
+  };
+
+  document.getElementById('btn-clear-log').onclick = function () {
+    document.getElementById('log-list').innerHTML = '';
+  };
+
+  // ここから各セクションの補助スクリプト
+
+  // ⑤ click / SimpleClick / fireEvent
+  var clickBtn = document.getElementById('testClickBtn');
+  clickBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+  });
+  clickBtn.addEventListener('customtestevent', function () {
+    this.dataset.customfired = 'true';
+  });
+
+  // ⑥ sendClick
+  var sendClickBtn = document.getElementById('testSendClickBtn');
+  sendClickBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+  });
+
+  // ⑥ sendKey
+  var keyInput = document.getElementById('testKeyInput');
+  keyInput.addEventListener('keydown', function (e) {
+    this.dataset.lastkeycode = String(e.keyCode);
+  });
+
+  // ⑨ submit: ページ遷移を避けるため、form.submitをインスタンス単位でオーバーライド
+  var testForm = document.getElementById('testForm');
+  testForm.submit = function () {
+    this.dataset.submitted = 'true';
+  };
+
+  // ⑬ isExist / onExist / onExistNot: 1秒後に要素を追加/削除する
+  document.getElementById('btnAddDynamic').addEventListener('click', function () {
+    setTimeout(function () {
+      var container = document.getElementById('dynamicContainer');
+      if (!document.getElementById('dynamicElement')) {
+        var div = document.createElement('div');
+        div.id = 'dynamicElement';
+        div.textContent = 'dynamic element';
+        container.appendChild(div);
+      }
+    }, 1000);
+  });
+  document.getElementById('btnRemoveDynamic').addEventListener('click', function () {
+    setTimeout(function () {
+      var el = document.getElementById('dynamicElement');
+      if (el) el.parentNode.removeChild(el);
+    }, 1000);
+  });
+
+  // ⑮ Shadow DOM: open / closed 両モード
+  // ShadowDOM内操作編（結合テスト）用に、TOP層と同種の要素一式をShadow-Root内にも複製する。
+  // ページの<style>はShadow-Rootの中までは届かないため、必要なスタイルはShadow-Root内の<style>に持たせる。
+  function buildShadowContentHTML(modeLabel) {
+    return ''
+      + '<style>'
+      + '  * { box-sizing: border-box; font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; color: #e2e8f0; }'
+      + '  .shadow-content { display: block; margin-bottom: 10px; color: #8892a4; }'
+      + '  .shadow-section { margin-bottom: 8px; padding: 8px; background: #12141f; border: 1px dashed #3a3d6a; border-radius: 6px; }'
+      + '  .shadow-section:last-child { margin-bottom: 0; }'
+      + '  input[type="text"], select { padding: 4px 6px; background: #1a1d2e; border: 1px solid #2e3160; border-radius: 4px; color: #e2e8f0; }'
+      + '  button { padding: 6px 10px; background: #252840; border: 1px solid #6c63ff; color: #6c63ff; border-radius: 6px; cursor: pointer; }'
+      + '  ul { padding-left: 18px; }'
+      + '  .hover-target { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: #1a1d2e; border: 2px solid #2e3160; border-radius: 8px; transition: background .25s, border-color .25s, color .25s, transform .15s; }'
+      + '  .hover-target.is-hovered { background: #00d4aa; border-color: #00d4aa; color: #0f1117; font-weight: 700; transform: scale(1.03); }'
+      + '  .hover-reveal { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; background: #1a1d2e; border: 2px solid #2e3160; border-radius: 8px; }'
+      + '  .hover-reveal .reveal-btn { visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s; }'
+      + '  .hover-reveal.is-revealed .reveal-btn { visibility: visible; opacity: 1; }'
+      + '  .hover-reveal .reveal-btn.was-clicked { background: #00d4aa; border-color: #00d4aa; color: #0f1117; font-weight: 700; }'
+      + '</style>'
+      + '<span class="shadow-content">Shadow content (' + modeLabel + ')</span>'
+      + '<div class="shadow-section"><input type="text" id="sInput" value="" autocomplete="off"></div>'
+      + '<div class="shadow-section"><div id="sTextDiv">initial text</div><div id="sHtmlDiv"><b>bold</b></div></div>'
+      + '<div class="shadow-section"><input type="checkbox" id="sCheckbox"></div>'
+      + '<div class="shadow-section"><select id="sSelect"><option value="opt1">Option 1</option><option value="opt2">Option 2</option><option value="opt3">Option 3</option></select></div>'
+      + '<div class="shadow-section"><button type="button" id="sClickBtn" data-clickcount="0" data-customfired="false">Click Me</button></div>'
+      + '<div class="shadow-section"><button type="button" id="sSendClickBtn" data-clickcount="0">Send Click</button> <input type="text" id="sKeyInput" data-lastkeycode="" autocomplete="off"></div>'
+      + '<div class="shadow-section"><div id="sAttrTarget" data-foo="bar">attribute target</div></div>'
+      + '<div class="shadow-section"><input type="text" id="sFocusInput" value="focus me" autocomplete="off"> <div id="sSelectTextTarget">Select this whole text</div></div>'
+      + '<div class="shadow-section"><form id="sForm" data-submitted="false"><input type="text" id="sSubmitInput" name="q" autocomplete="off"></form></div>'
+      + '<div class="shadow-section"><div id="sTraversalParent"><div id="sChild1">1</div><div id="sChild2">2</div><div id="sChild3">3</div></div></div>'
+      + '<div class="shadow-section"><ul id="sCollectionList"><li class="list-item" data-n="1">A</li><li class="list-item" data-n="2">B</li><li id="sCollectionItem3" class="list-item" data-n="3">C</li><li class="list-item" data-n="4">D</li><li class="list-item" data-n="5">E</li></ul></div>'
+      + '<div class="shadow-section"><button type="button" id="sBtnAddDynamic">要素を追加（1秒後）</button> <button type="button" id="sBtnRemoveDynamic">要素を削除（1秒後）</button><div id="sDynamicContainer"></div></div>'
+      + '<div class="shadow-section"><input type="file" id="sFileInput"></div>'
+      + '<div class="shadow-section"><div id="sHoverTarget" class="hover-target" data-hovered="false" data-hovercount="0">🖱️ Hover Target（未ホバー・' + modeLabel + '）</div></div>'
+      + '<div class="shadow-section"><div id="sHoverRevealContainer" class="hover-reveal"><span>ここにカーソルを合わせると…</span><button type="button" id="sHoverRevealBtn" class="reveal-btn" data-clickcount="0">隠れボタン</button></div></div>';
+  }
+
+  function wireShadowContent(root) {
+    var clickBtn = root.querySelector('#sClickBtn');
+    clickBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    });
+    clickBtn.addEventListener('customtestevent', function () {
+      this.dataset.customfired = 'true';
+    });
+
+    var sendClickBtn = root.querySelector('#sSendClickBtn');
+    sendClickBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    });
+
+    var keyInput = root.querySelector('#sKeyInput');
+    keyInput.addEventListener('keydown', function (e) {
+      this.dataset.lastkeycode = String(e.keyCode);
+    });
+
+    var sForm = root.querySelector('#sForm');
+    sForm.submit = function () {
+      this.dataset.submitted = 'true';
+    };
+
+    root.querySelector('#sBtnAddDynamic').addEventListener('click', function () {
+      setTimeout(function () {
+        var container = root.querySelector('#sDynamicContainer');
+        if (!root.querySelector('#sDynamicElement')) {
+          var div = document.createElement('div');
+          div.id = 'sDynamicElement';
+          div.textContent = 'dynamic element';
+          container.appendChild(div);
+        }
+      }, 1000);
+    });
+    root.querySelector('#sBtnRemoveDynamic').addEventListener('click', function () {
+      setTimeout(function () {
+        var el = root.querySelector('#sDynamicElement');
+        if (el) el.parentNode.removeChild(el);
+      }, 1000);
+    });
+
+    var sHoverTarget = root.querySelector('#sHoverTarget');
+    sHoverTarget.addEventListener('mouseenter', function () {
+      this.dataset.hovered = 'true';
+      this.dataset.hovercount = (parseInt(this.dataset.hovercount || '0', 10) + 1).toString();
+      this.classList.add('is-hovered');
+      this.textContent = '✅ Hovered!（' + this.dataset.hovercount + '回）';
+    });
+
+    var sHoverRevealContainer = root.querySelector('#sHoverRevealContainer');
+    var sHoverRevealBtn = root.querySelector('#sHoverRevealBtn');
+    sHoverRevealContainer.addEventListener('mouseenter', function () {
+      this.classList.add('is-revealed');
+    });
+    sHoverRevealBtn.addEventListener('click', function () {
+      this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+      this.classList.add('was-clicked');
+      this.textContent = '✅ クリック済み（' + this.dataset.clickcount + '回）';
+    });
+  }
+
+  var hostOpen = document.getElementById('shadowHostOpen');
+  var shadowOpen = hostOpen.attachShadow({ mode: 'open' });
+  shadowOpen.innerHTML = buildShadowContentHTML('open');
+  wireShadowContent(shadowOpen);
+
+  var hostClosed = document.getElementById('shadowHostClosed');
+  var shadowClosed = hostClosed.attachShadow({ mode: 'closed' });
+  shadowClosed.innerHTML = buildShadowContentHTML('closed');
+  wireShadowContent(shadowClosed);
+
+  // ⑱ sendHover
+  var hoverTarget = document.getElementById('testHoverTarget');
+  hoverTarget.addEventListener('mouseenter', function () {
+    this.dataset.hovered = 'true';
+    this.dataset.hovercount = (parseInt(this.dataset.hovercount || '0', 10) + 1).toString();
+    this.classList.add('is-hovered');
+    this.textContent = '✅ Hovered!（' + this.dataset.hovercount + '回）';
+  });
+
+  // ⑲ ホバーで出現するボタン（sendHover → sendClick）
+  var hoverRevealContainer = document.getElementById('hoverRevealContainer');
+  var hoverRevealBtn = document.getElementById('hoverRevealBtn');
+  hoverRevealContainer.addEventListener('mouseenter', function () {
+    this.classList.add('is-revealed');
+  });
+  hoverRevealBtn.addEventListener('click', function () {
+    this.dataset.clickcount = (parseInt(this.dataset.clickcount || '0', 10) + 1).toString();
+    this.classList.add('was-clicked');
+    this.textContent = '✅ クリック済み（' + this.dataset.clickcount + '回）';
+  });
+
+  addLog('ページ読み込み完了', 'pass');
+})();
+</script>
+</body>
+</html>

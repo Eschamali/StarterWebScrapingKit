@@ -3,26 +3,13 @@ VBA-Web
 
 VBA-Web (formerly Excel-REST) makes working with complex webservices and APIs easy with VBA on Windows and Mac. It includes support for authentication, automatically converting and parsing JSON, working with cookies and headers, and much more.
 
-<a href="https://www.patreon.com/timhall">
-  <img src="https://timhall.github.io/assets/donate-patreon@2x.png" width="217" alt="Donate">
-</a>
-
 Getting started
 ---------------
 
-- Download the [latest release (v4.1.6)](https://github.com/VBA-tools/VBA-Web/releases)
-- To install/upgrade in an existing file, use `VBA-Web - Installer.xlsm`
-- To start from scratch in Excel, `VBA-Web - Blank.xlsm` has everything setup and ready to go
+- Download the [latest release (v5.3.4)](https://github.com/VBA-tools-v2/VBA-Web/releases)
+- To include in an existing file, manually import or use [VBA-Git](https://github.com/VBA-Tools-v2/VBA-Git) to include as a build [dependency](https://github.com/VBA-Tools-v2/VBA-Git/blob/master/design.md#vb-dependencies).
 
 For more details see the [Wiki](https://github.com/VBA-tools/VBA-Web/wiki)
-
-Upgrading
----------
-
-To upgrade from Excel-REST to VBA-Web, follow the [Upgrading Guide](https://github.com/VBA-tools/VBA-Web/wiki/Upgrading-from-v3-to-v4)
-
-Note: XML support has been temporarily removed from VBA-Web while parser issues for Mac are resolved.
-XML support is still possible on Windows, follow [these instructions](https://github.com/VBA-tools/VBA-Web/wiki/XML-Support-in-4.0) to use a custom formatter.
 
 Notes
 ---
