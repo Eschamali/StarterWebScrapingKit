@@ -48,6 +48,7 @@ Private timerOut        As Double       'Max timeout period in seconds, snapPage
 Private BiDiUserName    As String       'User-data-dir と同等
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
+Private GoogChannel     As String       '処理のセクション枠目印用に。基本はログ用になると思います
 
 
 
@@ -445,6 +446,7 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     Dim BiDiCommand As New Dictionary
     BiDiCommand.Add "method", methodName
     BiDiCommand.Add "params", params
+    If LenB(GoogChannel) Then BiDiCommand.Add "goog:channel", GoogChannel
 
     '3. 送信し、実行IDを取得
     ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(BiDiCommand, StopError)
@@ -952,6 +954,18 @@ End Property
 '***************************************************************************************************
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
+End Property
+
+'***************************************************************************************************
+'* 機能　　：`goog:channel`フィールドを変更します
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：置き換える`goog:channel`フィールド
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：・ログとして見返す際に便利なタグみたいなものです
+'            ・フィールドを使用しない場合は、空文字か`vbnullstring`で消えてくれます
+'***************************************************************************************************
+Property Let SetBiDiPlusChannel(ChannelStr As String)
+    GoogChannel = ChannelStr
 End Property
 
 
