@@ -8,7 +8,7 @@ Option Private Module
 
 
 '***************************************************************************************************
-'                                  ■■■ 全ての始まり ■■■
+'                                  ■■■ Hello World ■■■
 '***************************************************************************************************
 Sub BiDiによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
@@ -34,7 +34,7 @@ End Sub
 '* 詳細説明：CDP版の「ネットワークイベントの確認」をBiDiの`network`ドメインを用いて再現したデモです。
 '*           `session.subscribe` で `network` 関連イベントを購読し、結果をJSON出力します。
 '***************************************************************************************************
-Sub ネットワークイベントの確認()
+Sub checkNetworkEvents()
     '必要な変換オブジェクトを用意
     Dim CharConvObj As New CharacterCodeConversion
 
@@ -458,7 +458,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：ローカルファイル(オフライン) or NPM(jsdelivr-オンライン)経由による2パターンを提供します
 '***************************************************************************************************
-Private Sub ローカルファイルで更新()
+Private Sub WebDriverBiDiUpdateViaLocalFile()
     '1. ファイルパスを、ダイアログで指定
     Dim UpdateFilePath As String
     With Application.FileDialog(3)  'msoFileDialogFilePicker
@@ -490,7 +490,7 @@ Private Sub ローカルファイルで更新()
     If UpdateBiDi.UpdateFromLocalFile(FolderName, FileName) Then MsgBox "ローカル`mapperTab.js`によるアップデートに成功しました。" & vbCrLf & UpdateFilePath, vbInformation, "Success" Else MsgBox "アップデートに失敗しました。Excelテーブルに埋め込んだJavaScript文字列とアップロードファイルとの一致が確認できませんでした。" & vbCrLf & UpdateFilePath, vbCritical, "failure"
 End Sub
 
-Private Sub npm経由で更新()
+Private Sub WebDriverBiDiUpdateViaNPM()
     Dim UpdateBiDi As New WebDriverBiDiCore
     With ShLibrary01_JS
         '1. 現在のバージョン確認
