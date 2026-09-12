@@ -283,6 +283,10 @@ Sub TestAlert()
     End With
 End Sub
 
+
+
+'***************************************************************************************************
+'                                  ■■■ BiDi+ Demo ■■■
 '***************************************************************************************************
 '* 機能　　：BiDi+ (Chromium独自拡張) の `goog:cdp.sendCommand` を試すDemoコードです
 '---------------------------------------------------------------------------------------------------
@@ -334,24 +338,68 @@ Sub TestBiDiPlus_CDPTunnel()
     bidiPlus.ThisWebDriverBiDiMode.quit
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：このツール推奨でのBiDi+の使い方を示すDemoです
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：同一タブに対して、標準化されたWebDriverBiDiコマンドと、CDP独自の便利メソッドを
+'            使い分ける「いいとこ取り」の流れをデモンストレーションします。
+'            前半（BiDi）：navigate（起動時）／session.subscribe（ネットワークイベント購読）／script.evaluate
+'            後半（CDP）　：notify（トースト通知）／CDPElement（要素取得）／snapPage（スクリーンショット）
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ブラウザデータは、クリーン状態のままであるほうが、クリアしやすいです
+'***************************************************************************************************
 Sub BiDiPlusDemo()
-    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
-    Dim NewsSite As WebDriverBiDiMode
-    Set NewsSite = ShSetting01_StartBrowser.StartBiDiMode("https://news.google.com/home")
-
-    'getタブでスマートにオブジェクト取得
+    'WebDriverBiDiCoreの初期化とブラウザ立ち上げ（BiDiの標準コマンドで起動~遷移）
     Dim BiDiTab As WebDriverBiDiContext
-    Set BiDiTab = NewsSite.getTab("https://news.google.com/", setMain:=True)
+    Set BiDiTab = ShSetting01_StartBrowser.StartBiDiModeContext("https://www.youtube.com/@islandfox6864")
 
-    '別のURLへ遷移
-    BiDiTab.navigate "https://m365.cloud.microsoft/chat"
+    '-------------------------------- ①BiDi：ネットワークイベントの購読を開始 --------------------------------
+    Set BiDiTab.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
+    BiDiTab.sessionSubscribe = Array("network.responseCompleted")
 
-    'CDP制御できるように変換
-    Dim CDPTab As CDPContext
-    Set CDPTab = BiDiTab.UpgradeBiDiPlus
+    'ページ内のTopリンクをクリックし、おすすめ動画へ遷移（このタイミングの通信をBiDiイベントとして捕捉する）
+    Const queryStr As String = "#title > a"
+    Dim check
+    Do
+        check = BiDiTab.jsEval("document.querySelector('" & queryStr & "').click()", StopBiDiError:=False)
+    Loop While IsNull(check) Or IsError(check)
+    BiDiTab.wait
 
-    'CDP実行してみる
-    CDPTab.notify "BiDiオブジェクトクラスから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)
+    '-------------------------------- ②BiDi：捕捉したイベント件数を確認 --------------------------------
+    BiDiTab.ThisWebDriverBiDiMode.TakeEvents
+    Dim ネットワークイベント件数 As Long
+    With BiDiTab.ThisWebDriverBiDiMode.BiDiEvents("EventMethods")
+        If .Exists("network.responseCompleted") Then ネットワークイベント件数 = .Item("network.responseCompleted").Count
+    End With
+    Debug.Print "BiDiで捕捉した network.responseCompleted 件数：" & ネットワークイベント件数
+
+    '-------------------------------- ③BiDi→CDP：同一タブのまま`BiDi+`に変換 --------------------------------
+    'BiDi+により、CDP制御できるように変換（下層のパイプ／ブラウザハンドルは共有したまま）
+    Dim BiDiPlusTab As CDPContext
+    Set BiDiPlusTab = BiDiTab.UpgradeBiDiPlus
+    If BiDiPlusTab Is Nothing Then MsgBox "BiDi+への変換に失敗しました。", vbCritical, "UpgradeBiDiPlus": BiDiTab.ThisWebDriverBiDiMode.quit: Exit Sub
+
+    '-------------------------------- ④CDP：BiDiには無い便利メソッドでトースト通知 --------------------------------
+    BiDiPlusTab.notify "BiDi+ で、CDP独自の notify を使ってみました" & WorksheetFunction.Unichar(129418), 5
+
+    '-------------------------------- ⑤CDP：CDPElementで見出しリンクのテキストを取得 --------------------------------
+    Dim headline As CDPElement
+    Set headline = BiDiPlusTab.getElementByQuery("#title > h1 > yt-formatted-string")
+    Dim 見出しテキスト As String
+    
+    Do
+        見出しテキスト = headline.onExist.innerText
+    Loop Until LenB(見出しテキスト)
+
+    '-------------------------------- ⑥CDP：スクリーンショットをDownloadsフォルダへ保存 --------------------------------
+    BiDiPlusTab.snapPage Environ("UserProfile") & "\Downloads", "BiDiPlusDemo.png"
+
+    MsgBox "BiDi（イベント購読・遷移）→ CDP（notify・CDPElement・スクショ）の流れが完了しました！" & vbCrLf & vbCrLf & _
+           "捕捉したBiDiネットワークイベント数：" & ネットワークイベント件数 & vbCrLf & _
+           "見出しリンクのテキスト：" & 見出しテキスト, vbInformation, "BiDiPlusDemo 完了"
+
+    '同一ブラウザをBiDi/CDPで共有しているため、CDP側から終了すればOK
+    BiDiPlusTab.ThisCDPBrowser.quit
 End Sub
 
 
