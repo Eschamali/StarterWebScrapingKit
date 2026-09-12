@@ -21,9 +21,10 @@
 
 ## 🔥【本ツールの強み】🔥
 
-* **究極のポータブルブラウザ対応（Driverバージョン管理からの解放！）**
+* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでChromiumもWebView2も思いのまま**
   * Selenium等で悩まされる「ブラウザとWebDriverのバージョン不一致エラー」は一切起こりません！
-  * 改造ブラウザ、アンチディテクトブラウザ、USB内のポータブルChromeでも、 **「設定シートのセルにexeのパスを貼るだけ」** で、一瞬で完全な自動操作が可能です😎
+  * 改造ブラウザ、アンチディテクトブラウザ、USB内のポータブルChromeでも、 **「設定シートのセルにexeのパスを貼るだけ」** で、一瞬で完全な自動操作が可能です😎（セルが空欄なら、既定のEdge/Chromeをそのまま使用します）
+  * WebView2ルートなら、そもそも外部ブラウザexeの起動自体が不要。**xlsmファイル1つ**で、外部ブラウザからExcel自身に埋め込んだWebView2まで、同じ感覚で操れます
 
 * **無限の拡張性で、あなた専用のツールに！**
   * AIに「[テンプレート](https://github.com/Eschamali/StarterWebScrapingKit/tree/dev/ForDevelopers/TemplateExtensions)」と「欲しい機能」を伝えるだけで、複雑な自動化コードが秒速で完成！
@@ -352,19 +353,43 @@ End Sub
 **外部プロセス（PowerShellなど）に一切頼らず、Excel VBAのメモリ空間だけでWebView2を直接起動・制御**できるようになりました。「Port も Pipe も使えない」という、これまでで一番厳しい制限環境向けの切り札です。
 
 ```vb
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
+'* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
+'            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
+Sub WebView2OnExcelUserForm()
     With WebView2Form
+        '1. 起動前設定を施す(任意)
+        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
+
+        '2. WebView2プロセスを起動
         If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
 
-        '設定シートに基づくブラウザ立ち上げと同じ感覚で、そのまま操作できます
-        .ThisCDPContext.navigate "https://www.youtube.com/@islandfox6864"
+        '3. 遷移前の事前設定を施す(任意)
+        .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
+        .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
 
+        '3. CDPとして、ページ遷移
+        'シングルサインオンを無効：Microsoftアカウントの紹介
+        'シングルサインオンを有効：あなたのPCでログイン中のMicrosoftアカウント設定ページに自動遷移
+        .ThisCDPContext.navigate "https://account.microsoft.com/"
+
+        '4. フォームを表示(UserFormを閉じるまでブロッキングされます)
         .show
     End With
 End Sub
 ```
 
-一度埋め込んでしまえば、`CDPContext` / `CDPElement` のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む` にあります。
+設定できるタイミングは2種類あります。**起動前**（`EnvironmentOptions`経由。Environment生成時にしか読まれないため、あとから変更しても反映されません）と、**遷移前**（`ICoreWebView2Settings`系。ページ単位の設定なので次の遷移までに済ませておく必要があります）です。上のデモでは、`Set_AllowSingleSignOnUsingOSPrimaryAccount` の`True`/`False`次第で、同じURLへの遷移結果（アカウント紹介ページか、サインイン中アカウントの設定ページか）が変わる様子も確認できます。
+
+一度埋め込んでしまえば、`ThisCDPContext`（`CDPContext`）/ `ThisWebView2`経由の`CDPElement`のAPIはPipe版・WebSocket版とまったく同じです。同梱デモは `Demo_WebView2.WebView2OnExcelUserForm` にあります。
 
 > [!NOTE]
 > この機能の心臓部（機械語サンク・vtable呼び出し）は、[WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA)（たーぼー氏）のロジックをそのまま移植したものです。改めて感謝申し上げます🙏 詳しい経緯は[公式ドキュメントの開発秘話](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story)をご覧ください。
+
+---
+
+## 🎓 新機能：Excel「`.Rules`」でCopilotをより使いやすく（v3.1.1〜）
+
+Excel公式のAI機能「Copilot in Excel」向けに、[所定のフォーマット](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules)に沿った`.Rules`シートを新たに同梱しました。このブックについてWebスクレイピング関連の質問をCopilotに投げると、一般的な回答にありがちな `SeleniumVBA` 寄りの提案ではなく、**このブックに実装済みのCDP/BiDi制御機能を優先した回答**を引き出しやすくなります。
+
+> [!IMPORTANT]
+> Copilot in Excelの機能自体がExcel専用のため、**Accessは非対応**です。

@@ -45,10 +45,12 @@ Attribute VB_Exposed = False
 '       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
 '
 '   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見より)★
-'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行すると
+'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行中にリセットすると
 '       Excelがクラッシュする可能性がある(サンク技法そのものの制約)
 '     ・`OnCdpMethodCompleted`/`OnCdpEventReceived`の中から`ExecuteCDP`のような同期待ちの
 '       メソッドを呼ばないこと(再入デッドロックの原因になる)
+'       なお、このツールの場合は、COMスレッドによるCDPからのレスポンスをバッファーに格納後に即抜けし、
+'       再入デッドロックを防ぐ工夫をしてるため、利用者側は意識不要です
 '***************************************************************************************************
 Option Explicit
 
@@ -546,8 +548,9 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
 '            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
-'            ・1つでも購読した場合、VBEの`Stop`やブレイクポイントを行うとクラッシュします。
-'              どうしてもデバッグが必要な場合は､`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
+'            ・1つでも購読した場合、VBEの`Stop`やブレイクポイント中にリセット処理をすると、クラッシュします。
+'            　※`Stop`やブレイクポイント中によるデバック作業(ローカルウィンドウ拝見など)の場合は問題ありません
+'              どうしてもリセット処理が必要な場合は､イミディエイトウィンドウで、`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
 '            ・このイベント購読は、各SessionIDごとに適用する必要はありません。`.newtab`で複製しても購読情報は継承されます
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
@@ -663,7 +666,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：解除した件数
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：これを行うことで、VBEの`Stop`やブレイクポイントをしてもクラッシュしなくなります
+'* 詳細説明：これを行うことで、VBEでリセット処理をしてもクラッシュしなくなります
 '* 注意事項：WebView2の`GetDevToolsProtocolEventReceiver`自体には一括購読/一括解除の概念はなく、
 '            イベント名ごとの個別登録が必須です(CDP-over-WebSocketの「ドメインをenableすれば
 '            以後そのドメインの全イベントが自動で流れる」モデルとは異なります)。このメソッドは、
@@ -909,6 +912,45 @@ Property Let DeleteProfileOnDisconnect(v As Boolean)
     m_deleteProfileOnDisconnect = v
 End Property
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] interface - ICoreWebView2
+'---------------------------------------------------------------------------------------------------
+'* 機能　　：現在表示中のページのURLを取得します(読み取り専用)
+Property Get Source() As String
+    If m_Host Is Nothing Then Exit Property
+    Source = m_Host.Source
+End Property
+
+'* 機能　　：このWebView2が使用しているブラウザプロセスのプロセスIDを取得します(読み取り専用)
+Property Get BrowserProcessId() As Long
+    If m_Host Is Nothing Then Exit Property
+    BrowserProcessId = m_Host.BrowserProcessId
+End Property
+
+'* 機能　　：`GoBack`で戻れる履歴があるかどうかを取得します(読み取り専用)
+Property Get CanGoBack() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    CanGoBack = m_Host.CanGoBack
+End Property
+
+'* 機能　　：`GoForward`で進める履歴があるかどうかを取得します(読み取り専用)
+Property Get CanGoForward() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    CanGoForward = m_Host.CanGoForward
+End Property
+
+'* 機能　　：現在のページの`<title>`タグの内容(ページタイトル)を取得します(読み取り専用)
+Property Get DocumentTitle() As String
+    If m_Host Is Nothing Then Exit Property
+    DocumentTitle = m_Host.DocumentTitle
+End Property
+
+'* 機能　　：ページ内で全画面表示中の要素が存在するかどうかを取得します(読み取り専用)
+Property Get ContainsFullScreenElement() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    ContainsFullScreenElement = m_Host.ContainsFullScreenElement
+End Property
+
 '***************************************************************************************************
 '* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
 '***************************************************************************************************
@@ -916,6 +958,13 @@ Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
     If m_Host Is Nothing Then Exit Sub
     m_Host.ClearVirtualHostNameToFolderMapping hostname
 End Sub
+
+'* 機能　　：`TrySuspend`によりサスペンド状態にされているかどうかを取得します
+'            (ICoreWebView2_3以降、読み取り専用)
+Property Get IsSuspended() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsSuspended = m_Host.IsSuspended
+End Property
 
 '***************************************************************************************************
 '* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
@@ -931,6 +980,13 @@ End Property
 Property Get IsDocumentPlayingAudio() As Boolean
     If m_Host Is Nothing Then Exit Property
     IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
+End Property
+
+'* 機能　　：既定のダウンロードダイアログが現在開いているかどうかを取得します
+'            (ICoreWebView2_9以降、読み取り専用)
+Property Get IsDefaultDownloadDialogOpen() As Boolean
+    If m_Host Is Nothing Then Exit Property
+    IsDefaultDownloadDialogOpen = m_Host.IsDefaultDownloadDialogOpen
 End Property
 
 '***************************************************************************************************
@@ -1017,6 +1073,13 @@ Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
     MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
 End Property
 
+'* 機能　　：このICoreWebView2インスタンスが指すフレームの一意なID(CDPの`frameId`に相当)を
+'            取得します(ICoreWebView2_20以降、読み取り専用)
+Property Get frameID() As Long
+    If m_Host Is Nothing Then Exit Property
+    frameID = m_Host.frameID
+End Property
+
 '***************************************************************************************************
 '* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します(読み取り専用)
 '***************************************************************************************************
@@ -1028,10 +1091,13 @@ End Property
 '***************************************************************************************************
 '* 機能　　：実際に使用されているユーザーデータフォルダの絶対パスを取得します
 '            (ICoreWebView2Environment7以降、読み取り専用)
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：AsIs   `True` ：API側の結果を利用します
+'                   `False`：VBA側による手動判定結果を利用します。こちらのルートでは、「\EBWebView」補正を考慮します
 '***************************************************************************************************
-Property Get userDataFolder() As String
+Property Get userDataFolder(Optional AsIs As Boolean = True) As String
     If m_Host Is Nothing Then Exit Property
-    userDataFolder = m_Host.userDataFolder
+    userDataFolder = IIf(AsIs, m_Host.userDataFolder, m_Host.getUserDataDirPath)
 End Property
 
 '***************************************************************************************************
