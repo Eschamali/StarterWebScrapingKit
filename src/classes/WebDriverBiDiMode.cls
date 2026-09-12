@@ -119,13 +119,8 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
 
     '2. 実行判定
     If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
-        '3. 購読準備
-        Dim ListenEventList As New Collection
-        ListenEventList.Add "browsingContext.contextCreated"
-        ListenEventList.Add "browsingContext.contextDestroyed"
-
-        '4. 実行
-        Set sessionSubscribe(Flag) = ListenEventList
+        '3. 購読実行
+        sessionSubscribe(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed")
     End If
 
     '5. 下限は、0にしておく
@@ -929,13 +924,33 @@ End Function
 '* SET引数 ：`events`に渡すCollection変数
 '     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
 '                       `False`:`session.unsubscribe`として実行
+'            params     `WebDriverBiDiContext.cls`から実行する用。コンテキスト単位でイベント購読する場合です
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：何を購読中かは、ここでは管理しません
 '***************************************************************************************************
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
     'paramsに格納
-    Dim params As New Dictionary
+    If params Is Nothing Then Set params = New Dictionary
     params.Add "events", events
+
+    '実行
+    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
+End Property
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.subscribe/unsubscribe`を実行します
+'---------------------------------------------------------------------------------------------------
+'* LET引数 ：`events`に渡す1次元配列 or 文字列
+'     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
+'                       `False`:`session.unsubscribe`として実行
+'            params     `WebDriverBiDiContext.cls`から実行する用。コンテキスト単位でイベント購読する場合です
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`params`未指定時、ブラウザ全体となります
+'***************************************************************************************************
+Property Let sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
+    'paramsに格納
+    If params Is Nothing Then Set params = New Dictionary
+    params.Add "events", IIf(IsArray(events), events, Array(events))
 
     '実行
     ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
