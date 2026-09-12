@@ -51,7 +51,7 @@ Sub checkNetworkEvents()
     'BiDi側でネットワークイベントを購読開始する
     Dim paramsBiDi As Dictionary
     Set paramsBiDi = New Dictionary
-    Demo_NetworkEvent.ThisWebDriverBiDiMode.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
+    Demo_NetworkEvent.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -214,7 +214,7 @@ Sub TestAlert()
         ' --- 1. 必要なドメイン(イベント)をサブスクライブ ---
         Dim eventsArray As New Collection
         eventsArray.Add "browsingContext.userPromptOpened"
-        Set .ThisWebDriverBiDiMode.sessionSubscribe = eventsArray
+        Set .sessionSubscribe = eventsArray
 
         Dim i As Long
         For i = 1 To 3
