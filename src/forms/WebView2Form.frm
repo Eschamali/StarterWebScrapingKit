@@ -41,7 +41,7 @@ Private fCDPContext             As CDPContext   'タブ情報
 
 '自身の各ハンドルを保存する変数
 Private myFormHwnd      As LongPtr
-Private myEdgeFrameHwnd As LongPtr
+Private myWebView2FrameHwnd As LongPtr
 
 'Frameのマージン
 Private RightMargin     As Long
@@ -81,7 +81,7 @@ Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
 
     '3. WebView2を起動
     Dim isActive As Boolean
-    isActive = fWebView2.ConnectCDP(SwitchUser, myEdgeFrameHwnd)
+    isActive = fWebView2.ConnectCDP(SwitchUser, myWebView2FrameHwnd)
 
     '4. 起動失敗したら、抜ける
     If Not isActive Then Set fWebView2 = Nothing: Exit Function
@@ -121,11 +121,11 @@ Private Sub AdjustEdgeSize()
     ' Frameの幅と高さを、UserFormの内部サイズから余白を引いた値にする
     Dim tmp As Long
 
-    tmp = Me.InsideWidth - RightMargin - Me.EdgeFrame.Left
-    If tmp >= 0 Then Me.EdgeFrame.Width = tmp
+    tmp = Me.InsideWidth - RightMargin - Me.WebView2Frame.Left
+    If tmp >= 0 Then Me.WebView2Frame.Width = tmp
 
-    tmp = Me.InsideHeight - BottomMargin - Me.EdgeFrame.Top
-    If tmp >= 0 Then Me.EdgeFrame.height = tmp
+    tmp = Me.InsideHeight - BottomMargin - Me.WebView2Frame.Top
+    If tmp >= 0 Then Me.WebView2Frame.height = tmp
 
 
     ' --- 第2段階：APIの世界（EdgeをFrameに追従させる） ---
@@ -133,12 +133,12 @@ Private Sub AdjustEdgeSize()
     ' ※DPI設定によっては 1.333 以外（例：1.25 等）になる場合がありますが、標準はこれです。
     Dim pxWidth As Long
     Dim pxHeight As Long
-    pxWidth = Me.EdgeFrame.InsideWidth * PointToPixel
-    pxHeight = Me.EdgeFrame.InsideHeight * PointToPixel
+    pxWidth = Me.WebView2Frame.InsideWidth * PointToPixel
+    pxHeight = Me.WebView2Frame.InsideHeight * PointToPixel
 
-    ' APIを使って、EdgeのウィンドウをFrameの左上(0,0)にピッタリはめ込む！
+    ' APIを使って、WebView2のウィンドウをFrameの左上(0,0)にピッタリはめ込む！
     ' (Frameの中にSetParentされているので、0,0はFrameの左上を意味します)
-    fWebView2.Resize pxWidth, pxHeight
+    If fWebView2.isAvailability Then fWebView2.Resize pxWidth, pxHeight
 End Sub
 
 Private Sub UserForm_Resize()
@@ -219,11 +219,11 @@ Private Sub UserForm_Initialize()
     SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX
 
     '3. 埋め込み先のEdgeフレームのハンドル情報を取得
-    myEdgeFrameHwnd = Me.EdgeFrame.[_GethWnd]
+    myWebView2FrameHwnd = Me.WebView2Frame.[_GethWnd]
 
     '4. フレームの右下マージン計算
-    RightMargin = Me.InsideWidth - Me.EdgeFrame.Width - Me.EdgeFrame.Left
-    BottomMargin = Me.InsideHeight - Me.EdgeFrame.height - Me.EdgeFrame.Top
+    RightMargin = Me.InsideWidth - Me.WebView2Frame.Width - Me.WebView2Frame.Left
+    BottomMargin = Me.InsideHeight - Me.WebView2Frame.height - Me.WebView2Frame.Top
 
     '5. WebView2のコアオブジェクトを初期化
     Set fWebView2 = New CDPCoreViaWebView2
