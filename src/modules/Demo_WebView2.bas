@@ -15,7 +15,7 @@ Option Private Module
 '* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
 '            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
 '***************************************************************************************************
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
+Sub WebView2OnExcelUserForm()
     With WebView2Form
         '1. 起動前設定を施す(任意)
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
@@ -50,7 +50,7 @@ End Sub
 '            恐らく内部では`Page`単位(/json/list)としての実行となっているため`Method not available.`エラーと推測してます
 '* 注意事項：現時点では、CDPルートでは動作しませんが万が一、動作することに素早く気づけるようにルートは残しておきます
 '***************************************************************************************************
-Sub 拡張機能インストールアンインストール()
+Sub UseExtensionsViaWebView2API()
     Const UseCDP As Boolean = False
 
 
@@ -566,7 +566,6 @@ Sub RunTestAlertDemo()
             MsgBox "WebView2の起動に失敗しました"
             Exit Sub
         End If
-        
         '表示(目視確認用)
         .show False
 
@@ -642,5 +641,4 @@ Sub RunTestAlertDemo()
         .ThisCDPContext.ThisCDPBrowser.quit
         Unload WebView2Form
     End With
-    
 End Sub

@@ -59,7 +59,7 @@ Public Enum WinState
 End Enum
 
 'バッファー設定関連
-Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
+Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー値
 Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
 
 'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
