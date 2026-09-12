@@ -287,7 +287,10 @@ End Sub
 '* 機能　　：BiDi+ (Chromium独自拡張) の `goog:cdp.sendCommand` を試すDemoコードです
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：WebDriver BiDi プロトコルにまだ存在しない詳細な機能を、従来のCDPコマンドを
-'*           トンネリング（中継）して呼び出す「BiDi+」の機能デモンストレーションです。
+'            トンネリング（中継）して呼び出す「BiDi+」の機能デモンストレーションです。
+'* 注意事項：・この規格は「生CDPの通信路に直接アクセスできない外部クライアント向け」の救済措置です
+'            ・本ライブラリは下層パイプを直接掌握しているため、実務でCDPを使いたい場合は
+'              二重小包になる本コマンドではなく、後述の `BiDiPlusDemo`プロシージャを参考に組んでください
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
     Dim bidiPlus As WebDriverBiDiContext
@@ -331,7 +334,7 @@ Sub TestBiDiPlus_CDPTunnel()
     bidiPlus.ThisWebDriverBiDiMode.quit
 End Sub
 
-Sub ConvertToCDPContextDemo()
+Sub BiDiPlusDemo()
     'WebDriverBiDiCoreの初期化とブラウザ立ち上げ
     Dim NewsSite As WebDriverBiDiMode
     Set NewsSite = ShSetting01_StartBrowser.StartBiDiMode("https://news.google.com/home")
@@ -345,7 +348,7 @@ Sub ConvertToCDPContextDemo()
 
     'CDP制御できるように変換
     Dim CDPTab As CDPContext
-    Set CDPTab = BiDiTab.ConvertToCDPContext
+    Set CDPTab = BiDiTab.UpgradeBiDiPlus
 
     'CDP実行してみる
     CDPTab.notify "BiDiオブジェクトクラスから、CDP制御できるように変換できました！" & WorksheetFunction.Unichar(129418)

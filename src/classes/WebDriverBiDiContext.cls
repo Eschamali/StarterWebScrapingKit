@@ -650,17 +650,23 @@ End Sub
 
 
 '***************************************************************************************************
-'                                   ■■■ 黒魔術 ■■■
+'                                   ■■■ BiDi+ ■■■
 '***************************************************************************************************
 '* 機能　　：現在のContext(タブ等)に対して、`CDPContext`オブジェクトに変換します
 '---------------------------------------------------------------------------------------------------
 '* 返値    ：このClassで設定中の`context`に紐づく、`CDPContext`オブジェクト　※変換失敗時は`Nothing`で返ります
 '---------------------------------------------------------------------------------------------------
-'* 詳細情報：`browsingContext.getTree`等で得れる`context`は、`targetId`と一緒である仕様を活かした変換術です
-'* 注意事項：`goog:cdp.getSession`による`sessionId`共有は不可能みたいなので、`Target.attachToTarget`で新しいSessionIdとして制御します
+'* 詳細情報：・`browsingContext.getTree`等で得れる`context`は、CDPの`targetId`と一緒である仕様を活かした変換術です
+'            ・この変換術により以下の主要な`BiDi+`が賄えるようになるのでこの命名にしました
+'            　・Command`goog:cdp.sendCommand`  = `CDPContext.ExecuteCDP/Async`
+'            　・Command`goog:cdp.getSession`   = `Target.attachToTarget`
+'            　・Command`goog:cdp.resolveRealm` = `Runtime.executionContextCreated/Destroyed/Cleared`
+'            　・Events `goog:cdp`              = `CDPCore.cls`の`RaiseEvent`
+'* 注意事項：・`goog:cdp.getSession`による`sessionId`共有は不可能みたいなので、`Target.attachToTarget`で新しいSessionIdとして制御します
+'            ・Field `goog:channel`は対応しません。`printMsg Debug_,String(10,"-") & "任意のテキスト" & String(10,"-")`等で工夫してください
 '***************************************************************************************************
-Public Function ConvertToCDPContext() As CDPContext
-    Const FromProcedureName As String = ThisClassName & ".ConvertToCDPContext"
+Public Function UpgradeBiDiPlus() As CDPContext
+    Const FromProcedureName As String = ThisClassName & ".UpgradeBiDiPlus"
 
 
     '1. context に紐づく、新規`SessionId`の発行を試みる
@@ -672,8 +678,8 @@ Public Function ConvertToCDPContext() As CDPContext
     '3. 無事発行出来たら、変換手続き
     '------ CDPContext.clsとして返却する準備 ------
     m_BiDiCore.DirectControlCDP.EnableDiscoverTargets = True    '`CDPContext.cls`としての制御なので、カウントしておく
-    Set ConvertToCDPContext = New CDPContext
-    With ConvertToCDPContext
+    Set UpgradeBiDiPlus = New CDPContext
+    With UpgradeBiDiPlus
         '4. BiDiブラウザのパイプハンドル情報を渡す
         Set .ThisCDPCore = m_BiDiCore.DirectControlCDP.ThisCDPCore
 
@@ -683,6 +689,9 @@ Public Function ConvertToCDPContext() As CDPContext
         '6. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
     End With
+
+    '7. 成功ログ
+    printMsg info_, "The upgrade to BiDi+ was successful. This enables operation via CDP commands.", FromProcedureName
 End Function
 
 
