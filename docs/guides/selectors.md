@@ -4,7 +4,7 @@ description: CDPElement による要素取得。ID / CSS / XPath、存在待ち�
 
 # 要素の取得
 
-CDP では `CDPElement` が中心です。BiDi 側に同等の高レベル要素 API はまだ薄いので、**要素操作が必要なら CDP**、または `ConvertToCDPContext` を使います。
+CDP では `CDPElement` が中心です。BiDi 側に同等の高レベル要素 API はまだ薄いので、**要素操作が必要なら CDP**、または `UpgradeBiDiPlus` を使います。
 
 ## セレクタの種類（CDP）
 
@@ -88,7 +88,7 @@ Dim bidi As WebDriverBiDiContext
 Set bidi = ShSetting01_StartBrowser.StartBiDiModeContext("https://example.com")
 
 Dim cdp As CDPContext
-Set cdp = bidi.ConvertToCDPContext
+Set cdp = bidi.UpgradeBiDiPlus
 cdp.getElementByQuery("button").click
 ```
 

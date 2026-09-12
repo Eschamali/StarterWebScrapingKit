@@ -337,7 +337,8 @@ Set mode.BiDiEvents = Nothing
 ### `sessionSubscribe`
 
 ```vb
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
+Property Let sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
 ```
 
 `session.subscribe` / `session.unsubscribe` を実行します。どのイベントを購読中かの管理は呼び出し側で行います。
@@ -345,18 +346,25 @@ Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Co
 | 引数 | 意味 |
 | --- | --- |
 | `subscribe` | `True`（既定）で購読、`False` で購読解除 |
-| `events` | イベント名の `Collection`（例: `"network.beforeRequestSent"`） |
+| `params` | [`WebDriverBiDiContext`](./WebDriverBiDiContext#sessionsubscribe) からタブ単位で呼ぶ際に内部で使用。直接指定は不要 |
+| `events` | SET: イベント名の `Collection`／LET: 1次元配列または文字列1件（例: `"network.beforeRequestSent"`） |
 
 ```vb
+' Collection版（SET）
 Dim events As New Collection
 events.Add "network.beforeRequestSent"
 events.Add "network.responseCompleted"
 events.Add "log.entryAdded"
 Set mode.sessionSubscribe = events
 
+' 配列版（LET、v3.1.1.1〜）
+mode.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
+
 ' 解除
 Set mode.sessionSubscribe(False) = events
 ```
+
+`params` を省略した場合はブラウザ全体（全タブ共通）での購読になります。タブ単位で購読したい場合は [`WebDriverBiDiContext.sessionSubscribe`](./WebDriverBiDiContext#sessionsubscribe)（v3.1.1.1〜）を使ってください。
 
 手順・セーブ／再開は [イベント購読](/guides/events) を参照してください。
 

@@ -80,7 +80,7 @@ Playwright: server/page.ts（共通実装）
 | ページ | `CDPContext` | `WebDriverBiDiContext` |
 | 要素 | `CDPElement` | （CDP に変換して使う） |
 
-BiDi 側から要素を細かく触りたい場合は `ConvertToCDPContext` で CDP 側へ橋渡しします。これは「抽象化する代わりに、相互変換で繋ぐ」というアプローチです。
+BiDi 側から要素を細かく触りたい場合は `UpgradeBiDiPlus` で CDP 側へ橋渡しします。これは「抽象化する代わりに、相互変換で繋ぐ」というアプローチです。
 
 VBA にも `Implements` によるインターフェースはあり（キット内でも `IWebAuthenticator.cls` で使われています）、抽象化自体は不可能ではありません。採用していないのは、**BiDi 側の要素操作 API がまだ CDP 側ほど成熟していない**という現実的な事情によるものです。ここは Puppeteer / Playwright に対して明確に劣る点として認識しておくべきところです。
 

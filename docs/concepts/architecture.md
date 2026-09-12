@@ -16,7 +16,7 @@ flowchart TB
   brCdp -->|newTab / getTab| ctxCdp
   modeBidi -->|newTab / getTab| ctxBidi
   ctxCdp --> el[CDPElement]
-  ctxBidi -->|ConvertToCDPContext| ctxCdp
+  ctxBidi -->|UpgradeBiDiPlus| ctxCdp
   brCdp --> coreCdp[CDPCore_pipe]
   modeBidi --> coreBidi[WebDriverBiDiCore]
   coreBidi --> coreCdp
@@ -51,7 +51,7 @@ flowchart TB
 
 BiDi は内部的に CDP パイプ（または WebSocket）の上で動きます。足りない操作は次のどちらかで CDP 実行可能です。
 
-- `WebDriverBiDiContext.ConvertToCDPContext`
+- `WebDriverBiDiContext.UpgradeBiDiPlus`
 - BiDi+ `goog:cdp.sendCommand`（[低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)）
 
 ## 設定シートの位置づけ

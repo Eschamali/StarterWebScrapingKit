@@ -219,6 +219,10 @@ t.ThisWebDriverBiDiMode.quit
 
 デモ: `Demo_WebDriverBiDi.TestBiDiPlus_CDPTunnel`
 
+::: tip 実務では `UpgradeBiDiPlus` を推奨
+このトンネル形式（`goog:cdp.sendCommand`）は、本来「生の CDP 通信路に直接アクセスできない外部クライアント」向けの救済策です。本ツールは下層のパイプ／WebSocket/WebView2 を直接掌握しているため、上記のように JSON を都度手組みするのは二重の小包になり非効率です。実務でCDPを使いたい場合は、次の [`UpgradeBiDiPlus`](#upgradebidiplus) で `CDPContext` に変換してから、通常の `ExecuteCDP` / `CDPElement` を使ってください（デモ: `Demo_WebDriverBiDi.BiDiPlusDemo`）。
+:::
+
 ### `goog:channel`フィールド（v3.1.1〜）
 
 BiDi+ 独自の拡張フィールドである [`goog:channel`](https://github.com/GoogleChromeLabs/chromium-bidi#field-googchannel) の設定に対応しました。送信するBiDiコマンドに任意の文字列タグを付与できます。CDPそのものの動作には影響しませんが、ログを見返す際の目印として便利です。
@@ -234,15 +238,19 @@ mode.SetBiDiPlusChannel = "MyTask"   ' 以降のBiDiコマンドすべてに`"go
 
 `WebDriverBiDiContext` からは `ThisWebDriverBiDiMode.SetBiDiPlusChannel` 経由で設定します。空文字（または`vbNullString`）を指定すると、フィールド自体が付与されなくなります。
 
-## ConvertToCDPContext
+## UpgradeBiDiPlus
 
-トンネルではなく、同じタブを `CDPContext` として扱う方法です。`CDPElement` 一式が使えます。
+トンネルではなく、同じタブを `CDPContext` として扱う方法です（`BiDi+`化）。`CDPElement` 一式が使えます。
 
 ```vb
 Dim cdp As CDPContext
-Set cdp = bidiTab.ConvertToCDPContext
+Set cdp = bidiTab.UpgradeBiDiPlus
 cdp.notify "CDP に変換しました"
 ```
+
+::: tip v3.1.1.1でのリネーム
+以前は `ConvertToCDPContext` という名称でした。`goog:cdp.sendCommand` 等の `BiDi+` 3コマンドを実質すべて賄えることから改名されています。詳細は [`WebDriverBiDiContext.UpgradeBiDiPlus`](/api/bidi/WebDriverBiDiContext#upgradebidiplus) を参照してください。
+:::
 
 ## 関連
 

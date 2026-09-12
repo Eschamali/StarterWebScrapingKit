@@ -31,14 +31,14 @@ description: Chrome DevTools Protocol（CDP）と WebDriver BiDi の違い・選
 
 ## 混ぜるパターン
 
-### 1. BiDi → CDP コンテキスト
+### 1. BiDi → CDP コンテキスト（`UpgradeBiDiPlus`）
 
 ```vb
 Dim bidiTab As WebDriverBiDiContext
 Set bidiTab = ShSetting01_StartBrowser.StartBiDiModeContext("https://example.com")
 
 Dim cdpTab As CDPContext
-Set cdpTab = bidiTab.ConvertToCDPContext
+Set cdpTab = bidiTab.UpgradeBiDiPlus
 cdpTab.getElementByQuery("button").click
 ```
 
@@ -55,6 +55,6 @@ cdpTab.getElementByQuery("button").click
 
 1. [はじめに](/getting-started) で CDP Hello World
 2. 同じ操作を BiDi でも試す（コードグループ参照）
-3. 要素操作が必要な画面は CDP（または `ConvertToCDPContext`）
+3. 要素操作が必要な画面は CDP（または `UpgradeBiDiPlus`）
 
 迷ったら **CDP を主、BiDi をイベント／将来互換用** で問題ありません。

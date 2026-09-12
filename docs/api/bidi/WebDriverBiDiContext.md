@@ -15,7 +15,7 @@ t.ThisWebDriverBiDiMode.quit
 
 親は [`ThisWebDriverBiDiMode`](#thiswebdriverbidimode)（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）です。日常利用では設定シート経由の `StartBiDiModeContext` を推奨します。
 
-要素のクリック／入力など高レベル API は CDP 側が充実しています。必要なら [`ConvertToCDPContext`](#converttocdpcontext) で変換してください。
+要素のクリック／入力など高レベル API は CDP 側が充実しています。必要なら [`UpgradeBiDiPlus`](#upgradebidiplus) で変換してください。
 
 ## 起動・再接続
 
@@ -190,23 +190,62 @@ result = t.jsEval("function () { return this.tagName; }", scriptHandle:=hid)
 
 例外時は `IsError(result)` で判定します。詳細は [JavaScript 実行](/guides/javascript)。
 
-## CDP への橋渡し
+## BiDi+ への橋渡し
 
-### `ConvertToCDPContext`
+### `UpgradeBiDiPlus`
 
 ```vb
-Public Function ConvertToCDPContext() As CDPContext
+Public Function UpgradeBiDiPlus() As CDPContext
 ```
 
-同じタブを [`CDPContext`](/api/cdp/CDPContext) として操作できます。`CDPElement` によるクリック／入力などが使えます。失敗時は `Nothing` です。
+同じタブを [`CDPContext`](/api/cdp/CDPContext) に変換します。`CDPElement` によるクリック／入力などが使えます。失敗時は `Nothing` です。
+
+`browsingContext.getTree` 等で得られる `context` が CDP の `targetId` と一致する仕様を利用した変換術で（内部で `Target.attachToTarget` により新規 `sessionId` を発行）、Chromium 独自拡張 `BiDi+`（[`chromium-bidi`](https://github.com/GoogleChromeLabs/chromium-bidi#bidi) 由来の命名）が担う3コマンドは、実質この変換だけで賄えます。
+
+| BiDi+ | 相当する処理 |
+| --- | --- |
+| `goog:cdp.sendCommand` | `CDPContext.ExecuteCDP` / `ExecuteCDPAsync` |
+| `goog:cdp.getSession` | `Target.attachToTarget`（本メソッド内部で実行） |
+| `goog:cdp.resolveRealm` | `Runtime.executionContextCreated` / `Destroyed` / `Cleared` |
 
 ```vb
 Dim cdp As CDPContext
-Set cdp = t.ConvertToCDPContext
+Set cdp = t.UpgradeBiDiPlus
 cdp.getElementByQuery("button").click
 ```
 
-関連: [要素の取得](/guides/selectors)
+::: tip v3.1.1.1でのリネーム
+以前は `ConvertToCDPContext` という名称でした。上記の通り実質的に `BiDi+` そのものであることから改名されています。挙動に変更はありません。
+:::
+
+関連: [要素の取得](/guides/selectors) / [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
+
+## イベント購読（コンテキスト単位、v3.1.1.1〜）
+
+### `sessionSubscribe`
+
+```vb
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
+```
+
+`session.subscribe` / `session.unsubscribe` を、**このタブ（context）単位**で実行します。`ExecuteBiDi` と同じく params に `context` が自動付与されるため、他のタブの購読状態には影響しません。
+
+| 引数 | 意味 |
+| --- | --- |
+| `subscribe` | `True`（既定）で購読、`False` で購読解除 |
+| `events` | SET: イベント名の `Collection`／LET: 1次元配列または文字列1件 |
+
+```vb
+' このタブだけネットワーク系イベントを購読する例（他のタブは購読しないまま操作を続けられる）
+t.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted")
+```
+
+::: tip ブラウザ全体の購読との使い分け
+全タブ共通で購読したい場合は、これまで通り [`ThisWebDriverBiDiMode.sessionSubscribe`](./WebDriverBiDiMode#sessionsubscribe) を使ってください。パフォーマンスを気にするなら、必要なタブだけに絞れるこちらの Context 単位版がおすすめです。
+:::
+
+詳細は [イベント購読](/guides/events)。
 
 ## プロトコル
 
@@ -336,11 +375,12 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
 ## 関連
 
 - [`WebDriverBiDiMode`](./WebDriverBiDiMode)
-- [`CDPContext`](/api/cdp/CDPContext)（`ConvertToCDPContext` 経由）
+- [`CDPContext`](/api/cdp/CDPContext)（`UpgradeBiDiPlus` 経由）
 - [CDP と BiDi](/concepts/cdp-vs-bidi)
 - [ページ遷移](/guides/navigation)
 - [JavaScript 実行](/guides/javascript)
 - [要素の取得](/guides/selectors)
+- [イベント購読](/guides/events)
 - [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 - [タイムアウト設定方法について](/guides/timeout)
 - [再接続](/guides/reattach)
