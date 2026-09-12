@@ -211,7 +211,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：BiDiコマンド、`session.subscribe/unsubscribe`を実行します
 '---------------------------------------------------------------------------------------------------
-'* SET引数 ：`events`に渡す1次元配列
+'* LET引数 ：`events`に渡す1次元配列
 '     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
 '                       `False`:`session.unsubscribe`として実行
 '---------------------------------------------------------------------------------------------------
@@ -220,7 +220,7 @@ End Property
 Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
     'paramsに格納
     Dim params As New Dictionary
-    params.Add "events", events
+    params.Add "events", IIf(IsArray(events), events, Array(events))
 
     '実行
     ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
