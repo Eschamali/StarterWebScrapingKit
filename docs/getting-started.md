@@ -149,6 +149,10 @@ Excel公式のAI機能「Copilot in Excel」には、ブックごとに振る舞
 
 これにより、Webスクレイピングに関する質問をCopilotに投げたとき、一般的な回答にありがちな`SeleniumVBA`寄りの提案ではなく、**このブックに実装済みのCDP/BiDi制御機能を優先した回答**を引き出しやすくなります。
 
+![.Rulesシートを読み込んだCopilotが、XPathからの入力操作をCDPContext/CDPElementベースのVBAコードで提案している様子](/img/CopilotRulesの効果.png)
+
+*▲ 「このXPathで、VBAで書くには？」という質問に対し、Copilotが`getElementByXPath` / `onExist` / `sendKeys`など、本ツール実装済みのAPIを使ったコードをそのまま提案してくれている様子*
+
 > [!IMPORTANT]
 > Copilot in Excelの機能そのものがExcel専用のため、**Accessは非対応**です。
 
