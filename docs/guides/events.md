@@ -4,7 +4,7 @@ description: ネットワークやログなどの非同期イベントを VBA �
 
 # イベント購読
 
-ネットワークやログなどの非同期イベントを VBA 側で受け取ります。デモは `Demo_CDP.ネットワークイベントの確認` / `Demo_WebDriverBiDi.ネットワークイベントの確認` が正本です。
+ネットワークやログなどの非同期イベントを VBA 側で受け取ります。デモは `Demo_CDP.checkNetworkEvents` / `Demo_WebDriverBiDi.checkNetworkEvents` が正本です。
 
 ## 2 つの受け取り方
 
@@ -40,7 +40,7 @@ t.navigate "https://example.com"
 ' 記録を止める: Set t.BrowserEvents = Nothing
 ' セーブデータを戻して再開も可能
 
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 フィルタ未設定時はキャプチャ対象が広くなります。本番では必要なイベントだけに絞ってください。
@@ -55,20 +55,20 @@ t.InheritanceCDPBrowser.quit
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 
-Set t.InheritanceWebDriverBiDiMode.BiDiEvents = New Dictionary
+Set t.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
 
 Dim events As New Collection
 events.Add "network.beforeRequestSent"
 events.Add "network.responseCompleted"
 events.Add "log.entryAdded"
-Set t.InheritanceWebDriverBiDiMode.sessionSubscribe = events
+Set t.ThisWebDriverBiDiMode.sessionSubscribe = events
 
 t.navigate "https://example.com"
-t.InheritanceWebDriverBiDiMode.TakeEvents
+t.ThisWebDriverBiDiMode.TakeEvents
 
-' t.InheritanceWebDriverBiDiMode.BiDiEvents を参照
+' t.ThisWebDriverBiDiMode.BiDiEvents を参照
 
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
 
 ## セーブ／再開

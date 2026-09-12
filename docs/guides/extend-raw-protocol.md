@@ -21,7 +21,7 @@ description: ExecuteCDP / ExecuteBiDi で公式プロトコルを直接呼ぶ低
 
 ```vb
 ' ブラウザ単位（拡張機能など）
-t.InheritanceCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
+t.ThisCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
 
 ' タブ単位（ページ操作など）
 t.ExecuteCDP "Page.navigate", params
@@ -75,10 +75,10 @@ Debug.Print result.StringKey("loaderId")
 
 ```vb
 Dim result As BiDiCDPJson
-Set result = t.InheritanceCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", params, False)
+Set result = t.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", params, False)
 
 If result Is Nothing Then
-    Debug.Print t.InheritanceCDPBrowser.LastCDPJsonError("message")
+    Debug.Print t.ThisCDPBrowser.LastCDPJsonError("message")
 Else
     Debug.Print result.Stringify
 End If
@@ -168,7 +168,7 @@ Dim result As BiDiCDPJson
 Set result = t.ExecuteBiDi("webExtension.install", params, False)
 
 If result Is Nothing Then
-    Debug.Print t.InheritanceWebDriverBiDiMode.LastBiDiJsonError("message")
+    Debug.Print t.ThisWebDriverBiDiMode.LastBiDiJsonError("message")
 End If
 ```
 
@@ -214,10 +214,25 @@ params.Add "session", sessionId
 Set result = t.ExecuteBiDi("goog:cdp.sendCommand", params)
 
 Debug.Print result.NodeKey("result").StringKey("userAgent")
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
 
 デモ: `Demo_WebDriverBiDi.TestBiDiPlus_CDPTunnel`
+
+### `goog:channel`フィールド（v3.1.1〜）
+
+BiDi+ 独自の拡張フィールドである [`goog:channel`](https://github.com/GoogleChromeLabs/chromium-bidi#field-googchannel) の設定に対応しました。送信するBiDiコマンドに任意の文字列タグを付与できます。CDPそのものの動作には影響しませんが、ログを見返す際の目印として便利です。
+
+```vb
+Public Property Let SetBiDiPlusChannel(ChannelStr As String)
+```
+
+```vb
+Dim mode As New WebDriverBiDiMode
+mode.SetBiDiPlusChannel = "MyTask"   ' 以降のBiDiコマンドすべてに`"goog:channel":"MyTask"`が付与される
+```
+
+`WebDriverBiDiContext` からは `ThisWebDriverBiDiMode.SetBiDiPlusChannel` 経由で設定します。空文字（または`vbNullString`）を指定すると、フィールド自体が付与されなくなります。
 
 ## ConvertToCDPContext
 

@@ -374,7 +374,7 @@ BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**で�
 mode.TimeOutSecond = 60
 ```
 
-タブ側（[`WebDriverBiDiContext`](./WebDriverBiDiContext)）からは `InheritanceWebDriverBiDiMode.TimeOutSecond` で同じ値を触れます。
+タブ側（[`WebDriverBiDiContext`](./WebDriverBiDiContext)）からは `ThisWebDriverBiDiMode.TimeOutSecond` で同じ値を触れます。
 
 詳細は [タイムアウト設定方法について](/guides/timeout)。
 

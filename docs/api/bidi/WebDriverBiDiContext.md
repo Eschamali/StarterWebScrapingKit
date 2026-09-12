@@ -10,10 +10,10 @@ BiDi の browsing context（タブ／ページ）です。Playwright の **Page*
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 t.navigate "https://example.com"
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
 
-親は [`InheritanceWebDriverBiDiMode`](#inheritancewebdriverbidimode)（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）です。日常利用では設定シート経由の `StartBiDiModeContext` を推奨します。
+親は [`ThisWebDriverBiDiMode`](#thiswebdriverbidimode)（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）です。日常利用では設定シート経由の `StartBiDiModeContext` を推奨します。
 
 要素のクリック／入力など高レベル API は CDP 側が充実しています。必要なら [`ConvertToCDPContext`](#converttocdpcontext) で変換してください。
 
@@ -245,9 +245,9 @@ Dim cmdId As Long
 cmdId = t.ExecuteBiDiAsync("browsingContext.navigate", params)
 
 Do
-    t.InheritanceWebDriverBiDiMode.TakeEvents
+    t.ThisWebDriverBiDiMode.TakeEvents
     Dim raw As String
-    raw = t.InheritanceWebDriverBiDiMode.TakeResultBiDi(cmdId)
+    raw = t.ThisWebDriverBiDiMode.TakeResultBiDi(cmdId)
     If LenB(raw) Then Exit Do
     DoEvents
 Loop
@@ -288,10 +288,10 @@ End If
 
 ## 親セッション
 
-### `InheritanceWebDriverBiDiMode`
+### `ThisWebDriverBiDiMode`
 
 ```vb
-Property Get InheritanceWebDriverBiDiMode() As WebDriverBiDiMode
+Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
 ```
 
 `WebDriverBiDiContext` 上で、セッション／ブラウザ単位の制御もしたいときに使います。親の [`WebDriverBiDiMode`](./WebDriverBiDiMode) への参照です。
@@ -299,9 +299,9 @@ Property Get InheritanceWebDriverBiDiMode() As WebDriverBiDiMode
 タブ操作（`navigate` / `jsEval` など）は Context 側、タブ一覧／終了／イベント購読（`quit` / `newTab` / `BiDiEvents` など）はこちら経由、という使い分けになります。
 
 ```vb
-t.InheritanceWebDriverBiDiMode.newTab
-t.InheritanceWebDriverBiDiMode.TimeOutSecond = 60
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.newTab
+t.ThisWebDriverBiDiMode.TimeOutSecond = 60
+t.ThisWebDriverBiDiMode.quit
 ```
 
 ### `InheritanceWebDriverBiDiCore`
@@ -317,7 +317,7 @@ Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
 `TimeOutSecond` はこのクラス自体にはなく、親の [`WebDriverBiDiMode.TimeOutSecond`](./WebDriverBiDiMode#timeoutsecond) で設定します。
 
 ```vb
-t.InheritanceWebDriverBiDiMode.TimeOutSecond = 60
+t.ThisWebDriverBiDiMode.TimeOutSecond = 60
 ```
 
 詳細は [タイムアウト設定方法について](/guides/timeout)。

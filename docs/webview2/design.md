@@ -42,8 +42,10 @@ Public Function RemoveBrowserExtension(extensionId As String) As Boolean
 CDP-over-Pipe / CDP-over-WebSocket は「ドメインを `enable` すれば、以後そのドメインの全イベントが自動で流れてくる」モデルです。しかし WebView2 の `GetDevToolsProtocolEventReceiver` は **「イベント名ごとに個別登録」** が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent` / `UnsubscribeCdpEvent` という明示的な API として公開しています（一括購読の概念はWebView2側に無いため未対応。一括解除のみ `UnsubscribeAllCdpEvents` として提供）。
 :::
 
-::: warning VBEでのブレークに注意
-すべてのCOMコールバックは、機械語で書かれたサンク（後述）を経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）にVBEでブレーク／ステップ実行すると、Excelがクラッシュする可能性があります。
+::: warning VBEでのリセットに注意
+すべてのCOMコールバックは、機械語で書かれたサンク（後述）を経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）に、VBEで**ブレーク／ステップ実行した状態からリセット操作**をすると、Excelがクラッシュする可能性があります（v3.1.1で原因を精査し、危険なのは「ブレーク中」自体ではなく「ブレーク中のリセット」であることが判明しました）。ブレークポイントで一時停止してローカルウィンドウを確認する程度のデバッグは問題ありません。どうしてもリセットが必要な場合は、イミディエイトウィンドウから`UnsubscribeAllCdpEvents`で購読を解除してから行ってください。
+
+なお、`OnCdpMethodCompleted` / `OnCdpEventReceived` の中からCDPの同期待ちメソッド（`ExecuteCDP`等）を呼ぶと再入デッドロックになりますが、このツールはCOMスレッド側で受け取ったレスポンスをバッファに格納して即座に抜ける設計にしているため、利用者側でこれを意識する必要はありません。
 :::
 
 ::: info 複数タブは「別ウィンドウ」として開きます

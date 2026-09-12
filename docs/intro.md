@@ -34,14 +34,14 @@ description: Starter Web Scraping Kit の概要。Excel VBA 単体で CDP / WebD
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 t.navigate "https://kemono-friends.jp/"
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 ```vb [BiDi]
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 t.navigate "https://kemono-friends-20170110.jp/"
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
 
 :::

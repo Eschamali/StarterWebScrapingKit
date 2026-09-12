@@ -88,7 +88,7 @@ End Sub
 `WebView2Form.frm` の `StartCDPModeWebView2` を呼ぶだけで、初期化からCDP接続まで完了します。
 
 ```vb
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
+Sub WebView2OnExcelUserForm()
     '1. UserForm側のWebView2の初期化を済ませる
     With WebView2Form
         If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
@@ -102,14 +102,14 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
 End Sub
 ```
 
-同梱デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
+同梱デモ: `Demo_WebView2.WebView2OnExcelUserForm`
 
 内部では `CDPCoreViaWebView2.ConnectCDP` がWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。つまり、いったん埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
 自前のUserFormに組み込む場合のAPI詳細（`ConnectCDP`の引数、イベント購読、リサイズ等）は [WebView2モードでできること](/webview2/capabilities) にまとめています。
 
-::: warning ブレークポイントに注意
-全てのCOMコールバックは機械語サンクを経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）にVBEでブレーク／ステップ実行すると、Excelがクラッシュする可能性があります。デバッグ時は注意してください。
+::: warning リセットに注意（ブレークポイント自体は問題なし）
+全てのCOMコールバックは機械語サンクを経由します。コールバック待ち中（コマンド送信〜完了、イベント購読中）に、VBEで**ブレーク／ステップ実行した状態からリセット操作**をすると、Excelがクラッシュする可能性があります。ブレークポイントで一時停止してローカルウィンドウを確認する程度なら問題ありません。デバッグ時、リセットする前にはイミディエイトウィンドウから`UnsubscribeAllCdpEvents`で購読解除しておいてください。
 :::
 
 ::: warning

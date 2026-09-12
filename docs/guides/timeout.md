@@ -41,7 +41,7 @@ t.TimeOutSecond = 60
 t.navigate "https://example.com/heavy"
 ' ... 通常どおり操作 ...
 
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 ブラウザ側にも同様に設定できます。
@@ -57,7 +57,7 @@ BiDi の場合:
 ```vb
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
-t.InheritanceWebDriverBiDiMode.TimeOutSecond = 60
+t.ThisWebDriverBiDiMode.TimeOutSecond = 60
 ```
 
 ::: tip
@@ -79,11 +79,11 @@ Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 
 Dim startMs As Double
-startMs = t.InheritanceCDPBrowser.TimerCounter
+startMs = t.ThisCDPBrowser.TimerCounter
 
 Do
     ' ... ポーリングなど ...
-    If t.InheritanceCDPBrowser.TimerCounter - startMs > 5000 Then Exit Do  ' 5 秒で打ち切り
+    If t.ThisCDPBrowser.TimerCounter - startMs > 5000 Then Exit Do  ' 5 秒で打ち切り
     DoEvents
 Loop
 ```

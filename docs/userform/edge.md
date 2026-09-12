@@ -75,7 +75,7 @@ Sub ExcelのユーザーフォームにEdgeを埋め込む()
     EdgeInExcelForm.show
 
     '5. ブラウザを正常に閉じる
-    実質WebView2.InheritanceCDPBrowser.quit
+    実質WebView2.ThisCDPBrowser.quit
 End Sub
 ```
 

@@ -10,10 +10,10 @@ description: タブ単位のナビ・ウィンドウ制御・jsEval・iframe・�
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 t.navigate "https://example.com"
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
-親ブラウザは `InheritanceCDPBrowser`（[`CDPBrowser`](./CDPBrowser)）です。日常利用では設定シート経由の `StartCDPModeContext` を推奨します。
+親ブラウザは `ThisCDPBrowser`（[`CDPBrowser`](./CDPBrowser)）です。日常利用では設定シート経由の `StartCDPModeContext` を推奨します。
 
 ## 起動・再接続・終了
 
@@ -204,7 +204,7 @@ Public Sub activate()
 
 ```vb
 Dim tab2 As CDPContext
-Set tab2 = t.InheritanceCDPBrowser.getTab(Url:="example.com")
+Set tab2 = t.ThisCDPBrowser.getTab(Url:="example.com")
 tab2.activate   ' そのタブを前面タブにする
 ```
 
@@ -455,7 +455,7 @@ t.snapPage Environ("UserProfile") & "\Downloads", "viewport.png"
 ' フルページ
 t.snapPage Environ("UserProfile") & "\Downloads", "full.png", True
 
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 ::: tip 注意
@@ -684,10 +684,10 @@ End If
 
 ## 親ブラウザ
 
-### `InheritanceCDPBrowser`
+### `ThisCDPBrowser`
 
 ```vb
-Property Get InheritanceCDPBrowser() As CDPBrowser
+Property Get ThisCDPBrowser() As CDPBrowser
 ```
 
 `CDPContext` 上で、ブラウザ単位の制御もしたいときに使います。親の [`CDPBrowser`](./CDPBrowser) への参照です。
@@ -696,13 +696,13 @@ Property Get InheritanceCDPBrowser() As CDPBrowser
 
 ```vb
 ' 別タブを開く
-t.InheritanceCDPBrowser.newTab "https://example.com"
+t.ThisCDPBrowser.newTab "https://example.com"
 
 ' ブラウザ向け CDP（拡張機能の読み込みなど）
-t.InheritanceCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
+t.ThisCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
 
 ' ブラウザ終了
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 ## デバッグ

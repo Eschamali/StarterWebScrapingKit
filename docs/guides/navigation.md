@@ -18,7 +18,7 @@ t.navigate "https://kemono-friends.jp/"          ' 既定: 読み込み完了ま
 t.navigate "https://kemono-friends.jp/introduction/", isComplete
 t.wait                                    ' 現在ページの完了待ち
 
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 ```
 
 ```vb [BiDi]
@@ -27,7 +27,7 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 
 t.navigate "https://kemono-friends-20170110.jp/"
 
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
 
 :::

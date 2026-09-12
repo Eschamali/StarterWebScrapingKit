@@ -14,8 +14,8 @@ Dim main As CDPContext
 Set main = ShSetting01_StartBrowser.StartCDPModeContext
 main.navigate "https://google.com"
 
-main.InheritanceCDPBrowser.newTab "https://example.com"
-main.InheritanceCDPBrowser.newTab "https://bing.com"
+main.ThisCDPBrowser.newTab "https://example.com"
+main.ThisCDPBrowser.newTab "https://bing.com"
 ```
 
 ## Browser からタブを割り当て（CDP）

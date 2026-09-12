@@ -24,7 +24,7 @@ Pipe・WebSocket が「外部のブラウザプロセス」を相手にするの
 '* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
 '            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
 '***************************************************************************************************
-Sub ExcelのユーザーフォームにWebView2を埋め込む()
+Sub WebView2OnExcelUserForm()
     With WebView2Form
         '1. 起動前設定を施す(任意)
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
@@ -49,7 +49,7 @@ Sub ExcelのユーザーフォームにWebView2を埋め込む()
 End Sub
 ```
 
-同梱デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
+同梱デモ: `Demo_WebView2.WebView2OnExcelUserForm`
 
 内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
@@ -78,8 +78,9 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 | `AttachHwnd` | WebView2 を貼り付けるウィンドウハンドル。省略時は Excel 自身のハンドル（`Application.Hwnd`）を使用 |
 
 ```vb
+' Frame自体はhWndを公開していないため、`[_GethWnd]`（MSFormsの内部プロパティ）で取得します
 Dim wv2 As New CDPCoreViaWebView2
-If Not wv2.ConnectCDP("MyUser", Me.EdgeFrame.hWnd) Then Exit Sub
+If Not wv2.ConnectCDP("MyUser", Me.WebView2Frame.[_GethWnd]) Then Exit Sub
 
 Dim b As New CDPBrowser
 b.reattachWebView2 "MyUser", wv2
@@ -117,7 +118,13 @@ wv2.UnsubscribeAllCdpEvents
 ```
 
 ::: warning WebSocket/Pipeとの違い
-Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの全イベントが自動で流れてくる」モデルですが、WebView2は`GetDevToolsProtocolEventReceiver`の仕様上、**イベント名ごとの個別購読**が必要です。一括購読の概念はWebView2側に無いため未対応です（一括解除のみ`UnsubscribeAllCdpEvents`として提供）。
+Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの全イベントが自動で流れてくる」モデルですが、WebView2は`GetDevToolsProtocolEventReceiver`の仕様上、**イベント名ごとの個別購読**が必要です。一括購読の概念はWebView2側に無いため未対応です（一括解除のみ`UnsubscribeAllCdpEvents`として提供）。`Page.enable`だけしても`Page.javascriptDialogOpening`等は一切届かず、後続の受信待ちループが無限待機になるので注意してください。
+:::
+
+同梱デモ（v3.1.1〜）: `Demo_WebView2.RunTestAlertDemo` — `Demo_CDP.TestAlert`のWebView2移植版で、`alert` / 空`alert` / `prompt`の3種類のJavaScriptダイアログを実際に発生させ、`SubscribeCdpEvent "Page.javascriptDialogOpening"`で捕まえて自動応答する一連の流れを、`SubscribeCdpEvent`を呼ぶ場合と呼ばない場合を比較しながら確認できます。
+
+::: warning デバッグ中のクラッシュに注意
+1つでも購読した状態で、VBEの`Stop`やブレークポイントで**止めたあとにリセット処理**をすると、Excelがクラッシュすることがあります。ブレークポイントで一時停止してローカルウィンドウを確認する程度なら問題ありません。どうしてもリセットが必要な場合は、イミディエイトウィンドウから`UnsubscribeAllCdpEvents`を実行して購読を解除してから行ってください。
 :::
 
 ## 拡張機能のインストール（v3.1.0〜）
@@ -159,7 +166,7 @@ With WebView2Form
 End With
 ```
 
-同梱デモ: `Demo_WebView2.拡張機能インストールアンインストール`
+同梱デモ: `Demo_WebView2.UseExtensionsViaWebView2API`
 
 ::: warning 必ず接続前に有効化する
 `AreBrowserExtensionsEnabled` は Environment 生成時にしか読まれない設定です。`ConnectCDP`（`StartCDPModeWebView2`）を呼んだ**あとに** `Set_AreBrowserExtensionsEnabled = True` にしても反映されません。次節の`EnvironmentOptions`と合わせて、**接続前に**設定してください。未設定のままインストールを試みると`ERROR_NOT_SUPPORTED`で失敗します。
@@ -196,14 +203,14 @@ End With
 
 同梱デモ: `Demo_WebView2.RunEnvironmentOptionsDemo`
 
-## その他のインターフェースのプロパティ（v3.1.0〜）
+## その他のインターフェースのプロパティ（v3.1.0〜、v3.1.1で追加分あり）
 
 拡張機能対応のために`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`のvtableを組み上げたので、ついでにコールバック・イベントを伴わない**スカラー値のプロパティ**は一通り公開しています。用途別に代表例を挙げます（全量はソースコードのコメント、または`Demo_WebView2`内の`Run○○FamilyDemo`各プロシージャを参照）。
 
 | 系統 | 例 | 用途 |
 | --- | --- | --- |
 | `ICoreWebView2Controller` | `ZoomFactor`（Let）/ `RasterizationScale`（Let）/ `SetBoundsAndZoomFactor` / `MoveFocus` / `SetDefaultBackgroundColor` | 表示倍率・DPI・フォーカス・背景色 |
-| `ICoreWebView2` | `IsMuted`（Let）/ `IsDocumentPlayingAudio`（Get）/ `StatusBarText`（Get）/ `FaviconUri`（Get） | 音声ミュート、再生中判定、ステータスバー、favicon |
+| `ICoreWebView2` | `IsMuted`（Let）/ `IsDocumentPlayingAudio`（Get）/ `StatusBarText`（Get）/ `FaviconUri`（Get）/ `Source`（Get）/ `DocumentTitle`（Get）/ `CanGoBack`（Get）/ `CanGoForward`（Get）/ `BrowserProcessId`（Get）/ `IsSuspended`（Get）/ `ContainsFullScreenElement`（Get）/ `IsDefaultDownloadDialogOpen`（Get）/ `frameID`（Get、v3.1.1〜） | 音声ミュート、再生中判定、ステータスバー、favicon、現在のURL/タイトル、履歴の有無、プロセスID、サスペンド状態等 |
 | `ICoreWebView2Environment` | `userDataFolder`（Get）/ `FailureReportFolderPath`（Get） | 実際に使われているフォルダパスの確認 |
 | `ICoreWebView2Settings` | `ScriptEnabled` / `WebMessageEnabled` / `UserAgentOverride` / `GeneralAutofillEnabled`（いずれもLet） | JS実行・WebMessage・UA偽装・オートフィルの可否 |
 | `ICoreWebView2Profile` | `ProfileName`（Get）/ `IsInPrivateModeEnabled`（Get）/ `DefaultDownloadFolderPath`（Let）/ `PreferredTrackingPreventionLevel`（Let） | プロファイル情報、ダウンロード先、トラッキング防止レベル |
@@ -230,4 +237,4 @@ Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreV
 - [設計思想について](/webview2/design) — 機械語サンク・vtable、移植元へのクレジット
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only) — UserForm埋め込みの詳しい解説
 - [再接続 (reattach)](/guides/reattach)
-- デモ: `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`
+- デモ: `Demo_WebView2.WebView2OnExcelUserForm`

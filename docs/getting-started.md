@@ -48,9 +48,9 @@ Sub CDPによる冒険の始まり()
 
     HelloWorld.navigate "https://kemono-friends.jp/"
     HelloWorld.notify "あなたは、けものがお好きですか？"
-    HelloWorld.InheritanceCDPBrowser.sleep 3
+    HelloWorld.ThisCDPBrowser.sleep 3
 
-    HelloWorld.InheritanceCDPBrowser.quit
+    HelloWorld.ThisCDPBrowser.quit
 End Sub
 ```
 
@@ -61,7 +61,7 @@ Sub BiDiによる冒険の始まり()
 
     HelloWorld.navigate "https://example.com"
 
-    HelloWorld.InheritanceWebDriverBiDiMode.quit
+    HelloWorld.ThisWebDriverBiDiMode.quit
 End Sub
 ```
 
@@ -137,11 +137,24 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext( _
 
 ```vb
 ' CDP
-t.InheritanceCDPBrowser.quit
+t.ThisCDPBrowser.quit
 
 ' BiDi
-t.InheritanceWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.quit
 ```
+
+## 5. Copilotにこのツールの流儀を教える（`.Rules` シート、v3.1.1〜）
+
+Excel公式のAI機能「Copilot in Excel」には、ブックごとに振る舞いを指示できる[`.Rules`という特別なシート](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules)を作る仕組みがあります。このマクロブックにも`.Rules`シートを同梱しており、シート内の[所定のフォーマット](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules)に沿って書かれた指示を読み込みます。
+
+これにより、Webスクレイピングに関する質問をCopilotに投げたとき、一般的な回答にありがちな`SeleniumVBA`寄りの提案ではなく、**このブックに実装済みのCDP/BiDi制御機能を優先した回答**を引き出しやすくなります。
+
+> [!IMPORTANT]
+> Copilot in Excelの機能そのものがExcel専用のため、**Accessは非対応**です。
+
+::: tip 中身はどこにある？
+`.Rules`シートの実体は、VBAプロジェクト上では`ShCopilotRules.cls`というシートコードとして管理されています。指示文そのものは`#If ForCopilot Then ... #End If`で囲われており、常にコンパイル対象から除外される（＝処理に一切影響しない）ようになっています。Git管理のしやすさのための工夫です。
+:::
 
 ## 次へ
 
