@@ -190,6 +190,24 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     ExecuteBiDiAsync = m_BiDiMode.ExecuteBiDiAsync(methodName, params, StopError)
 End Function
 
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.subscribe/unsubscribe`を実行します
+'---------------------------------------------------------------------------------------------------
+'* SET引数 ：`events`に渡すCollection変数
+'     引数 ：subscribe  `True` :`session.subscribe`として実行   ※既定
+'                       `False`:`session.unsubscribe`として実行
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでの実行の場合は、context単位となります
+'***************************************************************************************************
+Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+    'paramsに格納
+    Dim params As New Dictionary
+    params.Add "events", events
+
+    '実行
+    ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
+End Property
+
 
 
 '***************************************************************************************************
