@@ -219,6 +219,24 @@ Set result = mode.ExecuteBiDi("browser.getUserContexts", New Dictionary)
 
 詳細は [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)。
 
+### `SetBiDiPlusChannel`
+
+```vb
+Public Property Let SetBiDiPlusChannel(ChannelStr As String)
+```
+
+BiDi+ 独自の拡張フィールドである [`goog:channel`](https://github.com/GoogleChromeLabs/chromium-bidi#field-googchannel)（v3.1.1〜）を設定します。以降に送信する全 BiDi コマンドへ、指定した文字列タグが自動付与されます。CDP そのものの動作には影響せず、ログを見返す際の目印として使えます。
+
+| 引数 | 意味 |
+| --- | --- |
+| `ChannelStr` | 付与する `goog:channel` の値。空文字（または `vbNullString`）でフィールド自体を外す |
+
+```vb
+mode.SetBiDiPlusChannel = "MyTask"   ' 以降のBiDiコマンドすべてに `"goog:channel":"MyTask"` が付与される
+```
+
+`WebDriverBiDiContext` からは `ThisWebDriverBiDiMode.SetBiDiPlusChannel` 経由で同じ値を設定します。詳細は [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)（「`goog:channel`フィールド」節）。
+
 ### `TakeEvents`
 
 ```vb
