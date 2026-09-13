@@ -27,6 +27,7 @@ Microsoft Edge(Chromium系)をChrome DevTools Protocol (CDP) 経由で自動操�
 - 行継続記号（アンダースコア）は、25回が上限。また、その記号の右側に同じ行内でコメントを書くと構文エラー
 - モジュールレベル変数・定数はモジュール冒頭（全プロシージャより手前）に置く
 - Extensionsブランチでのみ出現する`Extensions/`配下のVBAsourceは、`ShiftJis`として保存すること
+- `BiDi+`を扱う場面(goog:cdp.sendCommand等)が必要な場合はまず、`WebDriverBiDiContext.UpgradeBiDiPlus`で賄えるか確認する。賄えない場合は理由を添えてユーザーに判断を委ねること
 
 ## 5. 主要なファイル構成と「真実の所在」
 
