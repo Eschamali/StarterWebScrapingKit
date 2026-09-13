@@ -1560,6 +1560,9 @@ Private Sub Class_Terminate()
     'ストリームをClose
     CDPPipeStream.Close
     Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
+
+    'ログ設定をクリア
+    CDPHelpers.ClearLogger
 End Sub
 
 
