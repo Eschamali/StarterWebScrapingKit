@@ -84,7 +84,9 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True, Opt
 
 
     '1. エラー情報をクリア
-    ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.RemoveAll
+    With ex_BiDiContext.ThisWebDriverBiDiMode
+        If Not .LastBiDiJsonError Is Nothing Then .LastBiDiJsonError.RemoveAll
+    End With
 
     '2. 必要なイベントを購読
     Dim targetEvents As New Collection
@@ -98,9 +100,13 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True, Opt
     Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe = targetEvents
 
     '3. エラーcheck
-    If ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.Count Then
-        printMsg ERROR_, "`session.subscribe`の実行に失敗しました。 > " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName, doRaiseError:=True
-    End If
+    With ex_BiDiContext.ThisWebDriverBiDiMode
+        If Not .LastBiDiJsonError Is Nothing Then
+            If .LastBiDiJsonError.Count Then
+                printMsg ERROR_, "`session.subscribe`の実行に失敗しました。 > " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName, doRaiseError:=True
+            End If
+        End If
+    End With
 
     '4. 開始時点のURLを、失敗しても記録全体を止めない形で取得
     Dim urlResult As Variant
