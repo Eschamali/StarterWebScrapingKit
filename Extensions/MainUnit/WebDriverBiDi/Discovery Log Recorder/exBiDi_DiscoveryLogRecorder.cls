@@ -42,7 +42,7 @@ Private m_context                As String   '`WebDriverBiDiContext`継承時の`Con
 
 '記録状態管理用
 Private Type DiscoveryLogState
-    isRecording         As Boolean
+    IsRecording         As Boolean
     recorderLogs        As Collection   '整形済みログ行（リングバッファ）
     recSuppByKey         As Dictionary   '除外(excludeImagesAndCss)したURLの正規化キー→件数
     subscribedEvents     As Collection   'Stop時に同じ配列でunsubscribeするために保持
@@ -52,7 +52,7 @@ Private Type DiscoveryLogState
     droppedHeadCount     As Long
     totalEventCount      As Long
     Limit                As Long
-    startUrl             As String
+    StartURL             As String
 End Type
 Private CurrentLogState As DiscoveryLogState
 
@@ -64,7 +64,7 @@ Private CurrentLogState As DiscoveryLogState
 '* 機能　　：現在、記録中かどうかを返します
 '***************************************************************************************************
 Public Property Get IsRecording() As Boolean
-    IsRecording = CurrentLogState.isRecording
+    IsRecording = CurrentLogState.IsRecording
 End Property
 
 
@@ -123,8 +123,8 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True, Opt
         .droppedHeadCount = 0
         .totalEventCount = 0
         .Limit = 5000
-        .isRecording = True
-        If VarType(urlResult) = vbString Then .startUrl = urlResult Else .startUrl = "(unknown)"
+        .IsRecording = True
+        If VarType(urlResult) = vbString Then .StartURL = urlResult Else .StartURL = "(unknown)"
     End With
 
     '6. DOM監視を、現在表示中のページへ即座に仕込む
@@ -145,7 +145,7 @@ Public Sub RecordEventsForSeconds(seconds As Double, Optional pollIntervalSecond
 
 
     '1. 記録開始前なら、即抜け
-    If Not CurrentLogState.isRecording Then
+    If Not CurrentLogState.IsRecording Then
         printMsg WARN_, "`StartDiscoveryLog`が実行されていないため、記録できません。", FromProcedureName
         Exit Sub
     End If
@@ -175,7 +175,7 @@ Public Function StopAndSaveDiscoveryLog(Optional FolderPath As String, Optional 
 
 
     '1. 記録開始前なら、即抜け
-    If Not CurrentLogState.isRecording Then
+    If Not CurrentLogState.IsRecording Then
         printMsg WARN_, "記録は開始されていません。", FromProcedureName
         Exit Function
     End If
@@ -192,7 +192,7 @@ Public Function StopAndSaveDiscoveryLog(Optional FolderPath As String, Optional 
         Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe(False) = CurrentLogState.subscribedEvents
     End If
 
-    CurrentLogState.isRecording = False
+    CurrentLogState.IsRecording = False
 
     '5. 本文を時系列でソートして整形
     Dim bodyText As String
@@ -205,7 +205,7 @@ Public Function StopAndSaveDiscoveryLog(Optional FolderPath As String, Optional 
     '7. ヘッダーを整形
     Dim headerText As String
     headerText = "===== Discovery Log Recorder =====" & vbCrLf & _
-                 "開始URL        : " & CurrentLogState.startUrl & vbCrLf & _
+                 "開始URL        : " & CurrentLogState.StartURL & vbCrLf & _
                  "保存時刻        : " & Format(Now, "yyyy-MM-dd HH:mm:ss") & vbCrLf & _
                  "記録行数/検知数 : " & CurrentLogState.recorderLogs.Count & " / " & CurrentLogState.totalEventCount & vbCrLf & _
                  "破棄行数(先頭)  : " & CurrentLogState.droppedHeadCount & vbCrLf & _
@@ -233,7 +233,7 @@ End Function
 '***************************************************************************************************
 Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As String)
     '1. 記録モードでなければ、即抜け
-    If Not CurrentLogState.isRecording Then Exit Sub
+    If Not CurrentLogState.IsRecording Then Exit Sub
 
     '2. 対象イベントのみ委託
     Select Case methodName
@@ -461,13 +461,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`excludeImagesAndCss`が有効な場合にのみ使用される、簡易的な拡張子ベースの判定です
 '***************************************************************************************************
-Private Function IsNoiseUrl(url As String) As Boolean
-    If LenB(url) = 0 Then Exit Function
+Private Function IsNoiseUrl(Url As String) As Boolean
+    If LenB(Url) = 0 Then Exit Function
 
     '【先頭一致の特殊ガード】data: URI は一瞬で判定して即抜け
-    If Left$(url, 5) = "data:" Then IsNoiseUrl = True: Exit Function
+    If Left$(Url, 5) = "data:" Then IsNoiseUrl = True: Exit Function
 
-    Dim lUrl As String: lUrl = LCase$(url)
+    Dim lUrl As String: lUrl = LCase$(Url)
 
     '【固定NGリストを用意】配列の生成は最初の1回のみ
     Static patterns As Variant
@@ -488,27 +488,27 @@ End Function
 '***************************************************************************************************
 '* 機能　　：除外サマリー集計用に、URLからクエリ文字列を除いたキーを作ります
 '***************************************************************************************************
-Private Function NormalizeEndpointKey(url As String) As String
-    Dim key As String: key = url
+Private Function NormalizeEndpointKey(Url As String) As String
+    Dim Key As String: Key = Url
 
-    Dim qPos As Long: qPos = InStr(1, key, "?")
-    If qPos > 0 Then key = Left$(key, qPos - 1)
+    Dim qPos As Long: qPos = InStr(1, Key, "?")
+    If qPos > 0 Then Key = Left$(Key, qPos - 1)
 
-    If Len(key) > 120 Then key = Left$(key, 120) & "..."
+    If Len(Key) > 120 Then Key = Left$(Key, 120) & "..."
 
-    NormalizeEndpointKey = key
+    NormalizeEndpointKey = Key
 End Function
 
 '***************************************************************************************************
 '* 機能　　：除外したリクエストのキーごとの件数をカウントアップします
 '***************************************************************************************************
-Private Sub BumpSuppressed(key As String)
+Private Sub BumpSuppressed(Key As String)
     If CurrentLogState.recSuppByKey Is Nothing Then Exit Sub
 
-    If CurrentLogState.recSuppByKey.Exists(key) Then
-        CurrentLogState.recSuppByKey(key) = CurrentLogState.recSuppByKey(key) + 1
+    If CurrentLogState.recSuppByKey.Exists(Key) Then
+        CurrentLogState.recSuppByKey(Key) = CurrentLogState.recSuppByKey(Key) + 1
     Else
-        CurrentLogState.recSuppByKey.Add key, 1
+        CurrentLogState.recSuppByKey.Add Key, 1
     End If
 End Sub
 
@@ -530,7 +530,7 @@ Private Function BuildSuppressedSummary() As String
     End If
 
     Dim k As Variant
-    For Each k In CurrentLogState.recSuppByKey.Keys
+    For Each k In CurrentLogState.recSuppByKey.keys
         result = result & vbCrLf & CurrentLogState.recSuppByKey(k) & "件  " & k
     Next k
 
@@ -545,13 +545,13 @@ End Function
 '            のデータになります。そのため挿入ソートでも実用上十分高速です
 '***************************************************************************************************
 Private Function SortedLinesArray() As Variant
-    Dim n As Long: n = CurrentLogState.recorderLogs.Count
+    Dim N As Long: N = CurrentLogState.recorderLogs.Count
 
-    Dim lines() As String: ReDim lines(1 To n)
-    Dim keys() As Double: ReDim keys(1 To n)
+    Dim lines() As String: ReDim lines(1 To N)
+    Dim keys() As Double: ReDim keys(1 To N)
 
     Dim i As Long
-    For i = 1 To n
+    For i = 1 To N
         lines(i) = CurrentLogState.recorderLogs(i)
         keys(i) = ParseLeadingSeconds(lines(i))
     Next i
@@ -559,7 +559,7 @@ Private Function SortedLinesArray() As Variant
     Dim j As Long
     Dim tmpLine As String
     Dim tmpKey As Double
-    For i = 2 To n
+    For i = 2 To N
         tmpLine = lines(i)
         tmpKey = keys(i)
         j = i - 1
