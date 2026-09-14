@@ -77,15 +77,13 @@ Private currentLog      As StateLog
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
 Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary)
+    Optional userProfile As String, Optional addArgs As String)
 
     Const FromProcedureName As String = ThisClassName & ".start"
 
