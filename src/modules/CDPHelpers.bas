@@ -132,6 +132,22 @@ End Function
 
 
 '***************************************************************************************************
+'                       ■■■ 文字列 → Enum 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 待機の種類を数値で返します
+'---------------------------------------------------------------------------------------------------
+Public Function StringToEnumReadyState(param As String) As ReadyState
+    Select Case param
+        Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
+        Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
+        Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
 '                                     ■■■ 待機系 ■■■
 '***************************************************************************************************
 '* 機能　　：シンプルな待機です

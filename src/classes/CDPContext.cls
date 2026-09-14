@@ -2037,11 +2037,6 @@ End Sub
 '            ・タイムアウトは、「Let TimeOutSecond」に依存します
 '            ・SPA待機には対応しません
 '            ・`Nowait`でも一応機能しますが、意味を成しません
-'---------------------------------------------------------------------------------------------------
-'* 更新履歴： 26/04/23 - Enhanced 'till' to Enum type for ease of use
-'                      - Added exit for targetState = interactive in case CDP misses the state change
-'
-'             26/09/14 - `Page`イベントとして改良
 '***************************************************************************************************
 Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
     Const FromProcedureName As String = ThisClassName & ".WaitEvents"
@@ -2071,7 +2066,7 @@ Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optiona
 End Function
 
 '***************************************************************************************************
-'* 機能　　：`Page`イベントを活用したシンプルな読み込み待機を行う前の待機状況のリセットを行います
+'* 機能　　：`Page`イベント or `document.readyState`を活用したシンプルな読み込み待機を行う前の待機状況のリセットを行います
 '***************************************************************************************************
 Public Sub ResetWaitState()
     Const FromProcedureName As String = ThisClassName & ".ResetWaitState"
@@ -2082,7 +2077,7 @@ Public Sub ResetWaitState()
     printMsg Debug_, "The loading status has been reset.", FromProcedureName
 End Sub
 
-Public Sub WaitReadyState(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
+Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
 '--------------------------------------------------------------------------------------------------
 ' Wait until browser reaches a specific state. Default is until it fully loads ("complete")
 ' Possible states:  loading / interactive / complete
@@ -2094,25 +2089,25 @@ Public Sub WaitReadyState(Optional till As ReadyState = isComplete, Optional dbg
 ' Updated: 26/04/23 - Enhanced 'till' to Enum type for ease of use
 '                   - Added exit for targetState = interactive in case CDP misses the state change
 '--------------------------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".wait"
+    Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
 
 
-    Dim strState As String, targetState As String
-    targetState = EnumToStringReadyState(till)
+    '1. ループで毎回、訊きに行く
+    Dim readyStateStr As String
+    Do Until brTab.ReadState >= till
+        '1-1. 今の読み込み状況をチェック
+        readyStateStr = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & readyStateStr, FromProcedureName  'option to print ReadyState info during iteration
 
-    '初期値を設定しておく
-    '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = EnumToStringReadyState(isLoading)
+        '1-2. 値に変換
+        brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
 
-
-    Do Until strState = targetState
-        strState = jsEval("document.readyState", StopException:=dbgState)
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
-        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+        '1-3. クールタイム
+        If brTab.ReadState < till Then CDPHelpers.Sleep 0.1                         'reduce sleep will speed up but will cost cpu power
     Loop
 
-    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
+    '2. 待機成功を伝える
+    printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
 
 End Sub
 
