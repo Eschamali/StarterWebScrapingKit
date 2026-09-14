@@ -95,6 +95,63 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
 
 
 '***************************************************************************************************
+'                                   ■■■ 各種構造体 ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Page.TransitionType
+' ブラウザに対して「どのような経緯・手段でこのURLへ遷移したか」を指定・判定します。
+' アクセス解析やボット対策システム（Cloudflare等）が参照する通信指紋に影響を与えます。
+'---------------------------------------------------------------------------------------------------'
+Public Enum PageTransitionType
+    pt_default              ' [既定]                Chrome標準におまかせ
+
+    ' --- 一般的なユーザー操作 ---
+    pt_link                 ' [link]                Webページ上の通常のリンク（<a>タグ）をクリックして遷移
+    pt_typed                ' [typed]               アドレスバーに直接URLを手入力してEnterキーで遷移（直アクセス）
+    pt_address_bar          ' [address_bar]         アドレスバーのサジェストや履歴の選択など、UI操作による遷移
+    pt_auto_bookmark        ' [auto_bookmark]       ブックマークバーやお気に入りメニューをクリックして遷移
+    pt_form_submit          ' [form_submit]         HTMLフォーム（<form>）の送信ボタン押下による遷移
+    pt_reload               ' [reload]              F5キーや更新ボタン、location.reload() による再読み込み
+
+    ' --- サブフレーム（iframe）の制御 ---
+    pt_auto_subframe        ' [auto_subframe]       iframe（広告や埋め込み枠）が初期表示などで自動読み込みされた
+    pt_manual_subframe      ' [manual_subframe]     iframeの内部にあるリンクをユーザーが手動でクリックして遷移
+
+    ' --- 検索・アドレスバー機能起因 ---
+    pt_generated            ' [generated]           アドレスバーに検索語句を入力し、生成された検索結果ページへ遷移
+    pt_keyword              ' [keyword]             登録済みのカスタム検索キーワードを利用して遷移（例: "yt ネコ"）
+    pt_keyword_generated    ' [keyword_generated]   カスタムキーワード検索エンジンによって生成されたURLへ遷移
+
+    ' --- 自動遷移・その他 ---
+    pt_auto_toplevel        ' [auto_toplevel]       <meta http-equiv="refresh"> 等でトップページが自動リダイレクト
+    pt_other                ' [other]               上記に該当しないその他（拡張機能や外部アプリからの起動など）
+End Enum
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Page.ReferrerPolicy
+' 外部サイトへ遷移する際、「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します。
+'---------------------------------------------------------------------------------------------------'
+Public Enum PageReferrerPolicy
+    pr_default                      ' [既定]                        Chrome標準におまかせ（strictOriginWhenCrossOrigin が適用される）
+
+    ' --- 安全・秘匿性が高い ---
+    pr_noReferrer                   ' [noReferrer]                  完全匿名。足跡（リファラー）を1ミリも残さない
+    pr_origin                       ' [origin]                      パス（/page/123）は隠し、ドメイン名（https://site.com/）だけ伝える
+    pr_sameOrigin                   ' [sameOrigin]                  同じサイト内なら全て伝えるが、外部サイトへ行く時は完全匿名
+
+    ' --- 現代の標準・バランス型 ---
+    pr_strictOrigin                 ' [strictOrigin]                ドメイン名だけ伝える。ただしHTTPS→HTTPへのダウングレード時は完全匿名
+    pr_strictOriginWhenCrossOrigin  ' [strictOriginWhenCrossOrigin] ★現代のWeb標準★ 自サイトなら全開示、外部へはドメインのみ、HTTP落ちなら匿名
+
+    ' --- レガシー・制約が緩い ---
+    pr_originWhenCrossOrigin        ' [originWhenCrossOrigin]       自サイトなら全開示、外部へはドメインのみ（HTTP落ちでも送る）
+    pr_noReferrerWhenDowngrade      ' [noReferrerWhenDowngrade]     昔の標準。基本は全開示。HTTPS→HTTPに落ちる時だけ匿名にする
+    pr_unsafeUrl                    ' [unsafeUrl]                   超危険。相手が誰だろうと、HTTPだろうとURL全文を無防備に送りつける
+End Enum
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
@@ -178,6 +235,48 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private currentLog      As StateLog 'ログ設定
+
+
+
+'***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] URLの遷移種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringPageTransitionType(param As PageTransitionType) As String
+    Select Case param
+        Case PageTransitionType.pt_link:                EnumToStringPageTransitionType = "link"
+        Case PageTransitionType.pt_typed:               EnumToStringPageTransitionType = "typed"
+        Case PageTransitionType.pt_address_bar:         EnumToStringPageTransitionType = "address_bar"
+        Case PageTransitionType.pt_auto_bookmark:       EnumToStringPageTransitionType = "auto_bookmark"
+        Case PageTransitionType.pt_form_submit:         EnumToStringPageTransitionType = "form_submit"
+        Case PageTransitionType.pt_reload:              EnumToStringPageTransitionType = "reload"
+        Case PageTransitionType.pt_auto_subframe:       EnumToStringPageTransitionType = "auto_subframe"
+        Case PageTransitionType.pt_manual_subframe:     EnumToStringPageTransitionType = "manual_subframe"
+        Case PageTransitionType.pt_generated:           EnumToStringPageTransitionType = "generated"
+        Case PageTransitionType.pt_keyword:             EnumToStringPageTransitionType = "keyword"
+        Case PageTransitionType.pt_keyword_generated:   EnumToStringPageTransitionType = "keyword_generated"
+        Case PageTransitionType.pt_auto_toplevel:       EnumToStringPageTransitionType = "auto_toplevel"
+        Case PageTransitionType.pt_other:               EnumToStringPageTransitionType = "other"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 「元のURL（足跡）」の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringPageReferrerPolicy(policy As PageReferrerPolicy) As String
+    Select Case policy
+        Case pr_noReferrer:                  EnumToStringPageReferrerPolicy = "noReferrer"
+        Case pr_origin:                      EnumToStringPageReferrerPolicy = "origin"
+        Case pr_sameOrigin:                  EnumToStringPageReferrerPolicy = "sameOrigin"
+        Case pr_strictOrigin:                EnumToStringPageReferrerPolicy = "strictOrigin"
+        Case pr_strictOriginWhenCrossOrigin: EnumToStringPageReferrerPolicy = "strictOriginWhenCrossOrigin"
+        Case pr_originWhenCrossOrigin:       EnumToStringPageReferrerPolicy = "originWhenCrossOrigin"
+        Case pr_noReferrerWhenDowngrade:     EnumToStringPageReferrerPolicy = "noReferrerWhenDowngrade"
+        Case pr_unsafeUrl:                   EnumToStringPageReferrerPolicy = "unsafeUrl"
+    End Select
+End Function
 
 
 
@@ -1884,37 +1983,51 @@ End Function
 '***************************************************************************************************
 '                           ■■■ 各種CDPヘルパーコマンド ■■■
 '***************************************************************************************************
-Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
-'-----------------------------------------------------------------------
-' This sub is a quick wrapper to navigate to an url.
-' Updated 23/03/23
-'-----------------------------------------------------------------------
+'* 機能　　：This sub is a quick wrapper to navigate to an url.
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strURL         遷移先URL
+'            referrerURL    どのURLから遷移させたかをサーバーに伝えたい場合は指定します
+'            transitionType 「どのような経緯・手段でこのURLへ遷移したか」を指定します
+'            referrerPolicy 「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します
+'            frameId        iframe内のページ遷移を行う際は指定します
+'            till           どこまで待機させるか？
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`till:=Nowait`で行うとCDP非同期実行で、"Page.navigate"が行われます
+'***************************************************************************************************
+Public Sub navigate(strURL As String, Optional referrerURL As String, Optional transitionType As PageTransitionType, Optional referrerPolicy As PageReferrerPolicy, Optional frameID As String, Optional WaitMode As ReadyState = isComplete)
     Const FromProcedureName As String = ThisClassName & ".navigate"
 
 
-   'Check if already navigated
-    Dim curURL As String
-    curURL = jsEval("window.location.href")
-    If curURL = strURL Then
-        printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
-        Exit Sub
-    End If
+    '遷移前の待機状況リセット
+    ResetWaitState
 
-   'If not yet then do navigate
+    '遷移先パラメーター用意
     Dim CDPparams As New Dictionary
     CDPparams.Add "url", strURL
-    ExecuteCDP "Page.navigate", CDPparams
+    If StrPtr(frameID) Then CDPparams.Add "frameId", frameID
+    If StrPtr(referrerURL) Then CDPparams.Add "referrer", referrerURL
+    If transitionType > pt_default Then CDPparams.Add "transitionType", EnumToStringPageTransitionType(transitionType)
+    If referrerPolicy > pr_default Then CDPparams.Add "referrerPolicy", EnumToStringPageReferrerPolicy(referrerPolicy)
 
-    'should also add a maxTimeLimit to Wait
-    wait till:=till
-    printMsg info_, "Navigated to: " & strURL, FromProcedureName
+    '非同期実行か
+    If WaitMode = Nowait Then
+        ExecuteCDPAsync "Page.navigate", CDPparams
+        printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
+        Exit Sub
+    Else
+        ExecuteCDP "Page.navigate", CDPparams
+
+        'should also add a maxTimeLimit to Wait
+        wait WaitMode:=WaitMode
+        printMsg info_, "Navigated to: " & strURL, FromProcedureName
+    End If
 
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：`Page`イベントを活用したシンプルな読み込み待機を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：till       候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'* 引数　　：WaitMode   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
 '            waitError  タイムアウトになったら、エラーで止めるか？
 '* 返値    ：引数で渡した所まで待機できたか？
 '---------------------------------------------------------------------------------------------------
@@ -1930,7 +2043,7 @@ End Sub
 '
 '             26/09/14 - `Page`イベントとして改良
 '***************************************************************************************************
-Public Function wait(Optional till As ReadyState = isComplete, Optional waitError As Boolean = True) As Boolean
+Public Function wait(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
     Const FromProcedureName As String = ThisClassName & ".wait"
 
 
@@ -1939,20 +2052,20 @@ Public Function wait(Optional till As ReadyState = isComplete, Optional waitErro
 
     '2. イベントを取り出して、指定の読み込み状況になるまでループ
     '※既に条件を満たしてる場合は、下記のループは通りません
-    Do Until brTab.ReadState >= till Or CDPHelpers.TimerCounter - timerStart > timerOut
+    Do Until brTab.ReadState >= WaitMode Or CDPHelpers.TimerCounter - timerStart > timerOut
         '2-1. イベントを取り出す
         TakeEvents  '※内部にて`DoEvents`が走ります
         printMsg Trace_, "Waiting... Current waiting value: " & EnumToStringReadyState(brTab.ReadState), FromProcedureName
     Loop
 
     '3. 最終結果を返す
-    wait = (brTab.ReadState >= till)
+    wait = (brTab.ReadState >= WaitMode)
 
     '4. 指定の待機値まで待機出来ず、エラーStopなら止める
     If wait Then
         printMsg info_, "Standby successfully completed > " & EnumToStringReadyState(brTab.ReadState), FromProcedureName
     Else
-        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & EnumToStringReadyState(till) & ". Current waiting value: " & EnumToStringReadyState(brTab.ReadState), FromProcedureName, doRaiseError:=waitError
+        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & EnumToStringReadyState(WaitMode) & ". Current waiting value: " & EnumToStringReadyState(brTab.ReadState), FromProcedureName, doRaiseError:=WaitError
     End If
 
 End Function
