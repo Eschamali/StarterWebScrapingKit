@@ -186,7 +186,8 @@ End Sub
 '* 機能説明：・`CDPContext.cls`の生存状況把握に使います
 '            ・うまい具合に、`CDPContext.cls`確保中のカウントも行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'* 注意事項：・`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'            ・`discover:=False`の状態から`discover:=True`にすると、今存在するタブが、`targetCreated`として一斉に送信されます。大量タブがあるといっぱい飛んで面倒ごとになるので、適切な参照カウントをすること
 '***************************************************************************************************
 Property Let EnableDiscoverTargets(Flag As Boolean)
     Const FromProcedureName As String = ThisClassName & ".EnableDiscoverTargets"
