@@ -1847,7 +1847,7 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:="about:blank")
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
