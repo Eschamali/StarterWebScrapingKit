@@ -88,18 +88,22 @@ Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. 引数から設定を適用し、まずはCDP-browserとして起動
-    Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, userProfile, addArgs
+    '1. まずは、ブラウザ起動
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    With WebDriverBiDi_mapperTab
+        '1-1. 引数から設定を適用し一旦まずは、CDP-Tabとして起動
+        .StartAndConnectTab Name, appUrl, userProfile, addArgs
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set m_CDPCore = m_CDPBrowser.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
+        '1-2. 操作に必要なオブジェクト、ログ情報を継承させる
+        Set m_CDPCore = .ThisCDPCore
+        Set m_CDPBrowser = .ThisCDPBrowser
+        CDPHelpers.InheritLogSettings currentLog, .ThisCDPCore.LogSettings
+    End With
 
-    '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
+    '2. `BiDi-CDP Mapper`用のタブを新規で、用意します
     newTabForBiDi
 
-    '4. `BiDi-CDP Mapper`を始動させます
+    '3. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
 End Sub
 
@@ -113,14 +117,14 @@ Private Sub newTabForBiDi()
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
-    '1. BiDi用に、各種パラメータ運用
+    '1. BiDi-新規タブ用に、各種パラメータを準備
     Dim params As New Dictionary
     params.Add "url", MapperURL     '目印用のURLを付与
     params.Add "background", True   'フォアグランドさせない
     If Not (BiDiDebug.ViewDebugTab) Then params.Add "hidden", Not (BiDiDebug.ViewDebugTab)  'タブを見せないか？
 
     With m_CDPBrowser
-        '2. そのパラメータで、新しいタブを開き、`targetId`を取得
+        '2. 上記で用意したパラメータで、新しいタブを開き、`targetId`を取得
         Dim tabId As String
         tabId = .ExecuteCDP("Target.createTarget", params).StringKey("targetId")
 
@@ -139,18 +143,11 @@ Private Sub newTabForBiDi()
         .serializeForMainTab sessionID, tabId
     End With
 
-    '6. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
-    Set WebDriverBiDi_mapperTab = New CDPContext
-    With WebDriverBiDi_mapperTab
-        '6-1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
-
-        '6-2. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = m_CDPBrowser
-
-        '6-3. 先ほど得た`sessionId`を渡す
-        .CurrentSessionID = sessionID
-    End With
+    '6. 4で得たSessionIDに上書き
+    '内部で以下のフローが行われます
+    '- 初期タブの`SessionID`を破棄し、4で得た`SessionID`として適用
+    '- `Target.getTargetInfo`で、ステータスを更新
+    WebDriverBiDi_mapperTab.CurrentSessionID = sessionID
 
     '7. ログ化
     printMsg Debug_, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
