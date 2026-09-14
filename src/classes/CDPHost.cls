@@ -65,6 +65,9 @@ Private Const PROCESS_TERMINATE                 As Long = &H1&
 Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
 Private Const SYNCHRONIZE                       As Long = &H100000
 
+'スプラッシュ起動画面のタイトル部分 ※`--app`で起動時のみ
+Private Const SplashTitle               As String = "Starting CDP control from VBA..."
+
 'その他
 Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
 Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
@@ -456,20 +459,50 @@ End Function
 '* 機能　　：初期起動時の遷移URL引数生成を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：appUrl     初期遷移URL
-'* 返り値　：`--app="..."`として返却。
+'* 返り値　：`--app="..."` or `--homepage "about:blank"`として返却
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：引数を空で渡した場合は、「--homepage ""about:blank"""」で返却します
+'* 詳細説明：引数の状況に応じて下記のようになります
+'            ・未指定 ：`--homepage "about:blank"`として返却
+'            ・URL指定：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します
+'* 注意事項：この`--app="..."`では、実際のURL遷移は行いません。呼び出し側にて実際に遷移処理するようにしてください
 '***************************************************************************************************
 Public Function GenerateArgApp(appUrl As String) As String
-    Const ArgName As String = "app"
-
-
+    '状況に応じた分岐
     If LenB(appUrl) Then
-        GenerateArgApp = "--" & ArgName & "=""" & appUrl & """"
+        'かっこいい起動スプラッシュ画面付きで始めるhtmlコードとして渡します
+        '- 黒 or 白画面(Windowsのテーマ依存)
+        '- どこに遷移するかの案内
+        '- リングマーキープログレスバー
+        GenerateArgApp = "--app=""" & GetSplashHtmlText(appUrl) & Chr(34)
     Else
-        GenerateArgApp = "--homepage ""about:blank"""
+        'アドレスバー付きの空ブラウザとして起動
+        '※`app`の感覚で、`=`を付けると失敗します
+        GenerateArgApp = "--homepage """ & EmptyPageName & Chr(34)
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：スプラッシュ起動画面を表す簡易的な`data:text/html`形式を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：appUrl     初期遷移URL
+'* 返り値　：`data:text/html`形式
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：以下の機能を備えます
+'            ・黒 or 白画面(Windowsのテーマ依存)
+'            ・どこに遷移するかの案内
+'            ・リングマーキープログレスバー
+'***************************************************************************************************
+Property Get GetSplashHtmlText(appUrl As String) As String
+    GetSplashHtmlText = "data:text/html,<title>" & SplashTitle & "</title>" & _
+                                    "<style>" & _
+                                    ":root{--bg:white;--col:rgb(34,34,34);--rb:rgba(0,0,0,0.1)}" & _
+                                    "@media(prefers-color-scheme:dark){:root{--bg:rgb(34,34,34);--col:white;--rb:rgba(255,255,255,0.2)}}" & _
+                                    "@keyframes s{to{transform:rotate(360deg)}}" & _
+                                    "body{background:var(--bg);color:var(--col);display:flex;flex-direction:column;justify-content:center;align-items:center;height:90vh;font-family:sans-serif;margin:0;}" & _
+                                    ".ring{width:40px;height:40px;border:4px solid var(--rb);border-top:4px solid dodgerblue;border-radius:999px;animation:s 1s linear infinite;margin-bottom:15px;}" & _
+                                    "</style>" & _
+                                    "<body><div class='ring'></div><h2>navigating... `" & appUrl & "`</h2></body>"
+End Property
 
 
 
