@@ -95,7 +95,7 @@ Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
 
     '7. タブ接続まで行う
     Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
-    Set fCDPContext = t.getTab(setMain:=True, Url:="about:blank")
+    Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
 
     '8. 非同期イベント処理に備える
     Set fCDPEvent = t.ThisCDPCore
