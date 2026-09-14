@@ -24,7 +24,7 @@ Option Explicit
 '***************************************************************************************************
 '「BiDi-CDP Mapper」に関する情報
 Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
-Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
+Private Const MapperURL     As String = EmptyPageName & "#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
 Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-CDP Mapper`へコマンド送信する際の関数名        (chromium-bidi\src\bidiTab\bidiTab.ts#L45)
