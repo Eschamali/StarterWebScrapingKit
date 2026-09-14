@@ -2681,7 +2681,10 @@ Property Let CurrentSessionID(newSessionID As String)
         If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
 
-    getSessionInfo        'update all session infos
+    '更新した`SessionID`として情報を再更新
+    getSessionInfo
+
+    'ログ化
     printMsg info_, currentLog.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
