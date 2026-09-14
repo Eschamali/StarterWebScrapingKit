@@ -186,7 +186,8 @@ End Sub
 '* 機能説明：・`CDPContext.cls`の生存状況把握に使います
 '            ・うまい具合に、`CDPContext.cls`確保中のカウントも行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'* 注意事項：・`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'            ・`discover:=False`の状態から`discover:=True`にすると、今存在するタブが、`targetCreated`として一斉に送信されます。大量タブがあるといっぱい飛んで面倒ごとになるので、適切な参照カウントをすること
 '***************************************************************************************************
 Property Let EnableDiscoverTargets(Flag As Boolean)
     Const FromProcedureName As String = ThisClassName & ".EnableDiscoverTargets"
@@ -420,7 +421,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     '1. パラメーター準備
     Dim params As New Dictionary
-    params("url") = Url
+    params("url") = EmptyPageName   '待機系がうまくいくようにここは空ページ固定
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
     If LenB(browserContextId) Then params("browserContextId") = browserContextId
@@ -455,8 +456,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
 
-        '4. Urlが設定されてる場合は、読み込み完了まで待機する
-        If LenB(Url) Then .wait
+        '4. Urlが設定されてる場合は、ここで改めて遷移処理し、待機させる
+        If LenB(Url) Then .navigate Url
     End With
 End Function
 

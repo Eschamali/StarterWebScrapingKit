@@ -65,6 +65,9 @@ Private Const PROCESS_TERMINATE                 As Long = &H1&
 Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
 Private Const SYNCHRONIZE                       As Long = &H100000
 
+'スプラッシュ起動画面のタイトル部分 ※`--app`で起動時のみ
+Private Const SplashTitle               As String = "Starting CDP control from VBA..."
+
 'その他
 Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
 Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
@@ -221,7 +224,7 @@ Property Get getBrowserPath() As String
 
 
     Dim AppPathName As String
-    AppPathName = EnumToStringBrowserList_exeName(UserBrowserMode)
+    AppPathName = CDPHelpers.EnumToStringBrowserList_exeName(UserBrowserMode)
 
     '1. カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
@@ -390,6 +393,17 @@ End Function
 '***************************************************************************************************
 '                                 ■■■ 起動引数生成アシスト ■■■
 '***************************************************************************************************
+'* 機能　　：デバッグ引数を生成します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`--remote-debugging-...`として返却
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`InitInfo`の第三引数に応じて変わります
+'***************************************************************************************************
+Public Function GenerateArgRemoteDebugging() As String
+    GenerateArgRemoteDebugging = IIf(PipeMode, "--remote-debugging-pipe", "--remote-debugging-port=0")
+End Function
+
+'***************************************************************************************************
 '* 機能　　：`user-data-dir`引数生成を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       生成フォルダ名
@@ -445,31 +459,50 @@ End Function
 '* 機能　　：初期起動時の遷移URL引数生成を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：appUrl     初期遷移URL
-'* 返り値　：`--app="..."`として返却。
+'* 返り値　：`--app="..."` or `--homepage "about:blank"`として返却
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：引数を空で渡した場合は、「--homepage ""about:blank"""」で返却します
+'* 詳細説明：引数の状況に応じて下記のようになります
+'            ・未指定 ：`--homepage "about:blank"`として返却
+'            ・URL指定：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します
+'* 注意事項：この`--app="..."`では、実際のURL遷移は行いません。呼び出し側にて実際に遷移処理するようにしてください
 '***************************************************************************************************
 Public Function GenerateArgApp(appUrl As String) As String
-    Const ArgName As String = "app"
-
-
+    '状況に応じた分岐
     If LenB(appUrl) Then
-        GenerateArgApp = "--" & ArgName & "=""" & appUrl & """"
+        'かっこいい起動スプラッシュ画面付きで始めるhtmlコードとして渡します
+        '- 黒 or 白画面(Windowsのテーマ依存)
+        '- どこに遷移するかの案内
+        '- リングマーキープログレスバー
+        GenerateArgApp = "--app=""" & GetSplashHtmlText(appUrl) & Chr(34)
     Else
-        GenerateArgApp = "--homepage ""about:blank"""
+        'アドレスバー付きの空ブラウザとして起動
+        '※`app`の感覚で、`=`を付けると失敗します
+        GenerateArgApp = "--homepage """ & EmptyPageName & Chr(34)
     End If
 End Function
 
 '***************************************************************************************************
-'* 機能　　：デバッグ引数を生成します
+'* 機能　　：スプラッシュ起動画面を表す簡易的な`data:text/html`形式を返します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：`--remote-debugging-...`として返却
+'* 引数　　：appUrl     初期遷移URL
+'* 返り値　：`data:text/html`形式
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`InitInfo`の第三引数に応じて変わります
+'* 詳細説明：以下の機能を備えます
+'            ・黒 or 白画面(Windowsのテーマ依存)
+'            ・どこに遷移するかの案内
+'            ・リングマーキープログレスバー
 '***************************************************************************************************
-Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(PipeMode, "--remote-debugging-pipe", "--remote-debugging-port=0")
-End Function
+Property Get GetSplashHtmlText(appUrl As String) As String
+    GetSplashHtmlText = "data:text/html,<title>" & SplashTitle & "</title>" & _
+                                    "<style>" & _
+                                    ":root{--bg:white;--col:rgb(34,34,34);--rb:rgba(0,0,0,0.1)}" & _
+                                    "@media(prefers-color-scheme:dark){:root{--bg:rgb(34,34,34);--col:white;--rb:rgba(255,255,255,0.2)}}" & _
+                                    "@keyframes s{to{transform:rotate(360deg)}}" & _
+                                    "body{background:var(--bg);color:var(--col);display:flex;flex-direction:column;justify-content:center;align-items:center;height:90vh;font-family:sans-serif;margin:0;}" & _
+                                    ".ring{width:40px;height:40px;border:4px solid var(--rb);border-top:4px solid dodgerblue;border-radius:999px;animation:s 1s linear infinite;margin-bottom:15px;}" & _
+                                    "</style>" & _
+                                    "<body><div class='ring'></div><h2>navigating... `" & appUrl & "`</h2></body>"
+End Property
 
 
 
@@ -492,7 +525,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
 
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
-    RegPathBrowser = EnumToStringBrowserList_RegPath(UserBrowserMode)
+    RegPathBrowser = CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '"HKLM(0)"と"HKCU(1)"を確認する
     '最初は、PC単位、次に、現在のログインユーザー単位で確認します
@@ -558,7 +591,7 @@ Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boole
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueContents   As Long     '値の中身
     Dim ValueSize       As Long     '値の大きさ
-    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
@@ -593,7 +626,7 @@ Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean) As Stri
     '1. 必要な変数を用意
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueSize       As Long     '値の大きさ
-    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
