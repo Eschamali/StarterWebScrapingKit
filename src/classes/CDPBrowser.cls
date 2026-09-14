@@ -421,7 +421,7 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
 
     '1. パラメーター準備
     Dim params As New Dictionary
-    params("url") = Url
+    params("url") = EmptyPageName   '待機系がうまくいくようにここは空ページ固定
     If newWindow Then params("newWindow") = newWindow
     If isHidden Then params("hidden") = isHidden
     If LenB(browserContextId) Then params("browserContextId") = browserContextId
@@ -456,8 +456,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
 
-        '4. Urlが設定されてる場合は、読み込み完了まで待機する
-        If LenB(Url) Then .wait
+        '4. Urlが設定されてる場合は、ここで改めて遷移処理し、待機させる
+        If LenB(Url) Then .navigate Url
     End With
 End Function
 
