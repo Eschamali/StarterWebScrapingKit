@@ -206,33 +206,22 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToSession     'Find and attach the newly open Session ID
-    getSessionInfo      'Store initial session info for printParams debugging
+    attachToSession appUrl  'Find and attach the newly open Session ID
+    getSessionInfo          'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID
     '------------------------------------------------------------------------------
 
-   'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-   '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
-   'As a result, the below check simply checks if there is "movement" in the name of the page instead
-    Dim timerStart As Double, strLoc As String
-    If LenB(appUrl) Then
-        timerStart = CDPHelpers.TimerCounter
-        Do
-            If LenB(Me.Title) Then Exit Do
-            If CDPHelpers.TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
-            DoEvents
-        Loop
-       wait
-    End If
-   '-------------------------------------------------------------------------------------------------------------------------------------
+    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(appUrl) Then navigate appUrl
+    '-------------------------------------------------------------------------------------------------------------------------------------
 
-   'Finally print the session details for debugging ------------------------------
+    '5. Finally print the session details for debugging ------------------------------
     printParams
-   '------------------------------------------------------------------------------
+    '------------------------------------------------------------------------------
 
 End Sub
 
-Private Sub attachToSession()
+Private Sub attachToSession(appUrl As String)
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
 ' This function attaches to a session of the browser.
@@ -258,6 +247,11 @@ Private Sub attachToSession()
     BrowserCore.EnableDiscoverTargets = True
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
+    '検索URLを作成
+    Dim SearchURL As String
+    Dim SplashApp As New CDPHost
+    If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
+
    'Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
    'A new session always has the property attached = false and method = Target.targetCreated
@@ -275,11 +269,12 @@ Private Sub attachToSession()
                 If .ExistsKey("targetInfo") Then
                     ' targetInfo 内部を型指定アクセサで判定
                     With .NodeKey("targetInfo")
-                        ' BoolKey と StringKey を使うことで高速に値を取得
-                        If .BoolKey("attached") = False And .StringKey("type") = "page" Then
+                        '目的のページを見つける
+                        '※`title`では稀に空欄になるので、`url`で特定させる
+                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = SearchURL Then
                             boolFound = True
 
-                            '制御パラメーターを付与
+                            '必要な制御パラメーターを付与し、抜ける
                             brTab.targetID = .StringKey("targetId")
                             brTab.browserContextId = .StringKey("browserContextId")
                             Exit For
