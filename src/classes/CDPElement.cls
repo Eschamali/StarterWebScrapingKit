@@ -209,7 +209,7 @@ Public Function SimpleClick(Optional WaitMode As ReadyState) As Boolean
         SimpleClick = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
-        SimpleClick = wait(WaitMode)
+        SimpleClick = WaitEvents(WaitMode)
     End If
 
 End Function
@@ -246,7 +246,7 @@ Public Function click(Optional WaitMode As ReadyState) As Boolean
         click = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
-        click = wait(WaitMode)
+        click = WaitEvents(WaitMode)
     End If
 
 End Function
@@ -272,7 +272,7 @@ Public Function submit(Optional WaitMode As ReadyState) As Boolean
         submit = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
-        submit = wait(WaitMode)
+        submit = WaitEvents(WaitMode)
     End If
 End Function
 
@@ -318,7 +318,7 @@ Public Function sendClick(Optional WaitMode As ReadyState) As Boolean
         sendClick = True
     Else
         '適切な待機まで行けたら、`True`で返されます
-        sendClick = wait(WaitMode)
+        sendClick = WaitEvents(WaitMode)
     End If
     printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
@@ -1614,8 +1614,8 @@ Private Function ExecuteCDP(methodName As String, Optional params As Dictionary,
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
 
-Private Function wait(Optional till As ReadyState) As Boolean
-    wait = main.wait(till, False)   'エラー判定は、このClassで行います
+Private Function WaitEvents(Optional till As ReadyState) As Boolean
+    WaitEvents = main.WaitEvents(till, False)   'エラー判定は、このClassで行います
 End Function
 
 Private Sub ResetWaitState()
