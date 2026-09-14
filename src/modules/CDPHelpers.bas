@@ -22,10 +22,12 @@ Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFre
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'JSの`document.readyState`の状態一式
+'※Pageイベントとして置き換えます
 Public Enum ReadyState      'Used for .wait method
-    isLoading = 0           'equivalence of the browser's "loading" state
-    isInteractive = 1       'equivalence of the browser's "interactive" state
-    isComplete = 2          'equivalence of the browser's "complete" state
+    Nowait          'ページ遷移等が発生せず、待機不要な場合
+    isLoading       'equivalence of the browser's "loading"(Page.frameStartedLoading) state
+    isInteractive   'equivalence of the browser's "interactive"(Page.domContentEventFired) state
+    isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
 '起動する Chromium 系ブラウザ。`CDPHost` に置くと、こちらの `StateLog` と循環参照になる
@@ -59,7 +61,7 @@ Public Enum WinState
 End Enum
 
 'バッファー設定関連
-Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー上限
+Public Const InitialBuffer             As Long = 2 ^ 20        'CDPやり取りPipe/テキスト変数/ADODB.Stream 初期バッファー値
 Public Const RunDoEventsCount          As Long = 2 ^ 10        '長いループ中に`DoEvents`を挟む間隔値
 
 'ブラウザからの非同期イベント情報を格納する際のDictionaryKey名設定
@@ -67,9 +69,10 @@ Public Const EventsKey_TotalEvents As String = "TotalEvents"
 Public Const EventsKey_EventMethods As String = "EventMethods"
 
 'その他
-Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値
-Public Const chromeWindowClass As String = "Chrome_WidgetWin_1" 'same window class for Edge
-Public Const TIMEOUT_DEFAULT   As Double = 30                   '初期タイムアウト秒数
+Public Const LimitCommandID     As Long = 2000000000                'CDP/BiDiコマンド送信時のID上限値
+Public Const chromeWindowClass  As String = "Chrome_WidgetWin_1"    'same window class for Edge
+Public Const TIMEOUT_DEFAULT    As Double = 30                      '初期タイムアウト秒数
+Public Const EmptyPageName      As String = "about:blank"           '空のWebページを表す目印
 
 
 
@@ -119,9 +122,26 @@ End Function
 '---------------------------------------------------------------------------------------------------
 Public Function EnumToStringReadyState(param As ReadyState) As String
     Select Case param
+        Case ReadyState.Nowait:         EnumToStringReadyState = "Not updated"
         Case ReadyState.isLoading:      EnumToStringReadyState = "loading"
         Case ReadyState.isInteractive:  EnumToStringReadyState = "interactive"
         Case ReadyState.isComplete:     EnumToStringReadyState = "complete"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                       ■■■ 文字列 → Enum 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 待機の種類を数値で返します
+'---------------------------------------------------------------------------------------------------
+Public Function StringToEnumReadyState(param As String) As ReadyState
+    Select Case param
+        Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
+        Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
+        Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
     End Select
 End Function
 
@@ -232,4 +252,13 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
         If RaiseErrorNumber = 0 Then RaiseErrorNumber = CDPCustomErrorCodes.Protocol
         Err.Raise RaiseErrorNumber, From, Description:=strMsg
     End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ログ設定オブジェクトをクリアします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：モジュール単位で宣言してるため、明示的なクリア処理をする必要があるときに使います
+'***************************************************************************************************
+Public Sub ClearLogger()
+    Set LogControl = Nothing
 End Sub

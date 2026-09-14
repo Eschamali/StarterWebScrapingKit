@@ -506,7 +506,7 @@ End Property
 '***************************************************************************************************
 '* 機能　　：基本ラッパー機能
 '***************************************************************************************************
-Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
+Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 

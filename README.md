@@ -385,7 +385,16 @@ End Sub
 
 There are two moments when settings can be applied: **before launch** (via `EnvironmentOptions` — only read when the Environment is created, so changing it afterward has no effect) and **before navigation** (via `ICoreWebView2Settings`-family properties — a per-page setting, so it must be set before the next navigation). In the demo above, you can also see how toggling `Set_AllowSingleSignOnUsingOSPrimaryAccount` changes the outcome of navigating to the very same URL.
 
-Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_WebView2.ExcelのユーザーフォームにWebView2を埋め込む`.
+Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_WebView2.WebView2OnExcelUserForm`.
 
 > [!NOTE]
 > The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
+
+---
+
+## 🎓 New Feature: Making Copilot Smarter with Excel's "`.Rules`" (v3.1.1〜)
+
+We've added a `.Rules` sheet, written in the [official format](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules) for Excel's built-in AI feature, "Copilot in Excel." Now, when you ask Copilot a web-scraping question about this workbook, it's steered toward answers based on **this workbook's own CDP/BiDi control features**, instead of the generic `SeleniumVBA`-flavored suggestions Copilot would otherwise default to.
+
+> [!IMPORTANT]
+> Since Copilot in Excel itself is an Excel-only feature, **Access is not supported**.

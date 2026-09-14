@@ -29,7 +29,7 @@ Option Private Module
 
 
 '***************************************************************************************************
-'                                  ■■■ 全ての始まり ■■■
+'                                  ■■■ Hello World ■■■
 '***************************************************************************************************
 Sub CDPによる冒険の始まり()
     '設定シートに基づくブラウザ立ち上げ
@@ -55,7 +55,7 @@ End Sub
 '* 詳細説明：例えば、認証用URLのNetwork.loadingFinished を検知したら、そこの requestId から `Network.getResponseBody` を実行しToken入手なんてことが可能です。(でも、Token抽出とかはNetwork.getCookies や DOMStorage.getDOMStorageItems 等が楽です。)
 '* 注意事項：ここでは、ネットワークイベントのデモですが、他のイベントも同じ操作でとらえることができます
 '***************************************************************************************************
-Sub ネットワークイベントの確認()
+Sub checkNetworkEvents()
     '必要な変換オブジェクトを用意
     Dim CharConvObj As New CharacterCodeConversion
 
@@ -150,8 +150,7 @@ Sub JapaneseElementTest()
     CDPHelpers.Sleep 3
 
     ' ボタンクリック
-    Demo_Japanese.getElementByID("executebtn").SimpleClick
-    Demo_Japanese.wait
+    Demo_Japanese.getElementByID("executebtn").SimpleClick isComplete
     Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     CDPHelpers.Sleep 3
 
@@ -257,11 +256,7 @@ Sub TestAlert()
     'テキスト入力用のAlertに入力させる文字列の指定
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
 
-
     With Demo_alerts
-        ' --- 1. 必要なドメインを有効化 ---
-        .ExecuteCDP ("Page.enable")
-
         Dim i As Long
         For i = 1 To 3
             Dim TargetXpath As String
@@ -347,7 +342,6 @@ Sub SimpleShadowRootTest()
         Set JavaScriptAlertButton = .getElementByXPath("//*[@id='closed']/closed-dom").GetShadowRoot.getElementByQuery("div > button")
 
         '4. 次の操作前に下準備
-        .pageEnable                           '`Page`ドメインを有効
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
         '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行するように設定(先述にて、直で`.click`をしないのはこのため)
@@ -467,8 +461,7 @@ Sub runHidden()
    'Perform automation in the background
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
-    chrome.getElementByQuery("[name='q']").submit
-    chrome.wait
+    chrome.getElementByQuery("[name='q']").submit isComplete
 
    'Click the target result link
     chrome.getElementByXPath("//h3[text()='Automate Chrome / Edge using VBA']").click
@@ -510,8 +503,7 @@ Sub runHiddenForJapan()
     'Perform automation in the background
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
-    chrome.getElementByQuery("[name='q']").submit
-    chrome.wait '検索ボタン押下によりページ遷移発生につき、`wait`を挟む
+    chrome.getElementByQuery("[name='q']").submit isComplete
 
     'Click the target result link
     chrome.getElementByXPath("//h3[text()='Chrome DevTools ProtocolでEdgeを操作するVBAマクロ']").click      '2026/02/16 時点での、最上位結果
@@ -599,20 +591,20 @@ Sub runNewTab()
    'Perform standard google search
     chrome.navigate "https://google.com"
     chrome.getElementByQuery("[name='q']").value = "newstarget.com"
-    chrome.getElementByQuery("[name='q']").submit
-    chrome.wait '検索ボタン押下によりページ遷移発生につき、`wait`を挟む
+    chrome.ResetWaitState
+    chrome.getElementByQuery("[name='q']").submit isComplete
 
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
     Dim targetElement As CDPElement
     Set targetElement = chrome.getElementByXPath(".//a[contains(@href, 'https://www.newstarget.com/')]")
     targetElement.setAttribute "target", "_blank"   'Modify the element attribute to open in a new tab instead
-    targetElement.click                             'Click the link, a new tab will be spontaneously open
+    targetElement.click                             'Click the link, a new tab will be spontaneously open. 別タブで開いてしまうため、ここは待機なしクリックにする
 
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
     Set targetTab = chrome.ThisCDPBrowser.getTab
-    targetTab.wait
+    targetTab.WaitReadyState    '別タブで開いてURL遷移するためここは、JavaScriptによる待機にする
 
    'Feed the top news title for today
     Dim firstTitle As String
@@ -728,7 +720,7 @@ Sub switchMain()
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
-    chrome.ThisCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
+    chrome.ThisCDPBrowser.getTab(EmptyPageName).closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub
