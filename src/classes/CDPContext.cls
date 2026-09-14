@@ -2055,7 +2055,7 @@ Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optiona
     Do Until brTab.ReadState >= WaitMode Or CDPHelpers.TimerCounter - timerStart > timerOut
         '2-1. イベントを取り出す
         TakeEvents  '※内部にて`DoEvents`が走ります
-        printMsg Trace_, "Waiting... Current waiting value: " & EnumToStringReadyState(brTab.ReadState), FromProcedureName
+        printMsg Trace_, "Waiting... Current waiting value: " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName
     Loop
 
     '3. 最終結果を返す
@@ -2063,9 +2063,9 @@ Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optiona
 
     '4. 指定の待機値まで待機出来ず、エラーStopなら止める
     If WaitEvents Then
-        printMsg info_, "Standby successfully completed > " & EnumToStringReadyState(brTab.ReadState), FromProcedureName
+        printMsg info_, "Standby successfully completed > " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName
     Else
-        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & EnumToStringReadyState(WaitMode) & ". Current waiting value: " & EnumToStringReadyState(brTab.ReadState), FromProcedureName, doRaiseError:=WaitError
+        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & CDPHelpers.EnumToStringReadyState(WaitMode) & ". Current waiting value: " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName, doRaiseError:=WaitError
     End If
 
 End Function
