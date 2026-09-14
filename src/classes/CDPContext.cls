@@ -146,6 +146,7 @@ Private Type StateTab
     WID         As String   'Useful for windows repositioning
     Title       As String   'The focused tab name / window name of the active CDPBrowser
     Url         As String   'The focused tab url of the active CDPBrowser
+    ReadState   As ReadyState   'ページの読み込み状況(document.readyState相当)
 End Type
 Private brTab As StateTab
 
@@ -1384,9 +1385,10 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
-    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    '------------------ 1. 各種非同期イベントの処理 ------------------
     Dim tmp As BiDiCDPJson
     Select Case methodName
+        '------------------ この`Context`(TargetID)のSessionステータスの更新を行います ------------------
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
@@ -1465,6 +1467,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '2. このタブクラス独自のイベント処理を行う
     Dim tmpNode As BiDiCDPJson
     Select Case methodName
+        '------------------ この`Context`(TargetID)のJavaScript実行環境ステータスの更新を行います ------------------
         'JavaScript実行環境情報の更新を行います
         Case "Runtime.executionContextCreated"
             '2-1. このタブクラスのTargetIDと一致するか？
@@ -1496,6 +1499,23 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
         Case "Runtime.executionContextsCleared"
             brTabRuntime.IsValid = False
             printMsg info_, "The JavaScript environment associated with this class was destroyed due to a page transition or other reasons.", FromProcedureName
+
+
+        '------------------ この`Context`(TargetID)の簡易的なページ読み込み状況を更新します(document.readyState の再現) ------------------
+        Case "Page.frameStartedLoading"
+            'document.readyState = loading 相当
+            '2-1. このClassで保持中の`targetid`と一致するか？
+            With brTab
+                If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then .ReadState = isLoading
+            End With
+
+        Case "Page.domContentEventFired"
+            'document.readyState = interactive 相当
+            brTab.ReadState = isInteractive
+
+        Case "Page.loadEventFired"
+            'document.readyState = complete 相当
+            brTab.ReadState = isComplete
 
     End Select
 
@@ -1763,9 +1783,13 @@ Public Sub getSessionInfo()
     brTab.browserContextId = TargetInfo.StringKey("browserContextId")
 
     'JavaScript関連の変化も捉えれるようにする
-    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、`Runtime.executionContextCreated`等が飛んでくれます
+    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
     runtimeEnable False
     runtimeEnable True
+
+    '`document.readyState`相当も使えるように有効化
+    '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
+    pageEnable True
 End Sub
 
 '***************************************************************************************************
@@ -2697,6 +2721,13 @@ Property Get html() As String
 
     html = jsEval("document.documentElement.innerHTML")
 
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ページ読み込み状況を返します
+'***************************************************************************************************
+Property Get PageReadyState() As ReadyState
+    PageReadyState = brTab.ReadState
 End Property
 
 '***************************************************************************************************
