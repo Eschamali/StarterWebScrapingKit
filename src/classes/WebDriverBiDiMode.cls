@@ -74,7 +74,7 @@ Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs, sessionCapabilitiesRequest
+    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
