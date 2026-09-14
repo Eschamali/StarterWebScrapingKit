@@ -120,6 +120,13 @@ Private Type sessionStatus
 End Type
 Private ControlStatus As sessionStatus
 
+'操作中のタブセッションイベント購読状況
+Private Type subscriptionStatus
+    Runtime As Boolean
+    Page    As Boolean
+End Type
+Private EventSubscription As subscriptionStatus
+
 '操作中のタブセッションエラー情報
 Private Type SessionErrorDetails
     Status      As String
@@ -2083,20 +2090,21 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
 End Sub
 
-Public Sub pageEnable(Optional enable As Boolean = True)
+Private Sub pageEnable(Optional enable As Boolean = True)
 '----------------------------------------------------------------------------------
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
-
+    ExecuteCDPAsync IIf(enable, "Page.enable", "Page.disable"), , False
+    EventSubscription.Page = enable
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：`Runtime`系のイベント機能を有効/無効化を行います
 '***************************************************************************************************
-Public Sub runtimeEnable(Optional enable As Boolean = True)
-    ExecuteCDP IIf(enable, "Runtime.enable", "Runtime.disable"), , False
+Private Sub runtimeEnable(Optional enable As Boolean = True)
+    ExecuteCDPAsync IIf(enable, "Runtime.enable", "Runtime.disable"), , False
+    EventSubscription.Runtime = enable
 End Sub
 
 '***************************************************************************************************
