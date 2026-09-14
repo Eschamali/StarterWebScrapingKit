@@ -206,7 +206,7 @@ Public Function SimpleClick(Optional waitMode As ReadyState) As Boolean
     'ページ遷移モードとして指定してる場合は状態を待機を行う
     If waitMode = Nowait Then
         'クリックが成功すれば、`undefined`で返るのでその判定で返す
-        click = IsEmpty(Done) Or RunOption  '※非同期実行の場合は常に`True`です
+        SimpleClick = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
         SimpleClick = wait(waitMode)
@@ -243,7 +243,7 @@ Public Function click(Optional waitMode As ReadyState) As Boolean
     'ページ遷移モードとして指定してる場合は状態を待機を行う
     If waitMode = Nowait Then
         'クリックが成功すれば、`undefined`で返るのでその判定で返す
-        click = IsEmpty(Done) Or RunOption  '※非同期実行の場合は常に`True`です
+        click = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
         click = wait(waitMode)
@@ -269,7 +269,7 @@ Public Function submit(Optional waitMode As ReadyState) As Boolean
     'ページ遷移モードとして指定してる場合は状態を待機を行う
     If waitMode = Nowait Then
         'クリックが成功すれば、`undefined`で返るのでその判定で返す
-        submit = IsEmpty(Done) Or RunOption '※非同期実行の場合は常に`True`です
+        submit = IsEmpty(Done) Or RunOption.RunAsyncCDP    '※非同期実行の場合は常に`True`です
     Else
         '適切な待機まで行けたら、`True`で返されます
         submit = wait(waitMode)
