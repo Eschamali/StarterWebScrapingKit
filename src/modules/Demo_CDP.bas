@@ -257,9 +257,6 @@ Sub TestAlert()
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
 
     With Demo_alerts
-        ' --- 1. 必要なドメインを有効化 ---
-        .ExecuteCDP ("Page.enable")
-
         Dim i As Long
         For i = 1 To 3
             Dim TargetXpath As String
@@ -345,7 +342,6 @@ Sub SimpleShadowRootTest()
         Set JavaScriptAlertButton = .getElementByXPath("//*[@id='closed']/closed-dom").GetShadowRoot.getElementByQuery("div > button")
 
         '4. 次の操作前に下準備
-        .pageEnable                           '`Page`ドメインを有効
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
         '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行するように設定(先述にて、直で`.click`をしないのはこのため)
