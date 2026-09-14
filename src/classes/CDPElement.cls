@@ -188,22 +188,33 @@ End Property
 
 '***************************************************************************************************
 '* 機能　　：JavaScriptでのシンプルなクリックコマンドを実行します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：waitMode   ページ遷移が発生すると分かってる場合は、「is○○」系を指定します
 '***************************************************************************************************
-Public Function SimpleClick() As Boolean
+Public Function SimpleClick(Optional waitMode As ReadyState) As Boolean
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
+    'ページ遷移モードとして指定してる場合は待機状態をリセット
+    If waitMode > Nowait Then ResetWaitState
 
     'シンプルなクリックコマンドを実行
-    jsEval "function(){ this.click() }"
+    Dim Done
+    Done = jsEval("function(){ this.click() }")
 
-    '成功サインを返す
-    SimpleClick = True
+    'ページ遷移モードとして指定してる場合は状態を待機を行う
+    If waitMode = Nowait Then
+        'クリックが成功すれば、`undefined`で返るのでその判定で返す
+        click = IsEmpty(Done) Or RunOption  '※非同期実行の場合は常に`True`です
+    Else
+        '適切な待機まで行けたら、`True`で返されます
+        SimpleClick = wait(waitMode)
+    End If
 
 End Function
 
-Public Function click() As Boolean
+Public Function click(Optional waitMode As ReadyState) As Boolean
 '----------------------------------------------------------
 ' Perform a standard click on the element. Remember to
 ' perform wait if necessary for the page to be refreshed.
@@ -213,6 +224,8 @@ Public Function click() As Boolean
    'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then If Not isExist Then Exit Function
 
+    'ページ遷移モードとして指定してる場合は待機状態をリセット
+    If waitMode > Nowait Then ResetWaitState
 
    'Scroll into the view for better visibility of the automation
     jsEval "function(){ this.scrollIntoView(false) }"
@@ -224,12 +237,21 @@ Public Function click() As Boolean
     ExecuteCDP "Input.insertText", params
 
    'Perform click
-    jsEval "function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }"
-    click = True
+    Dim Done
+    Done = jsEval("function(){ this.dispatchEvent(new MouseEvent('click', {view: window, bubbles:true, cancelable: true})) }")
+
+    'ページ遷移モードとして指定してる場合は状態を待機を行う
+    If waitMode = Nowait Then
+        'クリックが成功すれば、`undefined`で返るのでその判定で返す
+        click = IsEmpty(Done) Or RunOption  '※非同期実行の場合は常に`True`です
+    Else
+        '適切な待機まで行けたら、`True`で返されます
+        click = wait(waitMode)
+    End If
 
 End Function
 
-Public Function submit() As Boolean
+Public Function submit(Optional waitMode As ReadyState) As Boolean
 '----------------------------------------------------------
 ' Submit a form element.
 ' Updated: 12/12/2023
@@ -237,13 +259,24 @@ Public Function submit() As Boolean
 
     If checkExist Then If Not isExist Then Exit Function
 
+    'ページ遷移モードとして指定してる場合は待機状態をリセット
+    If waitMode > Nowait Then ResetWaitState
 
-    jsEval "function(){ this.form.submit() }"
-    submit = True
+    'Run
+    Dim Done
+    Done = jsEval("function(){ this.form.submit() }")
 
+    'ページ遷移モードとして指定してる場合は状態を待機を行う
+    If waitMode = Nowait Then
+        'クリックが成功すれば、`undefined`で返るのでその判定で返す
+        submit = IsEmpty(Done) Or RunOption '※非同期実行の場合は常に`True`です
+    Else
+        '適切な待機まで行けたら、`True`で返されます
+        submit = wait(waitMode)
+    End If
 End Function
 
-Public Function sendClick() As Boolean
+Public Function sendClick(Optional waitMode As ReadyState) As Boolean
 '----------------------------------------------------------------
 ' Attempt to simulate physical left mouse click input instead of
 ' DOM manipulation with JavaScript dispatchEvent method.
@@ -253,6 +286,8 @@ Public Function sendClick() As Boolean
 
     If checkExist Then If Not isExist Then Exit Function
 
+    'ページ遷移モードとして指定してる場合は待機状態をリセット
+    If waitMode > Nowait Then ResetWaitState
 
     'Viewport 内に収めてから座標取得（CDP の x/y は CSS ピクセル・数値必須）
     Dim x As Double, y As Double
@@ -278,7 +313,13 @@ Public Function sendClick() As Boolean
     params("clickCount") = 1
     ExecuteCDP "Input.dispatchMouseEvent", params
 
-    sendClick = True
+    'ページ遷移モードとして指定してる場合は状態を待機を行う
+    If waitMode = Nowait Then
+        sendClick = True
+    Else
+        '適切な待機まで行けたら、`True`で返されます
+        sendClick = wait(waitMode)
+    End If
     printMsg info_, "Executed sendClick successfully on objectId: " & CurrentElement.objectId, FromProcedureName
 
 End Function
@@ -1572,6 +1613,14 @@ End Sub
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
     Set ExecuteCDP = main.ExecuteCDP(methodName, params, StopCDPError)
 End Function
+
+Private Function wait(Optional till As ReadyState) As Boolean
+    wait = main.wait(till, False)   'エラー判定は、このClassで行います
+End Function
+
+Private Sub ResetWaitState()
+    main.ResetWaitState
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：見つけた`objectId`に対して、高度なことをしたい方向け
