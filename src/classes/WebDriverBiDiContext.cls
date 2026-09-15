@@ -661,7 +661,7 @@ End Sub
 '            To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
 '            Original Name: waitCompletion
 '
-'* 注意事項：・「brTab.ReadState」とは独立します
+'* 注意事項：・「InfoList.ReadState」とは独立します
 '            ・`NoWait`も使えますが意味を成しません
 '---------------------------------------------------------------------------------------------------
 '* 更新履歴： 26/04/23 - Enhanced 'till' to Enum type for ease of use
