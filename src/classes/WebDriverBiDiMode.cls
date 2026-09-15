@@ -120,7 +120,9 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
     '2. 実行判定
     If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
         '3. 購読実行
-        sessionSubscribe(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed")
+        '- タブ自体の生存確認
+        '- ページの読み込み状況
+        SubscribeBiDiEvent(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed", "browsingContext.navigationStarted", "browsingContext.domContentLoaded", "browsingContext.load")
     End If
 
     '5. 下限は、0にしておく
@@ -228,6 +230,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     Set bidiRes = ExecuteBiDi("browsingContext.create", BiDiparams)
 
     '3. 返却準備
+    EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
     Set newTab = New WebDriverBiDiContext
     With newTab
         '3-1. このBiDiのイベントオブジェクトを渡す
@@ -289,6 +292,7 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
 
             ' 3. 見つかったらオブジェクト化して返す
             If Not matchData Is Nothing Then
+                EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
                 Set getTab = New WebDriverBiDiContext
                 With getTab
                     '4. このこのBiDiのイベントオブジェクトを渡す
@@ -928,7 +932,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：何を購読中かは、ここでは管理しません
 '***************************************************************************************************
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
     'paramsに格納
     If params Is Nothing Then Set params = New Dictionary
     params.Add "events", events
@@ -947,12 +951,16 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`params`未指定時、ブラウザ全体となります
 '***************************************************************************************************
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
-    'paramsに格納
-    If params Is Nothing Then Set params = New Dictionary
-    params.Add "events", IIf(IsArray(events), events, Array(events))
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
+    '1. 1次元配列に格納する
+    Dim eventList
+    If IsArray(events) Then eventList = events Else eventList = Array(events)
 
-    '実行
+    '2. paramsに格納
+    If params Is Nothing Then Set params = New Dictionary
+    params.Add "events", eventList
+
+    '3. 実行
     ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
 End Property
 
@@ -964,11 +972,15 @@ End Property
 '* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
 '* LET引数 ：置き換えるタイムアウト秒数
+'* GET返値 ：現在のタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
+End Property
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 '秒に補正する
 End Property
 
 '***************************************************************************************************
