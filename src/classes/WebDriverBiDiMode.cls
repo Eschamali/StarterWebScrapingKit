@@ -952,11 +952,15 @@ End Property
 '* 注意事項：`params`未指定時、ブラウザ全体となります
 '***************************************************************************************************
 Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
-    'paramsに格納
-    If params Is Nothing Then Set params = New Dictionary
-    params.Add "events", IIf(IsArray(events), events, Array(events))
+    '1. 1次元配列に格納する
+    Dim eventList
+    If IsArray(events) Then eventList = events Else eventList = Array(events)
 
-    '実行
+    '2. paramsに格納
+    If params Is Nothing Then Set params = New Dictionary
+    params.Add "events", eventList
+
+    '3. 実行
     ExecuteBiDi IIf(subscribe, "session.subscribe", "session.unsubscribe"), params, False
 End Property
 
