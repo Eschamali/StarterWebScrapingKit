@@ -1600,16 +1600,17 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
             'document.readyState = loading 相当
             '2-1. このClassで保持中の`targetid`と一致するか？
             With brTab
-                If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then .ReadState = isLoading
+                '※1遷移でも複数回来るため、0のときのみ更新させる
+                If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then If .ReadState = 0 Then .ReadState = ReadyState.isLoading
             End With
 
         Case "Page.domContentEventFired"
             'document.readyState = interactive 相当
-            brTab.ReadState = isInteractive
+            brTab.ReadStateCount.ReadState = ReadyState.isInteractive
 
         Case "Page.loadEventFired"
             'document.readyState = complete 相当
-            brTab.ReadState = isComplete
+            brTab.ReadStateCount.ReadState = ReadyState.isComplete
 
     End Select
 
