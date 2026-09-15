@@ -120,7 +120,9 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
     '2. 実行判定
     If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
         '3. 購読実行
-        SubscribeBiDiEvent(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed")
+        '- タブ自体の生存確認
+        '- ページの読み込み状況
+        SubscribeBiDiEvent(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed", "browsingContext.navigationStarted", "browsingContext.domContentLoaded", "browsingContext.load")
     End If
 
     '5. 下限は、0にしておく
@@ -966,11 +968,15 @@ End Property
 '* 機能　　：BiDi-Json コマンド結果を得るためのタイムアウト時間を設定します
 '---------------------------------------------------------------------------------------------------
 '* LET引数 ：置き換えるタイムアウト秒数
+'* GET返値 ：現在のタイムアウト秒数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：BiDi-Json コマンド結果を得るのに待つ時間を設定します。デフォルトは、30sです。
 '***************************************************************************************************
 Property Let TimeOutSecond(TimeSec As Double)
     timerOut = TimeSec * 1000       'ミリ秒に補正する
+End Property
+Property Get TimeOutSecond() As Double
+    TimeOutSecond = timerOut / 1000 '秒に補正する
 End Property
 
 '***************************************************************************************************
