@@ -1984,6 +1984,51 @@ End Function
 '***************************************************************************************************
 '                               ■■■ 簡易待機系メソッド ■■■
 '***************************************************************************************************
+'* 機能　　：一般的な待機、`document.readyState`を利用した待機です
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：till   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Wait until browser reaches a specific state. Default is until it fully loads ("complete")
+'            Possible states:  loading / interactive / complete
+'            Complete state is preferable when certain information is only showed when fully loaded.
+'            Otherwise, an interactive state is good enough and can potentially save a lot of wait time.
+'            However, do note that some web apps only fully displays elements at complete readystate.
+'            To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
+'            Original Name: waitCompletion
+'
+'* 注意事項：・「brTab.ReadState」とは独立します
+'            ・`NoWait`も使えますが意味を成しません
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴： 26/04/23 - Enhanced 'till' to Enum type for ease of use
+'             - Added exit for targetState = interactive in case CDP misses the state change
+'
+'             26/09/15 - 数値変換させて大小で比較するようにする
+'***************************************************************************************************
+Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
+    Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
+
+
+    '1. ループで毎回、訊きに行く
+    Dim readyStateStr       As String
+    Dim CurrentReadyState   As ReadyState
+    Do Until CurrentReadyState >= till
+        '1-1. 今の読み込み状況をチェック
+        readyStateStr = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & readyStateStr, FromProcedureName  'option to print ReadyState info during iteration
+
+        '1-2. 値に変換
+        CurrentReadyState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+
+        '1-3. クールタイム
+        If CurrentReadyState < till Then CDPHelpers.Sleep 0.1                       'reduce sleep will speed up but will cost cpu power
+    Loop
+
+    '2. 待機成功を伝える
+    printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
+
+End Sub
+
+'***************************************************************************************************
 '* 機能　　：`Page`イベントを活用したシンプルな読み込み待機を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：WaitMode   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
@@ -2034,40 +2079,6 @@ Public Sub ResetWaitState()
     'リセットして、ログ表示
     brTab.ReadState = 0
     printMsg Debug_, "The loading status has been reset.", FromProcedureName
-End Sub
-
-Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
-'--------------------------------------------------------------------------------------------------
-' Wait until browser reaches a specific state. Default is until it fully loads ("complete")
-' Possible states:  loading / interactive / complete
-' Complete state is preferable when certain information is only showed when fully loaded.
-' Otherwise, an interactive state is good enough and can potentially save a lot of wait time.
-' However, do note that some web apps only fully displays elements at complete readystate.
-' To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
-' Original Name: waitCompletion
-' Updated: 26/04/23 - Enhanced 'till' to Enum type for ease of use
-'                   - Added exit for targetState = interactive in case CDP misses the state change
-'--------------------------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
-
-
-    '1. ループで毎回、訊きに行く
-    Dim readyStateStr As String
-    Do Until brTab.ReadState >= till
-        '1-1. 今の読み込み状況をチェック
-        readyStateStr = jsEval("document.readyState")
-        printMsg Debug_, "Current ReadyState: " & readyStateStr, FromProcedureName  'option to print ReadyState info during iteration
-
-        '1-2. 値に変換
-        brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
-
-        '1-3. クールタイム
-        If brTab.ReadState < till Then CDPHelpers.Sleep 0.1                         'reduce sleep will speed up but will cost cpu power
-    Loop
-
-    '2. 待機成功を伝える
-    printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
-
 End Sub
 
 
