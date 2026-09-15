@@ -2081,6 +2081,13 @@ Public Sub ResetWaitState()
     printMsg Debug_, "The loading status has been reset.", FromProcedureName
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ページ読み込み状況を返します
+'***************************************************************************************************
+Property Get PageReadyState() As ReadyState
+    PageReadyState = brTab.ReadState
+End Property
+
 
 
 '***************************************************************************************************
@@ -2898,13 +2905,6 @@ Property Get html() As String
 
     html = jsEval("document.documentElement.innerHTML")
 
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ページ読み込み状況を返します
-'***************************************************************************************************
-Property Get PageReadyState() As ReadyState
-    PageReadyState = brTab.ReadState
 End Property
 
 '***************************************************************************************************
