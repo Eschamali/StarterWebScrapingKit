@@ -728,7 +728,7 @@ Sub switchMain()
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     chrome.ThisCDPBrowser.newTab "http://google.com", setMain:=True  'the chrome object will now directly refer to the Google tab
-    chrome.ThisCDPBrowser.getTab("about:blank").closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
+    chrome.ThisCDPBrowser.getTab(EmptyPageName).closeTab             'prior 2.7, the next line will throw an error due to no main-switching mechanism
     chrome.printParams
 
 End Sub
