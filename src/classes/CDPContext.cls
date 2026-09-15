@@ -2120,7 +2120,7 @@ Public Sub navigate(strURL As String, Optional referrerURL As String, Optional t
     If referrerPolicy > pr_default Then CDPparams.Add "referrerPolicy", EnumToStringPageReferrerPolicy(referrerPolicy)
 
     '非同期実行か
-    If WaitMode = Nowait Then
+    If WaitMode = ReadyState.Nowait Then
         ExecuteCDPAsync "Page.navigate", CDPparams
         printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
         Exit Sub
