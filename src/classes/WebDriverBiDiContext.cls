@@ -199,7 +199,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ここでの実行の場合は、context単位となります
 '***************************************************************************************************
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, events As Collection)
     'paramsに格納
     Dim params As New Dictionary
     params.Add "events", events
@@ -217,7 +217,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：何を購読中かは、ここでは管理しません
 '***************************************************************************************************
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, events)
     'paramsに格納
     Dim params As New Dictionary
     params.Add "events", IIf(IsArray(events), events, Array(events))
