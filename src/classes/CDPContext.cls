@@ -199,11 +199,11 @@ Private Type StateTab
     browserContextId    As String   'どの`Profile`に属してるか
 
     '補助情報
-    hWnd        As LongPtr  'Browser object window handle
-    WID         As String   'Useful for windows repositioning
-    Title       As String   'The focused tab name / window name of the active CDPBrowser
-    Url         As String   'The focused tab url of the active CDPBrowser
-    ReadState   As ReadyState   'ページの読み込み状況(document.readyState相当)
+    hWnd                As LongPtr  'Browser object window handle
+    WID                 As String   'Useful for windows repositioning
+    Title               As String   'The focused tab name / window name of the active CDPBrowser
+    Url                 As String   'The focused tab url of the active CDPBrowser
+    ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
 End Type
 Private brTab As StateTab
 
