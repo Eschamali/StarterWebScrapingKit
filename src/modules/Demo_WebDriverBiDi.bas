@@ -363,7 +363,7 @@ Sub BiDiPlusDemo()
     Do
         check = BiDiTab.jsEval("document.querySelector('" & queryStr & "').click()", StopBiDiError:=False)
     Loop While IsNull(check) Or IsError(check)
-    BiDiTab.wait
+    BiDiTab.WaitReadyState
 
     '-------------------------------- ②BiDi：捕捉したイベント件数を確認 --------------------------------
     BiDiTab.ThisWebDriverBiDiMode.TakeEvents
