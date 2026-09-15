@@ -120,7 +120,7 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
     '2. 実行判定
     If DefinitionBiDiContext = 1 Or DefinitionBiDiContext = 0 Then
         '3. 購読実行
-        sessionSubscribe(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed")
+        SubscribeBiDiEvent(Flag) = Array("browsingContext.contextCreated", "browsingContext.contextDestroyed")
     End If
 
     '5. 下限は、0にしておく
@@ -930,7 +930,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：何を購読中かは、ここでは管理しません
 '***************************************************************************************************
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
     'paramsに格納
     If params Is Nothing Then Set params = New Dictionary
     params.Add "events", events
@@ -949,7 +949,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：`params`未指定時、ブラウザ全体となります
 '***************************************************************************************************
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
     'paramsに格納
     If params Is Nothing Then Set params = New Dictionary
     params.Add "events", IIf(IsArray(events), events, Array(events))
