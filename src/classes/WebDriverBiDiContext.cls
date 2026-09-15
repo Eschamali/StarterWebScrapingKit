@@ -575,23 +575,29 @@ End Function
 '                           ■■■ 各種BiDiヘルパーコマンド ■■■
 '***************************************************************************************************
 '* 機能　　：URL遷移を行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`till:=Nowait`で行うとBiDi非同期実行で、"browsingContext.navigate"が行われます
 '***************************************************************************************************
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
-    '1. 待機モードの設定
+    '1. 遷移前の待機状況リセット
+    ResetWaitState
+
+    '2. 待機モードの設定
+    '※`document.readyState`と違う値のため独自のSelect CaseとしてBiDiと辻褄を合わす
     Dim targetState As String
     Select Case till
-        Case isLoading: targetState = "none"
-        Case isInteractive: targetState = "interactive"
-        Case isComplete: targetState = "complete"
+        Case ReadyState.isLoading:      targetState = "none"
+        Case ReadyState.isInteractive:  targetState = "interactive"
+        Case ReadyState.isComplete:     targetState = "complete"
     End Select
 
-    '2. パラメーター組み立て
+    '3. パラメーター組み立て
     Dim BiDiparams As New Dictionary
     BiDiparams.Add "url", strURL
-    BiDiparams.Add "wait", targetState
+    If till > ReadyState.Nowait Then BiDiparams.Add "wait", targetState
 
-    '3. 実行
-    ExecuteBiDi "browsingContext.navigate", BiDiparams
+    '4. 実行
+    If till = ReadyState.Nowait Then ExecuteBiDiAsync "browsingContext.navigate", BiDiparams Else ExecuteBiDi "browsingContext.navigate", BiDiparams
 End Sub
 
 '***************************************************************************************************
@@ -663,7 +669,7 @@ End Sub
 '
 '             26/09/15 - 数値変換させて大小で比較するようにする
 '***************************************************************************************************
-Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
+Public Sub Wait(Optional till As ReadyState = isComplete)
     Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
 
 
