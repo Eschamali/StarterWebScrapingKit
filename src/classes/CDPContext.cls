@@ -1982,49 +1982,7 @@ End Function
 
 
 '***************************************************************************************************
-'                           ■■■ 各種CDPヘルパーコマンド ■■■
-'***************************************************************************************************
-'* 機能　　：This sub is a quick wrapper to navigate to an url.
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：strURL         遷移先URL
-'            referrerURL    どのURLから遷移させたかをサーバーに伝えたい場合は指定します
-'            transitionType 「どのような経緯・手段でこのURLへ遷移したか」を指定します
-'            referrerPolicy 「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します
-'            frameId        iframe内のページ遷移を行う際は指定します
-'            till           どこまで待機させるか？
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：`till:=Nowait`で行うとCDP非同期実行で、"Page.navigate"が行われます
-'***************************************************************************************************
-Public Sub navigate(strURL As String, Optional referrerURL As String, Optional transitionType As PageTransitionType, Optional referrerPolicy As PageReferrerPolicy, Optional frameID As String, Optional WaitMode As ReadyState = isComplete)
-    Const FromProcedureName As String = ThisClassName & ".navigate"
-
-
-    '遷移前の待機状況リセット
-    ResetWaitState
-
-    '遷移先パラメーター用意
-    Dim CDPparams As New Dictionary
-    CDPparams.Add "url", strURL
-    If StrPtr(frameID) Then CDPparams.Add "frameId", frameID
-    If StrPtr(referrerURL) Then CDPparams.Add "referrer", referrerURL
-    If transitionType > pt_default Then CDPparams.Add "transitionType", EnumToStringPageTransitionType(transitionType)
-    If referrerPolicy > pr_default Then CDPparams.Add "referrerPolicy", EnumToStringPageReferrerPolicy(referrerPolicy)
-
-    '非同期実行か
-    If WaitMode = Nowait Then
-        ExecuteCDPAsync "Page.navigate", CDPparams
-        printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
-        Exit Sub
-    Else
-        ExecuteCDP "Page.navigate", CDPparams
-
-        'should also add a maxTimeLimit to Wait
-        WaitEvents WaitMode:=WaitMode
-        printMsg info_, "Navigated to: " & strURL, FromProcedureName
-    End If
-
-End Sub
-
+'                               ■■■ 簡易待機系メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：`Page`イベントを活用したシンプルな読み込み待機を行います
 '---------------------------------------------------------------------------------------------------
@@ -2109,6 +2067,52 @@ Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
 
     '2. 待機成功を伝える
     printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
+
+End Sub
+
+
+
+'***************************************************************************************************
+'                           ■■■ 各種CDPヘルパーコマンド ■■■
+'***************************************************************************************************
+'* 機能　　：This sub is a quick wrapper to navigate to an url.
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strURL         遷移先URL
+'            referrerURL    どのURLから遷移させたかをサーバーに伝えたい場合は指定します
+'            transitionType 「どのような経緯・手段でこのURLへ遷移したか」を指定します
+'            referrerPolicy 「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します
+'            frameId        iframe内のページ遷移を行う際は指定します
+'            till           どこまで待機させるか？
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`till:=Nowait`で行うとCDP非同期実行で、"Page.navigate"が行われます
+'***************************************************************************************************
+Public Sub navigate(strURL As String, Optional referrerURL As String, Optional transitionType As PageTransitionType, Optional referrerPolicy As PageReferrerPolicy, Optional frameID As String, Optional WaitMode As ReadyState = isComplete)
+    Const FromProcedureName As String = ThisClassName & ".navigate"
+
+
+    '遷移前の待機状況リセット
+    ResetWaitState
+
+    '遷移先パラメーター用意
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "url", strURL
+    If StrPtr(frameID) Then CDPparams.Add "frameId", frameID
+    If StrPtr(referrerURL) Then CDPparams.Add "referrer", referrerURL
+    If transitionType > pt_default Then CDPparams.Add "transitionType", EnumToStringPageTransitionType(transitionType)
+    If referrerPolicy > pr_default Then CDPparams.Add "referrerPolicy", EnumToStringPageReferrerPolicy(referrerPolicy)
+
+    '非同期実行か
+    If WaitMode = Nowait Then
+        ExecuteCDPAsync "Page.navigate", CDPparams
+        printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
+        Exit Sub
+    Else
+        ExecuteCDP "Page.navigate", CDPparams
+
+        'should also add a maxTimeLimit to Wait
+        WaitEvents WaitMode:=WaitMode
+        printMsg info_, "Navigated to: " & strURL, FromProcedureName
+    End If
 
 End Sub
 
