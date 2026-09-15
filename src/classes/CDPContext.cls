@@ -1606,11 +1606,11 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
 
         Case "Page.domContentEventFired"
             'document.readyState = interactive 相当
-            brTab.ReadStateCount.ReadState = ReadyState.isInteractive
+            brTab.ReadState = ReadyState.isInteractive
 
         Case "Page.loadEventFired"
             'document.readyState = complete 相当
-            brTab.ReadStateCount.ReadState = ReadyState.isComplete
+            brTab.ReadState = ReadyState.isComplete
 
     End Select
 
