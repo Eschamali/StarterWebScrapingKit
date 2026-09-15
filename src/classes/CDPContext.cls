@@ -2004,7 +2004,7 @@ End Function
 '
 '             26/09/15 - 数値変換させて大小で比較するようにする
 '***************************************************************************************************
-Public Sub WaitReadyState(Optional till As ReadyState = isComplete)
+Public Sub Wait(Optional till As ReadyState = isComplete)
     Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
 
 
