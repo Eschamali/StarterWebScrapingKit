@@ -202,6 +202,26 @@ Private Sub fCDPEvent_CDPContextEvent(methodName As String, RawJson As String, s
 
 End Sub
 
+Private Sub fCDPEvent_CDPBrowserEvent(methodName As String, RawJson As String)
+    '------------------ 1. 各種非同期イベントの処理 ------------------
+    Dim tmp As BiDiCDPJson
+    Select Case methodName
+        Case "Target.targetInfoChanged"
+            '1-1. 自分の`targetId`か確認し、そうであれば、ウィンドウタイトル更新
+            '※SPA遷移では効果はありません
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
+            If tmp.StringKey("targetId") = fCDPContext.CurrentTargetID Then
+                'ウィンドウタイトルを変更
+                Me.Caption = tmp.StringKey("title")
+
+                'ウィンドウタイトルを変更すると何故か、ウィンドウスタイルがリセットされるため、再設定する
+                Dim currentStyle As LongPtr
+                currentStyle = GetWindowLongPtr(myFormHwnd, GWL_STYLE)
+                SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX
+            End If
+    End Select
+End Sub
+
 
 
 '***************************************************************************************************
