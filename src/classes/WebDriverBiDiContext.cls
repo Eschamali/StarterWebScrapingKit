@@ -75,6 +75,50 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList
     attachToContext
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
+'***************************************************************************************************
+Private Sub attachToContext()
+    Const FromProcedureName As String = ThisClassName & ".attachToContext"
+
+
+    '1. 箱を用意
+    Dim FirstTabs As Collection: Set FirstTabs = New Collection
+
+    '2. その箱を渡す
+    Set m_BiDiMode.RunCollect_InfoList = FirstTabs
+
+    '3. 購読処理
+    m_BiDiMode.EnableDiscoverContexts = True
+
+    '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
+    Dim tmp
+    Dim FirstTab As BiDiCDPJson
+    For Each tmp In FirstTabs
+        '4-1. Jsonパース処理
+        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
+
+        '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
+        If IsNull(FirstTab("parent")) Then
+            With InfoList
+                .context = FirstTab.StringKey("context")
+                .Url = FirstTab("url")
+            End With
+
+            '4-3. Excelに記録
+            m_BiDiMode.serializeMainTab = InfoList.context
+            printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
+            Exit For
+        End If
+    Next
+
+    '5. 後始末
+    Set m_BiDiMode.RunCollect_InfoList = Nothing
+
+    '6. `context`が取れてない場合は停止
+    If StrPtr(InfoList.context) = 0 Then printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
+End Sub
+
 
 
 '***************************************************************************************************
@@ -598,50 +642,6 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 
     '4. 実行
     If till = ReadyState.Nowait Then ExecuteBiDiAsync "browsingContext.navigate", BiDiparams Else ExecuteBiDi "browsingContext.navigate", BiDiparams
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
-'***************************************************************************************************
-Private Sub attachToContext()
-    Const FromProcedureName As String = ThisClassName & ".attachToContext"
-
-
-    '1. 箱を用意
-    Dim FirstTabs As Collection: Set FirstTabs = New Collection
-
-    '2. その箱を渡す
-    Set m_BiDiMode.RunCollect_InfoList = FirstTabs
-
-    '3. 購読処理
-    m_BiDiMode.EnableDiscoverContexts = True
-
-    '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
-    Dim tmp
-    Dim FirstTab As BiDiCDPJson
-    For Each tmp In FirstTabs
-        '4-1. Jsonパース処理
-        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
-
-        '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
-        If IsNull(FirstTab("parent")) Then
-            With InfoList
-                .context = FirstTab.StringKey("context")
-                .Url = FirstTab("url")
-            End With
-
-            '4-3. Excelに記録
-            m_BiDiMode.serializeMainTab = InfoList.context
-            printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
-            Exit For
-        End If
-    Next
-
-    '5. 後始末
-    Set m_BiDiMode.RunCollect_InfoList = Nothing
-
-    '6. `context`が取れてない場合は停止
-    If StrPtr(InfoList.context) = 0 Then printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
 End Sub
 
 
