@@ -262,9 +262,9 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
-        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName
-
         Set m_Host = Nothing
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
+
         Exit Function
     End If
 
