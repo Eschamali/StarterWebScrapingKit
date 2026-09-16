@@ -247,12 +247,13 @@ Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日
 '* 機能　　：パイプとして起動するためのcommandライン準備を行い、起動します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時のコマンドライン。
-'* 引数　　：UserName       記録する識別名称
-'            BrowserType    ブラウザタイプ
-'            FirstURL       `-app`に渡すURL
-'            addArgs        追加引数
+'* 引数　　：UserName           記録する識別名称
+'            BrowserType        ブラウザタイプ
+'            FirstURL           `-app`に渡すURL
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
+'            addArgs            追加引数
 '***************************************************************************************************
-Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, addArgs As String) As String
+Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
 
 
@@ -280,7 +281,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(FirstURL), _
+                                    .GenerateArgApp(FirstURL, SplashScreenMode), _
                                     addArgs))
     End With
 

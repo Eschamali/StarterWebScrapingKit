@@ -122,10 +122,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl         起動引数：`--app`　につけるURLを指定します
-'            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            addArgs        追加の起動引数
+'* 引数　　：SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
+'            Name               ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
+'            appUrl             起動引数：`--app`　につけるURLを指定します
+'            userProfile        起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
+'            addArgs            追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
 ' This function initiates a new browser instance.
@@ -150,7 +151,7 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
+Public Sub start(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
     Optional addArgs As String)
@@ -168,7 +169,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
 
     '3. 起動依頼
-    br.CallString = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, addArgs)
+    br.CallString = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, SplashScreenMode, addArgs)
 
     '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo

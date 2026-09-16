@@ -299,7 +299,7 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
 
     '1. ブラウザ起動
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, userProfile, addArgs
+    BrowserCore.start True, Name, appUrl, userProfile, addArgs  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
