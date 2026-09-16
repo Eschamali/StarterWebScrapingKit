@@ -612,7 +612,7 @@ Sub runNewTab()
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
     Set targetTab = chrome.ThisCDPBrowser.getTab
-    targetTab.WaitReadyState    '別タブで開いてURL遷移するためここは、JavaScriptによる待機にする
+    targetTab.Wait  '別タブで開いてURL遷移するためここは、JavaScriptによる待機にする
 
    'Feed the top news title for today
     Dim firstTitle As String

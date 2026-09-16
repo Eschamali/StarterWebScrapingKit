@@ -458,22 +458,28 @@ End Function
 '***************************************************************************************************
 '* 機能　　：初期起動時の遷移URL引数生成を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：appUrl     初期遷移URL
+'* 引数　　：appUrl             初期遷移URL
+'            SplashScreenMode   スプラッシュ画面として返却
 '* 返り値　：`--app="..."` or `--homepage "about:blank"`として返却
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：引数の状況に応じて下記のようになります
-'            ・未指定 ：`--homepage "about:blank"`として返却
-'            ・URL指定：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します
-'* 注意事項：この`--app="..."`では、実際のURL遷移は行いません。呼び出し側にて実際に遷移処理するようにしてください
+'            ・appUrl未指定 ：常に`--homepage "about:blank"`として返却
+'            ・URL指定かつ`SplashScreenMode:=True` ：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します。CDPContext.clsから起動する場合はこちらを使ってください
+'            ・URL指定かつ`SplashScreenMode:=False`：そのURLへ直行します。CDPBrowser.clsから起動する場合は、こちらを使ってください
 '***************************************************************************************************
-Public Function GenerateArgApp(appUrl As String) As String
+Public Function GenerateArgApp(appUrl As String, SplashScreenMode As Boolean) As String
     '状況に応じた分岐
     If LenB(appUrl) Then
-        'かっこいい起動スプラッシュ画面付きで始めるhtmlコードとして渡します
-        '- 黒 or 白画面(Windowsのテーマ依存)
-        '- どこに遷移するかの案内
-        '- リングマーキープログレスバー
-        GenerateArgApp = "--app=""" & GetSplashHtmlText(appUrl) & Chr(34)
+        If SplashScreenMode Then
+            'かっこいい起動スプラッシュ画面付きで始めるhtmlコードとして渡します
+            '- 黒 or 白画面(Windowsのテーマ依存)
+            '- どこに遷移するかの案内
+            '- リングマーキープログレスバー
+            GenerateArgApp = "--app=""" & GetSplashHtmlText(appUrl) & Chr(34)
+        Else
+            'URLに直行
+            GenerateArgApp = "--app=""" & appUrl & Chr(34)
+        End If
     Else
         'アドレスバー付きの空ブラウザとして起動
         '※`app`の感覚で、`=`を付けると失敗します

@@ -86,7 +86,7 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
             Set StartCDPMode = ReadyWebSocket.StartCDPMode
         Else
             'Pipe経路で起動
-            StartCDPMode.start BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+            StartCDPMode.start False, BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
         End If
     End With
 End Function

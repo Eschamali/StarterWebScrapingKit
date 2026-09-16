@@ -403,7 +403,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl), _
+                                    .GenerateArgApp(appUrl, False), _
                                     addArgs))
 
         '2. 実際に起動を行います
