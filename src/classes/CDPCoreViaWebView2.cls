@@ -268,7 +268,10 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         Exit Function
     End If
 
-    '5. 成功サインを返す
+    '5. 必須のイベント購読を行う
+    InitSubscribeCdpEvent
+
+    '6. 成功サインを返す
     ConnectCDP = True
 End Function
 
@@ -696,6 +699,53 @@ Public Function UnsubscribeAllCdpEvents() As Long
         If UnsubscribeCdpEvent(EventName) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
     Next
 End Function
+
+'***************************************************************************************************
+'* 機能　　：このツールで行う際の必須イベント購読処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：購読中の状態でVBEの`Stop`/ブレイクポイントに静止している間、(a)ページ側の操作等で
+'            購読イベントが実際に発火した場合や、(b)そのままリセット処理をした場合、
+'            クラッシュする可能性があります
+'***************************************************************************************************
+Private Sub InitSubscribeCdpEvent()
+    '1. 各タブの生存/情報確認
+    SubscribeCdpEventErrorCheck "Target.detachedFromTarget"
+    SubscribeCdpEventErrorCheck "Target.targetCrashed"
+    SubscribeCdpEventErrorCheck "Target.targetDestroyed"
+    SubscribeCdpEventErrorCheck "Target.targetInfoChanged"
+    SubscribeCdpEventErrorCheck "Target.targetCreated"
+
+    '2. JavaScriptの`executionContextId`の追従
+    SubscribeCdpEventErrorCheck "Runtime.executionContextCreated"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextDestroyed"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextsCleared"
+
+    '3. `document.readyState`の再現
+    SubscribeCdpEventErrorCheck "Page.frameStartedLoading"
+    SubscribeCdpEventErrorCheck "Page.domContentEventFired"
+    SubscribeCdpEventErrorCheck "Page.loadEventFired"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：イベント購読処理の成功判定をチェックします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：購読失敗時は、エラーで安全に止めます
+'***************************************************************************************************
+Private Sub SubscribeCdpEventErrorCheck(EventName As String)
+    Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEventErrorCheck"
+
+
+    '成功判定に応じたログ表示
+    If SubscribeCdpEvent(EventName) Then
+        printMsg info_, "I have started subscribing to the `" & EventName & "` event.", FromProcedureName
+    Else
+        'クラッシュを防ぐため、全解除
+        UnsubscribeAllCdpEvents
+
+        'エラーで止める
+        printMsg ERROR_, "Event subscription for `" & EventName & "` failed. All event subscriptions have been removed for safe termination.", FromProcedureName, doRaiseError:=True
+    End If
+End Sub
 
 
 
