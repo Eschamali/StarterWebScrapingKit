@@ -14,6 +14,7 @@ Option Private Module
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
 '            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
+'            ・このツール内部で使う非同期イベントは予め購読済みですが追加のイベント購読は、手動で行う必要があります。`RunTestAlertDemo`がその例です
 '***************************************************************************************************
 Sub WebView2OnExcelUserForm()
     With WebView2Form
@@ -27,6 +28,7 @@ Sub WebView2OnExcelUserForm()
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
         .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+        .ThisWebView2.StatusBarEnabled = False      '左下に出るステータステキストを表示しない
 
         '3. CDPとして、ページ遷移
         'シングルサインオンを無効：Microsoftアカウントの紹介
