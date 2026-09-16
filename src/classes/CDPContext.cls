@@ -305,9 +305,9 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToSession appUrl  'Find and attach the newly open Session ID
-    getSessionInfo          'Store initial session info for printParams debugging
-    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID
+    attachToSession appUrl                                          'Find and attach the newly open Session ID
+    getSessionInfo                                                  'Store initial session info for printParams debugging
+    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
     '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
@@ -332,21 +332,16 @@ Private Sub attachToSession(appUrl As String)
     Const FromProcedureName As String = ThisClassName & ".attachToSession"
 
 
-    Dim FirstTabs As Collection
-    Dim result
-
-    Dim strKey As Variant
-
     On Error GoTo ifError
 
-
-    '`Target.targetCreated`を収集できるように初期化
-    Set FirstTabs = New Collection
-1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
-    BrowserCore.EnableDiscoverTargets = True
+    '1. `Target.targetCreated`を収集できるように初期化
+    Dim FirstTabs As Collection
+    Set FirstTabs = New Collection                          '箱を用意して
+1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs    'それを、ブラウザに渡して
+    BrowserCore.EnableDiscoverTargets = True                '購読開始
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
-    '検索URLを作成
+    '2. 検索URLを作成
     Dim SearchURL As String
     Dim SplashApp As New CDPHost
     If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
@@ -356,6 +351,7 @@ Private Sub attachToSession(appUrl As String)
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
+    Dim result
     Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
         ' 1. 文字列をパース
