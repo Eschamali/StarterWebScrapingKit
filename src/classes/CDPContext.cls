@@ -2079,10 +2079,20 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：ページ読み込み状況を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
 '***************************************************************************************************
-Property Get PageReadyState() As ReadyState
+Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
+    If refresh Then
+        '1. 今の読み込み状況をチェック
+        Dim readyStateStr As String
+        readyStateStr = jsEval("document.readyState")
+
+        '2. 値に変換
+        brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+    End If
     PageReadyState = brTab.ReadState
-End Property
+End Function
 
 
 
