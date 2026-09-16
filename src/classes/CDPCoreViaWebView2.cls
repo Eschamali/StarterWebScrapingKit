@@ -690,15 +690,11 @@ Public Function UnsubscribeAllCdpEvents() As Long
     Dim N As Long: N = m_subReceiver.Count
     If N = 0 Then Exit Function
 
-    '2. 購読中のイベント名リストを取り出す
-    Dim EventNames
-    EventNames = m_subReceiver.keys
-
-    '3. Forで、１つずつ購読解除していく
-    Dim i As Long
-    For i = 0 To N - 1
-        If UnsubscribeCdpEvent(EventNames(i)) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
-    Next i
+    '2. 購読中のイベント名リストを取り出し、１つずつ購読解除していく
+    Dim EventName
+    For Each EventName In m_subReceiver.keys
+        If UnsubscribeCdpEvent(EventName) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
+    Next
 End Function
 
 
