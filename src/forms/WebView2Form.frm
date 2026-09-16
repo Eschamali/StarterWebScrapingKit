@@ -153,6 +153,7 @@ End Sub
 '* 機能　　：ボタン押下時、テキストボックスに入力したURLにページ遷移します
 '***************************************************************************************************
 Private Sub navigateButton_Click()
+    If LenB(Me.TextURLBox.Text) = 0 Then Exit Sub
     fCDPContext.navigate Me.TextURLBox.Text
 End Sub
 
