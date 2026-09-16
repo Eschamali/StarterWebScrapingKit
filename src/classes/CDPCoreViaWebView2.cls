@@ -653,7 +653,6 @@ End Function
 '***************************************************************************************************
 Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
     ' 1. 未購読なら即抜け
-    If m_subReceiver Is Nothing Then Exit Function
     If Not m_subReceiver.Exists(EventName) Then Exit Function
 
     ' 2. 対象購読イベントに紐づくレシーバーポインター/トークンを取り出す
@@ -687,8 +686,6 @@ End Function
 '            `UnsubscribeCdpEvent`を1件ずつ回すことで「一発解除」に見せているだけです。
 '***************************************************************************************************
 Public Function UnsubscribeAllCdpEvents() As Long
-    If m_subReceiver Is Nothing Then Exit Function
-
     '1. 購読中のイベント数を確認し、1つもない場合は、即抜け
     Dim N As Long: N = m_subReceiver.Count
     If N = 0 Then Exit Function
