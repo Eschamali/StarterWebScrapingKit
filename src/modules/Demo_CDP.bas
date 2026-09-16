@@ -150,7 +150,9 @@ Sub JapaneseElementTest()
     CDPHelpers.Sleep 3
 
     ' ボタンクリック
-    Demo_Japanese.getElementByID("executebtn").SimpleClick isComplete
+    Demo_Japanese.ResetWaitState
+    Demo_Japanese.getElementByID("executebtn").SimpleClick
+    Demo_Japanese.WaitEvents
     Demo_Japanese.notify "体脂肪率を計算しました" & WorksheetFunction.Unichar(129518)    '日本語兼絵文字通知表示テスト(U+1F9EE)
     CDPHelpers.Sleep 3
 
@@ -255,6 +257,7 @@ Sub TestAlert()
 
     'テキスト入力用のAlertに入力させる文字列の指定
     Dim 入力文字内容 As String: 入力文字内容 = "VBAから入力したテスト文字列です！" & WorksheetFunction.Unichar(129418)
+
 
     With Demo_alerts
         Dim i As Long
@@ -461,7 +464,9 @@ Sub runHidden()
    'Perform automation in the background
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
-    chrome.getElementByQuery("[name='q']").submit isComplete
+    chrome.ResetWaitState
+    chrome.getElementByQuery("[name='q']").submit
+    chrome.WaitEvents
 
    'Click the target result link
     chrome.getElementByXPath("//h3[text()='Automate Chrome / Edge using VBA']").click
@@ -503,7 +508,9 @@ Sub runHiddenForJapan()
     'Perform automation in the background
     chrome.navigate "https://google.com", isInteractive
     chrome.getElementByQuery("[name='q']").value = "automate edge vba"
-    chrome.getElementByQuery("[name='q']").submit isComplete
+    chrome.ResetWaitState
+    chrome.getElementByQuery("[name='q']").submit
+    chrome.WaitEvents
 
     'Click the target result link
     chrome.getElementByXPath("//h3[text()='Chrome DevTools ProtocolでEdgeを操作するVBAマクロ']").click      '2026/02/16 時点での、最上位結果
@@ -592,7 +599,8 @@ Sub runNewTab()
     chrome.navigate "https://google.com"
     chrome.getElementByQuery("[name='q']").value = "newstarget.com"
     chrome.ResetWaitState
-    chrome.getElementByQuery("[name='q']").submit isComplete
+    chrome.getElementByQuery("[name='q']").submit
+    chrome.WaitEvents
 
    'Google search result returns links that open in the same tab window
    'For this demonstration, we need to make it open in a new tab window instead
@@ -604,7 +612,7 @@ Sub runNewTab()
    'Use getTabNew to quickly refer to the next newly open tab
     Dim targetTab As New CDPContext
     Set targetTab = chrome.ThisCDPBrowser.getTab
-    targetTab.WaitReadyState    '別タブで開いてURL遷移するためここは、JavaScriptによる待機にする
+    targetTab.Wait  '別タブで開いてURL遷移するためここは、JavaScriptによる待機にする
 
    'Feed the top news title for today
     Dim firstTitle As String

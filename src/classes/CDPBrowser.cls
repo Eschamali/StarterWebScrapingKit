@@ -1220,16 +1220,14 @@ Public Function attachToTab(tabId As String) As String
 End Function
 
 '***************************************************************************************************
-'* 機能　　：SessionID の破棄を行います
+'* 機能　　：SessionID の破棄を、非同期で行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：破棄成功論理値
 '* 引数　　：SessionID      破棄したいSessionID
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：不必要なSessionIDを破棄することで、ブラウザの安定性が向上し、奇妙な不具合も消えるかもしれません
-'* 注意事項：・ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
-'            ・念のため成功論理値を返してますが基本、確認するほどでもないと思います
+'* 注意事項：ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
 '***************************************************************************************************
-Public Function DiscardSessionID(sessionID As String) As Boolean
+Public Sub DiscardSessionID(sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
 
 
@@ -1238,16 +1236,8 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     CDPparams.Add "sessionId", sessionID
 
     '2. 破棄コマンド実行
-    Dim tmp As BiDiCDPJson
-    Set tmp = ExecuteCDP("Target.detachFromTarget", CDPparams, False)
-
-    '3. ログとして出しておく
-    If tmp Is Nothing Then
-        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
-    Else
-        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
-    End If
-End Function
+    ExecuteCDPAsync "Target.detachFromTarget", CDPparams, False
+End Sub
 
 
 

@@ -51,7 +51,7 @@ Sub checkNetworkEvents()
     'BiDi側でネットワークイベントを購読開始する
     Dim paramsBiDi As Dictionary
     Set paramsBiDi = New Dictionary
-    Demo_NetworkEvent.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
+    Demo_NetworkEvent.SubscribeBiDiEvent = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
 
     'URL遷移して、読み込み終わるまで待機
     Demo_NetworkEvent.navigate "http://officetanaka.net/excel/vba/file/file11.htm"
@@ -214,7 +214,7 @@ Sub TestAlert()
         ' --- 1. 必要なドメイン(イベント)をサブスクライブ ---
         Dim eventsArray As New Collection
         eventsArray.Add "browsingContext.userPromptOpened"
-        Set .sessionSubscribe = eventsArray
+        Set .SubscribeBiDiEvent = eventsArray
 
         Dim i As Long
         For i = 1 To 3
@@ -355,7 +355,7 @@ Sub BiDiPlusDemo()
 
     '-------------------------------- ①BiDi：ネットワークイベントの購読を開始 --------------------------------
     Set BiDiTab.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
-    BiDiTab.sessionSubscribe = Array("network.responseCompleted")
+    BiDiTab.SubscribeBiDiEvent = Array("network.responseCompleted")
 
     'ページ内のTopリンクをクリックし、おすすめ動画へ遷移（このタイミングの通信をBiDiイベントとして捕捉する）
     Const queryStr As String = "#title > a"
@@ -363,7 +363,7 @@ Sub BiDiPlusDemo()
     Do
         check = BiDiTab.jsEval("document.querySelector('" & queryStr & "').click()", StopBiDiError:=False)
     Loop While IsNull(check) Or IsError(check)
-    BiDiTab.wait
+    BiDiTab.Wait
 
     '-------------------------------- ②BiDi：捕捉したイベント件数を確認 --------------------------------
     BiDiTab.ThisWebDriverBiDiMode.TakeEvents
