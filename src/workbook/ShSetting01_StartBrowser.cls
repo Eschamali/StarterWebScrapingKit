@@ -149,7 +149,7 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
             ReadyWebSocket.ConnectCDPWithLocalBrowser BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
             Set StartBiDiMode = ReadyWebSocket.StartBiDiMode(sessionCapabilitiesRequest)
         Else
-            StartBiDiMode.StartBiDiMode BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+            StartBiDiMode.StartBiDiMode False, BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
         End If
     End With
 End Function
