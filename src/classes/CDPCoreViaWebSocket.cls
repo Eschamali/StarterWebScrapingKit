@@ -283,16 +283,13 @@ End Property
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
 '            Path           接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
-'            targetId       `Target.TargetInfo`の`targetId` ※既存のタブ情報を流用する場合は指定すること
-'            BiDiContext    WebDriverBiDiでのメインタブ情報 ※既存のタブ情報を流用する場合は指定すること
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：CDP準拠の引数構造です。基本は、`Path`のみで十分です
-'* 注意事項：・既存の接続がある場合は、切断されます
-'            ・`targetId`を指定した場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい。省略時は、`CDPBrowser.cls`から
+'* 注意事項：既存の接続がある場合は、切断されます
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional BiDiContext As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function ConnectCDP(UserName As String, Path As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -327,8 +324,8 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     '8. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
-    '9. 設定情報を記録
-    serialize UserName, targetID, BiDiContext
+    '9. 接続したWinSock情報を記録
+    serialize UserName
 
     '10. 各種ステータスを更新
     m_IsConnected = True
@@ -1112,8 +1109,19 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         printMsg info_, "Found the tab with ID: " & tabId, FromProcedureName
     End If
 
-    '6. 見つけたパラメーターで、接続
-    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, , port, Host)
+    '------------------ 6. 見つけたタブ情報をExcelテーブルに記録 ------------------
+    '`CDPContext.reattach`を正しく機能させるために記録します
+    Dim PageInfo As New Dictionary
+    PageInfo.Add "targetID", tabId
+    PageInfo.Add "BiDi-context", vbNullString    'データ枠だけ確保
+    PageInfo.Add "sessionID", vbNullString       'データ枠だけ確保
+
+    'Excelテーブルに、タブ情報欄を確保する
+    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName) = PageInfo
+    '------------------------------------------------------------------------------
+
+    '7. 見つけたWebSocket情報で接続
+    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1319,18 +1327,16 @@ End Function
 '***************************************************************************************************
 '                            ■■■ 設定情報読み書き処理 ■■■
 '***************************************************************************************************
-'* 機能　　：接続情報をExcelテーブルに残します
+'* 機能　　：WinSock関連の接続情報をExcelテーブルに残します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       利用者識別名称
-'            targetId       `Target.TargetInfo`の`targetId`
-'            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプハンドルはソケット値で代用します。`hProcess` / `dwProcessId` は `Shell` 起動時のみ実値です
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String, targetID As String, BiDiContext As String)
-    '------------------ 1. パイプ情報の記録準備 ------------------
+Private Sub serialize(UserName As String)
+    '------------------ ソケット情報の記録 ------------------
     '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", 0
@@ -1343,16 +1349,6 @@ Private Sub serialize(UserName As String, targetID As String, BiDiContext As Str
 
     'Excelテーブルに、ハンドル情報を記録する
     Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
-
-
-    '------------------ 2. タブ情報の記録準備 ------------------
-    tmp.RemoveAll
-    tmp.Add "BiDi-context", BiDiContext
-    tmp.Add "sessionID", vbNullString   '新規でWebSocket接続する場合は、`SessionID`の使い回しができないので、未設定とする
-    tmp.Add "targetID", targetID
-
-    'Excelテーブルに、タブ情報欄を確保する
-    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "CDPCoreViaWebSocket.serialize") = tmp
 End Sub
 
 '***************************************************************************************************
