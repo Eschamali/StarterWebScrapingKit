@@ -180,11 +180,8 @@ Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList 
         '3-3. WebSocketモードとして切り替え
         Set PipeCore.WebSocketMode = WebSocketCore
     Else
-        '3-1. Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
-        If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
-
-        '3-2. Pipeとして起動
-        '内部で、接続情報パラメーターが適用されます
+        '3-1. Pipeとして起動
+        '※内部で、接続情報パラメーターが適用されます
         start = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, SplashScreenMode, addArgs)
     End If
 
