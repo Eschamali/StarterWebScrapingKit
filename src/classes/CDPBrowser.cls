@@ -170,8 +170,7 @@ Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList 
     br.User = userProfile
     If ShSetting01_StartBrowser.UseRangeID(14, FromProcedureName) Then
         '3-1. WebSocketとして起動
-        '※内部で、 Excelテーブルにユーザー名に紐づくWinSock情報が取れちゃったら、新規起動なのでClose処理してくれます
-        Dim WebSocketCore As New CDPCoreViaWebSocket
+        Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = CDPCoreViaWebSocket
         start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, Name, appUrl, SplashScreenMode, addArgs)
 
         '3-2. 辻褄合わせで、接続情報パラメーターを適用
