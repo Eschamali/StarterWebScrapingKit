@@ -233,6 +233,7 @@ End Sub
 '* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
+'            ・`SessionID`は常に更新させます
 '***************************************************************************************************
 Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
@@ -246,7 +247,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     If WebSocketMode Is Nothing Then
         mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
     Else
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, WebSocketMode)
+        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, ConnectInfo:=WebSocketMode)
     End If
 
     '3. 各種オブジェクトを継承
