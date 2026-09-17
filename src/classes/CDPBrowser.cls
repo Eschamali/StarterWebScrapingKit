@@ -73,7 +73,6 @@ Private Type StateBrowser
     User        As String   'Browser user profile
     Path        As String   'Browser default installation path
     Ver         As String   'The current browser version
-    CallString  As String   'The initial call string used by .start
 End Type
 Private br As StateBrowser
 
