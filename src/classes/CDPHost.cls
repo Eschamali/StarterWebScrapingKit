@@ -71,6 +71,7 @@ Private Const SplashTitle               As String = "Starting CDP control from V
 'その他
 Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
 Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
+Private Const DebugModeSign             As String = "remote-debugging"
 
 
 
@@ -148,7 +149,7 @@ Public Sub cleanUpSessions()
                 printMsg Debug_, "The `UserDataDir` policy is in effect, so all running browser instances will be terminated..." & proc.CommandLine, FromProcedureName
                 proc.Terminate
 
-            ElseIf InStr(1, proc.CommandLine, GenerateArgRemoteDebugging) > 0 And InStr(1, proc.CommandLine, GenerateArgUserDataDir) > 0 Then
+            ElseIf InStr(1, proc.CommandLine, DebugModeSign) > 0 And InStr(1, proc.CommandLine, GenerateArgUserDataDir) > 0 Then
                 '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
                 printMsg Debug_, "Detect debug browser: " & proc.CommandLine, FromProcedureName
                 printMsg Debug_, "I'm going to kill that browser.", FromProcedureName
@@ -400,7 +401,7 @@ End Function
 '* 詳細説明：`InitInfo`の第三引数に応じて変わります
 '***************************************************************************************************
 Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(PipeMode, "--remote-debugging-pipe", "--remote-debugging-port=0")
+    GenerateArgRemoteDebugging = IIf(PipeMode, "--" & DebugModeSign & "-pipe", "--" & DebugModeSign & "-port=0")
 End Function
 
 '***************************************************************************************************
