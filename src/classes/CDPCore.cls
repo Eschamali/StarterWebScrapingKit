@@ -246,20 +246,21 @@ Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日
 '***************************************************************************************************
 '* 機能　　：パイプとして起動するためのcommandライン準備を行い、起動します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：起動時のコマンドライン。
+'* 返り値　：起動時の初期URL
 '* 引数　　：UserName           記録する識別名称
 '            BrowserType        ブラウザタイプ
-'            FirstURL           `-app`に渡すURL
+'            appUrl             `-app`に渡すURL
 '            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
 '***************************************************************************************************
-Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, FirstURL As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
 
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPHost
-        '1-1. 起動情報を伝達し、委託準備し、ポリシーチェックも行う
+    Dim ReadyCDP As New CDPHost
+    With ReadyCDP
+        '1-1. 起動情報を伝達し、委託準備
         .InitInfo UserName, BrowserType, True
 
         '1-2. ポリシーチェック
@@ -273,7 +274,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
 
         '1-5. コマンドラインを生成
         ' ブラウザexeフルパス
-        ' デバッグ方法
+        ' デバッグ方法(ここでは`Pipe`方式)
         ' データ保存先
         ' 初期URL
         ' 追加引数
@@ -281,7 +282,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(FirstURL, SplashScreenMode), _
+                                    .GenerateArgApp(appUrl, SplashScreenMode), _
                                     addArgs))
     End With
 
@@ -296,8 +297,19 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
     '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
     serialize UserName
 
-    '5. コマンドラインを返却
-    RunPipeModeBrowserCDP = RunCommandLine
+    '5. 初期URLとして返却します
+    If LenB(appUrl) Then
+        If SplashScreenMode Then
+            'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
+            RunPipeModeBrowserCDP = ReadyCDP.GetSplashHtmlText(appUrl)
+        Else
+            'スプラッシュ画面なしなので、`appUrl`そのまま
+            RunPipeModeBrowserCDP = appUrl
+        End If
+    Else
+        '未指定:--homepage "about:blank" なので、"about:blank"で返却
+        RunPipeModeBrowserCDP = EmptyPageName
+    End If
 End Function
 
 '***************************************************************************************************
