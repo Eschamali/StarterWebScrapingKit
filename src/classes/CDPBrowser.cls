@@ -270,7 +270,7 @@ Public Sub reattachPipe(userProfile As String)
     If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '4. 生存確認フェーズへ
-    reattach
+    reattach True
 End Sub
 
 '***************************************************************************************************
@@ -308,7 +308,8 @@ Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPC
     If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '5. 生存確認フェーズへ
-    reattach
+    '※WebSocketは、ヘッダー情報にサイズ情報が載ってるため、念の為、`False`にしておく
+    reattach False
 End Sub
 
 '***************************************************************************************************
@@ -336,7 +337,7 @@ Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWeb
     Set PipeCore.WebView2Mode = WebView2Mode
 
     '4. 生存確認フェーズへ
-    reattach
+    reattach True
 End Sub
 
 '***************************************************************************************************
@@ -347,13 +348,13 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ハンドルが機能してない場合は、VBAエラーで止まります
 '***************************************************************************************************
-Private Sub reattach()
+Private Sub reattach(destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     If isLiveBrowser Then
-        '不整合を防ぐため、Pipeに残存しているデータを破棄しておく
-        TakeEvents destruction:=True
+        '溜まってるデータを取り出しておく
+        TakeEvents destruction:=destruction
 
         'ステータス更新
         getBrowserInfo
@@ -1293,13 +1294,6 @@ End Property
 '***************************************************************************************************
 Property Get CurrentBrowserUser() As String
     CurrentBrowserUser = br.User
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザのWindowクラス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserWindowClass() As String
-    CurrentBrowserWindowClass = chromeWindowClass
 End Property
 
 '***************************************************************************************************
