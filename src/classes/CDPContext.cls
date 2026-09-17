@@ -298,14 +298,15 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
     '1. ブラウザ起動
+    Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start True, Name, appUrl, userProfile, addArgs  'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.start(True, Name, appUrl, userProfile, addArgs)   'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToSession appUrl                                          'Find and attach the newly open Session ID
+    InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
     getSessionInfo                                                  'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
@@ -320,7 +321,7 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
 
 End Sub
 
-Private Sub attachToSession(appUrl As String)
+Private Sub InitAttachToSession(InitURL As String)
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
 ' This function attaches to a session of the browser.
@@ -341,12 +342,7 @@ Private Sub attachToSession(appUrl As String)
     BrowserCore.EnableDiscoverTargets = True                '購読開始
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
-    '2. 検索URLを作成
-    Dim SearchURL As String
-    Dim SplashApp As New CDPHost
-    If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
-
-   'Read message to confirm the requested url is found
+   '2. Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
@@ -354,10 +350,10 @@ Private Sub attachToSession(appUrl As String)
     Dim result
     Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
-        ' 1. 文字列をパース
+        ' 2-1. 文字列をパース
         Set doc = BiDiCDPJson.Parse(CStr(result))
 
-        ' 2. 必要なノードを安全に辿る
+        ' 2-2. 必要なノードを安全に辿る
         If doc.ExistsKey("params") Then
             ' NodeKey で階層を降り、targetInfo の存在を確認
             With doc.NodeKey("params")
@@ -366,7 +362,7 @@ Private Sub attachToSession(appUrl As String)
                     With .NodeKey("targetInfo")
                         '目的のページを見つける
                         '※`title`では稀に空欄になるので、`url`で特定させる
-                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = SearchURL Then
+                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = InitURL Then
                             boolFound = True
 
                             '必要な制御パラメーターを付与し、抜ける
