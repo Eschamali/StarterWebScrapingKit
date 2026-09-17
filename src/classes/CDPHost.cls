@@ -464,8 +464,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：引数の状況に応じて下記のようになります
 '            ・appUrl未指定 ：常に`--homepage "about:blank"`として返却
-'            ・URL指定かつ`SplashScreenMode:=True` ：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します。CDPContext.clsから起動する場合はこちらを使ってください
-'            ・URL指定かつ`SplashScreenMode:=False`：そのURLへ直行します。CDPBrowser.clsから起動する場合は、こちらを使ってください
+'            ・URL指定かつ`SplashScreenMode:=True` ：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します。いきなりタブ制御から始める場合は、レースコンディション対策済みのこちらを使ってください
+'            ・URL指定かつ`SplashScreenMode:=False`：そのURLへ直行します。ブラウザから起動する場合は、こちらを使ってください
 '***************************************************************************************************
 Public Function GenerateArgApp(appUrl As String, SplashScreenMode As Boolean) As String
     '状況に応じた分岐
