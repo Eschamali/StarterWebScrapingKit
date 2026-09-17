@@ -1022,7 +1022,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                                 ■■■ 新規接続アシスト ■■■
+'                           ■■■ 既存ブラウザへの接続アシスト ■■■
 '***************************************************************************************************
 '* 機能　　：「/json/list」へアクセスして、利用可能なすべてのウェブソケットターゲットのリストのうち、引数に基づいた`Page`接続のWebSocket接続まで行います
 '---------------------------------------------------------------------------------------------------
@@ -1041,6 +1041,9 @@ End Sub
 Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, Optional Title As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectPageCDP"
 
+
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
 
     '1. タブ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
@@ -1157,6 +1160,9 @@ End Function
 Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext As Boolean, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
 
+
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
 
     '1. ブラウザ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
