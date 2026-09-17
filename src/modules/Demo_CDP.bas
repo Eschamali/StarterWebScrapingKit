@@ -856,11 +856,11 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ WebSocket経由版Demo ■■■
+'                       ■■■ 起動済みWebSocketブラウザ経由版Demo ■■■
 '***************************************************************************************************
-'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：タブへ接続します
+'* 機能　　：タブ単位としてWebSocket接続を行います
+'-------------------------------------------------------------------------------------------------
+'* 詳細説明：このDemoは主に、ローカルブラウザ以外での接続方法について学べます
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
 '            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
@@ -885,32 +885,45 @@ Sub AutoConnectTab()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ローカルブラウザ起動から一通りの制御を行います
+'* 機能　　：ブラウザ単位としてWebSocket接続を行います
+'-------------------------------------------------------------------------------------------------
+'* 詳細説明：このDemoは主に、ローカルブラウザ以外での接続方法について学べます
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、デバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
 Sub AutoConnectBrowser()
-    '1. WebSocket制御で、ブラウザを起動
-    Dim BrowserControl As CDPBrowser
-    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 未接続のタブに接続
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketChromium As New CDPBrowser
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    WebSocketChromium.reattachWebSocket UserName, WebSocketCDP
+
+    '3. 未接続のタブに接続
     Dim t As CDPContext
-    Set t = BrowserControl.getTab(setMain:=True)
+    Set t = WebSocketChromium.getTab(setMain:=True)
 
-    '3. ページ遷移
+    '4. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '4. 終了
-    BrowserControl.quit
+    '5. 終了
+    WebSocketChromium.quit
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：今、目の前のブラウザを制御します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`ReConnectCDP`の第2引数を`True`にして再度処理をすると、
+'            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
+'* 注意事項：「edge://inspect/#remote-debugging」にて事前準備が必要です
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '1. 指定のWebSocketForCDPへ接続
-    '※「edge://inspect/#remote-debugging」にて事前準備が必要です
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort
+    WebSocketCDP.ReConnectCDP "User Data"
 
     '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
@@ -918,7 +931,7 @@ Sub AutoConnectDevToolsActivePort()
 
     '3. 未接続のタブに接続
     Dim t As CDPContext
-    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+    Set t = b.newTab(setMain:=True) '※既存タブからでもOK
 
     '4. ページ遷移
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
