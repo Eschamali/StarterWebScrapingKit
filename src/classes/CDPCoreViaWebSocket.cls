@@ -1285,46 +1285,6 @@ End Property
 
 
 '***************************************************************************************************
-'                       ■■■ ローカルブラウザへの新規接続アシスト ■■■
-'***************************************************************************************************
-'* 機能　　：`CDPBrowser`ブラウザ制御として準備します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
-'***************************************************************************************************
-Public Function StartCDPMode() As CDPBrowser
-    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
-
-
-    '1. 未接続の場合は止める
-    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
-
-    '2. ブラウザ単位として準備
-    Set StartCDPMode = New CDPBrowser
-    StartCDPMode.reattachWebSocket UserDataDirName, Me
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`WebDriverBiDiMode`ブラウザ制御として準備します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
-'***************************************************************************************************
-Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
-    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
-
-
-    '1. 未接続の場合は止める
-    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
-
-    '2. ブラウザ単位として準備
-    Set StartBiDiMode = New WebDriverBiDiMode
-    StartBiDiMode.reattach UserDataDirName, sessionCapabilitiesRequest, Me
-End Function
-
-
-
-'***************************************************************************************************
 '                            ■■■ 設定情報読み書き処理 ■■■
 '***************************************************************************************************
 '* 機能　　：WinSock関連の接続情報をExcelテーブルに残します
