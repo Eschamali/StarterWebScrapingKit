@@ -412,6 +412,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
 Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
@@ -429,6 +430,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
 Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
@@ -446,6 +449,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
 Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
