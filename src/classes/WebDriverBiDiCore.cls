@@ -98,7 +98,7 @@ Public Sub InitBiDi(SplashScreenMode As Boolean, Optional Name As BrowserList = 
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi
+    newTabForBiDi userProfile
 
     '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
@@ -107,10 +107,12 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   Excelに記録させるメインセッション情報のユーザー名
+'---------------------------------------------------------------------------------------------------
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
-Private Sub newTabForBiDi()
+Private Sub newTabForBiDi(UserName As String)
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
@@ -135,24 +137,28 @@ Private Sub newTabForBiDi()
         '4. 得た`targetId`で、`sessionId`を取得
         Dim sessionID As String
         sessionID = .attachToTab(tabId)
-
-        '5. Excelに、BiDiMapperTab情報を記録してメイン化しておく
-        .serializeForMainTab sessionID, tabId
     End With
 
-    '6. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
-        '6-1. このブラウザのパイプハンドル情報を渡す
+        '5-1. このブラウザのパイプハンドル情報を渡す
         Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
 
-        '6-2. このブラウザ情報を渡す
+        '5-2. このブラウザ情報を渡す
         Set .ThisCDPBrowser = m_CDPBrowser
 
-        '6-3. 先ほど得た`sessionId`を渡す
+        '5-3. 先ほど得た`sessionId`を渡す
         '内部で以下のフローが行われます
         '- `Target.getTargetInfo`で、ステータスを更新
         .CurrentSessionID = sessionID
+    End With
+
+    '6. Excelに、BiDiMapperTab情報を記録してメイン化しておく
+    '※リアタッチを想定して、既存のメインBiDi-context情報を上書きしないようにUpdateメソッドとして使う
+    With ShSetting01_StartBrowser
+        .UpdateBrowserContext(UserName, "targetID", FromProcedureName) = tabId
+        .UpdateBrowserContext(UserName, "sessionID", FromProcedureName) = sessionID
     End With
 
     '7. ログ化
@@ -293,7 +299,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
-        newTabForBiDi
+        newTabForBiDi userProfile
 
         '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
