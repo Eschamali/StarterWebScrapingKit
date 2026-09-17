@@ -549,7 +549,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
         If CheckBrowserPolicyRemoteDebuggingAllowed(i) Then
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせするか、WebView2ルートでの制御をお試しください。")
 
             printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
             Exit For
@@ -569,7 +569,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
             If LenB(currentPolicy.UserDataDir.Contents) = 0 Then
                 '空文字だとデフォルトパスで使用されて結果的にリモートデバッグ不可能になるので止める
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除するか、何かパスを指定して下さい。", _
-                                  "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+                                  "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門、お問い合わせするか、WebView2ルートでの制御をお試しください。")
 
                 printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
                 Exit For
