@@ -765,7 +765,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
 '***************************************************************************************************
-Property Get PageReadyState() As ReadyState
+Property Get PageReadyState(Optional refresh As Boolean) As ReadyState
     If refresh Then
         '1. 今の読み込み状況をチェック
         Dim readyStateStr As String
