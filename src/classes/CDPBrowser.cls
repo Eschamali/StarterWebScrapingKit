@@ -283,7 +283,7 @@ End Sub
 '* 機能説明：・WebSocketオブジェクトが機能してない場合は内部で、自動再接続を試みます
 '            ・逆に機能してれば、そっちのObject情報を優先してCDP制御します
 '***************************************************************************************************
-Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional ReuseWinSockHandle As Boolean)
     Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
 
 
@@ -295,11 +295,19 @@ Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaW
     CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. 引数を基に、WebSocketの接続情報を適用
-    '※オブジェクトなしの場合は、エラーとする
-    If WebSocketMode Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebSocketMode = WebSocketMode
+    '※オブジェクトなしの場合は、ユーザー情報を基に自動でローカルブラウザへの再接続を試みます
+    If ConnectInfo Is Nothing Then
+        printMsg info_, "No WebSocket connection information is available. Automatic reconnection will begin.", FromProcedureName
 
-    '4. 生存確認フェーズへ
+        Set ConnectInfo = New CDPCoreViaWebSocket
+        ConnectInfo.ReConnectCDPWithLocalBrowser userProfile, ReuseWinSockHandle
+    End If
+    Set PipeCore.WebSocketMode = ConnectInfo
+
+    '4. 辻褄合わせで、接続情報パラメーターを適用
+    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+    '5. 生存確認フェーズへ
     reattach
 End Sub
 
