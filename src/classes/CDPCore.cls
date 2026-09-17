@@ -258,7 +258,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
 
 
     '0. 前回のPipe情報が取れちゃった場合は事前にCloseしておく
-    If deserialize(br.User) Then CloseHandleBrowser
+    If deserialize(UserName) Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As New CDPHost
