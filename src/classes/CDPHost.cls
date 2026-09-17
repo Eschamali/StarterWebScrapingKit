@@ -499,6 +499,12 @@ End Function
 '            ・リングマーキープログレスバー
 '***************************************************************************************************
 Property Get GetSplashHtmlText(appUrl As String) As String
+    '1. appUrl の中の「?」を「%3F」に置き換えて、外側Chromeのクエリ判定を回避する！
+    Dim safeUrl As String
+    safeUrl = Replace(appUrl, "?", "%3F")
+    safeUrl = Replace(safeUrl, "#", "%23") ' ついでにハッシュ記号も安全化
+
+    '2. 実際に使うURLを返却
     GetSplashHtmlText = "data:text/html,<title>" & SplashTitle & "</title>" & _
                                     "<style>" & _
                                     ":root{--bg:white;--col:rgb(34,34,34);--rb:rgba(0,0,0,0.1)}" & _
@@ -507,7 +513,7 @@ Property Get GetSplashHtmlText(appUrl As String) As String
                                     "body{background:var(--bg);color:var(--col);display:flex;flex-direction:column;justify-content:center;align-items:center;height:90vh;font-family:sans-serif;margin:0;}" & _
                                     ".ring{width:40px;height:40px;border:4px solid var(--rb);border-top:4px solid dodgerblue;border-radius:999px;animation:s 1s linear infinite;margin-bottom:15px;}" & _
                                     "</style>" & _
-                                    "<body><div class='ring'></div><h2>navigating... `" & appUrl & "`</h2></body>"
+                                    "<body><div class='ring'></div><h2>navigating... `" & safeUrl & "`</h2></body>"
 End Property
 
 
