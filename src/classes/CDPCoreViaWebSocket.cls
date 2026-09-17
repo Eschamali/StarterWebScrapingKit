@@ -1234,14 +1234,14 @@ End Function
 '***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName       利用者識別名称
-'            KeepSession    Excelに記録済みのWinSockハンドル情報を使いまわします
+'* 引数    ：UserName               利用者識別名称
+'            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Sub ReConnectCDP(UserName As String, Optional KeepSession As Boolean)
+Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
 
 
@@ -1250,7 +1250,7 @@ Public Sub ReConnectCDP(UserName As String, Optional KeepSession As Boolean)
     PreviousSocket = deserialize(UserName)
 
     '2. セッションキープに応じて分岐
-    If KeepSession Then
+    If ReuseWinSockHandle Then
         '2-1 .Excelテーブルから、取れてない場合はエラー停止
         If Not PreviousSocket Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
