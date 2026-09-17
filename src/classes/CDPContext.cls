@@ -433,12 +433,12 @@ End Function
 '            ConnectInfo    接続済みのWebSocketオブジェクト
 '            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくWebSocket情報を再セット
-    BrowserCore.reattachWebSocket userProfile, WebSocketMode
+    BrowserCore.reattachWebSocket userProfile, ConnectInfo, reuseSession
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebSocket = reattach(reuseSession)
