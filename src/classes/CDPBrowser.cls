@@ -296,7 +296,7 @@ Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPC
         printMsg info_, "No WebSocket connection information is available. Automatic reconnection will begin.", FromProcedureName
 
         Set ConnectInfo = New CDPCoreViaWebSocket
-        ConnectInfo.ReConnectCDPWithLocalBrowser userProfile, ReuseWinSockHandle
+        ConnectInfo.ReConnectCDP userProfile, ReuseWinSockHandle
     End If
     Set PipeCore.WebSocketMode = ConnectInfo
 
