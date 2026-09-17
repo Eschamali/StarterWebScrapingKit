@@ -1234,15 +1234,45 @@ End Function
 '***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称　※省略時、普段使い(User Data)側での接続を試みます
-'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
+'* 引数    ：UserName       利用者識別名称
+'            KeepSession    Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean
+Public Sub ReConnectCDP(UserName As String, Optional KeepSession As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
+
+
+    '1. `UserName`から、Excelテーブルからハンドル情報を取得
+    Dim PreviousSocket As Boolean
+    PreviousSocket = deserialize(UserName)
+
+    '2. セッションキープに応じて分岐
+    If KeepSession Then
+        '2-1 .Excelテーブルから、取れてない場合はエラー停止
+        If Not PreviousSocket Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+        '2-2. ハンドル情報自体は取れたのでここで抜ける
+        printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
+        Exit Sub
+    Else
+        '2-1 .Excelテーブルから取れた場合は一応、切断しておく
+        If PreviousSocket Then DisconnectCDP
+    End If
+
+    '3. 接続試行
+    If Not AutoConnectDevToolsActivePort(UserName) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`DevToolsActivePort`関連の処理
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：接続成功可否
+'* 引数    ：UserName       利用者識別名称
+'***************************************************************************************************
+Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
@@ -1314,10 +1344,9 @@ End Sub
 '* 返り値  ：設定の読み取りができたかの論理値
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
-'* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
-'            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
+'* 注意事項：ソケットの生存チェックは、`isAvailability`で確認してください
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Boolean
+Private Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
