@@ -175,7 +175,6 @@ Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た�
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
-Private UserDataDirName     As String           '使用ブラウザユーザ名
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -359,24 +358,29 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserType        ブラウザタイプ
-'            FirstURL           `-app`に渡すURL
-'            UserName           記録する識別名称
+'* 返り値　：起動時の初期URL
+'* 引数　　：UserName           記録する識別名称
+'            BrowserType        ブラウザタイプ
+'            appUrl             `-app`に渡すURL
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
-'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`Start○○`プロシージャで、CDPかBiDiで制御を開始します
+'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String)
+Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
 
 
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
+
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPHost
+    Dim ReadyCDP As New CDPHost
+    With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        UserDataDirName = userProfile
-        .InitInfo userProfile, BrowserType, False
+        .InitInfo UserName, BrowserType, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -392,7 +396,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
 
         '1-6. コマンドラインを生成
         ' ブラウザexeフルパス
-        ' デバッグ方法
+        ' デバッグ方法(ここでは`Port`方式)
         ' データ保存先
         ' 初期URL
         ' 追加引数
@@ -400,7 +404,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl, False), _
+                                    .GenerateArgApp(appUrl, SplashScreenMode), _
                                     addArgs))
 
         '2. 実際に起動を行います
@@ -422,8 +426,23 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
     End With
 
     '7. 接続
-    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-End Sub
+    '※内部で、ブラウザセッションWinSock情報をExcelのテーブルに、記録します
+    If Not ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+
+    '8. 初期URLとして返却します
+    If LenB(appUrl) Then
+        If SplashScreenMode Then
+            'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
+            ConnectCDPWithLocalBrowser = ReadyCDP.GetSplashHtmlText(appUrl)
+        Else
+            'スプラッシュ画面なしなので、`appUrl`そのまま
+            ConnectCDPWithLocalBrowser = appUrl
+        End If
+    Else
+        '未指定:--homepage "about:blank" なので、"about:blank"で返却
+        ConnectCDPWithLocalBrowser = EmptyPageName
+    End If
+End Function
 
 
 
