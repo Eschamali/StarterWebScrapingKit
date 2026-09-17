@@ -1151,13 +1151,12 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
-'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
-Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext As Boolean, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
 
 
@@ -1189,22 +1188,8 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
     Dim browserID As String
     browserID = Right$(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos)
 
-    '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
-    If ReuseContext Then
-        '5-1. Excelテーブルからメインタブ情報を取得
-        Dim tmp As Dictionary
-        Set tmp = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
-
-        '5-2. データ有無チェック
-        If Not tmp Is Nothing Then
-            '6. あったらその情報を適用し、抜ける
-            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), port, Host)
-            Exit Function
-        End If
-    End If
-
-    '6. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , port, Host)
+    '5. そのパラメーターで接続
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1268,22 +1253,8 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
     If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
-    '3. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
-    If ReuseContext Then
-        '4. Excelテーブルからメインタブ情報を取得
-        Dim tmpRe As Dictionary
-        Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
-    
-        '5. データ有無チェック
-        If Not tmpRe Is Nothing Then
-            '6. あったらその情報を適用し、抜ける
-            AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(DevToolsActivePortInfo(0)))
-            Exit Function
-        End If
-    End If
-
-    '7. 接続
-    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0)))
+    '3. 接続
+    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
 End Function
 
 '***************************************************************************************************
