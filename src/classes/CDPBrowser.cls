@@ -151,25 +151,42 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Sub start(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
+Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, _
-    Optional addArgs As String)
+    Optional addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. パイプ関連の初期化処理しついでに、起動完了までのタイム測定もしちゃう
+    '1. ログパラメーター準備
     Set PipeCore = New CDPCore
     CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
+
+    '2. ローカルブラウザ起動完了までのタイマー測定準備
     Dim timeStart As Double
     timeStart = CDPHelpers.TimerCounter
 
-    '2. Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+    '3. 起動モードに応じた分岐
     br.User = userProfile
-    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
+    If ShSetting01_StartBrowser.UseRangeID(14, FromProcedureName) Then
+        '3-1. WebSocketとして起動
+        '※内部で、 Excelテーブルにユーザー名に紐づくWinSock情報が取れちゃったら、新規起動なのでClose処理してくれます
+        Dim WebSocketCore As New CDPCoreViaWebSocket
+        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, Name, appUrl, SplashScreenMode, addArgs)
 
-    '3. 起動依頼
-    br.CallString = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, SplashScreenMode, addArgs)
+        '3-2. 辻褄合わせで、接続情報パラメーターを適用
+        PipeCore.deserialize (br.User)
+
+        '3-3. WebSocketモードとして切り替え
+        Set PipeCore.WebSocketMode = WebSocketCore
+    Else
+        '3-1. Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+        If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
+
+        '3-2. Pipeとして起動
+        '内部で、接続情報パラメーターが適用されます
+        start = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, SplashScreenMode, addArgs)
+    End If
 
     '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
@@ -177,7 +194,7 @@ Public Sub start(SplashScreenMode As Boolean, Optional Name As BrowserList = Bro
     '5. ブラウザステータス表示
     printParams
     printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　：`targetCreated/targetInfoChanged/targetDestroyed`の3種の非同期イベントを流しつつ、Context のカウントも行います
