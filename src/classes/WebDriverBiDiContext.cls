@@ -62,17 +62,74 @@ Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
-    '1. 初期化処理
+    '1. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
     Set m_BiDiMode = New WebDriverBiDiMode
+    m_BiDiMode.StartBiDiMode True, Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest   'レースコンディション対策としてスプラッシュ画面モードにしておく
 
-    '2. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
-    m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest
-
-    '3. イベントを継承
+    '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
-    '4. タブの接続へ
-    attachToContext
+    '3. Complete initialization ------------------------------------------------------
+    attachToContext appUrl                          'Find and attach the newly open Session ID
+    m_BiDiMode.serializeMainTab = InfoList.context  'Excelのテーブルにメインコンテキストとして記録させる
+    '------------------------------------------------------------------------------
+
+    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(appUrl) Then navigate appUrl
+    '-------------------------------------------------------------------------------------------------------------------------------------
+
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
+'***************************************************************************************************
+Private Sub attachToContext(appUrl As String)
+    Const FromProcedureName As String = ThisClassName & ".attachToContext"
+
+
+    '1. 'browsingContext.contextCreated`を収集できるように初期化
+    Dim FirstTabs As Collection
+    Set FirstTabs = New Collection                  '箱を用意して
+    Set m_BiDiMode.RunCollect_InfoList = FirstTabs  'それを、ブラウザに渡して
+    m_BiDiMode.EnableDiscoverContexts = True        '購読開始
+    printMsg info_, "Now looking for the browser window", FromProcedureName
+
+    '2. 検索URLを作成
+    Dim SearchURL As String
+    Dim SplashApp As New CDPHost
+    If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
+
+    '3. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
+    Dim result
+    Dim boolFound As Boolean, FirstTab As BiDiCDPJson
+    For Each result In FirstTabs
+        '3-1. Jsonパース処理
+        Set FirstTab = BiDiCDPJson.Parse(CStr(result)).NodeKey("params")
+
+        '3-2. URL検索で、目的のページを見つける
+        '※Tree情報となってるがTOP層(普段目にするタブとして)の接続しか考慮しないことにする
+        If IsNull(FirstTab("parent")) And FirstTab("url") = SearchURL Then
+            With InfoList
+                boolFound = True
+
+                '必要な制御パラメーターを付与し、抜ける
+                .context = FirstTab.StringKey("context")
+                .Url = FirstTab("url")
+            End With
+            Exit For
+        End If
+    Next
+
+    '5. `context`が取れてない場合は停止
+    If boolFound Then
+        printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
+    Else
+        printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
+    End If
+
+    '6. 後始末
+    Set m_BiDiMode.RunCollect_InfoList = Nothing
+
 End Sub
 
 
@@ -600,50 +657,6 @@ Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
     If till = ReadyState.Nowait Then ExecuteBiDiAsync "browsingContext.navigate", BiDiparams Else ExecuteBiDi "browsingContext.navigate", BiDiparams
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
-'***************************************************************************************************
-Private Sub attachToContext()
-    Const FromProcedureName As String = ThisClassName & ".attachToContext"
-
-
-    '1. 箱を用意
-    Dim FirstTabs As Collection: Set FirstTabs = New Collection
-
-    '2. その箱を渡す
-    Set m_BiDiMode.RunCollect_InfoList = FirstTabs
-
-    '3. 購読処理
-    m_BiDiMode.EnableDiscoverContexts = True
-
-    '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
-    Dim tmp
-    Dim FirstTab As BiDiCDPJson
-    For Each tmp In FirstTabs
-        '4-1. Jsonパース処理
-        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
-
-        '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
-        If IsNull(FirstTab("parent")) Then
-            With InfoList
-                .context = FirstTab.StringKey("context")
-                .Url = FirstTab("url")
-            End With
-
-            '4-3. Excelに記録
-            m_BiDiMode.serializeMainTab = InfoList.context
-            printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
-            Exit For
-        End If
-    Next
-
-    '5. 後始末
-    Set m_BiDiMode.RunCollect_InfoList = Nothing
-
-    '6. `context`が取れてない場合は停止
-    If StrPtr(InfoList.context) = 0 Then printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
-End Sub
-
 
 
 '***************************************************************************************************
@@ -749,8 +762,18 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：ページ読み込み状況を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
 '***************************************************************************************************
-Property Get PageReadyState() As ReadyState
+Property Get PageReadyState(Optional refresh As Boolean) As ReadyState
+    If refresh Then
+        '1. 今の読み込み状況をチェック
+        Dim readyStateStr As String
+        readyStateStr = jsEval("document.readyState")
+
+        '2. 値に変換
+        InfoList.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+    End If
     PageReadyState = InfoList.ReadState
 End Property
 

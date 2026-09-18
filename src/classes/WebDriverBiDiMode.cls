@@ -57,13 +57,14 @@ Private GoogChannel     As String       '処理のセクション枠目印用に
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
+'* 引数　　：SplashScreenMode               `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`WebDriverBiDiContext.StartBiDiModeAndConnectTab`で呼び出すことを想定します
+'            Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl                         最初の起動時に遷移したいURL
 '            userProfile                    UserDataDir名を指定します
 '            addArgs                        追加の起動引数を設けます
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
+Public Sub StartBiDiMode(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
@@ -74,7 +75,7 @@ Public Sub StartBiDiMode(Optional Name As BrowserList = BrowserList.RunChrome, _
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi Name, appUrl, BiDiUserName, addArgs
+    m_BiDiCore.InitBiDi SplashScreenMode, Name, appUrl, BiDiUserName, addArgs
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する

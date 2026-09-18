@@ -472,28 +472,35 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ WebSocket経由版Demo ■■■
+'                       ■■■ 起動済みWebSocketブラウザ経由版Demo ■■■
 '***************************************************************************************************
-'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
-'---------------------------------------------------------------------------------------------------
+'* 機能　　：ブラウザ単位としてWebSocket接続を行います
+'-------------------------------------------------------------------------------------------------
+'* 詳細説明：このDemoは主に、ローカルブラウザ以外での接続方法について学べます
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
 '            ・事前に、デバッグブラウザの起動を済ませる必要があります
-'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
+'            ・WebDriverBiDiの場合は、ブラウザ単位として接続を済ませる必要があります。`AutoConnectPageCDP`では機能しません
 '***************************************************************************************************
-Sub SetupWebSocketMode()
-    '1. WebSocket制御で、ブラウザを起動
-    Dim m As New WebDriverBiDiMode
-    Set m = ShSetting01_StartBrowser.StartBiDiMode(WebSocketMode:=True)
+Sub AutoConnectBrowser()
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 新しいタブに接続
+    '2. 指定のWebSocketForCDPへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketChromium As New WebDriverBiDiMode
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+    WebSocketChromium.reattach UserName, , WebSocketCDP
+
+    '3. 未接続のタブに接続
     Dim c As WebDriverBiDiContext
-    Set c = m.newTab(setMain:=True)
+    Set c = WebSocketChromium.getTab(setMain:=True)
 
-    '3．別ページに遷移
+    '4. ページ遷移
     c.navigate "https://www.youtube.com/@islandfox6864"
 
-    '4. 終了
-    m.quit
+    '5. 終了
+    WebSocketChromium.quit
 End Sub
 
 

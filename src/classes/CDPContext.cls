@@ -286,28 +286,27 @@ End Function
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            addArgs        追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String)
+Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
+
     '1. ブラウザ起動
+    Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, userProfile, addArgs
+    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToSession appUrl  'Find and attach the newly open Session ID
-    getSessionInfo          'Store initial session info for printParams debugging
-    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID
+    InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
+    getSessionInfo                                                  'Store initial session info for printParams debugging
+    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
     '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
@@ -320,7 +319,7 @@ Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChro
 
 End Sub
 
-Private Sub attachToSession(appUrl As String)
+Private Sub InitAttachToSession(InitURL As String)
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
 ' This function attaches to a session of the browser.
@@ -329,39 +328,30 @@ Private Sub attachToSession(appUrl As String)
 ' Note: if needed to read the returned message result from sendMessage,
 ' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".attachToSession"
+    Const FromProcedureName As String = ThisClassName & ".InitAttachToSession"
 
-
-    Dim FirstTabs As Collection
-    Dim result
-
-    Dim strKey As Variant
 
     On Error GoTo ifError
 
-
-    '`Target.targetCreated`を収集できるように初期化
-    Set FirstTabs = New Collection
-1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
-    BrowserCore.EnableDiscoverTargets = True
+    '1. `Target.targetCreated`を収集できるように初期化
+    Dim FirstTabs As Collection
+    Set FirstTabs = New Collection                          '箱を用意して
+1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs    'それを、ブラウザに渡して
+    BrowserCore.EnableDiscoverTargets = True                '購読開始
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
-    '検索URLを作成
-    Dim SearchURL As String
-    Dim SplashApp As New CDPHost
-    If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
-
-   'Read message to confirm the requested url is found
+   '2. Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
+    Dim result
     Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
-        ' 1. 文字列をパース
+        ' 2-1. 文字列をパース
         Set doc = BiDiCDPJson.Parse(CStr(result))
 
-        ' 2. 必要なノードを安全に辿る
+        ' 2-2. 必要なノードを安全に辿る
         If doc.ExistsKey("params") Then
             ' NodeKey で階層を降り、targetInfo の存在を確認
             With doc.NodeKey("params")
@@ -370,7 +360,7 @@ Private Sub attachToSession(appUrl As String)
                     With .NodeKey("targetInfo")
                         '目的のページを見つける
                         '※`title`では稀に空欄になるので、`url`で特定させる
-                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = SearchURL Then
+                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = InitURL Then
                             boolFound = True
 
                             '必要な制御パラメーターを付与し、抜ける
@@ -404,7 +394,6 @@ ifError:
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
     printMsg Debug_, "result = " & result, FromProcedureName
-    printMsg Debug_, ".start call string: " & BrowserCore.CurrentBrowserPath, FromProcedureName
 
     printParams
     Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
@@ -420,6 +409,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
 Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
@@ -437,13 +427,15 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくWebSocket情報を再セット
-    BrowserCore.reattachWebSocket userProfile, WebSocketMode
+    BrowserCore.reattachWebSocket userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebSocket = reattach(reuseSession)
@@ -454,13 +446,15 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. WebView2情報を再セット
-    BrowserCore.reattachWebView2 userProfile, WebView2Mode
+    BrowserCore.reattachWebView2 userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebView2 = reattach(reuseSession)
@@ -1951,7 +1945,7 @@ Private Function getHandle() As LongPtr
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)        'To return Chrome / Edge window handles
+    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
     Do
         '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
         Dim currentPID As Long
@@ -1973,7 +1967,7 @@ Private Function getHandle() As LongPtr
         End If
 
         'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
 
     Loop Until hWnd = 0 ' no more matching windows
 
@@ -2083,10 +2077,20 @@ End Sub
 
 '***************************************************************************************************
 '* 機能　　：ページ読み込み状況を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
 '***************************************************************************************************
-Property Get PageReadyState() As ReadyState
+Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
+    If refresh Then
+        '1. 今の読み込み状況をチェック
+        Dim readyStateStr As String
+        readyStateStr = jsEval("document.readyState")
+
+        '2. 値に変換
+        brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+    End If
     PageReadyState = brTab.ReadState
-End Property
+End Function
 
 
 

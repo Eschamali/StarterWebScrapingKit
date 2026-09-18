@@ -175,7 +175,6 @@ Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た�
 Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
-Private UserDataDirName     As String           '使用ブラウザユーザ名
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
@@ -283,16 +282,13 @@ End Property
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
 '            Path           接続先パス      例：/devtools/page/8B4125AE4E31D852C475E291A9DE6D8C　※必ず「/」始まり！
-'            targetId       `Target.TargetInfo`の`targetId` ※既存のタブ情報を流用する場合は指定すること
-'            BiDiContext    WebDriverBiDiでのメインタブ情報 ※既存のタブ情報を流用する場合は指定すること
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：CDP準拠の引数構造です。基本は、`Path`のみで十分です
-'* 注意事項：・既存の接続がある場合は、切断されます
-'            ・`targetId`を指定した場合は、`CDPContext.cls`の`reattach`メソッドに適用して使用して下さい。省略時は、`CDPBrowser.cls`から
+'* 注意事項：既存の接続がある場合は、切断されます
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Path As String, Optional targetID As String, Optional BiDiContext As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function ConnectCDP(UserName As String, Path As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -327,8 +323,8 @@ Public Function ConnectCDP(UserName As String, Path As String, Optional targetID
     '8. WebSocketハンドシェイクの実行結果確認
     If Not ReadHandshakeResponse Then printMsg ERROR_, "The results of the WebSocket-`Chrome DevTools Protocol` handshake could not be confirmed.", FromProcedureName, doRaiseError:=True
 
-    '9. 設定情報を記録
-    serialize UserName, targetID, BiDiContext
+    '9. 接続したWinSock情報を記録
+    serialize UserName
 
     '10. 各種ステータスを更新
     m_IsConnected = True
@@ -362,24 +358,29 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：BrowserType        ブラウザタイプ
-'            FirstURL           `-app`に渡すURL
-'            UserName           記録する識別名称
+'* 返り値　：起動時の初期URL
+'* 引数　　：UserName           記録する識別名称
+'            BrowserType        ブラウザタイプ
+'            appUrl             `-app`に渡すURL
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
-'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`Start○○`プロシージャで、CDPかBiDiで制御を開始します
+'* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = BrowserList.RunChrome, Optional appUrl As String, Optional userProfile As String, Optional addArgs As String)
+Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
 
 
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
+
     '1. ブラウザ起動前に、いくつかチェックを行います
-    With New CDPHost
+    Dim ReadyCDP As New CDPHost
+    With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        UserDataDirName = userProfile
-        .InitInfo userProfile, BrowserType, False
+        .InitInfo UserName, BrowserType, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -395,7 +396,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
 
         '1-6. コマンドラインを生成
         ' ブラウザexeフルパス
-        ' デバッグ方法
+        ' デバッグ方法(ここでは`Port`方式)
         ' データ保存先
         ' 初期URL
         ' 追加引数
@@ -403,7 +404,7 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl), _
+                                    .GenerateArgApp(appUrl, SplashScreenMode), _
                                     addArgs))
 
         '2. 実際に起動を行います
@@ -425,8 +426,23 @@ Public Sub ConnectCDPWithLocalBrowser(Optional BrowserType As BrowserList = Brow
     End With
 
     '7. 接続
-    If Not ConnectCDP(userProfile, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-End Sub
+    '※内部で、ブラウザセッションWinSock情報をExcelのテーブルに、記録します
+    If Not ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+
+    '8. 初期URLとして返却します
+    If LenB(appUrl) Then
+        If SplashScreenMode Then
+            'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
+            ConnectCDPWithLocalBrowser = ReadyCDP.GetSplashHtmlText(appUrl)
+        Else
+            'スプラッシュ画面なしなので、`appUrl`そのまま
+            ConnectCDPWithLocalBrowser = appUrl
+        End If
+    Else
+        '未指定:--homepage "about:blank" なので、"about:blank"で返却
+        ConnectCDPWithLocalBrowser = EmptyPageName
+    End If
+End Function
 
 
 
@@ -1006,7 +1022,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                                 ■■■ 新規接続アシスト ■■■
+'                           ■■■ 既存ブラウザへの接続アシスト ■■■
 '***************************************************************************************************
 '* 機能　　：「/json/list」へアクセスして、利用可能なすべてのウェブソケットターゲットのリストのうち、引数に基づいた`Page`接続のWebSocket接続まで行います
 '---------------------------------------------------------------------------------------------------
@@ -1025,6 +1041,9 @@ End Sub
 Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, Optional Title As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectPageCDP"
 
+
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
 
     '1. タブ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
@@ -1112,8 +1131,19 @@ Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, O
         printMsg info_, "Found the tab with ID: " & tabId, FromProcedureName
     End If
 
-    '6. 見つけたパラメーターで、接続
-    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, tabId, , port, Host)
+    '------------------ 6. 見つけたタブ情報をExcelテーブルに記録 ------------------
+    '`CDPContext.reattach`を正しく機能させるために記録します
+    Dim PageInfo As New Dictionary
+    PageInfo.Add "targetID", tabId
+    PageInfo.Add "BiDi-context", vbNullString    'データ枠だけ確保
+    PageInfo.Add "sessionID", vbNullString       'データ枠だけ確保
+
+    'Excelテーブルに、タブ情報欄を確保する
+    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName) = PageInfo
+    '------------------------------------------------------------------------------
+
+    '7. 見つけたWebSocket情報で接続
+    AutoConnectPageCDP = ConnectCDP(UserName, "/devtools/page/" & tabId, port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1121,15 +1151,17 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
 '* 引数    ：UserName       利用者識別名称
-'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
 '            port           接続先ポート    例：9222
 '            Host           接続先IP        例：127.0.0.1
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
-Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext As Boolean, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
+Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = D_port, Optional Host As String = D_host) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectBrowserCDP"
 
+
+    '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
+    If deserialize(UserName) Then DisconnectCDP
 
     '1. ブラウザ単位でリクエストして、結果を取得
     Dim ResultRequest As WebResponse
@@ -1156,22 +1188,8 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext 
     Dim browserID As String
     browserID = Right$(webSocketDebuggerUrl, Len(webSocketDebuggerUrl) - StartPos)
 
-    '5. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
-    If ReuseContext Then
-        '5-1. Excelテーブルからメインタブ情報を取得
-        Dim tmp As Dictionary
-        Set tmp = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
-
-        '5-2. データ有無チェック
-        If Not tmp Is Nothing Then
-            '6. あったらその情報を適用し、抜ける
-            AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, tmp("targetID"), tmp("BiDi-context"), port, Host)
-            Exit Function
-        End If
-    End If
-
-    '6. そのパラメーターで接続
-    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, , , port, Host)
+    '5. そのパラメーターで接続
+    AutoConnectBrowserCDP = ConnectCDP(UserName, "/devtools/browser/" & browserID, port, Host)
 End Function
 
 '***************************************************************************************************
@@ -1216,15 +1234,45 @@ End Function
 '***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称　※省略時、普段使い(User Data)側での接続を試みます
-'            ReuseContext   `True`で、Excelテーブルにあるメインタブ情報を流用します
+'* 引数    ：UserName               利用者識別名称
+'            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
 '* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
-Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean
+Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
+
+
+    '1. `UserName`から、Excelテーブルからハンドル情報を取得
+    Dim PreviousSocket As Boolean
+    PreviousSocket = deserialize(UserName)
+
+    '2. セッションキープに応じて分岐
+    If ReuseWinSockHandle Then
+        '2-1 .Excelテーブルから、取れてない場合はエラー停止
+        If Not PreviousSocket Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+        '2-2. ハンドル情報自体は取れたのでここで抜ける
+        printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
+        Exit Sub
+    Else
+        '2-1 .Excelテーブルから取れた場合は一応、切断しておく
+        If PreviousSocket Then DisconnectCDP
+    End If
+
+    '3. 接続試行
+    If Not AutoConnectDevToolsActivePort(UserName) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：`DevToolsActivePort`関連の処理
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：接続成功可否
+'* 引数    ：UserName       利用者識別名称
+'***************************************************************************************************
+Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
@@ -1235,22 +1283,8 @@ Public Function AutoConnectDevToolsActivePort(Optional UserName As String = "Use
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
     If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
-    '3. 既存のメインタブ情報を流用する場合はそれの取得を試み、接続を行う
-    If ReuseContext Then
-        '4. Excelテーブルからメインタブ情報を取得
-        Dim tmpRe As Dictionary
-        Set tmpRe = ShSetting01_StartBrowser.TableBrowserContext(UserName, FromProcedureName)
-    
-        '5. データ有無チェック
-        If Not tmpRe Is Nothing Then
-            '6. あったらその情報を適用し、抜ける
-            AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), tmpRe("targetID"), tmpRe("BiDi-context"), CLng(DevToolsActivePortInfo(0)))
-            Exit Function
-        End If
-    End If
-
-    '7. 接続
-    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), , , CLng(DevToolsActivePortInfo(0)))
+    '3. 接続
+    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
 End Function
 
 '***************************************************************************************************
@@ -1277,60 +1311,18 @@ End Property
 
 
 '***************************************************************************************************
-'                       ■■■ ローカルブラウザへの新規接続アシスト ■■■
-'***************************************************************************************************
-'* 機能　　：`CDPBrowser`ブラウザ制御として準備します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
-'***************************************************************************************************
-Public Function StartCDPMode() As CDPBrowser
-    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
-
-
-    '1. 未接続の場合は止める
-    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
-
-    '2. ブラウザ単位として準備
-    Set StartCDPMode = New CDPBrowser
-    StartCDPMode.reattachWebSocket UserDataDirName, Me
-End Function
-
-'***************************************************************************************************
-'* 機能　　：`WebDriverBiDiMode`ブラウザ制御として準備します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に`RunWebSocketModeBrowser`による処理を済ませること
-'***************************************************************************************************
-Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
-    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
-
-
-    '1. 未接続の場合は止める
-    If Not m_IsConnected Then printMsg ERROR_, "Cannot proceed because there is no active WebSocket connection." & vbCrLf & "Please execute `ConnectCDPWithLocalBrowser` first.", FromProcedureName, doRaiseError:=True
-
-    '2. ブラウザ単位として準備
-    Set StartBiDiMode = New WebDriverBiDiMode
-    StartBiDiMode.reattach UserDataDirName, sessionCapabilitiesRequest, Me
-End Function
-
-
-
-'***************************************************************************************************
 '                            ■■■ 設定情報読み書き処理 ■■■
 '***************************************************************************************************
-'* 機能　　：接続情報をExcelテーブルに残します
+'* 機能　　：WinSock関連の接続情報をExcelテーブルに残します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       利用者識別名称
-'            targetId       `Target.TargetInfo`の`targetId`
-'            BiDiContext    WebDriverBiDiでのメインタブ情報
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプハンドルはソケット値で代用します。`hProcess` / `dwProcessId` は `Shell` 起動時のみ実値です
 '            ・ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String, targetID As String, BiDiContext As String)
-    '------------------ 1. パイプ情報の記録準備 ------------------
+Private Sub serialize(UserName As String)
+    '------------------ ソケット情報の記録 ------------------
     '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", 0
@@ -1343,16 +1335,6 @@ Private Sub serialize(UserName As String, targetID As String, BiDiContext As Str
 
     'Excelテーブルに、ハンドル情報を記録する
     Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
-
-
-    '------------------ 2. タブ情報の記録準備 ------------------
-    tmp.RemoveAll
-    tmp.Add "BiDi-context", BiDiContext
-    tmp.Add "sessionID", vbNullString   '新規でWebSocket接続する場合は、`SessionID`の使い回しができないので、未設定とする
-    tmp.Add "targetID", targetID
-
-    'Excelテーブルに、タブ情報欄を確保する
-    Set ShSetting01_StartBrowser.TableBrowserContext(UserName, "CDPCoreViaWebSocket.serialize") = tmp
 End Sub
 
 '***************************************************************************************************
@@ -1362,10 +1344,9 @@ End Sub
 '* 返り値  ：設定の読み取りができたかの論理値
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：WebSocketへの再接続の手間を減らす時にご利用ください。この場合、`SessionID`はKeepされます
-'* 注意事項：・ソケットの生存チェックは、`isAvailability`で確認してください
-'            ・うまくやり取りができない場合は、新規接続からやり直して下さい。まぁ、おまけ程度として
+'* 注意事項：ソケットの生存チェックは、`isAvailability`で確認してください
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Boolean
+Private Function deserialize(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 

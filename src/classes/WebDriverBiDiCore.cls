@@ -73,58 +73,57 @@ Private currentLog      As StateLog
 '***************************************************************************************************
 '* 機能　　：「BiDi-CDP Mapper」を付けた状態で、ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl                         最初の起動時に遷移したいURL
-'            userProfile                    UserDataDir名を指定します
-'            addArgs                        追加の起動引数を設けます
+'* 引数　　：SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
+'            Name               ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
+'            appUrl             最初の起動時に遷移したいURL
+'            userProfile        UserDataDir名を指定します
+'            addArgs            追加の起動引数を設けます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
+Public Sub InitBiDi(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
     Optional appUrl As String, _
     Optional userProfile As String, Optional addArgs As String)
 
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. まずは、ブラウザ起動
-    Set WebDriverBiDi_mapperTab = New CDPContext
-    With WebDriverBiDi_mapperTab
-        '1-1. 引数から設定を適用し一旦まずは、CDP-Tabとして起動
-        .StartAndConnectTab Name, appUrl, userProfile, addArgs
+    '1. 引数から設定を適用し、まずはCDP-browserとして起動
+    Set m_CDPBrowser = New CDPBrowser
+    m_CDPBrowser.start SplashScreenMode, Name, appUrl, userProfile, addArgs
 
-        '1-2. 操作に必要なオブジェクト、ログ情報を継承させる
-        Set m_CDPCore = .ThisCDPCore
-        Set m_CDPBrowser = .ThisCDPBrowser
-        CDPHelpers.InheritLogSettings currentLog, .ThisCDPCore.LogSettings
-    End With
+    '2. WithEventsClassオブジェクトを受け取る
+    Set m_CDPCore = m_CDPBrowser.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
-    '2. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi
+    '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
+    newTabForBiDi userProfile
 
-    '3. `BiDi-CDP Mapper`を始動させます
+    '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   Excelに記録させるメインセッション情報のユーザー名
+'---------------------------------------------------------------------------------------------------
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
-Private Sub newTabForBiDi()
+Private Sub newTabForBiDi(UserName As String)
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
-    '1. BiDi-新規タブ用に、各種パラメータを準備
+    '1. BiDi用に、各種パラメータ運用
     Dim params As New Dictionary
     params.Add "url", MapperURL     '目印用のURLを付与
     params.Add "background", True   'フォアグランドさせない
     If Not (BiDiDebug.ViewDebugTab) Then params.Add "hidden", Not (BiDiDebug.ViewDebugTab)  'タブを見せないか？
 
     With m_CDPBrowser
-        '2. 上記で用意したパラメータで、新しいタブを開き、`targetId`を取得
+        '2. そのパラメータで、新しいタブを開き、`targetId`を取得
         Dim tabId As String
         tabId = .ExecuteCDP("Target.createTarget", params).StringKey("targetId")
 
@@ -138,16 +137,29 @@ Private Sub newTabForBiDi()
         '4. 得た`targetId`で、`sessionId`を取得
         Dim sessionID As String
         sessionID = .attachToTab(tabId)
-
-        '5. Excelに、BiDiMapperTab情報を記録してメイン化しておく
-        .serializeForMainTab sessionID, tabId
     End With
 
-    '6. 4で得たSessionIDに上書き
-    '内部で以下のフローが行われます
-    '- 初期タブの`SessionID`を破棄し、4で得た`SessionID`として適用
-    '- `Target.getTargetInfo`で、ステータスを更新
-    WebDriverBiDi_mapperTab.CurrentSessionID = sessionID
+    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    With WebDriverBiDi_mapperTab
+        '5-1. このブラウザのパイプハンドル情報を渡す
+        Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
+
+        '5-2. このブラウザ情報を渡す
+        Set .ThisCDPBrowser = m_CDPBrowser
+
+        '5-3. 先ほど得た`sessionId`を渡す
+        '内部で以下のフローが行われます
+        '- `Target.getTargetInfo`で、ステータスを更新
+        .CurrentSessionID = sessionID
+    End With
+
+    '6. Excelに、BiDiMapperTab情報を記録してメイン化しておく
+    '※リアタッチを想定して、既存のメインBiDi-context情報を上書きしないようにUpdateメソッドとして使う
+    With ShSetting01_StartBrowser
+        .UpdateBrowserContext(UserName, "targetID", FromProcedureName) = tabId
+        .UpdateBrowserContext(UserName, "sessionID", FromProcedureName) = sessionID
+    End With
 
     '7. ログ化
     printMsg Debug_, "Ready `BiDi-CDP Mapper`... (ViewTab: " & BiDiDebug.ViewDebugTab & ")", FromProcedureName
@@ -221,6 +233,7 @@ End Sub
 '* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
+'            ・`SessionID`は常に更新させます
 '***************************************************************************************************
 Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
@@ -234,7 +247,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     If WebSocketMode Is Nothing Then
         mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
     Else
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, WebSocketMode)
+        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, ConnectInfo:=WebSocketMode)
     End If
 
     '3. 各種オブジェクトを継承
@@ -287,7 +300,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
-        newTabForBiDi
+        newTabForBiDi userProfile
 
         '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
