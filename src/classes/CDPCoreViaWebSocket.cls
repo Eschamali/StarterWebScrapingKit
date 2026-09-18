@@ -360,7 +360,6 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
 '* 引数　　：UserName           記録する識別名称
-'            BrowserType        ブラウザタイプ
 '            appUrl             `-app`に渡すURL
 '            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
@@ -369,7 +368,7 @@ End Function
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
 
 
@@ -377,10 +376,10 @@ Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As Br
     If deserialize(UserName) Then DisconnectCDP
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    Dim ReadyCDP As New CDPHost
+    Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, BrowserType, False
+        .InitInfo UserName, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
