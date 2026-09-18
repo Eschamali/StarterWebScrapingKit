@@ -446,14 +446,15 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
 '            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. WebView2情報を再セット
-    BrowserCore.reattachWebView2 userProfile, WebView2Mode
+    BrowserCore.reattachWebView2 userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebView2 = reattach(reuseSession)
