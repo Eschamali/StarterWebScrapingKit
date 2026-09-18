@@ -782,6 +782,7 @@ Function execBot2()
 
     Dim e2 As CDPContext
     Set e2 = ShSetting01_StartBrowser.StartCDPModeContext(SwitchUser:="CDP2")
+    e2.TimeOutSecond = 120  'ページそのものが重いため、長めにする
     e2.navigate "https://finance.yahoo.com"
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
@@ -797,6 +798,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
 
@@ -812,20 +815,34 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、ブラウザの接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
 '            ・ブラウザのパイプハンドルが生きてない場合は、VBAエラーになります。`demoReattachmentPart1`からやり直しです
+'            ・通信経路に応じた記述分岐が必要です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
     Dim c As New CDPBrowser
-    Dim r As CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
 
-    '1. Excelに記録されてるパイプハンドル情報から復旧を試みる
-    c.reattachPipe UserName
+        '1. Excelに記録されてるハンドル情報から復旧を試みる
+        '設定モードに応じた分岐
+        If .isPipeRemote Then
+            '1-1. Pipeモードで復帰
+            c.reattachPipe UserName
+        Else
+            '1-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '1-2. 接続したWebSocketオブジェクトを渡して復帰
+            c.reattachWebSocket UserName, CDPws
+        End If
+    End With
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Dim r As CDPContext
     Set r = c.getTab(setMain:=True)
 '    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
 
@@ -842,12 +859,26 @@ Sub demoReattachmentPart2ForTab()
     Dim c As New CDPContext
 
     '設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .CurrentUserName
 
-    '1. Excelに記録されてる`TargetID`の生存確認
-    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-    If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        '1. Excelに記録されてる`TargetID`の生存確認
+        '設定モードに応じた分岐
+        If .isPipeRemote Then
+            '1-1. Pipeで再接続
+            '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+            If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        Else
+            '1-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '1-2. 接続したWebSocketオブジェクトを渡して復帰
+            '※第3引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+            If Not c.reattachWebSocket(UserName, CDPws, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        End If
+    End With
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
@@ -856,20 +887,20 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ WebSocket経由版Demo ■■■
+'                       ■■■ 起動済みWebSocketブラウザ経由版Demo ■■■
 '***************************************************************************************************
-'* 機能　　：`--remote-debugging-port`や「edge://inspect/#remote-debugging」に接続する際の簡易Demoです
-'---------------------------------------------------------------------------------------------------
-'* 詳細説明：タブへ接続します
+'* 機能　　：タブ単位としてWebSocket接続を行います
+'-------------------------------------------------------------------------------------------------
+'* 詳細説明：このDemoは主に、既に起動中のデバックブラウザでの接続方法について学べます
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
-'            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'            ・事前に、`port=9222`でデバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
 Sub AutoConnectTab()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 指定のWebSocketForCDPへ接続
+    '2. 指定のWebSocketForCDP-pageへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
@@ -885,40 +916,61 @@ Sub AutoConnectTab()
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：ローカルブラウザ起動から一通りの制御を行います
+'* 機能　　：ブラウザ単位としてWebSocket接続を行います
+'-------------------------------------------------------------------------------------------------
+'* 詳細説明：このDemoは主に、既に起動中のデバックブラウザでの接続方法について学べます
+'* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
+'            ・事前に、`port=9222`でデバッグブラウザの起動を済ませる必要があります
 '***************************************************************************************************
 Sub AutoConnectBrowser()
-    '1. WebSocket制御で、ブラウザを起動
-    Dim BrowserControl As CDPBrowser
-    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 未接続のタブに接続
+    '2. 指定のWebSocketForCDP-browserへ接続
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    Dim WebSocketChromium As New CDPBrowser
+    WebSocketChromium.reattachWebSocket UserName, WebSocketCDP
+
+    '4. 新規タブに接続
     Dim t As CDPContext
-    Set t = BrowserControl.getTab(setMain:=True)
+    Set t = WebSocketChromium.newTab(setMain:=True)
 
-    '3. ページ遷移
+    '5. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '4. 終了
-    BrowserControl.quit
+    '6. 終了
+    WebSocketChromium.quit
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：今、目の前のブラウザを制御します
+'* 機能　　：「DevToolsActivePort」ファイルモードで起動したブラウザに対するWebSocket接続を行います
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：「DevToolsActivePort」ファイルモードは、下記のいずれかで使用されます。それを利用したDemoとなります
+'            ・`remote-debugging-port=0`で起動したブラウザ
+'            ・「edge://inspect/#remote-debugging」にて、リモートデバッグを許可する
+'
+'            [!NOTE]
+'            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`ReConnectCDP`の第2引数を`True`にして再度処理をすると、
+'            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
+'
+'* 注意事項：「edge://inspect/#remote-debugging」にて事前準備が必要です
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '1. 指定のWebSocketForCDPへ接続
-    '※「edge://inspect/#remote-debugging」にて事前準備が必要です
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectDevToolsActivePort
+    WebSocketCDP.ReConnectCDP "User Data"
 
     '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
     b.reattachWebSocket "User Data", WebSocketCDP
 
-    '3. 未接続のタブに接続
+    '3. 新規タブに接続
     Dim t As CDPContext
-    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
+    Set t = b.newTab(setMain:=True) '※既存タブからでもOK
 
     '4. ページ遷移
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
