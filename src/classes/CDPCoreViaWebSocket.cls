@@ -1276,7 +1276,7 @@ Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
 
 
     '1. `DevToolsActivePort`のファイルパスを特定
-    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
 
     '2. 情報があるか？
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
@@ -1388,8 +1388,8 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                   'ユニークID
-        currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)          'ログフォルダパス
+        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
+        currentLog.logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)   'ログフォルダパス
     End With
 
     '蓄積用バイト配列バッファーの初期化
@@ -1404,7 +1404,7 @@ Private Sub Class_Initialize()
     End With
 
     '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
-    setShowWindow = ShSetting01_StartBrowser.UseRangeID(12, FromProcedureName)
+    setShowWindow = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()
