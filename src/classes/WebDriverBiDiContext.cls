@@ -68,7 +68,7 @@ Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As 
     Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToContext appUrl                          'Find and attach the newly open Session ID
+    InitAttachToContext InitURL                     'Find and attach the newly open Session ID
     m_BiDiMode.serializeMainTab = InfoList.context  'Excelのテーブルにメインコンテキストとして記録させる
     '------------------------------------------------------------------------------
 
@@ -81,8 +81,8 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
 '***************************************************************************************************
-Private Sub attachToContext(appUrl As String)
-    Const FromProcedureName As String = ThisClassName & ".attachToContext"
+Private Sub InitAttachToContext(InitURL As String)
+    Const FromProcedureName As String = ThisClassName & ".InitAttachToContext"
 
 
     '1. 'browsingContext.contextCreated`を収集できるように初期化
@@ -92,21 +92,16 @@ Private Sub attachToContext(appUrl As String)
     m_BiDiMode.EnableDiscoverContexts = True        '購読開始
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
-    '2. 検索URLを作成
-    Dim SearchURL As String
-    Dim SplashApp As New CDPHost
-    If LenB(appUrl) Then SearchURL = SplashApp.GetSplashHtmlText(appUrl) Else SearchURL = EmptyPageName
-
-    '3. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
+    '2. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
     Dim result
     Dim boolFound As Boolean, FirstTab As BiDiCDPJson
     For Each result In FirstTabs
-        '3-1. Jsonパース処理
+        '2-1. Jsonパース処理
         Set FirstTab = BiDiCDPJson.Parse(CStr(result)).NodeKey("params")
 
-        '3-2. URL検索で、目的のページを見つける
+        '2-2. URL検索で、目的のページを見つける
         '※Tree情報となってるがTOP層(普段目にするタブとして)の接続しか考慮しないことにする
-        If IsNull(FirstTab("parent")) And FirstTab("url") = SearchURL Then
+        If IsNull(FirstTab("parent")) And FirstTab("url") = InitURL Then
             With InfoList
                 boolFound = True
 
@@ -118,14 +113,14 @@ Private Sub attachToContext(appUrl As String)
         End If
     Next
 
-    '5. `context`が取れてない場合は停止
+    '3. `context`が取れてない場合は停止
     If boolFound Then
         printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
     Else
         printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
     End If
 
-    '6. 後始末
+    '4. 後始末
     Set m_BiDiMode.RunCollect_InfoList = Nothing
 
 End Sub
