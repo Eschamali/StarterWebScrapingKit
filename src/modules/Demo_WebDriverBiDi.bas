@@ -411,6 +411,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
@@ -431,11 +433,20 @@ End Sub
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
+
+        'WebSocketで起動した場合はその再接続処理を試みます
+        '設定モードに応じた分岐
+        If Not .isPipeRemote Then
+            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            BiDiWS.ReConnectCDP UserName
+        End If
+    End With
 
     '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
-    If Not Reattachment.reattach(UserName) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+    If Not Reattachment.reattach(UserName, , BiDiWS) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -459,11 +470,20 @@ End Sub
 Sub demoReattachmentPart2ForTab()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
+
+        'WebSocketで起動した場合はその再接続処理を試みます
+        '設定モードに応じた分岐
+        If Not .isPipeRemote Then
+            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            BiDiWS.ReConnectCDP UserName
+        End If
+    End With
 
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiContext
-    If Not Reattachment.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
+    If Not Reattachment.reattach(UserName, , BiDiWS) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
     '別ページに遷移
     Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
