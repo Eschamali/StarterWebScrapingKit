@@ -405,7 +405,7 @@ Private Sub serializeToTable(TableName As String, UserName As String, ErrorSourc
     Dim i As Long, KeyName, columnIndex As Long
     For Each KeyName In InputData.keys
         '5-1. Keyから列位置を特定
-        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
+        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名 or テーブル列名が間違ってる可能性あり
 
         '5-2. その位置の配列に適用
         SetArray(columnIndex - 1) = InputData(KeyName) '※0始まりなので補正
