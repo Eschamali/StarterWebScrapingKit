@@ -639,8 +639,8 @@ End Function
 '***************************************************************************************************
 Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
     'リクエストパラメーターを設定する
-    Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
-    With リクエスト情報一式
+    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
+    With HttpRequestInfos
         'GET
         .Method = vbWebHttpGet
 
@@ -654,7 +654,7 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
     End With
 
     'リクエストして、結果を返す
-    With jsDelivrへリクエスト(リクエスト情報一式, True)
+    With RequestToJsDelivr(HttpRequestInfos, True)
         '200確認
         If .StatusCode = vbWebStatusOk Then
             'テーブルに置く作業
@@ -685,8 +685,8 @@ Public Function UpdateCheckNPMVersion() As String
     Dim ResultResponse As WebResponse
 
     'リクエストパラメーターを設定する
-    Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
-    With リクエスト情報一式
+    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
+    With HttpRequestInfos
         'GET
         .Method = vbWebHttpGet
 
@@ -698,7 +698,7 @@ Public Function UpdateCheckNPMVersion() As String
     End With
 
     'リクエストして、結果を返す
-    With jsDelivrへリクエスト(リクエスト情報一式, False)
+    With RequestToJsDelivr(HttpRequestInfos, False)
         '200確認
         If .StatusCode = vbWebStatusOk Then
             UpdateCheckNPMVersion = .Data("tags")("latest")
@@ -716,7 +716,7 @@ End Function
 '            GetContents                        `True` :ファイルそのもの用のホストととして
 '                                               `False`:バージョン確認用のホストととして
 '***************************************************************************************************
-Private Function jsDelivrへリクエスト(リクエスト情報一式 As WebRequest, GetContents As Boolean) As WebResponse
+Private Function RequestToJsDelivr(HttpRequestInfos As WebRequest, GetContents As Boolean) As WebResponse
     'エンドポイント通信の設定
     Dim EndPointAPI As New WebClient
     With EndPointAPI
@@ -726,7 +726,7 @@ Private Function jsDelivrへリクエスト(リクエスト情報一式 As WebRe
     End With
 
     'リクエスト設定とホスト設定を使ってリクエストし、結果を返します
-    Set jsDelivrへリクエスト = EndPointAPI.Execute(リクエスト情報一式)
+    Set RequestToJsDelivr = EndPointAPI.Execute(HttpRequestInfos)
 End Function
 
 
