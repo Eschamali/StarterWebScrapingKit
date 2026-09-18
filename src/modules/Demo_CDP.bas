@@ -798,6 +798,8 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
 
@@ -813,20 +815,34 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・あくまでも、ブラウザの接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
 '            ・ブラウザのパイプハンドルが生きてない場合は、VBAエラーになります。`demoReattachmentPart1`からやり直しです
+'            ・通信経路に応じた記述分岐が必要です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
     Dim c As New CDPBrowser
-    Dim r As CDPContext
 
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
 
-    '1. Excelに記録されてるパイプハンドル情報から復旧を試みる
-    c.reattachPipe UserName
+        '1. Excelに記録されてるハンドル情報から復旧を試みる
+        '設定モードに応じた分岐
+        If .isPipeRemote Then
+            '1-1. Pipeモードで復帰
+            c.reattachPipe UserName
+        Else
+            '1-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '1-2. 接続したWebSocketオブジェクトを渡して復帰
+            c.reattachWebSocket UserName, CDPws
+        End If
+    End With
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
+    Dim r As CDPContext
     Set r = c.getTab(setMain:=True)
 '    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
 
@@ -843,12 +859,26 @@ Sub demoReattachmentPart2ForTab()
     Dim c As New CDPContext
 
     '設定セルから、ユーザ名を取得
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        Dim UserName As String
+        UserName = .CurrentUserName
 
-    '1. Excelに記録されてる`TargetID`の生存確認
-    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-    If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        '1. Excelに記録されてる`TargetID`の生存確認
+        '設定モードに応じた分岐
+        If .isPipeRemote Then
+            '1-1. Pipeで再接続
+            '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+            If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        Else
+            '1-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '1-2. 接続したWebSocketオブジェクトを渡して復帰
+            '※第3引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+            If Not c.reattachWebSocket(UserName, CDPws, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+        End If
+    End With
 
     '2．再接続できたので、別ページに遷移して終了
     c.navigate "https://kemono-friends-20170110.jp/"
