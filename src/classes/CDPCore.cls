@@ -248,12 +248,11 @@ Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
 '* 引数　　：UserName           記録する識別名称
-'            BrowserType        ブラウザタイプ
 '            appUrl             `-app`に渡すURL
 '            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
 '***************************************************************************************************
-Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
 
 
@@ -261,10 +260,10 @@ Public Function RunPipeModeBrowserCDP(UserName As String, BrowserType As Browser
     If deserialize(UserName) Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    Dim ReadyCDP As New CDPHost
+    Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, BrowserType, True
+        .InitInfo UserName, True
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy

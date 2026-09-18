@@ -67,11 +67,9 @@ Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP
 Attribute PipeCore.VB_VarHelpID = -1
 
 '操作中のブラウザ情報一式
-'※`reattach`系から始めた場合は一部の情報は取り出せません
 Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
-    Path        As String   'Browser default installation path
     Ver         As String   'The current browser version
 End Type
 Private br As StateBrowser
@@ -122,10 +120,9 @@ End Function
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            Name               ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl             起動引数：`--app`　につけるURLを指定します
-'            userProfile        起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
+'* 引数　　：userProfile        起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
+'            appUrl             起動引数：`--app`につけるURLを指定します
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
 '            addArgs            追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
@@ -151,10 +148,7 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String) As String
+Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
@@ -171,7 +165,7 @@ Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList 
     If ShSetting01_StartBrowser.UseRangeID(14, FromProcedureName) Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, Name, appUrl, SplashScreenMode, addArgs)
+        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, appUrl, SplashScreenMode, addArgs)
 
         '3-2. 辻褄合わせで、接続情報パラメーターを適用
         PipeCore.deserialize (br.User)
@@ -181,7 +175,7 @@ Public Function start(SplashScreenMode As Boolean, Optional Name As BrowserList 
     Else
         '3-1. Pipeとして起動
         '※内部で、接続情報パラメーターが適用されます
-        start = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, SplashScreenMode, addArgs)
+        start = PipeCore.RunPipeModeBrowserCDP(br.User, appUrl, SplashScreenMode, addArgs)
     End If
 
     '4. 起動中のブラウザ情報を変数に記録
@@ -1172,7 +1166,6 @@ Public Sub printParams()
 
     printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
     printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Browser Path      | brPath       | " & br.Path, FromProcedureName
     printMsg Debug_, "Core StdInWr      | hStdInWr     | " & PipeCore.ConnectionPipe_hStdInWr, FromProcedureName
     printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & PipeCore.ConnectionPipe_hStdOutRd, FromProcedureName
     printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.ConnectionPipe_hStderrOutRd, FromProcedureName
@@ -1188,30 +1181,8 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
-    Const FromProcedureName As String = ThisClassName & ".getBrowserInfo"
-
-
     br.Type = ExecuteCDP("Browser.getVersion")("product")
     br.Ver = Split(br.Type, "/")(1)
-
-    'プロセスID情報がない場合は、ブラウザパスを取らない
-    If PipeCore.Connection_dwProcessId > 0 Then
-        '"Browser.getVersion"を基に、どういうブラウザかを特定する
-        Dim BrowserType As BrowserList
-
-        '1. タイプを特定
-        Select Case True
-            Case InStr(LCase(br.Type), "chrome"): BrowserType = RunChrome
-            Case InStr(LCase(br.Type), "edg"): BrowserType = RunEdge         'On edge it is just "Edg"
-            Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
-        End Select
-
-        '2. ブラウザパスの取得を試みる
-        With New CDPHost
-            .InitInfo br.User, BrowserType, False
-            br.Path = .getBrowserPath
-        End With
-    End If
 End Sub
 
 
@@ -1278,13 +1249,6 @@ End Property
 
 '***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザパス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserPath() As String
-    CurrentBrowserPath = br.Path
-End Property
-
 '***************************************************************************************************
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
 '***************************************************************************************************

@@ -30,12 +30,6 @@ Public Enum ReadyState      'Used for .wait method
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'起動する Chromium 系ブラウザ。`CDPHost` に置くと、こちらの `StateLog` と循環参照になる
-Public Enum BrowserList
-    RunEdge
-    RunChrome
-End Enum
-
 '各 Class のログ設定（`Private currentLog As StateLog`）。
 '`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
 Public Type StateLog
@@ -87,36 +81,6 @@ Private LogControl  As New Logger   'ログレベルの制御
 '***************************************************************************************************
 '                       ■■■ Enum → 文字列 変換プロシージャ ■■■
 '***************************************************************************************************
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] ブラウザ種別をexe名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_exeName(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_exeName = "chrome.exe"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_exeName = "msedge.exe"
-    End Select
-End Function
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] ポリシー情報のあるブラウザ種別を相対レジストリキーパス名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_RegPath = "\Google\Chrome"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_RegPath = "\Microsoft\Edge"
-    End Select
-End Function
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] 開発レベルのブラウザ種別を相対フォルダパス名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_BrowserPath = "\Google\Chrome"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge"
-    End Select
-End Function
-
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 待機の種類を文字列で返します
 '---------------------------------------------------------------------------------------------------

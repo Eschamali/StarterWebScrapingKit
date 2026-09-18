@@ -47,6 +47,12 @@ Private Declare PtrSafe Function OpenProcess Lib "kernel32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
+'起動する Chromium 系ブラウザ
+Private Enum BrowserList
+    RunEdge
+    RunChrome
+End Enum
+
 '===============レジストリ関連の定数===============
 ' ルートキー
 Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
@@ -69,9 +75,9 @@ Private Const SYNCHRONIZE                       As Long = &H100000
 Private Const SplashTitle               As String = "Starting CDP control from VBA..."
 
 'その他
-Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
-Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
-Private Const DebugModeSign             As String = "remote-debugging"
+Private Const ThisClassName             As String = "CDPHost"               'ログのトレース用
+Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"    'アクティブなデバックポート情報が記載されてるファイル名
+Private Const DebugModeSign             As String = "remote-debugging"      'デバッグブラウザサイン引数
 
 
 
@@ -102,18 +108,51 @@ Private currentLog      As StateLog
 
 
 '***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ブラウザ種別をexe名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_exeName(param As BrowserList) As String
+    Select Case param
+        Case BrowserList.RunChrome: EnumToStringBrowserList_exeName = "chrome.exe"
+        Case BrowserList.RunEdge:   EnumToStringBrowserList_exeName = "msedge.exe"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ポリシー情報のあるブラウザ種別を相対レジストリキーパス名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
+    Select Case param
+        Case BrowserList.RunChrome: EnumToStringBrowserList_RegPath = "\Google\Chrome"
+        Case BrowserList.RunEdge:   EnumToStringBrowserList_RegPath = "\Microsoft\Edge"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 開発レベル×ブラウザ種別を相対フォルダパス名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
+    Select Case param
+        Case BrowserList.RunChrome: EnumToStringBrowserList_BrowserPath = "\Google\Chrome"
+        Case BrowserList.RunEdge:   EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 起動前準備 ■■■
 '***************************************************************************************************
 '* 機能　　：このClassが機能する必要な情報を渡します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       記録する識別名称
-'            BrowserType    ブラウザタイプ
 '            UsePipe        Port経由で制御する場合は`False`
 '***************************************************************************************************
-Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As Boolean)
+Friend Sub InitInfo(UserName As String, UsePipe As Boolean)
     '各種情報反映
     DebugUserName = UserName
-    UserBrowserMode = BrowserType
     PipeMode = UsePipe
 End Sub
 
@@ -678,6 +717,12 @@ End Sub
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
+
+    '設定セルから使用ブラウザを指定
+    With ShSetting01_StartBrowser
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        UserBrowserMode = IIf(.GetSettingCDP(SettingCDP.UseChrome, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge)
+    End With
 
     'ログ設定
     With currentLog

@@ -42,10 +42,6 @@ Private Const TableName02 As String = "BrowserContextInfo"
 Friend Function StartCDPModeContext(Optional StartURL As String, Optional SwitchUser As String) As CDPContext
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext")
 
@@ -69,10 +65,6 @@ End Function
 Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode")
 

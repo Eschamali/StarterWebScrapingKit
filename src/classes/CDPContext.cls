@@ -286,21 +286,19 @@ End Function
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            addArgs        追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String)
+Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
+
 
     '1. ブラウザ起動
     Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    InitURL = BrowserCore.start(True, Name, appUrl, userProfile, addArgs)   'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
@@ -396,7 +394,6 @@ ifError:
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
     printMsg Debug_, "result = " & result, FromProcedureName
-    printMsg Debug_, ".start call string: " & BrowserCore.CurrentBrowserPath, FromProcedureName
 
     printParams
     Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
