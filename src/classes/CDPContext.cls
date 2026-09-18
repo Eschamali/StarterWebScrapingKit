@@ -435,7 +435,7 @@ Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくWebSocket情報を再セット
-    BrowserCore.reattachWebSocket userProfile, ConnectInfo, reuseSession
+    BrowserCore.reattachWebSocket userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebSocket = reattach(reuseSession)

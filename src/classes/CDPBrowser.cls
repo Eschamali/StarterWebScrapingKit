@@ -268,12 +268,10 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
 '            ConnectInfo        CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
-'            ReuseWinSockHandle `True`で、WinSockHandleを使いまわして、接続処理工程をSKIPします。※`WebSocketMode`が`Nothing`時に限ります
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：・WebSocketオブジェクトが機能してない場合は内部で、自動再接続を試みます
-'            ・逆に機能してれば、そっちのObject情報を優先してCDP制御します
+'* 注意事項：WebSocketオブジェクトが機能してない場合は、VBAエラーで止まります
 '***************************************************************************************************
-Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional ReuseWinSockHandle As Boolean)
+Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
     Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
 
 
@@ -285,16 +283,12 @@ Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPC
     CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. 引数を基に、WebSocketの接続情報を適用
-    '※オブジェクトなしの場合は、ユーザー情報を基に自動でローカルブラウザへの再接続を試みます
-    If ConnectInfo Is Nothing Then
-        printMsg info_, "No WebSocket connection information is available. Automatic reconnection will begin.", FromProcedureName
-
-        Set ConnectInfo = New CDPCoreViaWebSocket
-        ConnectInfo.ReConnectCDP userProfile, ReuseWinSockHandle
-    End If
+    '※オブジェクトなしの場合は、エラーとする
+    If ConnectInfo Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
     Set PipeCore.WebSocketMode = ConnectInfo
 
     '4. 辻褄合わせで、接続情報パラメーターを適用
+    '※WebSocketで接続を済ませれば記録されるはずなので
     If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '5. 生存確認フェーズへ
