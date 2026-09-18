@@ -152,10 +152,26 @@ Private Sub newTabForBiDi(UserName As String)
     End With
 
     '6. Excelに、BiDiMapperTab情報を記録してメイン化しておく
-    '※リアタッチを想定して、既存のメインBiDi-context情報を上書きしないようにUpdateメソッドとして使う
     With ShSetting01_StartBrowser
-        .UpdateBrowserContext(UserName, "targetID", FromProcedureName) = tabId
-        .UpdateBrowserContext(UserName, "sessionID", FromProcedureName) = sessionID
+        '6-1. リアタッチを想定して、既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
+        Dim BiDiMapperInfo As Dictionary
+        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+
+        '6-2. 記録準備
+        If BiDiMapperInfo Is Nothing Then
+            '新規に用意
+            Set BiDiMapperInfo = New Dictionary
+            BiDiMapperInfo.Add "sessionID", sessionID
+            BiDiMapperInfo.Add "targetID", tabId
+            BiDiMapperInfo.Add "BiDi-context", vbNullString  'この時点ではまだ、メインBiDi-context情報は確定できないので、枠だけ用意
+        Else
+            '取れた場合は既に`BiDi-context`Keyはあるので、CDP情報だけ上書き
+            BiDiMapperInfo("sessionID") = sessionID
+            BiDiMapperInfo("targetID") = tabId
+        End If
+
+        '6-3. 実際に記録
+        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
     End With
 
     '7. ログ化
