@@ -96,8 +96,10 @@ Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
     ByRef pvargResult As Any) As Long
 
 ' --- 文字列ヘルパー用API ---
-Private Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
-    ByVal lpString As LongPtr) As Long
+Private Declare PtrSafe Function SysReAllocString Lib "oleaut32" ( _
+    ByVal pbstr As LongPtr, _
+    ByVal psz As LongPtr _
+) As Long
 
 Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
     ByVal pv As LongPtr)
@@ -894,12 +896,7 @@ End Function
 '            変換後に`CoTaskMemFree`で解放する責任を持つ(`GetStringProperty`は一括で行う)
 '***************************************************************************************************
 Public Function PtrToString(ByVal p As LongPtr) As String
-    If p = 0 Then Exit Function
-    Dim cch As Long
-    cch = lstrlenW(p)
-    If cch = 0 Then Exit Function
-    PtrToString = String$(cch, vbNullChar)
-    lstrcpyW StrPtr(PtrToString), p
+    If p <> 0 Then SysReAllocString VarPtr(PtrToString), p
 End Function
 
 '* 機能　　：`HRESULT get_Xxx([out,retval] LPWSTR *value)`形のCOMメソッドを呼び、Stringで返します
