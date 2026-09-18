@@ -264,7 +264,7 @@ Property Get getBrowserPath() As String
 
 
     Dim AppPathName As String
-    AppPathName = CDPHelpers.EnumToStringBrowserList_exeName(UserBrowserMode)
+    AppPathName = EnumToStringBrowserList_exeName(UserBrowserMode)
 
     '1. カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
@@ -577,7 +577,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
 
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
-    RegPathBrowser = CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
+    RegPathBrowser = EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '"HKLM(0)"と"HKCU(1)"を確認する
     '最初は、PC単位、次に、現在のログインユーザー単位で確認します
@@ -643,7 +643,7 @@ Private Function CheckBrowserPolicyRemoteDebuggingAllowed(ByVal useHKCU As Boole
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueContents   As Long     '値の中身
     Dim ValueSize       As Long     '値の大きさ
-    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
@@ -678,7 +678,7 @@ Private Function CheckBrowserPolicyUserDataDir(ByVal useHKCU As Boolean) As Stri
     '1. 必要な変数を用意
     Dim KeyExists       As Long     '存在有無結果
     Dim ValueSize       As Long     '値の大きさ
-    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & CDPHelpers.EnumToStringBrowserList_RegPath(UserBrowserMode)
+    Dim TargetBrowser   As String: TargetBrowser = "SOFTWARE\Policies" & EnumToStringBrowserList_RegPath(UserBrowserMode)
 
     '2. ルートキーをセット
     Dim RootTree As Long
