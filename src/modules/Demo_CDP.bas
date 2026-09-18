@@ -927,20 +927,22 @@ Sub AutoConnectBrowser()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 指定のWebSocketForCDPへ接続
+    '2. 指定のWebSocketForCDP-browserへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Dim WebSocketChromium As New CDPBrowser
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    Dim WebSocketChromium As New CDPBrowser
     WebSocketChromium.reattachWebSocket UserName, WebSocketCDP
 
-    '3. 未接続のタブに接続
+    '4. 新規タブに接続
     Dim t As CDPContext
-    Set t = WebSocketChromium.getTab(setMain:=True)
+    Set t = WebSocketChromium.newTab(setMain:=True)
 
-    '4. ページ遷移
+    '5. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '5. 終了
+    '6. 終了
     WebSocketChromium.quit
 End Sub
 
