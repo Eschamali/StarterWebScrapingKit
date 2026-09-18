@@ -268,9 +268,9 @@ Property Get getBrowserPath() As String
 
     '1. カスタムパスの指定があったらそっちを優先
     With ShSetting01_StartBrowser
-        If LenB(.UseRangeID(1, FromProcedureName)) Then
+        If LenB(.GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)) Then
             '1-1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .UseRangeID(1, FromProcedureName)
+            getBrowserPath = .GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)
 
         Else
             '1-1. 必要な変数を用意
@@ -726,7 +726,7 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "CHID" & Format(Rnd * 1000, "000")                             'ユニークID
-        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)    'ログフォルダパス
+        .LogID = "CHID" & Format(Rnd * 1000, "000")                                             'ユニークID
+        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName) 'ログフォルダパス
     End With
 End Sub

@@ -1548,19 +1548,19 @@ Private Sub Class_Initialize()
     '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
         '2-1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName) 'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
+        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)    'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
 
         '2-2. ログファイル保存先。空ならファイル出力しない
-        currentLog.logPath = .UseRangeID(9, FromProcedureName)
+        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
 
         '2-3. Assign an objID for easy debug identification
         currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
 
         '2-4. UTF8変換モードを設定するか
-        If .UseRangeID(10, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
+        If .GetSettingCDP(SettingCDP.AlwaysSendAndReceiveUTF8, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
 
         '2-5. 初期起動ウィンドウ状態を設定
-        setShowWindow = .UseRangeID(12, FromProcedureName)
+        setShowWindow = .GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
     End With
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化

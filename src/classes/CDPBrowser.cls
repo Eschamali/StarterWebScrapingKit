@@ -162,7 +162,7 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
 
     '3. 起動モードに応じた分岐
     br.User = userProfile
-    If ShSetting01_StartBrowser.UseRangeID(14, FromProcedureName) Then
+    If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
         start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, appUrl, SplashScreenMode, addArgs)

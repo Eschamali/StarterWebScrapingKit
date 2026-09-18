@@ -27,6 +27,28 @@ Private Const TableName02 As String = "BrowserContextInfo"
 
 
 '***************************************************************************************************
+'                                  ■■■ 各種セルID ■■■
+'***************************************************************************************************
+'ブラウザ制御関連の設定ID
+Public Enum SettingCDP
+    CustomChromiumPath
+    UserDataDirName
+    AdditionalBrowserArguments
+    UseChrome
+    LogLevel
+    UseWebSocket
+    DisplayImmediate
+    ViewBrowserResponse
+    LogFileFolderPath
+    AlwaysSendAndReceiveUTF8
+    ViewTab_BiDiCDPMapper
+    StartWindowMode
+    ViewDebugLogForBiDiCDPMapper
+End Enum
+
+
+
+'***************************************************************************************************
 '                       ■■■ Enum → 文字列 変換プロシージャ ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
@@ -85,11 +107,11 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPModeContext")
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.StartAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPModeContext")
+        StartCDPModeContext.StartAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPModeContext")
     End With
 End Function
 
@@ -108,11 +130,11 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPMode")
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.start False, BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
+        StartCDPMode.start SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPMode")
     End With
 End Function
 
@@ -521,9 +543,24 @@ Private Function GetReferenceRange(TableName As String, SearchUser As String) As
     End With
 End Function
 
+
+
+'***************************************************************************************************
+'                               ■■■ よく使う設定取得 ■■■
 '***************************************************************************************************
 '* 機能　　：現在設定中の識別名称を取得します
 '***************************************************************************************************
 Property Get CurrentUserName() As String
-    CurrentUserName = Me.UseRangeID(2, "ShSetting01_StartBrowser.CurrentUserName")
+    CurrentUserName = Me.GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.CurrentUserName")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のCDP通信経路を確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`True`で`Pipe`モードです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2判定は対象外です
+'***************************************************************************************************
+Property Get isPipeRemote() As Boolean
+    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, "ShSetting01_StartBrowser.isPipeRemote")
 End Property
