@@ -27,6 +27,48 @@ Private Const TableName02 As String = "BrowserContextInfo"
 
 
 '***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 数値を基にセル名をマッピングします
+'---------------------------------------------------------------------------------------------------
+Private Function RangeMapping(RangeID As SettingCDP, ErrorSource As String) As String
+    Select Case RangeID
+        Case 0:  RangeMapping = "BrowserPath"
+        Case 1:  RangeMapping = "UserDataDirName"
+        Case 2:  RangeMapping = "AddArguments"
+        Case 3:  RangeMapping = "UseChrome"
+        Case 4:  RangeMapping = "LogLevel"
+        Case 5:  RangeMapping = "UseWebSocket"
+        Case 6:  RangeMapping = "DisplayImmediate"
+        Case 7:  RangeMapping = "ViewBrowserResponse"
+        Case 8:  RangeMapping = "LogFileFolderPath"
+        Case 9:  RangeMapping = "AlwaysSendAndReceiveUTF8"
+        Case 10: RangeMapping = "ViewTab_BiDiCDPMapper"
+        Case 11: RangeMapping = "StartWindowMode"
+        Case 12: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
+        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                             ■■■ 数値でセルの中身取得/反映 ■■■
+'***************************************************************************************************
+'* 機能　　：このシートのみ定義されてるセル名称を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：セルの中身(`.Value`のみ)
+'* 引数　　：RangeID        セルID
+'            ErrorSource    この関数を呼び出したソース。※デバック用
+'***************************************************************************************************
+Property Get GetSettingCDP(RangeID As SettingCDP, ErrorSource As String) As Variant
+    GetSettingCDP = Me.Range(RangeMapping(RangeID, ErrorSource)).value
+End Property
+
+
+
+'***************************************************************************************************
 '                           ■■■ 簡易起動メソッド - CDP編 ■■■
 '***************************************************************************************************
 '* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでタブ制御ができるところまで準備します
@@ -128,43 +170,6 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
         Set StartBiDiMode = New WebDriverBiDiMode
         StartBiDiMode.StartBiDiMode False, BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
     End With
-End Function
-
-
-
-'***************************************************************************************************
-'                             ■■■ 数値でセルの中身取得/反映 ■■■
-'***************************************************************************************************
-'* 機能　　：このシートのみ定義されてるセル名称を取得します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：セルの中身(`.Value`のみ)
-'* 引数　　：RangeID        セルID
-'            ErrorSource    この関数を呼び出したソース。※デバック用
-'***************************************************************************************************
-Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
-    UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
-End Property
-
-'***************************************************************************************************
-'* 機能　　：数値を基にセル名をマッピングします
-'***************************************************************************************************
-Private Function RangeMapping(RangeID As Long, ErrorSource) As String
-    Select Case RangeID
-        Case 1:  RangeMapping = "BrowserPath"
-        Case 2:  RangeMapping = "UserDataDirName"
-        Case 3:  RangeMapping = "AddArguments"
-        Case 4:  RangeMapping = "UseChrome"
-        Case 5:  RangeMapping = "LogLevel"
-        Case 7:  RangeMapping = "DisplayImmediate"
-        Case 8:  RangeMapping = "ViewBrowserResponse"
-        Case 9:  RangeMapping = "LogFileFolderPath"
-        Case 10: RangeMapping = "AlwaysSendAndReceiveUTF8"
-        Case 11: RangeMapping = "ViewTab_BiDiCDPMapper"
-        Case 12: RangeMapping = "StartWindowMode"
-        Case 13: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
-        Case 14: RangeMapping = "UseWebSocket"
-        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
-    End Select
 End Function
 
 
