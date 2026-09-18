@@ -186,6 +186,10 @@ Private Sub Log(Level As Long, message As String, Optional From As String, Optio
 
         'イミディエイトへ表示
         If doPrintDbgMsg Then Debug.Print LogString
+        #If exportDbgMsg Then
+            '日常的に使うことはないので、条件付きコンパイル引数として表示制御する
+            CDPHelpers.DebugPrintEx LogString
+        #End If
 
         'ファイルパスが指定されてたら、ログファイルへ保存
         If LenB(SaveLogFolderPath) > 0 And LenB(LogFileName) > 0 Then

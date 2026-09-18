@@ -16,6 +16,9 @@ Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMillise
 Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
 Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
 
+'----- デバッグログ出力 -----
+Private Declare PtrSafe Sub OutputDebugString Lib "kernel32" Alias "OutputDebugStringW" (ByVal lpOutputString As LongPtr)   '`DebugView`等で見る用
+
 
 
 '***************************************************************************************************
@@ -216,6 +219,16 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
         If RaiseErrorNumber = 0 Then RaiseErrorNumber = CDPCustomErrorCodes.Protocol
         Err.Raise RaiseErrorNumber, From, Description:=strMsg
     End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：イミディエイトウィンドウ以外にもデバッグログを出す仕組みを提供します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：例えばクラッシュを引き起こすような試験的なコードを書いたり実行したりする際に役立ちます
+'* 注意事項：これを活かすには別途外部ログViewソフトが必要ですが、「https://learn.microsoft.com/ja-jp/sysinternals/downloads/debugview」であればインストール不要で使えます
+'***************************************************************************************************
+Public Sub DebugPrintEx(StrLog As String)
+    OutputDebugString StrPtr(StrLog)
 End Sub
 
 '***************************************************************************************************
