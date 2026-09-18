@@ -508,18 +508,20 @@ Sub AutoConnectBrowser()
 
     '2. 指定のWebSocketForCDPへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Dim WebSocketChromium As New WebDriverBiDiMode
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    Dim WebSocketChromium As New WebDriverBiDiMode
     WebSocketChromium.reattach UserName, , WebSocketCDP
 
-    '3. 未接続のタブに接続
+    '4. 新規タブに接続
     Dim c As WebDriverBiDiContext
-    Set c = WebSocketChromium.getTab(setMain:=True)
+    Set c = WebSocketChromium.newTab(setMain:=True)
 
-    '4. ページ遷移
+    '5. ページ遷移
     c.navigate "https://www.youtube.com/@islandfox6864"
 
-    '5. 終了
+    '6. 終了
     WebSocketChromium.quit
 End Sub
 
