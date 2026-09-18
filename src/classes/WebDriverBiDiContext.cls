@@ -50,21 +50,19 @@ Private currentLog              As StateLog     'ログ設定
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させ、非同期イベント：`browsingContext.contextCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl                         最初の起動時に遷移したいURL
-'            userProfile                    UserDataDir名を指定します
-'            addArgs                        追加の起動引数を設けます
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：userProfile                起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
+'            appUrl                     起動引数：`--app`　につけるURLを指定します
+'            addArgs                    追加の起動引数
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, _
+Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
     '1. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
+    Dim InitURL As String
     Set m_BiDiMode = New WebDriverBiDiMode
-    m_BiDiMode.StartBiDiMode True, Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest   'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = m_BiDiMode.StartBiDiMode(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore

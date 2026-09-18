@@ -73,36 +73,33 @@ Private currentLog      As StateLog
 '***************************************************************************************************
 '* 機能　　：「BiDi-CDP Mapper」を付けた状態で、ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
-'            Name               ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl             最初の起動時に遷移したいURL
-'            userProfile        UserDataDir名を指定します
-'            addArgs            追加の起動引数を設けます
+'* 返り値　：起動時の初期URL
+'* 引数　　：UserName           記録する識別名称
+'            appUrl             `-app`に渡すURL
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
+'            addArgs            追加引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub InitBiDi(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String)
-
+Public Function InitBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
     '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start SplashScreenMode, Name, appUrl, userProfile, addArgs
+    InitBiDi = m_CDPBrowser.start(UserName, appUrl, SplashScreenMode, addArgs)
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.ThisCDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi userProfile
+    newTabForBiDi UserName
 
     '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します

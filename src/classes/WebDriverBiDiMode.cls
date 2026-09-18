@@ -57,17 +57,15 @@ Private GoogChannel     As String       '処理のセクション枠目印用に
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：SplashScreenMode               `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`WebDriverBiDiContext.StartBiDiModeAndConnectTab`で呼び出すことを想定します
-'            Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl                         最初の起動時に遷移したいURL
-'            userProfile                    UserDataDir名を指定します
-'            addArgs                        追加の起動引数を設けます
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 返り値　：起動時の初期URL
+'* 引数　　：userProfile                起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
+'            appUrl                     起動引数：`--app`につけるURLを指定します
+'            SplashScreenMode           `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
+'            addArgs                    追加の起動引数
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiMode(SplashScreenMode As Boolean, Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary)
+Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
+    Optional sessionCapabilitiesRequest As Dictionary) As String
 
 
     '1. 初期化処理
@@ -75,7 +73,7 @@ Public Sub StartBiDiMode(SplashScreenMode As Boolean, Optional Name As BrowserLi
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    m_BiDiCore.InitBiDi SplashScreenMode, Name, appUrl, BiDiUserName, addArgs
+    StartBiDiMode = m_BiDiCore.InitBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
@@ -84,7 +82,7 @@ Public Sub StartBiDiMode(SplashScreenMode As Boolean, Optional Name As BrowserLi
 
     '4. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　："browsingContext.contextCreated"による非同期イベント収集を有効/無効化します
