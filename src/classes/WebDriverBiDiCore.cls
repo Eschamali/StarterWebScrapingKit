@@ -727,8 +727,8 @@ Private Sub Class_Initialize()
 
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser
-        BiDiDebug.ViewDebugTab = .UseRangeID(11, FromProcedureName)    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
-        BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)     'Mapper内部のデバッグログを記録するか？
+        BiDiDebug.ViewDebugTab = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)           '`BiDi-CDP Mapper`のコンソールタブを表示するか？
+        BiDiDebug.DiagnosticLog = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
 

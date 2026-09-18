@@ -156,11 +156,11 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiModeContext")
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.StartBiDiModeAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
+        StartBiDiModeContext.StartBiDiModeAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -178,11 +178,11 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiMode")
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.StartBiDiMode False, BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+        StartBiDiMode.StartBiDiMode SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
     End With
 End Function
 
