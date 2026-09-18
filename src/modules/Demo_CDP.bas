@@ -782,6 +782,7 @@ Function execBot2()
 
     Dim e2 As CDPContext
     Set e2 = ShSetting01_StartBrowser.StartCDPModeContext(SwitchUser:="CDP2")
+    e2.TimeOutSecond = 120  'ページそのものが重いため、長めにする
     e2.navigate "https://finance.yahoo.com"
 
     Debug.Print Format(Now, "hh:mm:ss") & " execBot2 completed."
