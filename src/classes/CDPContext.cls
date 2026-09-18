@@ -328,7 +328,7 @@ Private Sub InitAttachToSession(InitURL As String)
 ' Note: if needed to read the returned message result from sendMessage,
 ' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".attachToSession"
+    Const FromProcedureName As String = ThisClassName & ".InitAttachToSession"
 
 
     On Error GoTo ifError
