@@ -1307,9 +1307,9 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "WVID" & Format(Rnd * 1000, "000")                                     'ユニークID
-        .seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   '`OnCdpMethodCompleted`のRaw表示
-        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)            'ログフォルダパス
+        .LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
+        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
     End With
 End Sub
 
