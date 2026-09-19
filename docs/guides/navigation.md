@@ -51,6 +51,10 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext("https://kemono-friends-20
 
 v3.2.0からは、**Context（タブ）単位で起動する場合**、実際のURLへ向かう前に一度「起動スプラッシュ画面」（`data:text/html,...`の自己完結HTML、ライト/ダーク自動対応のローディング表示）を経由するようになりました。ライブラリは確実にこのスプラッシュタブへ接続し、`Page.enable`/`Runtime.enable`を有効化してから、あらためて本来のURLへ`navigate`します。これにより「起動直後の最初のコマンドだけ失敗する」という問題が解消されています。
 
+![起動直後に一瞬だけ表示される、ダークテーマ対応の起動スプラッシュ画面。「Starting CDP control from VBA...」というタイトルとスピナー、遷移先URLが表示されている](/img/起動スプラッシュ画面.png)
+
+*▲ 実際の起動スプラッシュ画面。この裏で `Page.enable` / `Runtime.enable` が有効化されたあと、指定したURLへ本遷移します*
+
 ```vb
 Sub 起動シーケンスのイメージ()
     '1. --app="data:text/html,...(スプラッシュ画面)" でブラウザを起動

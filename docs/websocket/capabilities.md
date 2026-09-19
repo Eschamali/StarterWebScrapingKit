@@ -29,6 +29,10 @@ Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだ�
 
 ブラウザ起動設定シートの **`UseWebSocket` セルを `TRUE`** にするだけで、Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続するようになります（既定は `FALSE` = Pipe）。
 
+![ブラウザ起動設定シートの基本設定欄。「WebSocketモード」というチェックボックス行が赤枠で強調されており、右側に「新規起動時の制御経路を設定します。OFFで...」という説明が添えられている](/img/セルからWebSocket切替.png)
+
+*▲ シート上では「WebSocketモード」という表記のチェックボックスです（`UseWebSocket`はVBA側の内部名）*
+
 ```vb
 Sub AutoConnectBrowser()
     '1. UseWebSocket セルが TRUE の状態で、ブラウザを起動
