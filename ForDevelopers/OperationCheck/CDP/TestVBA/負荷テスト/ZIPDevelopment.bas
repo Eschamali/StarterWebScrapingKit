@@ -1,4 +1,3 @@
-Attribute VB_Name = "ZIPDevelopment"
 Option Explicit
 
 Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
@@ -7,7 +6,7 @@ Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" _
      ByVal pszPath As String, _
      ByVal psa As LongPtr) As Long
 
-Private Const TestType As Long = 0  '0:pipe,1:WebSocket,2:WebView2
+Private Const WebView2Mode As Boolean = False
 
 
 
@@ -15,36 +14,18 @@ Sub Webブラウザ操作でZIPテスト()
     '設定シートに基づくブラウザ立ち上げ
     Dim chrome As New CDPBrowser
     Dim ZIPテスト As CDPContext
-    Select Case TestType
-        Case 1
-            '---- WebSocket版 ----
-            '3. 設定セルから、ユーザ名を取得
-            Dim UserName As String
-            UserName = ShSetting01_StartBrowser.CurrentUserName
-        
-            '4. 指定のWebSocketForCDPへ接続
-            Dim WebSocketCDP As New CDPCoreViaWebSocket
-            Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
-        
-            '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-            chrome.reattachWebSocket UserName, WebSocketCDP
-            Set ZIPテスト = chrome.newTab(setMain:=True)
+    If WebView2Mode Then
+        With WebView2Form
+            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set ZIPテスト = .ThisCDPContext
 
-        Case 2
-            '---- WebView2版 ----
-            With WebView2Form
-                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
-                Set ZIPテスト = .ThisCDPContext
-
-                '1つ目のフォームを表示
-                .show False
-            End With
-
-        Case Else
-            '---- Pipe版 ----
-            Set chrome = ShSetting01_StartBrowser.StartCDPMode
-            Set ZIPテスト = chrome.getTab(setMain:=True)
-    End Select
+            '1つ目のフォームを表示
+            .show False
+        End With
+    Else
+        Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        Set ZIPテスト = chrome.getTab(setMain:=True)
+    End If
     
 
     
@@ -62,7 +43,7 @@ Sub Webブラウザ操作でZIPテスト()
     Do
         isLoaded = ZIPテスト.jsEval("typeof zip !== 'undefined'")
         If Not IsError(isLoaded) Then Exit Do
-        Application.wait (Now + TimeValue("0:00:01"))
+        Application.Wait (Now + TimeValue("0:00:01"))
     Loop
 
     ' 3. ローカルのZIPをBase64化する
@@ -103,9 +84,9 @@ Sub Webブラウザ操作でZIPテスト()
     Dim resCDP As BiDiCDPJson
     Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
 
-    If TestType = 2 Then WebView2Form.hide
+    If WebView2Mode Then WebView2Form.hide
     ZIPテスト.ThisCDPBrowser.quit
-    If TestType = 2 Then Unload WebView2Form
+    If WebView2Mode Then Unload WebView2Form
 
     '6．展開
     Dim ベース展開先 As String

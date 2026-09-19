@@ -15,7 +15,7 @@ Attribute VB_Name = "Test_AsyncBenchmark"
 '===================================================================================================
 Option Explicit
 
-Private Const TestType As Long = 0  '0:pipe,1:WebSocket,2:WebView2
+Private Const WebView2Mode As Boolean = False
 
 
 Private Const RESULT_SECTION_LINE   As String = "=================================================="
@@ -84,41 +84,22 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
 
     ReDim tabs(1 To NUM_TABS)
     Set chrome = New CDPBrowser
-    Select Case TestType
-        Case 1
-            '---- WebSocket版 ----
-            '3. 設定セルから、ユーザ名を取得
-            Dim UserName As String
-            UserName = ShSetting01_StartBrowser.CurrentUserName
-        
-            '4. 指定のWebSocketForCDPへ接続
-            Dim WebSocketCDP As New CDPCoreViaWebSocket
-            Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
-        
-            '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-            chrome.reattachWebSocket UserName, WebSocketCDP
-            Set tabs(1) = chrome.newTab(setMain:=True)
+    If WebView2Mode Then
+        With WebView2Form
+            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set tabs(1) = .ThisCDPContext
+            Set chrome = tabs(1).ThisCDPBrowser
 
-        Case 2
-            '---- WebView2版 ----
-            With WebView2Form
-                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
-                Set tabs(1) = .ThisCDPContext
-                Set chrome = tabs(1).ThisCDPBrowser
+            'イベント購読
+            .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
-                'イベント購読
-                .ThisWebView2.SubscribeCdpEvent "Page.loadEventFired"
-                .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
-
-                '1つ目のフォームを表示
-                .show False
-            End With
-
-        Case Else
-            '---- Pipe版 ----
-            Set chrome = ShSetting01_StartBrowser.StartCDPMode
-            Set tabs(1) = chrome.getTab(setMain:=True)
-    End Select
+            '1つ目のフォームを表示
+            .show False
+        End With
+    Else
+        Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        Set tabs(1) = chrome.getTab(setMain:=True)
+    End If
     
     benchStart = CDPHelpers.TimerCounter
 
@@ -220,40 +201,22 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
 
     ReDim tabs(1 To NUM_TABS)
     Set chrome = New CDPBrowser
-    Select Case TestType
-        Case 1
-            '---- WebSocket版 ----
-            '3. 設定セルから、ユーザ名を取得
-            Dim UserName As String
-            UserName = ShSetting01_StartBrowser.CurrentUserName
-        
-            '4. 指定のWebSocketForCDPへ接続
-            Dim WebSocketCDP As New CDPCoreViaWebSocket
-            Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
-        
-            '5. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
-            chrome.reattachWebSocket UserName, WebSocketCDP
-            Set tabs(1) = chrome.newTab(setMain:=True)
+    If WebView2Mode Then
+        With WebView2Form
+            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set tabs(1) = .ThisCDPContext
+            Set chrome = tabs(1).ThisCDPBrowser
 
-        Case 2
-            '---- WebView2版 ----
-            With WebView2Form
-                If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
-                Set tabs(1) = .ThisCDPContext
-                Set chrome = tabs(1).ThisCDPBrowser
+            'イベント購読
+            .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
-                'イベント購読
-                .ThisWebView2.SubscribeCdpEvent "Page.loadEventFired"
-                .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
-
-                '1つ目のフォームを表示
-                .show False
-            End With
-        Case Else
-            '---- Pipe版 ----
-            Set chrome = ShSetting01_StartBrowser.StartCDPMode
-            Set tabs(1) = chrome.getTab(setMain:=True)
-    End Select
+            '1つ目のフォームを表示
+            .show False
+        End With
+    Else
+        Set chrome = ShSetting01_StartBrowser.StartCDPMode
+        Set tabs(1) = chrome.getTab(setMain:=True)
+    End If
 
     benchStart = CDPHelpers.TimerCounter
 
@@ -437,9 +400,9 @@ Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef ta
     Debug.Print "  Screenshot保存先     : " & saveDir
     Debug.Print RESULT_SECTION_LINE
 
-    If TestType = 2 Then WebView2Form.hide
+    If WebView2Mode Then WebView2Form.hide
     chrome.quit
-    If TestType = 2 Then Unload WebView2Form
+    If WebView2Mode Then Unload WebView2Form
 End Sub
 
 '---------------------------------------------------------------------------------------------------
