@@ -67,13 +67,10 @@ Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP
 Attribute PipeCore.VB_VarHelpID = -1
 
 '操作中のブラウザ情報一式
-'※`reattach`系から始めた場合は一部の情報は取り出せません
 Private Type StateBrowser
     Type        As String   'Browser type: either 'chrome' or 'edge'
     User        As String   'Browser user profile
-    Path        As String   'Browser default installation path
     Ver         As String   'The current browser version
-    CallString  As String   'The initial call string used by .start
 End Type
 Private br As StateBrowser
 
@@ -122,10 +119,11 @@ End Function
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl         起動引数：`--app`　につけるURLを指定します
-'            userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            addArgs        追加の起動引数
+'* 返り値　：起動時の初期URL
+'* 引数　　：userProfile        起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
+'            appUrl             起動引数：`--app`につけるURLを指定します
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
+'            addArgs            追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
 ' This function initiates a new browser instance.
@@ -150,25 +148,35 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String)
+Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
-    '1. パイプ関連の初期化処理しついでに、起動完了までのタイム測定もしちゃう
+    '1. ログパラメーター準備
     Set PipeCore = New CDPCore
     CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
+
+    '2. ローカルブラウザ起動完了までのタイマー測定準備
     Dim timeStart As Double
     timeStart = CDPHelpers.TimerCounter
 
-    '2. Excelテーブルにユーザー名に紐づくハンドル情報が取れちゃったら、新規起動なのでClose処理しておく
+    '3. 起動モードに応じた分岐
     br.User = userProfile
-    If PipeCore.deserialize(br.User) Then PipeCore.CloseHandleBrowser
+    If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
+        '3-1. WebSocketとして起動
+        Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
+        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, appUrl, SplashScreenMode, addArgs)
 
-    '3. 起動依頼
-    br.CallString = PipeCore.RunPipeModeBrowserCDP(br.User, Name, appUrl, addArgs)
+        '3-2. 辻褄合わせで、接続情報パラメーターを適用
+        PipeCore.deserialize (br.User)
+
+        '3-3. WebSocketモードとして切り替え
+        Set PipeCore.WebSocketMode = WebSocketCore
+    Else
+        '3-1. Pipeとして起動
+        '※内部で、接続情報パラメーターが適用されます
+        start = PipeCore.RunPipeModeBrowserCDP(br.User, appUrl, SplashScreenMode, addArgs)
+    End If
 
     '4. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
@@ -176,7 +184,7 @@ Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, _
     '5. ブラウザステータス表示
     printParams
     printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　：`targetCreated/targetInfoChanged/targetDestroyed`の3種の非同期イベントを流しつつ、Context のカウントも行います
@@ -186,7 +194,8 @@ End Sub
 '* 機能説明：・`CDPContext.cls`の生存状況把握に使います
 '            ・うまい具合に、`CDPContext.cls`確保中のカウントも行います
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'* 注意事項：・`CDPContext.cls`を生成/破棄時に呼ぶ想定です。
+'            ・`discover:=False`の状態から`discover:=True`にすると、今存在するタブが、`targetCreated`として一斉に送信されます。大量タブがあるといっぱい飛んで面倒ごとになるので、適切な参照カウントをすること
 '***************************************************************************************************
 Property Let EnableDiscoverTargets(Flag As Boolean)
     Const FromProcedureName As String = ThisClassName & ".EnableDiscoverTargets"
@@ -251,19 +260,18 @@ Public Sub reattachPipe(userProfile As String)
     If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
     '4. 生存確認フェーズへ
-    reattach
+    reattach True
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：事前に接続済みの`WebSocket`オブジェクトを渡して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：WebSocket生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebSocketMode      CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
+'            ConnectInfo        CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：WebSocketオブジェクトが機能してない場合は、VBAエラーで止まります
 '***************************************************************************************************
-Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
     Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
 
 
@@ -276,17 +284,21 @@ Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaW
 
     '3. 引数を基に、WebSocketの接続情報を適用
     '※オブジェクトなしの場合は、エラーとする
-    If WebSocketMode Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebSocketMode = WebSocketMode
+    If ConnectInfo Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
+    Set PipeCore.WebSocketMode = ConnectInfo
 
-    '4. 生存確認フェーズへ
-    reattach
+    '4. 辻褄合わせで、接続情報パラメーターを適用
+    '※WebSocketで接続を済ませれば記録されるはずなので
+    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+    '5. 生存確認フェーズへ
+    '※WebSocketは、ヘッダー情報にサイズ情報が載ってるため、念の為、`False`にしておく
+    reattach False
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：事前に構成済みの`WebView2`オブジェクトを渡して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：WebSocket生存論理値
 '* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
 '            WebView2Mode       構成済みの`WebView2Mode`オブジェクト
 '---------------------------------------------------------------------------------------------------
@@ -309,23 +321,24 @@ Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWeb
     Set PipeCore.WebView2Mode = WebView2Mode
 
     '4. 生存確認フェーズへ
-    reattach
+    reattach True
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：ハンドルが生きれるか確認します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：生存論理値
+'* 引数　　：destruction    `True`で、データ破棄モードにします
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ハンドルが機能してない場合は、VBAエラーで止まります
 '***************************************************************************************************
-Private Sub reattach()
+Private Sub reattach(destruction As Boolean)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     If isLiveBrowser Then
-        '不整合を防ぐため、Pipeに残存しているデータを破棄しておく
-        TakeEvents destruction:=True
+        '溜まってるデータを取り出しておく
+        TakeEvents destruction:=destruction
 
         'ステータス更新
         getBrowserInfo
@@ -455,8 +468,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
         '3. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
 
-        '4. Urlが設定されてる場合は、読み込み完了まで待機する
-        If LenB(Url) Then .wait
+        '4. URLが指定されてる場合は読み込み状況を更新
+        If LenB(Url) Then .PageReadyState (True)
     End With
 End Function
 
@@ -1147,7 +1160,6 @@ Public Sub printParams()
 
     printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
     printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Browser Path      | brPath       | " & br.Path, FromProcedureName
     printMsg Debug_, "Core StdInWr      | hStdInWr     | " & PipeCore.ConnectionPipe_hStdInWr, FromProcedureName
     printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & PipeCore.ConnectionPipe_hStdOutRd, FromProcedureName
     printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.ConnectionPipe_hStderrOutRd, FromProcedureName
@@ -1163,30 +1175,8 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
-    Const FromProcedureName As String = ThisClassName & ".getBrowserInfo"
-
-
     br.Type = ExecuteCDP("Browser.getVersion")("product")
     br.Ver = Split(br.Type, "/")(1)
-
-    'プロセスID情報がない場合は、ブラウザパスを取らない
-    If PipeCore.Connection_dwProcessId > 0 Then
-        '"Browser.getVersion"を基に、どういうブラウザかを特定する
-        Dim BrowserType As BrowserList
-
-        '1. タイプを特定
-        Select Case True
-            Case InStr(LCase(br.Type), "chrome"): BrowserType = RunChrome
-            Case InStr(LCase(br.Type), "edg"): BrowserType = RunEdge         'On edge it is just "Edg"
-            Case Else: printMsg ERROR_, "Unable to getBrowserPath for browser type: " & br.Type, FromProcedureName, doRaiseError:=True
-        End Select
-
-        '2. ブラウザパスの取得を試みる
-        With New CDPHost
-            .InitInfo br.User, BrowserType, False
-            br.Path = .getBrowserPath
-        End With
-    End If
 End Sub
 
 
@@ -1219,16 +1209,14 @@ Public Function attachToTab(tabId As String) As String
 End Function
 
 '***************************************************************************************************
-'* 機能　　：SessionID の破棄を行います
+'* 機能　　：SessionID の破棄を、非同期で行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：破棄成功論理値
 '* 引数　　：SessionID      破棄したいSessionID
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：不必要なSessionIDを破棄することで、ブラウザの安定性が向上し、奇妙な不具合も消えるかもしれません
-'* 注意事項：・ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
-'            ・念のため成功論理値を返してますが基本、確認するほどでもないと思います
+'* 注意事項：ブラウザ権限で実行するため、メイン化してる`SessionID`も破棄すると、処理が止まるため、使う箇所は慎重に...
 '***************************************************************************************************
-Public Function DiscardSessionID(sessionID As String) As Boolean
+Public Sub DiscardSessionID(sessionID As String)
     Const FromProcedureName As String = ThisClassName & ".DiscardSessionID"
 
 
@@ -1237,16 +1225,8 @@ Public Function DiscardSessionID(sessionID As String) As Boolean
     CDPparams.Add "sessionId", sessionID
 
     '2. 破棄コマンド実行
-    Dim tmp As BiDiCDPJson
-    Set tmp = ExecuteCDP("Target.detachFromTarget", CDPparams, False)
-
-    '3. ログとして出しておく
-    If tmp Is Nothing Then
-        printMsg Debug_, "Failed to destroy SessionID: " & sessionID, FromProcedureName
-    Else
-        printMsg info_, "Successfully destroyed the SessionID: " & sessionID, FromProcedureName
-    End If
-End Function
+    ExecuteCDPAsync "Target.detachFromTarget", CDPparams, False
+End Sub
 
 
 
@@ -1264,24 +1244,10 @@ End Property
 '***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザパス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserPath() As String
-    CurrentBrowserPath = br.Path
-End Property
-
-'***************************************************************************************************
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
 '***************************************************************************************************
 Property Get CurrentBrowserUser() As String
     CurrentBrowserUser = br.User
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザのWindowクラス値を受け取ります
-'***************************************************************************************************
-Property Get CurrentBrowserWindowClass() As String
-    CurrentBrowserWindowClass = chromeWindowClass
 End Property
 
 '***************************************************************************************************

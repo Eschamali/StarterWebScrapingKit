@@ -27,6 +27,70 @@ Private Const TableName02 As String = "BrowserContextInfo"
 
 
 '***************************************************************************************************
+'                                  ■■■ 各種セルID ■■■
+'***************************************************************************************************
+'ブラウザ制御関連の設定ID
+Public Enum SettingCDP
+    CustomChromiumPath
+    UserDataDirName
+    AdditionalBrowserArguments
+    UseChrome
+    LogLevel
+    UseWebSocket
+    DisplayImmediate
+    ViewBrowserResponse
+    LogFileFolderPath
+    AlwaysSendAndReceiveUTF8
+    ViewTab_BiDiCDPMapper
+    StartWindowMode
+    ViewDebugLogForBiDiCDPMapper
+End Enum
+
+
+
+'***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 数値を基にセル名をマッピングします
+'---------------------------------------------------------------------------------------------------
+Private Function RangeMapping(RangeID As SettingCDP, ErrorSource As String) As String
+    Select Case RangeID
+        Case 0:  RangeMapping = "BrowserPath"
+        Case 1:  RangeMapping = "UserDataDirName"
+        Case 2:  RangeMapping = "AddArguments"
+        Case 3:  RangeMapping = "UseChrome"
+        Case 4:  RangeMapping = "LogLevel"
+        Case 5:  RangeMapping = "UseWebSocket"
+        Case 6:  RangeMapping = "DisplayImmediate"
+        Case 7:  RangeMapping = "ViewBrowserResponse"
+        Case 8:  RangeMapping = "LogFileFolderPath"
+        Case 9:  RangeMapping = "AlwaysSendAndReceiveUTF8"
+        Case 10: RangeMapping = "ViewTab_BiDiCDPMapper"
+        Case 11: RangeMapping = "StartWindowMode"
+        Case 12: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
+        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                             ■■■ 数値でセルの中身取得/反映 ■■■
+'***************************************************************************************************
+'* 機能　　：このシートのみ定義されてるセル名称を取得します
+'---------------------------------------------------------------------------------------------------
+'* GET返値 ：セルの中身(`.Value`のみ)
+'* 引数　　：RangeID        セルID
+'            ErrorSource    この関数を呼び出したソース。※デバック用
+'***************************************************************************************************
+Property Get GetSettingCDP(RangeID As SettingCDP, ErrorSource As String) As Variant
+    GetSettingCDP = Me.Range(RangeMapping(RangeID, ErrorSource)).value
+End Property
+
+
+
+'***************************************************************************************************
 '                           ■■■ 簡易起動メソッド - CDP編 ■■■
 '***************************************************************************************************
 '* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでタブ制御ができるところまで準備します
@@ -38,21 +102,16 @@ Private Const TableName02 As String = "BrowserContextInfo"
 '            SwtchUser  マルチインスタンス用に別ユーザーを指定するときに使用します。省略時は設定シートに記載されてる名称になります
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：ここでの起動は、Pipe経路に限ります
 '***************************************************************************************************
 Friend Function StartCDPModeContext(Optional StartURL As String, Optional SwitchUser As String) As CDPContext
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPModeContext"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPModeContext")
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.StartAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPModeContext")
+        StartCDPModeContext.StartAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPModeContext")
     End With
 End Function
 
@@ -60,7 +119,7 @@ End Function
 '* 機能　　：この設定シートから、パラメーターを読み込んで、CDPモードでのパイプ通信確保まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - CDPBrowser
-'* 引数　　：基本は、前述と一緒なので省略。`WebSocketMode`でWebSocketモードに切り替え可能です。
+'* 引数　　：基本は、前述と一緒なので省略
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
 '              `StartCDPModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
@@ -70,24 +129,12 @@ End Function
 Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartCDPMode"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartCDPMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPMode")
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        If WebSocketMode Then
-            'WebSocket経路で起動
-            Dim ReadyWebSocket As New CDPCoreViaWebSocket
-            ReadyWebSocket.ConnectCDPWithLocalBrowser BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
-            Set StartCDPMode = ReadyWebSocket.StartCDPMode
-        Else
-            'Pipe経路で起動
-            StartCDPMode.start BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
-        End If
+        StartCDPMode.start SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPMode")
     End With
 End Function
 
@@ -104,21 +151,16 @@ End Function
 '            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
-'* 注意事項：ここでの起動は、Pipe経路に限ります
 '***************************************************************************************************
 Friend Function StartBiDiModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiModeContext"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiModeContext")
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.StartBiDiModeAndConnectTab BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
+        StartBiDiModeContext.StartBiDiModeAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -126,7 +168,7 @@ End Function
 '* 機能　　：設定シートから、パラメーターを読み込んで、BiDiモードでブラウザを起動するヘルパープロシージャです
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：クラスモジュール - WebDriverBiDiMode
-'* 引数　　：基本は、前述と一緒なので省略。`WebSocketMode`でWebSocketモードに切り替え可能です。
+'* 引数　　：基本は、前述と一緒なので省略
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：このプロシージャだけではまだ、タブ制御するまでの準備が整ってません。
 '             `StartBiDiModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
@@ -135,59 +177,13 @@ End Function
 Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As Boolean) As WebDriverBiDiMode
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '起動ブラウザ種類の設定
-        '※BiDi-Json コマンドによる操作ですが、Chromium系統に特化した制御のため、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        Dim BrowserName As BrowserList: BrowserName = IIf(.UseRangeID(4, "ShSetting01_StartBrowser.StartBiDiMode"), BrowserList.RunChrome, BrowserList.RunEdge)
-
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .UseRangeID(2, "ShSetting01_StartBrowser.StartBiDiMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiMode")
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        If WebSocketMode Then
-            Dim ReadyWebSocket As New CDPCoreViaWebSocket
-            ReadyWebSocket.ConnectCDPWithLocalBrowser BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartCDPMode")
-            Set StartBiDiMode = ReadyWebSocket.StartBiDiMode(sessionCapabilitiesRequest)
-        Else
-            StartBiDiMode.StartBiDiMode BrowserName, StartURL, SwitchUser, .UseRangeID(3, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
-        End If
+        StartBiDiMode.StartBiDiMode SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
     End With
-End Function
-
-
-
-'***************************************************************************************************
-'                             ■■■ 数値でセルの中身取得/反映 ■■■
-'***************************************************************************************************
-'* 機能　　：このシートのみ定義されてるセル名称を取得します
-'---------------------------------------------------------------------------------------------------
-'* GET返値 ：セルの中身(`.Value`のみ)
-'* 引数　　：RangeID        セルID
-'            ErrorSource    この関数を呼び出したソース。※デバック用
-'***************************************************************************************************
-Property Get UseRangeID(RangeID As Long, ErrorSource As String) As Variant
-    UseRangeID = Me.Range(RangeMapping(RangeID, ErrorSource)).value
-End Property
-
-'***************************************************************************************************
-'* 機能　　：数値を基にセル名をマッピングします
-'***************************************************************************************************
-Private Function RangeMapping(RangeID As Long, ErrorSource) As String
-    Select Case RangeID
-        Case 1:  RangeMapping = "BrowserPath"
-        Case 2:  RangeMapping = "UserDataDirName"
-        Case 3:  RangeMapping = "AddArguments"
-        Case 4:  RangeMapping = "UseChrome"
-        Case 5:  RangeMapping = "LogLevel"
-        Case 7:  RangeMapping = "DisplayImmediate"
-        Case 8:  RangeMapping = "ViewBrowserResponse"
-        Case 9:  RangeMapping = "LogFileFolderPath"
-        Case 10: RangeMapping = "AlwaysSendAndReceiveUTF8"
-        Case 11: RangeMapping = "ViewTab_BiDiCDPMapper"
-        Case 12: RangeMapping = "StartWindowMode"
-        Case 13: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
-        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
-    End Select
 End Function
 
 
@@ -401,7 +397,7 @@ Private Sub serializeToTable(TableName As String, UserName As String, ErrorSourc
     Dim i As Long, KeyName, columnIndex As Long
     For Each KeyName In InputData.keys
         '5-1. Keyから列位置を特定
-        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名が間違ってる可能性あり
+        columnIndex = WorksheetFunction.Match(KeyName, HeaderColumn, 0) '※ここでエラーになる場合は、渡したDictionaryのKey名 or テーブル列名が間違ってる可能性あり
 
         '5-2. その位置の配列に適用
         SetArray(columnIndex - 1) = InputData(KeyName) '※0始まりなので補正
@@ -539,9 +535,24 @@ Private Function GetReferenceRange(TableName As String, SearchUser As String) As
     End With
 End Function
 
+
+
+'***************************************************************************************************
+'                               ■■■ よく使う設定取得 ■■■
 '***************************************************************************************************
 '* 機能　　：現在設定中の識別名称を取得します
 '***************************************************************************************************
 Property Get CurrentUserName() As String
-    CurrentUserName = Me.UseRangeID(2, "ShSetting01_StartBrowser.CurrentUserName")
+    CurrentUserName = Me.GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.CurrentUserName")
+End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のCDP通信経路を確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`True`で`Pipe`モードです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2判定は対象外です
+'***************************************************************************************************
+Property Get isPipeRemote() As Boolean
+    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, "ShSetting01_StartBrowser.isPipeRemote")
 End Property

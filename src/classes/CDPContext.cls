@@ -95,6 +95,63 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
 
 
 '***************************************************************************************************
+'                                   ■■■ 各種構造体 ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Page.TransitionType
+' ブラウザに対して「どのような経緯・手段でこのURLへ遷移したか」を指定・判定します。
+' アクセス解析やボット対策システム（Cloudflare等）が参照する通信指紋に影響を与えます。
+'---------------------------------------------------------------------------------------------------'
+Public Enum PageTransitionType
+    pt_default              ' [既定]                Chrome標準におまかせ
+
+    ' --- 一般的なユーザー操作 ---
+    pt_link                 ' [link]                Webページ上の通常のリンク（<a>タグ）をクリックして遷移
+    pt_typed                ' [typed]               アドレスバーに直接URLを手入力してEnterキーで遷移（直アクセス）
+    pt_address_bar          ' [address_bar]         アドレスバーのサジェストや履歴の選択など、UI操作による遷移
+    pt_auto_bookmark        ' [auto_bookmark]       ブックマークバーやお気に入りメニューをクリックして遷移
+    pt_form_submit          ' [form_submit]         HTMLフォーム（<form>）の送信ボタン押下による遷移
+    pt_reload               ' [reload]              F5キーや更新ボタン、location.reload() による再読み込み
+
+    ' --- サブフレーム（iframe）の制御 ---
+    pt_auto_subframe        ' [auto_subframe]       iframe（広告や埋め込み枠）が初期表示などで自動読み込みされた
+    pt_manual_subframe      ' [manual_subframe]     iframeの内部にあるリンクをユーザーが手動でクリックして遷移
+
+    ' --- 検索・アドレスバー機能起因 ---
+    pt_generated            ' [generated]           アドレスバーに検索語句を入力し、生成された検索結果ページへ遷移
+    pt_keyword              ' [keyword]             登録済みのカスタム検索キーワードを利用して遷移（例: "yt ネコ"）
+    pt_keyword_generated    ' [keyword_generated]   カスタムキーワード検索エンジンによって生成されたURLへ遷移
+
+    ' --- 自動遷移・その他 ---
+    pt_auto_toplevel        ' [auto_toplevel]       <meta http-equiv="refresh"> 等でトップページが自動リダイレクト
+    pt_other                ' [other]               上記に該当しないその他（拡張機能や外部アプリからの起動など）
+End Enum
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Page.ReferrerPolicy
+' 外部サイトへ遷移する際、「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します。
+'---------------------------------------------------------------------------------------------------'
+Public Enum PageReferrerPolicy
+    pr_default                      ' [既定]                        Chrome標準におまかせ（strictOriginWhenCrossOrigin が適用される）
+
+    ' --- 安全・秘匿性が高い ---
+    pr_noReferrer                   ' [noReferrer]                  完全匿名。足跡（リファラー）を1ミリも残さない
+    pr_origin                       ' [origin]                      パス（/page/123）は隠し、ドメイン名（https://site.com/）だけ伝える
+    pr_sameOrigin                   ' [sameOrigin]                  同じサイト内なら全て伝えるが、外部サイトへ行く時は完全匿名
+
+    ' --- 現代の標準・バランス型 ---
+    pr_strictOrigin                 ' [strictOrigin]                ドメイン名だけ伝える。ただしHTTPS→HTTPへのダウングレード時は完全匿名
+    pr_strictOriginWhenCrossOrigin  ' [strictOriginWhenCrossOrigin] ★現代のWeb標準★ 自サイトなら全開示、外部へはドメインのみ、HTTP落ちなら匿名
+
+    ' --- レガシー・制約が緩い ---
+    pr_originWhenCrossOrigin        ' [originWhenCrossOrigin]       自サイトなら全開示、外部へはドメインのみ（HTTP落ちでも送る）
+    pr_noReferrerWhenDowngrade      ' [noReferrerWhenDowngrade]     昔の標準。基本は全開示。HTTPS→HTTPに落ちる時だけ匿名にする
+    pr_unsafeUrl                    ' [unsafeUrl]                   超危険。相手が誰だろうと、HTTPだろうとURL全文を無防備に送りつける
+End Enum
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 Private Const ThisClassName     As String = "CDPContext"    'ログのトレース用
@@ -120,6 +177,13 @@ Private Type sessionStatus
 End Type
 Private ControlStatus As sessionStatus
 
+'操作中のタブセッションイベント購読状況
+Private Type subscriptionStatus
+    Runtime As Boolean
+    Page    As Boolean
+End Type
+Private EventSubscription As subscriptionStatus
+
 '操作中のタブセッションエラー情報
 Private Type SessionErrorDetails
     Status      As String
@@ -135,10 +199,11 @@ Private Type StateTab
     browserContextId    As String   'どの`Profile`に属してるか
 
     '補助情報
-    hWnd        As LongPtr  'Browser object window handle
-    WID         As String   'Useful for windows repositioning
-    Title       As String   'The focused tab name / window name of the active CDPBrowser
-    Url         As String   'The focused tab url of the active CDPBrowser
+    hWnd                As LongPtr  'Browser object window handle
+    WID                 As String   'Useful for windows repositioning
+    Title               As String   'The focused tab name / window name of the active CDPBrowser
+    Url                 As String   'The focused tab url of the active CDPBrowser
+    ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
 End Type
 Private brTab As StateTab
 
@@ -174,57 +239,87 @@ Private currentLog      As StateLog 'ログ設定
 
 
 '***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] URLの遷移種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringPageTransitionType(param As PageTransitionType) As String
+    Select Case param
+        Case PageTransitionType.pt_link:                EnumToStringPageTransitionType = "link"
+        Case PageTransitionType.pt_typed:               EnumToStringPageTransitionType = "typed"
+        Case PageTransitionType.pt_address_bar:         EnumToStringPageTransitionType = "address_bar"
+        Case PageTransitionType.pt_auto_bookmark:       EnumToStringPageTransitionType = "auto_bookmark"
+        Case PageTransitionType.pt_form_submit:         EnumToStringPageTransitionType = "form_submit"
+        Case PageTransitionType.pt_reload:              EnumToStringPageTransitionType = "reload"
+        Case PageTransitionType.pt_auto_subframe:       EnumToStringPageTransitionType = "auto_subframe"
+        Case PageTransitionType.pt_manual_subframe:     EnumToStringPageTransitionType = "manual_subframe"
+        Case PageTransitionType.pt_generated:           EnumToStringPageTransitionType = "generated"
+        Case PageTransitionType.pt_keyword:             EnumToStringPageTransitionType = "keyword"
+        Case PageTransitionType.pt_keyword_generated:   EnumToStringPageTransitionType = "keyword_generated"
+        Case PageTransitionType.pt_auto_toplevel:       EnumToStringPageTransitionType = "auto_toplevel"
+        Case PageTransitionType.pt_other:               EnumToStringPageTransitionType = "other"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 「元のURL（足跡）」の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringPageReferrerPolicy(policy As PageReferrerPolicy) As String
+    Select Case policy
+        Case pr_noReferrer:                  EnumToStringPageReferrerPolicy = "noReferrer"
+        Case pr_origin:                      EnumToStringPageReferrerPolicy = "origin"
+        Case pr_sameOrigin:                  EnumToStringPageReferrerPolicy = "sameOrigin"
+        Case pr_strictOrigin:                EnumToStringPageReferrerPolicy = "strictOrigin"
+        Case pr_strictOriginWhenCrossOrigin: EnumToStringPageReferrerPolicy = "strictOriginWhenCrossOrigin"
+        Case pr_originWhenCrossOrigin:       EnumToStringPageReferrerPolicy = "originWhenCrossOrigin"
+        Case pr_noReferrerWhenDowngrade:     EnumToStringPageReferrerPolicy = "noReferrerWhenDowngrade"
+        Case pr_unsafeUrl:                   EnumToStringPageReferrerPolicy = "unsafeUrl"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
 '                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            Name           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
 '            appUrl         起動引数：`--app`　につけるURLを指定します
 '            addArgs        追加の起動引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String)
+Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
     Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
 
+
     '1. ブラウザ起動
+    Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    BrowserCore.start Name, appUrl, userProfile, addArgs
+    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
 
     '3. Complete initialization ------------------------------------------------------
-    attachToSession     'Find and attach the newly open Session ID
-    getSessionInfo      'Store initial session info for printParams debugging
-    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID
+    InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
+    getSessionInfo                                                  'Store initial session info for printParams debugging
+    BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
-   'Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-   '07/01/25: Long Vh: simplified the check as there are web apps that does not end up loading the target url but points to another url.
-   'As a result, the below check simply checks if there is "movement" in the name of the page instead
-    Dim timerStart As Double, strLoc As String
-    If LenB(appUrl) Then
-        timerStart = CDPHelpers.TimerCounter
-        Do
-            If LenB(Me.Title) Then Exit Do
-            If CDPHelpers.TimerCounter - timerStart > timerOut Then Err.Raise CDPCustomErrorCodes.TIMEOUT, , "Timeout waiting for the browser to load the homepage."
-            DoEvents
-        Loop
-       wait
-    End If
-   '-------------------------------------------------------------------------------------------------------------------------------------
+    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(appUrl) Then navigate appUrl
+    '-------------------------------------------------------------------------------------------------------------------------------------
 
-   'Finally print the session details for debugging ------------------------------
+    '5. Finally print the session details for debugging ------------------------------
     printParams
-   '------------------------------------------------------------------------------
+    '------------------------------------------------------------------------------
 
 End Sub
 
-Private Sub attachToSession()
+Private Sub InitAttachToSession(InitURL As String)
 '-----------------------------------------------------------------------
 ' This function must be called after start and before all other methods.
 ' This function attaches to a session of the browser.
@@ -233,45 +328,42 @@ Private Sub attachToSession()
 ' Note: if needed to read the returned message result from sendMessage,
 ' type ?jsConverter.ConvertToJson(objAllMessages) in the ImmWnd
 '-----------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".attachToSession"
+    Const FromProcedureName As String = ThisClassName & ".InitAttachToSession"
 
-
-    Dim FirstTabs As Collection
-    Dim result
-
-    Dim strKey As Variant
 
     On Error GoTo ifError
 
-
-    '`Target.targetCreated`を収集できるように初期化
-    Set FirstTabs = New Collection
-1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs
-    BrowserCore.EnableDiscoverTargets = True
+    '1. `Target.targetCreated`を収集できるように初期化
+    Dim FirstTabs As Collection
+    Set FirstTabs = New Collection                          '箱を用意して
+1   Set BrowserCore.RunCollect_TargetCreated = FirstTabs    'それを、ブラウザに渡して
+    BrowserCore.EnableDiscoverTargets = True                '購読開始
     printMsg info_, "Now looking for the browser window", FromProcedureName
 
-   'Read message to confirm the requested url is found
+   '2. Read message to confirm the requested url is found
    'Checking results__.Item("url") has been skipped for simplicity since v2.3
    'A new session always has the property attached = false and method = Target.targetCreated
    'This way of verification vastly improves the stability over checking by URL as sometimes
    'there are rogues targets with similar URL but they are not attachable (ie. no Session ID)
+    Dim result
     Dim boolFound As Boolean, doc As BiDiCDPJson
     For Each result In FirstTabs
-        ' 1. 文字列をパース
+        ' 2-1. 文字列をパース
         Set doc = BiDiCDPJson.Parse(CStr(result))
 
-        ' 2. 必要なノードを安全に辿る
+        ' 2-2. 必要なノードを安全に辿る
         If doc.ExistsKey("params") Then
             ' NodeKey で階層を降り、targetInfo の存在を確認
             With doc.NodeKey("params")
                 If .ExistsKey("targetInfo") Then
                     ' targetInfo 内部を型指定アクセサで判定
                     With .NodeKey("targetInfo")
-                        ' BoolKey と StringKey を使うことで高速に値を取得
-                        If .BoolKey("attached") = False And .StringKey("type") = "page" Then
+                        '目的のページを見つける
+                        '※`title`では稀に空欄になるので、`url`で特定させる
+                        If .BoolKey("attached") = False And .StringKey("type") = "page" And .StringKey("url") = InitURL Then
                             boolFound = True
 
-                            '制御パラメーターを付与
+                            '必要な制御パラメーターを付与し、抜ける
                             brTab.targetID = .StringKey("targetId")
                             brTab.browserContextId = .StringKey("browserContextId")
                             Exit For
@@ -302,7 +394,6 @@ ifError:
     errorDesc = Err.Description
     printMsg ERROR_, "attachToSession error at line " & errorLine & ": """ & errorDesc & """", FromProcedureName
     printMsg Debug_, "result = " & result, FromProcedureName
-    printMsg Debug_, ".start call string: " & BrowserCore.CurrentBrowserPath, FromProcedureName
 
     printParams
     Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
@@ -318,6 +409,7 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
 Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
@@ -335,13 +427,15 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. 識別名称に紐づくWebSocket情報を再セット
-    BrowserCore.reattachWebSocket userProfile, WebSocketMode
+    BrowserCore.reattachWebSocket userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebSocket = reattach(reuseSession)
@@ -352,13 +446,15 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：既存タブへの接続成功可否論理値
 '* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
+'            ConnectInfo    接続済みのWebSocketオブジェクト
+'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
 '***************************************************************************************************
-Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
     '1. 新オブジェクトを用意
     Set BrowserCore = New CDPBrowser
 
     '2. WebView2情報を再セット
-    BrowserCore.reattachWebView2 userProfile, WebView2Mode
+    BrowserCore.reattachWebView2 userProfile, ConnectInfo
 
     '3. 既存のタブ(TargetID)への再接続を試みる
     reattachWebView2 = reattach(reuseSession)
@@ -1377,9 +1473,10 @@ Private Sub PipeCore_CDPBrowserEvent(methodName As String, RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".PipeCore_CDPBrowserEvent"
 
 
-    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    '------------------ 1. 各種非同期イベントの処理 ------------------
     Dim tmp As BiDiCDPJson
     Select Case methodName
+        '------------------ この`Context`(TargetID)のSessionステータスの更新を行います ------------------
         '`SessionID`が切れたが、`targetId`は生存
         Case "Target.detachedFromTarget"
             '1-1. 自分の`SessionID`か確認し、そうであれば、フラグ更新
@@ -1458,6 +1555,7 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
     '2. このタブクラス独自のイベント処理を行う
     Dim tmpNode As BiDiCDPJson
     Select Case methodName
+        '------------------ この`Context`(TargetID)のJavaScript実行環境ステータスの更新を行います ------------------
         'JavaScript実行環境情報の更新を行います
         Case "Runtime.executionContextCreated"
             '2-1. このタブクラスのTargetIDと一致するか？
@@ -1489,6 +1587,24 @@ Private Sub PipeCore_CDPContextEvent(methodName As String, RawJson As String, se
         Case "Runtime.executionContextsCleared"
             brTabRuntime.IsValid = False
             printMsg info_, "The JavaScript environment associated with this class was destroyed due to a page transition or other reasons.", FromProcedureName
+
+
+        '------------------ この`Context`(TargetID)の簡易的なページ読み込み状況を更新します(document.readyState の再現) ------------------
+        Case "Page.frameStartedLoading"
+            'document.readyState = loading 相当
+            '2-1. このClassで保持中の`targetid`と一致するか？
+            With brTab
+                '※1遷移でも複数回来るため、0のときのみ更新させる
+                If BiDiCDPJson.Parse(RawJson).NodeKey("params").StringKey("frameId") = .targetID Then If .ReadState = 0 Then .ReadState = ReadyState.isLoading
+            End With
+
+        Case "Page.domContentEventFired"
+            'document.readyState = interactive 相当
+            brTab.ReadState = ReadyState.isInteractive
+
+        Case "Page.loadEventFired"
+            'document.readyState = complete 相当
+            brTab.ReadState = ReadyState.isComplete
 
     End Select
 
@@ -1756,9 +1872,13 @@ Public Sub getSessionInfo()
     brTab.browserContextId = TargetInfo.StringKey("browserContextId")
 
     'JavaScript関連の変化も捉えれるようにする
-    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、`Runtime.executionContextCreated`等が飛んでくれます
+    '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
     runtimeEnable False
     runtimeEnable True
+
+    '`document.readyState`相当も使えるように有効化
+    '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
+    pageEnable True
 End Sub
 
 '***************************************************************************************************
@@ -1821,11 +1941,11 @@ Private Function getHandle() As LongPtr
 
     'Determine current tab title, if error: the tab is a blank tab
     Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:="about:blank")
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
 
     'Obtain handles to the correct browser window
     'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)        'To return Chrome / Edge window handles
+    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
     Do
         '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
         Dim currentPID As Long
@@ -1847,7 +1967,7 @@ Private Function getHandle() As LongPtr
         End If
 
         'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(BrowserCore.CurrentBrowserWindowClass), 0&)
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
 
     Loop Until hWnd = 0 ' no more matching windows
 
@@ -1856,66 +1976,165 @@ End Function
 
 
 '***************************************************************************************************
-'                           ■■■ 各種CDPヘルパーコマンド ■■■
+'                               ■■■ 簡易待機系メソッド ■■■
 '***************************************************************************************************
-Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
-'-----------------------------------------------------------------------
-' This sub is a quick wrapper to navigate to an url.
-' Updated 23/03/23
-'-----------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".navigate"
+'* 機能　　：一般的な待機、`document.readyState`を利用した待機です
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：till   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Wait until browser reaches a specific state. Default is until it fully loads ("complete")
+'            Possible states:  loading / interactive / complete
+'            Complete state is preferable when certain information is only showed when fully loaded.
+'            Otherwise, an interactive state is good enough and can potentially save a lot of wait time.
+'            However, do note that some web apps only fully displays elements at complete readystate.
+'            To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
+'            Original Name: waitCompletion
+'
+'* 注意事項：・「brTab.ReadState」とは独立します
+'            ・`NoWait`も使えますが意味を成しません
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴： 26/04/23 - Enhanced 'till' to Enum type for ease of use
+'             - Added exit for targetState = interactive in case CDP misses the state change
+'
+'             26/09/15 - 数値変換させて大小で比較するようにする
+'***************************************************************************************************
+Public Sub Wait(Optional till As ReadyState = isComplete)
+    Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
 
 
-   'Check if already navigated
-    Dim curURL As String
-    curURL = jsEval("window.location.href")
-    If curURL = strURL Then
-        printMsg WARN_, "Already navigated to """ & strURL & """", FromProcedureName
-        Exit Sub
-    End If
+    '1. ループで毎回、訊きに行く
+    Dim readyStateStr       As String
+    Dim CurrentReadyState   As ReadyState
+    Do Until CurrentReadyState >= till
+        '1-1. 今の読み込み状況をチェック
+        readyStateStr = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & readyStateStr, FromProcedureName  'option to print ReadyState info during iteration
 
-   'If not yet then do navigate
-    Dim CDPparams As New Dictionary
-    CDPparams.Add "url", strURL
-    ExecuteCDP "Page.navigate", CDPparams
+        '1-2. 値に変換
+        CurrentReadyState = CDPHelpers.StringToEnumReadyState(readyStateStr)
 
-    'should also add a maxTimeLimit to Wait
-    wait till:=till
-    printMsg info_, "Navigated to: " & strURL, FromProcedureName
+        '1-3. クールタイム
+        If CurrentReadyState < till Then CDPHelpers.Sleep 0.1                       'reduce sleep will speed up but will cost cpu power
+    Loop
+
+    '2. 待機成功を伝える
+    printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
 
 End Sub
 
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
-'--------------------------------------------------------------------------------------------------
-' Wait until browser reaches a specific state. Default is until it fully loads ("complete")
-' Possible states:  loading / interactive / complete
-' Complete state is preferable when certain information is only showed when fully loaded.
-' Otherwise, an interactive state is good enough and can potentially save a lot of wait time.
-' However, do note that some web apps only fully displays elements at complete readystate.
-' To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
-' Original Name: waitCompletion
-' Updated: 26/04/23 - Enhanced 'till' to Enum type for ease of use
-'                   - Added exit for targetState = interactive in case CDP misses the state change
-'--------------------------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".wait"
+'***************************************************************************************************
+'* 機能　　：`Page`イベントを活用したシンプルな読み込み待機を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：WaitMode   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'            waitError  タイムアウトになったら、エラーで止めるか？
+'* 返値    ：引数で渡した所まで待機できたか？
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：JavaScriptの`document.readyState`を`Page`イベントとして再現した物です
+'            こちらからわざわざ訊きに行くのではなく、ブラウザ側から来る非同期イベントから状態を監視します
+'* 注意事項：・これを使用する前に後述の「ResetWaitState」を使用して、読み込み状況をリセットする必要があります
+'            ・タイムアウトは、「Let TimeOutSecond」に依存します
+'            ・SPA待機には対応しません
+'            ・`Nowait`でも一応機能しますが、意味を成しません
+'***************************************************************************************************
+Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitEvents"
 
 
-    Dim strState As String, targetState As String
-    targetState = EnumToStringReadyState(till)
+    '1. 今の経過時間を記録
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
 
-    '初期値を設定しておく
-    '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = EnumToStringReadyState(isLoading)
-
-
-    Do Until strState = targetState
-        strState = jsEval("document.readyState", StopException:=dbgState)
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
-        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+    '2. イベントを取り出して、指定の読み込み状況になるまでループ
+    '※既に条件を満たしてる場合は、下記のループは通りません
+    Do Until brTab.ReadState >= WaitMode Or CDPHelpers.TimerCounter - timerStart > timerOut
+        '2-1. イベントを取り出す
+        TakeEvents  '※内部にて`DoEvents`が走ります
+        printMsg Trace_, "Waiting... Current waiting value: " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName
     Loop
 
-    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
+    '3. 最終結果を返す
+    WaitEvents = (brTab.ReadState >= WaitMode)
+
+    '4. 指定の待機値まで待機出来ず、エラーStopなら止める
+    If WaitEvents Then
+        printMsg info_, "Standby successfully completed > " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName
+    Else
+        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & CDPHelpers.EnumToStringReadyState(WaitMode) & ". Current waiting value: " & CDPHelpers.EnumToStringReadyState(brTab.ReadState), FromProcedureName, doRaiseError:=WaitError
+    End If
+
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`Page`イベント or `document.readyState`を活用したシンプルな読み込み待機を行う前の待機状況のリセットを行います
+'***************************************************************************************************
+Public Sub ResetWaitState()
+    Const FromProcedureName As String = ThisClassName & ".ResetWaitState"
+
+
+    'リセットして、ログ表示
+    brTab.ReadState = 0
+    printMsg Debug_, "The loading status has been reset.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ページ読み込み状況を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
+'***************************************************************************************************
+Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
+    If refresh Then
+        '1. 今の読み込み状況をチェック
+        Dim readyStateStr As String
+        readyStateStr = jsEval("document.readyState")
+
+        '2. 値に変換
+        brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+    End If
+    PageReadyState = brTab.ReadState
+End Function
+
+
+
+'***************************************************************************************************
+'                           ■■■ 各種CDPヘルパーコマンド ■■■
+'***************************************************************************************************
+'* 機能　　：This sub is a quick wrapper to navigate to an url.
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：strURL         遷移先URL
+'            referrerURL    どのURLから遷移させたかをサーバーに伝えたい場合は指定します
+'            transitionType 「どのような経緯・手段でこのURLへ遷移したか」を指定します
+'            referrerPolicy 「元のURL（足跡）」を相手のサーバーにどこまで教えるかを制御します
+'            frameId        iframe内のページ遷移を行う際は指定します
+'            till           どこまで待機させるか？
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`till:=Nowait`で行うとCDP非同期実行で、"Page.navigate"が行われます
+'***************************************************************************************************
+Public Sub navigate(strURL As String, Optional referrerURL As String, Optional transitionType As PageTransitionType, Optional referrerPolicy As PageReferrerPolicy, Optional frameID As String, Optional WaitMode As ReadyState = isComplete)
+    Const FromProcedureName As String = ThisClassName & ".navigate"
+
+
+    '遷移前の待機状況リセット
+    ResetWaitState
+
+    '遷移先パラメーター用意
+    Dim CDPparams As New Dictionary
+    CDPparams.Add "url", strURL
+    If StrPtr(frameID) Then CDPparams.Add "frameId", frameID
+    If StrPtr(referrerURL) Then CDPparams.Add "referrer", referrerURL
+    If transitionType > pt_default Then CDPparams.Add "transitionType", EnumToStringPageTransitionType(transitionType)
+    If referrerPolicy > pr_default Then CDPparams.Add "referrerPolicy", EnumToStringPageReferrerPolicy(referrerPolicy)
+
+    '非同期実行か
+    If WaitMode = ReadyState.Nowait Then
+        ExecuteCDPAsync "Page.navigate", CDPparams
+        printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
+        Exit Sub
+    Else
+        ExecuteCDP "Page.navigate", CDPparams
+
+        'should also add a maxTimeLimit to Wait
+        WaitEvents WaitMode:=WaitMode
+        printMsg info_, "Navigated to: " & strURL, FromProcedureName
+    End If
 
 End Sub
 
@@ -2083,20 +2302,21 @@ Public Sub handleDialog(Accept As Boolean, Optional promptText As String)
 
 End Sub
 
-Public Sub pageEnable(Optional enable As Boolean = True)
+Private Sub pageEnable(Optional enable As Boolean = True)
 '----------------------------------------------------------------------------------
 ' Enable the page for events listening. Required for handleDialog for instance.
 '----------------------------------------------------------------------------------
 
-    ExecuteCDP IIf(enable, "Page.enable", "Page.disable"), , False
-
+    ExecuteCDPAsync IIf(enable, "Page.enable", "Page.disable"), , False
+    EventSubscription.Page = enable
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：`Runtime`系のイベント機能を有効/無効化を行います
 '***************************************************************************************************
-Public Sub runtimeEnable(Optional enable As Boolean = True)
-    ExecuteCDP IIf(enable, "Runtime.enable", "Runtime.disable"), , False
+Private Sub runtimeEnable(Optional enable As Boolean = True)
+    ExecuteCDPAsync IIf(enable, "Runtime.enable", "Runtime.disable"), , False
+    EventSubscription.Runtime = enable
 End Sub
 
 '***************************************************************************************************
@@ -2673,7 +2893,10 @@ Property Let CurrentSessionID(newSessionID As String)
         If MainTargetID = brTab.targetID Then .UpdateBrowserContext(BrowserCore.CurrentBrowserUser, "sessionID", FromProcedureName) = brTab.sessionID
     End With
 
-    getSessionInfo        'update all session infos
+    '更新した`SessionID`として情報を再更新
+    getSessionInfo
+
+    'ログ化
     printMsg info_, currentLog.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property

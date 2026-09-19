@@ -724,8 +724,8 @@ Private Sub Class_Initialize()
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
     With ShSetting01_StartBrowser
-        currentLog.seeRawSendMsgDbg = .UseRangeID(8, FromProcedureName)
-        currentLog.logPath = .UseRangeID(9, FromProcedureName)
+        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)
+        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
     End With
 
     'タイムアウト設定(デフォルトで、30s)
