@@ -53,6 +53,10 @@ End Sub
 
 内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
+::: warning v3.2.0での変更：初期化失敗時はエラーで停止するように
+以前は初期化失敗時に `ConnectCDP` が `False` を返すだけでしたが、v3.2.0以降は失敗時に **VBAエラーとして停止**するようになりました。上記デモの `If Not .StartCDPModeWebView2 Then Debug.Print "..."` という分岐は、`WebView2Loader.dll`が見つからない等の失敗時にはもう到達しません（エラーが先に発生するため）。この分岐を実際に機能させたい場合は、呼び出し側で `On Error` を使ってください。
+:::
+
 このデモには、WebView2モードならではの基本操作が3つ詰め込まれています。
 
 ::: tip 設定できるタイミングは2種類
@@ -63,6 +67,10 @@ End Sub
 `Set_AllowSingleSignOnUsingOSPrimaryAccount` の値によって、同じ`https://account.microsoft.com/`への遷移結果が変わります。`False`（シングルサインオン無効）ならMicrosoftアカウントの紹介ページが、`True`（有効）ならWindowsに現在サインイン中のMicrosoftアカウントの設定ページへ自動的に遷移します。実行前後で切り替えて挙動の違いを確かめてみてください。
 
 `ThisWebView2` / `ThisCDPContext` は、[UserForm への埋め込み](/userform/vba-only)や[reattach](/guides/reattach)など、以降のページ・デモで繰り返し出てくる基本の呼び出し方です。フォーム経由でWebView2固有の設定（`ThisWebView2`）とCDP操作（`ThisCDPContext`）の両方に、同じ`With`ブロックからアクセスできます。
+
+::: tip v3.2.0での改善：フォームのキャプションが自動追従
+同梱の`WebView2Form`は、ページ遷移（`Target.targetInfoChanged`）に応じてフォームの`Caption`（タイトルバー）を自動的にページタイトルへ更新するようになりました。以前は遷移してもフォームのタイトルは変わりませんでした。
+:::
 
 ## 自前のUserFormに組み込む場合
 
@@ -121,10 +129,18 @@ wv2.UnsubscribeAllCdpEvents
 Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの全イベントが自動で流れてくる」モデルですが、WebView2は`GetDevToolsProtocolEventReceiver`の仕様上、**イベント名ごとの個別購読**が必要です。一括購読の概念はWebView2側に無いため未対応です（一括解除のみ`UnsubscribeAllCdpEvents`として提供）。`Page.enable`だけしても`Page.javascriptDialogOpening`等は一切届かず、後続の受信待ちループが無限待機になるので注意してください。
 :::
 
+::: tip v3.2.0での変更：接続時に必須イベントを自動購読
+`ConnectCDP`成功時、`Target.detachedFromTarget`等のタブ生存確認、`Runtime.executionContext*`、`Page.frameStartedLoading`/`domContentEventFired`/`loadEventFired`（[`WaitEvents`](/guides/navigation)による読み込み待機に必要）を、ライブラリが内部で自動購読するようになりました。`Page.javascriptDialogOpening`等、この一覧に無いイベントは、これまで通り`SubscribeCdpEvent`で自分で購読してください。`UnsubscribeAllCdpEvents`を呼ぶと、この自動購読分も含めて全て解除される点に注意してください（後述）。
+:::
+
 同梱デモ（v3.1.1〜）: `Demo_WebView2.RunTestAlertDemo` — `Demo_CDP.TestAlert`のWebView2移植版で、`alert` / 空`alert` / `prompt`の3種類のJavaScriptダイアログを実際に発生させ、`SubscribeCdpEvent "Page.javascriptDialogOpening"`で捕まえて自動応答する一連の流れを、`SubscribeCdpEvent`を呼ぶ場合と呼ばない場合を比較しながら確認できます。
 
-::: warning デバッグ中のクラッシュに注意
-1つでも購読した状態で、VBEの`Stop`やブレークポイントで**止めたあとにリセット処理**をすると、Excelがクラッシュすることがあります。ブレークポイントで一時停止してローカルウィンドウを確認する程度なら問題ありません。どうしてもリセットが必要な場合は、イミディエイトウィンドウから`UnsubscribeAllCdpEvents`を実行して購読を解除してから行ってください。
+::: warning デバッグ中のクラッシュに注意（v3.2.0でさらに精査）
+- **安全**: `.navigate`等の同期メソッドが完了し、普通のVBAコード行でブレーク／ステップ実行が静止している状態。この状態のままコールバックを後で受け取っても、通常はクラッシュしません
+- **危険**: 同期メソッドの**呼び出し中そのもの**でブレークする、または静止ブレイク中に購読中のCDPイベントや保留中のコマンド完了通知が実際に届くと、機械語サンク経由でVBAへ再入しようとしてクラッシュする可能性があります
+- **最も危険**: 上記いずれの状態でも、VBEで**リセット処理**を行うのはほぼ確実にクラッシュします
+
+どうしてもリセットが必要な場合は、まず安全な静止状態まで処理を進め、イミディエイトウィンドウから`UnsubscribeAllCdpEvents`を実行して購読を解除してから行ってください。ただし、これは前述の自動購読分（`WaitEvents`用のイベント等）も道連れで解除するため、デバッグ後は再接続するか、必要なイベントを再購読してください。
 :::
 
 ## 拡張機能のインストール（v3.1.0〜）

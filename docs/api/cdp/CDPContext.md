@@ -22,25 +22,23 @@ t.ThisCDPBrowser.quit
 ブラウザ起動と同時に、初回タブ接続まで自動で行います。
 
 ```vb
-Public Sub StartAndConnectTab( _
-    Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String _
-)
+Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `Name` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
+| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
 | `appUrl` | `--app` に付ける URL |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
 | `addArgs` | 追加の起動引数 |
 
 日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
 
+::: warning v3.2.0での変更
+`Name As BrowserList` 引数が廃止されました。Chrome / Edge の選択は、設定シートの `UseChrome` セルに一本化されています（[はじめに](/getting-started)）。また `userProfile` が必須の第1引数になったため、古い `StartAndConnectTab(BrowserList.RunChrome, appUrl, userProfile)` のような位置引数呼び出しは動かなくなります。
+:::
+
 ::: tip 注意
-`Name` は v3.0.0 で `String` から `BrowserList` 列挙型に変更されました。同じく `KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応（[UserForm への埋め込み](/userform/vba-only)）に伴い廃止されています。
+`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応（[UserForm への埋め込み](/userform/vba-only)）に伴い v3.0.0 で廃止されています。また v3.2.0 以降、Context 経由の起動は常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移するようになりました（`--app` 使用時のレースコンディション対策）。詳細は [ページ遷移](/guides/navigation) の「起動時のレースコンディション対策」を参照してください。
 :::
 
 ### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
@@ -49,15 +47,14 @@ Excel テーブルにある既存のパイプ／WebSocket／WebView2 接続情�
 
 ```vb
 Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
-Public Function reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
-Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
+Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
 ```
 
 | 引数 | 意味 |
 | --- | --- |
 | `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく） |
-| `WebSocketMode` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定 |
-| `WebView2Mode` | WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebView2` を指定 |
+| `ConnectInfo` | WebSocket / WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` / `CDPCoreViaWebView2` を指定（v3.2.0で`WebSocketMode`/`WebView2Mode`から改称） |
 | `reuseSession` | `True` で Excel に記録中の SessionID を流用。`False` なら `targetID` を基に SessionID を更新し、古い SessionID を破棄して上書き |
 
 **戻り値:** 既存タブへの接続成功可否。
@@ -100,59 +97,155 @@ Public Sub closeTab()
 ### `navigate`
 
 ```vb
-Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
+Public Sub navigate(strURL As String, Optional referrerURL As String, Optional transitionType As PageTransitionType, _
+    Optional referrerPolicy As PageReferrerPolicy, Optional frameID As String, Optional WaitMode As ReadyState = isComplete)
 ```
 
-URL を開き、指定の [`ReadyState`](#readystate) まで待ちます。内部では `Page.navigate` のあと [`wait`](#wait) を呼びます。
+URL を開き、指定の [`ReadyState`](#readystate) まで待ちます。内部では `Page.navigate` のあと [`WaitEvents`](#waitevents) を呼びます（`WaitMode:=Nowait` なら待ちません）。
 
 | 引数 | 意味 |
 | --- | --- |
 | `strURL` | 遷移先 URL |
-| `till` | 待機する `document.readyState`。既定は `isComplete`（読み込み完了） |
+| `referrerURL` | `Page.navigate` の `referrer`。参照元 URL を偽装したい場合に指定 |
+| `transitionType` | 遷移の種類（[`PageTransitionType`](#pagetransitiontype)）。既定は `pt_default` |
+| `referrerPolicy` | リファラーの送信ポリシー（[`PageReferrerPolicy`](#pagereferrerpolicy)）。既定は `pr_default` |
+| `frameID` | 特定の iframe へ遷移したい場合の `frameId` |
+| `WaitMode` | 待機する `document.readyState`。既定は `isComplete`（読み込み完了）。`Nowait` で待たずに戻る |
 
 ```vb
-t.navigate "https://example.com"                          ' 完了まで待つ（既定）
-t.navigate "https://example.com/heavy", isInteractive     ' interactive で先に進む
+t.navigate "https://example.com"                              ' 完了まで待つ（既定）
+t.navigate "https://example.com/heavy", WaitMode:=isInteractive   ' interactive で先に進む
+
+' referrer を偽装しないとアクセスできないサイト向け（v3.2.0〜）
+t.navigate "https://example.com/protected", referrerURL:="https://example.com/"
+
+' 遷移を待たずに次の操作へ進む
+t.navigate "https://example.com", WaitMode:=Nowait
 ```
 
-::: tip 注意
-すでに同じ URL にいる場合は遷移せず、警告ログを出して終了します。
+::: warning v3.2.0での破壊的変更
+第2引数の意味が `till As ReadyState` から `referrerURL As String` に変わりました。`t.navigate url, isInteractive` のように**第2引数を位置引数で渡していたコードは動作が変わります**。`WaitMode:=isInteractive` のように名前付き引数へ書き換えてください。また「すでに同じ URL にいる場合はスキップする」という以前の挙動は廃止され、常に `Page.navigate` を実行するようになりました。
 :::
 
-### `wait`
+### `Wait`
 
 ```vb
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
+Public Sub Wait(Optional till As ReadyState = isComplete)
 ```
 
-現在ページが指定の [`ReadyState`](#readystate) になるまで待ちます。`navigate` 後だけでなく、クリック後の再読み込み待ちなどにも使えます。
+現在ページが指定の [`ReadyState`](#readystate) になるまで、`document.readyState` を**ポーリング**して待ちます。`navigate` 後だけでなく、クリック後の再読み込み待ちなどにも使えます。新しいタブ（`getTab` / `newTab` で取得）など、いつ遷移が起きたか把握できない場面ではこちらが安全です。
 
 | 引数 | 意味 |
 | --- | --- |
 | `till` | 待機する `document.readyState`。既定は `isComplete` |
-| `dbgState` | `True` で待機中の ReadyState を Immediate ウィンドウへ出し、`jsEval` の例外も止めずに継続 |
 
 ```vb
-t.wait                              ' 完了待ち（既定）
-t.wait isInteractive                ' interactive で十分なら短縮できる
-t.wait isComplete, dbgState:=True   ' 状態遷移を見ながら待つ
+t.Wait                    ' 完了待ち（既定）
+t.Wait isInteractive       ' interactive で十分なら短縮できる
 ```
 
 ::: tip
 `till:=isInteractive` のとき、すでに `complete` まで進んでいればそのまま成功扱いで抜けます（interactive を取りこぼしても止まらない）。
 :::
 
+::: warning v3.2.0での変更
+`dbgState As Boolean` 引数が廃止されました。デバッグ出力が必要な場合は、外部デバッグログビュアー対応（`Logger`の`exportDbgMsg`、DebugView等で確認可能）をご利用ください。
+:::
+
+### `WaitEvents`（v3.2.0〜）
+
+```vb
+Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
+```
+
+`Wait` のポーリング版に対し、こちらは CDP イベント（`Page.frameStartedLoading` / `Page.domContentEventFired` / `Page.loadEventFired`）を**受動的に待つ**版です。`navigate` が内部で使っているのはこちらです。
+
+| 引数 | 意味 |
+| --- | --- |
+| `WaitMode` | 待機する `ReadyState`。既定は `isComplete` |
+| `WaitError` | タイムアウト時に例外を出すか。既定は `True` |
+
+**戻り値:** 指定状態まで到達できたか。
+
+```vb
+t.ResetWaitState        ' 遷移を起こす操作の直前に必ず呼ぶ
+t.getElementByQuery("a.next").click
+t.WaitEvents WaitMode:=isComplete
+```
+
+::: warning 注意：`ResetWaitState` を先に呼ぶこと
+`WaitEvents` は「状態が変化したこと」をイベントで検知する仕組みのため、**遷移を引き起こす操作より前に [`ResetWaitState`](#resetwaitstate) で状態をリセットしておく**必要があります。リセットせずに呼ぶと、前回までに到達済みの状態がそのまま返ってしまうことがあります。`getTab` / `newTab` で取得した直後など「いつ遷移したか分からない」タブでは、代わりに [`Wait`](#wait)（ポーリング版）を使ってください。
+:::
+
+### `ResetWaitState`（v3.2.0〜）
+
+```vb
+Public Sub ResetWaitState()
+```
+
+[`WaitEvents`](#waitevents) 用の内部状態（到達済み `ReadyState`）をリセットします。クリックなど、`navigate` を経由しない遷移トリガーの直前に呼んでください。
+
+### `PageReadyState`（v3.2.0〜）
+
+```vb
+Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
+```
+
+現在追跡中の `ReadyState` を返します。`refresh:=True` の場合、`document.readyState` を JS 側から読み直してから返します。
+
 ### `ReadyState`
 
-`document.readyState` に対応する列挙です。`navigate` / `wait` / 一部の要素操作で使います。
+`document.readyState` に対応する列挙です。`navigate` / `Wait` / `WaitEvents` / 一部の要素操作で使います。
 
 | 値 | ブラウザ側 | 意味 |
 | --- | --- | --- |
+| `Nowait`（v3.2.0〜） | ― | 遷移を待たない（`navigate` の `WaitMode` に指定すると `Page.navigate` を投げっぱなしで戻る） |
 | `isLoading` | `"loading"` | 読み込み中 |
 | `isInteractive` | `"interactive"` | DOM は操作可能だが、画像などの読み込みは未完了のことがある |
 | `isComplete` | `"complete"` | ドキュメント読み込み完了（既定）。要素が完了後にしか出ないページ向け |
 
+::: warning v3.2.0での変更
+`Nowait` が先頭に追加されたことで、各値の内部的な序数（`isLoading`=1, `isInteractive`=2, `isComplete`=3 に変更）がずれています。名前で参照している限り（`isComplete` 等）は影響ありませんが、`ReadyState` の値を数値としてそのまま保存・比較しているコードがあれば見直してください。
+:::
+
 詳細は [ページ遷移](/guides/navigation)。
+
+### `PageTransitionType`（v3.2.0〜）
+
+`navigate` の `transitionType` に渡す、[`Page.navigate`](https://chromedevtools.github.io/devtools-protocol/#/Page.navigate) の遷移種別です。
+
+| 値 | CDP文字列 | 意味 |
+| --- | --- | --- |
+| `pt_default` | ― | 既定（Chrome標準におまかせ） |
+| `pt_link` | `link` | 通常のリンク（`<a>`）クリック |
+| `pt_typed` | `typed` | アドレスバーへの直接入力 |
+| `pt_address_bar` | `address_bar` | アドレスバーのサジェスト／履歴選択 |
+| `pt_auto_bookmark` | `auto_bookmark` | ブックマークからの遷移 |
+| `pt_form_submit` | `form_submit` | `<form>` 送信 |
+| `pt_reload` | `reload` | 再読み込み |
+| `pt_auto_subframe` | `auto_subframe` | iframe の自動読み込み |
+| `pt_manual_subframe` | `manual_subframe` | iframe 内リンクの手動クリック |
+| `pt_generated` | `generated` | アドレスバー検索による生成結果ページ |
+| `pt_keyword` | `keyword` | カスタム検索キーワード経由 |
+| `pt_keyword_generated` | `keyword_generated` | カスタムキーワードエンジンが生成したURL |
+| `pt_auto_toplevel` | `auto_toplevel` | `<meta http-equiv="refresh">` 等の自動リダイレクト |
+| `pt_other` | `other` | 上記に該当しないその他 |
+
+### `PageReferrerPolicy`（v3.2.0〜）
+
+`navigate` の `referrerPolicy` に渡す、リファラー送信ポリシーです。
+
+| 値 | CDP文字列 | 意味 |
+| --- | --- | --- |
+| `pr_default` | ― | 既定（`strictOriginWhenCrossOrigin` 相当） |
+| `pr_noReferrer` | `noReferrer` | 完全匿名。リファラーを一切送らない |
+| `pr_origin` | `origin` | ドメイン名のみ送信（パスは隠す） |
+| `pr_sameOrigin` | `sameOrigin` | 同一サイトのみ全開示、外部へは匿名 |
+| `pr_strictOrigin` | `strictOrigin` | ドメイン名のみ。HTTPSからHTTPへの降格時は匿名 |
+| `pr_strictOriginWhenCrossOrigin` | `strictOriginWhenCrossOrigin` | 現代のWeb標準。自サイトは全開示、外部はドメインのみ、降格時は匿名 |
+| `pr_originWhenCrossOrigin` | `originWhenCrossOrigin` | 自サイト全開示、外部はドメインのみ（降格時も送信） |
+| `pr_noReferrerWhenDowngrade` | `noReferrerWhenDowngrade` | レガシー標準。降格時のみ匿名、それ以外は全開示 |
+| `pr_unsafeUrl` | `unsafeUrl` | 常にURL全文を送信（非推奨） |
 
 ## ウィンドウ制御
 
@@ -552,9 +645,13 @@ Set t.BrowserEvents = Nothing
 
 手順・セーブ／再開・`WithEvents` との使い分けは [イベント購読](/guides/events) を参照してください。
 
-### `pageEnable` / `runtimeEnable`
+### `pageEnable` / `runtimeEnable`（v3.2.0で内部専用化）
 
-ドメイン有効化のショートカット。
+`Page.enable` / `Runtime.enable` を切り替える内部メソッドです。以前は `Public` でしたが、v3.2.0でこの2つのドメインが**接続時に常時有効化・必須化**されたため `Private` になりました。ユーザー側から呼ぶ必要（呼ぶ手段）はもうありません。
+
+::: warning v3.2.0での変更
+以前は `Demo_CDP.TestAlert` 等でユーザーコードから `.ExecuteCDP "Page.enable"` を明示的に呼ぶ例がありましたが、v3.2.0以降は接続時に自動で有効化されるため不要になりました（呼んでもエラーにはなりませんが、無意味です）。
+:::
 
 ### `openDevTools`
 

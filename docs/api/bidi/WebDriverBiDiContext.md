@@ -22,32 +22,30 @@ t.ThisWebDriverBiDiMode.quit
 ### `StartBiDiModeAndConnectTab`
 
 ```vb
-Public Sub StartBiDiModeAndConnectTab( _
-    Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary _
-)
+Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
+    Optional sessionCapabilitiesRequest As Dictionary)
 ```
 
 ブラウザ起動・`session.new`・初回タブ（context）接続まで自動で行います。日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
 
 | 引数 | 意味 |
 | --- | --- |
-| `Name` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
+| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
 | `appUrl` | 起動時に開く URL |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
 | `addArgs` | 追加の起動引数 |
 | `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
 
 ```vb
 Dim t As New WebDriverBiDiContext
-t.StartBiDiModeAndConnectTab BrowserList.RunChrome, userProfile:="MyUser"
+t.StartBiDiModeAndConnectTab "MyUser"
 ```
 
+::: warning v3.2.0での変更
+`Name As BrowserList` 引数が廃止されました。Chrome / Edge の選択は設定シートの `UseChrome` セルに一本化されています。`userProfile` が必須の第1引数になったため、位置引数での古い呼び出し方は動作しません。
+:::
+
 ::: tip 注意
-`Name` は v3.0.0 で `String` から `BrowserList` 列挙型に変更されました。`KioskMode` 引数（Edge キオスクモード埋め込み向け）も、WebView2 のネイティブ対応に伴い廃止されています。
+`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応に伴い v3.0.0 で廃止されています。また v3.2.0 以降、この起動フローは常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移するようになりました（`--app` 使用時のレースコンディション対策）。詳細は [ページ遷移](/guides/navigation) を参照してください。
 :::
 
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
@@ -91,12 +89,12 @@ If Not t.reattach(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
 ```
 
-URL を開き、指定の読み込み条件まで待ちます。内部では `browsingContext.navigate` の `wait` にマッピングします。
+URL を開き、指定の読み込み条件まで待ちます。内部では `browsingContext.navigate` のあと [`WaitEvents`](#waitevents) を呼びます（`till:=Nowait` なら待ちません）。
 
 | 引数 | 意味 |
 | --- | --- |
 | `strURL` | 遷移先 URL |
-| `till` | 待機条件。既定は `isComplete` |
+| `till` | 待機条件。既定は `isComplete`。`Nowait`（v3.2.0〜）で待たずに戻る |
 
 | `ReadyState` | BiDi の `wait` |
 | --- | --- |
@@ -107,27 +105,30 @@ URL を開き、指定の読み込み条件まで待ちます。内部では `br
 ```vb
 t.navigate "https://example.com"                          ' 完了まで待つ（既定）
 t.navigate "https://example.com/heavy", isInteractive     ' interactive で先に進む
+t.navigate "https://example.com", Nowait                  ' 待たずに次へ進む（v3.2.0〜）
 ```
+
+::: tip CDP側との違い
+CDP の [`CDPContext.navigate`](/api/cdp/CDPContext#navigate) は v3.2.0 で `referrer` / `transitionType` 等の引数が追加されましたが、BiDi の `browsingContext.navigate` にはそれに相当する概念がないため、こちらの `navigate` のシグネチャは変わっていません。
+:::
 
 詳細は [ページ遷移](/guides/navigation)。
 
-### `wait`
+### `Wait`
 
 ```vb
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
+Public Sub Wait(Optional till As ReadyState = isComplete)
 ```
 
-現在ページの `document.readyState` が指定状態になるまで待ちます。`navigate` 後だけでなく、クリック後の再読み込み待ちなどにも使えます。
+現在ページの `document.readyState` を**ポーリング**して、指定状態になるまで待ちます。`navigate` 後だけでなく、クリック後の再読み込み待ちなどにも使えます。新しいタブなど、いつ遷移が起きたか把握できない場面ではこちらが安全です。
 
 | 引数 | 意味 |
 | --- | --- |
 | `till` | 待機する `document.readyState`。既定は `isComplete` |
-| `dbgState` | `True` で待機中の ReadyState をログへ出し、`jsEval` の例外も止めずに継続 |
 
 ```vb
-t.wait                              ' 完了待ち（既定）
-t.wait isInteractive
-t.wait isComplete, dbgState:=True
+t.Wait                              ' 完了待ち（既定）
+t.Wait isInteractive
 ```
 
 ::: tip
@@ -135,9 +136,40 @@ t.wait isComplete, dbgState:=True
 - 一般的な読み込みステータスのみ対応です。SPA などの特殊な待機は別途実装が必要です
 :::
 
+::: warning v3.2.0での変更
+`dbgState As Boolean` 引数が廃止されました。
+:::
+
+### `WaitEvents`（v3.2.0〜）
+
+```vb
+Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
+```
+
+`Wait` のポーリング版に対し、こちらは BiDi イベント（`browsingContext.navigationStarted` / `domContentLoaded` / `load`）を**受動的に待つ**版です。`navigate` が内部で使っているのはこちらです。CDP側の [`CDPContext.WaitEvents`](/api/cdp/CDPContext#waitevents) と同じ設計・同じ注意点（`ResetWaitState` を先に呼ぶ必要がある）です。
+
+| 引数 | 意味 |
+| --- | --- |
+| `WaitMode` | 待機する `ReadyState`。既定は `isComplete` |
+| `WaitError` | タイムアウト時に例外を出すか。既定は `True` |
+
+```vb
+t.ResetWaitState
+t.getElementByQuery("a.next").click   ' または UpgradeBiDiPlus 経由のクリック
+t.WaitEvents WaitMode:=isComplete
+```
+
+### `ResetWaitState`（v3.2.0〜）
+
+```vb
+Public Sub ResetWaitState()
+```
+
+[`WaitEvents`](#waitevents) 用の内部状態をリセットします。`navigate` を経由しない遷移トリガーの直前に呼んでください。
+
 ### `ReadyState`
 
-[`CDPContext` と同じ列挙](/api/cdp/CDPContext#readystate)です（`isLoading` / `isInteractive` / `isComplete`）。
+[`CDPContext` と同じ列挙](/api/cdp/CDPContext#readystate)です（`Nowait`（v3.2.0〜） / `isLoading` / `isInteractive` / `isComplete`）。
 
 ## JavaScript
 
@@ -222,14 +254,18 @@ cdp.getElementByQuery("button").click
 
 ## イベント購読（コンテキスト単位、v3.1.1.1〜）
 
-### `sessionSubscribe`
+### `SubscribeBiDiEvent`
 
 ```vb
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, events As Collection)
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, events)
 ```
 
 `session.subscribe` / `session.unsubscribe` を、**このタブ（context）単位**で実行します。`ExecuteBiDi` と同じく params に `context` が自動付与されるため、他のタブの購読状態には影響しません。
+
+::: warning v3.2.0でのリネーム
+以前は `sessionSubscribe` という名称でした。挙動に変更はありません。
+:::
 
 | 引数 | 意味 |
 | --- | --- |
@@ -238,11 +274,11 @@ Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
 
 ```vb
 ' このタブだけネットワーク系イベントを購読する例（他のタブは購読しないまま操作を続けられる）
-t.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted")
+t.SubscribeBiDiEvent = Array("network.beforeRequestSent", "network.responseCompleted")
 ```
 
 ::: tip ブラウザ全体の購読との使い分け
-全タブ共通で購読したい場合は、これまで通り [`ThisWebDriverBiDiMode.sessionSubscribe`](./WebDriverBiDiMode#sessionsubscribe) を使ってください。パフォーマンスを気にするなら、必要なタブだけに絞れるこちらの Context 単位版がおすすめです。
+全タブ共通で購読したい場合は、これまで通り [`ThisWebDriverBiDiMode.SubscribeBiDiEvent`](./WebDriverBiDiMode#subscribebidievent) を使ってください。パフォーマンスを気にするなら、必要なタブだけに絞れるこちらの Context 単位版がおすすめです。
 :::
 
 詳細は [イベント購読](/guides/events)。

@@ -27,18 +27,13 @@ Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだ�
 
 ### 設定シート経由（もっとも簡単）
 
-`ShSetting01_StartBrowser.StartCDPMode` / `StartBiDiMode` に `WebSocketMode:=True` を渡すだけで、WebSocket経由でローカルブラウザを起動し、接続済みの `CDPBrowser` / `WebDriverBiDiMode` をそのまま受け取れます。
-
-```vb
-Public Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
-Public Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As Boolean) As WebDriverBiDiMode
-```
+ブラウザ起動設定シートの **`UseWebSocket` セルを `TRUE`** にするだけで、Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続するようになります（既定は `FALSE` = Pipe）。
 
 ```vb
 Sub AutoConnectBrowser()
-    '1. WebSocket制御で、ブラウザを起動
+    '1. UseWebSocket セルが TRUE の状態で、ブラウザを起動
     Dim BrowserControl As CDPBrowser
-    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+    Set BrowserControl = ShSetting01_StartBrowser.StartCDPMode
 
     '2. 未接続のタブに接続
     Dim t As CDPContext
@@ -52,48 +47,46 @@ Sub AutoConnectBrowser()
 End Sub
 ```
 
-`StartCDPModeContext` / `StartBiDiModeContext`（`CDPContext` / `WebDriverBiDiContext` を返す方）には、この引数はありません。WebSocket経由で起動したい場合は `StartCDPMode` / `StartBiDiMode` を使い、`getTab` からタブ操作を始めてください。
+::: warning v3.2.0での変更
+以前は `StartCDPMode(WebSocketMode:=True)` のように、`StartCDPMode` / `StartBiDiMode` へ渡す `WebSocketMode As Boolean` 引数で切り替えていました。v3.2.0でこの引数は廃止され、ワークシートの `UseWebSocket` セルに一本化されています。あわせて、これまで非対応だった **`StartCDPModeContext` / `StartBiDiModeContext`**（`CDPContext` / `WebDriverBiDiContext` を直接返す方）でも WebSocket 起動に対応しました。つまりこの4種類の起動ヘルパー全てが、同じ `UseWebSocket` セル1つで挙動を切り替えます。
+:::
 
 ### `CDPCoreViaWebSocket` を直接使う場合
 
-内部で何が起きているかを制御したい場合は、`ConnectCDPWithLocalBrowser`（起動＋接続のみ）と `StartCDPMode` / `StartBiDiMode`（接続済みの状態を `CDPBrowser` / `WebDriverBiDiMode` として受け取る）を分けて呼べます。
+内部で何が起きているかを制御したい場合は、`ConnectCDPWithLocalBrowser`（起動＋接続のみ）と、`CDPBrowser.reattachWebSocket` / `WebDriverBiDiMode.reattach`（接続済みの状態を `CDPBrowser` / `WebDriverBiDiMode` として受け取る）を組み合わせて呼べます。
 
 ```vb
-Public Sub ConnectCDPWithLocalBrowser( _
-    Optional BrowserType As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String _
-)
-Public Function StartCDPMode() As CDPBrowser
-Public Function StartBiDiMode(sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `BrowserType` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
+| `UserName` | 利用者識別名称（必須・第1引数） |
 | `appUrl` | `--app` に付ける URL |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
+| `SplashScreenMode` | `True` で実URLの前に起動スプラッシュ画面を経由（詳細は [ページ遷移](/guides/navigation)） |
 | `addArgs` | 追加の起動引数 |
 
-```vb
-Dim ws As New CDPCoreViaWebSocket
-ws.ConnectCDPWithLocalBrowser BrowserList.RunChrome, "https://example.com"
+戻り値は初期接続先の URL 文字列です。
 
-Dim b As CDPBrowser
-Set b = ws.StartCDPMode()
+```vb
+Dim UserName As String
+UserName = ShSetting01_StartBrowser.CurrentUserName
+
+Dim ws As New CDPCoreViaWebSocket
+ws.ConnectCDPWithLocalBrowser UserName, "https://example.com", False, vbNullString
+
+Dim b As New CDPBrowser
+b.reattachWebSocket UserName, ws
 
 Dim t As CDPContext
 Set t = b.getTab(setMain:=True)
 t.navigate "https://example.com"
 ```
 
-内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化・起動コマンドライン生成・`DevToolsActivePort` の出現待機・接続までを [`CDPHost`](/concepts/architecture) に委託したうえで自動的に行います。`StartCDPMode`/`StartBiDiMode`が返すのは、内部で`reattachWebSocket`済みの`CDPBrowser`/`WebDriverBiDiMode`です。
+内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化・起動コマンドライン生成・`DevToolsActivePort` の出現待機・接続までを [`CDPHost`](/concepts/architecture) に委託したうえで自動的に行います。
 
-`Start○○ModeContext`（Pipe版）と違い、返るのは `CDPBrowser` / `WebDriverBiDiMode` です。タブ操作は `getTab` / `newTab` から始めてください。
-
-::: warning v3.1.0での変更
-以前このセクションでは `CDPCoreViaWebSocket.RunWebSocketModeBrowserCDP`（起動から`CDPBrowser`取得まで1メソッド）を紹介していましたが、v3.1.0で`ConnectCDPWithLocalBrowser`（起動＋接続）と`StartCDPMode`/`StartBiDiMode`（`CDPBrowser`/`WebDriverBiDiMode`化）に分割されました。日常利用では、上記の設定シート経由（`ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)`）の方が簡単です。
+::: warning v3.2.0での変更
+`BrowserType As BrowserList` 引数が廃止されました（Chrome / Edge は設定シートの `UseChrome` セルで選択）。また、`CDPCoreViaWebSocket.StartCDPMode()` / `StartBiDiMode(sessionCapabilitiesRequest)`（接続済み情報を `CDPBrowser` / `WebDriverBiDiMode` に変換する専用メソッド）は**廃止**されました。依存の向きが逆転し、`CDPBrowser.start` / `WebDriverBiDiMode.StartBiDiMode` の方が内部で `CDPCoreViaWebSocket` を生成するようになったためです。上記のとおり、代わりに `reattachWebSocket` / `reattach` を組み合わせてください。日常利用では、前項の設定シート経由（`UseWebSocket` セル）の方が簡単です。
 :::
 
 ## 基本的な接続方法（既存ブラウザへの後付け接続）
@@ -123,14 +116,14 @@ ws.DisconnectCDP
 
 ## 接続の種類
 
-`CDPCoreViaWebSocket` には、既存ブラウザへ後付け接続する次の 3 種類のメソッドに加え、前述の起動込みメソッドがあります。
+`CDPCoreViaWebSocket` には、既存ブラウザへ後付け接続する次の 3 種類の公開メソッドに加え、前述の起動込みメソッドがあります。
 
 | メソッド | エンドポイント／手段 | 渡す `reattachWebSocket` |
 | --- | --- | --- |
 | `AutoConnectPageCDP` | `/json/list` → Page | [`CDPContext`](/api/cdp/CDPContext) |
 | `AutoConnectBrowserCDP` | `/json/version` → Browser | [`CDPBrowser`](/api/cdp/CDPBrowser) |
-| `AutoConnectDevToolsActivePort` | `DevToolsActivePort` ファイル | [`CDPBrowser`](/api/cdp/CDPBrowser) |
-| `ConnectCDPWithLocalBrowser` + `StartCDPMode`/`StartBiDiMode` | ローカルブラウザを起動してから接続 | （内部で `reattachWebSocket` 済み。[前述](#ローカルブラウザの起動から行う場合)） |
+| `ReConnectCDP`（v3.2.0〜） | `DevToolsActivePort` ファイル、または記録済みハンドルの再利用 | [`CDPBrowser`](/api/cdp/CDPBrowser) |
+| `ConnectCDPWithLocalBrowser` + `reattachWebSocket`/`reattach` | ローカルブラウザを起動してから接続 | （前述の「`CDPCoreViaWebSocket` を直接使う場合」を参照） |
 
 ### `AutoConnectPageCDP`
 
@@ -165,18 +158,12 @@ Public Function AutoConnectPageCDP( _
 `/json/version` へアクセスし、**ブラウザ単位**の WebSocket 接続まで行います。
 
 ```vb
-Public Function AutoConnectBrowserCDP( _
-    UserName As String, _
-    Optional ReuseContext As Boolean, _
-    Optional port As Long = 9222, _
-    Optional Host As String = "127.0.0.1" _
-) As Boolean
+Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long = 9222, Optional Host As String = "127.0.0.1") As Boolean
 ```
 
 | 引数 | 意味 |
 | --- | --- |
 | `UserName` | 利用者識別名称 |
-| `ReuseContext` | `True` で Excel テーブルにあるメインタブ情報を流用 |
 | `port` | 接続先ポート（例: `9222`） |
 | `Host` | 接続先 IP（例: `127.0.0.1`） |
 
@@ -184,27 +171,32 @@ Public Function AutoConnectBrowserCDP( _
 接続後は **`CDPBrowser.reattachWebSocket`** にこのオブジェクトを渡して使います。
 :::
 
-### `AutoConnectDevToolsActivePort`
+::: warning v3.2.0での変更
+`ReuseContext` 引数が廃止されました（「Excel テーブルにあるメインタブ情報を流用する」特殊分岐が削除され、接続ロジックが簡略化されています）。
+:::
 
-[`DevToolsActivePort`](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja) ファイルを読み、**今目の前のブラウザ**へ接続します。
+### `ReConnectCDP`（v3.2.0〜）
+
+[`DevToolsActivePort`](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja) ファイルを読んで**今目の前のブラウザ**へ接続するか、記録済みの WinSock ハンドルをそのまま再利用します。
 
 ```vb
-Public Function AutoConnectDevToolsActivePort( _
-    Optional UserName As String = "User Data", _
-    Optional ReuseContext As Boolean _
-) As Boolean
+Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `UserName` | 利用者識別名称。省略時は既定の `"User Data"` |
-| `ReuseContext` | `True` で Excel テーブルにあるメインタブ情報を流用 |
+| `UserName` | 利用者識別名称 |
+| `ReuseWinSockHandle` | `True` で、Excel テーブルに記録済みの WinSock ハンドルをそのまま再利用（無ければエラー）。`False`（既定）は、古いハンドルを破棄したうえで `DevToolsActivePort` ファイルから新規接続 |
 
 ::: tip 注意
 - 接続後は **`CDPBrowser.reattachWebSocket`** にこのオブジェクトを渡して使います
-- 現時点では Edge または Chrome の **安定版** への接続用に限ります
-- 実行直後は、ユーザーが、下記ダイアログに応答するまで、Excelがブロッキングされます
+- `ReuseWinSockHandle:=False` 時、現時点では Edge または Chrome の **安定版** への接続用に限ります
+- `ReuseWinSockHandle:=False` の実行直後は、ユーザーが、下記ダイアログに応答するまで、Excelがブロッキングされます
 ![今目の前のブラウザに接続する際のダイアログ](../public/img/dialog.avif)
+:::
+
+::: warning v3.2.0でのリネーム
+以前は `AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean` という公開メソッドでしたが、v3.2.0で `Private` 化され、代わりに上記の `ReConnectCDP` が公開されました（`ReuseContext`は`ReuseWinSockHandle`に改称）。
 :::
 
 ## 関連

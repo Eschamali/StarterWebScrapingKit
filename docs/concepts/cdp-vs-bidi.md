@@ -13,7 +13,7 @@ description: Chrome DevTools Protocol（CDP）と WebDriver BiDi の違い・選
 | 入口 | `StartCDPModeContext` | `StartBiDiModeContext` |
 | ページ型 | `CDPContext` | `WebDriverBiDiContext` |
 | 要素型 | `CDPElement`（充実） | 高レベル要素 API は限定。`jsEval` か CDP 変換 |
-| イベント | `BrowserEvents` + `Network.enable` 等 | `sessionSubscribe` + `BiDiEvents` |
+| イベント | `BrowserEvents` + `Network.enable` 等 | `SubscribeBiDiEvent` + `BiDiEvents` |
 | 生コマンド | `ExecuteCDP` | `ExecuteBiDi` |
 | 公式仕様 | [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) | [WebDriver BiDi](https://w3c.github.io/webdriver-bidi/) |
 

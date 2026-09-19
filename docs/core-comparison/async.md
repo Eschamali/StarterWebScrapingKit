@@ -138,8 +138,8 @@ await page.goto(url, { waitUntil: 'load' });
 ```
 
 ```vb
-' StarterWebScrapingKit — 状態をポーリングして待つ
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
+' StarterWebScrapingKit — 状態をポーリングして待つ（Wait、既定はこちら）
+Public Sub Wait(Optional till As ReadyState = isComplete)
     ' ...
     sleep 0.1   'reduce sleep will speed up but will cost cpu power
     ' ...
@@ -147,6 +147,10 @@ End Sub
 ```
 
 コメントにある通り、**待機間隔は「速度」と「CPU 負荷」のトレードオフ**であり、そこに正解値はありません。イベント駆動なら本質的に発生しないはずのチューニング項目が、ポーリング方式では設計パラメータとして表に出てきます。
+
+::: tip v3.2.0で追加：`WaitEvents`（イベント駆動版）
+上記の`Wait`とは別に、`Page.frameStartedLoading` / `domContentEventFired` / `loadEventFired`（BiDiなら`browsingContext.navigationStarted` / `domContentLoaded` / `load`）を受動的に待つ`WaitEvents`が追加されました。`navigate`が内部で使っているのはこちらです。ポーリング間隔のチューニングは不要になりますが、代わりに「遷移を起こす操作の前に`ResetWaitState`で状態をリセットしておく」という別の呼び出し規律が必要になります（詳細は[ページ遷移](/guides/navigation)）。素朴なポーリングと、規律を要求するイベント駆動の間で一長一短があることが伺えます。
+:::
 
 ## 6. 何が本質的な差なのか
 

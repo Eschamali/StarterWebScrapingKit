@@ -153,6 +153,10 @@ ctx.navigate "https://w3c.github.io/webdriver-bidi/"
 * 既存ブラウザ（デバッグポート）への接続は、CDP なら `reattachWebSocket`、BiDi なら `reattach` に `CDPCoreViaWebSocket` を渡すパターン（`Demo_CDP.AutoConnect*`）。詳しくは [WebSocket モード](/websocket/capabilities)
 :::
 
+::: tip v3.2.0での修正：BiDi context情報が消える不具合
+「BiDiのmapperタブは消えているがブラウザ自体は生きている」ケースで再接続すると、以前は Excel テーブルに記録済みの `BiDi-context` 情報が空で上書きされてしまうことがありました。v3.2.0でこの不具合が修正され、`sessionID` / `targetID` のみを更新し、既存の `BiDi-context` の値は保持されるようになりました。
+:::
+
 ## 関連デモ
 
 - `Demo_CDP.demoReattachmentPart*`

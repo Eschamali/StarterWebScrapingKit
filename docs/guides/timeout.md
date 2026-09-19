@@ -14,7 +14,12 @@ CDP / BiDi のコマンド結果待ちや、起動直後の遷移完了判定な
 Property Let TimeOutSecond(TimeSec As Double)
 ```
 
-**LET 専用**（書き込みのみ）です。設定中の値を読み返すことはできません。
+[`CDPBrowser`](/api/cdp/CDPBrowser) / [`CDPContext`](/api/cdp/CDPContext) では **LET 専用**（書き込みのみ）で、設定中の値を読み返すことはできません。[`WebDriverBiDiMode`](/api/bidi/WebDriverBiDiMode) のみ、v3.2.0で `Property Get` が追加され、現在値を読み返せます。
+
+```vb
+mode.TimeOutSecond = 60
+Debug.Print mode.TimeOutSecond   ' 60（WebDriverBiDiModeのみ、v3.2.0〜）
+```
 
 主な用途:
 

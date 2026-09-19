@@ -48,7 +48,7 @@ t.ThisCDPBrowser.quit
 ## BiDi（`BiDiEvents`）
 
 1. `BiDiEvents` に `New Dictionary`
-2. `sessionSubscribe` にイベント名を渡す（`Collection` または 1次元配列）
+2. `SubscribeBiDiEvent` にイベント名を渡す（`Collection` または 1次元配列）
 3. 操作後 `TakeEvents` で受信キューを吸い上げる
 
 ```vb
@@ -56,7 +56,7 @@ Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 
 Set t.ThisWebDriverBiDiMode.BiDiEvents = New Dictionary
-t.ThisWebDriverBiDiMode.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
+t.ThisWebDriverBiDiMode.SubscribeBiDiEvent = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
 
 t.navigate "https://example.com"
 t.ThisWebDriverBiDiMode.TakeEvents
@@ -67,7 +67,7 @@ t.ThisWebDriverBiDiMode.quit
 ```
 
 ::: tip タブ（コンテキスト）単位での購読（v3.1.1.1〜）
-上記はブラウザ全体（全タブ共通）での購読です。タブAはネットワーク系イベントを購読するが、タブBは何も購読しない、といった使い分けをしたい場合は、`ThisWebDriverBiDiMode.sessionSubscribe` の代わりに `t.sessionSubscribe`（[`WebDriverBiDiContext.sessionSubscribe`](/api/bidi/WebDriverBiDiContext#sessionsubscribe)）を使ってください。不要なイベントを流さない分、パフォーマンス低下を防げます。
+上記はブラウザ全体（全タブ共通）での購読です。タブAはネットワーク系イベントを購読するが、タブBは何も購読しない、といった使い分けをしたい場合は、`ThisWebDriverBiDiMode.SubscribeBiDiEvent` の代わりに `t.SubscribeBiDiEvent`（[`WebDriverBiDiContext.SubscribeBiDiEvent`](/api/bidi/WebDriverBiDiContext#subscribebidievent)、v3.2.0で`sessionSubscribe`から改称）を使ってください。不要なイベントを流さない分、パフォーマンス低下を防げます。
 :::
 
 ## セーブ／再開

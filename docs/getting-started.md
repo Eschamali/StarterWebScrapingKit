@@ -30,6 +30,7 @@ description: Excel VBA でブラウザ自動化を始める最短手順。マク
 - 追加の起動引数（基本は、J13セル以降に記述）
 - 起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）
 - 特定のChromiumブラウザで自動化する場合はそのフルパス
+- 使用ブラウザ（Chrome / Edge）の切り替え、Pipe / WebSocket 通信の切り替え（`UseWebSocket`セル。v3.2.0〜、切り替えはVBA引数ではなくこのシート上で行います。詳細は次項）
 ![基本設定画面](/img/GettingStarted/SettingGUI1.png)
 
 
@@ -91,12 +92,17 @@ End Sub
 
 BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引数を用意しています。必要に応じて事前に `Dictionary` を組み立て、引数に渡してください。
 
-`StartCDPMode` / `StartBiDiMode`（`CDPContext`/`WebDriverBiDiContext` を返す `Context` 版には無し）には、追加で `WebSocketMode As Boolean` 引数があります（v3.1.0〜）。`True` にすると、Pipe ではなく WebSocket 経由でローカルブラウザを起動・接続します。
+Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続したい場合は、ブラウザ起動設定シートの `UseWebSocket` セルを `TRUE` にしてください（既定は `FALSE` = Pipe）。v3.1.0でこの仕組みが `StartCDPMode` / `StartBiDiMode` に導入された当初は VBA の `WebSocketMode As Boolean` 引数で切り替える方式でしたが、v3.2.0でワークシート上のセル切り替えに一本化され、この4種類の起動ヘルパーすべて（`Context` 版含む）で有効になりました。
 
 ```vb
-Dim b As CDPBrowser
-Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
+' UseWebSocket セルが TRUE なら、StartCDPModeContext も WebSocket 経由で起動する
+Dim t As CDPContext
+Set t = ShSetting01_StartBrowser.StartCDPModeContext
 ```
+
+::: warning v3.2.0での変更
+`WebSocketMode:=True` のような引数指定は廃止されました。切り替えは上記のとおりセルで行ってください。
+:::
 
 詳細は [WebSocket モードでできること](/websocket/capabilities) を参照してください。
 

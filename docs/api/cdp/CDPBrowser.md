@@ -22,10 +22,14 @@ b.quit
 ### `start`
 
 ```vb
-Public Sub start(Optional Name As BrowserList = BrowserList.RunChrome, ...)
+Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
 ```
 
-ブラウザを起動しパイプ接続します。日常利用では設定シート経由を推奨。
+ブラウザを起動し、設定シートの `UseWebSocket` セルに応じて Pipe / WebSocket いずれかで接続します（既定は Pipe）。日常利用では設定シート経由（`StartCDPMode` 等）を推奨します。戻り値は初期接続先の URL 文字列です。
+
+::: warning v3.2.0での変更
+`Name As BrowserList` 引数が廃止されました（Chrome / Edge は設定シートの `UseChrome` セルで選択）。`Sub` から **`Function`**（初期URLを返す）に変わり、`userProfile` が必須の第1引数になりました。`SplashScreenMode` 引数が新設され、`True` 時は実URLの前に起動スプラッシュ画面を挟みます（Context経由の起動で使用。詳細は [ページ遷移](/guides/navigation)）。
+:::
 
 ### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
 
@@ -33,14 +37,14 @@ Excel テーブルにある既存の接続情報（パイプ／WebSocket／WebVi
 
 ```vb
 Public Sub reattachPipe(userProfile As String)
-Public Sub reattachWebSocket(userProfile As String, WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
 Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
 | `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく識別名称） |
-| `WebSocketMode` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定 |
+| `ConnectInfo` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定（v3.2.0で`WebSocketMode`から改称。省略不可） |
 | `WebView2Mode` | WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebView2` を指定 |
 
 #### 基本的な使い方
@@ -122,6 +126,15 @@ Set blank = b.newTab
 Dim t As CDPContext
 Set t = b.newTab("https://example.com", setMain:=True)
 ```
+
+::: warning v3.2.0での変更
+`Url` を指定した `newTab` は、以前は読み込み完了までブロッキングしていましたが、v3.2.0以降は**即座に戻る**ようになりました（内部の待機処理が `Wait`（ポーリング）から `PageReadyState`（現在値の取得のみ）に変わったため）。読み込み完了を待ちたい場合は、戻り値の `CDPContext` に対して明示的に `.Wait` を呼んでください。
+```vb
+Dim t As CDPContext
+Set t = b.newTab("https://example.com", setMain:=True)
+t.Wait   ' 読み込み完了まで待つ（v3.2.0以降は明示的に必要）
+```
+:::
 
 #### `isHidden` の使い道
 
@@ -218,12 +231,16 @@ Public Function PageCount() As Long
 
 ```vb
 Public Function attachToTab(tabId As String) As String
-Public Function DiscardSessionID(sessionID As String) As Boolean
+Public Sub DiscardSessionID(sessionID As String)
 ```
 
 [`CDPContext`](./CDPContext) ↔ `CDPBrowser` のやり取り用として公開している低レベル API です。日常利用では意識不要です。
 
 自前でタブ管理したいときの **タブ接続（`attachToTab`）／セッション破棄（`DiscardSessionID`）** として使えます。
+
+::: tip v3.2.0での変更
+`DiscardSessionID` は `Function ... As Boolean` から **`Sub`** に変わり、内部で `Target.detachFromTarget` を非同期実行するようになりました。成否を戻り値で確認する手段はなくなっています。
+:::
 
 ## プロトコル
 

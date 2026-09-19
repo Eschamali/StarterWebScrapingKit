@@ -22,34 +22,33 @@ mode.quit
 ### `StartBiDiMode`
 
 ```vb
-Public Sub StartBiDiMode( _
-    Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, _
-    Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary _
-)
+Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, _
+    Optional addArgs As String, Optional sessionCapabilitiesRequest As Dictionary) As String
 ```
 
-ブラウザを WebDriver BiDi として起動し、`session.new` まで行います。日常利用では設定シート経由を推奨します。
+ブラウザを WebDriver BiDi として起動し、`session.new` まで行います。日常利用では設定シート経由を推奨します。戻り値は初期接続先の URL 文字列です。
 
 | 引数 | 意味 |
 | --- | --- |
-| `Name` | `BrowserList` 列挙（`RunChrome` / `RunEdge`） |
+| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
 | `appUrl` | 起動時に開く URL（`--app` 相当） |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名 |
+| `SplashScreenMode` | `True` で実URLの前に起動スプラッシュ画面を挟む（`--app` 使用時のレースコンディション対策。詳細は [ページ遷移](/guides/navigation)） |
 | `addArgs` | 追加の起動引数 |
 | `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
 
+::: warning v3.2.0での変更
+`Name As BrowserList` 引数が廃止されました（Chrome / Edge は設定シートの `UseChrome` セルで選択）。`Sub` から **`Function`**（初期URLを返す）に変わり、`userProfile` が必須の第1引数になりました。新設された `SplashScreenMode` 引数は上記の通りです。
+:::
+
 ::: tip 注意
-`Name` は v3.0.0 で `String` から `BrowserList` 列挙型に変更されました。`KioskMode` 引数（Edge キオスクモード埋め込み向け）も、WebView2 のネイティブ対応に伴い廃止されています。
+`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応に伴い v3.0.0 で廃止されています。
 :::
 
 ```vb
 Dim caps As New Dictionary
 ' ... capabilities を組み立て ...
 Dim mode As New WebDriverBiDiMode
-mode.StartBiDiMode BrowserList.RunChrome, userProfile:="MyUser", sessionCapabilitiesRequest:=caps
+mode.StartBiDiMode "MyUser", sessionCapabilitiesRequest:=caps
 ```
 
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
@@ -346,25 +345,29 @@ Property Set BiDiEvents(ObjDic As Dictionary)
 
 ```vb
 Set mode.BiDiEvents = New Dictionary
-' ... sessionSubscribe 後に操作 ...
+' ... SubscribeBiDiEvent 後に操作 ...
 mode.TakeEvents
 ' mode.BiDiEvents を参照
 Set mode.BiDiEvents = Nothing
 ```
 
-### `sessionSubscribe`
+### `SubscribeBiDiEvent`
 
 ```vb
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events As Collection)
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, Optional params As Dictionary, events)
 ```
 
 `session.subscribe` / `session.unsubscribe` を実行します。どのイベントを購読中かの管理は呼び出し側で行います。
 
+::: warning v3.2.0でのリネーム
+以前は `sessionSubscribe` という名称でした。挙動に変更はありません。
+:::
+
 | 引数 | 意味 |
 | --- | --- |
 | `subscribe` | `True`（既定）で購読、`False` で購読解除 |
-| `params` | [`WebDriverBiDiContext`](./WebDriverBiDiContext#sessionsubscribe) からタブ単位で呼ぶ際に内部で使用。直接指定は不要 |
+| `params` | [`WebDriverBiDiContext`](./WebDriverBiDiContext#subscribebidievent) からタブ単位で呼ぶ際に内部で使用。直接指定は不要 |
 | `events` | SET: イベント名の `Collection`／LET: 1次元配列または文字列1件（例: `"network.beforeRequestSent"`） |
 
 ```vb
@@ -373,16 +376,16 @@ Dim events As New Collection
 events.Add "network.beforeRequestSent"
 events.Add "network.responseCompleted"
 events.Add "log.entryAdded"
-Set mode.sessionSubscribe = events
+Set mode.SubscribeBiDiEvent = events
 
 ' 配列版（LET、v3.1.1.1〜）
-mode.sessionSubscribe = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
+mode.SubscribeBiDiEvent = Array("network.beforeRequestSent", "network.responseCompleted", "log.entryAdded")
 
 ' 解除
-Set mode.sessionSubscribe(False) = events
+Set mode.SubscribeBiDiEvent(False) = events
 ```
 
-`params` を省略した場合はブラウザ全体（全タブ共通）での購読になります。タブ単位で購読したい場合は [`WebDriverBiDiContext.sessionSubscribe`](./WebDriverBiDiContext#sessionsubscribe)（v3.1.1.1〜）を使ってください。
+`params` を省略した場合はブラウザ全体（全タブ共通）での購読になります。タブ単位で購読したい場合は [`WebDriverBiDiContext.SubscribeBiDiEvent`](./WebDriverBiDiContext#subscribebidievent)（v3.1.1.1〜）を使ってください。
 
 手順・セーブ／再開は [イベント購読](/guides/events) を参照してください。
 
@@ -392,13 +395,19 @@ Set mode.sessionSubscribe(False) = events
 
 ```vb
 Property Let TimeOutSecond(TimeSec As Double)
+Property Get TimeOutSecond() As Double
 ```
 
-BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**です。**LET 専用**（書き込みのみ）で、設定中の値は読み返せません。
+BiDi コマンド結果待ちの上限です。デフォルトは **30 秒**です。
 
 ```vb
 mode.TimeOutSecond = 60
+Debug.Print mode.TimeOutSecond   ' 60（v3.2.0〜、読み返し可能に）
 ```
+
+::: tip v3.2.0での変更
+以前は **LET 専用**（書き込みのみ）で設定中の値を読み返せませんでしたが、v3.2.0 で `Property Get` が追加され、現在値を読み返せるようになりました。
+:::
 
 タブ側（[`WebDriverBiDiContext`](./WebDriverBiDiContext)）からは `ThisWebDriverBiDiMode.TimeOutSecond` で同じ値を触れます。
 
@@ -473,6 +482,10 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
 ```
 
 `browsingContext.contextCreated` / `contextDestroyed` の購読と、確保中 `WebDriverBiDiContext` のカウントに使います。Context の生成／破棄時に呼ばれる想定です。
+
+::: tip v3.2.0での変更
+`navigationStarted` / `domContentLoaded` / `load` の購読も同時に行うようになりました（[`WaitEvents`](/api/bidi/WebDriverBiDiContext#waitevents) によるイベント駆動の読み込み待機のため）。
+:::
 
 ### `InheritanceBiDiCore`
 

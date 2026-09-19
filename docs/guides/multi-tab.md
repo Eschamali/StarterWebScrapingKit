@@ -18,6 +18,10 @@ main.ThisCDPBrowser.newTab "https://example.com"
 main.ThisCDPBrowser.newTab "https://bing.com"
 ```
 
+::: warning v3.2.0での変更
+`Url` を指定した `newTab` は、以前は読み込み完了までブロッキングしていましたが、v3.2.0以降は**即座に戻る**ようになりました。読み込み完了を待ちたい場合は、戻り値の `CDPContext` に対して明示的に `.Wait` を呼んでください（詳細は [`CDPBrowser.newTab`](/api/cdp/CDPBrowser#newtab)）。
+:::
+
 ## Browser からタブを割り当て（CDP）
 
 ```vb

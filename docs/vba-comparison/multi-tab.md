@@ -27,7 +27,7 @@ WebSocket でブラウザに繋ぐとき、Chromium は2つの入口を用意し
 Public Function AutoConnectPageCDP(UserName As String, Optional Url As String, Optional Title As String, ...) As Boolean
 
 '「/json/version」へアクセスして、ブラウザ接続のWebSocket接続まで行います
-Public Function AutoConnectBrowserCDP(UserName As String, Optional ReuseContext As Boolean, ...) As Boolean
+Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long, Optional Host As String) As Boolean
 ```
 
 「もう分かっているページにサクッと繋ぎたい」ときは楽な道、「ブラウザ全体を掌握して後から好きなタブを発見・アタッチしたい」ときは大変な道。**どちらか一方に絞らないこと自体が、継続投資の一形態**です。

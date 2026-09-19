@@ -63,7 +63,7 @@ BiDi は内部的に CDP パイプ（または WebSocket）の上で動きます
 Pipe・WebSocket・WebView2 の3ルートに対応しております。
 
 - **Pipeルート**: `--remote-debugging-pipe`として起動します。同一PCで自動化する場合はこれ1択です。
-- **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。`ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)` のように指定すれば、ローカルブラウザの起動から一気に行うことも可能です。[WebSocket モードでの制御について](/websocket/design) を参照。
+- **WebSocketルート**: `--remote-debugging-port` で起動しているブラウザに接続してから自動化を行います。設定シートの `UseWebSocket` セルを `TRUE` にすれば、`Start○○Mode`/`Start○○ModeContext` いずれからでもローカルブラウザの起動から一気に行うことも可能です（v3.2.0〜、Context版も対応）。[WebSocket モードでの制御について](/websocket/design) を参照。
 - **WebView2ルート**（v3.0.0〜）: デバッグポートもパイプも使わず、WebView2 SDK（`ICoreWebView2`）を直接叩いて CDP をやり取りします。ExcelのUserFormにブラウザを埋め込みたい場合の経路です。[WebView2モードでの制御について](/webview2/design) を参照。
 
 ## 関連

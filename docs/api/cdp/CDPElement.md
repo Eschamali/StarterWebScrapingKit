@@ -93,7 +93,7 @@ t.getElementByID("submit").click
 ```
 
 ::: tip 注意
-クリック後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.wait`](./CDPContext#wait) を呼んでください。
+クリック後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.Wait`](./CDPContext#wait) を呼んでください（クリック前に `ResetWaitState` を呼んでおけば、イベント駆動の [`WaitEvents`](./CDPContext#waitevents) も使えます）。
 :::
 
 ### `SimpleClick`
@@ -121,7 +121,7 @@ t.getElementByQuery("form").submit
 ```
 
 ::: tip 注意
-送信後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.wait`](./CDPContext#wait) を呼んでください。
+送信後の画面遷移待ちは自動では行いません。必要なら呼び出し側で [`CDPContext.Wait`](./CDPContext#wait) を呼んでください。
 :::
 
 ### `sendString`
