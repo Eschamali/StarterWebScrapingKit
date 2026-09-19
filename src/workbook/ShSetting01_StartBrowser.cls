@@ -126,7 +126,7 @@ End Function
 '              この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '            ・Demoプロシージャ：`runTabsAsMany`が分かりやすいと思います
 '***************************************************************************************************
-Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String, Optional WebSocketMode As Boolean) As CDPBrowser
+Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
@@ -174,7 +174,7 @@ End Function
 '             `StartBiDiModeContext`ではうまくいかず、手動でタブ制御確立するためのものです。
 '             この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '***************************************************************************************************
-Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As Boolean) As WebDriverBiDiMode
+Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
