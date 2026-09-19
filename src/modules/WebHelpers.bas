@@ -63,7 +63,7 @@ Option Private Module
 ' === AutoProxy Headers
 #If Not Mac Then
 
-Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
+Private Declare PtrSafe Function SysReAllocString Lib "oleaut32" (ByVal pbstr As LongPtr, ByVal psz As LongPtr) As Long
 Private Declare PtrSafe Function lstrcpyW Lib "kernel32" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
 Private Declare PtrSafe Function AutoProxy_SysAllocString Lib "oleaut32" Alias "SysAllocString" (ByVal AutoProxy_pwsz As LongPtr) As LongPtr
 Private Declare PtrSafe Function AutoProxy_GlobalFree Lib "kernel32" Alias "GlobalFree" (ByVal AutoProxy_p As LongPtr) As LongPtr
@@ -2050,28 +2050,10 @@ AutoProxy_TryIEFallback:
     End If
 
     ' If there's a proxy string, convert it to a Basic string
-    Dim lngLen As Long
-    If (AutoProxy_ProxyStringPtr <> 0) Then
-        ' 1. まず、ポインタ先の文字列の長さを測る
-        lngLen = lstrlenW(AutoProxy_ProxyStringPtr)
-
-        If lngLen > 0 Then
-            ' 2. 必要な長さ分だけバッファを確保
-            ProxyServer = String$(lngLen, 0)
-            ' 3. コピー実行
-            lstrcpyW StrPtr(ProxyServer), AutoProxy_ProxyStringPtr
-        End If
-    End If
+    If AutoProxy_ProxyStringPtr <> 0 Then SysReAllocString VarPtr(ProxyServer), AutoProxy_ProxyStringPtr
 
     ' Pick up any bypass string from the IEProxyConfig
-    If (AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass <> 0) Then
-        lngLen = lstrlenW(AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass)
-
-        If lngLen > 0 Then
-            ProxyBypass = String$(lngLen, 0)
-            lstrcpyW StrPtr(ProxyBypass), AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass
-        End If
-    End If
+    If AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass <> 0 Then SysReAllocString VarPtr(ProxyBypass), AutoProxy_IEProxyConfig.AutoProxy_lpszProxyBypass
 
     ' Ensure WinHttp session is closed, an error might have occurred
     If (AutoProxy_hSession <> 0) Then

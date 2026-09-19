@@ -35,6 +35,7 @@ Private Type browsingContextInfo
     context          As String   '現在、制御中のContext(タブ)パラメーター
     Url              As String   '現時点でのURL
     contextDestroyed As Boolean  'お亡くなりサイン
+    ReadState        As ReadyState   'ページの読み込み状況(document.readyState相当)
 End Type
 Private InfoList As browsingContextInfo
 
@@ -49,29 +50,79 @@ Private currentLog              As StateLog     'ログ設定
 '***************************************************************************************************
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させ、非同期イベント：`browsingContext.contextCreated`を利用した初回タブ接続処理を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl                         最初の起動時に遷移したいURL
-'            userProfile                    UserDataDir名を指定します
-'            addArgs                        追加の起動引数を設けます
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：userProfile                起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
+'            appUrl                     起動引数：`--app`　につけるURLを指定します
+'            addArgs                    追加の起動引数
+'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiModeAndConnectTab(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, _
+Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
-    '1. 初期化処理
+    '1. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
+    Dim InitURL As String
     Set m_BiDiMode = New WebDriverBiDiMode
+    InitURL = m_BiDiMode.StartBiDiMode(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
-    '2. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
-    m_BiDiMode.StartBiDiMode Name, appUrl, userProfile, addArgs, sessionCapabilitiesRequest
-
-    '3. イベントを継承
+    '2. WithEventsClassオブジェクトを受け取る
     Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
-    '4. タブの接続へ
-    attachToContext
+    '3. Complete initialization ------------------------------------------------------
+    InitAttachToContext InitURL                     'Find and attach the newly open Session ID
+    m_BiDiMode.serializeMainTab = InfoList.context  'Excelのテーブルにメインコンテキストとして記録させる
+    '------------------------------------------------------------------------------
+
+    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(appUrl) Then navigate appUrl
+    '-------------------------------------------------------------------------------------------------------------------------------------
+
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
+'***************************************************************************************************
+Private Sub InitAttachToContext(InitURL As String)
+    Const FromProcedureName As String = ThisClassName & ".InitAttachToContext"
+
+
+    '1. 'browsingContext.contextCreated`を収集できるように初期化
+    Dim FirstTabs As Collection
+    Set FirstTabs = New Collection                  '箱を用意して
+    Set m_BiDiMode.RunCollect_InfoList = FirstTabs  'それを、ブラウザに渡して
+    m_BiDiMode.EnableDiscoverContexts = True        '購読開始
+    printMsg info_, "Now looking for the browser window", FromProcedureName
+
+    '2. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
+    Dim result
+    Dim boolFound As Boolean, FirstTab As BiDiCDPJson
+    For Each result In FirstTabs
+        '2-1. Jsonパース処理
+        Set FirstTab = BiDiCDPJson.Parse(CStr(result)).NodeKey("params")
+
+        '2-2. URL検索で、目的のページを見つける
+        '※Tree情報となってるがTOP層(普段目にするタブとして)の接続しか考慮しないことにする
+        If IsNull(FirstTab("parent")) And FirstTab("url") = InitURL Then
+            With InfoList
+                boolFound = True
+
+                '必要な制御パラメーターを付与し、抜ける
+                .context = FirstTab.StringKey("context")
+                .Url = FirstTab("url")
+            End With
+            Exit For
+        End If
+    Next
+
+    '3. `context`が取れてない場合は停止
+    If boolFound Then
+        printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
+    Else
+        printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
+    End If
+
+    '4. 後始末
+    Set m_BiDiMode.RunCollect_InfoList = Nothing
+
 End Sub
 
 
@@ -133,15 +184,31 @@ Private Sub m_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Strin
     Const FromProcedureName As String = ThisClassName & ".m_BiDiCore_detectionBiDiEvent"
 
 
-    '------------------ 1. この`Context`のSessionステータスの更新を行います ------------------
+    '------------------ この`Context`のステータスの更新を行います ------------------
     Dim BiDiEventNode As BiDiCDPJson
     Dim StartPos As Long, SearchWord As String
     Select Case methodName
+        '------------------ `Context`自体の生存ステータス ------------------
         '`context`が消えた
         Case "browsingContext.contextDestroyed"
             '1. 自分の`context`か確認し、そうであれば、フラグ更新
-            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson)
-            If BiDiEventNode.NodeKey("params").StringKey("context") = InfoList.context Then InfoList.contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.contextDestroyed = True: printMsg ERROR_, "The tab has been closed. This Class object is no longer usable. Please discard it.", FromProcedureName
+
+
+        '------------------ `Context`のページ読み込み状況 ------------------
+        Case "browsingContext.navigationStarted"
+            '※CDPと違いこちらは、1遷移1回
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isLoading
+
+        Case "browsingContext.domContentLoaded"
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isInteractive
+
+        Case "browsingContext.load"
+            Set BiDiEventNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
+            If BiDiEventNode.StringKey("context") = InfoList.context Then InfoList.ReadState = isComplete
 
     End Select
 End Sub
@@ -199,7 +266,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ここでの実行の場合は、context単位となります
 '***************************************************************************************************
-Property Set sessionSubscribe(Optional subscribe As Boolean = True, events As Collection)
+Property Set SubscribeBiDiEvent(Optional subscribe As Boolean = True, events As Collection)
     'paramsに格納
     Dim params As New Dictionary
     params.Add "events", events
@@ -217,7 +284,7 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：何を購読中かは、ここでは管理しません
 '***************************************************************************************************
-Property Let sessionSubscribe(Optional subscribe As Boolean = True, events)
+Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, events)
     'paramsに格納
     Dim params As New Dictionary
     params.Add "events", IIf(IsArray(events), events, Array(events))
@@ -558,94 +625,150 @@ End Function
 '                           ■■■ 各種BiDiヘルパーコマンド ■■■
 '***************************************************************************************************
 '* 機能　　：URL遷移を行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`till:=Nowait`で行うとBiDi非同期実行で、"browsingContext.navigate"が行われます
 '***************************************************************************************************
 Public Sub navigate(strURL As String, Optional till As ReadyState = isComplete)
-    '1. 待機モードの設定
+    '1. 遷移前の待機状況リセット
+    ResetWaitState
+
+    '2. 待機モードの設定
+    '※`document.readyState`と違う値のため独自のSelect CaseとしてBiDiと辻褄を合わす
     Dim targetState As String
     Select Case till
-        Case isLoading: targetState = "none"
-        Case isInteractive: targetState = "interactive"
-        Case isComplete: targetState = "complete"
+        Case ReadyState.isLoading:      targetState = "none"
+        Case ReadyState.isInteractive:  targetState = "interactive"
+        Case ReadyState.isComplete:     targetState = "complete"
     End Select
 
-    '2. パラメーター組み立て
+    '3. パラメーター組み立て
     Dim BiDiparams As New Dictionary
     BiDiparams.Add "url", strURL
-    BiDiparams.Add "wait", targetState
+    If till > ReadyState.Nowait Then BiDiparams.Add "wait", targetState
 
-    '3. 実行
-    ExecuteBiDi "browsingContext.navigate", BiDiparams
+    '4. 実行
+    If till = ReadyState.Nowait Then ExecuteBiDiAsync "browsingContext.navigate", BiDiparams Else ExecuteBiDi "browsingContext.navigate", BiDiparams
 End Sub
 
-'***************************************************************************************************
-'* 機能　　：初回の`browsingContext.contextCreated`にある`context`を取り出します
-'***************************************************************************************************
-Private Sub attachToContext()
-    Const FromProcedureName As String = ThisClassName & ".attachToContext"
 
-
-    '1. 箱を用意
-    Dim FirstTabs As Collection: Set FirstTabs = New Collection
-
-    '2. その箱を渡す
-    Set m_BiDiMode.RunCollect_InfoList = FirstTabs
-
-    '3. 購読処理
-    m_BiDiMode.EnableDiscoverContexts = True
-
-    '4. 初回購読は直ぐに、`browsingContext.contextCreated`が来るので、それを拝見
-    Dim tmp
-    Dim FirstTab As BiDiCDPJson
-    For Each tmp In FirstTabs
-        '4-1. Jsonパース処理
-        Set FirstTab = BiDiCDPJson.Parse(CStr(tmp)).NodeKey("params")
-
-        '4-2. 純粋な「新しいタブ」または「新しいウィンドウ」か判定し、そうであれば、`context`を適用
-        If IsNull(FirstTab("parent")) Then
-            With InfoList
-                .context = FirstTab.StringKey("context")
-                .Url = FirstTab("url")
-            End With
-
-            '4-3. Excelに記録
-            m_BiDiMode.serializeMainTab = InfoList.context
-            printMsg info_, "I was able to obtain a valid `context` from `browsingContext.contextCreated`. → " & InfoList.context, FromProcedureName
-            Exit For
-        End If
-    Next
-
-    '5. 後始末
-    Set m_BiDiMode.RunCollect_InfoList = Nothing
-
-    '6. `context`が取れてない場合は停止
-    If StrPtr(InfoList.context) = 0 Then printMsg ERROR_, "A valid `context` could not be obtained from `browsingContext.contextCreated`.", FromProcedureName, doRaiseError:=True
-End Sub
 
 '***************************************************************************************************
-'* 機能　　：ページの読み込み状況を確認し、指定statusまで待機します
+'                               ■■■ 簡易待機系メソッド ■■■
+'***************************************************************************************************
+'* 機能　　：一般的な待機、`document.readyState`を利用した待機です
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：一般的な読み込みステータスのみ対応してます。SPA等の特殊な待機はできません
+'* 引数　　：till   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：Wait until browser reaches a specific state. Default is until it fully loads ("complete")
+'            Possible states:  loading / interactive / complete
+'            Complete state is preferable when certain information is only showed when fully loaded.
+'            Otherwise, an interactive state is good enough and can potentially save a lot of wait time.
+'            However, do note that some web apps only fully displays elements at complete readystate.
+'            To read ReadyState on the go, set the dbgState to True to print the state to the Immediate Window
+'            Original Name: waitCompletion
+'
+'* 注意事項：・「InfoList.ReadState」とは独立します
+'            ・`NoWait`も使えますが意味を成しません
+'---------------------------------------------------------------------------------------------------
+'* 更新履歴： 26/04/23 - Enhanced 'till' to Enum type for ease of use
+'             - Added exit for targetState = interactive in case CDP misses the state change
+'
+'             26/09/15 - 数値変換させて大小で比較するようにする
 '***************************************************************************************************
-Public Sub wait(Optional till As ReadyState = isComplete, Optional dbgState As Boolean = False)
-    Const FromProcedureName As String = ThisClassName & ".wait"
+Public Sub Wait(Optional till As ReadyState = isComplete)
+    Const FromProcedureName As String = ThisClassName & ".WaitReadyState"
 
 
-    Dim strState As String, targetState As String
-    targetState = EnumToStringReadyState(till)
+    '1. ループで毎回、訊きに行く
+    Dim readyStateStr       As String
+    Dim CurrentReadyState   As ReadyState
+    Do Until CurrentReadyState >= till
+        '1-1. 今の読み込み状況をチェック
+        readyStateStr = jsEval("document.readyState")
+        printMsg Debug_, "Current ReadyState: " & readyStateStr, FromProcedureName  'option to print ReadyState info during iteration
 
-    '初期値を設定しておく
-    '最初はほぼ必ずloadingだから、`targetState`が`loading`になってたら、わざわざチェックする必要性はない
-    strState = EnumToStringReadyState(isLoading)
+        '1-2. 値に変換
+        CurrentReadyState = CDPHelpers.StringToEnumReadyState(readyStateStr)
 
-    Do Until strState = targetState
-        strState = jsEval("document.readyState", StopException:=dbgState)
-        printMsg Debug_, "Current ReadyState: " & strState, FromProcedureName   'option to print ReadyState info during iteration
-        If targetState = EnumToStringReadyState(isInteractive) And strState = EnumToStringReadyState(isComplete) Then Exit Do   'also exit if better than interactive is satisfied
-        CDPHelpers.Sleep 0.1                                                               'reduce sleep will speed up but will cost cpu power
+        '1-3. クールタイム
+        If CurrentReadyState < till Then CDPHelpers.Sleep 0.1                       'reduce sleep will speed up but will cost cpu power
     Loop
 
-    printMsg Debug_, "Wait '" & targetState & "' satisfied", FromProcedureName
+    '2. 待機成功を伝える
+    printMsg info_, "Wait '" & readyStateStr & "' satisfied", FromProcedureName
+
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext`イベントを活用したシンプルな読み込み待機を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：WaitMode   候補は、`document.readyState`で得れる3種類と同じです。これで、どの辺まで待機するか指定します
+'            WaitCount  どの頻度まで待機させるか？サイトによっては、1以外がいい場合があります
+'            waitError  タイムアウトになったら、エラーで止めるか？
+'* 返値    ：引数で渡した所まで待機できたか？
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：JavaScriptの`document.readyState`を`browsingContext`イベントとして再現した物です
+'            こちらからわざわざ訊きに行くのではなく、ブラウザ側から来る非同期イベントから状態を監視します
+'* 注意事項：・これを使用する前に後述の「ResetWaitState」を使用して、読み込み状況をリセットする必要があります
+'            ・タイムアウトは、「Let TimeOutSecond」に依存します
+'            ・SPA待機には対応しません
+'            ・`Nowait`でも一応機能しますが、意味を成しません
+'***************************************************************************************************
+Public Function WaitEvents(Optional WaitMode As ReadyState = isComplete, Optional WaitError As Boolean = True) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".WaitEvents"
+
+
+    '1. 今の経過時間を記録
+    Dim timerStart As Double: timerStart = CDPHelpers.TimerCounter
+
+    '2. イベントを取り出して、指定の読み込み状況になるまでループ
+    '※既に条件を満たしてる場合は、下記のループは通りません
+    Do Until InfoList.ReadState >= WaitMode Or CDPHelpers.TimerCounter - timerStart > m_BiDiMode.TimeOutSecond * 1000
+        '2-1. イベントを取り出す
+        m_BiDiMode.TakeEvents  '※内部にて`DoEvents`が走ります
+        printMsg Trace_, "Waiting... Current waiting value: " & CDPHelpers.EnumToStringReadyState(InfoList.ReadState), FromProcedureName
+    Loop
+
+    '3. 最終結果を返す
+    WaitEvents = (InfoList.ReadState >= WaitMode)
+
+    '4. 指定の待機値まで待機出来ず、エラーStopなら止める
+    If WaitEvents Then
+        printMsg info_, "Standby successfully completed > " & CDPHelpers.EnumToStringReadyState(InfoList.ReadState), FromProcedureName
+    Else
+        printMsg ERROR_, "We were unable to confirm the designated waiting period. Waiting time requested by the user: " & CDPHelpers.EnumToStringReadyState(WaitMode) & ". Current waiting value: " & CDPHelpers.EnumToStringReadyState(InfoList.ReadState), FromProcedureName, doRaiseError:=WaitError
+    End If
+
+End Function
+
+'***************************************************************************************************
+'* 機能　　：`browsingContext`イベント or `document.readyState`を活用したシンプルな読み込み待機を行う前の待機状況のリセットを行います
+'***************************************************************************************************
+Public Sub ResetWaitState()
+    Const FromProcedureName As String = ThisClassName & ".ResetWaitState"
+
+
+    'リセットして、ログ表示
+    InfoList.ReadState = 0
+    printMsg Debug_, "The loading status has been reset.", FromProcedureName
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ページ読み込み状況を返します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：refresh    `True`で、JavaScriptで情報を更新の上、返却します
+'***************************************************************************************************
+Property Get PageReadyState(Optional refresh As Boolean) As ReadyState
+    If refresh Then
+        '1. 今の読み込み状況をチェック
+        Dim readyStateStr As String
+        readyStateStr = jsEval("document.readyState")
+
+        '2. 値に変換
+        InfoList.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
+    End If
+    PageReadyState = InfoList.ReadState
+End Property
 
 
 

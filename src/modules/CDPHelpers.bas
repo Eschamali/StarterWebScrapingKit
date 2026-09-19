@@ -16,22 +16,21 @@ Private Declare PtrSafe Sub sleep2 Lib "kernel32" Alias "Sleep" (ByVal dwMillise
 Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long    'タイマー用
 Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long         '周波数取得用
 
+'----- デバッグログ出力 -----
+Private Declare PtrSafe Sub OutputDebugString Lib "kernel32" Alias "OutputDebugStringW" (ByVal lpOutputString As LongPtr)   '`DebugView`等で見る用
+
 
 
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'JSの`document.readyState`の状態一式
+'※Pageイベントとして置き換えます
 Public Enum ReadyState      'Used for .wait method
-    isLoading = 0           'equivalence of the browser's "loading" state
-    isInteractive = 1       'equivalence of the browser's "interactive" state
-    isComplete = 2          'equivalence of the browser's "complete" state
-End Enum
-
-'起動する Chromium 系ブラウザ。`CDPHost` に置くと、こちらの `StateLog` と循環参照になる
-Public Enum BrowserList
-    RunEdge
-    RunChrome
+    Nowait          'ページ遷移等が発生せず、待機不要な場合
+    isLoading       'equivalence of the browser's "loading"(Page.frameStartedLoading) state
+    isInteractive   'equivalence of the browser's "interactive"(Page.domContentEventFired) state
+    isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
 '各 Class のログ設定（`Private currentLog As StateLog`）。
@@ -67,9 +66,10 @@ Public Const EventsKey_TotalEvents As String = "TotalEvents"
 Public Const EventsKey_EventMethods As String = "EventMethods"
 
 'その他
-Public Const LimitCommandID    As Long = 2000000000             'CDP/BiDiコマンド送信時のID上限値
-Public Const chromeWindowClass As String = "Chrome_WidgetWin_1" 'same window class for Edge
-Public Const TIMEOUT_DEFAULT   As Double = 30                   '初期タイムアウト秒数
+Public Const LimitCommandID     As Long = 2000000000                'CDP/BiDiコマンド送信時のID上限値
+Public Const chromeWindowClass  As String = "Chrome_WidgetWin_1"    'same window class for Edge
+Public Const TIMEOUT_DEFAULT    As Double = 30                      '初期タイムアウト秒数
+Public Const EmptyPageName      As String = "about:blank"           '空のWebページを表す目印
 
 
 
@@ -85,43 +85,30 @@ Private LogControl  As New Logger   'ログレベルの制御
 '                       ■■■ Enum → 文字列 変換プロシージャ ■■■
 '***************************************************************************************************
 '---------------------------------------------------------------------------------------------------
-' [ SECTION ] ブラウザ種別をexe名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_exeName(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_exeName = "chrome.exe"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_exeName = "msedge.exe"
-    End Select
-End Function
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] ポリシー情報のあるブラウザ種別を相対レジストリキーパス名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_RegPath = "\Google\Chrome"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_RegPath = "\Microsoft\Edge"
-    End Select
-End Function
-
-'---------------------------------------------------------------------------------------------------
-' [ SECTION ] 開発レベルのブラウザ種別を相対フォルダパス名で返します
-'---------------------------------------------------------------------------------------------------
-Public Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
-    Select Case param
-        Case BrowserList.RunChrome: EnumToStringBrowserList_BrowserPath = "\Google\Chrome"
-        Case BrowserList.RunEdge:   EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge"
-    End Select
-End Function
-
-'---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 待機の種類を文字列で返します
 '---------------------------------------------------------------------------------------------------
 Public Function EnumToStringReadyState(param As ReadyState) As String
     Select Case param
+        Case ReadyState.Nowait:         EnumToStringReadyState = "Not updated"
         Case ReadyState.isLoading:      EnumToStringReadyState = "loading"
         Case ReadyState.isInteractive:  EnumToStringReadyState = "interactive"
         Case ReadyState.isComplete:     EnumToStringReadyState = "complete"
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
+'                       ■■■ 文字列 → Enum 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 待機の種類を数値で返します
+'---------------------------------------------------------------------------------------------------
+Public Function StringToEnumReadyState(param As String) As ReadyState
+    Select Case param
+        Case EnumToStringReadyState(isLoading):     StringToEnumReadyState = ReadyState.isLoading
+        Case EnumToStringReadyState(isInteractive): StringToEnumReadyState = ReadyState.isInteractive
+        Case EnumToStringReadyState(isComplete):    StringToEnumReadyState = ReadyState.isComplete
     End Select
 End Function
 
@@ -232,4 +219,23 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
         If RaiseErrorNumber = 0 Then RaiseErrorNumber = CDPCustomErrorCodes.Protocol
         Err.Raise RaiseErrorNumber, From, Description:=strMsg
     End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：イミディエイトウィンドウ以外にもデバッグログを出す仕組みを提供します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：例えばクラッシュを引き起こすような試験的なコードを書いたり実行したりする際に役立ちます
+'* 注意事項：これを活かすには別途外部ログViewソフトが必要ですが、「https://learn.microsoft.com/ja-jp/sysinternals/downloads/debugview」であればインストール不要で使えます
+'***************************************************************************************************
+Public Sub DebugPrintEx(StrLog As String)
+    OutputDebugString StrPtr(StrLog)
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ログ設定オブジェクトをクリアします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：モジュール単位で宣言してるため、明示的なクリア処理をする必要があるときに使います
+'***************************************************************************************************
+Public Sub ClearLogger()
+    Set LogControl = Nothing
 End Sub

@@ -66,7 +66,6 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：成功可否論理値
 '* 引数    ：SwitchUser WebView2の利用ユーザー名
-'            addArgs    追加起動引数
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・フォーム表示までは行いません。bas側で`.show`をしてください
 '            ・CDP/WebView2操作は、property経由でやるのが基本とします
@@ -74,7 +73,7 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '***************************************************************************************************
 Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     '1. WebView2の追加起動引数準備
-    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.UseRangeID(3, "WebView2Form.StartCDPModeWebView2")
+    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "WebView2Form.StartCDPModeWebView2")
 
     '2. `SwitchUser`引数が省略されてる場合は、ワークシートの設定を適用
     If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
@@ -95,7 +94,7 @@ Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
 
     '7. タブ接続まで行う
     Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
-    Set fCDPContext = t.getTab(setMain:=True, Url:="about:blank")
+    Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
 
     '8. 非同期イベント処理に備える
     Set fCDPEvent = t.ThisCDPCore
@@ -153,6 +152,7 @@ End Sub
 '* 機能　　：ボタン押下時、テキストボックスに入力したURLにページ遷移します
 '***************************************************************************************************
 Private Sub navigateButton_Click()
+    If LenB(Me.TextURLBox.Text) = 0 Then Exit Sub
     fCDPContext.navigate Me.TextURLBox.Text
 End Sub
 
@@ -199,6 +199,26 @@ Private Sub fCDPEvent_CDPContextEvent(methodName As String, RawJson As String, s
 
     '基本的には、`Case`内完結が望ましいですが、必要に応じて、下準備や後始末要因で、非同期イベントの処理前後であっても、コードを記述していただいて構いません。
 
+End Sub
+
+Private Sub fCDPEvent_CDPBrowserEvent(methodName As String, RawJson As String)
+    '------------------ 1. 各種非同期イベントの処理 ------------------
+    Dim tmp As BiDiCDPJson
+    Select Case methodName
+        Case "Target.targetInfoChanged"
+            '1-1. 自分の`targetId`か確認し、そうであれば、ウィンドウタイトル更新
+            '※SPA遷移では効果はありません
+            Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params").NodeKey("targetInfo")
+            If tmp.StringKey("targetId") = fCDPContext.CurrentTargetID Then
+                'ウィンドウタイトルを変更
+                Me.Caption = tmp.StringKey("title")
+
+                'ウィンドウタイトルを変更すると何故か、ウィンドウスタイルがリセットされるため、再設定する
+                Dim currentStyle As LongPtr
+                currentStyle = GetWindowLongPtr(myFormHwnd, GWL_STYLE)
+                SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX
+            End If
+    End Select
 End Sub
 
 

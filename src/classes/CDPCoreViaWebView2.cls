@@ -44,9 +44,19 @@ Attribute VB_Exposed = False
 '       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
 '       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
 '
-'   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見より)★
-'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行中にリセットすると
-'       Excelがクラッシュする可能性がある(サンク技法そのものの制約)
+'   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見+実機検証より)★
+'     ・VBEの`Stop`やブレイクポイントで「静止している」状態(=ネイティブ呼び出しが完了して
+'       戻ってきた後の、普通のVBAコード行で止まっている状態)自体は安全。この状態のまま
+'       ブラウザ側からのコールバックを後で受け取っても、通常はクラッシュしない
+'     ・ただし、以下の2パターンは危険:
+'       (1) `.navigate`等、既定で「結果が来るまで内部でDoEventsループを回して待つ」同期系
+'           メソッドの呼び出し中(=その行そのもの)にブレークすると、ネイティブ呼び出しの
+'           真っ最中にVBEのデバッガが割り込む形になり、クラッシュする可能性がある
+'       (2) 静止ブレイク中でも、ページ操作やJS遷移等をきっかけに、常時購読中のCDPイベント
+'           (`InitSubscribeCdpEvent`参照)や保留中のコマンド完了通知が実際に飛んでくると、
+'           生の機械語サンク経由でVBAへ再入しようとしてクラッシュしうる
+'     ・上記(1)(2)いずれの状態でも、VBEで**リセット処理**を行うのはほぼ確実にクラッシュする
+'       (サンク領域やハンドラオブジェクトを解放し、ブラウザ側が保持中の生ポインタが無効化される)
 '     ・`OnCdpMethodCompleted`/`OnCdpEventReceived`の中から`ExecuteCDP`のような同期待ちの
 '       メソッドを呼ばないこと(再入デッドロックの原因になる)
 '       なお、このツールの場合は、COMスレッドによるCDPからのレスポンスをバッファーに格納後に即抜けし、
@@ -252,13 +262,16 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
-        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName
-
         Set m_Host = Nothing
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
+
         Exit Function
     End If
 
-    '5. 成功サインを返す
+    '5. 必須のイベント購読を行う
+    InitSubscribeCdpEvent
+
+    '6. 成功サインを返す
     ConnectCDP = True
 End Function
 
@@ -548,9 +561,12 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
 '            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
-'            ・1つでも購読した場合、VBEの`Stop`やブレイクポイント中にリセット処理をすると、クラッシュします。
-'            　※`Stop`やブレイクポイント中によるデバック作業(ローカルウィンドウ拝見など)の場合は問題ありません
-'              どうしてもリセット処理が必要な場合は､イミディエイトウィンドウで、`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
+'            ・購読中のCDPイベントがある状態でVBEの`Stop`/ブレイクポイントに静止しているだけなら
+'              基本的に安全。ただし、その間にページ側の操作等で購読イベントが実際に発火すると
+'              クラッシュしうる。まして、この状態で**リセット処理**をするのは非常に危険で、
+'              ほぼ確実にクラッシュする
+'              ※どうしてもリセット処理が必要な場合は､イミディエイトウィンドウで、
+'              `UnsubscribeAllCdpEvents`により一旦解除したうえで、行ってください
 '            ・このイベント購読は、各SessionIDごとに適用する必要はありません。`.newtab`で複製しても購読情報は継承されます
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
@@ -640,7 +656,6 @@ End Function
 '***************************************************************************************************
 Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
     ' 1. 未購読なら即抜け
-    If m_subReceiver Is Nothing Then Exit Function
     If Not m_subReceiver.Exists(EventName) Then Exit Function
 
     ' 2. 対象購読イベントに紐づくレシーバーポインター/トークンを取り出す
@@ -674,22 +689,63 @@ End Function
 '            `UnsubscribeCdpEvent`を1件ずつ回すことで「一発解除」に見せているだけです。
 '***************************************************************************************************
 Public Function UnsubscribeAllCdpEvents() As Long
-    If m_subReceiver Is Nothing Then Exit Function
-
     '1. 購読中のイベント数を確認し、1つもない場合は、即抜け
     Dim N As Long: N = m_subReceiver.Count
     If N = 0 Then Exit Function
 
-    '2. 購読中のイベント名リストを取り出す
-    Dim EventNames
-    EventNames = m_subReceiver.keys
-
-    '3. Forで、１つずつ購読解除していく
-    Dim i As Long
-    For i = 0 To N - 1
-        If UnsubscribeCdpEvent(EventNames(i)) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
-    Next i
+    '2. 購読中のイベント名リストを取り出し、１つずつ購読解除していく
+    Dim EventName
+    For Each EventName In m_subReceiver.keys
+        If UnsubscribeCdpEvent(EventName) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
+    Next
 End Function
+
+'***************************************************************************************************
+'* 機能　　：このツールで行う際の必須イベント購読処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：購読中の状態でVBEの`Stop`/ブレイクポイントに静止している間、(a)ページ側の操作等で
+'            購読イベントが実際に発火した場合や、(b)そのままリセット処理をした場合、
+'            クラッシュする可能性があります
+'***************************************************************************************************
+Private Sub InitSubscribeCdpEvent()
+    '1. 各タブの生存/情報確認
+    SubscribeCdpEventErrorCheck "Target.detachedFromTarget"
+    SubscribeCdpEventErrorCheck "Target.targetCrashed"
+    SubscribeCdpEventErrorCheck "Target.targetDestroyed"
+    SubscribeCdpEventErrorCheck "Target.targetInfoChanged"
+    SubscribeCdpEventErrorCheck "Target.targetCreated"
+
+    '2. JavaScriptの`executionContextId`の追従
+    SubscribeCdpEventErrorCheck "Runtime.executionContextCreated"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextDestroyed"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextsCleared"
+
+    '3. `document.readyState`の再現
+    SubscribeCdpEventErrorCheck "Page.frameStartedLoading"
+    SubscribeCdpEventErrorCheck "Page.domContentEventFired"
+    SubscribeCdpEventErrorCheck "Page.loadEventFired"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：イベント購読処理の成功判定をチェックします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：購読失敗時は、エラーで安全に止めます
+'***************************************************************************************************
+Private Sub SubscribeCdpEventErrorCheck(EventName As String)
+    Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEventErrorCheck"
+
+
+    '成功判定に応じたログ表示
+    If SubscribeCdpEvent(EventName) Then
+        printMsg info_, "I have started subscribing to the `" & EventName & "` event.", FromProcedureName
+    Else
+        'クラッシュを防ぐため、全解除
+        UnsubscribeAllCdpEvents
+
+        'エラーで止める
+        printMsg ERROR_, "Event subscription for `" & EventName & "` failed. All event subscriptions have been removed for safe termination.", FromProcedureName, doRaiseError:=True
+    End If
+End Sub
 
 
 
@@ -1251,9 +1307,9 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "WVID" & Format(Rnd * 1000, "000")                                     'ユニークID
-        .seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   '`OnCdpMethodCompleted`のRaw表示
-        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)            'ログフォルダパス
+        .LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
+        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
     End With
 End Sub
 
