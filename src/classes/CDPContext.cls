@@ -3050,10 +3050,16 @@ End Property
 '***************************************************************************************************
 Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     If alwaysRequest Then
-        BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+        BrowserWindowID = brTab.WID
     Else
         '既存の値があれば、それを流用、ない場合は、再取得します
-        If brTab.WID Then BrowserWindowID = brTab.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        If brTab.WID Then
+            BrowserWindowID = brTab.WID
+        Else
+            brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+            BrowserWindowID = brTab.WID
+        End If
     End If
 End Property
 
