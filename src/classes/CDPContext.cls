@@ -92,6 +92,8 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     lpdwProcessId As Long) As Long
 
+Private Declare PtrSafe Function IsWindow Lib "user32" (ByVal hWnd As LongPtr) As Long
+
 
 
 '***************************************************************************************************
@@ -2120,6 +2122,21 @@ Private Function getHandle() As LongPtr
     Loop Until hWnd = 0 ' no more matching windows
 
 End Function
+
+'***************************************************************************************************
+'* 機能　　：ハンドル情報の有効確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：生きてない場合は自動で、ハンドル情報取得を試みます
+'***************************************************************************************************
+Private Sub ValidityCheck_hWnd()
+    If brTab.hWnd = 0 Then
+        'ハンドル情報がそもそもない場合は取得を試みる
+        brTab.hWnd = getHandle
+    ElseIf IsWindow(brTab.hWnd) = 0 Then
+        'ハンドル情報が古い場合も、取得を試みる
+        brTab.hWnd = getHandle
+    End If
+End Sub
 
 Public Sub hide()
 '------------------------------------------------------------------
