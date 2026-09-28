@@ -2079,48 +2079,77 @@ End Function
 '***************************************************************************************************
 '                        ■■■ 各種hwndを利用したヘルパーコマンド ■■■
 '***************************************************************************************************
+'* 機能　　：このClassに紐づくウィンドウハンドル情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：以下の情報で、ユニークに特定していきます
+'            ・初回起動時のプロセスID
+'            ・Chromium向けのClass名
+'            ・ウィンドウタイトル("document.title"で一時的に、`TargetID`としてリネームしてユニーク化する)
+'
+'* 注意事項：・ワークシートに記録されてないプロセスIDは、対象外です(主に、起動済みブラウザから制御し始めてる場合)
+'            ・ユニークに特定するべく`document.title`で`TargetID`にリネームして、`hWnd`を特定する手法を取ってる都合上、基本的には`about:blank`の状態から取ることをお勧めします
+'            ・タブドッキングor分離化等による操作時もこのプロシージャ再実行すれば、新しい`hWnd`をとれますが、ページが落ち着いてる時に取ること。そうでないと、Webページ側の`document.title`処理で、特定がうまく機能しなくなります
+'***************************************************************************************************
 Private Function getHandle() As LongPtr
-'-----------------------------------------------------------------------------------
-' Added by Long: obtain the window handle of the current browser session
-' Updated: 02/03/23 - Add mechanism to work with browser windows that are blank.
-'-----------------------------------------------------------------------------------
+    Const FromProcedureName As String = ThisClassName & ".getHandle"
 
-    Dim bufferString As String
-    Dim titleLen As Long
-    Dim hWnd As LongPtr
 
-    'Determine current tab title, if error: the tab is a blank tab
-    Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
+    '1. プロセスIDがない場合は即抜け
+    If PipeCore.Connection_dwProcessId = 0 Then printMsg WARN_, "The process ID could not be confirmed. It may not be recorded in the worksheet, or it may have been initiated from an already running browser.", FromProcedureName
 
-    'Obtain handles to the correct browser window
-    'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
-    Do
-        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
-        Dim currentPID As Long
-        GetWindowThreadProcessId hWnd, currentPID
+    '2. 元のタイトルを退避（タイトルがない場合は空文字）
+    Dim origTitle As String
+    origTitle = Me.Title
 
-        '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.Connection_dwProcessId Then
-            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
-            getHandle = hWnd
+    '3. 保持している`TargetID`として置換
+    Me.Title = brTab.targetID
+    CDPHelpers.Sleep 0.3    'Sleep a bit for previous Win Api executions to finish, else obtaining the hwnd will fail.
 
-            '3. Get Window Title based on specified handles
-            'Requires string buffering declaration as string
-            bufferString = String(1024, " ")
-            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
-            windowTitle = Left(bufferString, titleLen)
+    '4. 最初のChromiumウィンドウクラスとしてのハンドル情報を取得
+    Dim foundHWnd As LongPtr
+    Dim curHWnd As LongPtr
+    curHWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)
 
-            'Verify if matching with the sessionTitle and is really an edge/chrome window
-            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
+    '5. 探索開始
+    Do While curHWnd <> 0
+        '5-1. 最初のChomiumハンドルに対するプロセスIDを取得
+        Dim winPid As Long
+        GetWindowThreadProcessId curHWnd, winPid
+
+        '5-2. プロセスID（PID）の一致確認（自分が起動したブラウザか？）
+        If winPid = PipeCore.Connection_dwProcessId Then
+            '5-3. ウィンドウタイトルを取得
+            '`targetID`分の文字数バッファーのみ確保
+            Dim buflen As Long: buflen = Len(brTab.targetID) + 1    '`GetWindowText`使用時は末尾に、vbnullcharが付与されるためその補正
+            Dim buf As String: buf = String$(buflen, vbNullChar)
+            Dim titleLen As Long
+            titleLen = GetWindowText(curHWnd, StrPtr(buf), buflen)
+
+            '5-4．取り出し成功なら次へ
+            If titleLen > 0 Then
+                'TargetID check
+                If Left$(buf, buflen - 1) = brTab.targetID Then     '比較する際は、vbnullchar分、減算
+                    '一致すれば探索終了
+                    foundHWnd = curHWnd
+                    Exit Do
+                End If
+            End If
         End If
 
-        'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
+        '6. 次の`Chrome_WidgetWin_1`を探す
+        curHWnd = FindWindowEx(0&, curHWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
+    Loop
 
-    Loop Until hWnd = 0 ' no more matching windows
+    '7. 結果を反映
+    If foundHWnd Then
+        printMsg WARN_, "Handle information found: " & foundHWnd, FromProcedureName
+        getHandle = foundHWnd
+    Else
+        printMsg WARN_, "Handle information not found.", FromProcedureName
+    End If
 
+    '8. タイトルを元に戻す
+    Me.Title = origTitle
 End Function
 
 '***************************************************************************************************
