@@ -1883,19 +1883,14 @@ Public Sub getSessionInfo()
 
     'Get infos
     Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
-    brTab.Url = TargetInfo.StringKey("url")
-    brTab.Title = TargetInfo.StringKey("title")
-    brTab.hWnd = getHandle
 
-    '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else brTab.WID = tmp.StringKey("windowId")
-
-    'タブIDを記録
-    brTab.targetID = TargetInfo.StringKey("targetId")
-
-    'ProfileIDを記録
-    brTab.browserContextId = TargetInfo.StringKey("browserContextId")
+    '各種パラメーター更新
+    With brTab
+        .Url = TargetInfo.StringKey("url")
+        .Title = TargetInfo.StringKey("title")
+        .targetID = TargetInfo.StringKey("targetId")
+        .browserContextId = TargetInfo.StringKey("browserContextId")
+    End With
 
     'JavaScript関連の変化も捉えれるようにする
     '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
