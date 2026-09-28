@@ -2167,6 +2167,24 @@ Private Sub ValidityCheck_hWnd()
     End If
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：このタブに対するウィンドウ表示状態を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：state         ウィンドウ表示設定値(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：プロセスIDがない場合は利用できません
+'            ・起動済みブラウザ
+'            ・WebSocket経由での別端末ブラウザ
+'***************************************************************************************************
+Public Sub showWindowMode(Optional state As WinState = doShow)
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
+
+    '2. 表示状態を設定
+    ShowWindow brTab.hWnd, state
+
+End Sub
+
 Public Sub hide()
 '------------------------------------------------------------------
 ' This is the equivalent of show "hidden" but this function is
