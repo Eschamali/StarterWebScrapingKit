@@ -2191,7 +2191,10 @@ Public Sub hide()
 ' added to make it easy to access and use the same feature.
 '------------------------------------------------------------------
 
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
+
+    '2. 非表示として設定
     ShowWindow brTab.hWnd, asHidden
 
 End Sub
@@ -2202,13 +2205,15 @@ Public Function bringToForeground()
 ' Updated: Long Vh - 06/01/26 should be a function like others
 '------------------------------------------------------------------
 
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    If brTab.hWnd <> 0 Then
-        ShowWindow brTab.hWnd, doShow
-        BringWindowToTop brTab.hWnd
-        SetForegroundWindow brTab.hWnd
-    End If
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
 
+    '2. 前面に出す
+    BringWindowToTop brTab.hWnd
+
+    '3. フォアグラウンド化
+    SetForegroundWindow brTab.hWnd
+    
 End Function
 
 
@@ -3028,8 +3033,9 @@ Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
     If alwaysRequest Then
         BrowserWindowHandle = getHandle
     Else
-        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If brTab.hWnd Then BrowserWindowHandle = brTab.hWnd Else BrowserWindowHandle = getHandle
+        '既存の値があれば、それを流用、ない or 古い場合は、再取得します
+        ValidityCheck_hWnd
+        BrowserWindowHandle = brTab.hWnd
     End If
 End Property
 
