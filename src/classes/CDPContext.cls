@@ -149,6 +149,18 @@ Public Enum PageReferrerPolicy
     pr_unsafeUrl                    ' [unsafeUrl]                   超危険。相手が誰だろうと、HTTPだろうとURL全文を無防備に送りつける
 End Enum
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Browser.WindowState
+' ウィンドウの表示状態を変更する際のステータス
+'---------------------------------------------------------------------------------------------------'
+Public Enum BrowserWindowState
+    br_unspecified  ' 今の表示状態のまま
+    br_normal       ' 元のサイズに戻すと同じ
+    br_minimized    ' 最小化
+    br_maximized    ' 最大化
+    br_fullscreen   ' フルスクリーン表示(hwnd ではできない唯一の設定！)
+End Enum
+
 
 
 '***************************************************************************************************
@@ -200,7 +212,7 @@ Private Type StateTab
 
     '補助情報
     hWnd                As LongPtr  'Browser object window handle
-    WID                 As String   'Useful for windows repositioning
+    WID                 As Long     'Useful for windows repositioning
     Title               As String   'The focused tab name / window name of the active CDPBrowser
     Url                 As String   'The focused tab url of the active CDPBrowser
     ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
@@ -275,6 +287,18 @@ Private Function EnumToStringPageReferrerPolicy(policy As PageReferrerPolicy) As
         Case pr_originWhenCrossOrigin:       EnumToStringPageReferrerPolicy = "originWhenCrossOrigin"
         Case pr_noReferrerWhenDowngrade:     EnumToStringPageReferrerPolicy = "noReferrerWhenDowngrade"
         Case pr_unsafeUrl:                   EnumToStringPageReferrerPolicy = "unsafeUrl"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 「ウィンドウ状態」の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserWindowState(state As BrowserWindowState) As String
+    Select Case state
+        Case br_normal:     EnumToStringBrowserWindowState = "normal"
+        Case br_minimized:  EnumToStringBrowserWindowState = "minimized"
+        Case br_maximized:  EnumToStringBrowserWindowState = "maximized"
+        Case br_fullscreen: EnumToStringBrowserWindowState = "fullscreen"
     End Select
 End Function
 
@@ -2138,52 +2162,40 @@ Public Sub navigate(strURL As String, Optional referrerURL As String, Optional t
 
 End Sub
 
-Public Sub show(Optional state As WinState = asNormal, Optional xywh As String = "0 0 0 0")
-'-----------------------------------------------------------------------------------
-' Display the window with various optional state. The default state is "normal".
-' Can also use after .attach to bring the window topmost as well. By default at
-' start, the browser window's state will be that of the previous session run.
-' xywh is used for inputing left top width height parameters:
-' eg.1: xywh = "100 200" left = 100 and top = 200, width and height unchanged
-' eg.2: xywh = "100 100 300 400" left = top = 100, width = 300 and height = 400
-' eg.3: xywh = "0 0 0 0" the method will ignore and not make any resizing
-'-----------------------------------------------------------------------------------
-' Note: This method targets the window based on its name so it is best applied when
-' the browser window is not refreshing a URL which may potentially change the name.
-' Updated: 02/03/23 - Changed CInt to Int to prevent Overflow error.
-'-----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：CDPとしてのウィンドウリサイズ処理と表示状態を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：state  表示状態
+'            x,y    左上座標
+'            w,h    左上を基準とした大きさ
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`windowState`によっては、x,y,w,hは機能しません
+'            ・未指定時は、現在の座標/大きさのままという意味ある設定により、引数自体はvariantとして受付し、パラメーター反映時は、数値として変換して反映します
+'***************************************************************************************************
+Public Sub show(Optional state As BrowserWindowState, Optional x, Optional y, Optional w, Optional h)
 
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    ShowWindow brTab.hWnd, doShow 'Make visible
-    ShowWindow brTab.hWnd, state
+    '1. 対象となる`WindowID`を取得
+    Dim params As New Dictionary
+    If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+    params("windowId") = brTab.WID
 
-   'Resize to specific position and size
-   'Will not work properly if window is currently maximized
-    If xywh <> "0 0 0 0" Then
+    '2. 座標と大きさを設定
+    '※省略時は、パラメータ適用しないようにします
+    Dim bounds As New Dictionary
+    If Not IsMissing(x) Then bounds("left") = CLng(x)
+    If Not IsMissing(y) Then bounds("top") = CLng(y)
+    If Not IsMissing(w) Then bounds("width") = CLng(w)
+    If Not IsMissing(h) Then bounds("height") = CLng(h)
 
-        CDPHelpers.Sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
+    '3. ウィンドウ表示設定をする
+    Dim tmp As String: tmp = EnumToStringBrowserWindowState(state)
+    If StrPtr(tmp) Then bounds("windowState") = tmp
 
-        Dim params As New Dictionary
-        If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
-        params("windowId") = Int(brTab.WID)     '02/03/23 CInt() will throw error, Int() is better
+    '4. 適用
+    Set params("bounds") = bounds
 
-        Dim bounds As New Dictionary
-        Dim x As Long, y As Long, w As Long, h As Long
-        On Error Resume Next
-        x = CLng(Split(xywh, " ")(0))
-        y = CLng(Split(xywh, " ")(1))
-        w = CLng(Split(xywh, " ")(2))
-        h = CLng(Split(xywh, " ")(3))
-        On Error GoTo 0
-
-        If x <> 0 Then bounds("left") = x
-        If y <> 0 Then bounds("top") = y
-        If w <> 0 Then bounds("width") = w
-        If h <> 0 Then bounds("height") = h
-        Set params("bounds") = bounds
-        ExecuteCDP "Browser.setWindowBounds", params
-
-    End If
+    '5. リサイズ処理
+    ExecuteCDPAsync "Browser.setWindowBounds", params
 
 End Sub
 
@@ -2970,7 +2982,7 @@ Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     If alwaysRequest Then
         BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     Else
-        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
+        '既存の値があれば、それを流用、ない場合は、再取得します
         If brTab.WID Then BrowserWindowID = brTab.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
     End If
 End Property
