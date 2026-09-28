@@ -539,8 +539,7 @@ Sub runTabsAsOne()
     chrome.ThisCDPBrowser.newTab "https://bing.com"
 
    'Resize to complete
-    CDPHelpers.Sleep    'ちょこっとクールタイムが必要みたい
-    chrome.show xywh:="0 20 1000 700"
+    chrome.show x:=0, y:=20, w:=1000, h:=700
 
 End Sub
 
@@ -570,9 +569,9 @@ Sub runTabsAsMany()
     tab3.navigate "https://bing.com"
 
    'Resize to complete
-    tab1.show xywh:="0 10 1000 700"
-    tab2.show xywh:="0 45 1000 700"
-    tab3.show xywh:="0 90 1000 700"
+    tab1.show , 0, 10, 1000, 700
+    tab2.show , 0, 45, 1000, 700
+    tab3.show , 0, 90, 1000, 700
 
 End Sub
 
