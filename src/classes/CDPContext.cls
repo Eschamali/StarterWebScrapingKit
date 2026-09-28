@@ -2271,7 +2271,7 @@ Public Sub show(Optional state As BrowserWindowState, Optional x, Optional y, Op
 
     '1. 対象となる`WindowID`を取得
     Dim params As New Dictionary
-    If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+    If brTab.WID = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
     params("windowId") = brTab.WID
 
     '2. 座標と大きさを設定
