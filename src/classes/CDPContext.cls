@@ -2836,8 +2836,7 @@ Property Get Title() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    'JavaScriptで今のタイトルを取得し、更新
-    '※`Target.targetInfoChanged`だけでは、最新の`Title`が取れないのでJavaScriptで取ってきます
+    '※イベント経由での`Target.targetInfoChanged`の`title`は、ほぼ機能しないためここは素直に、JavaScript経由で取ります
     brTab.Title = jsEval("document.title")
     Title = brTab.Title
 
