@@ -1953,50 +1953,6 @@ Public Sub printChildFrames()
     End With
 End Sub
 
-Private Function getHandle() As LongPtr
-'-----------------------------------------------------------------------------------
-' Added by Long: obtain the window handle of the current browser session
-' Updated: 02/03/23 - Add mechanism to work with browser windows that are blank.
-'-----------------------------------------------------------------------------------
-
-    Dim bufferString As String
-    Dim titleLen As Long
-    Dim hWnd As LongPtr
-
-    'Determine current tab title, if error: the tab is a blank tab
-    Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
-
-    'Obtain handles to the correct browser window
-    'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
-    Do
-        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
-        Dim currentPID As Long
-        GetWindowThreadProcessId hWnd, currentPID
-
-        '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.Connection_dwProcessId Then
-            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
-            getHandle = hWnd
-
-            '3. Get Window Title based on specified handles
-            'Requires string buffering declaration as string
-            bufferString = String(1024, " ")
-            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
-            windowTitle = Left(bufferString, titleLen)
-
-            'Verify if matching with the sessionTitle and is really an edge/chrome window
-            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
-        End If
-
-        'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
-
-    Loop Until hWnd = 0 ' no more matching windows
-
-End Function
-
 
 
 '***************************************************************************************************
@@ -2114,6 +2070,81 @@ Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
         brTab.ReadState = CDPHelpers.StringToEnumReadyState(readyStateStr)
     End If
     PageReadyState = brTab.ReadState
+End Function
+
+
+
+'***************************************************************************************************
+'                        ■■■ 各種hwndを利用したヘルパーコマンド ■■■
+'***************************************************************************************************
+Private Function getHandle() As LongPtr
+'-----------------------------------------------------------------------------------
+' Added by Long: obtain the window handle of the current browser session
+' Updated: 02/03/23 - Add mechanism to work with browser windows that are blank.
+'-----------------------------------------------------------------------------------
+
+    Dim bufferString As String
+    Dim titleLen As Long
+    Dim hWnd As LongPtr
+
+    'Determine current tab title, if error: the tab is a blank tab
+    Dim sessionTitle As String, windowTitle As String
+    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
+
+    'Obtain handles to the correct browser window
+    'Both Edge and Chrome use the same class chromeWindowClass
+    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
+    Do
+        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
+        Dim currentPID As Long
+        GetWindowThreadProcessId hWnd, currentPID
+
+        '2. プロセスIDが、探しているブラウザのものと一致するか？
+        If currentPID = PipeCore.Connection_dwProcessId Then
+            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
+            getHandle = hWnd
+
+            '3. Get Window Title based on specified handles
+            'Requires string buffering declaration as string
+            bufferString = String(1024, " ")
+            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
+            windowTitle = Left(bufferString, titleLen)
+
+            'Verify if matching with the sessionTitle and is really an edge/chrome window
+            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
+        End If
+
+        'Continue with the next handle value
+        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
+
+    Loop Until hWnd = 0 ' no more matching windows
+
+End Function
+
+Public Sub hide()
+'------------------------------------------------------------------
+' This is the equivalent of show "hidden" but this function is
+' added to make it easy to access and use the same feature.
+'------------------------------------------------------------------
+
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    ShowWindow brTab.hWnd, asHidden
+
+End Sub
+
+Public Function bringToForeground()
+'------------------------------------------------------------------
+' Brings the browser window to the foreground
+' Updated: Long Vh - 06/01/26 should be a function like others
+'------------------------------------------------------------------
+
+    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
+    If brTab.hWnd <> 0 Then
+        ShowWindow brTab.hWnd, doShow
+        BringWindowToTop brTab.hWnd
+        SetForegroundWindow brTab.hWnd
+    End If
+
 End Function
 
 
@@ -2488,37 +2519,6 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
     Dim CDPparams As New Dictionary
     CDPparams.Add "frameId", frameID
     getIFrameContextID = ExecuteCDP("Page.createIsolatedWorld", CDPparams).NumberKey("executionContextId")
-End Function
-
-
-
-'***************************************************************************************************
-'                              ■■■ WindowsAPI操作系 ■■■
-'***************************************************************************************************
-Public Sub hide()
-'------------------------------------------------------------------
-' This is the equivalent of show "hidden" but this function is
-' added to make it easy to access and use the same feature.
-'------------------------------------------------------------------
-
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    ShowWindow brTab.hWnd, asHidden
-
-End Sub
-
-Public Function bringToForeground()
-'------------------------------------------------------------------
-' Brings the browser window to the foreground
-' Updated: Long Vh - 06/01/26 should be a function like others
-'------------------------------------------------------------------
-
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    If brTab.hWnd <> 0 Then
-        ShowWindow brTab.hWnd, doShow
-        BringWindowToTop brTab.hWnd
-        SetForegroundWindow brTab.hWnd
-    End If
-
 End Function
 
 
