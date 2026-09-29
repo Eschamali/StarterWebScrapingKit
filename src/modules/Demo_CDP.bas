@@ -479,7 +479,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -518,7 +518,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -592,7 +592,7 @@ Sub runNewTab()
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
-    chrome.show asMaximized
+    chrome.show br_maximized
 
    'Perform standard google search
     chrome.navigate "https://google.com"
