@@ -231,8 +231,8 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '1. 既にオブジェクトを持ってる場合は切断後、再開
     If Not (m_Host Is Nothing) Then DisconnectCDP
 
-    '2. ハンドル未指定の場合は、Excel自身を直接使用する
-    If AttachHwnd <= 0 Then AttachHwnd = Application.hWnd
+    '2. ハンドル未指定の場合は、Officeアプリ自身の`HWnd`を直接使用する
+    If AttachHwnd <= 0 Then AttachHwnd = GetApplicationHwnd
 
     '3. 専用のホストオブジェクトを新規作成
     Dim RunRes As Boolean
@@ -1283,7 +1283,9 @@ End Property
 
 
 '***************************************************************************************************
-'                                  ■■■ ログヘルパー ■■■
+'                                  ■■■ 各種ヘルパー ■■■
+'***************************************************************************************************
+'* 機能　　：ファイル名指定を省略したログ出力プロシージャです
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     Const LogFileExtension As String = ".WebView2.log"
@@ -1291,6 +1293,24 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
+
+'***************************************************************************************************
+'* 機能    ：ExcelでもAccessでも、手修正なしで本体のウィンドウハンドルを取得します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：このツールは、Access/Excelでも使えるコードにしてる都合上、このような分岐を設けています
+'***************************************************************************************************
+Private Function GetApplicationHwnd() As LongPtr
+    On Error Resume Next
+
+    ' ① まず Excel かな？ と疑って呼んでみる（Accessだとエラーになるが無視してスルー）
+    GetApplicationHwnd = CallByName(Application, "Hwnd", VbGet)
+    If GetApplicationHwnd <> 0 Then Exit Function
+
+    ' ② ダメなら Access かな？ と疑って呼んでみる（Excelだとエラーになるがスルー）
+    GetApplicationHwnd = CallByName(Application, "hWndAccessApp", VbGet)
+
+    On Error GoTo 0
+End Function
 
 
 
