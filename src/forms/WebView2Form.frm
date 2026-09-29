@@ -40,12 +40,13 @@ Attribute fCDPEvent.VB_VarHelpID = -1
 Private fCDPContext             As CDPContext   'タブ情報
 
 '自身の各ハンドルを保存する変数
-Private myFormHwnd      As LongPtr
+Private myFormHwnd          As LongPtr
 Private myWebView2FrameHwnd As LongPtr
 
-'Frameのマージン
-Private RightMargin     As Long
-Private BottomMargin    As Long
+'Frame系
+Private WebView2Frame   As Object   'フレーム本体
+Private RightMargin     As Long     '右側マージン
+Private BottomMargin    As Long     '下側マージン
 
 
 
@@ -120,11 +121,11 @@ Private Sub AdjustEdgeSize()
     ' Frameの幅と高さを、UserFormの内部サイズから余白を引いた値にする
     Dim tmp As Long
 
-    tmp = Me.InsideWidth - RightMargin - Me.WebView2Frame.Left
-    If tmp >= 0 Then Me.WebView2Frame.Width = tmp
+    tmp = Me.InsideWidth - RightMargin - WebView2Frame.Left
+    If tmp >= 0 Then WebView2Frame.Width = tmp
 
-    tmp = Me.InsideHeight - BottomMargin - Me.WebView2Frame.Top
-    If tmp >= 0 Then Me.WebView2Frame.height = tmp
+    tmp = Me.InsideHeight - BottomMargin - WebView2Frame.Top
+    If tmp >= 0 Then WebView2Frame.height = tmp
 
 
     ' --- 第2段階：APIの世界（EdgeをFrameに追従させる） ---
@@ -132,8 +133,8 @@ Private Sub AdjustEdgeSize()
     ' ※DPI設定によっては 1.333 以外（例：1.25 等）になる場合がありますが、標準はこれです。
     Dim pxWidth As Long
     Dim pxHeight As Long
-    pxWidth = Me.WebView2Frame.InsideWidth * PointToPixel
-    pxHeight = Me.WebView2Frame.InsideHeight * PointToPixel
+    pxWidth = WebView2Frame.InsideWidth * PointToPixel
+    pxHeight = WebView2Frame.InsideHeight * PointToPixel
 
     ' APIを使って、WebView2のウィンドウをFrameの左上(0,0)にピッタリはめ込む！
     ' (Frameの中にSetParentされているので、0,0はFrameの左上を意味します)
@@ -238,14 +239,33 @@ Private Sub UserForm_Initialize()
     currentStyle = GetWindowLongPtr(myFormHwnd, GWL_STYLE)
     SetWindowLongPtr myFormHwnd, GWL_STYLE, currentStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX
 
-    '3. 埋め込み先のEdgeフレームのハンドル情報を取得
-    myWebView2FrameHwnd = Me.WebView2Frame.[_GethWnd]
+    '3. 動的に Frame を召喚して変数に入れる！
+    '※引数: (ProgID, コントロール名, 可視フラグ)
+    Const FrameObjectName As String = "WebView2Frame"
+    myWebView2FrameHwnd = Me.Controls.Add("Forms.Frame.1", FrameObjectName, True).[_GethWnd]    'Frameを生成しここではまず、ハンドル情報を取り出す
+    Set WebView2Frame = Me.Controls(FrameObjectName)                                            'ここで改めて、Frameオブジェクトを取り出す
 
-    '4. フレームの右下マージン計算
-    RightMargin = Me.InsideWidth - Me.WebView2Frame.Width - Me.WebView2Frame.Left
-    BottomMargin = Me.InsideHeight - Me.WebView2Frame.height - Me.WebView2Frame.Top
+    '4. 位置・サイズ・見た目を自由に設定！
+    With WebView2Frame
+        '4-1. 左上位置を設定
+        .Left = 48
+        .Top = 60
 
-    '5. WebView2のコアオブジェクトを初期化
+        '4-2. 大きさを設定
+        .Width = Me.Width - 100
+        .height = Me.height - 110
+
+        '4-3. ブラウザ画面と一体化させるためのデザイン調整
+        .Caption = ""                           ' 余計なタイトル文字を消す
+        .BorderStyle = 0                        ' fmBorderStyleNone（枠線を消す）
+        .SpecialEffect = 0                      ' fmSpecialEffectFlat（立体感を消してフラットに）
+    End With
+
+    '5. フレームの右下マージン計算
+    RightMargin = Me.InsideWidth - WebView2Frame.Width - WebView2Frame.Left
+    BottomMargin = Me.InsideHeight - WebView2Frame.height - WebView2Frame.Top
+
+    '6. WebView2のコアオブジェクトを初期化
     Set fWebView2 = New CDPCoreViaWebView2
 End Sub
 
