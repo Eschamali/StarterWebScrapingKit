@@ -2246,7 +2246,6 @@ Public Sub navigate(strURL As String, Optional referrerURL As String, Optional t
     If WaitMode = ReadyState.Nowait Then
         ExecuteCDPAsync "Page.navigate", CDPparams
         printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
-        Exit Sub
     Else
         ExecuteCDP "Page.navigate", CDPparams
 
