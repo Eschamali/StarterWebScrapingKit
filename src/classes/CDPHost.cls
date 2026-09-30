@@ -387,24 +387,31 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ユーザーデータフォルダ直下にある「DevToolsActivePort」ファイルが出現するまで待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：10s後、あったら存在したら`True`となります
+'* 返り値　：指定Tickまで待機後、あったら`True`となります
+'* 引数　　：MaxTickWait    待機Tick数(デフォルトは、10sです。)
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：10s間待機します
+'* 詳細説明：指定Tickまで待機します
 '* 注意事項：必要に応じて、前述のプロシージャで削除を行います
 '***************************************************************************************************
-Public Function AutoWaitExistsFileDevToolsActivePort() As Boolean
+Public Function AutoWaitExistsFileDevToolsActivePort(Optional MaxTickWait As Long = 100) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitExistsFileDevToolsActivePort"
-    Const MaxTick As Long = 100 '無難に10.0s待機
 
+
+    '1. すである場合は、ここの段階で抜ける
+    Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
+    If LenB(Dir(DevToolsActivePortFilePath)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Function
 
     Dim TickCount As Long
     Do
-        CDPHelpers.Sleep 0.1
-        TickCount = TickCount + 1
-
-        If LenB(Dir(getUserDataDirPath & "\" & WebSocketInfoFileName)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Do
+        '2. 少し待つ
         printMsg Debug_, "Waiting for the DevToolsActivePort file to appear...", FromProcedureName
-    Loop Until TickCount = MaxTick
+        TickCount = TickCount + 1
+        CDPHelpers.Sleep 0.1
+
+        '3. 存在判定
+        If LenB(Dir(DevToolsActivePortFilePath)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Do
+
+    Loop Until TickCount = MaxTickWait
 End Function
 
 '***************************************************************************************************
