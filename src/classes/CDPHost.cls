@@ -340,6 +340,9 @@ Property Get getUserDataDirPath() As String
     If currentPolicy.UserDataDir.Exists Then
         '`UserDataDir`ポリシーがある場合はそっちを優先に返却
         getUserDataDirPath = currentPolicy.UserDataDir.Contents
+    ElseIf InStr(1, DebugUserName, ":") = 2 Then
+        '絶対パス指定の場合は、そのまんま返却
+        getUserDataDirPath = DebugUserName
     Else
         'ブラウザタイプに応じた標準パス先で返却
         getUserDataDirPath = Environ("LOCALAPPDATA") & EnumToStringBrowserList_BrowserPath(UserBrowserMode) & "\" & DebugUserName
