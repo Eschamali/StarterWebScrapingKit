@@ -271,7 +271,10 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '5. 必須のイベント購読を行う
     InitSubscribeCdpEvent
 
-    '6. 成功サインを返す
+    '6. 接続ポインター情報を記録
+    serialize UserName
+
+    '7. 成功サインを返す
     ConnectCDP = True
 End Function
 
@@ -306,6 +309,36 @@ Private Sub DisposeEnvOptions()
         m_envOptions.CLOSE_
         Set m_envOptions = Nothing
     End If
+End Sub
+
+
+
+'***************************************************************************************************
+'                            ■■■ 設定情報読み書き処理 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2関連の接続情報をExcelテーブルに残します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName       利用者識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2は仕組みが複雑かつ名称と意味が不一致になるため、接続ポインター系は一律0です
+'***************************************************************************************************
+Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
+    '------------------ WebView2情報の記録 ------------------
+    '※プロセスIDのみ記録する
+    Dim tmp As New Dictionary
+    tmp.Add "hStdOutRd", 0
+    tmp.Add "hStderrOutRd", 0
+    tmp.Add "hStdInWr", 0
+    tmp.Add "hCDPOutRd", 0
+    tmp.Add "hCDPInWr", 0
+    tmp.Add "hProcess", 0
+    tmp.Add "dwProcessId", m_Host.BrowserProcessId
+
+    'Excelテーブルに、ハンドル情報を記録する
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 
