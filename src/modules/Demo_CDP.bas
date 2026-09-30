@@ -401,6 +401,7 @@ Sub iframeShadowRootTest()
         Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=kFrame, doRetrySecond:=5)     '※見つかるまで、5秒間内部でループされます
 
         '3. そのiframe内にあるチェックBoxをクリックする
+        CloudflareTurnstile.Wait
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
 
         '4. 少し待って、閉じる
