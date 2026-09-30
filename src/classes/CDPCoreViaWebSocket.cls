@@ -1237,8 +1237,7 @@ End Function
 '            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
-'            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
+'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
 Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
     Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
