@@ -196,7 +196,16 @@ Private WebView2UserDataDirPath As String
 '            AttachHwnd WebView2を貼り付けるハンドル
 '***************************************************************************************************
 Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
-    WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName   'Officeのルールに従うようなパスにしておく
+    'ユーザーデータパスを設定
+    If InStr(1, UserName, ":") = 2 Then
+        '絶対パス指定の場合は、そのまんま指定
+        WebView2UserDataDirPath = UserName
+    Else
+        'Officeのルールに従うようなパスにしておく
+        WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
+    End If
+
+    'WebView2を埋め込むhandle先を指定
     m_hostHwnd = AttachHwnd
 End Sub
 
