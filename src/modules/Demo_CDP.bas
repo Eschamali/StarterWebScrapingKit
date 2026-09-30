@@ -960,12 +960,13 @@ End Sub
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '1. 指定のWebSocketForCDPへ接続
+    Const UserNameBrowser As String = "User Data"
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP "User Data"
+    WebSocketCDP.ReConnectCDP UserNameBrowser
 
     '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    b.reattachWebSocket "User Data", WebSocketCDP
+    b.reattachWebSocket UserNameBrowser, WebSocketCDP
 
     '3. 新規タブに接続
     Dim t As CDPContext
