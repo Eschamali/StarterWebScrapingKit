@@ -1319,6 +1319,9 @@ End Property
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
     '------------------ ソケット情報の記録 ------------------
     '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
@@ -1331,7 +1334,7 @@ Private Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
-    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 '***************************************************************************************************
