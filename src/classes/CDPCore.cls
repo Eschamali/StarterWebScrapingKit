@@ -1556,8 +1556,8 @@ Private Sub Class_Initialize()
         '2-3. Assign an objID for easy debug identification
         currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
 
-        '2-4. UTF8変換モードを設定するか
-        If .GetSettingCDP(SettingCDP.AlwaysSendAndReceiveUTF8, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
+        '2-4. UTF8変換モードを設定
+        Set Utf8Converter = New CharacterCodeConversion
 
         '2-5. 初期起動ウィンドウ状態を設定
         setShowWindow = .GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)

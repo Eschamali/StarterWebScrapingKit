@@ -46,7 +46,7 @@ Public Enum SettingCDP
     DisplayImmediate
     ViewBrowserResponse
     LogFileFolderPath
-    AlwaysSendAndReceiveUTF8
+    NumberMissing01
     ViewTab_BiDiCDPMapper
     StartWindowMode
     ViewDebugLogForBiDiCDPMapper
@@ -72,7 +72,6 @@ Private Function RangeMapping(RangeID As SettingCDP, ErrorSource As String) As S
         Case 6:  RangeMapping = "DisplayImmediate"
         Case 7:  RangeMapping = "ViewBrowserResponse"
         Case 8:  RangeMapping = "LogFileFolderPath"
-        Case 9:  RangeMapping = "AlwaysSendAndReceiveUTF8"
         Case 10: RangeMapping = "ViewTab_BiDiCDPMapper"
         Case 11: RangeMapping = "StartWindowMode"
         Case 12: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
