@@ -1241,7 +1241,7 @@ End Function
 '            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
 '***************************************************************************************************
 Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
 
 
     '1. `UserName`から、Excelテーブルからハンドル情報を取得
