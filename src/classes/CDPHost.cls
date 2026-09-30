@@ -417,30 +417,28 @@ End Function
 '***************************************************************************************************
 '* 機能　　：`DevToolsActivePort`ファイルから、WebSocket接続情報を取得します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：下記の構成となる1次元配列。※ない場合は、`vbEmpty`
+'* 返り値  ：下記の構成となる1次元配列
 '            要素0：ポート番号
 '            要素1：WebSocketパス
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでは、ファイル存在checkはしません。前述のプロシージャ側で行って下さい
 '***************************************************************************************************
 Public Function AnalysisDevToolsActivePort() As Variant
-    'ファイル存在チェック
-    Dim FilePath_DevToolsActivePort As String: FilePath_DevToolsActivePort = getUserDataDirPath & "\" & WebSocketInfoFileName
-    If LenB(Dir(FilePath_DevToolsActivePort)) Then
-        'そのパスを読み込んで、接続情報を取得する
-        '1. ファイルOpen
-        Dim intFree As Integer
-        intFree = FreeFile
-        Open FilePath_DevToolsActivePort For Input As #intFree
+    '1. ファイルOpen
+    Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
+    Dim intFree As Integer
+    intFree = FreeFile
+    Open DevToolsActivePortFilePath For Input As #intFree
 
-        '2. 中身を全部読む
-        Dim tmp
-        tmp = Input(LOF(intFree), #intFree)
+    '2. 中身を全部読む
+    Dim tmp
+    tmp = Input(LOF(intFree), #intFree)
 
-        '3. 閉じる
-        Close #intFree
+    '3. 閉じる
+    Close #intFree
 
-        '4. 分割
-        AnalysisDevToolsActivePort = Split(tmp, vbLf)
-    End If
+    '4. 分割
+    AnalysisDevToolsActivePort = Split(tmp, vbLf)
 End Function
 
 
