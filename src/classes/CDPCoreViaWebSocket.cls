@@ -1275,12 +1275,11 @@ Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
-    '1. `DevToolsActivePort`のファイルパスを特定
+    '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
     Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
 
-    '2. 情報があるか？
+    '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
-    If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
     '3. 接続
     AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
