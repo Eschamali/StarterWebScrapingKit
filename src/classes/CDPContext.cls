@@ -1863,12 +1863,12 @@ Public Sub printParams()
     printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Window Handle     | brHWnd       | " & brTab.hWnd, FromProcedureName
-    printMsg Debug_, "Window ID         | brWId        | " & brTab.WID, FromProcedureName
-    printMsg Debug_, "Tab URL           | brUrl        | " & brTab.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & brTab.Title, FromProcedureName
-    printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
+    printMsg Debug_, "Tab ID        | " & brTab.targetID, FromProcedureName
+    printMsg Debug_, "Session ID    | " & brTab.sessionID, FromProcedureName
+    printMsg Debug_, "Window Handle | " & brTab.hWnd, FromProcedureName
+    printMsg Debug_, "Window ID     | " & brTab.WID, FromProcedureName
+    printMsg Debug_, "Tab URL       | " & brTab.Url, FromProcedureName
+    printMsg Debug_, "Tab Title     | " & brTab.Title, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
