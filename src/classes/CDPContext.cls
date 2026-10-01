@@ -249,6 +249,7 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private currentLog      As StateLog 'ログ設定
+Private CustomUAMode    As Boolean  'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -424,6 +425,30 @@ ifError:
     printParams
     Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
 
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このツールを扱ってる目印を「User-Agent」に刻印します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：一部iframeは対象外です
+'***************************************************************************************************
+Private Sub AppendVbaUserAgent()
+    ' 1. ブラウザから「本物の生の名刺（User-Agent）」を聞き出す
+    Dim originalUA As String
+    originalUA = BrowserCore.CurrentBrowseruserAgent    '"Mozilla/5.0 ... Chrome/131.0.0.0 ... Edg/131.0.0.0" が取れる！
+
+    ' 2. 稼働アプリを末尾にに「半角スペース」を空けて自作サインをドッキング！
+    Dim customUA As String
+    customUA = originalUA & " " & CDPHelpers.GetCustomUA
+
+    ' 3. CDP で名刺を上書き（オーバーライド）する！
+    Dim params As New Dictionary
+    params.Add "userAgent", customUA
+
+    ' 4.「Emulation」ドメインを使うのが一番確実！
+    ' （HTTPリクエストヘッダーだけでなく、JSの navigator.userAgent も同時に書き換わる）
+    ExecuteCDPAsync "Emulation.setUserAgentOverride", params
+    printMsg info_, "User-Agent updated: " & customUA, "AppendVbaUserAgent"
 End Sub
 
 
@@ -1900,6 +1925,10 @@ Public Sub getSessionInfo()
     '`document.readyState`相当も使えるように有効化
     '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
     pageEnable True
+
+    'ユーザーエージェントに刻印する場合はそれを行う
+    If CustomUAMode Then AppendVbaUserAgent
+
 End Sub
 
 '***************************************************************************************************
@@ -3155,6 +3184,8 @@ Private Sub Class_Initialize()
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
 
+    '独自のユーザーエージェントを付与するか
+    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
 
 '***************************************************************************************************

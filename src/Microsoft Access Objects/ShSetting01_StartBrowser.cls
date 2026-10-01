@@ -46,7 +46,7 @@ Public Enum SettingCDP
     DisplayImmediate
     ViewBrowserResponse
     LogFileFolderPath
-    NumberMissing01
+    EnableUserAgentOverride
     ViewTab_BiDiCDPMapper
     StartWindowMode
     ViewDebugLogForBiDiCDPMapper
@@ -72,6 +72,7 @@ Private Function RangeMapping(RangeID As SettingCDP, ErrorSource As String) As S
         Case 6:  RangeMapping = "DisplayImmediate"
         Case 7:  RangeMapping = "ViewBrowserResponse"
         Case 8:  RangeMapping = "LogFileFolderPath"
+        Case 9:  RangeMapping = "EnableUserAgentOverride"
         Case 10: RangeMapping = "ViewTab_BiDiCDPMapper"
         Case 11: RangeMapping = "StartWindowMode"
         Case 12: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
