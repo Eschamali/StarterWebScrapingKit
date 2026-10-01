@@ -241,6 +241,7 @@ Private Sub UserForm_Initialize()
 
     '3. 動的に Frame を召喚して変数に入れる！
     '※引数: (ProgID, コントロール名, 可視フラグ)
+    '※Accessでは、静的Frame配置に対応してないため、コードの共通化に伴い、動的追加として改修しました
     Const FrameObjectName As String = "WebView2Frame"
     myWebView2FrameHwnd = Me.Controls.Add("Forms.Frame.1", FrameObjectName, True).[_GethWnd]    'Frameを生成しここではまず、ハンドル情報を取り出す
     Set WebView2Frame = Me.Controls(FrameObjectName)                                            'ここで改めて、Frameオブジェクトを取り出す

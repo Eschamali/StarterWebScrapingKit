@@ -271,7 +271,10 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '5. 必須のイベント購読を行う
     InitSubscribeCdpEvent
 
-    '6. 成功サインを返す
+    '6. 接続ポインター情報を記録
+    serialize UserName
+
+    '7. 成功サインを返す
     ConnectCDP = True
 End Function
 
@@ -306,6 +309,36 @@ Private Sub DisposeEnvOptions()
         m_envOptions.CLOSE_
         Set m_envOptions = Nothing
     End If
+End Sub
+
+
+
+'***************************************************************************************************
+'                            ■■■ 設定情報読み書き処理 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2関連の接続情報をExcelテーブルに残します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName       利用者識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2は仕組みが複雑かつ名称と意味が不一致になるため、接続ポインター系は一律0です
+'***************************************************************************************************
+Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
+    '------------------ WebView2情報の記録 ------------------
+    '※プロセスIDのみ記録する
+    Dim tmp As New Dictionary
+    tmp.Add "hStdOutRd", 0
+    tmp.Add "hStderrOutRd", 0
+    tmp.Add "hStdInWr", 0
+    tmp.Add "hCDPOutRd", 0
+    tmp.Add "hCDPInWr", 0
+    tmp.Add "hProcess", 0
+    tmp.Add "dwProcessId", m_Host.BrowserProcessId
+
+    'Excelテーブルに、ハンドル情報を記録する
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 
@@ -849,19 +882,16 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：プロファイル名を取得します(読み取り専用)
 Property Get ProfileName() As String
-    If m_Host Is Nothing Then Exit Property
     ProfileName = m_Host.ProfileName
 End Property
 
 '* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
 Property Get IsInPrivateModeEnabled() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsInPrivateModeEnabled = m_Host.IsInPrivateModeEnabled
 End Property
 
 '* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
 Property Get ProfilePath() As String
-    If m_Host Is Nothing Then Exit Property
     ProfilePath = m_Host.ProfilePath
 End Property
 
@@ -906,7 +936,6 @@ End Property
 '            使えない(`Method not available`)ため、この専用APIを使う必要があります
 '***************************************************************************************************
 Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
-    If m_Host Is Nothing Then Exit Function
     AddBrowserExtension = m_Host.AddBrowserExtension(extensionFolderPath)
 End Function
 
@@ -922,7 +951,6 @@ End Function
 '            Next ext
 '***************************************************************************************************
 Public Function GetBrowserExtensionIds() As Collection
-    If m_Host Is Nothing Then Exit Function
     Set GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
 End Function
 
@@ -937,7 +965,6 @@ End Function
 '            `Remove`という2段構えになります(CDPの`Extensions.uninstall`は使えないため代替不可)
 '***************************************************************************************************
 Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
-    If m_Host Is Nothing Then Exit Function
     RemoveBrowserExtension = m_Host.RemoveBrowserExtension(extensionId)
 End Function
 
@@ -953,7 +980,6 @@ End Function
 Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, _
     Optional ByVal accessKind As WV2HostResourceAccessKind = HostAccess_Allow) As Boolean
 
-    If m_Host Is Nothing Then Exit Function
     SetVirtualHostNameToFolderMapping = m_Host.SetVirtualHostNameToFolderMapping(hostname, FolderPath, accessKind)
 End Function
 
@@ -973,37 +999,31 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：現在表示中のページのURLを取得します(読み取り専用)
 Property Get Source() As String
-    If m_Host Is Nothing Then Exit Property
     Source = m_Host.Source
 End Property
 
 '* 機能　　：このWebView2が使用しているブラウザプロセスのプロセスIDを取得します(読み取り専用)
 Property Get BrowserProcessId() As Long
-    If m_Host Is Nothing Then Exit Property
     BrowserProcessId = m_Host.BrowserProcessId
 End Property
 
 '* 機能　　：`GoBack`で戻れる履歴があるかどうかを取得します(読み取り専用)
 Property Get CanGoBack() As Boolean
-    If m_Host Is Nothing Then Exit Property
     CanGoBack = m_Host.CanGoBack
 End Property
 
 '* 機能　　：`GoForward`で進める履歴があるかどうかを取得します(読み取り専用)
 Property Get CanGoForward() As Boolean
-    If m_Host Is Nothing Then Exit Property
     CanGoForward = m_Host.CanGoForward
 End Property
 
 '* 機能　　：現在のページの`<title>`タグの内容(ページタイトル)を取得します(読み取り専用)
 Property Get DocumentTitle() As String
-    If m_Host Is Nothing Then Exit Property
     DocumentTitle = m_Host.DocumentTitle
 End Property
 
 '* 機能　　：ページ内で全画面表示中の要素が存在するかどうかを取得します(読み取り専用)
 Property Get ContainsFullScreenElement() As Boolean
-    If m_Host Is Nothing Then Exit Property
     ContainsFullScreenElement = m_Host.ContainsFullScreenElement
 End Property
 
@@ -1011,14 +1031,12 @@ End Property
 '* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
 '***************************************************************************************************
 Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.ClearVirtualHostNameToFolderMapping hostname
 End Sub
 
 '* 機能　　：`TrySuspend`によりサスペンド状態にされているかどうかを取得します
 '            (ICoreWebView2_3以降、読み取り専用)
 Property Get IsSuspended() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsSuspended = m_Host.IsSuspended
 End Property
 
@@ -1026,7 +1044,6 @@ End Property
 '* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
 '***************************************************************************************************
 Property Let IsMuted(v As Boolean)
-    If m_Host Is Nothing Then Exit Property
     m_Host.IsMuted = v
 End Property
 
@@ -1034,14 +1051,12 @@ End Property
 '* 機能　　：現在ドキュメントが音声を再生中かどうかを取得します(ICoreWebView2_8以降、読み取り専用)
 '***************************************************************************************************
 Property Get IsDocumentPlayingAudio() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
 End Property
 
 '* 機能　　：既定のダウンロードダイアログが現在開いているかどうかを取得します
 '            (ICoreWebView2_9以降、読み取り専用)
 Property Get IsDefaultDownloadDialogOpen() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsDefaultDownloadDialogOpen = m_Host.IsDefaultDownloadDialogOpen
 End Property
 
@@ -1050,7 +1065,6 @@ End Property
 '            (ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub OpenDefaultDownloadDialog()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.OpenDefaultDownloadDialog
 End Sub
 
@@ -1058,7 +1072,6 @@ End Sub
 '* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub CloseDefaultDownloadDialog()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.CloseDefaultDownloadDialog
 End Sub
 
@@ -1066,7 +1079,6 @@ End Sub
 '* 機能　　：既定のダウンロードダイアログを表示するコーナー位置を設定します(ICoreWebView2_9以降)
 '***************************************************************************************************
 Property Let DefaultDownloadDialogCornerAlignment(v As WV2DownloadDialogCornerAlignment)
-    If m_Host Is Nothing Then Exit Property
     m_Host.DefaultDownloadDialogCornerAlignment = v
 End Property
 
@@ -1076,7 +1088,6 @@ End Property
 '* 引数    ：x/y  `DefaultDownloadDialogCornerAlignment`で指定したコーナーからのオフセット(px)
 '***************************************************************************************************
 Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.SetDefaultDownloadDialogMargin x, y
 End Sub
 
@@ -1085,7 +1096,6 @@ End Sub
 '            (ICoreWebView2_12以降、読み取り専用)
 '***************************************************************************************************
 Property Get StatusBarText() As String
-    If m_Host Is Nothing Then Exit Property
     StatusBarText = m_Host.StatusBarText
 End Property
 
@@ -1093,7 +1103,6 @@ End Property
 '* 機能　　：現在のページのfavicon URIを取得します(ICoreWebView2_15以降、読み取り専用)
 '***************************************************************************************************
 Property Get FaviconUri() As String
-    If m_Host Is Nothing Then Exit Property
     FaviconUri = m_Host.FaviconUri
 End Property
 
@@ -1101,7 +1110,6 @@ End Property
 '* 機能　　：タスクマネージャーウィンドウを開きます(ICoreWebView2_6以降)
 '***************************************************************************************************
 Public Sub OpenTaskManagerWindow()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.OpenTaskManagerWindow
 End Sub
 
@@ -1109,7 +1117,6 @@ End Sub
 '* 機能　　：印刷ダイアログを表示します(ICoreWebView2_16以降)
 '***************************************************************************************************
 Public Sub ShowPrintUI(Optional kind As WV2PrintDialogKind = PrintDialog_Browser)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.ShowPrintUI kind
 End Sub
 
@@ -1117,7 +1124,6 @@ End Sub
 '* 機能　　：WebViewの目標メモリ使用量レベルを設定します(ICoreWebView2_19以降)
 '***************************************************************************************************
 Property Let MemoryUsageTargetLevel(v As WV2MemoryUsageTargetLevel)
-    If m_Host Is Nothing Then Exit Property
     m_Host.MemoryUsageTargetLevel = v
 End Property
 
@@ -1125,14 +1131,12 @@ End Property
 '* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
 '***************************************************************************************************
 Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
-    If m_Host Is Nothing Then Exit Property
     MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
 End Property
 
 '* 機能　　：このICoreWebView2インスタンスが指すフレームの一意なID(CDPの`frameId`に相当)を
 '            取得します(ICoreWebView2_20以降、読み取り専用)
 Property Get frameID() As Long
-    If m_Host Is Nothing Then Exit Property
     frameID = m_Host.frameID
 End Property
 
@@ -1140,7 +1144,6 @@ End Property
 '* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します(読み取り専用)
 '***************************************************************************************************
 Property Get BrowserVersionString() As String
-    If m_Host Is Nothing Then Exit Property
     BrowserVersionString = m_Host.BrowserVersionString
 End Property
 
@@ -1152,7 +1155,6 @@ End Property
 '                   `False`：VBA側による手動判定結果を利用します。こちらのルートでは、「\EBWebView」補正を考慮します
 '***************************************************************************************************
 Property Get userDataFolder(Optional AsIs As Boolean = True) As String
-    If m_Host Is Nothing Then Exit Property
     userDataFolder = IIf(AsIs, m_Host.userDataFolder, m_Host.getUserDataDirPath)
 End Property
 
@@ -1161,7 +1163,6 @@ End Property
 '            (ICoreWebView2Environment11以降、読み取り専用)
 '***************************************************************************************************
 Property Get FailureReportFolderPath() As String
-    If m_Host Is Nothing Then Exit Property
     FailureReportFolderPath = m_Host.FailureReportFolderPath
 End Property
 
