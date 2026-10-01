@@ -1237,11 +1237,10 @@ End Function
 '            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
-'            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
+'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
 Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
 
 
     '1. `UserName`から、Excelテーブルからハンドル情報を取得
@@ -1275,12 +1274,11 @@ Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
-    '1. `DevToolsActivePort`のファイルパスを特定
+    '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
     Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
 
-    '2. 情報があるか？
+    '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
-    If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
     '3. 接続
     AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
@@ -1321,6 +1319,9 @@ End Property
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
     '------------------ ソケット情報の記録 ------------------
     '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
@@ -1333,7 +1334,7 @@ Private Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
-    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 '***************************************************************************************************
