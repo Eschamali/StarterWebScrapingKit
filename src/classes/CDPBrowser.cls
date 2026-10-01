@@ -67,8 +67,16 @@ Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP
 Attribute PipeCore.VB_VarHelpID = -1
 
 '操作中のブラウザ情報一式
+'※Browser.getVersion で得れる情報とほぼ同じ構造です
 Private Type StateBrowser
-    Type        As String   'Browser type: either 'chrome' or 'edge'
+    'オリジナル
+    JsVersion           As String   'JavaScriptV8エンジンのバージョン番号
+    Product             As String   'このChromiumの製品名とバージョン番号
+    ProtocolVersion     As String   'CDP自体のバージョン
+    Revision            As String   'このChromiumのコミットID
+    UserAgent           As String   'このChromiumのユーザーエージェント
+
+    '独自
     User        As String   'Browser user profile
     Ver         As String   'The current browser version
 End Type
@@ -1175,8 +1183,21 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
-    br.Type = ExecuteCDP("Browser.getVersion")("product")
-    br.Ver = Split(br.Type, "/")(1)
+    '1. バージョン番号を取得
+    Dim BrowserInfos As BiDiCDPJson: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
+
+    '2. VBA用にキャッシュする
+    With br
+        'オリジナルのまま
+        .JsVersion = BrowserInfos.StringKey("jsVersion")
+        .Product = BrowserInfos.StringKey("product")
+        .ProtocolVersion = BrowserInfos.StringKey("protocolVersion")
+        .Revision = BrowserInfos.StringKey("revision")
+        .UserAgent = BrowserInfos.StringKey("userAgent")
+
+        '少し便利に
+        br.Ver = Split(.Product, "/")(1)    'そのChromium製品のバージョン番号
+    End With
 End Sub
 
 
