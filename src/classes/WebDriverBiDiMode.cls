@@ -66,6 +66,7 @@ Private timerOut        As Double       'Max timeout period in seconds, snapPage
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
 Private GoogChannel     As String       '処理のセクション枠目印用に。基本はログ用になると思います
+Private CustomUAMode    As Boolean      'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -168,6 +169,28 @@ Public Property Get serializeMainTab() As String
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
 End Property
+
+'***************************************************************************************************
+'* 機能　　：このツールを扱ってる目印を「User-Agent」に刻印します
+'***************************************************************************************************
+Private Sub AppendVbaUserAgent()
+    ' 1. ブラウザから「本物の生の名刺（User-Agent）」を聞き出す
+    Dim originalUA As String
+    originalUA = br.UserAgent   '"Mozilla/5.0 ... Chrome/131.0.0.0 ... Edg/131.0.0.0" が取れる！
+
+    ' 2. 稼働アプリを末尾にに「半角スペース」を空けて自作サインをドッキング！
+    Dim customUA As String
+    customUA = originalUA & " " & CDPHelpers.GetCustomUA
+
+    ' 3. BiDi で名刺を上書き（オーバーライド）する！
+    Dim params As New Dictionary
+    params.Add "userAgent", customUA
+
+    ' 4.「Emulation」ドメインを使うのが一番確実！
+    ' （HTTPリクエストヘッダーだけでなく、JSの navigator.userAgent も同時に書き換わる）
+    ExecuteBiDiAsync "emulation.setUserAgentOverride", params
+    printMsg info_, "User-Agent updated: " & customUA, "AppendVbaUserAgent"
+End Sub
 
 
 
@@ -901,7 +924,10 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     Dim pfName As String
     If LenB(br.platformName) = 0 Then pfName = Application.Name Else pfName = br.platformName
 
-    'ログビュー
+    '3.ユーザーエージェントに刻印する場合はそれを行う
+    If CustomUAMode Then AppendVbaUserAgent
+
+    '4. ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
     printMsg Debug_, " BiDi Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
@@ -1095,4 +1121,7 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandBiDi = New Dictionary
+
+    '独自のユーザーエージェントを付与するか
+    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
