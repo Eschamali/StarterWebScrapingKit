@@ -194,14 +194,18 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
+    Dim resultBiDi As BiDiCDPJson
     If requestSessionNew Then
-         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
-         sessionNew sessionCapabilitiesRequest
+        '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
+        printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
+        Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
+
+        '2-2. 接続先ブラウザ情報をログで表示
+        ViewNewSession resultBiDi
     End If
 
     '3. セッション一覧を取得して、既存のものがあるか確認する
     ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
