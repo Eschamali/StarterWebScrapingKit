@@ -52,7 +52,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const CDPVer                    As String = "3.1.0"
+Private Const ToolVer                    As String = "3.3.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -1166,15 +1166,15 @@ Public Sub printParams()
     printMsg Debug_, currentLog.LogID & " Browser - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
-    printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & PipeCore.ConnectionPipe_hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & PipeCore.ConnectionPipe_hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.ConnectionPipe_hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & PipeCore.ConnectionPipe_hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & PipeCore.ConnectionPipe_hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
-    printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
+    printMsg Debug_, "Browser Product   | " & br.Product, FromProcedureName
+    printMsg Debug_, "Browser Ver       | " & br.Ver, FromProcedureName
+    printMsg Debug_, "Browser JsVersion | " & br.JsVersion, FromProcedureName
+    printMsg Debug_, "Browser CDPVer    | " & br.ProtocolVersion, FromProcedureName
+    printMsg Debug_, "Browser Revision  | " & br.Revision, FromProcedureName
+    printMsg Debug_, "Browser UserAgent | " & br.UserAgent, FromProcedureName
+    printMsg Debug_, "Browser UserData  | " & br.User, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
+    printMsg Debug_, "Tool Version      | " & ToolVer, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
