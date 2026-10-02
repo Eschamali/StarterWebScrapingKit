@@ -1406,28 +1406,8 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ プロパティ機能 ■■■
 '***************************************************************************************************
-'* 機能　　：ブラウザ側に対する各種パイプハンドル取得用プロパティ
+'* 機能　　：起動情報系
 '***************************************************************************************************
-Property Get ConnectionPipe_hStdOutRd() As LongPtr      '標準出力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStdOutRd = hStdOutRd
-End Property
-
-Property Get ConnectionPipe_hStderrOutRd() As LongPtr   '標準エラー出力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStderrOutRd = hStderrOutRd
-End Property
-
-Property Get ConnectionPipe_hStdInWr() As LongPtr       '標準入力 ※`--remote-debugging-pipe`による起動のみ
-    ConnectionPipe_hStdInWr = hStdInWr
-End Property
-
-Property Get ConnectionPipe_hCDPOutRd() As LongPtr      'CDP用標準出力(CDP結果や非同期イベントを取得)
-    ConnectionPipe_hCDPOutRd = hCDPOutRd
-End Property
-
-Property Get ConnectionPipe_hCDPInWr() As LongPtr       'CDP用標準入力(CDPコマンド送信)
-    ConnectionPipe_hCDPInWr = hCDPInWr
-End Property
-
 Property Get Connection_hProcess() As LongPtr           '`--remote-debugging-pipe`で起動した際のhProcess
     Connection_hProcess = hProcess
 End Property
@@ -1556,8 +1536,8 @@ Private Sub Class_Initialize()
         '2-3. Assign an objID for easy debug identification
         currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
 
-        '2-4. UTF8変換モードを設定するか
-        If .GetSettingCDP(SettingCDP.AlwaysSendAndReceiveUTF8, FromProcedureName) Then Set Utf8Converter = New CharacterCodeConversion
+        '2-4. UTF8変換モードを設定
+        Set Utf8Converter = New CharacterCodeConversion
 
         '2-5. 初期起動ウィンドウ状態を設定
         setShowWindow = .GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)

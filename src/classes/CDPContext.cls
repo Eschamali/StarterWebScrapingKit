@@ -92,6 +92,8 @@ Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" ( _
     ByVal hWnd As LongPtr, _
     lpdwProcessId As Long) As Long
 
+Private Declare PtrSafe Function IsWindow Lib "user32" (ByVal hWnd As LongPtr) As Long
+
 
 
 '***************************************************************************************************
@@ -149,6 +151,18 @@ Public Enum PageReferrerPolicy
     pr_unsafeUrl                    ' [unsafeUrl]                   超危険。相手が誰だろうと、HTTPだろうとURL全文を無防備に送りつける
 End Enum
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] Browser.WindowState
+' ウィンドウの表示状態を変更する際のステータス
+'---------------------------------------------------------------------------------------------------'
+Public Enum BrowserWindowState
+    br_unspecified  ' 今の表示状態のまま
+    br_normal       ' 元のサイズに戻すと同じ
+    br_minimized    ' 最小化
+    br_maximized    ' 最大化
+    br_fullscreen   ' フルスクリーン表示(hwnd ではできない唯一の設定！)
+End Enum
+
 
 
 '***************************************************************************************************
@@ -200,7 +214,7 @@ Private Type StateTab
 
     '補助情報
     hWnd                As LongPtr  'Browser object window handle
-    WID                 As String   'Useful for windows repositioning
+    WID                 As Long     'Useful for windows repositioning
     Title               As String   'The focused tab name / window name of the active CDPBrowser
     Url                 As String   'The focused tab url of the active CDPBrowser
     ReadState           As ReadyState   'ページの読み込み状況(document.readyState相当)
@@ -235,6 +249,7 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private currentLog      As StateLog 'ログ設定
+Private CustomUAMode    As Boolean  'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -275,6 +290,18 @@ Private Function EnumToStringPageReferrerPolicy(policy As PageReferrerPolicy) As
         Case pr_originWhenCrossOrigin:       EnumToStringPageReferrerPolicy = "originWhenCrossOrigin"
         Case pr_noReferrerWhenDowngrade:     EnumToStringPageReferrerPolicy = "noReferrerWhenDowngrade"
         Case pr_unsafeUrl:                   EnumToStringPageReferrerPolicy = "unsafeUrl"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 「ウィンドウ状態」の種類を文字列で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserWindowState(state As BrowserWindowState) As String
+    Select Case state
+        Case br_normal:     EnumToStringBrowserWindowState = "normal"
+        Case br_minimized:  EnumToStringBrowserWindowState = "minimized"
+        Case br_maximized:  EnumToStringBrowserWindowState = "maximized"
+        Case br_fullscreen: EnumToStringBrowserWindowState = "fullscreen"
     End Select
 End Function
 
@@ -398,6 +425,30 @@ ifError:
     printParams
     Err.Raise CDPCustomErrorCodes.Protocol, , "attachToSession error at line " & errorLine & ": """ & errorDesc & """"
 
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このツールを扱ってる目印を「User-Agent」に刻印します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：一部iframeは対象外です
+'***************************************************************************************************
+Private Sub AppendVbaUserAgent()
+    ' 1. ブラウザから「本物の生の名刺（User-Agent）」を聞き出す
+    Dim originalUA As String
+    originalUA = BrowserCore.CurrentBrowseruserAgent    '"Mozilla/5.0 ... Chrome/131.0.0.0 ... Edg/131.0.0.0" が取れる！
+
+    ' 2. 稼働アプリを末尾にに「半角スペース」を空けて自作サインをドッキング！
+    Dim customUA As String
+    customUA = originalUA & " " & CDPHelpers.GetCustomUA
+
+    ' 3. CDP で名刺を上書き（オーバーライド）する！
+    Dim params As New Dictionary
+    params.Add "userAgent", customUA
+
+    ' 4.「Emulation」ドメインを使うのが一番確実！
+    ' （HTTPリクエストヘッダーだけでなく、JSの navigator.userAgent も同時に書き換わる）
+    ExecuteCDPAsync "Emulation.setUserAgentOverride", params
+    printMsg info_, "User-Agent updated: " & customUA, "AppendVbaUserAgent"
 End Sub
 
 
@@ -1837,12 +1888,12 @@ Public Sub printParams()
     printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "Session ID        | sessionID    | " & brTab.sessionID, FromProcedureName
-    printMsg Debug_, "Window Handle     | brHWnd       | " & brTab.hWnd, FromProcedureName
-    printMsg Debug_, "Window ID         | brWId        | " & brTab.WID, FromProcedureName
-    printMsg Debug_, "Tab URL           | brUrl        | " & brTab.Url, FromProcedureName
-    printMsg Debug_, "Tab Title         | brName       | " & brTab.Title, FromProcedureName
-    printMsg Debug_, "Tab ID            | targetID     | " & brTab.targetID, FromProcedureName
+    printMsg Debug_, "Tab ID        | " & brTab.targetID, FromProcedureName
+    printMsg Debug_, "Session ID    | " & brTab.sessionID, FromProcedureName
+    printMsg Debug_, "Window Handle | " & brTab.hWnd, FromProcedureName
+    printMsg Debug_, "Window ID     | " & brTab.WID, FromProcedureName
+    printMsg Debug_, "Tab URL       | " & brTab.Url, FromProcedureName
+    printMsg Debug_, "Tab Title     | " & brTab.Title, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
@@ -1857,19 +1908,14 @@ Public Sub getSessionInfo()
 
     'Get infos
     Dim TargetInfo As BiDiCDPJson: Set TargetInfo = refreshTargetInfo
-    brTab.Url = TargetInfo.StringKey("url")
-    brTab.Title = TargetInfo.StringKey("title")
-    brTab.hWnd = getHandle
 
-    '対象タブが非表示の場合、`Browser.getWindowForTarget`が効かなくなるので、判定をかます
-    Dim tmp As BiDiCDPJson: Set tmp = ExecuteCDP("Browser.getWindowForTarget", StopCDPError:=False)
-    If tmp Is Nothing Then printMsg info_, "The tab you are connecting to may be hidden.", FromProcedureName Else brTab.WID = tmp.StringKey("windowId")
-
-    'タブIDを記録
-    brTab.targetID = TargetInfo.StringKey("targetId")
-
-    'ProfileIDを記録
-    brTab.browserContextId = TargetInfo.StringKey("browserContextId")
+    '各種パラメーター更新
+    With brTab
+        .Url = TargetInfo.StringKey("url")
+        .Title = TargetInfo.StringKey("title")
+        .targetID = TargetInfo.StringKey("targetId")
+        .browserContextId = TargetInfo.StringKey("browserContextId")
+    End With
 
     'JavaScript関連の変化も捉えれるようにする
     '※`reattach`を想定して一旦OFFにして、再度ONにすることで、最新の`Runtime.executionContextCreated`等が飛んでくれる親切機能を利用してます
@@ -1879,6 +1925,10 @@ Public Sub getSessionInfo()
     '`document.readyState`相当も使えるように有効化
     '※こっちは、OFF→ONにしても、今の`document.readyState`状況は降ってこないので、ONのみとします
     pageEnable True
+
+    'ユーザーエージェントに刻印する場合はそれを行う
+    If CustomUAMode Then AppendVbaUserAgent
+
 End Sub
 
 '***************************************************************************************************
@@ -1928,50 +1978,6 @@ Public Sub printChildFrames()
         Loop
     End With
 End Sub
-
-Private Function getHandle() As LongPtr
-'-----------------------------------------------------------------------------------
-' Added by Long: obtain the window handle of the current browser session
-' Updated: 02/03/23 - Add mechanism to work with browser windows that are blank.
-'-----------------------------------------------------------------------------------
-
-    Dim bufferString As String
-    Dim titleLen As Long
-    Dim hWnd As LongPtr
-
-    'Determine current tab title, if error: the tab is a blank tab
-    Dim sessionTitle As String, windowTitle As String
-    sessionTitle = jsEval("document.getElementsByTagName(""title"")[0].innerHTML", IFEXCEPTION:=EmptyPageName)
-
-    'Obtain handles to the correct browser window
-    'Both Edge and Chrome use the same class chromeWindowClass
-    hWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)        'To return Chrome / Edge window handles
-    Do
-        '1. 取得したウィンドウハンドル(hwnd)の「プロセスID」を取得する
-        Dim currentPID As Long
-        GetWindowThreadProcessId hWnd, currentPID
-
-        '2. プロセスIDが、探しているブラウザのものと一致するか？
-        If currentPID = PipeCore.Connection_dwProcessId Then
-            '一致すれば少なくとも、デバッグブラウザのウィンドウハンドルなので一旦確定させる
-            getHandle = hWnd
-
-            '3. Get Window Title based on specified handles
-            'Requires string buffering declaration as string
-            bufferString = String(1024, " ")
-            titleLen = GetWindowText(hWnd, StrPtr(bufferString), Len(bufferString))
-            windowTitle = Left(bufferString, titleLen)
-
-            'Verify if matching with the sessionTitle and is really an edge/chrome window
-            If LenB(windowTitle) Then If InStr(windowTitle, sessionTitle) Then Exit Do
-        End If
-
-        'Continue with the next handle value
-        hWnd = FindWindowEx(0&, hWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
-
-    Loop Until hWnd = 0 ' no more matching windows
-
-End Function
 
 
 
@@ -2095,6 +2101,148 @@ End Function
 
 
 '***************************************************************************************************
+'                        ■■■ 各種hwndを利用したヘルパーコマンド ■■■
+'***************************************************************************************************
+'* 機能　　：このClassに紐づくウィンドウハンドル情報を取得します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：以下の情報で、ユニークに特定していきます
+'            ・初回起動時のプロセスID
+'            ・Chromium向けのClass名
+'            ・ウィンドウタイトル("document.title"で一時的に、`TargetID`としてリネームしてユニーク化する)
+'
+'* 注意事項：・ワークシートに記録されてないプロセスIDは、対象外です(主に、起動済みブラウザから制御し始めてる場合)
+'            ・ユニークに特定するべく`document.title`で`TargetID`にリネームして、`hWnd`を特定する手法を取ってる都合上、基本的には`about:blank`の状態から取ることをお勧めします
+'            ・タブドッキングor分離化等による操作時もこのプロシージャ再実行すれば、新しい`hWnd`をとれますが、ページが落ち着いてる時に取ること。そうでないと、Webページ側の`document.title`処理で、特定がうまく機能しなくなります
+'***************************************************************************************************
+Private Function getHandle() As LongPtr
+    Const FromProcedureName As String = ThisClassName & ".getHandle"
+
+
+    '1. プロセスIDがない場合は即抜け
+    If PipeCore.Connection_dwProcessId = 0 Then printMsg WARN_, "The process ID could not be confirmed. It may not be recorded in the worksheet, or it may have been initiated from an already running browser.", FromProcedureName
+
+    '2. 元のタイトルを退避（タイトルがない場合は空文字）
+    Dim origTitle As String
+    origTitle = Me.Title
+
+    '3. 保持している`TargetID`として置換
+    Me.Title = brTab.targetID
+    CDPHelpers.Sleep 0.3    'Sleep a bit for previous Win Api executions to finish, else obtaining the hwnd will fail.
+
+    '4. 最初のChromiumウィンドウクラスとしてのハンドル情報を取得
+    Dim foundHWnd As LongPtr
+    Dim curHWnd As LongPtr
+    curHWnd = FindWindowEx(0&, 0&, StrPtr(CDPHelpers.chromeWindowClass), 0&)
+
+    '5. 探索開始
+    Do While curHWnd <> 0
+        '5-1. 最初のChomiumハンドルに対するプロセスIDを取得
+        Dim winPid As Long
+        GetWindowThreadProcessId curHWnd, winPid
+
+        '5-2. プロセスID（PID）の一致確認（自分が起動したブラウザか？）
+        If winPid = PipeCore.Connection_dwProcessId Then
+            '5-3. ウィンドウタイトルを取得
+            '`targetID`分の文字数バッファーのみ確保
+            Dim buflen As Long: buflen = Len(brTab.targetID) + 1    '`GetWindowText`使用時は末尾に、vbnullcharが付与されるためその補正
+            Dim buf As String: buf = String$(buflen, vbNullChar)
+            Dim titleLen As Long
+            titleLen = GetWindowText(curHWnd, StrPtr(buf), buflen)
+
+            '5-4．取り出し成功なら次へ
+            If titleLen > 0 Then
+                'TargetID check
+                If Left$(buf, buflen - 1) = brTab.targetID Then     '比較する際は、vbnullchar分、減算
+                    '一致すれば探索終了
+                    foundHWnd = curHWnd
+                    Exit Do
+                End If
+            End If
+        End If
+
+        '6. 次の`Chrome_WidgetWin_1`を探す
+        curHWnd = FindWindowEx(0&, curHWnd, StrPtr(CDPHelpers.chromeWindowClass), 0&)
+    Loop
+
+    '7. 結果を反映
+    If foundHWnd Then
+        printMsg WARN_, "Handle information found: " & foundHWnd, FromProcedureName
+        getHandle = foundHWnd
+    Else
+        printMsg WARN_, "Handle information not found.", FromProcedureName
+    End If
+
+    '8. タイトルを元に戻す
+    Me.Title = origTitle
+End Function
+
+'***************************************************************************************************
+'* 機能　　：ハンドル情報の有効確認を行います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：生きてない場合は自動で、ハンドル情報取得を試みます
+'***************************************************************************************************
+Private Sub ValidityCheck_hWnd()
+    If brTab.hWnd = 0 Then
+        'ハンドル情報がそもそもない場合は取得を試みる
+        brTab.hWnd = getHandle
+    ElseIf IsWindow(brTab.hWnd) = 0 Then
+        'ハンドル情報が古い場合も、取得を試みる
+        brTab.hWnd = getHandle
+    End If
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このタブに対するウィンドウ表示状態を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：state         ウィンドウ表示設定値(https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：プロセスIDがない場合は利用できません
+'            ・起動済みブラウザ
+'            ・WebSocket経由での別端末ブラウザ
+'***************************************************************************************************
+Public Sub showWindowMode(Optional state As WinState = doShow)
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
+
+    '2. 表示状態を設定
+    ShowWindow brTab.hWnd, state
+
+End Sub
+
+Public Sub hide()
+'------------------------------------------------------------------
+' This is the equivalent of show "hidden" but this function is
+' added to make it easy to access and use the same feature.
+'------------------------------------------------------------------
+
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
+
+    '2. 非表示として設定
+    ShowWindow brTab.hWnd, asHidden
+
+End Sub
+
+Public Function bringToForeground()
+'------------------------------------------------------------------
+' Brings the browser window to the foreground
+' Updated: Long Vh - 06/01/26 should be a function like others
+'------------------------------------------------------------------
+
+    '1. ハンドル生存確認
+    ValidityCheck_hWnd
+
+    '2. 前面に出す
+    BringWindowToTop brTab.hWnd
+
+    '3. フォアグラウンド化
+    SetForegroundWindow brTab.hWnd
+    
+End Function
+
+
+
+'***************************************************************************************************
 '                           ■■■ 各種CDPヘルパーコマンド ■■■
 '***************************************************************************************************
 '* 機能　　：This sub is a quick wrapper to navigate to an url.
@@ -2127,7 +2275,6 @@ Public Sub navigate(strURL As String, Optional referrerURL As String, Optional t
     If WaitMode = ReadyState.Nowait Then
         ExecuteCDPAsync "Page.navigate", CDPparams
         printMsg info_, "Async Navigate to: " & strURL, FromProcedureName
-        Exit Sub
     Else
         ExecuteCDP "Page.navigate", CDPparams
 
@@ -2138,52 +2285,40 @@ Public Sub navigate(strURL As String, Optional referrerURL As String, Optional t
 
 End Sub
 
-Public Sub show(Optional state As WinState = asNormal, Optional xywh As String = "0 0 0 0")
-'-----------------------------------------------------------------------------------
-' Display the window with various optional state. The default state is "normal".
-' Can also use after .attach to bring the window topmost as well. By default at
-' start, the browser window's state will be that of the previous session run.
-' xywh is used for inputing left top width height parameters:
-' eg.1: xywh = "100 200" left = 100 and top = 200, width and height unchanged
-' eg.2: xywh = "100 100 300 400" left = top = 100, width = 300 and height = 400
-' eg.3: xywh = "0 0 0 0" the method will ignore and not make any resizing
-'-----------------------------------------------------------------------------------
-' Note: This method targets the window based on its name so it is best applied when
-' the browser window is not refreshing a URL which may potentially change the name.
-' Updated: 02/03/23 - Changed CInt to Int to prevent Overflow error.
-'-----------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：CDPとしてのウィンドウリサイズ処理と表示状態を設定します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：state  表示状態
+'            x,y    左上座標
+'            w,h    左上を基準とした大きさ
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・`windowState`によっては、x,y,w,hは機能しません
+'            ・未指定時は、現在の座標/大きさのままという意味ある設定により、引数自体はvariantとして受付し、パラメーター反映時は、数値として変換して反映します
+'***************************************************************************************************
+Public Sub show(Optional state As BrowserWindowState, Optional x, Optional y, Optional w, Optional h)
 
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    ShowWindow brTab.hWnd, doShow 'Make visible
-    ShowWindow brTab.hWnd, state
+    '1. 対象となる`WindowID`を取得
+    Dim params As New Dictionary
+    If brTab.WID = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+    params("windowId") = brTab.WID
 
-   'Resize to specific position and size
-   'Will not work properly if window is currently maximized
-    If xywh <> "0 0 0 0" Then
+    '2. 座標と大きさを設定
+    '※省略時は、パラメータ適用しないようにします
+    Dim bounds As New Dictionary
+    If Not IsMissing(x) Then bounds("left") = CLng(x)
+    If Not IsMissing(y) Then bounds("top") = CLng(y)
+    If Not IsMissing(w) Then bounds("width") = CLng(w)
+    If Not IsMissing(h) Then bounds("height") = CLng(h)
 
-        CDPHelpers.Sleep 0.3      'Sleep a bit for previous Win Api executions to finish, else the resize effect will be accidentally cancelled out
+    '3. ウィンドウ表示設定をする
+    Dim tmp As String: tmp = EnumToStringBrowserWindowState(state)
+    If StrPtr(tmp) Then bounds("windowState") = tmp
 
-        Dim params As New Dictionary
-        If LenB(brTab.WID) = 0 Then brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
-        params("windowId") = Int(brTab.WID)     '02/03/23 CInt() will throw error, Int() is better
+    '4. 適用
+    Set params("bounds") = bounds
 
-        Dim bounds As New Dictionary
-        Dim x As Long, y As Long, w As Long, h As Long
-        On Error Resume Next
-        x = CLng(Split(xywh, " ")(0))
-        y = CLng(Split(xywh, " ")(1))
-        w = CLng(Split(xywh, " ")(2))
-        h = CLng(Split(xywh, " ")(3))
-        On Error GoTo 0
-
-        If x <> 0 Then bounds("left") = x
-        If y <> 0 Then bounds("top") = y
-        If w <> 0 Then bounds("width") = w
-        If h <> 0 Then bounds("height") = h
-        Set params("bounds") = bounds
-        ExecuteCDP "Browser.setWindowBounds", params
-
-    End If
+    '5. リサイズ処理
+    ExecuteCDPAsync "Browser.setWindowBounds", params
 
 End Sub
 
@@ -2476,37 +2611,6 @@ Public Function getIFrameContextID(Optional iframeName As String, Optional Url A
     Dim CDPparams As New Dictionary
     CDPparams.Add "frameId", frameID
     getIFrameContextID = ExecuteCDP("Page.createIsolatedWorld", CDPparams).NumberKey("executionContextId")
-End Function
-
-
-
-'***************************************************************************************************
-'                              ■■■ WindowsAPI操作系 ■■■
-'***************************************************************************************************
-Public Sub hide()
-'------------------------------------------------------------------
-' This is the equivalent of show "hidden" but this function is
-' added to make it easy to access and use the same feature.
-'------------------------------------------------------------------
-
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    ShowWindow brTab.hWnd, asHidden
-
-End Sub
-
-Public Function bringToForeground()
-'------------------------------------------------------------------
-' Brings the browser window to the foreground
-' Updated: Long Vh - 06/01/26 should be a function like others
-'------------------------------------------------------------------
-
-    If brTab.hWnd = 0 Then brTab.hWnd = getHandle
-    If brTab.hWnd <> 0 Then
-        ShowWindow brTab.hWnd, doShow
-        BringWindowToTop brTab.hWnd
-        SetForegroundWindow brTab.hWnd
-    End If
-
 End Function
 
 
@@ -2836,8 +2940,7 @@ Property Get Title() As String
 ' Added 02/03/2023
 '------------------------------------------------------------
 
-    'JavaScriptで今のタイトルを取得し、更新
-    '※`Target.targetInfoChanged`だけでは、最新の`Title`が取れないのでJavaScriptで取ってきます
+    '※イベント経由での`Target.targetInfoChanged`の`title`は、ほぼ機能しないためここは素直に、JavaScript経由で取ります
     brTab.Title = jsEval("document.title")
     Title = brTab.Title
 
@@ -2953,8 +3056,9 @@ Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
     If alwaysRequest Then
         BrowserWindowHandle = getHandle
     Else
-        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If brTab.hWnd Then BrowserWindowHandle = brTab.hWnd Else BrowserWindowHandle = getHandle
+        '既存の値があれば、それを流用、ない or 古い場合は、再取得します
+        ValidityCheck_hWnd
+        BrowserWindowHandle = brTab.hWnd
     End If
 End Property
 
@@ -2969,10 +3073,16 @@ End Property
 '***************************************************************************************************
 Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
     If alwaysRequest Then
-        BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+        BrowserWindowID = brTab.WID
     Else
-        '既存の値があれば、それを流用、ない場合は、特定処理に入ります
-        If brTab.WID Then BrowserWindowID = brTab.WID Else BrowserWindowID = ExecuteCDP("Browser.getWindowForTarget").Item("windowId")
+        '既存の値があれば、それを流用、ない場合は、再取得します
+        If brTab.WID Then
+            BrowserWindowID = brTab.WID
+        Else
+            brTab.WID = ExecuteCDP("Browser.getWindowForTarget").NumberKey("windowId")
+            BrowserWindowID = brTab.WID
+        End If
     End If
 End Property
 
@@ -3074,6 +3184,8 @@ Private Sub Class_Initialize()
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
 
+    '独自のユーザーエージェントを付与するか
+    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
 
 '***************************************************************************************************
