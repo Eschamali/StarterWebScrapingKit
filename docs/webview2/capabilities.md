@@ -9,6 +9,8 @@ Pipe・WebSocket が「外部のブラウザプロセス」を相手にするの
 - Excel の UserForm に本物の WebView2 を埋め込み、リッチな画面（React / Vue / SPA など）を表示しつつ、同じタブを CDP で操作したい場合
 - 社内ツールとして、1枚の xlsm だけで「ブラウザ埋め込みUI」を配布したい場合
 
+いわゆる、**IE時代のWebBrowserコントロールを、Edge時代によみがえらせる**ことが可能になります🥳
+
 詳しい経緯・実装の考え方は [設計思想について](/webview2/design) を参照してください。
 
 ## 基本的な接続方法
@@ -75,7 +77,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 | 引数 | 意味 |
 | --- | --- |
 | `UserName` | WebView2 のユーザーデータフォルダ名 |
-| `AttachHwnd` | WebView2 を貼り付けるウィンドウハンドル。省略時は Excel 自身のハンドル（`Application.Hwnd`）を使用 |
+| `AttachHwnd` | WebView2 を貼り付けるウィンドウハンドル。省略時は Excel/Access 自身のハンドル（`Application.Hwnd/hWndAccessApp`）を使用 |
 
 ```vb
 ' Frame自体はhWndを公開していないため、`[_GethWnd]`（MSFormsの内部プロパティ）で取得します
@@ -229,16 +231,6 @@ End With
 - WebView2ネイティブのイベント（`NavigationCompleted`等）— CDPの`Page.*`イベントで代替してください
 - 他のインターフェースへネストして依存するもの
 :::
-
-## 再接続 (reattach)
-
-Pipe / WebSocket と同じく、`reattachWebView2` で既存のWebView2接続情報に再接続できます。
-
-```vb
-Public Function reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
-```
-
-詳細は [再接続 (reattach)](/guides/reattach) を参照してください。
 
 ## 関連
 

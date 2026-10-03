@@ -4,7 +4,7 @@ description: Excel VBA でブラウザ自動化を始める最短手順。マク
 
 # はじめに
 
-最短でブラウザを動かすまでの手順です。
+最短でブラウザを動かすまでの手順です。ここでは、Excelを例にお伝えします。
 
 ## 1. マクロブックを信頼する
 
@@ -24,15 +24,18 @@ description: Excel VBA でブラウザ自動化を始める最短手順。マク
 
 ## 2. ブラウザ起動設定シート
 
-ワークシート **ブラウザ起動設定ver2.X.X** で次を確認します。
+ワークシート **ブラウザ起動設定ver3.X.X** で次を確認します。
 
-- ユーザーデータフォルダ名（`user-data-dir` 用）
-- 追加の起動引数（基本は、J13セル以降に記述）
-- 起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）
-- 特定のChromiumブラウザで自動化する場合はそのフルパス
-- 使用ブラウザ（Chrome / Edge）の切り替え、Pipe / WebSocket 通信の切り替え（`UseWebSocket`セル。v3.2.0〜、切り替えはVBA引数ではなくこのシート上で行います。詳細は次項）
+|設定項目|説明|
+|---:|---:|
+|**ブラウザタイプ**|使用ブラウザ（Chrome / Edge）と、その開発レベルの切り替え|
+|**ブラウザexeパス**|特定のChromiumブラウザで自動化する場合はそのフルパス|
+|**ユーザーデータフォルダ名**|`user-data-dir`に渡すフォルダ名。<br>フルパスで書くと、それがブラウザデータ保存先になります|
+|**表示ウィンドウモード**|起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）|
+|**WebSocketモード**|Pipe / WebSocket 通信の切り替え|
+|**追加の起動引数**|基本は、J15セル以降に記述推奨|
+
 ![基本設定画面](/img/GettingStarted/SettingGUI1.png)
-
 
 こだわりがなければシートの初期値のままで問題ありません。
 
@@ -49,7 +52,7 @@ Sub CDPによる冒険の始まり()
 
     HelloWorld.navigate "https://kemono-friends.jp/"
     HelloWorld.notify "あなたは、けものがお好きですか？"
-    HelloWorld.ThisCDPBrowser.sleep 3
+    Sleep 3
 
     HelloWorld.ThisCDPBrowser.quit
 End Sub
@@ -61,6 +64,7 @@ Sub BiDiによる冒険の始まり()
     Set HelloWorld = ShSetting01_StartBrowser.StartBiDiModeContext
 
     HelloWorld.navigate "https://example.com"
+    Sleep 3
 
     HelloWorld.ThisWebDriverBiDiMode.quit
 End Sub
@@ -95,7 +99,7 @@ BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引
 Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続したい場合は、ブラウザ起動設定シートの `WebSocketモード` セルを `TRUE` にしてください（既定は `FALSE` = Pipe）。
 
 ```vb
-' UseWebSocket セルが TRUE なら、StartCDPModeContext も WebSocket 経由で起動する
+' `WebSocketモード` セルが TRUE なら、StartCDPModeContext も WebSocket 経由で起動する
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 ```
@@ -103,7 +107,7 @@ Set t = ShSetting01_StartBrowser.StartCDPModeContext
 詳細は [WebSocket モードでできること](/websocket/capabilities) を参照してください。
 
 ::: tip UserForm へのブラウザ埋め込み
-「UserForm の中にブラウザ画面を表示したい」場合は、この4種類とは別に [UserForm への WebView2 埋め込み](/userform/intro) を参照してください。v3.0.0 で、本キット自身が WebView2 をネイティブに CDP 制御できるようになりました。
+「UserForm の中にブラウザ画面を表示したい」場合は、この4種類とは別に [UserForm への WebView2 埋め込み](/userform/intro) を参照してください。v3.0.0 で、 **WebView2** をネイティブに CDP 制御できるようになりました。
 :::
 
 #### `sessionCapabilitiesRequest` とは

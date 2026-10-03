@@ -47,51 +47,57 @@ Sub AutoConnectBrowser()
 End Sub
 ```
 
-::: warning v3.2.0での変更
-以前は `StartCDPMode(WebSocketMode:=True)` のように、`StartCDPMode` / `StartBiDiMode` へ渡す `WebSocketMode As Boolean` 引数で切り替えていました。v3.2.0でこの引数は廃止され、ワークシートの `UseWebSocket` セルに一本化されています。あわせて、これまで非対応だった **`StartCDPModeContext` / `StartBiDiModeContext`**（`CDPContext` / `WebDriverBiDiContext` を直接返す方）でも WebSocket 起動に対応しました。つまりこの4種類の起動ヘルパー全てが、同じ `UseWebSocket` セル1つで挙動を切り替えます。
-:::
+*▲ 書き方は、`Pipe`版と変わりません🤠*
 
-### `CDPCoreViaWebSocket` を直接使う場合
+## 既に起動中のデバッグ中ブラウザを制御する場合
 
-内部で何が起きているかを制御したい場合は、`ConnectCDPWithLocalBrowser`（起動＋接続のみ）と、`CDPBrowser.reattachWebSocket` / `WebDriverBiDiMode.reattach`（接続済みの状態を `CDPBrowser` / `WebDriverBiDiMode` として受け取る）を組み合わせて呼べます。
+すでにデバッグポート付きで起動しているブラウザには、`CDPCoreViaWebSocket` の接続メソッドと `reattachWebSocket`（CDP）/ `reattach`（BiDi）を組み合わせて後付け接続できます。
 
-```vb
-Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-```
+| 接続メソッド（`CDPCoreViaWebSocket`） | CDP（`reattachWebSocket`） | BiDi（`reattach`） |
+| --- | --- | --- |
+| `AutoConnectPageCDP` | [`CDPContext`](/api/cdp/CDPContext) | — |
+| `AutoConnectBrowserCDP` | [`CDPBrowser`](/api/cdp/CDPBrowser) | `WebDriverBiDiMode`（`WebSocketMode:=ws`） |
+| `ReConnectCDP` | [`CDPBrowser`](/api/cdp/CDPBrowser) | `WebDriverBiDiMode`（`WebSocketMode:=ws`） |
 
-| 引数 | 意味 |
-| --- | --- |
-| `UserName` | 利用者識別名称（必須・第1引数） |
-| `appUrl` | `--app` に付ける URL |
-| `SplashScreenMode` | `True` で実URLの前に起動スプラッシュ画面を経由（詳細は [ページ遷移](/guides/navigation)） |
-| `addArgs` | 追加の起動引数 |
+各メソッドの詳細は [接続の種類](#接続の種類) を参照してください。
 
-戻り値は初期接続先の URL 文字列です。
+### CDP で制御する例
 
 ```vb
 Dim UserName As String
 UserName = ShSetting01_StartBrowser.CurrentUserName
 
+'1. 起動中のブラウザへ接続（Page 単位なら AutoConnectPageCDP、今目の前のブラウザなら ReConnectCDP）
 Dim ws As New CDPCoreViaWebSocket
-ws.ConnectCDPWithLocalBrowser UserName, "https://example.com", False, vbNullString
+If Not ws.AutoConnectBrowserCDP(UserName) Then Exit Sub
 
+'2. 接続済みの状態を CDPBrowser として受け取る
 Dim b As New CDPBrowser
 b.reattachWebSocket UserName, ws
 
+'3. あとはいつも通りの制御
 Dim t As CDPContext
 Set t = b.getTab(setMain:=True)
 t.navigate "https://example.com"
 ```
 
-内部では、リモートデバッグを禁止するポリシーのチェック・残存セッションの後始末・クラッシュ復元プロンプトの無効化・起動コマンドライン生成・`DevToolsActivePort` の出現待機・接続までを [`CDPHost`](/concepts/architecture) に委託したうえで自動的に行います。
+### BiDi で制御する例
 
-::: warning v3.2.0での変更
-`BrowserType As BrowserList` 引数が廃止されました（Chrome / Edge は設定シートの `UseChrome` セルで選択）。また、`CDPCoreViaWebSocket.StartCDPMode()` / `StartBiDiMode(sessionCapabilitiesRequest)`（接続済み情報を `CDPBrowser` / `WebDriverBiDiMode` に変換する専用メソッド）は**廃止**されました。依存の向きが逆転し、`CDPBrowser.start` / `WebDriverBiDiMode.StartBiDiMode` の方が内部で `CDPCoreViaWebSocket` を生成するようになったためです。上記のとおり、代わりに `reattachWebSocket` / `reattach` を組み合わせてください。日常利用では、前項の設定シート経由（`UseWebSocket` セル）の方が簡単です。
+```vb
+Dim ws As New CDPCoreViaWebSocket
+If Not ws.AutoConnectBrowserCDP(UserName) Then Exit Sub
+
+Dim bidi As New WebDriverBiDiMode
+If Not bidi.reattach(UserName, WebSocketMode:=ws) Then Exit Sub
+```
+
+::: tip 起動から接続までを `CDPCoreViaWebSocket` で行いたい場合
+`ConnectCDPWithLocalBrowser UserName, appUrl, SplashScreenMode, addArgs` で、リモートデバッグ禁止ポリシーのチェック・残存セッションの後始末・起動・`DevToolsActivePort` 待機・接続までを [`CDPHost`](/concepts/architecture) に委託して行えます。接続後は同様に `CDPBrowser.reattachWebSocket` / `WebDriverBiDiMode.reattach` に渡してください。
 :::
 
 ## 基本的な接続方法（既存ブラウザへの後付け接続）
 
-前節の「起動から行う場合」を除き、WebSocket は「後付け」接続のため、Pipe 版の `Start○○ModeContext` とは流れが違います。大まかには次のとおりです。
+WebSocket は「後付け」接続のため、Pipe 版の `Start○○ModeContext` とは流れが違います。大まかには次のとおりです。
 
 1. **接続の識別名称を取得／設定** — セル（`ShSetting01_StartBrowser.CurrentUserName`）から取ってもよいし、独自の名前でも OK
 2. **目的に合った接続メソッドを呼ぶ** — 下の 3 種類から選択（`CDPCoreViaWebSocket`）
@@ -123,7 +129,7 @@ ws.DisconnectCDP
 | `AutoConnectPageCDP` | `/json/list` → Page | [`CDPContext`](/api/cdp/CDPContext) |
 | `AutoConnectBrowserCDP` | `/json/version` → Browser | [`CDPBrowser`](/api/cdp/CDPBrowser) |
 | `ReConnectCDP`（v3.2.0〜） | `DevToolsActivePort` ファイル、または記録済みハンドルの再利用 | [`CDPBrowser`](/api/cdp/CDPBrowser) |
-| `ConnectCDPWithLocalBrowser` + `reattachWebSocket`/`reattach` | ローカルブラウザを起動してから接続 | （前述の「`CDPCoreViaWebSocket` を直接使う場合」を参照） |
+| `ConnectCDPWithLocalBrowser` + `reattachWebSocket`/`reattach` | ローカルブラウザを起動してから接続 | [`CDPBrowser`](/api/cdp/CDPBrowser) / `WebDriverBiDiMode` |
 
 ### `AutoConnectPageCDP`
 
@@ -186,13 +192,13 @@ Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boole
 
 ::: tip 注意
 - 接続後は **`CDPBrowser.reattachWebSocket`** にこのオブジェクトを渡して使います
-- `ReuseWinSockHandle:=False` 時、現時点では Edge または Chrome の **安定版** への接続用に限ります
 - `ReuseWinSockHandle:=False` の実行直後は、ユーザーが、下記ダイアログに応答するまで、Excelがブロッキングされます
 ![今目の前のブラウザに接続する際のダイアログ](../public/img/dialog.avif)
 :::
 
-::: warning v3.2.0でのリネーム
-以前は `AutoConnectDevToolsActivePort(Optional UserName As String = "User Data", Optional ReuseContext As Boolean) As Boolean` という公開メソッドでしたが、v3.2.0で `Private` 化され、代わりに上記の `ReConnectCDP` が公開されました（`ReuseContext`は`ReuseWinSockHandle`に改称）。
+::: tip 応用
+- **任意パスの `DevToolsActivePort` を読む**: `UserName` に絶対パス形式を渡すと、そのパスの `DevToolsActivePort` ファイルを読み込んで接続できます
+- **接続確認ダイアログをスキップ**: 初回接続を済ませたあと、WebSocket を切断せずにプロシージャを終え、次回以降に同じユーザー名で `ReuseWinSockHandle:=True` を指定すると、接続確認ダイアログを出さずに再接続できます
 :::
 
 ## 関連
