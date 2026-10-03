@@ -22,15 +22,19 @@ description: Excel VBA でブラウザ自動化を始める最短手順。マク
 
 詳細な説明はリポジトリの [`README-jp.md`](https://github.com/Eschamali/StarterWebScrapingKit/blob/main/README-jp.md) を参照してください。
 
+::: info Access版について
+Access版は、VBAをデコンパイルした状態でリリースしています。Excel版と同じ`CDPContext`/`WebDriverBiDiContext`等のAPIが使えます（WebView2も、Excel/Access自身のウィンドウハンドルを自動判別して埋め込みます）。
+:::
+
 ## 2. ブラウザ起動設定シート
 
 ワークシート **ブラウザ起動設定ver3.X.X** で次を確認します。
 
 |設定項目|説明|
 |---:|---:|
-|**ブラウザタイプ**|使用ブラウザ（Chrome / Edge）と、その開発レベルの切り替え|
-|**ブラウザexeパス**|特定のChromiumブラウザで自動化する場合はそのフルパス|
-|**ユーザーデータフォルダ名**|`user-data-dir`に渡すフォルダ名。<br>フルパスで書くと、それがブラウザデータ保存先になります|
+|**ブラウザタイプ**|使用ブラウザ（Chrome / Edge）と、その開発レベル（安定版 / Beta / Dev / Canary）の切り替え。無印は安定版です<br>後述の「ブラウザexeパス」を記入すると、この項目は空欄になります|
+|**ブラウザexeパス**|特定のChromiumブラウザ（ポータブル版など）で自動化する場合の、exe名を含むフルパス<br>空欄に戻すと、ブラウザタイプは既定（Edge）に戻ります|
+|**ユーザーデータフォルダ名**|`user-data-dir`に渡すフォルダ名。ブラウザタイプに準拠した標準のディレクトリ配下に保存されます<br>`C:\Data\MyProfile`のようにドライブ付きのフルパスで書くと、それがそのままブラウザデータ保存先になります（WebView2も同様）|
 |**表示ウィンドウモード**|起動時のブラウザ表示モード（[ShowWindowのnCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow)に準拠）|
 |**WebSocketモード**|Pipe / WebSocket 通信の切り替え|
 |**追加の起動引数**|基本は、J15セル以降に記述推奨|
@@ -38,6 +42,21 @@ description: Excel VBA でブラウザ自動化を始める最短手順。マク
 ![基本設定画面](/img/GettingStarted/SettingGUI1.png)
 
 こだわりがなければシートの初期値のままで問題ありません。
+
+### 独自ユーザーエージェントの付与（任意）
+
+シートのデバッグ設定にあるユーザーエージェントのスイッチをONにすると、ブラウザ本来の`User-Agent`の末尾に、このツールを使用している旨のサインを追記します。HTTPリクエストヘッダーとJavaScriptの`navigator.userAgent`の両方に反映されるため、相手サーバーに「このツールからのアクセスである」ことを通達できます。
+
+```text
+Mozilla/5.0 ... Chrome/xxx Safari/537.36 Edg/xxx MicrosoftExcel-VBA/7.1 (StarterWebScrapingKit)
+                                          └ 追記分（Accessから使う場合は、MicrosoftAccess-VBA/7.1 ...）
+```
+
+基本はOFFで問題ありません。自前サーバーのログフィルターなどで識別したいときにONにしてください。CDP / BiDi どちらでも有効です。
+
+::: tip 注意
+一部の`iframe`は対象外です。
+:::
 
 ## 3. Hello World
 

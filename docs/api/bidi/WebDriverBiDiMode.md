@@ -30,19 +30,11 @@ Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, 
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
+| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
 | `appUrl` | 起動時に開く URL（`--app` 相当） |
 | `SplashScreenMode` | `True` で実URLの前に起動スプラッシュ画面を挟む（`--app` 使用時のレースコンディション対策。詳細は [ページ遷移](/guides/navigation)） |
 | `addArgs` | 追加の起動引数 |
 | `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
-
-::: warning v3.2.0での変更
-`Name As BrowserList` 引数が廃止されました（Chrome / Edge は設定シートの `UseChrome` セルで選択）。`Sub` から **`Function`**（初期URLを返す）に変わり、`userProfile` が必須の第1引数になりました。新設された `SplashScreenMode` 引数は上記の通りです。
-:::
-
-::: tip 注意
-`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応に伴い v3.0.0 で廃止されています。
-:::
 
 ```vb
 Dim caps As New Dictionary

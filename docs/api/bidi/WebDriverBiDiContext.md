@@ -30,7 +30,7 @@ Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As 
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
+| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
 | `appUrl` | 起動時に開く URL |
 | `addArgs` | 追加の起動引数 |
 | `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |

@@ -27,7 +27,7 @@ Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, 
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーディレクトリ名（必須・第1引数） |
+| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
 | `appUrl` | `--app` に付ける URL |
 | `addArgs` | 追加の起動引数 |
 
@@ -241,29 +241,63 @@ Public Function PageReadyState(Optional refresh As Boolean) As ReadyState
 
 ## ウィンドウ制御
 
+ウィンドウ制御は、使う手段によって2系統に分かれています。
+
+| 系統 | メソッド | 手段 | 向いている用途 |
+| --- | --- | --- | --- |
+| CDP | [`show`](#show) | `Browser.setWindowBounds` | 表示状態（通常／最小化／最大化／フルスクリーン）の変更、位置・サイズの変更 |
+| hWnd | [`showWindowMode`](#showwindowmode) / [`hide`](#hide) / [`bringToForeground`](#bringtoforeground) | WinAPI（`ShowWindow` 等） | 非表示化、アクティブ化を伴わない表示、最前面化など、`ShowWindow` の細かい指定 |
+
+::: warning hWnd 系は「プロセスID」が必要です
+hWnd 系のメソッドは、起動時にワークシートへ記録されたプロセスIDを手がかりにウィンドウを特定します。次のように、プロセスIDが記録されていない場合は利用できません。CDP 系の `show` は、どの経路でも使えます。
+
+- 起動済みブラウザへ接続して制御している場合
+- WebSocket 経由で、別端末のブラウザを制御している場合
+:::
+
 ### `show`
 
 ```vb
-Public Sub show(Optional state As WinState = asNormal, Optional xywh As String = "0 0 0 0")
+Public Sub show(Optional state As BrowserWindowState, Optional x, Optional y, Optional w, Optional h)
 ```
 
-ブラウザウィンドウを表示し、必要ならサイズ／位置を変更します。[`WinState`](#winstate)（[ShowWindow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) 準拠）と、CDP の `Browser.setWindowBounds` を組み合わせています。reattach 後にウィンドウを前面へ出す用途にも使えます。
+CDP の `Browser.setWindowBounds` で、ウィンドウの表示状態と、位置・サイズを変更します。いずれの引数も省略でき、指定した項目だけが反映されます。
 
 | 引数 | 意味 |
 | --- | --- |
-| `state` | 表示状態。既定は `asNormal`（通常表示＋アクティブ化） |
-| `xywh` | `"left top width height"` 形式の文字列。省略時（`"0 0 0 0"`）はリサイズしない |
+| `state` | 表示状態（[`BrowserWindowState`](#browserwindowstate)）。省略時は今の表示状態のまま |
+| `x` / `y` | ウィンドウ左上の座標 |
+| `w` / `h` | 左上を基準にした幅と高さ |
+
+`x` / `y` / `w` / `h` は Variant で受け取り、数値に変換して反映します。省略した項目は、現在の位置・サイズのままです。
 
 ```vb
-t.show asMaximized
-t.show asNormal, "100 50 1200 800"   ' 左上とサイズを指定
-t.show , "100 200"                  ' 位置だけ変更（幅・高さは据え置き）
+t.show br_maximized                  ' 最大化
+t.show br_fullscreen                 ' フルスクリーン
+t.show br_normal, 100, 50, 1200, 800 ' 通常表示に戻したうえで、左上とサイズを指定
+t.show , 100, 200                    ' 位置だけ変更（幅・高さは据え置き）
+t.show , , , 1000, 700               ' サイズだけ変更
 ```
 
 ::: tip 注意
-- 最大化中のリサイズは意図どおりに効かないことがあります。先に `asNormal` などで戻してから `xywh` を指定してください
-- `xywh` の各値が `0` の項目はスキップされます（例: `"100 200"` は left / top のみ）
+- `state` が最小化・最大化・フルスクリーンのときは、`x` / `y` / `w` / `h` は同時に指定できません（CDP の仕様）。位置やサイズを指定する場合は、`br_normal` を指定するか、`state` を省略してください
+- 結果を待たずに実行されます（`Browser.setWindowBounds` を非同期で送信）
 :::
+
+### `showWindowMode`
+
+```vb
+Public Sub showWindowMode(Optional state As WinState = doShow)
+```
+
+WinAPI の `ShowWindow` で、ウィンドウの表示状態を変更します。表示状態は [`WinState`](#winstate)（[ShowWindow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) 準拠）で指定します。省略時は `doShow`（現在のサイズと位置のまま表示し、アクティブ化）です。
+
+```vb
+t.showWindowMode                       ' 隠していたウィンドウを表示する
+t.showWindowMode doShowNoActivate      ' アクティブ化せずに表示する
+```
+
+プロセスIDが記録されていない場合は利用できません。
 
 ### `hide`
 
@@ -271,12 +305,12 @@ t.show , "100 200"                  ' 位置だけ変更（幅・高さは据え
 Public Sub hide()
 ```
 
-ウィンドウを非表示にします（`ShowWindow` の `asHidden` 相当）。`show` で再度表示できます。
+ウィンドウを非表示にします（`ShowWindow` の `asHidden` 相当）。[`showWindowMode`](#showwindowmode) で再度表示できます。プロセスIDが記録されていない場合は利用できません。
 
 ```vb
 t.hide
 ' ... 裏で処理 ...
-t.show
+t.showWindowMode
 ```
 
 ### `activate`
@@ -285,7 +319,7 @@ t.show
 Public Sub activate()
 ```
 
-**ブラウザ内のタブ**にフォーカスを移します（CDP の `Target.activateTarget`）。ウィンドウ全体を前面に出すわけではない点で、`show` / `bringToForeground` とは役割が違います。
+**ブラウザ内のタブ**にフォーカスを移します（CDP の `Target.activateTarget`）。ウィンドウ全体を前面に出すわけではない点で、`showWindowMode` / `bringToForeground` とは役割が違います。
 
 ```vb
 Dim tab2 As CDPContext
@@ -299,7 +333,7 @@ tab2.activate   ' そのタブを前面タブにする
 Public Function bringToForeground()
 ```
 
-ブラウザ**ウィンドウ**を最前面にします（`ShowWindow` → `BringWindowToTop` → `SetForegroundWindow`）。OS のフォーカス制限により、常に最前面になるとは限りません。
+ブラウザ**ウィンドウ**を最前面にします（`BringWindowToTop` → `SetForegroundWindow`）。OS のフォーカス制限により、常に最前面になるとは限りません。最小化や非表示のウィンドウを戻したい場合は、先に [`showWindowMode`](#showwindowmode) を呼んでください。プロセスIDが記録されていない場合は利用できません。
 
 ```vb
 t.bringToForeground
@@ -312,14 +346,23 @@ Property Get BrowserWindowHandle(Optional alwaysRequest As Boolean) As LongPtr
 Property Get BrowserWindowID(Optional alwaysRequest As Boolean) As Long
 ```
 
-ウィンドウ操作の土台になる ID です。`show` / `hide` / `bringToForeground` は内部でこれらを使います。自前で WinAPI や CDP のウィンドウ調整をするときにも参照できます。
+ウィンドウ操作の土台になる ID です。`show` は `BrowserWindowID` を、`showWindowMode` / `hide` / `bringToForeground` は `BrowserWindowHandle` を内部で使います。自前で WinAPI や CDP のウィンドウ調整をするときにも参照できます。
 
 | プロパティ | 意味 | 主な用途 |
 | --- | --- | --- |
 | `BrowserWindowHandle` | OS のウィンドウハンドル（`HWND`） | `ShowWindow` など WinAPI |
 | `BrowserWindowID` | CDP の `windowId`（`Browser.getWindowForTarget`） | `Browser.setWindowBounds` など CDP |
 
-どちらも `alwaysRequest:=False`（既定）ならキャッシュがあれば流用し、無ければ調査します。`True` なら毎回取り直します。
+どちらも `alwaysRequest:=False`（既定）ならキャッシュがあれば流用し、無い場合は取り直します。`BrowserWindowHandle` は、キャッシュ済みのハンドルが既に無効（ウィンドウが閉じられた等）になっていた場合も、自動で取り直します。`alwaysRequest:=True` なら毎回取り直します。
+
+::: tip `BrowserWindowHandle` の特定方法
+プロセスIDとChromium向けのウィンドウクラスで絞り込んだうえで、**`document.title` を一時的にタブの `TargetID` へ書き換え**て、ウィンドウタイトルが一致するものをユニークに特定します（特定後は元のタイトルに戻します）。この都合上、次の点に注意してください。
+
+- 取得の瞬間にページ側が `document.title` を書き換えると、特定に失敗することがあります。ページが落ち着いている状態で取得してください
+- 基本的には `about:blank` の状態から取ることをお勧めします
+- タブのドッキング／分離などでウィンドウが変わった場合は、`alwaysRequest:=True` で取り直してください
+- プロセスIDが記録されていない場合は、特定できません
+:::
 
 ```vb
 Dim hwnd As LongPtr
@@ -329,20 +372,33 @@ Dim wid As Long
 wid = t.BrowserWindowID
 ```
 
-### `WinState`
+### `BrowserWindowState`
 
-`show` の第 1 引数に渡す列挙です。[ShowWindow の nCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) に準拠しています。よく使うのは次のとおりです。
+CDP 系 [`show`](#show) の第 1 引数に渡す列挙です（CDP の `Browser.WindowState`）。
 
 | 値 | 意味 |
 | --- | --- |
-| `asNormal` | 通常表示し、アクティブ化（既定）。最小化／最大化なら元のサイズへ |
+| `br_unspecified` | 今の表示状態のまま（既定） |
+| `br_normal` | 通常表示。最小化／最大化から元のサイズへ戻す |
+| `br_minimized` | 最小化 |
+| `br_maximized` | 最大化 |
+| `br_fullscreen` | フルスクリーン表示（hWnd 系ではできない、CDP 系だけの設定です） |
+
+### `WinState`
+
+hWnd 系 [`showWindowMode`](#showwindowmode) の引数に渡す列挙です。[ShowWindow の nCmdShow](https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow) に準拠しています。よく使うのは次のとおりです。
+
+| 値 | 意味 |
+| --- | --- |
+| `doShow` | 現在のサイズと位置のまま表示し、アクティブ化（`showWindowMode` の既定） |
+| `asNormal` | 通常表示し、アクティブ化。最小化／最大化なら元のサイズへ |
 | `asMinimized` | 最小化してアクティブ化 |
 | `asMaximized` | 最大化してアクティブ化 |
 | `doShowNoActivate` | 表示するがアクティブ化しない |
 | `doShowMinNoActivate` | 最小化表示するがアクティブ化しない |
 | `asHidden` | 非表示（通常は [`hide`](#hide) を使う） |
 
-その他（`doShow` / `doRestore` / `doForceMin` など）も Enum に定義されています。起動時の初期表示モード設定でも同じ列挙を使います（[はじめに](/getting-started)）。
+その他（`doRestore` / `doForceMin` など）も Enum に定義されています。起動時の初期表示モード設定でも同じ列挙を使います（[はじめに](/getting-started)）。
 
 ## JavaScript・通知
 

@@ -29,7 +29,7 @@ box.focus
 box.selectText
 ```
 
-日本語や絵文字も `sendString` で送れます（UTF-8 送信設定を推奨）。  
+日本語や絵文字も `sendString` で送れます。  
 デモ: `Demo_CDP.JapaneseElementTest`
 
 ## 属性・選択

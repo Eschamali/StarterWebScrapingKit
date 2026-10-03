@@ -328,7 +328,9 @@ b.TimeOutSecond = 60
 | メンバー | 説明 |
 | --- | --- |
 | `openDevTools` | 指定ターゲットで DevTools を開く |
-| `printTargetInfos` / `printParams` | デバッグ出力 |
+| `printTargetInfos` / `printParams` | デバッグ出力。`printParams` は、`Browser.getVersion` から得たブラウザ情報（製品名・バージョン・V8 / CDP バージョン・リビジョン・`User-Agent`）と、ユーザーデータ名・プロセスID・ツールのバージョンを表示します |
+| `CurrentBrowserUser`（Get） | 起動中ブラウザのユーザーデータ識別名称 |
+| `CurrentBrowseruserAgent`（Get） | 起動中ブラウザの`User-Agent`値（接続時に `Browser.getVersion` から取得してキャッシュしたもの） |
 | `sleep` | 秒待ち |
 | `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
 | `serializeForMainTab` | メインタブの session/target を記録 |

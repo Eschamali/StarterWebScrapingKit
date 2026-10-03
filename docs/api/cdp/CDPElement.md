@@ -130,7 +130,7 @@ t.getElementByQuery("form").submit
 Public Function sendString(textToSend As String) As Boolean
 ```
 
-値をクリアしたうえで、CDP の `Input.insertText` でテキストを送ります。日本語・絵文字も送れます（UTF-8 送信設定を推奨）。
+値をクリアしたうえで、CDP の `Input.insertText` でテキストを送ります。日本語・絵文字も送れます。
 
 | 引数 | 意味 |
 | --- | --- |

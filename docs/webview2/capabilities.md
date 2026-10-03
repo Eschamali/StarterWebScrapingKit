@@ -66,6 +66,10 @@ End Sub
 
 `ThisWebView2` / `ThisCDPContext` は、[UserForm への埋め込み](/userform/vba-only)や[reattach](/guides/reattach)など、以降のページ・デモで繰り返し出てくる基本の呼び出し方です。フォーム経由でWebView2固有の設定（`ThisWebView2`）とCDP操作（`ThisCDPContext`）の両方に、同じ`With`ブロックからアクセスできます。
 
+::: tip ExcelでもAccessでも同じコードで動きます
+Accessのフォームは、デザイン時にFrameコントロールを静的に配置する方式に対応していません。そのため、同梱の`WebView2Form`は、フォーム起動時にWebView2の貼り付け先となるFrameを動的に生成しています（`Me.Controls.Add "Forms.Frame.1", ...`）。また、貼り付け先を省略した場合のウィンドウハンドルも、Excel（`Application.Hwnd`）かAccess（`Application.hWndAccessApp`）かを自動で判別します。
+:::
+
 ## 自前のUserFormに組み込む場合
 
 `CDPCoreViaWebView2` を直接使えば、自作のUserFormにも組み込めます。
@@ -76,7 +80,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
 | 引数 | 意味 |
 | --- | --- |
-| `UserName` | WebView2 のユーザーデータフォルダ名 |
+| `UserName` | WebView2 のユーザーデータフォルダ名。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
 | `AttachHwnd` | WebView2 を貼り付けるウィンドウハンドル。省略時は Excel/Access 自身のハンドル（`Application.Hwnd/hWndAccessApp`）を使用 |
 
 ```vb

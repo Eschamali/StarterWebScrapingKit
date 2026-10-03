@@ -77,9 +77,8 @@ Shadow DOM内の操作イメージは、Shadow DOM手前まで要素を取得し
 
 ## 日本語 id（CDP）
 
-`id` に日本語が含まれるページでは、設定シートの **常に UTF-8 で CDP-Json 送信** を ON にしてください。  
+`id` に日本語が含まれるページでも、そのまま指定できます（CDP-Json は常に UTF-8 で送受信します）。  
 デモ: `Demo_CDP.JapaneseElementTest`
-![UTF-8のスイッチング](/img/JPSend.png)
 
 ## BiDi からの要素操作
 
