@@ -932,7 +932,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     printMsg Debug_, " BiDi Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
+    printMsg Debug_, "sessionId             | " & ResultSessionNew.StringKey("sessionId"), FromProcedureName
     printMsg Debug_, "acceptInsecureCerts   | " & br.acceptInsecureCerts, FromProcedureName
     printMsg Debug_, "browserName           | " & br.browserName, FromProcedureName
     printMsg Debug_, "browserVersion        | " & br.browserVersion, FromProcedureName
