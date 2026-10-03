@@ -290,22 +290,8 @@ Do
 Loop
 ```
 
-### `SetLimitBiDi`
-
-```vb
-Property Let SetLimitBiDi(Number As Long)
-```
-
-BiDi コマンド結果を Dictionary に溜め込む件数の上限です。デフォルトは **65536 件**です。
-
-上限を超えると、パフォーマンス低下を防ぐため蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteBiDiAsync` 結果も消える点に注意してください。
-
-```vb
-mode.SetLimitBiDi = 1000
-```
-
 ::: tip
-コマンド ID がオーバーフロー対策でリセットされるとき（およそ 20 億到達時）も、結果履歴はすべてクリアされます。
+コマンド回数が20億を超えると、オーバーフロー対策により蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteBiDiAsync` 結果も消える点に注意してください。
 :::
 
 ### `LastBiDiJsonError`

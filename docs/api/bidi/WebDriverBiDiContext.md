@@ -285,7 +285,7 @@ Public Function ExecuteBiDiAsync(methodName As String, _
 | `params` | params の `Dictionary`。省略時は空 `{}` に `context` だけ付く |
 | `StopBiDiError` / `StopError` | 失敗時に停止するか。既定は `True` |
 
-`ExecuteBiDiAsync` の結果回収・蓄積上限は親の [`TakeResultBiDi`](./WebDriverBiDiMode#takeresultbidi) / [`SetLimitBiDi`](./WebDriverBiDiMode#setlimitbidi) で行います。
+`ExecuteBiDiAsync` の結果回収は親の [`TakeResultBiDi`](./WebDriverBiDiMode#takeresultbidi) で行います。
 
 ```vb
 Dim params As New Dictionary

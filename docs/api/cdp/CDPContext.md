@@ -567,22 +567,8 @@ Property Get TakeResultCDP(commandID As Long) As String
 
 `ExecuteCDPAsync` が返した id をキーに、蓄積された実行結果（JSON 文字列）を取り出します。取り出し前に `TakeEvents` が必要です。取り出し後は Dictionary から削除され、結果がまだ無い場合は空文字を返します。
 
-### `SetLimitCDPResult`
-
-```vb
-Property Let SetLimitCDPResult(Number As Long)
-```
-
-CDP コマンド結果を Dictionary に溜め込む件数の上限です。デフォルトは **65536 件**です。
-
-上限を超えると、パフォーマンス低下を防ぐため蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteCDPAsync` 結果も消える点に注意してください。
-
-```vb
-t.SetLimitCDPResult = 1000
-```
-
 ::: tip
-コマンド ID がオーバーフロー対策でリセットされるとき（およそ 20 億到達時）も、結果履歴はすべてクリアされます。
+コマンド回数が20億を超えると、オーバーフロー対策により蓄積中の結果履歴が **すべて削除**されます。未回収の `ExecuteCDPAsync` 結果も消える点に注意してください。
 :::
 
 ### `LastCDPJsonError`
@@ -764,10 +750,6 @@ ElseIf t.isTargetCrashed Then
     t.ExecuteCDP "Page.reload"   ' 復帰を試す例
 End If
 ```
-
-::: tip 注意
-`isTargetClosed`（`Target.targetDestroyed`）の検知には、ブラウザ側で `Target.setDiscoverTargets` の購読が必要です。通常の起動フローでは内部で有効化されます。
-:::
 
 関連: [再接続 (reattach)](/guides/reattach)
 
