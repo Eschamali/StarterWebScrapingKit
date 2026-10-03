@@ -43,12 +43,30 @@ Private m_ErrorDetails  As Dictionary
 'ログ設定
 Private currentLog      As StateLog
 
+'操作中のブラウザ情報一式
+'※session.new で得れる情報とほぼ同じ構造です
+Private Type StateBiDiBrowser
+    'オリジナル
+    acceptInsecureCerts As Boolean
+    browserName         As String
+    browserVersion      As String
+    platformName        As String
+    setWindowRect       As String
+    UserAgent           As String
+    webSocketUrl        As String
+
+    '独自
+    BiDiUserName        As String   'Browser user profile
+    Ver                 As String   'The current browser version
+End Type
+Private br As StateBiDiBrowser
+
 'その他
 Private timerOut        As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private BiDiUserName    As String       'User-data-dir と同等
 Private DefinitionBiDiContext As Long   '確保中の`WebDriverBiDiContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private InfoList        As Collection   '非同期イベント`browsingContext.contextCreated`で得た`browsingContext.InfoList`情報。基本的に、`WebDriverBiDiContext.cls - attachToContext`専用
 Private GoogChannel     As String       '処理のセクション枠目印用に。基本はログ用になると思います
+Private CustomUAMode    As Boolean      'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -69,7 +87,7 @@ Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, 
 
 
     '1. 初期化処理
-    BiDiUserName = userProfile
+    br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
@@ -138,7 +156,7 @@ Public Property Let serializeMainTab(contextId As String)
     Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
 
 
-    ShSetting01_StartBrowser.UpdateBrowserContext(BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+    ShSetting01_StartBrowser.UpdateBrowserContext(br.BiDiUserName, "BiDi-context", FromProcedureName) = contextId
 End Property
 Public Property Get serializeMainTab() As String
     Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
@@ -146,11 +164,33 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(br.BiDiUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
 End Property
+
+'***************************************************************************************************
+'* 機能　　：このツールを扱ってる目印を「User-Agent」に刻印します
+'***************************************************************************************************
+Private Sub AppendVbaUserAgent()
+    ' 1. ブラウザから「本物の生の名刺（User-Agent）」を聞き出す
+    Dim originalUA As String
+    originalUA = br.UserAgent   '"Mozilla/5.0 ... Chrome/131.0.0.0 ... Edg/131.0.0.0" が取れる！
+
+    ' 2. 稼働アプリを末尾にに「半角スペース」を空けて自作サインをドッキング！
+    Dim customUA As String
+    customUA = originalUA & " " & CDPHelpers.GetCustomUA
+
+    ' 3. BiDi で名刺を上書き（オーバーライド）する！
+    Dim params As New Dictionary
+    params.Add "userAgent", customUA
+
+    ' 4.「Emulation」ドメインを使うのが一番確実！
+    ' （HTTPリクエストヘッダーだけでなく、JSの navigator.userAgent も同時に書き換わる）
+    ExecuteBiDiAsync "emulation.setUserAgentOverride", params
+    printMsg info_, "User-Agent updated: " & customUA, "AppendVbaUserAgent"
+End Sub
 
 
 
@@ -171,20 +211,24 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
 
     '1. 「BiDi-CDP Mapper」への再接続処理
-    BiDiUserName = userProfile
+    br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
-    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(BiDiUserName, WebSocketMode)
+    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
+    Dim resultBiDi As BiDiCDPJson
     If requestSessionNew Then
-         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
-         sessionNew sessionCapabilitiesRequest
+        '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
+        printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
+        Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
+
+        '2-2. 接続先ブラウザ情報をログで表示
+        ViewNewSession resultBiDi
     End If
 
     '3. セッション一覧を取得して、既存のものがあるか確認する
     ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionStatus
 
     '4. mapperTab.js の仕様に沿った確認に従う
@@ -683,8 +727,8 @@ Private Sub deleteCDPID()
 
 
     With ShSetting01_StartBrowser
-        .DeleteBrowserHandle(FromProcedureName) = BiDiUserName   'パイプ通信Handle情報
-        .DeleteBrowserContext(FromProcedureName) = BiDiUserName  'ブラウザセッション情報
+        .DeleteBrowserHandle(FromProcedureName) = br.BiDiUserName   'パイプ通信Handle情報
+        .DeleteBrowserContext(FromProcedureName) = br.BiDiUserName  'ブラウザセッション情報
     End With
 End Sub
 
@@ -860,24 +904,42 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
     Const FromProcedureName As String = ThisClassName & ".ViewNewSession"
 
 
-    '現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
+    '1. VBA用にキャッシュする
     Dim Node_capabilities As BiDiCDPJson: Set Node_capabilities = ResultSessionNew.NodeKey("capabilities")
-    Dim pfName As String: pfName = Node_capabilities.StringKey("platformName")
-    If LenB(pfName) = 0 Then pfName = Application.Name
+    With br
+        'オリジナルのまま
+        .acceptInsecureCerts = Node_capabilities.BoolKey("acceptInsecureCerts")
+        .browserName = Node_capabilities.StringKey("browserName")
+        .browserVersion = Node_capabilities.StringKey("browserVersion")
+        .platformName = Node_capabilities.StringKey("platformName")
+        .setWindowRect = Node_capabilities.StringKey("setWindowRect")
+        .UserAgent = Node_capabilities.StringKey("userAgent")
+        .webSocketUrl = Node_capabilities.StringKey("webSocketUrl")
 
-    'ログビュー
+        '独自
+        br.Ver = Split(.browserName, "/")(1)    'そのChromium製品のバージョン番号
+    End With
+
+    '2. 現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
+    Dim pfName As String
+    If LenB(br.platformName) = 0 Then pfName = Application.Name Else pfName = br.platformName
+
+    '3.ユーザーエージェントに刻印する場合はそれを行う
+    If CustomUAMode Then AppendVbaUserAgent
+
+    '4. ログビュー
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
     printMsg Debug_, " BiDi Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "sessionId             | " & ResultSessionNew("sessionId"), FromProcedureName
-    printMsg Debug_, "acceptInsecureCerts   | " & Node_capabilities.StringKey("acceptInsecureCerts"), FromProcedureName
-    printMsg Debug_, "browserName           | " & Node_capabilities.StringKey("browserName"), FromProcedureName
-    printMsg Debug_, "browserVersion        | " & Node_capabilities.StringKey("browserVersion"), FromProcedureName
+    printMsg Debug_, "sessionId             | " & ResultSessionNew.StringKey("sessionId"), FromProcedureName
+    printMsg Debug_, "acceptInsecureCerts   | " & br.acceptInsecureCerts, FromProcedureName
+    printMsg Debug_, "browserName           | " & br.browserName, FromProcedureName
+    printMsg Debug_, "browserVersion        | " & br.browserVersion, FromProcedureName
     printMsg Debug_, "platformName          | " & pfName, FromProcedureName
-    printMsg Debug_, "setWindowRect         | " & Node_capabilities.StringKey("setWindowRect"), FromProcedureName
-    printMsg Debug_, "webSocketUrl          | " & Node_capabilities.StringKey("webSocketUrl"), FromProcedureName
-    printMsg Debug_, "userAgent             | " & Node_capabilities.StringKey("userAgent"), FromProcedureName
+    printMsg Debug_, "setWindowRect         | " & br.setWindowRect, FromProcedureName
+    printMsg Debug_, "webSocketUrl          | " & br.webSocketUrl, FromProcedureName
+    printMsg Debug_, "userAgent             | " & br.UserAgent, FromProcedureName
     printMsg Debug_, "mapperTab.js Version  | " & ShLibrary01_JS.VersionMapperTabJS, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 End Sub
@@ -1059,4 +1121,7 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandBiDi = New Dictionary
+
+    '独自のユーザーエージェントを付与するか
+    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub

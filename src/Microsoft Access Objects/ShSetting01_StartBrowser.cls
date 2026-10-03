@@ -31,6 +31,7 @@ Private Const TableName02 As String = "BrowserContextInfo"
 '***************************************************************************************************
 Private Const Column_SettingUserName    As String = "UserDataDirName"
 Private Const PrimaryKeyName            As String = "UserName"
+Private Const ThisClassName             As String = "ShSetting01_StartBrowser"  'ログのトレース用
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] ブラウザ制御関連の設定ID
@@ -38,17 +39,18 @@ Private Const PrimaryKeyName            As String = "UserName"
 Public Enum SettingCDP
     CustomChromiumPath
     UserDataDirName
-    additionalBrowserArguments
-    UseChrome
+    AdditionalBrowserArguments
+    UseBrowserPreset
     LogLevel
     UseWebSocket
     DisplayImmediate
     ViewBrowserResponse
     LogFileFolderPath
-    AlwaysSendAndReceiveUTF8
+    EnableUserAgentOverride
     ViewTab_BiDiCDPMapper
     StartWindowMode
     ViewDebugLogForBiDiCDPMapper
+    UseBrowserName
 End Enum
 
 
@@ -64,17 +66,18 @@ Private Function RangeMapping(RangeID As SettingCDP, ErrorSource As String) As S
         Case 0:  RangeMapping = "BrowserPath"
         Case 1:  RangeMapping = "UserDataDirName"
         Case 2:  RangeMapping = "AddArguments"
-        Case 3:  RangeMapping = "UseChrome"
+        Case 3:  RangeMapping = "UseBrowserPreset"
         Case 4:  RangeMapping = "LogLevel"
         Case 5:  RangeMapping = "UseWebSocket"
         Case 6:  RangeMapping = "DisplayImmediate"
         Case 7:  RangeMapping = "ViewBrowserResponse"
         Case 8:  RangeMapping = "LogFileFolderPath"
-        Case 9:  RangeMapping = "AlwaysSendAndReceiveUTF8"
+        Case 9:  RangeMapping = "EnableUserAgentOverride"
         Case 10: RangeMapping = "ViewTab_BiDiCDPMapper"
         Case 11: RangeMapping = "StartWindowMode"
         Case 12: RangeMapping = "ViewDebugLogForBiDiCDPMapper"
-        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたセルIDは、定義されてません"
+        Case 13: RangeMapping = "UseBrowserName"
+        Case Else: Err.Raise 1 + vbObjectError, ErrorSource, "渡されたcolumnIDは、定義されてません"
     End Select
 End Function
 
@@ -168,14 +171,17 @@ End Property
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
 '***************************************************************************************************
 Friend Function StartCDPModeContext(Optional StartURL As String, Optional SwitchUser As String) As CDPContext
+    Const FromProcedureName As String = ThisClassName & ".StartCDPModeContext"
+
+
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.StartAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.additionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPModeContext")
+        StartCDPModeContext.StartAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
     End With
 End Function
 
@@ -191,14 +197,17 @@ End Function
 '            ・Demoプロシージャ：`runTabsAsMany`が分かりやすいと思います
 '***************************************************************************************************
 Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As String) As CDPBrowser
+    Const FromProcedureName As String = ThisClassName & ".StartCDPMode"
+
+
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartCDPMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.start SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.additionalBrowserArguments, "ShSetting01_StartBrowser.StartCDPMode")
+        StartCDPMode.start SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
     End With
 End Function
 
@@ -217,14 +226,17 @@ End Function
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
 '***************************************************************************************************
 Friend Function StartBiDiModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiModeContext"
+
+
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiModeContext")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.StartBiDiModeAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.additionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiModeContext"), sessionCapabilitiesRequest
+        StartBiDiModeContext.StartBiDiModeAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -239,14 +251,17 @@ End Function
 '             この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '***************************************************************************************************
 Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
+    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
+
+
     '設定シートの各セルから設定値を取得し、適用
     With Me
         '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, "ShSetting01_StartBrowser.StartBiDiMode")
+        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.StartBiDiMode SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.additionalBrowserArguments, "ShSetting01_StartBrowser.StartBiDiMode"), sessionCapabilitiesRequest
+        StartBiDiMode.StartBiDiMode SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -497,7 +512,7 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ ヘルパープロシージャ ■■■
+'                               ■■■ よく使う設定取得 ■■■
 '***************************************************************************************************
 '* 機能　　：現在設定中の識別名称を取得/設定します
 '***************************************************************************************************
@@ -529,5 +544,8 @@ End Property
 '* 注意事項：WebView2判定は対象外です
 '***************************************************************************************************
 Property Get isPipeRemote() As Boolean
-    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, "ShSetting01_StartBrowser.isPipeRemote")
+    Const FromProcedureName As String = ThisClassName & ".isPipeRemote"
+
+
+    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName)
 End Property

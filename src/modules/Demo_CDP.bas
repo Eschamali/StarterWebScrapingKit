@@ -401,6 +401,7 @@ Sub iframeShadowRootTest()
         Set CloudflareTurnstile = .getTab(Url:="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/", SearchTypeID:=kFrame, doRetrySecond:=5)     '※見つかるまで、5秒間内部でループされます
 
         '3. そのiframe内にあるチェックBoxをクリックする
+        CloudflareTurnstile.Wait
         CloudflareTurnstile.getElementByQuery("body").GetShadowRoots(1).getElementByQuery("input").click    '本当は1個しかないですが、ここのDemoではあえて、複数用メソッドを使用します
 
         '4. 少し待って、閉じる
@@ -479,7 +480,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -518,7 +519,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.show Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
 
 End Sub
 
@@ -539,8 +540,7 @@ Sub runTabsAsOne()
     chrome.ThisCDPBrowser.newTab "https://bing.com"
 
    'Resize to complete
-    CDPHelpers.Sleep    'ちょこっとクールタイムが必要みたい
-    chrome.show xywh:="0 20 1000 700"
+    chrome.show x:=0, y:=20, w:=1000, h:=700
 
 End Sub
 
@@ -570,9 +570,9 @@ Sub runTabsAsMany()
     tab3.navigate "https://bing.com"
 
    'Resize to complete
-    tab1.show xywh:="0 10 1000 700"
-    tab2.show xywh:="0 45 1000 700"
-    tab3.show xywh:="0 90 1000 700"
+    tab1.show , 0, 10, 1000, 700
+    tab2.show , 0, 45, 1000, 700
+    tab3.show , 0, 90, 1000, 700
 
 End Sub
 
@@ -593,7 +593,7 @@ Sub runNewTab()
     Dim chrome As CDPContext
     Set chrome = ShSetting01_StartBrowser.StartCDPModeContext
     'chrome.start addArgs:="--disable-popup-blocking"    'The disable-popup-blocking argument is needed to allow opening link in a new tab
-    chrome.show asMaximized
+    chrome.show br_maximized
 
    'Perform standard google search
     chrome.navigate "https://google.com"
@@ -961,12 +961,13 @@ End Sub
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '1. 指定のWebSocketForCDPへ接続
+    Const UserNameBrowser As String = "User Data"
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP "User Data"
+    WebSocketCDP.ReConnectCDP UserNameBrowser
 
     '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
     Dim b As New CDPBrowser
-    b.reattachWebSocket "User Data", WebSocketCDP
+    b.reattachWebSocket UserNameBrowser, WebSocketCDP
 
     '3. 新規タブに接続
     Dim t As CDPContext
