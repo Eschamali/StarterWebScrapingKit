@@ -24,18 +24,18 @@ hero:
       link: https://github.com/Eschamali/StarterWebScrapingKit
 
 features:
-  - title: Chrome DevTools Protocol
-    details: パイプ通信で Edge / Chrome を直接制御。CDPBrowser → CDPContext → CDPElement の三層モデル。
-    link: /api/cdp/CDPContext
-    linkText: CDP API
-  - title: Playwright 風の学び方
-    details: 導入 → やりたいことガイド → クラス別 API。コードは CDP / BiDi を並べて掲載。
-    link: /guides/navigation
-    linkText: ガイドへ
-  - title: コアロジック徹底比較
-    details: Puppeteer / Playwright の実ソースと1行ずつ突き合わせ。バッファ管理・ディスパッチ・非同期処理は、どこまで並んでいるのか。
-    link: /core-comparison/
-    linkText: 比較レポートへ
+  - title: インストール不要
+    details: ドライバも管理者権限もアドインも要りません。Excel と Edge / Chrome だけで、マクロブックを開いてから最初の自動化が動くまでの最短ルートをご案内します。
+    link: /getting-started
+    linkText: まずは動かす
+  - title: 令和に蘇る「IE 自動操作」
+    details: CreateObject("InternetExplorer.Application") で Web 操作を組んでいた、あの頃の手軽さを Edge / Chrome で。IE 時代のコードが、どう置き換わるのかを紹介します。
+    link: /intro
+    linkText: 概要を読む
+  - title: WebBrowser コントロールの後継に
+    details: UserForm の WebBrowser コントロールでツールを作っていた方へ。WebView2 を埋め込めば、フォーム内のブラウザを同じ感覚の VBA で操作できます。
+    link: /webview2/capabilities
+    linkText: WebView2 でできること
   - title: 開発秘話
     details: Puppeteer / Playwright 並みのコアエンジンをVBAで実現するまでの道のり
     link: /stories/birth-story.md
