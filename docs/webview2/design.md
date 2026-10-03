@@ -74,7 +74,7 @@ CDP-over-Pipe / CDP-over-WebSocket は「ドメインを `enable` すれば、�
 WebView2は`IUnknown`ベースのCOMオブジェクトで、VBAの`Object`変数（IDispatchベース）としては直接扱えません。関数の呼び出しには`DispCallFunc`（vtableのインデックスを直接指定して実行するWindows API）を使い、コールバックを受け取るには、`AddressOf`で取得した関数ポインタをメモリ上に構造体として詰め込み、「COMオブジェクトのフリをしたデータ」を構築する（**vtable偽造**）必要があります。
 
 ::: tip 移植元へのクレジット
-この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部（`WebView2Thunks.bas`。v3.0.0時点では`CDPWebView2Thunks.bas`という名前でした）は、[**WebView2-For-Excel-VBA**](https://github.com/tarboh/WebView2-For-Excel-VBA)（作者：たーぼー(インコ) 氏、MIT License）の `Wv2Thunks.bas` を、バイト列やオフセット値を一切変更せずそのまま移植したものです。
+この機械語サンク・vtable呼び出し・SAFEARRAYメモリプリミティブの心臓部（`WebView2Thunks.bas`）は、[**WebView2-For-Excel-VBA**](https://github.com/tarboh/WebView2-For-Excel-VBA)（作者：たーぼー(インコ) 氏、MIT License）の `Wv2Thunks.bas` を、バイト列やオフセット値を一切変更せずそのまま移植したものです。
 
 このツール向けに追加/変更したのはCDP専用の薄い層と、v3.1.0で追加した拡張機能対応です。
 

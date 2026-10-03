@@ -92,17 +92,13 @@ End Sub
 
 BiDi のみ、追加で `sessionCapabilitiesRequest` といった初期設定引数を用意しています。必要に応じて事前に `Dictionary` を組み立て、引数に渡してください。
 
-Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続したい場合は、ブラウザ起動設定シートの `UseWebSocket` セルを `TRUE` にしてください（既定は `FALSE` = Pipe）。v3.1.0でこの仕組みが `StartCDPMode` / `StartBiDiMode` に導入された当初は VBA の `WebSocketMode As Boolean` 引数で切り替える方式でしたが、v3.2.0でワークシート上のセル切り替えに一本化され、この4種類の起動ヘルパーすべて（`Context` 版含む）で有効になりました。
+Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続したい場合は、ブラウザ起動設定シートの `WebSocketモード` セルを `TRUE` にしてください（既定は `FALSE` = Pipe）。
 
 ```vb
 ' UseWebSocket セルが TRUE なら、StartCDPModeContext も WebSocket 経由で起動する
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 ```
-
-::: warning v3.2.0での変更
-`WebSocketMode:=True` のような引数指定は廃止されました。切り替えは上記のとおりセルで行ってください。
-:::
 
 詳細は [WebSocket モードでできること](/websocket/capabilities) を参照してください。
 
@@ -161,10 +157,6 @@ Excel公式のAI機能「Copilot in Excel」には、ブックごとに振る舞
 
 > [!IMPORTANT]
 > Copilot in Excelの機能そのものがExcel専用のため、**Accessは非対応**です。
-
-::: tip 中身はどこにある？
-`.Rules`シートの実体は、VBAプロジェクト上では`ShCopilotRules.cls`というシートコードとして管理されています。指示文そのものは`#If ForCopilot Then ... #End If`で囲われており、常にコンパイル対象から除外される（＝処理に一切影響しない）ようになっています。Git管理のしやすさのための工夫です。
-:::
 
 ## 次へ
 

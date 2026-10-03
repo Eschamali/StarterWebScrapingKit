@@ -40,14 +40,6 @@ Dim t As New WebDriverBiDiContext
 t.StartBiDiModeAndConnectTab "MyUser"
 ```
 
-::: warning v3.2.0での変更
-`Name As BrowserList` 引数が廃止されました。Chrome / Edge の選択は設定シートの `UseChrome` セルに一本化されています。`userProfile` が必須の第1引数になったため、位置引数での古い呼び出し方は動作しません。
-:::
-
-::: tip 注意
-`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応に伴い v3.0.0 で廃止されています。また v3.2.0 以降、この起動フローは常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移するようになりました（`--app` 使用時のレースコンディション対策）。詳細は [ページ遷移](/guides/navigation) を参照してください。
-:::
-
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
 
 ### `reattach`
@@ -134,10 +126,6 @@ t.Wait isInteractive
 ::: tip
 - `till:=isInteractive` のとき、すでに `complete` まで進んでいればそのまま成功扱いで抜けます
 - 一般的な読み込みステータスのみ対応です。SPA などの特殊な待機は別途実装が必要です
-:::
-
-::: warning v3.2.0での変更
-`dbgState As Boolean` 引数が廃止されました。
 :::
 
 ### `WaitEvents`（v3.2.0〜）
@@ -246,10 +234,6 @@ Set cdp = t.UpgradeBiDiPlus
 cdp.getElementByQuery("button").click
 ```
 
-::: tip v3.1.1.1でのリネーム
-以前は `ConvertToCDPContext` という名称でした。上記の通り実質的に `BiDi+` そのものであることから改名されています。挙動に変更はありません。
-:::
-
 関連: [要素の取得](/guides/selectors) / [低レイヤー BiDi / CDP コマンドについて](/guides/extend-raw-protocol)
 
 ## イベント購読（コンテキスト単位、v3.1.1.1〜）
@@ -262,10 +246,6 @@ Property Let SubscribeBiDiEvent(Optional subscribe As Boolean = True, events)
 ```
 
 `session.subscribe` / `session.unsubscribe` を、**このタブ（context）単位**で実行します。`ExecuteBiDi` と同じく params に `context` が自動付与されるため、他のタブの購読状態には影響しません。
-
-::: warning v3.2.0でのリネーム
-以前は `sessionSubscribe` という名称でした。挙動に変更はありません。
-:::
 
 | 引数 | 意味 |
 | --- | --- |

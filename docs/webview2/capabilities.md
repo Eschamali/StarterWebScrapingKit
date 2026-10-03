@@ -53,10 +53,6 @@ End Sub
 
 内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
-::: warning v3.2.0での変更：初期化失敗時はエラーで停止するように
-以前は初期化失敗時に `ConnectCDP` が `False` を返すだけでしたが、v3.2.0以降は失敗時に **VBAエラーとして停止**するようになりました。上記デモの `If Not .StartCDPModeWebView2 Then Debug.Print "..."` という分岐は、`WebView2Loader.dll`が見つからない等の失敗時にはもう到達しません（エラーが先に発生するため）。この分岐を実際に機能させたい場合は、呼び出し側で `On Error` を使ってください。
-:::
-
 このデモには、WebView2モードならではの基本操作が3つ詰め込まれています。
 
 ::: tip 設定できるタイミングは2種類
@@ -67,10 +63,6 @@ End Sub
 `Set_AllowSingleSignOnUsingOSPrimaryAccount` の値によって、同じ`https://account.microsoft.com/`への遷移結果が変わります。`False`（シングルサインオン無効）ならMicrosoftアカウントの紹介ページが、`True`（有効）ならWindowsに現在サインイン中のMicrosoftアカウントの設定ページへ自動的に遷移します。実行前後で切り替えて挙動の違いを確かめてみてください。
 
 `ThisWebView2` / `ThisCDPContext` は、[UserForm への埋め込み](/userform/vba-only)や[reattach](/guides/reattach)など、以降のページ・デモで繰り返し出てくる基本の呼び出し方です。フォーム経由でWebView2固有の設定（`ThisWebView2`）とCDP操作（`ThisCDPContext`）の両方に、同じ`With`ブロックからアクセスできます。
-
-::: tip v3.2.0での改善：フォームのキャプションが自動追従
-同梱の`WebView2Form`は、ページ遷移（`Target.targetInfoChanged`）に応じてフォームの`Caption`（タイトルバー）を自動的にページタイトルへ更新するようになりました。以前は遷移してもフォームのタイトルは変わりませんでした。
-:::
 
 ## 自前のUserFormに組み込む場合
 
@@ -135,7 +127,7 @@ Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの�
 
 同梱デモ（v3.1.1〜）: `Demo_WebView2.RunTestAlertDemo` — `Demo_CDP.TestAlert`のWebView2移植版で、`alert` / 空`alert` / `prompt`の3種類のJavaScriptダイアログを実際に発生させ、`SubscribeCdpEvent "Page.javascriptDialogOpening"`で捕まえて自動応答する一連の流れを、`SubscribeCdpEvent`を呼ぶ場合と呼ばない場合を比較しながら確認できます。
 
-::: warning デバッグ中のクラッシュに注意（v3.2.0でさらに精査）
+::: warning デバッグ中のクラッシュに注意
 - **安全**: `.navigate`等の同期メソッドが完了し、普通のVBAコード行でブレーク／ステップ実行が静止している状態。この状態のままコールバックを後で受け取っても、通常はクラッシュしません
 - **危険**: 同期メソッドの**呼び出し中そのもの**でブレークする、または静止ブレイク中に購読中のCDPイベントや保留中のコマンド完了通知が実際に届くと、機械語サンク経由でVBAへ再入しようとしてクラッシュする可能性があります
 - **最も危険**: 上記いずれの状態でも、VBEで**リセット処理**を行うのはほぼ確実にクラッシュします

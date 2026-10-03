@@ -23,11 +23,7 @@ Excel（VBA）自身のUserFormにWebView2を埋め込んで制御したいだ�
 
 ## ローカルブラウザの起動から行う場合
 
-ローカルブラウザの**起動から接続まで**を一気に行う方法が2通りあります（v3.0.0〜、v3.1.0でAPI整理）。
-
-### 設定シート経由（もっとも簡単）
-
-ブラウザ起動設定シートの **`UseWebSocket` セルを `TRUE`** にするだけで、Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続するようになります（既定は `FALSE` = Pipe）。
+**ブラウザを初めて立ち上げる場合**は、ブラウザ起動設定シートの **`UseWebSocket` セルを `TRUE`** にするだけで、Pipe の代わりに WebSocket 経由でローカルブラウザを起動・接続するようになります（既定は `FALSE` = Pipe）。
 
 ![ブラウザ起動設定シートの基本設定欄。「WebSocketモード」というチェックボックス行が赤枠で強調されており、右側に「新規起動時の制御経路を設定します。OFFで...」という説明が添えられている](/img/セルからWebSocket切替.png)
 
@@ -173,10 +169,6 @@ Public Function AutoConnectBrowserCDP(UserName As String, Optional port As Long 
 
 ::: tip 注意
 接続後は **`CDPBrowser.reattachWebSocket`** にこのオブジェクトを渡して使います。
-:::
-
-::: warning v3.2.0での変更
-`ReuseContext` 引数が廃止されました（「Excel テーブルにあるメインタブ情報を流用する」特殊分岐が削除され、接続ロジックが簡略化されています）。
 :::
 
 ### `ReConnectCDP`（v3.2.0〜）

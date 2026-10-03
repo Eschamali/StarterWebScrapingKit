@@ -33,14 +33,6 @@ Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, 
 
 日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
 
-::: warning v3.2.0での変更
-`Name As BrowserList` 引数が廃止されました。Chrome / Edge の選択は、設定シートの `UseChrome` セルに一本化されています（[はじめに](/getting-started)）。また `userProfile` が必須の第1引数になったため、古い `StartAndConnectTab(BrowserList.RunChrome, appUrl, userProfile)` のような位置引数呼び出しは動かなくなります。
-:::
-
-::: tip 注意
-`KioskMode` 引数（Edge キオスクモード埋め込み向け）は、WebView2 のネイティブ対応（[UserForm への埋め込み](/userform/vba-only)）に伴い v3.0.0 で廃止されています。また v3.2.0 以降、Context 経由の起動は常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移するようになりました（`--app` 使用時のレースコンディション対策）。詳細は [ページ遷移](/guides/navigation) の「起動時のレースコンディション対策」を参照してください。
-:::
-
 ### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
 
 Excel テーブルにある既存のパイプ／WebSocket／WebView2 接続情報を利用して、再接続を試みます。`CDPBrowser` 側と異なり、いずれも `Function ... As Boolean` で、失敗時は例外を投げず `False` を返します。
