@@ -636,8 +636,7 @@ Set t.BrowserEvents = Nothing
 このタブの DevToolsを開きます。
 
 > [!WARNING]
-> WebView2/Electron製の場合は、うまくいかない場合があります
-
+> このツールで呼び出したWebView2以外/Electron製の場合は、うまくいかない場合があります
 
 ## タイムアウト
 

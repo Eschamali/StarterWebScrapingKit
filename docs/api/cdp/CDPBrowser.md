@@ -134,7 +134,7 @@ t.Wait   ' 読み込み完了まで待つ（v3.2.0以降は明示的に必要）
 
 #### `isHidden` の使い道
 
-例えば ZIP 解凍。普通は PowerShell 等で行いますが、どうせ Chromium が開いているならついでに JavaScript で解凍させる、という場面があります。タブは見せたくないときに重宝します。
+例えば ZIP 解凍。普通は PowerShell 等で行いますが、どうせ Chromium が開いているならついでに JavaScript で解凍させる、という裏処理場面があります。内部処理部分のタブは見せたくないときに重宝します。
 
 ```vb
 Dim hidden As CDPContext
@@ -144,7 +144,7 @@ Set hidden = b.newTab(isHidden:=True)
 
 #### `browserContextId` の使い道
 
-同じログインが必要な URL に対して、異なる複数アカウントでの共通処理をしたいときに重宝します（例: 同じメニュー項目に対する PDF ダウンロードなど）。
+ログインが必要な、しかし**同一URL**に対して、異なる複数アカウントでの共通処理をしたいときに重宝します（例: 同じメニュー項目に対する PDF ダウンロードなど）。
 
 ```vb
 ' 事前に Target.createBrowserContext で browserContextId を取得しておく
@@ -199,7 +199,7 @@ Set t = b.getTab( _
 
 ::: tip 注意
 - `tabName` と `Url` を両方省略すると、最も近い未接続のタブに接続しようとします
-- reattach 後は `setMain:=True` を推奨します
+- 初回reattach 後は `setMain:=True` を推奨します
 :::
 
 #### `SearchTypeID`（`DevToolsAgentHost_KType`）
