@@ -134,7 +134,7 @@ IE時代なら
 数日で、UserFormにWebView2を埋め込んで動かすところまでは辿り着きました。  
 UserFormの真ん中に、最新のChromium（WebView2）がサクッと表示されたときの感動は、今でも忘れられません🥹
 
-ただし、ここで大きな壁にぶつかります。**当時の本体（`main`）には、まだ `RaiseEvent` による非同期イベント配信の仕組みがありませんでした。** それが整うのは、[通信経路の拡張はどうしたの？](/stories/birth-story#通信経路の拡張はどうしたの？)セクションで `CDPCore.cls` に `RaiseEvent CDPBrowserEvent` 等が生まれる5月末〜6月のことで、この時点ではまだ2ヶ月以上先の話です。
+ただし、ここで大きな壁にぶつかります。**当時の本体（`main`）には、まだ `RaiseEvent` による非同期イベント配信の仕組みがありませんでした。** それが整うのは、[通信経路の拡張はどうしたの？](/stories/birth-story#通信経路の拡張はどうしたの)セクションで `CDPCore.cls` に `RaiseEvent CDPBrowserEvent` 等が生まれる5月末〜6月のことで、この時点ではまだ2ヶ月以上先の話です。
 
 共有できる土台がない以上、やれることは1つでした🥺
 
@@ -235,8 +235,8 @@ WebView2を脇に置いている間、Chromium制御ツールの方は劇的に�
 
 右側のタスクマネージャーを見てください。
 
-* **オレンジ枠:** `ユーティリティ (7)` ➔ 公式Edgeコントロールが抱えるWebView2プロセス群
-* **緑枠:** `ユーティリティ (6)` ➔ 私がvtableハックで呼び出した真WebView2プロセス群
+* **緑枠:** `WebView2: Selenium` ➔ 公式Edgeコントロールが抱えるWebView2プロセス群
+* **オレンジ枠:** `WebView2: WebView2 | Playwright` ➔ 私がvtableハックで呼び出した真WebView2プロセス群
 
 Microsoft Access というたった1つのアプリの胃袋の中で、
 **「公式の安全なおもちゃ（Selenium表示）」** と **「素手でハックした生WebView2（Playwright表示）」** が、
