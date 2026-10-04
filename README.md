@@ -9,19 +9,41 @@
 
 ![Intro Image](doc/Top.png)
 
-## The World of the Internet, in Your Hands
+## Reclaim the Lost Line from the IE Days
 
-All the essential elements for web scraping have been packed into this **single** macro workbook.  
+Once, we controlled the world with just three lines of code.
+
+```bas
+Set ie = CreateObject("InternetExplorer.Application")   ' <- this one line launched the browser
+ie.Visible = True
+ie.Navigate "URL"
+```
+
+To all VBAers who are being crushed by the weight of driver version management and environment setup after the disappearance of IE.  
+This tool does not give up on the romance of a **"single Excel file"** and brings back the omnipotence of those days to the modern era by **driving CDP (Chrome DevTools Protocol) directly**.
+
+```bas
+Dim t As CDPContext
+Set t = ShSetting01_StartBrowser.StartCDPModeContext   ' <- the lost line, right here. The browser launches with the settings sheet's configuration
+t.navigate "URL"
+```
+
 No more tedious environment setup. From the moment you open this workbook, your journey toward business efficiency and automated internet operations begins.
 
-This tool implements the "Three Sacred Treasures" required to conquer modern web technologies:
+---
 
-1. **🚀 REST WebAPI (WinHTTP 5.1)**
-    * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings.
-2. **🤖 Browser Automation (CDP via Pipe & WebDriver BiDi)**
-    * Freely control Chromium-based browsers (Edge/Chrome). A modern implementation using pipe communication that doesn't require external drivers (.exe).
-3. **⚡ WebSocket Communication**
-    * A challenge for real-time communication. Equipped with minimal connection and send/receive functions using WinAPI. An evolving feature that pushes the boundaries of VBA.
+## 🌈 Three CDP Control Routes (The "Three Sacred Treasures" of CDP)
+
+The core of this tool is **CDP control**. Without any external driver (exe, ps1), it accesses the heart of Chromium-based browsers (Edge/Chrome) directly, using nothing but VBA.  
+There are three control routes. Pick the one that fits your situation.
+
+| Route | In a word | When to use it |
+| --- | --- | --- |
+| 🥇 **Pipe** | **When in doubt, use this** | Pipe communication via `--remote-debugging-pipe`. You can reuse existing browser profiles (favorites, login state, etc.) as-is. The most proven, stable, and easy-to-debug method. |
+| 🥈 **Port** (WebSocket) | Android, or the browser right in front of you | Communication via `--remote-debugging-port`. Supports attaching to an already-running browser. *Depending on your network setup, you can even control a browser on a different PC.* It can also **launch a local browser and connect to it** through this route. |
+| 🥉 **WebView2** | For environments where neither a port nor a pipe is allowed | Opens no debug port and no named pipe at all — it talks CDP directly through the WebView2 SDK. The beauty of **"fully self-contained inside a UserForm"**: complete browser control from nothing but Excel's own memory space. |
+
+Whichever route you pick, you use **exactly the same API** — `CDPContext.navigate`, `CDPElement.getElementByQuery`, and so on. See the demo code below, or the [official documentation](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) for details on choosing between them.
 
 ---
 
@@ -29,7 +51,7 @@ This tool implements the "Three Sacred Treasures" required to conquer modern web
 
 * **Zero installs. No WebDriver. One xlsm file, and both Chromium and WebView2 are yours to command**
   * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
-  * Whether it's a modified browser, an anti-detect browser, or a portable Chrome on a USB drive, complete automation is possible in an instant just by **"pasting the exe path into a cell on the settings sheet"** 😎 (leave the cell blank and it just uses the default Edge/Chrome install)
+  * Besides the stable channel, Edge/Chrome **Beta / Dev / Canary** can also be used simply by selecting them on the settings sheet
   * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
 
 * **Infinite Extensibility: Your Own Custom Tool!**
@@ -39,37 +61,190 @@ This tool implements the "Three Sacred Treasures" required to conquer modern web
 
 * **🚀 A "New Standard" Architecture for VBA, on par with Playwright / Puppeteer**
   * Directly access the heart of the browser without leaving the "footprints" of WebDriver. This tool occupies a **low-layer position equivalent to Playwright / Puppeteer**, even though it's VBA.
-  * Its greatest strength lies in its "cleanliness." By using a "pure" operation style that doesn't inject any unique JS variables or patches (which often trigger detection), it has achieved **stealthiness that makes it easier to bypass modern defenses like Cloudflare** as if you had a VIP pass.  
+  * Its greatest strength lies in its "cleanliness." By using a "pure" operation style that doesn't inject any unique JS variables or patches (which often trigger detection), it has achieved **stealthiness that makes it somewhat easier to get past bot detection like Cloudflare's** as if you had a VIP pass.  
   * *Note: While bypass is not guaranteed, we have confirmed cases where it is easier to bypass than SeleniumVBA.*
 
 ---
 
-## 🌈 Three CDP Control Routes (The "Three Sacred Treasures" of CDP)
+## 🚀 Basic Template
 
-This project used to be split into two branches ("Main" for Pipe, and an experimental "WebView2" branch), but as of v3.0.0 they have finally been **merged into a single, unified tool**. Pick the route that fits your situation.
+The basic startup template is as follows.  
+The browser will start with the settings defined in the **Worksheet: Browser Startup Settings**, so we recommend this template code unless you have specific requirements.  
+In that case, your automation journey begins with just one or two lines.
 
-| Route | In a word | When to use it |
-| --- | --- | --- |
-| 🥇 **Pipe** | **When in doubt, use this** | Pipe communication via `--remote-debugging-pipe`. You can reuse existing browser profiles (favorites, login state, etc.) as-is. The most proven, stable, and easy-to-debug method. |
-| 🥈 **WebSocket** | Android, or the browser right in front of you | Supports attaching to an already-running browser. *Depending on your network setup, you can even control a browser on a different PC.* As of v3.0.0, it can also **launch a local browser and connect to it in one method call**. |
-| 🥉 **WebView2** | For environments where neither a port nor a pipe is allowed | Opens no debug port and no named pipe at all — it talks CDP directly through the WebView2 SDK. The beauty of **"fully self-contained inside a UserForm"**: complete browser control from nothing but Excel's own memory space. |
+### In Case of CDP Control
 
-Whichever route you pick, you use **exactly the same API** — `CDPContext.navigate`, `CDPElement.getElementByQuery`, and so on. See the demo code below, or the [official documentation](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) for details on choosing between them.
+```bas
+Sub BeginningOfAdventureByCDP()
+    ' Launch browser based on settings sheet
+    Dim HelloWorldAutomationBrowser As CDPContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
+
+    ' ↓ From here, turn your image into code ↓
+
+
+
+
+    ' Close the browser normally
+    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+End Sub
+```
+
+### In Case of BiDi Control
+
+```bas
+Sub BeginningOfAdventureByBiDi()
+    ' Launch browser based on settings sheet
+    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
+    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
+
+    ' ↓ From here, turn your image into code ↓
+
+
+
+
+    ' Close the browser normally
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+End Sub
+```
 
 ---
 
-## ⭐️ New Feature: Full WebDriver BiDi Support! (A VBA First🦊)
+## 🛤️ Demos by Route
 
-In addition to traditional CDP (Chrome DevTools Protocol) operations, we have quickly implemented support for **"WebDriver BiDi"** (`WebDriverBiDiCore.cls`), the next-generation protocol currently being established as a global W3C standard.
+### 🥇 Pipe
 
-While maintaining the project's philosophy of being **"self-contained in VBA"** without using external `chromedriver.exe` or middleware like Selenium, the following advanced operations are now possible:
+The basic template above uses the Pipe route by default. If you change nothing, this is what runs.
+
+### 🥈 Port (WebSocket)
+
+#### Switch with a worksheet cell (launching a local browser and connecting to it)
+
+![WebSocket mode switch](doc/WebSocketMode.png)
+
+Just **turn ON "WebSocketモード" (WebSocket mode)** on the Worksheet: Browser Startup Settings, and the basic template above (`StartCDPModeContext`, etc.) launches and connects to the browser via the Port route instead of the Pipe. You don't have to change a single character of your code.
+
+```vb
+Sub LaunchNewBrowserInWebSocketMode()
+    ' 1. With "WebSocketモード" turned ON in the settings sheet, launch as usual
+    Dim t As CDPContext
+    Set t = ShSetting01_StartBrowser.StartCDPModeContext
+
+    ' 2. Proceed as usual
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 3. Done
+    t.ThisCDPBrowser.quit
+End Sub
+```
+
+Internally, this automatically handles checking for policies that block remote debugging, cleaning up leftover sessions, and disabling the crash-recovery prompt.
+
+#### Attach to an already-running browser
+
+You can also have Excel attach to (take control of) an existing browser session — such as Edge or Chrome — that is already running. A simple demo code for this feature is bundled in the standard module `Demo_CDP`, in the section titled `起動済みWebSocketブラウザ経由版Demo` ("demos via an already-running WebSocket browser").
+
+Before running it, start the target browser with the **remote debugging port enabled**:
+
+```bash
+# Launch the browser with the default port 9222 open
+msedge.exe --remote-debugging-port=9222
+```
+
+```vb
+Sub AutoConnectTab()
+    ' 1. Get the username from the setting cell
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    ' 2. Connect to the specified WebSocketForCDP-page
+    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
+
+    ' 3. Pass the connected WebSocket object to the `reattachWebSocket` method
+    Dim t As New CDPContext
+    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    ' 4. Navigate
+    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
+    t.navigate "https://www.youtube.com/@islandfox6864"
+
+    ' 5. Disconnect from the WebSocket
+    WebSocketCDP.DisconnectCDP
+End Sub
+```
+
+* **Changing the port number**:
+  By passing any port number as the fourth argument of `WebSocketCDP.AutoConnectPageCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
+* **Building on this code**:
+  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
+* **About the connection types**:
+  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`ReConnectCDP`). See the `Demo_CDP` demos for usage examples of each.
+
+### 🥉 WebView2
+
+You can **launch and control WebView2 directly from within Excel VBA's own memory space, with no external process (such as PowerShell) required.** This is the ace up the sleeve for the toughest environments yet — those where **neither a port nor a pipe** is permitted.
+
+![WebView2 running in Excel](doc/WebView2.png)
+
+```vb
+' Note: Some `ICoreWebView2Settings` properties only take effect before navigation.
+'       `ICoreWebView2EnvironmentOptions` settings only take effect before the WebView2 process starts.
+Sub WebView2OnExcelUserForm()
+    With WebView2Form
+        ' 1. Apply pre-launch settings (optional)
+        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
+
+        ' 2. Launch the WebView2 process
+        If Not .StartCDPModeWebView2 Then Debug.Print "Failed to initialize WebView2.": Exit Sub
+
+        ' 3. Apply pre-navigation settings (optional)
+        .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
+        .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
+
+        ' 4. Navigate, as CDP
+        ' SSO disabled: shows the Microsoft account introduction page
+        ' SSO enabled : auto-navigates to the settings page for the account currently signed in on this PC
+        .ThisCDPContext.navigate "https://account.microsoft.com/"
+
+        ' 5. Show the form (blocks until the UserForm is closed)
+        .show
+    End With
+End Sub
+```
+
+There are two moments when settings can be applied: **before launch** (via `EnvironmentOptions` — only read when the Environment is created, so changing it afterward has no effect) and **before navigation** (via `ICoreWebView2Settings`-family properties — a per-page setting, so it must be set before the next navigation). In the demo above, you can also see how toggling `Set_AllowSingleSignOnUsingOSPrimaryAccount` changes the outcome of navigating to the very same URL.
+
+Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and Port routes. The bundled demo is `Demo_WebView2.WebView2OnExcelUserForm`.
+
+> [!NOTE]
+> The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
+
+---
+
+## 🦊 WebDriver BiDi Supported Too! (A VBA First)
+
+In addition to CDP (Chrome DevTools Protocol) operations, we have quickly implemented support for **"WebDriver BiDi"** (`WebDriverBiDiCore.cls`), the next-generation protocol currently being established as a global W3C standard.
+
+While maintaining the project's philosophy of being **"self-contained in VBA"** without using external `chromedriver.exe` or middleware like Selenium, the following advanced operations are possible:
 
 *   📥 **Perfect Subscription to Asynchronous Events** (Real-time detection of page load completion or console errors)
 *   ⚠️ **Fine-grained Control of JavaScript Alert Dialogs** (Implementation of fallbacks that prevent VBA from freezing)
-*   🔌 **CDP Tunneling via BiDi+** (Flexibility to cover areas where standard features are insufficient)
+*   🔌 **CDP Tunneling via BiDi+** (Flexibility to cover areas where standard features are insufficient. With `UpgradeBiDiPlus`, you can also switch the same tab over to CDP control)
 
 **📖 For detailed technical documentation and usage, please visit the official documentation (GitHub Pages).**
 *   ➡️ **[Official Documentation Top (Usage & Technical Architecture)](https://eschamali.github.io/StarterWebScrapingKit/)**
+
+---
+
+## 🎁 Bonus Features
+
+Besides CDP control, the following two are also included.
+
+* **🚀 REST WebAPI (WinHTTP 5.1)**
+  * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings. The standard module `Template_WebAPI` is provided as a template for building the basics.
+* **⚡ WebSocket Communication (General-purpose)**
+  * A challenge for real-time communication, separate from browser control. Equipped with minimal connection and send/receive functions using WinAPI. An evolving feature that pushes the boundaries of VBA. The demo is in the standard module `Demo_WebSocket`.
 
 ---
 
@@ -215,184 +390,20 @@ As of the time of writing, a warning message appears, but it still works.
 
 ### Startup Arguments Within VBA
 
-Contains minimum mandatory arguments for browser automation. You can find these arguments around line 350 of the `CDPBrowser` class module.
+Contains minimum mandatory arguments for browser automation. You can find these arguments in the `GenerateArg○○`-family procedures of the `CDPHost` class module.
 
 | Argument Name | Meaning | 
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | 
-| remote-debugging-pipe | Makes the browser allow debugging from a "different process (Excel)" than the "main process."<br>Uses pipe communication. Although it says "remote," it is specified to be accessible only from within the same PC. | 
-| user-data-dir | Specifies the full path to the browser's data directory (Cookies, extensions, password vault, etc.).<br>Normally it is `C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`, but due to [measures against Cookie theft using debugging features](https://developer.chrome.com/blog/remote-debugging-port?hl=ja) it is now mandatory to specify a folder path other than `User Data`.<br>By default, this tool creates a path in the same hierarchy as `User Data` as `Automation Data`. | 
+| remote-debugging-pipe / remote-debugging-port | Makes the browser allow debugging from a "different process (Excel)" than the "main process."<br>`pipe` is pipe communication (the Pipe route); `port` is WebSocket communication (the Port route. The port number is `0`, i.e. automatically assigned to a free port, and the connection info is read from the `DevToolsActivePort` file).<br>Although it says "remote," `pipe` is specified to be accessible only from within the same PC. | 
+| user-data-dir | Specifies the full path to the browser's data directory (Cookies, extensions, password vault, etc.).<br>Normally it is `C:\Users\%USERNAME%\AppData\Local\Microsoft\Edge\User Data`, but due to [measures against Cookie theft using debugging features](https://developer.chrome.com/blog/remote-debugging-port?hl=ja) it is now mandatory to specify a folder path other than `User Data`.<br>By default, this tool creates a path in the same hierarchy as `User Data` as `Automation Data`.<br>If you write a full path with a drive letter, such as `C:\Data\MyProfile`, in the "User data folder name" on the settings sheet, that path is used as-is as the storage location. | 
 | homepage | Specifies the initial URL when the browser starts, but it is set to `about:blank` to suppress extra communication.<br>However, if an arbitrary URL is passed to the `app` in the next item, this will not be added. | 
 | app | Corresponds to the 2nd argument of the `start` method. If you want to specify the initial URL when starting the browser, you specify it here.<br>Starting with a URL here allows you to prevent user actions that interfere with automation to some extent, such as:<br>・Changing to an arbitrary URL not allowed<br>・Creating tabs not allowed<br><br>It's like a simple kiosk mode. | 
-| KioskMode | As of v3.0.0, this has been **removed** from the `start` method's arguments (embedding a browser into a UserForm has been folded into the native WebView2 support instead).<br>If you still want the old kiosk-mode launch behavior, you can revive it by writing `--kiosk --edge-kiosk-type=fullscreen` (Edge) or `--kiosk` (Chrome) directly into the "Additional startup arguments" cell (cell J13 onward) mentioned above. See [here](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-configure-kiosk-mode) for details. | 
-
-## 🚀 No more WebDriver.exe
-
-**"The simple invocation spell from the IE days, once again."**
-
-Once, we controlled the world with just three lines of code.
-
-```bas
-Set ie = CreateObject("InternetExplorer.Application")
-ie.Visible = True
-ie.Navigate "URL"
-```
-
-To all VBAers who are being crushed by the weight of driver version management and environment setup after the disappearance of IE.  
-This tool does not give up on the romance of a **"single Excel file"** and brings back the omnipotence of those days to the modern era by directly hitting the CDP.
-
-The basic startup template is as follows.  
-The browser will start with the settings defined in the **Worksheet: Browser Startup Settings**, so we recommend this template code unless you have specific requirements.  
-In that case, your automation journey begins with just one line.
-
-### In Case of CDP Control
-
-```bas
-Sub BeginningOfAdventureByCDP()
-    ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As CDPContext
-    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartCDPModeContext
-
-    ' ↓ From here, turn your image into code ↓
-
-
-
-
-    ' Close the browser normally
-    HelloWorldAutomationBrowser.quit
-End Sub
-```
-
-### In Case of BiDi Control
-
-```bas
-Sub BeginningOfAdventureByBiDi()
-    ' Launch browser based on settings sheet
-    Dim HelloWorldAutomationBrowser As WebDriverBiDiContext
-    Set HelloWorldAutomationBrowser = ShSetting01_StartBrowser.StartBiDiModeContext
-
-    ' ↓ From here, turn your image into code ↓
-
-
-
-
-    ' Close the browser normally
-    HelloWorldAutomationBrowser.quit
-End Sub
-```
-
-## 🔌 New Feature: Browser Operation Demo via WebSocket (Port) Connection
-
-From V2.3.0, the "WebSocket (Port) Route" is officially released, allowing Excel to attach to (take control of) an existing browser session (such as Edge or Chrome) that is already running. As of v3.0.0, this route can also **launch the browser itself** (see below), so if you'd rather skip the manual setup, check that section out instead.
-
-A simple demo code named **`SetupWebSocketMode`** is provided in the standard module `Demo_CDP` for you to try out this feature.
 
 ---
 
-### 💻 Demo Code: `SetupWebSocketMode` (attaching to an already-running browser)
+## 🎓 Making Copilot Smarter with Excel's "`.Rules`"
 
-Running this macro will attach to the existing browser via the port, and navigate to the target page from the tab. Before running it, start the target browser with the **remote debugging port enabled**:
-
-```bash
-# Launch the browser with the default port 9222 open
-msedge.exe --remote-debugging-port=9222
-```
-
-```vb
-Sub SetupWebSocketMode()
-    ' 1. Get the username from the setting cell
-    Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
-
-    ' 2. Connect to the specified WebSocketForCDP
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
-
-    ' 3. Pass the connected WebSocket object to the `reattachWebSocket` method
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
-
-    ' 4. Navigate
-    ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
-    t.navigate "https://www.youtube.com/@islandfox6864"
-
-    ' 5. Disconnect from the WebSocket
-    WebSocketCDP.DisconnectCDP
-End Sub
-```
-
-### 💡 Application and Customization of Settings
-
-* **Changing the port number**:
-  By passing any port number as the fourth argument of `WebSocketCDP.AutoConnectPageCDP` (e.g., a port other than `9222`), you can flexibly connect to a browser waiting on a specific port, or to a browser inside an actual device such as an Android phone.
-* **Building on this code**:
-  You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
-* **About the connection types**:
-  Three types are provided: a specific page, the browser itself, and "the browser right in front of you." See the `WebSocket-based Demo` section for usage examples of each.
-
-### 🆕 WebSocket Mode Can Now Also Launch a Local Browser (v3.0.0〜)
-
-Until now, WebSocket mode was exclusively for "attaching to an already-running browser." As of v3.0.0, you can **launch a local browser and connect to it**, with no need to manually start the target browser beforehand. The easiest way (v3.1.0〜) is to pass `WebSocketMode:=True` to `ShSetting01_StartBrowser.StartCDPMode`.
-
-```vb
-Sub LaunchNewBrowserInWebSocketMode()
-    ' 1. Launch a local browser in WebSocket mode and connect to it in one go
-    Dim b As CDPBrowser
-    Set b = ShSetting01_StartBrowser.StartCDPMode(WebSocketMode:=True)
-
-    ' 2. Proceed as usual
-    Dim t As CDPContext
-    Set t = b.getTab(setMain:=True)
-    t.navigate "https://www.youtube.com/@islandfox6864"
-
-    ' 3. Done
-    b.quit
-End Sub
-```
-
-Internally, this automatically handles checking for policies that block remote debugging, cleaning up leftover sessions, and disabling the crash-recovery prompt.
-
----
-
-## 🌐 New Feature: Browser Control via WebView2 (v3.0.0〜)
-
-You can now **launch and control WebView2 directly from within Excel VBA's own memory space, with no external process (such as PowerShell) required.** This is the ace up the sleeve for the toughest environments yet — those where **neither a port nor a pipe** is permitted.
-
-```vb
-' Note: Some `ICoreWebView2Settings` properties only take effect before navigation.
-'       `ICoreWebView2EnvironmentOptions` settings only take effect before the WebView2 process starts.
-Sub EmbedWebView2InAnExcelUserForm()
-    With WebView2Form
-        ' 1. Apply pre-launch settings (optional)
-        .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
-
-        ' 2. Launch the WebView2 process
-        If Not .StartCDPModeWebView2 Then Debug.Print "Failed to initialize WebView2.": Exit Sub
-
-        ' 3. Apply pre-navigation settings (optional)
-        .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
-        .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
-
-        ' 4. Navigate, as CDP
-        ' SSO disabled: shows the Microsoft account introduction page
-        ' SSO enabled : auto-navigates to the settings page for the account currently signed in on this PC
-        .ThisCDPContext.navigate "https://account.microsoft.com/"
-
-        ' 5. Show the form (blocks until the UserForm is closed)
-        .show
-    End With
-End Sub
-```
-
-There are two moments when settings can be applied: **before launch** (via `EnvironmentOptions` — only read when the Environment is created, so changing it afterward has no effect) and **before navigation** (via `ICoreWebView2Settings`-family properties — a per-page setting, so it must be set before the next navigation). In the demo above, you can also see how toggling `Set_AllowSingleSignOnUsingOSPrimaryAccount` changes the outcome of navigating to the very same URL.
-
-Once embedded, the `CDPContext` (`ThisCDPContext`) / `CDPElement` API is **identical** to the Pipe and WebSocket versions. The bundled demo is `Demo_WebView2.WebView2OnExcelUserForm`.
-
-> [!NOTE]
-> The heart of this feature (the machine-code thunks and vtable calls) is ported directly from [WebView2-For-Excel-VBA](https://github.com/tarboh/WebView2-For-Excel-VBA) (by Tarboh). Our sincere thanks once again 🙏 For the full story behind this integration, see the [official documentation's development story](https://eschamali.github.io/StarterWebScrapingKit/stories/webview2-story).
-
----
-
-## 🎓 New Feature: Making Copilot Smarter with Excel's "`.Rules`" (v3.1.1〜)
+![.Rules sheet](https://github.com/user-attachments/assets/1fabf4a1-2898-4452-963c-3addea412e43)
 
 We've added a `.Rules` sheet, written in the [official format](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules) for Excel's built-in AI feature, "Copilot in Excel." Now, when you ask Copilot a web-scraping question about this workbook, it's steered toward answers based on **this workbook's own CDP/BiDi control features**, instead of the generic `SeleniumVBA`-flavored suggestions Copilot would otherwise default to.
 
