@@ -1222,7 +1222,14 @@ End Function
 ' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
+' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`CDPElement`から実行)
 '---------------------------------------------------------------------------------------
+'* 注意事項：・この`CDPElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
+'            ・先頭が`/`や`//`の場合は、先頭に`.`を自動付与します（例：`//div` → `.//div`＝配下の子孫）
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'              `.`無しの相対指定（eg.6の`div`等）は、Shadow-root内では意図通りに探せません
+'            ・Shadow-root は XPath の起点にできないため、内部では最初の子ノードを起点に、先頭へ`.`を足して`..`(＝Shadow-root)として評価しています
+'            ・複数取得版の`getElementsByXPath`も、同じ規則で Shadow-root 内の検索に対応しています
 '***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
@@ -1245,9 +1252,9 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-    '2. Check if strXPath has invalid // syntax
+    '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
     If Left$(strXPath, 1) = "/" Then
-        printMsg WARN_, "Note: '//' or '/' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
         strXPath = "." & strXPath
     End If
 
@@ -1284,10 +1291,17 @@ End Function
 '             https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・index for accessing the collection members start at one (not zero).
 '            ・複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・`getElementByXPath`と同じく、現在の要素を起点とした相対検索です。先頭が`/`や`//`の場合は、先頭に`.`を自動付与します
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'              `.`無しの相対指定は、Shadow-root内では意図通りに探せません。詳細は`getElementByXPath`の注意事項を参照してください
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
-    Const ChildrenSearchJS  As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null) }"
+    Const ChildrenSearchJS  As String = "function(xp){" & _
+                                        "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
+                                        "  var x = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? '.' + xp : xp;" & _
+                                        "  return document.evaluate(x, c, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)" & _
+                                        "}"
 
 
     'When ifExist is employed, the function should only execute if the element exists
@@ -1297,10 +1311,10 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '1. Verify double slash syntax
     strXPath = Replace(strXPath, "\", "/")
 
-    '2.Check if strXPath has invalid // syntax
-    If Left(strXPath, 2) = "//" Then
-        printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
-        strXPath = Right(strXPath, Len(strXPath) - 2)
+    '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
+    If Left$(strXPath, 1) = "/" Then
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
