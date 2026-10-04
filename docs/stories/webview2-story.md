@@ -331,3 +331,13 @@ vtableを1つ組み上げる大変さを味わったあとだと、不思議な�
 - [WebView2モードの設計思想について](/webview2/design) — 機械語サンク・vtableの技術詳細
 - [WebView2モードでできること](/webview2/capabilities) — 拡張機能・`EnvironmentOptions`の使い方
 - [Excel単独で「真のWebView2」を完全制御する](/userform/vba-only)
+
+<script setup>
+import { onContentUpdated } from 'vitepress'
+
+onContentUpdated(() => {
+  if (typeof window !== 'undefined' && window.twttr) {
+    window.twttr.widgets.load()
+  }
+})
+</script>
