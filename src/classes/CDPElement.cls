@@ -48,6 +48,22 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
     keyBackspace = 8
 End Enum
 
+'このノードが何であるかを識別します。これは様々なノードの種類、例えば elements、text、comments を見分けます
+Public Enum NodeNodeType
+    NodeELEMENT_NODE = 1            '<p> や <div> などの Element(要素) ノードです。
+    NodeATTRIBUTE_NODE              'タグの属性（class="..." 等）※昔はノード扱いだった
+    NodeTEXT_NODE                   'Element や Attr の中に存在する Text です。
+    NodeCDATA_SECTION_NODE          '<!CDATA[[ … ]]> のような CDATASection です。
+    NodeENTITY_REFERENCE_NODE       'XMLの実体参照（&hoge; の定義など）
+    NodeENTITY_NODE                 'XMLのDTD実体宣言
+    NodePROCESSING_INSTRUCTION_NODE '<?xml-stylesheet … ?> のような XML 文書の ProcessingInstruction(処理命令) です。
+    NodeCOMMENT_NODE                '<!-- … --> のような Comment ノードです。
+    NodeDOCUMENT_NODE               'Document ノードです。
+    NodeDOCUMENT_TYPE_NODE          '<!DOCTYPE html> のような DocumentType ノードです。
+    NodeDOCUMENT_FRAGMENT_NODE      'DocumentFragment(断片) ノードです。いわゆる、Shadow DOM の根っこなどです。
+    NodeNOTATION_NODE               'XMLのDTD表記法宣言
+End Enum
+
 
 
 '***************************************************************************************************
@@ -175,6 +191,15 @@ End Sub
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = CurrentElement.objectId
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`の`nodeType`値を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このClassで保持中の`ObjectId`の`nodeType`値
+'***************************************************************************************************
+Property Get CurrentNodeType() As NodeNodeType
+    CurrentNodeType = jsEval("function(){ return this.nodeType; }")
 End Property
 
 
