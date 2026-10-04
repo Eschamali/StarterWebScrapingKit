@@ -1,8 +1,8 @@
 ---
-description: WebDriver なしでブラウザ自動化できるとわかった経緯。公式ドライバーに頼らない BiDi 対応の登場秘話です。
+description: WebDriver なしでWebDriverBiDiが扱えるとわかった経緯。公式ドライバーに頼らない BiDi 対応の登場秘話です。
 ---
 
-# なぜ `WebDriver` なしでブラウザ自動化ができるとわかったのか
+# なぜ `WebDriver` なしでWebDriverBiDiが扱えるとわかったのか
 
 ::: tip 登場秘話
 〜公式ドライバーの闇を暴いた、土日の記録〜
@@ -16,14 +16,7 @@ description: WebDriver なしでブラウザ自動化できるとわかった経
 
 > 「CDP（Chrome DevTools Protocol）はChrome専用の独自仕様。将来性は WebDriver BiDi が上だ。」
 
-言っていることは正しい。でも、現場のリアルは少し違います。企業環境において自動化を阻む本当の壁は「ブラウザのインストール禁止」よりも、**「プリインストール以外のexeやNode.jsを情シスが許可しない」** という壁でした。
-
-Windowsの標準搭載とExcelのインフラ化が後押しし、以下の組み合わせで環境はすでに整っていました。
-
-- REST WebAPI → `WinHTTP 5.1`
-- ブラウザ自動操作 → `Edge-CDP via Pipe`
-- WebSocket通信 → `Winhttp.dll`
-
+言っていることは正しい。でも、現場のリアルは少し違います。企業環境において自動化を阻む本当の壁は「ブラウザのインストール禁止」よりも、**「プリインストール以外のexeやNode.jsを情シスが許可しない」** という壁でした。  
 それでも……**「将来性はBiDiが上」** という言葉が頭から離れなかった。
 
 ---
