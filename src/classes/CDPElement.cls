@@ -1230,6 +1230,7 @@ End Function
 '              `.`無しの相対指定（eg.6の`div`等）は、Shadow-root内では意図通りに探せません
 '            ・Shadow-root は XPath の起点にできないため、内部では最初の子ノードを起点に、先頭へ`.`を足して`..`(＝Shadow-root)として評価しています
 '            ・複数取得版の`getElementsByXPath`も、同じ規則で Shadow-root 内の検索に対応しています
+'            ・子要素が1つもない特殊なShadowDomには対応できません。その場合は従来通り、CSSルートで我慢してください
 '***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
