@@ -1226,8 +1226,11 @@ End Function
 '***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
-    Const ElementByXPathSearchJS    As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }"
-
+    Const ElementByXPathSearchJS    As String = "function(xp){" & _
+                                                "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
+                                                "  var x = (this.nodeType === 11) ? '.' + xp : xp;" & _
+                                                "  return document.evaluate(x, c, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue" & _
+                                                "}"
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -1243,9 +1246,9 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     strXPath = Replace(strXPath, "\", "/")
 
     '2. Check if strXPath has invalid // syntax
-    If Left(strXPath, 2) = "//" Then
-        printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
-        strXPath = Right(strXPath, Len(strXPath) - 2)
+    If Left$(strXPath, 1) = "/" Then
+        printMsg WARN_, "Note: '//' or '/' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
+        strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
