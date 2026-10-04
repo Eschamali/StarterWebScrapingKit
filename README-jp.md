@@ -114,6 +114,8 @@ End Sub
 
 #### 設定シートのセルで切り替える（ローカルブラウザの起動から接続まで）
 
+![WebSocket切り替えスイッチ](doc/WebSocketMode.png)
+
 ワークシート：ブラウザ起動設定の **「WebSocketモード」をONにするだけ** で、先ほどの基本のテンプレート（`StartCDPModeContext`など）が、Pipeの代わりにPort経由でブラウザを起動・接続します。コードは1文字も変える必要はありません。
 
 ```vb
@@ -176,6 +178,8 @@ End Sub
 ### 🥉 WebView2
 
 **外部プロセス（PowerShellなど）に一切頼らず、Excel VBAのメモリ空間だけでWebView2を直接起動・制御**できます。「Port も Pipe も使えない」という、これまでで一番厳しい制限環境向けの切り札です。
+
+![ExcelでWebView2を起動してる様子](doc/WebView2.png)
 
 ```vb
 '* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
@@ -393,6 +397,8 @@ Excelは、ファイルを開く時に、まず、この「刻印」があるか
 ---
 
 ## 🎓 Excel「`.Rules`」でCopilotをより使いやすく
+
+![.Rulesシート](https://github.com/user-attachments/assets/1fabf4a1-2898-4452-963c-3addea412e43)
 
 Excel公式のAI機能「Copilot in Excel」向けに、[所定のフォーマット](https://support.microsoft.com/ja-jp/excel/copilot/copilot-in-excel-rules)に沿った`.Rules`シートを新たに同梱しました。このブックについてWebスクレイピング関連の質問をCopilotに投げると、一般的な回答にありがちな `SeleniumVBA` 寄りの提案ではなく、**このブックに実装済みのCDP/BiDi制御機能を優先した回答**を引き出しやすくなります。
 
