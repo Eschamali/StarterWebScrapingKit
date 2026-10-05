@@ -88,7 +88,7 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '***************************************************************************************************
 Private Function ConnectToMaze() As Boolean
     '1. WebView2の追加起動引数を、既存の設定シートから準備
-    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.UseRangeID(3, "WebMCPMazeForm.ConnectToMaze")
+    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "WebMCPMazeForm.ConnectToMaze")
 
     '2. WebView2を起動
     If Not fWebView2.ConnectCDP(ShSetting01_StartBrowser.CurrentUserName, myEdgeFrameHwnd) Then Exit Function

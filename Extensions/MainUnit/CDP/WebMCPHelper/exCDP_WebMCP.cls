@@ -159,8 +159,6 @@ Public Sub Init(ThisCDPContext As CDPContext)
     '「WebMCPの監視をONにして！」と命令する
     ExecuteCDP "WebMCP.enable"
 
-    'ページ遷移時のToolListのリセットの監視に使います
-    m_CDPContext.pageEnable
 End Sub
 
 
@@ -423,5 +421,4 @@ End Sub
 Private Sub Class_Terminate()
     '監視をOFF
     ExecuteCDP "WebMCP.disable", StopCDPError:=False
-    m_CDPContext.pageEnable False
 End Sub
