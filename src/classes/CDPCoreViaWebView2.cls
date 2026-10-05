@@ -44,9 +44,19 @@ Attribute VB_Exposed = False
 '       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
 '       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
 '
-'   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見より)★
-'     ・コールバック待ち中(コマンド送信~完了、イベント購読中)にVBEでブレーク/ステップ実行中にリセットすると
-'       Excelがクラッシュする可能性がある(サンク技法そのものの制約)
+'   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見+実機検証より)★
+'     ・VBEの`Stop`やブレイクポイントで「静止している」状態(=ネイティブ呼び出しが完了して
+'       戻ってきた後の、普通のVBAコード行で止まっている状態)自体は安全。この状態のまま
+'       ブラウザ側からのコールバックを後で受け取っても、通常はクラッシュしない
+'     ・ただし、以下の2パターンは危険:
+'       (1) `.navigate`等、既定で「結果が来るまで内部でDoEventsループを回して待つ」同期系
+'           メソッドの呼び出し中(=その行そのもの)にブレークすると、ネイティブ呼び出しの
+'           真っ最中にVBEのデバッガが割り込む形になり、クラッシュする可能性がある
+'       (2) 静止ブレイク中でも、ページ操作やJS遷移等をきっかけに、常時購読中のCDPイベント
+'           (`InitSubscribeCdpEvent`参照)や保留中のコマンド完了通知が実際に飛んでくると、
+'           生の機械語サンク経由でVBAへ再入しようとしてクラッシュしうる
+'     ・上記(1)(2)いずれの状態でも、VBEで**リセット処理**を行うのはほぼ確実にクラッシュする
+'       (サンク領域やハンドラオブジェクトを解放し、ブラウザ側が保持中の生ポインタが無効化される)
 '     ・`OnCdpMethodCompleted`/`OnCdpEventReceived`の中から`ExecuteCDP`のような同期待ちの
 '       メソッドを呼ばないこと(再入デッドロックの原因になる)
 '       なお、このツールの場合は、COMスレッドによるCDPからのレスポンスをバッファーに格納後に即抜けし、
@@ -221,8 +231,8 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '1. 既にオブジェクトを持ってる場合は切断後、再開
     If Not (m_Host Is Nothing) Then DisconnectCDP
 
-    '2. ハンドル未指定の場合は、Excel自身を直接使用する
-    If AttachHwnd <= 0 Then AttachHwnd = Application.hWnd
+    '2. ハンドル未指定の場合は、Officeアプリ自身の`HWnd`を直接使用する
+    If AttachHwnd <= 0 Then AttachHwnd = GetApplicationHwnd
 
     '3. 専用のホストオブジェクトを新規作成
     Dim RunRes As Boolean
@@ -252,13 +262,19 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     '4. 正常に起動出来たか？
     If Not RunRes Then
-        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName
-
         Set m_Host = Nothing
+        printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
+
         Exit Function
     End If
 
-    '5. 成功サインを返す
+    '5. 必須のイベント購読を行う
+    InitSubscribeCdpEvent
+
+    '6. 接続ポインター情報を記録
+    serialize UserName
+
+    '7. 成功サインを返す
     ConnectCDP = True
 End Function
 
@@ -293,6 +309,36 @@ Private Sub DisposeEnvOptions()
         m_envOptions.CLOSE_
         Set m_envOptions = Nothing
     End If
+End Sub
+
+
+
+'***************************************************************************************************
+'                            ■■■ 設定情報読み書き処理 ■■■
+'***************************************************************************************************
+'* 機能　　：WebView2関連の接続情報をExcelテーブルに残します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName       利用者識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2は仕組みが複雑かつ名称と意味が不一致になるため、接続ポインター系は一律0です
+'***************************************************************************************************
+Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
+    '------------------ WebView2情報の記録 ------------------
+    '※プロセスIDのみ記録する
+    Dim tmp As New Dictionary
+    tmp.Add "hStdOutRd", 0
+    tmp.Add "hStderrOutRd", 0
+    tmp.Add "hStdInWr", 0
+    tmp.Add "hCDPOutRd", 0
+    tmp.Add "hCDPInWr", 0
+    tmp.Add "hProcess", 0
+    tmp.Add "dwProcessId", m_Host.BrowserProcessId
+
+    'Excelテーブルに、ハンドル情報を記録する
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 
@@ -548,9 +594,12 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・CDP-over-WebSocketと異なり、ドメインをenableしただけでは自動購読されません。
 '            　必要なイベント名ごとに、このメソッドを個別に呼び出してください。
-'            ・1つでも購読した場合、VBEの`Stop`やブレイクポイント中にリセット処理をすると、クラッシュします。
-'            　※`Stop`やブレイクポイント中によるデバック作業(ローカルウィンドウ拝見など)の場合は問題ありません
-'              どうしてもリセット処理が必要な場合は､イミディエイトウィンドウで、`UnsubscribeAllCdpEvents`で一旦解除したうえで、行ってください
+'            ・購読中のCDPイベントがある状態でVBEの`Stop`/ブレイクポイントに静止しているだけなら
+'              基本的に安全。ただし、その間にページ側の操作等で購読イベントが実際に発火すると
+'              クラッシュしうる。まして、この状態で**リセット処理**をするのは非常に危険で、
+'              ほぼ確実にクラッシュする
+'              ※どうしてもリセット処理が必要な場合は､イミディエイトウィンドウで、
+'              `UnsubscribeAllCdpEvents`により一旦解除したうえで、行ってください
 '            ・このイベント購読は、各SessionIDごとに適用する必要はありません。`.newtab`で複製しても購読情報は継承されます
 '***************************************************************************************************
 Public Function SubscribeCdpEvent(ByVal EventName As String) As Boolean
@@ -640,7 +689,6 @@ End Function
 '***************************************************************************************************
 Public Function UnsubscribeCdpEvent(ByVal EventName As String) As Boolean
     ' 1. 未購読なら即抜け
-    If m_subReceiver Is Nothing Then Exit Function
     If Not m_subReceiver.Exists(EventName) Then Exit Function
 
     ' 2. 対象購読イベントに紐づくレシーバーポインター/トークンを取り出す
@@ -674,22 +722,63 @@ End Function
 '            `UnsubscribeCdpEvent`を1件ずつ回すことで「一発解除」に見せているだけです。
 '***************************************************************************************************
 Public Function UnsubscribeAllCdpEvents() As Long
-    If m_subReceiver Is Nothing Then Exit Function
-
     '1. 購読中のイベント数を確認し、1つもない場合は、即抜け
     Dim N As Long: N = m_subReceiver.Count
     If N = 0 Then Exit Function
 
-    '2. 購読中のイベント名リストを取り出す
-    Dim EventNames
-    EventNames = m_subReceiver.keys
-
-    '3. Forで、１つずつ購読解除していく
-    Dim i As Long
-    For i = 0 To N - 1
-        If UnsubscribeCdpEvent(EventNames(i)) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
-    Next i
+    '2. 購読中のイベント名リストを取り出し、１つずつ購読解除していく
+    Dim EventName
+    For Each EventName In m_subReceiver.keys
+        If UnsubscribeCdpEvent(EventName) Then UnsubscribeAllCdpEvents = UnsubscribeAllCdpEvents + 1
+    Next
 End Function
+
+'***************************************************************************************************
+'* 機能　　：このツールで行う際の必須イベント購読処理を行います
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：購読中の状態でVBEの`Stop`/ブレイクポイントに静止している間、(a)ページ側の操作等で
+'            購読イベントが実際に発火した場合や、(b)そのままリセット処理をした場合、
+'            クラッシュする可能性があります
+'***************************************************************************************************
+Private Sub InitSubscribeCdpEvent()
+    '1. 各タブの生存/情報確認
+    SubscribeCdpEventErrorCheck "Target.detachedFromTarget"
+    SubscribeCdpEventErrorCheck "Target.targetCrashed"
+    SubscribeCdpEventErrorCheck "Target.targetDestroyed"
+    SubscribeCdpEventErrorCheck "Target.targetInfoChanged"
+    SubscribeCdpEventErrorCheck "Target.targetCreated"
+
+    '2. JavaScriptの`executionContextId`の追従
+    SubscribeCdpEventErrorCheck "Runtime.executionContextCreated"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextDestroyed"
+    SubscribeCdpEventErrorCheck "Runtime.executionContextsCleared"
+
+    '3. `document.readyState`の再現
+    SubscribeCdpEventErrorCheck "Page.frameStartedLoading"
+    SubscribeCdpEventErrorCheck "Page.domContentEventFired"
+    SubscribeCdpEventErrorCheck "Page.loadEventFired"
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：イベント購読処理の成功判定をチェックします
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：購読失敗時は、エラーで安全に止めます
+'***************************************************************************************************
+Private Sub SubscribeCdpEventErrorCheck(EventName As String)
+    Const FromProcedureName As String = ThisClassName & ".SubscribeCdpEventErrorCheck"
+
+
+    '成功判定に応じたログ表示
+    If SubscribeCdpEvent(EventName) Then
+        printMsg info_, "I have started subscribing to the `" & EventName & "` event.", FromProcedureName
+    Else
+        'クラッシュを防ぐため、全解除
+        UnsubscribeAllCdpEvents
+
+        'エラーで止める
+        printMsg ERROR_, "Event subscription for `" & EventName & "` failed. All event subscriptions have been removed for safe termination.", FromProcedureName, doRaiseError:=True
+    End If
+End Sub
 
 
 
@@ -793,19 +882,16 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：プロファイル名を取得します(読み取り専用)
 Property Get ProfileName() As String
-    If m_Host Is Nothing Then Exit Property
     ProfileName = m_Host.ProfileName
 End Property
 
 '* 機能　　：InPrivate(プライベート)モードが有効かどうかを取得します(読み取り専用)
 Property Get IsInPrivateModeEnabled() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsInPrivateModeEnabled = m_Host.IsInPrivateModeEnabled
 End Property
 
 '* 機能　　：プロファイルディレクトリの絶対パスを取得します(読み取り専用)
 Property Get ProfilePath() As String
-    If m_Host Is Nothing Then Exit Property
     ProfilePath = m_Host.ProfilePath
 End Property
 
@@ -850,7 +936,6 @@ End Property
 '            使えない(`Method not available`)ため、この専用APIを使う必要があります
 '***************************************************************************************************
 Public Function AddBrowserExtension(ByVal extensionFolderPath As String) As String
-    If m_Host Is Nothing Then Exit Function
     AddBrowserExtension = m_Host.AddBrowserExtension(extensionFolderPath)
 End Function
 
@@ -866,7 +951,6 @@ End Function
 '            Next ext
 '***************************************************************************************************
 Public Function GetBrowserExtensionIds() As Collection
-    If m_Host Is Nothing Then Exit Function
     Set GetBrowserExtensionIds = m_Host.GetBrowserExtensionIds()
 End Function
 
@@ -881,7 +965,6 @@ End Function
 '            `Remove`という2段構えになります(CDPの`Extensions.uninstall`は使えないため代替不可)
 '***************************************************************************************************
 Public Function RemoveBrowserExtension(ByVal extensionId As String) As Boolean
-    If m_Host Is Nothing Then Exit Function
     RemoveBrowserExtension = m_Host.RemoveBrowserExtension(extensionId)
 End Function
 
@@ -897,7 +980,6 @@ End Function
 Public Function SetVirtualHostNameToFolderMapping(ByVal hostname As String, ByVal FolderPath As String, _
     Optional ByVal accessKind As WV2HostResourceAccessKind = HostAccess_Allow) As Boolean
 
-    If m_Host Is Nothing Then Exit Function
     SetVirtualHostNameToFolderMapping = m_Host.SetVirtualHostNameToFolderMapping(hostname, FolderPath, accessKind)
 End Function
 
@@ -917,37 +999,31 @@ End Property
 '---------------------------------------------------------------------------------------------------
 '* 機能　　：現在表示中のページのURLを取得します(読み取り専用)
 Property Get Source() As String
-    If m_Host Is Nothing Then Exit Property
     Source = m_Host.Source
 End Property
 
 '* 機能　　：このWebView2が使用しているブラウザプロセスのプロセスIDを取得します(読み取り専用)
 Property Get BrowserProcessId() As Long
-    If m_Host Is Nothing Then Exit Property
     BrowserProcessId = m_Host.BrowserProcessId
 End Property
 
 '* 機能　　：`GoBack`で戻れる履歴があるかどうかを取得します(読み取り専用)
 Property Get CanGoBack() As Boolean
-    If m_Host Is Nothing Then Exit Property
     CanGoBack = m_Host.CanGoBack
 End Property
 
 '* 機能　　：`GoForward`で進める履歴があるかどうかを取得します(読み取り専用)
 Property Get CanGoForward() As Boolean
-    If m_Host Is Nothing Then Exit Property
     CanGoForward = m_Host.CanGoForward
 End Property
 
 '* 機能　　：現在のページの`<title>`タグの内容(ページタイトル)を取得します(読み取り専用)
 Property Get DocumentTitle() As String
-    If m_Host Is Nothing Then Exit Property
     DocumentTitle = m_Host.DocumentTitle
 End Property
 
 '* 機能　　：ページ内で全画面表示中の要素が存在するかどうかを取得します(読み取り専用)
 Property Get ContainsFullScreenElement() As Boolean
-    If m_Host Is Nothing Then Exit Property
     ContainsFullScreenElement = m_Host.ContainsFullScreenElement
 End Property
 
@@ -955,14 +1031,12 @@ End Property
 '* 機能　　：`SetVirtualHostNameToFolderMapping`で設定したマッピングを解除します(ICoreWebView2_3以降)
 '***************************************************************************************************
 Public Sub ClearVirtualHostNameToFolderMapping(ByVal hostname As String)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.ClearVirtualHostNameToFolderMapping hostname
 End Sub
 
 '* 機能　　：`TrySuspend`によりサスペンド状態にされているかどうかを取得します
 '            (ICoreWebView2_3以降、読み取り専用)
 Property Get IsSuspended() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsSuspended = m_Host.IsSuspended
 End Property
 
@@ -970,7 +1044,6 @@ End Property
 '* 機能　　：WebView2インスタンス全体の音声出力をミュートするか切り替えます(ICoreWebView2_8以降)
 '***************************************************************************************************
 Property Let IsMuted(v As Boolean)
-    If m_Host Is Nothing Then Exit Property
     m_Host.IsMuted = v
 End Property
 
@@ -978,14 +1051,12 @@ End Property
 '* 機能　　：現在ドキュメントが音声を再生中かどうかを取得します(ICoreWebView2_8以降、読み取り専用)
 '***************************************************************************************************
 Property Get IsDocumentPlayingAudio() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsDocumentPlayingAudio = m_Host.IsDocumentPlayingAudio
 End Property
 
 '* 機能　　：既定のダウンロードダイアログが現在開いているかどうかを取得します
 '            (ICoreWebView2_9以降、読み取り専用)
 Property Get IsDefaultDownloadDialogOpen() As Boolean
-    If m_Host Is Nothing Then Exit Property
     IsDefaultDownloadDialogOpen = m_Host.IsDefaultDownloadDialogOpen
 End Property
 
@@ -994,7 +1065,6 @@ End Property
 '            (ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub OpenDefaultDownloadDialog()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.OpenDefaultDownloadDialog
 End Sub
 
@@ -1002,7 +1072,6 @@ End Sub
 '* 機能　　：既定のダウンロードダイアログを閉じます(ICoreWebView2_9以降)
 '***************************************************************************************************
 Public Sub CloseDefaultDownloadDialog()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.CloseDefaultDownloadDialog
 End Sub
 
@@ -1010,7 +1079,6 @@ End Sub
 '* 機能　　：既定のダウンロードダイアログを表示するコーナー位置を設定します(ICoreWebView2_9以降)
 '***************************************************************************************************
 Property Let DefaultDownloadDialogCornerAlignment(v As WV2DownloadDialogCornerAlignment)
-    If m_Host Is Nothing Then Exit Property
     m_Host.DefaultDownloadDialogCornerAlignment = v
 End Property
 
@@ -1020,7 +1088,6 @@ End Property
 '* 引数    ：x/y  `DefaultDownloadDialogCornerAlignment`で指定したコーナーからのオフセット(px)
 '***************************************************************************************************
 Public Sub SetDefaultDownloadDialogMargin(x As Long, y As Long)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.SetDefaultDownloadDialogMargin x, y
 End Sub
 
@@ -1029,7 +1096,6 @@ End Sub
 '            (ICoreWebView2_12以降、読み取り専用)
 '***************************************************************************************************
 Property Get StatusBarText() As String
-    If m_Host Is Nothing Then Exit Property
     StatusBarText = m_Host.StatusBarText
 End Property
 
@@ -1037,7 +1103,6 @@ End Property
 '* 機能　　：現在のページのfavicon URIを取得します(ICoreWebView2_15以降、読み取り専用)
 '***************************************************************************************************
 Property Get FaviconUri() As String
-    If m_Host Is Nothing Then Exit Property
     FaviconUri = m_Host.FaviconUri
 End Property
 
@@ -1045,7 +1110,6 @@ End Property
 '* 機能　　：タスクマネージャーウィンドウを開きます(ICoreWebView2_6以降)
 '***************************************************************************************************
 Public Sub OpenTaskManagerWindow()
-    If m_Host Is Nothing Then Exit Sub
     m_Host.OpenTaskManagerWindow
 End Sub
 
@@ -1053,7 +1117,6 @@ End Sub
 '* 機能　　：印刷ダイアログを表示します(ICoreWebView2_16以降)
 '***************************************************************************************************
 Public Sub ShowPrintUI(Optional kind As WV2PrintDialogKind = PrintDialog_Browser)
-    If m_Host Is Nothing Then Exit Sub
     m_Host.ShowPrintUI kind
 End Sub
 
@@ -1061,7 +1124,6 @@ End Sub
 '* 機能　　：WebViewの目標メモリ使用量レベルを設定します(ICoreWebView2_19以降)
 '***************************************************************************************************
 Property Let MemoryUsageTargetLevel(v As WV2MemoryUsageTargetLevel)
-    If m_Host Is Nothing Then Exit Property
     m_Host.MemoryUsageTargetLevel = v
 End Property
 
@@ -1069,14 +1131,12 @@ End Property
 '* 機能　　：WebViewの目標メモリ使用量レベルを取得します(ICoreWebView2_19以降)
 '***************************************************************************************************
 Property Get MemoryUsageTargetLevel() As WV2MemoryUsageTargetLevel
-    If m_Host Is Nothing Then Exit Property
     MemoryUsageTargetLevel = m_Host.MemoryUsageTargetLevel
 End Property
 
 '* 機能　　：このICoreWebView2インスタンスが指すフレームの一意なID(CDPの`frameId`に相当)を
 '            取得します(ICoreWebView2_20以降、読み取り専用)
 Property Get frameID() As Long
-    If m_Host Is Nothing Then Exit Property
     frameID = m_Host.frameID
 End Property
 
@@ -1084,7 +1144,6 @@ End Property
 '* 機能　　：使用中のWebView2ランタイム(Edge)のバージョン文字列を取得します(読み取り専用)
 '***************************************************************************************************
 Property Get BrowserVersionString() As String
-    If m_Host Is Nothing Then Exit Property
     BrowserVersionString = m_Host.BrowserVersionString
 End Property
 
@@ -1096,7 +1155,6 @@ End Property
 '                   `False`：VBA側による手動判定結果を利用します。こちらのルートでは、「\EBWebView」補正を考慮します
 '***************************************************************************************************
 Property Get userDataFolder(Optional AsIs As Boolean = True) As String
-    If m_Host Is Nothing Then Exit Property
     userDataFolder = IIf(AsIs, m_Host.userDataFolder, m_Host.getUserDataDirPath)
 End Property
 
@@ -1105,7 +1163,6 @@ End Property
 '            (ICoreWebView2Environment11以降、読み取り専用)
 '***************************************************************************************************
 Property Get FailureReportFolderPath() As String
-    If m_Host Is Nothing Then Exit Property
     FailureReportFolderPath = m_Host.FailureReportFolderPath
 End Property
 
@@ -1227,7 +1284,9 @@ End Property
 
 
 '***************************************************************************************************
-'                                  ■■■ ログヘルパー ■■■
+'                                  ■■■ 各種ヘルパー ■■■
+'***************************************************************************************************
+'* 機能　　：ファイル名指定を省略したログ出力プロシージャです
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     Const LogFileExtension As String = ".WebView2.log"
@@ -1235,6 +1294,24 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
 
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
+
+'***************************************************************************************************
+'* 機能    ：ExcelでもAccessでも、手修正なしで本体のウィンドウハンドルを取得します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：このツールは、Access/Excelでも使えるコードにしてる都合上、このような分岐を設けています
+'***************************************************************************************************
+Private Function GetApplicationHwnd() As LongPtr
+    On Error Resume Next
+
+    ' ① まず Excel かな？ と疑って呼んでみる（Accessだとエラーになるが無視してスルー）
+    GetApplicationHwnd = CallByName(Application, "Hwnd", VbGet)
+    If GetApplicationHwnd <> 0 Then Exit Function
+
+    ' ② ダメなら Access かな？ と疑って呼んでみる（Excelだとエラーになるがスルー）
+    GetApplicationHwnd = CallByName(Application, "hWndAccessApp", VbGet)
+
+    On Error GoTo 0
+End Function
 
 
 
@@ -1251,9 +1328,9 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "WVID" & Format(Rnd * 1000, "000")                                     'ユニークID
-        .seeRawSendMsgDbg = ShSetting01_StartBrowser.UseRangeID(8, FromProcedureName)   '`OnCdpMethodCompleted`のRaw表示
-        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)            'ログフォルダパス
+        .LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
+        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
     End With
 End Sub
 

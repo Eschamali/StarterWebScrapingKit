@@ -14,9 +14,10 @@ Attribute VB_Name = "WebView2Thunks"
 '       DevToolsProtocolEventReceivedEventHandler の実IIDを追加した
 '
 '   ★重要(既知の落とし穴、継承不可避)★
-'     ・全てのCOMコールバックはこのモジュールの機械語サンクを経由する。VBEでブレーク/
-'       ステップ実行するタイミングによっては、Excelがクラッシュする可能性がある
-'       (コールバック待ち中はブレークしないこと)
+'     ・全てのCOMコールバックはこのモジュールの機械語サンクを経由する。ブレークで静止している
+'       だけの状態は基本的に安全だが、(1)このモジュール経由のネイティブ呼び出しの実行中(行の
+'       途中)にブレークが刺さった場合や、(2)静止中にブラウザ側から新規コールバックが実際に
+'       飛んできた場合はクラッシュする可能性がある。まして、これらの状態でのリセット操作は厳禁
 '     ・`WritePtrNatively`の引数は`LONG_PTR`(`LongPtr`ではない)。実行時エラーの原因になる
 '***************************************************************************************************
 Option Explicit
@@ -95,8 +96,10 @@ Private Declare PtrSafe Function DispCallFunc Lib "oleaut32" ( _
     ByRef pvargResult As Any) As Long
 
 ' --- 文字列ヘルパー用API ---
-Private Declare PtrSafe Function lstrlenW Lib "kernel32" ( _
-    ByVal lpString As LongPtr) As Long
+Private Declare PtrSafe Function SysReAllocString Lib "oleaut32" ( _
+    ByVal pbstr As LongPtr, _
+    ByVal psz As LongPtr _
+) As Long
 
 Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" ( _
     ByVal pv As LongPtr)
@@ -893,12 +896,7 @@ End Function
 '            変換後に`CoTaskMemFree`で解放する責任を持つ(`GetStringProperty`は一括で行う)
 '***************************************************************************************************
 Public Function PtrToString(ByVal p As LongPtr) As String
-    If p = 0 Then Exit Function
-    Dim cch As Long
-    cch = lstrlenW(p)
-    If cch = 0 Then Exit Function
-    PtrToString = String$(cch, vbNullChar)
-    lstrcpyW StrPtr(PtrToString), p
+    If p <> 0 Then SysReAllocString VarPtr(PtrToString), p
 End Function
 
 '* 機能　　：`HRESULT get_Xxx([out,retval] LPWSTR *value)`形のCOMメソッドを呼び、Stringで返します

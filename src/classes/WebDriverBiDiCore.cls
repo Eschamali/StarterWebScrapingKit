@@ -24,7 +24,7 @@ Option Explicit
 '***************************************************************************************************
 '「BiDi-CDP Mapper」に関する情報
 Private Const ThisClassName As String = "WebDriverBiDiCore"             'ログのトレース用
-Private Const MapperURL     As String = "about:blank#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
+Private Const MapperURL     As String = EmptyPageName & "#" & ThisClassName  '`BiDi-CDP Mapper`の目印URL
 Private Const BiDiResDebug  As String = "sendDebugMessage"              '`BiDi-CDP Mapper`内のJSがデバッグ情報を返す際の関数名(chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiResMain   As String = "sendBidiResponse"              '`BiDi-CDP Mapper`内のJSが結果を返す際の関数名        (chromium-bidi\src\bidiServer\MapperCdpConnection.ts に基づく名称)
 Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-CDP Mapper`へコマンド送信する際の関数名        (chromium-bidi\src\bidiTab\bidiTab.ts#L45)
@@ -73,45 +73,43 @@ Private currentLog      As StateLog
 '***************************************************************************************************
 '* 機能　　：「BiDi-CDP Mapper」を付けた状態で、ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：Name                           ブラウザ種別（`BrowserList.RunChrome` / `BrowserList.RunEdge`）
-'            appUrl                         最初の起動時に遷移したいURL
-'            userProfile                    UserDataDir名を指定します
-'            addArgs                        追加の起動引数を設けます
-'            sessionCapabilitiesRequest     `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 返り値　：起動時の初期URL
+'* 引数　　：UserName           記録する識別名称
+'            appUrl             `-app`に渡すURL
+'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
+'            addArgs            追加引数
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Sub InitBiDi(Optional Name As BrowserList = BrowserList.RunChrome, _
-    Optional appUrl As String, _
-    Optional userProfile As String, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary)
-
+Public Function InitBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
     '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    m_CDPBrowser.start Name, appUrl, userProfile, addArgs
+    InitBiDi = m_CDPBrowser.start(UserName, appUrl, SplashScreenMode, addArgs)
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.ThisCDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi
+    newTabForBiDi UserName
 
     '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
-End Sub
+End Function
 
 '***************************************************************************************************
 '* 機能　　：新規タブにて、`BiDi-CDP Mapper`環境を準備します
 '---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   Excelに記録させるメインセッション情報のユーザー名
+'---------------------------------------------------------------------------------------------------
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
-Private Sub newTabForBiDi()
+Private Sub newTabForBiDi(UserName As String)
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
@@ -136,22 +134,44 @@ Private Sub newTabForBiDi()
         '4. 得た`targetId`で、`sessionId`を取得
         Dim sessionID As String
         sessionID = .attachToTab(tabId)
-
-        '5. Excelに、BiDiMapperTab情報を記録してメイン化しておく
-        .serializeForMainTab sessionID, tabId
     End With
 
-    '6. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
+    '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
-        '6-1. このブラウザのパイプハンドル情報を渡す
+        '5-1. このブラウザのパイプハンドル情報を渡す
         Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
 
-        '6-2. このブラウザ情報を渡す
+        '5-2. このブラウザ情報を渡す
         Set .ThisCDPBrowser = m_CDPBrowser
 
-        '6-3. 先ほど得た`sessionId`を渡す
+        '5-3. 先ほど得た`sessionId`を渡す
+        '内部で以下のフローが行われます
+        '- `Target.getTargetInfo`で、ステータスを更新
         .CurrentSessionID = sessionID
+    End With
+
+    '6. Excelに、BiDiMapperTab情報を記録してメイン化しておく
+    With ShSetting01_StartBrowser
+        '6-1. リアタッチを想定して、既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
+        Dim BiDiMapperInfo As Dictionary
+        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+
+        '6-2. 記録準備
+        If BiDiMapperInfo Is Nothing Then
+            '新規に用意
+            Set BiDiMapperInfo = New Dictionary
+            BiDiMapperInfo.Add "sessionID", sessionID
+            BiDiMapperInfo.Add "targetID", tabId
+            BiDiMapperInfo.Add "BiDi-context", vbNullString  'この時点ではまだ、メインBiDi-context情報は確定できないので、枠だけ用意
+        Else
+            '取れた場合は既に`BiDi-context`Keyはあるので、CDP情報だけ上書き
+            BiDiMapperInfo("sessionID") = sessionID
+            BiDiMapperInfo("targetID") = tabId
+        End If
+
+        '6-3. 実際に記録
+        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
     End With
 
     '7. ログ化
@@ -226,6 +246,7 @@ End Sub
 '* 機能説明：あとから、`BiDi-CDP Mapper`セッションに再接続する際に使い、セッション確立まで担います
 '* 注意事項：・以前のタブが失ってもブラウザハンドル情報が生きてる場合は、新しいタブとして復旧し、再開します
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
+'            ・`SessionID`は常に更新させます
 '***************************************************************************************************
 Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
@@ -239,7 +260,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     If WebSocketMode Is Nothing Then
         mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
     Else
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, WebSocketMode)
+        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, ConnectInfo:=WebSocketMode)
     End If
 
     '3. 各種オブジェクトを継承
@@ -292,7 +313,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
-        newTabForBiDi
+        newTabForBiDi userProfile
 
         '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
@@ -379,7 +400,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ BiDiコマンド実行前の下準備 ■■■
 '***************************************************************************************************
-'* 機能　　：CDP実行前の組み立てを行います
+'* 機能　　：BiDi実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行コマンドID
 '* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
@@ -443,8 +464,9 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：BiDiJsonString         1件分のBiDiの生JSON文字列
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：イベントデータ or CDP-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で発信します
-'* 注意事項；構文エラーの場合、不整合により不安定につながるため、エラーで停止します
+'* 詳細説明：イベントデータ or BiDi-Jsonコマンド結果 or 構文エラー の確認をし、各種`RaiseEvent`で発信します
+'* 注意事項；・構文エラーの場合、不整合により不安定につながるため、エラーで停止します
+'            ・CDPと違い、ブラウザ単位かタブ単位かの判別は`params`まで探らないと行けないためここでは、コマンド結果あるいは、イベントで判別します
 '***************************************************************************************************
 Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
     Const FromProcedureName As String = ThisClassName & ".BiDiReceivedDataCheck"
@@ -617,8 +639,8 @@ End Function
 '***************************************************************************************************
 Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Boolean
     'リクエストパラメーターを設定する
-    Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
-    With リクエスト情報一式
+    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
+    With HttpRequestInfos
         'GET
         .Method = vbWebHttpGet
 
@@ -632,7 +654,7 @@ Public Function UpdateFromNPMFile(Optional Version As String = "latest") As Bool
     End With
 
     'リクエストして、結果を返す
-    With jsDelivrへリクエスト(リクエスト情報一式, True)
+    With RequestToJsDelivr(HttpRequestInfos, True)
         '200確認
         If .StatusCode = vbWebStatusOk Then
             'テーブルに置く作業
@@ -663,8 +685,8 @@ Public Function UpdateCheckNPMVersion() As String
     Dim ResultResponse As WebResponse
 
     'リクエストパラメーターを設定する
-    Dim リクエスト情報一式 As WebRequest: Set リクエスト情報一式 = New WebRequest
-    With リクエスト情報一式
+    Dim HttpRequestInfos As WebRequest: Set HttpRequestInfos = New WebRequest
+    With HttpRequestInfos
         'GET
         .Method = vbWebHttpGet
 
@@ -676,7 +698,7 @@ Public Function UpdateCheckNPMVersion() As String
     End With
 
     'リクエストして、結果を返す
-    With jsDelivrへリクエスト(リクエスト情報一式, False)
+    With RequestToJsDelivr(HttpRequestInfos, False)
         '200確認
         If .StatusCode = vbWebStatusOk Then
             UpdateCheckNPMVersion = .Data("tags")("latest")
@@ -694,7 +716,7 @@ End Function
 '            GetContents                        `True` :ファイルそのもの用のホストととして
 '                                               `False`:バージョン確認用のホストととして
 '***************************************************************************************************
-Private Function jsDelivrへリクエスト(リクエスト情報一式 As WebRequest, GetContents As Boolean) As WebResponse
+Private Function RequestToJsDelivr(HttpRequestInfos As WebRequest, GetContents As Boolean) As WebResponse
     'エンドポイント通信の設定
     Dim EndPointAPI As New WebClient
     With EndPointAPI
@@ -704,7 +726,7 @@ Private Function jsDelivrへリクエスト(リクエスト情報一式 As WebRe
     End With
 
     'リクエスト設定とホスト設定を使ってリクエストし、結果を返します
-    Set jsDelivrへリクエスト = EndPointAPI.Execute(リクエスト情報一式)
+    Set RequestToJsDelivr = EndPointAPI.Execute(HttpRequestInfos)
 End Function
 
 
@@ -721,8 +743,8 @@ Private Sub Class_Initialize()
 
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser
-        BiDiDebug.ViewDebugTab = .UseRangeID(11, FromProcedureName)    '`BiDi-CDP Mapper`のコンソールタブを表示するか？
-        BiDiDebug.DiagnosticLog = .UseRangeID(13, FromProcedureName)     'Mapper内部のデバッグログを記録するか？
+        BiDiDebug.ViewDebugTab = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)           '`BiDi-CDP Mapper`のコンソールタブを表示するか？
+        BiDiDebug.DiagnosticLog = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
     End With
 End Sub
 

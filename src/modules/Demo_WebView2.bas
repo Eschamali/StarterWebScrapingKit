@@ -14,6 +14,7 @@ Option Private Module
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・`ICoreWebView2Settings`等の一部設定は、ページ遷移前のみ有効です
 '            ・`ICoreWebView2EnvironmentOptions`の設定は、WebView2プロセス起動前のみ有効です
+'            ・このツール内部で使う非同期イベントは予め購読済みですが追加のイベント購読は、手動で行う必要があります。`RunTestAlertDemo`がその例です
 '***************************************************************************************************
 Sub WebView2OnExcelUserForm()
     With WebView2Form
@@ -27,6 +28,7 @@ Sub WebView2OnExcelUserForm()
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
         .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+        .ThisWebView2.StatusBarEnabled = False      '左下に出るステータステキストを表示しない
 
         '3. CDPとして、ページ遷移
         'シングルサインオンを無効：Microsoftアカウントの紹介
@@ -572,10 +574,7 @@ Sub RunTestAlertDemo()
         '2. Seleniumの公式テストページ(alert/confirm/promptが揃っている)へ遷移
         .ThisCDPContext.navigate "https://www.selenium.dev/selenium/web/alerts.html"
 
-        '3. 必要なドメインを有効化
-        .ThisCDPContext.ExecuteCDP "Page.enable"
-
-        '4. ★ここがWebView2特有の必須ポイント★ イベント名ごとの個別購読
+        '3. ★ここがWebView2特有の必須ポイント★ イベント名ごとの個別購読
         '   これをコメントアウトすると、`Page.javascriptDialogOpening`が届かなくなり再現できます
         .ThisWebView2.SubscribeCdpEvent "Page.javascriptDialogOpening"
 '        'コメントアウトすると↓の`Do...Loop`が無限待機になることを確認できます
@@ -595,14 +594,14 @@ Sub RunTestAlertDemo()
                 Case 3: TargetXpath = "prompt"
             End Select
 
-            ' --- 5. 非同期でコマンド実行(Jsのクリック処理) ---
+            ' --- 4. 非同期でコマンド実行(Jsのクリック処理) ---
             'この瞬間、JavaScriptの`alert`/`confirm`/`prompt`関数が発動されます
             .ThisCDPContext.jsEval "document.getElementById('" & TargetXpath & "').click()", RunAsyncCDP:=True
 
-            ' --- 6. イベントキャプチャを有効化 ---
+            ' --- 5. イベントキャプチャを有効化 ---
             Set .ThisCDPContext.BrowserEvents = New Dictionary
 
-            ' --- 7. 特定のイベント名が出るまでループ ---
+            ' --- 6. 特定のイベント名が出るまでループ ---
             Const SearchEventName As String = "Page.javascriptDialogOpening"
             Do
                 '非同期イベントを取り出す
@@ -623,7 +622,7 @@ Sub RunTestAlertDemo()
                 End If
             Loop While True
 
-            ' --- 8. ダイアログに反応しておく ---
+            ' --- 7. ダイアログに反応しておく ---
             paramsCDP.RemoveAll
             paramsCDP.Add "accept", True
             paramsCDP.Add "promptText", 入力文字内容

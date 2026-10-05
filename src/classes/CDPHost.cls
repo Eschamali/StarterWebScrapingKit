@@ -47,6 +47,24 @@ Private Declare PtrSafe Function OpenProcess Lib "kernel32" ( _
 '***************************************************************************************************
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
+'起動する Chromium 系ブラウザ
+Private Enum BrowserList
+    '未設定用
+    NoPreset = -1
+
+    ' Edge 系
+    RunEdge_Stable
+    RunEdge_Beta
+    RunEdge_Dev
+    RunEdge_Canary
+
+    ' Chrome 系
+    RunChrome_Stable
+    RunChrome_Beta
+    RunChrome_Dev
+    RunChrome_Canary
+End Enum
+
 '===============レジストリ関連の定数===============
 ' ルートキー
 Private Const HKEY_LOCAL_MACHINE    As Long = &H80000002    'このPCの、"すべて"のユーザー
@@ -65,9 +83,13 @@ Private Const PROCESS_TERMINATE                 As Long = &H1&
 Private Const PROCESS_QUERY_LIMITED_INFORMATION As Long = &H1000&
 Private Const SYNCHRONIZE                       As Long = &H100000
 
+'スプラッシュ起動画面のタイトル部分 ※`--app`で起動時のみ
+Private Const SplashTitle               As String = "Starting CDP control from VBA..."
+
 'その他
-Private Const ThisClassName             As String = "CDPHost"           'ログのトレース用
-Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"
+Private Const ThisClassName             As String = "CDPHost"               'ログのトレース用
+Private Const WebSocketInfoFileName     As String = "DevToolsActivePort"    'アクティブなデバックポート情報が記載されてるファイル名
+Private Const DebugModeSign             As String = "remote-debugging"      'デバッグブラウザサイン引数
 
 
 
@@ -98,18 +120,63 @@ Private currentLog      As StateLog
 
 
 '***************************************************************************************************
+'                       ■■■ Enum → 文字列 変換プロシージャ ■■■
+'***************************************************************************************************
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ブラウザ種別をexe名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_exeName(param As BrowserList) As String
+    Select Case param
+        Case RunChrome_Stable, RunChrome_Beta, RunChrome_Dev, RunChrome_Canary: EnumToStringBrowserList_exeName = "chrome.exe"
+        Case RunEdge_Stable, RunEdge_Beta, RunEdge_Dev, RunEdge_Canary:         EnumToStringBrowserList_exeName = "msedge.exe"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ポリシー情報のあるブラウザ種別を相対レジストリキーパス名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_RegPath(param As BrowserList) As String
+    Select Case param
+        Case RunChrome_Stable, RunChrome_Beta, RunChrome_Dev, RunChrome_Canary: EnumToStringBrowserList_RegPath = "\Google\Chrome"
+        Case RunEdge_Stable, RunEdge_Beta, RunEdge_Dev, RunEdge_Canary:         EnumToStringBrowserList_RegPath = "\Microsoft\Edge"
+    End Select
+End Function
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 開発レベル×ブラウザ種別を相対フォルダパス名で返します
+'---------------------------------------------------------------------------------------------------
+Private Function EnumToStringBrowserList_BrowserPath(param As BrowserList) As String
+    Select Case param
+        'Chome
+        Case RunChrome_Stable:  EnumToStringBrowserList_BrowserPath = "\Google\Chrome"
+        Case RunChrome_Beta:    EnumToStringBrowserList_BrowserPath = "\Google\Chrome Beta"
+        Case RunChrome_Dev:     EnumToStringBrowserList_BrowserPath = "\Google\Chrome Dev"
+        Case RunChrome_Canary:  EnumToStringBrowserList_BrowserPath = "\Google\Chrome SxS"
+
+        'Edge
+        Case RunEdge_Stable:    EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge"
+        Case RunEdge_Beta:      EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge Beta"
+        Case RunEdge_Dev:       EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge Dev"
+        Case RunEdge_Canary:    EnumToStringBrowserList_BrowserPath = "\Microsoft\Edge SxS"
+
+        'カスタムパス系
+        Case Else:              EnumToStringBrowserList_BrowserPath = "\Microsoft\Office\16.0\Wef\Chromium" 'Officeのワークスペースフォルダを流用
+    End Select
+End Function
+
+
+
+'***************************************************************************************************
 '                                   ■■■ 起動前準備 ■■■
 '***************************************************************************************************
 '* 機能　　：このClassが機能する必要な情報を渡します
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：UserName       記録する識別名称
-'            BrowserType    ブラウザタイプ
 '            UsePipe        Port経由で制御する場合は`False`
 '***************************************************************************************************
-Friend Sub InitInfo(UserName As String, BrowserType As BrowserList, UsePipe As Boolean)
+Friend Sub InitInfo(UserName As String, UsePipe As Boolean)
     '各種情報反映
     DebugUserName = UserName
-    UserBrowserMode = BrowserType
     PipeMode = UsePipe
 End Sub
 
@@ -145,7 +212,7 @@ Public Sub cleanUpSessions()
                 printMsg Debug_, "The `UserDataDir` policy is in effect, so all running browser instances will be terminated..." & proc.CommandLine, FromProcedureName
                 proc.Terminate
 
-            ElseIf InStr(1, proc.CommandLine, GenerateArgRemoteDebugging) > 0 And InStr(1, proc.CommandLine, GenerateArgUserDataDir) > 0 Then
+            ElseIf InStr(1, proc.CommandLine, DebugModeSign) > 0 And InStr(1, proc.CommandLine, GenerateArgUserDataDir) > 0 Then
                 '6. デバッグブラウザ(CdpSessions)であるかつ、対象ユーザー名なら、Killします
                 printMsg Debug_, "Detect debug browser: " & proc.CommandLine, FromProcedureName
                 printMsg Debug_, "I'm going to kill that browser.", FromProcedureName
@@ -214,64 +281,50 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：利用するブラウザパスを取得します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：ブラウザパス　 ※失敗時は、`vbnullstring`で返します
+'* 返り値　：ブラウザパス
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：カスタムパスルートの場合は、exe名を含むフルパスを前提とします
 '***************************************************************************************************
 Property Get getBrowserPath() As String
     Const FromProcedureName As String = ThisClassName & ".getBrowserPath"
 
 
-    Dim AppPathName As String
-    AppPathName = EnumToStringBrowserList_exeName(UserBrowserMode)
-
-    '1. カスタムパスの指定があったらそっちを優先
+    '1. カスタムパスの指定があったらそっちを最優先
     With ShSetting01_StartBrowser
-        If LenB(.UseRangeID(1, FromProcedureName)) Then
-            '1-1. カスタムパスを指定(ポータブル版ブラウザなど)
-            getBrowserPath = .UseRangeID(1, FromProcedureName)
+        If LenB(.GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)) Then
+            'そのカスタムパスとして返却(ポータブル版ブラウザ等)
+            getBrowserPath = .GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)
 
-        Else
-            '1-1. 必要な変数を用意
-            Dim strKeyPath      As String   'ベースパス
-            Dim ValueSize       As Long     '値の大きさ
-
-            '1-2. ブラウザのインストールパスが記録されてるレジストリ場所を指定
-            strKeyPath = "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" & AppPathName
-
-            '1-3. レジストリから、ブラウザインストールパスを特定
-            '※文字列で取るので仕組み上まず、文字数チェックを行います
-            If RegGetValueW(HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, 0, ValueSize) = RRF_SUCCESS Then
-                '1-4. 得た文字数を基に改めて、値の中身を取り出しつつ、末尾の`vbNullChar`も落とすように調整する
-                getBrowserPath = String(ValueSize / 2 - 2, vbNullChar)
-                RegGetValueW HKEY_LOCAL_MACHINE, StrPtr(strKeyPath), 0, RRF_RT_REG_SZ, 0, StrPtr(getBrowserPath), ValueSize
-            End If
+            '以降の処理は不要なので、抜ける
+            Exit Sub
         End If
     End With
 
-    '2. パスが空の場合は、次の捜索へ
-    If LenB(getBrowserPath) = 0 Then
-        '2-1. デフォルトインストールパスチェック
-        '※Chrome,Edgeのみ確認します
-        Select Case UserBrowserMode
-            Case BrowserList.RunChrome
-                If LenB(Dir(Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Google\Chrome\Application\" & AppPathName
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & AppPathName)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Google\Chrome\Application\" & AppPathName
-                End If
-            Case BrowserList.RunEdge
-                If LenB(Dir(Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & AppPathName)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles") & "\Microsoft\Edge\Application\" & AppPathName
-                ElseIf LenB(Dir(Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & AppPathName)) > 0 Then
-                    getBrowserPath = Environ("ProgramFiles(x86)") & "\Microsoft\Edge\Application\" & AppPathName
-                End If
-        End Select
+    '2. ブラウザexe名を取得
+    Dim BrowserExeName As String
+    BrowserExeName = EnumToStringBrowserList_exeName(UserBrowserMode)
 
-        '2-2. 存在するか？
-        If LenB(getBrowserPath) > 0 Then
-            'しなかったら、`vbnullstring`にしておく
-            If LenB(Dir(getBrowserPath)) = 0 Then getBrowserPath = vbNullString
-        End If
-    End If
+    '3. インストール先の相対パスを取得
+    Dim subPath As String
+    subPath = EnumToStringBrowserList_BrowserPath(UserBrowserMode)
+
+    '4. 開発レベルに応じたブラウザフルパス生成
+    Dim envLocal As String: envLocal = Environ$("LOCALAPPDATA")
+    Dim envProg As String:  envProg = Environ$("ProgramFiles")
+    Dim envX86 As String:   envX86 = Environ$("ProgramFiles(x86)")
+    Select Case UserBrowserMode
+        Case RunChrome_Stable, RunEdge_Stable, RunChrome_Beta, RunEdge_Beta, RunChrome_Dev, RunEdge_Dev
+            '4-1. まずは「x86」側で確認
+            getBrowserPath = envX86 & subPath & "\Application\" & BrowserExeName
+            If LenB(Dir(getBrowserPath)) Then Exit Sub  '見つかったらそこで抜ける
+
+            '4-2. 無印側で返却
+            getBrowserPath = envProg & subPath & "\Application\" & BrowserExeName
+
+        Case RunChrome_Canary, RunEdge_Canary
+            '4-1. ユーザー専用領域で返却
+            getBrowserPath = envLocal & subPath & "\Application\" & BrowserExeName
+    End Select
 End Property
 
 '***************************************************************************************************
@@ -287,11 +340,12 @@ Property Get getUserDataDirPath() As String
     If currentPolicy.UserDataDir.Exists Then
         '`UserDataDir`ポリシーがある場合はそっちを優先に返却
         getUserDataDirPath = currentPolicy.UserDataDir.Contents
+    ElseIf InStr(1, DebugUserName, ":") = 2 Then
+        '絶対パス指定の場合は、そのまんま返却
+        getUserDataDirPath = DebugUserName
     Else
-        Select Case UserBrowserMode
-            Case BrowserList.RunEdge:    getUserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Edge\" & DebugUserName
-            Case BrowserList.RunChrome:  getUserDataDirPath = Environ("LOCALAPPDATA") & "\Google\Chrome\" & DebugUserName
-        End Select
+        'ブラウザタイプに応じた標準パス先で返却
+        getUserDataDirPath = Environ("LOCALAPPDATA") & EnumToStringBrowserList_BrowserPath(UserBrowserMode) & "\" & DebugUserName
     End If
 End Property
 
@@ -336,59 +390,75 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ユーザーデータフォルダ直下にある「DevToolsActivePort」ファイルが出現するまで待機します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：10s後、あったら存在したら`True`となります
+'* 返り値　：指定Tickまで待機後、あったら`True`となります
+'* 引数　　：MaxTickWait    待機Tick数(デフォルトは、10sです。)
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：10s間待機します
+'* 詳細説明：指定Tickまで待機します
 '* 注意事項：必要に応じて、前述のプロシージャで削除を行います
 '***************************************************************************************************
-Public Function AutoWaitExistsFileDevToolsActivePort() As Boolean
+Public Function AutoWaitExistsFileDevToolsActivePort(Optional MaxTickWait As Long = 100) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitExistsFileDevToolsActivePort"
-    Const MaxTick As Long = 100 '無難に10.0s待機
 
+
+    '1. すである場合は、ここの段階で抜ける
+    Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
+    If LenB(Dir(DevToolsActivePortFilePath)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Function
 
     Dim TickCount As Long
     Do
-        CDPHelpers.Sleep 0.1
-        TickCount = TickCount + 1
-
-        If LenB(Dir(getUserDataDirPath & "\" & WebSocketInfoFileName)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Do
+        '2. 少し待つ
         printMsg Debug_, "Waiting for the DevToolsActivePort file to appear...", FromProcedureName
-    Loop Until TickCount = MaxTick
+        TickCount = TickCount + 1
+        CDPHelpers.Sleep 0.1
+
+        '3. 存在判定
+        If LenB(Dir(DevToolsActivePortFilePath)) Then AutoWaitExistsFileDevToolsActivePort = True: Exit Do
+
+    Loop Until TickCount = MaxTickWait
 End Function
 
 '***************************************************************************************************
 '* 機能　　：`DevToolsActivePort`ファイルから、WebSocket接続情報を取得します
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：下記の構成となる1次元配列。※ない場合は、`vbEmpty`
+'* 返り値  ：下記の構成となる1次元配列
 '            要素0：ポート番号
 '            要素1：WebSocketパス
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：ここでは、ファイル存在checkはしません。前述のプロシージャ側で行って下さい
 '***************************************************************************************************
 Public Function AnalysisDevToolsActivePort() As Variant
-    'ファイル存在チェック
-    Dim FilePath_DevToolsActivePort As String: FilePath_DevToolsActivePort = getUserDataDirPath & "\" & WebSocketInfoFileName
-    If LenB(Dir(FilePath_DevToolsActivePort)) Then
-        'そのパスを読み込んで、接続情報を取得する
-        '1. ファイルOpen
-        Dim intFree As Integer
-        intFree = FreeFile
-        Open FilePath_DevToolsActivePort For Input As #intFree
+    '1. ファイルOpen
+    Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
+    Dim intFree As Integer
+    intFree = FreeFile
+    Open DevToolsActivePortFilePath For Input As #intFree
 
-        '2. 中身を全部読む
-        Dim tmp
-        tmp = Input(LOF(intFree), #intFree)
+    '2. 中身を全部読む
+    Dim tmp
+    tmp = Input(LOF(intFree), #intFree)
 
-        '3. 閉じる
-        Close #intFree
+    '3. 閉じる
+    Close #intFree
 
-        '4. 分割
-        AnalysisDevToolsActivePort = Split(tmp, vbLf)
-    End If
+    '4. 分割
+    AnalysisDevToolsActivePort = Split(tmp, vbLf)
 End Function
 
 
 
 '***************************************************************************************************
 '                                 ■■■ 起動引数生成アシスト ■■■
+'***************************************************************************************************
+'* 機能　　：デバッグ引数を生成します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`--remote-debugging-...`として返却
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：`InitInfo`の第三引数に応じて変わります
+'***************************************************************************************************
+Public Function GenerateArgRemoteDebugging() As String
+    GenerateArgRemoteDebugging = IIf(PipeMode, "--" & DebugModeSign & "-pipe", "--" & DebugModeSign & "-port=0")
+End Function
+
 '***************************************************************************************************
 '* 機能　　：`user-data-dir`引数生成を行います
 '---------------------------------------------------------------------------------------------------
@@ -404,10 +474,7 @@ Private Function GenerateArgUserDataDir() As String
     Const ArgName As String = "user-data-dir"
 
 
-    Select Case UserBrowserMode
-        Case BrowserList.RunEdge:    GenerateArgUserDataDir = "--" & ArgName & "=""" & getUserDataDirPath & """"
-        Case BrowserList.RunChrome:  GenerateArgUserDataDir = "--" & ArgName & "=""" & getUserDataDirPath & """"
-    End Select
+    GenerateArgUserDataDir = "--" & ArgName & "=""" & getUserDataDirPath & """"
 End Function
 
 '***************************************************************************************************
@@ -424,10 +491,7 @@ Private Function GenerateArgProfileDirectory() As String
     Const ArgName As String = "profile-directory"
 
 
-    Select Case UserBrowserMode
-        Case BrowserList.RunEdge:    GenerateArgProfileDirectory = "--" & ArgName & "=""" & DebugUserName & """"
-        Case BrowserList.RunChrome:  GenerateArgProfileDirectory = "--" & ArgName & "=""" & DebugUserName & """"
-    End Select
+    GenerateArgProfileDirectory = "--" & ArgName & "=""" & DebugUserName & """"
 End Function
 
 '***************************************************************************************************
@@ -444,32 +508,63 @@ End Function
 '***************************************************************************************************
 '* 機能　　：初期起動時の遷移URL引数生成を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：appUrl     初期遷移URL
-'* 返り値　：`--app="..."`として返却。
+'* 引数　　：appUrl             初期遷移URL
+'            SplashScreenMode   スプラッシュ画面として返却
+'* 返り値　：`--app="..."` or `--homepage "about:blank"`として返却
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：引数を空で渡した場合は、「--homepage ""about:blank"""」で返却します
+'* 詳細説明：引数の状況に応じて下記のようになります
+'            ・appUrl未指定 ：常に`--homepage "about:blank"`として返却
+'            ・URL指定かつ`SplashScreenMode:=True` ：`data:text/html,`を駆使した起動スプラッシュ画面からスタートさせるhtmlコードを渡します。いきなりタブ制御から始める場合は、レースコンディション対策済みのこちらを使ってください
+'            ・URL指定かつ`SplashScreenMode:=False`：そのURLへ直行します。ブラウザから起動する場合は、こちらを使ってください
 '***************************************************************************************************
-Public Function GenerateArgApp(appUrl As String) As String
-    Const ArgName As String = "app"
-
-
+Public Function GenerateArgApp(appUrl As String, SplashScreenMode As Boolean) As String
+    '状況に応じた分岐
     If LenB(appUrl) Then
-        GenerateArgApp = "--" & ArgName & "=""" & appUrl & """"
+        If SplashScreenMode Then
+            'かっこいい起動スプラッシュ画面付きで始めるhtmlコードとして渡します
+            '- 黒 or 白画面(Windowsのテーマ依存)
+            '- どこに遷移するかの案内
+            '- リングマーキープログレスバー
+            GenerateArgApp = "--app=""" & GetSplashHtmlText(appUrl) & Chr(34)
+        Else
+            'URLに直行
+            GenerateArgApp = "--app=""" & appUrl & Chr(34)
+        End If
     Else
-        GenerateArgApp = "--homepage ""about:blank"""
+        'アドレスバー付きの空ブラウザとして起動
+        '※`app`の感覚で、`=`を付けると失敗します
+        GenerateArgApp = "--homepage """ & EmptyPageName & Chr(34)
     End If
 End Function
 
 '***************************************************************************************************
-'* 機能　　：デバッグ引数を生成します
+'* 機能　　：スプラッシュ起動画面を表す簡易的な`data:text/html`形式を返します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：`--remote-debugging-...`として返却
+'* 引数　　：appUrl     初期遷移URL
+'* 返り値　：`data:text/html`形式
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：`InitInfo`の第三引数に応じて変わります
+'* 詳細説明：以下の機能を備えます
+'            ・黒 or 白画面(Windowsのテーマ依存)
+'            ・どこに遷移するかの案内
+'            ・リングマーキープログレスバー
 '***************************************************************************************************
-Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(PipeMode, "--remote-debugging-pipe", "--remote-debugging-port=0")
-End Function
+Property Get GetSplashHtmlText(appUrl As String) As String
+    '1. appUrl の中の「?」を「%3F」に置き換えて、外側Chromeのクエリ判定を回避する！
+    Dim safeUrl As String
+    safeUrl = Replace(appUrl, "?", "%3F")
+    safeUrl = Replace(safeUrl, "#", "%23") ' ついでにハッシュ記号も安全化
+
+    '2. 実際に使うURLを返却
+    GetSplashHtmlText = "data:text/html,<title>" & SplashTitle & "</title>" & _
+                                    "<style>" & _
+                                    ":root{--bg:white;--col:rgb(34,34,34);--rb:rgba(0,0,0,0.1)}" & _
+                                    "@media(prefers-color-scheme:dark){:root{--bg:rgb(34,34,34);--col:white;--rb:rgba(255,255,255,0.2)}}" & _
+                                    "@keyframes s{to{transform:rotate(360deg)}}" & _
+                                    "body{background:var(--bg);color:var(--col);display:flex;flex-direction:column;justify-content:center;align-items:center;height:90vh;font-family:sans-serif;margin:0;}" & _
+                                    ".ring{width:40px;height:40px;border:4px solid var(--rb);border-top:4px solid dodgerblue;border-radius:999px;animation:s 1s linear infinite;margin-bottom:15px;}" & _
+                                    "</style>" & _
+                                    "<body><div class='ring'></div><h2>navigating... `" & safeUrl & "`</h2></body>"
+End Property
 
 
 
@@ -485,10 +580,14 @@ End Function
 '            ・現在は下記の確認に対応してます
 '               ・RemoteDebuggingAllowed
 '               ・UserDataDir
+'* 注意事項：メジャーなブラウザ(Edge,Chrome)のみ対応します
 '***************************************************************************************************
 Public Sub CheckRemoteDebuggingBlockedByPolicy()
     Const FromProcedureName As String = ThisClassName & ".IsRemoteDebuggingBlockedByPolicy"
 
+
+    'メジャーなブラウザ以外は即抜け
+    If UserBrowserMode = NoPreset Then printMsg WARN_, "The policy check will be skipped because a browser that does not support the policy has been detected.", FromProcedureName: Exit Sub
 
     'ブラウザ名に応じて、ベースとなるキーパスを設定
     Dim RegPathBrowser As String
@@ -504,7 +603,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
         If CheckBrowserPolicyRemoteDebuggingAllowed(i) Then
             '通達
             ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて`1`にして下さい。", _
-                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+                              "会社のセキュリティポリシーにより、ブラウザのリモートデバッグが、ブロックされています。" & vbCrLf & vbCrLf & "CDP機能は、利用できません。" & vbCrLf & "情報システム部門に、お問い合わせするか、WebView2ルートでの制御をお試しください。")
 
             printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
             Exit For
@@ -524,7 +623,7 @@ Public Sub CheckRemoteDebuggingBlockedByPolicy()
             If LenB(currentPolicy.UserDataDir.Contents) = 0 Then
                 '空文字だとデフォルトパスで使用されて結果的にリモートデバッグ不可能になるので止める
                 ErrorMes = IIf(i, "現在のログインPCアカウントでは、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "これが個人のPCアカウントの場合は、レジストリ操作にて削除するか、何かパスを指定して下さい。", _
-                                  "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門に、お問い合わせください。")
+                                  "会社のセキュリティポリシーにより、ブラウザデータの配置場所がデフォルトパスに固定されています。" & vbCrLf & vbCrLf & "Chromiumの仕様上、デフォルトパスのデバッグはできません。" & vbCrLf & "情報システム部門、お問い合わせするか、WebView2ルートでの制御をお試しください。")
 
                 printMsg ERROR_, ErrorMes, FromProcedureName, doRaiseError:=True
                 Exit For
@@ -633,9 +732,15 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
+    '設定セルから使用ブラウザを指定
+    With ShSetting01_StartBrowser
+        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
+        UserBrowserMode = .GetSettingCDP(SettingCDP.UseBrowserPreset, FromProcedureName)
+    End With
+
     'ログ設定
     With currentLog
-        .LogID = "CHID" & Format(Rnd * 1000, "000")                             'ユニークID
-        .logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)    'ログフォルダパス
+        .LogID = "CHID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName) 'ログフォルダパス
     End With
 End Sub
