@@ -469,9 +469,9 @@ End Function
 '***************************************************************************************************
 '* 機能　　：BiDiコマンドの送信 (非同期)
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：methodName    メソッド名 (例: "session.new")
-'*           params        引数を持ったDictionary (省略可能)
-'            StopError     内部エラーがあったら止めるか？
+'* 引数　　：methodName メソッド名 (例: "session.new")
+'*           params     引数を持ったDictionary (省略可能)
+'            StopError  内部エラーがあったら止めるか？
 '
 '* 返値    ：送信したメッセージの ID    ※API失敗時は0で、成功時は1以上です。
 '---------------------------------------------------------------------------------------------------
@@ -481,19 +481,10 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
     Const FromProcedureName As String = ThisClassName & ".ExecuteBiDiAsync"
 
 
-    '1. `nothing`の場合は、オブジェクトを生成。BiDiは、`params`が不要でも、「"params":{}」という記法が必要
-    If params Is Nothing Then Set params = New Dictionary
+    '1. コマンド情報を`BiDi-Mapper`へ送信し、実行IDを取得
+    ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(methodName, params, GoogChannel, StopError)
 
-    '2. コマンド組み立て
-    Dim BiDiCommand As New Dictionary
-    BiDiCommand.Add "method", methodName
-    BiDiCommand.Add "params", params
-    If LenB(GoogChannel) Then BiDiCommand.Add "goog:channel", GoogChannel
-
-    '3. 送信し、実行IDを取得
-    ExecuteBiDiAsync = m_BiDiCore.ReadyRunBiDi(BiDiCommand, StopError)
-
-    '4. 送信APIエラーチェック
+    '2. 送信APIエラーチェック
     If m_BiDiCore.LastErrorWriteFile Then
         printMsg ERROR_, "Error WriteFile in m_BiDiCore.writeProcCDP. ErrorCode:" & m_BiDiCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(m_BiDiCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopError
 
@@ -501,7 +492,7 @@ Public Function ExecuteBiDiAsync(methodName As String, Optional params As Dictio
         Exit Function
     End If
 
-    '5. ログ化
+    '3. ログ化
     printMsg Debug_, "Async ExecuteBiDi: " & methodName & " - ID: " & ExecuteBiDiAsync, FromProcedureName
 End Function
 
