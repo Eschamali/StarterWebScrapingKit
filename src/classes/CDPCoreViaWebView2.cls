@@ -159,7 +159,7 @@ End Enum
 '                                   ■■■ イベント定義 ■■■
 '***************************************************************************************************
 '* 完成した1件のCDP-Json文字列(コマンド結果 or 非同期イベント)を、そのまま発信します
-Public Event CDPMessageReceived(RawJson As String)
+Public Event readWebView2CDP(RawJson As String)
 
 
 
@@ -486,7 +486,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     End If
 
     '3. `CDPCore.cls`へ発信！
-    RaiseEvent CDPMessageReceived(synthesized)
+    RaiseEvent readWebView2CDP(synthesized)
 End Sub
 
 '***************************************************************************************************
@@ -525,7 +525,7 @@ Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
     End If
 
     '4. `CDPCore.cls`へ発信！
-    RaiseEvent CDPMessageReceived(synthesized)
+    RaiseEvent readWebView2CDP(synthesized)
 End Sub
 
 '***************************************************************************************************
