@@ -469,7 +469,7 @@ Property Get selected() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    selected = jsEval("function(){ return this.selectedOptions[0] }")
+    selected = jsEval("function(){ return this.selectedOptions[0].text }")
 
 End Property
 
