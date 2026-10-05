@@ -153,7 +153,7 @@ Private Const ThisClassName As String = "CDPCoreViaWebSocket"
 '                                   ■■■ イベント定義 ■■■
 '***************************************************************************************************
 'WebSocket受信発信機
-Public Event WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
+Public Event readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
 
 
 
@@ -782,7 +782,7 @@ Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction
 
             'ストリームに書き込み、イベント発信
             WebSocketReceiveStream.Write payloadBuffer
-            RaiseEvent WebSocketReceive(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
+            RaiseEvent readWebSocketCDP(payloadBuffer, TakePayloadSize, AllPayloadReceive And m_WebSocketFrame.isFIN)
         Else
             '取り出しに失敗したら、エラー情報を記録して抜ける
             LastWinSockError.StyleErrReadFile = Err.LastDllError
