@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 '   `CDPCoreViaWebSocket.cls`と同じ「`CDPCore.cls`にRaiseEventで繋ぎ込む」拡張パターンに則った、
 '   3つ目のtransportです。
 '
-'   移植/実装対象は、WebView2 SDKの以下3メソッドのみです(このプロジェクトはCDPフォーマットしか
+'   移植/実装対象は、WebView2 SDKの以下3メソッド+拡張機能系のみです(このプロジェクトはCDPフォーマットしか
 '   扱わないため、これ以外のWebView2機能[ナビゲーション制御・DOM操作等]は一切実装しません):
 '     ・CallDevToolsProtocolMethodAsync           → ICoreWebView2::CallDevToolsProtocolMethod
 '     ・CallDevToolsProtocolMethodForSessionAsync → ICoreWebView2_11::CallDevToolsProtocolMethodForSession
@@ -24,8 +24,8 @@ Attribute VB_Exposed = False
 '     1件ずつ届けてくるため、このClassは`RaiseEvent CDPMessageReceived(RawJson As String)`という
 '     文字列1件そのままの、より単純な形のイベントを発火します。
 '
-'   ★既知の制約(CDP-over-WebSocketとの違い)★
-'     ・CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
+'   ★既知の制約(`remote-debugging-pipe/port`との違い)★
+'     ・`remote-debugging`経由は「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
 '       モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
 '       が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
 '       明示的なAPIとして公開しています。一括購読はWebView2側に概念自体が無いため未対応。
@@ -43,6 +43,7 @@ Attribute VB_Exposed = False
 '       恐らく内部では`Page`単位(/json/list)としての実行となっているためと推測してます。また、この拡張機能は、
 '       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
 '       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
+'     ・WebDriverBiDiモードは、利用できません。稼働に必要な`Target.exposeDevToolsProtocol`は、`CallDevToolsProtocolMethod(ForSessionAsync)`経由では、`Not allowed`エラーとなり機能しません。
 '
 '   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見+実機検証より)★
 '     ・VBEの`Stop`やブレイクポイントで「静止している」状態(=ネイティブ呼び出しが完了して
@@ -159,7 +160,7 @@ End Enum
 '                                   ■■■ イベント定義 ■■■
 '***************************************************************************************************
 '* 完成した1件のCDP-Json文字列(コマンド結果 or 非同期イベント)を、そのまま発信します
-Public Event CDPMessageReceived(RawJson As String)
+Public Event readWebView2CDP(RawJson As String)
 
 
 
@@ -348,7 +349,10 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：WebView2経由で、ブラウザへCDPコマンドを送信します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strData    完成したCDP-Json文字列コマンド(`id`/`method`/`params`/[`sessionId`]を含む)
+'* 引数　　：commandID          コマンドID
+'            methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：Runtime.Evaluate
+'            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
+'            SessionID          タブへの命令の場合は指定します。省略すると、トップページのデフォルトターゲットのセッションとして扱われます。
 '* 返り値  ：実行結果コード(0で成功。`CDPCore.LastErrorWriteFile`相当として扱われます)
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：`sessionId`の有無で、`CallDevToolsProtocolMethod`(スロット36)と
@@ -356,7 +360,7 @@ End Sub
 '            切り分けます。完了は`OnCdpMethodCompleted`で非同期に受け取り、`id`を付け直した
 '            CDP形式のJson文字列として`RaiseEvent CDPMessageReceived`します。
 '***************************************************************************************************
-Public Function SendCommandCDP(strData As String) As Long
+Public Function SendCommandCDP(commandID As Long, methodName As String, parametersAsJson As Dictionary, sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".SendCommandCDP"
     Const E_HANDLE As Long = &H80070006   ' ハンドルが無効(=接続が既に切れている)
 
@@ -384,25 +388,15 @@ Public Function SendCommandCDP(strData As String) As Long
         Exit Function
     End If
 
-    '3. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡すため、パラメータを分解する
-    Dim Node As BiDiCDPJson: Set Node = BiDiCDPJson.Parse(strData)
-
-    '3-1. スカラー値部分
-    Dim commandID   As Long:                                       commandID = Node.NumberKey("id")
-    Dim methodName  As String:                                    methodName = Node.StringKey("method")
-    Dim sessionID   As String: If Node.ExistsKey("sessionId") Then sessionID = Node.StringKey("sessionId")
-
-    '3-2.`params`オブジェクトのJson文字列化
-    Dim paramsRaw As String
-    If Node.ExistsKey("params") Then
-        Dim paramsNode As BiDiCDPJson
-        Set paramsNode = Node.NodeKey("params")
-        If paramsNode Is Nothing Then paramsRaw = "{}" Else paramsRaw = paramsNode.Stringify()
+    '3. `CallDevToolsProtocolMethod`/`CallDevToolsProtocolMethodForSession`に渡す`parametersAsJson`を文字列化しておく
+    Dim parametersAsJsonStr As String
+    If parametersAsJson Is Nothing Then
+        parametersAsJsonStr = "{}"
     Else
-        paramsRaw = "{}"
+        parametersAsJsonStr = WebJsonConverter.serialize(parametersAsJson)
     End If
 
-    '3-3. `commandID`をCOMコールバックメモリ領域の補助情報として登録して、来たるべき結果の紐づけを行う
+    '4. `commandID`をCOMコールバックメモリ領域の補助情報として登録して、来たるべき結果の紐づけを行う
     Dim h As WebView2CallbackHandler
     Set h = WebView2Thunks.AcquireHandlerFor(HK_CdpMethodCompleted, Me)
     If h Is Nothing Then
@@ -414,14 +408,14 @@ Public Function SendCommandCDP(strData As String) As Long
     h.callbackId = commandID
     printMsg Debug_, "Registered with callback ID: " & commandID & ".", FromProcedureName
 
-    '4. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
+    '5. `SessionID`の有無に応じて使うコマンド実行CDP関数を決める
     Dim pVTableObj As LongPtr
     pVTableObj = h.Slot + WebView2Thunks.VTABLE_OBJ_OFFSET
     Dim hr As Long
     If StrPtr(sessionID) Then
         '`SessionID`がある場合は、`CallDevToolsProtocolMethodForSession`で送る
 
-        '4-1. 初代WebView2にはないため、`m_Host`が既に持っているバージョン判定結果で存在確認する
+        '5-1. 初代WebView2にはないため、`m_Host`が既に持っているバージョン判定結果で存在確認する
         'ICoreWebView2_11::CallDevToolsProtocolMethodForSession(vtableスロット99)
         'https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodforsessionasync
         '(`m_Host.ViewPtr`は`WebView2Host`内部の`DetectLevel`によって既に辿り着けた最新版へ
@@ -435,25 +429,25 @@ Public Function SendCommandCDP(strData As String) As Long
             Exit Function
         End If
 
-        '4-2. `CallDevToolsProtocolMethodForSession`で、`SessionID`付きで実行
-        printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+        '5-2. `CallDevToolsProtocolMethodForSession`で、`SessionID`付きで実行
+        printMsg Debug_, "ICoreWebView2_11::CallDevToolsProtocolMethodForSession - sessionId:=" & sessionID & " , method:=" & methodName & " , parametersAsJson:=" & parametersAsJsonStr, FromProcedureName
         hr = WebView2Thunks.dcf(pView, 99, "View11.CallDevToolsProtocolMethodForSession", _
-                                    StrPtr(sessionID), StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
+                                    StrPtr(sessionID), StrPtr(methodName), StrPtr(parametersAsJsonStr), pVTableObj)
     Else
         '`SessionID`がない場合は、`CallDevToolsProtocolMethod`で送る
-        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & paramsRaw, FromProcedureName
+        printMsg Debug_, "ICoreWebView2::CallDevToolsProtocolMethod - method:=" & methodName & " , parametersAsJson:=" & parametersAsJsonStr, FromProcedureName
 
-        '4-1. 初代WebView2で既にあるため、そのまま実行へ
+        '5-1. 初代WebView2で既にあるため、そのまま実行へ
         'ICoreWebView2::CallDevToolsProtocolMethod(vtableスロット36)
         'https://learn.microsoft.com/ja-jp/dotnet/api/microsoft.web.webview2.core.corewebview2.calldevtoolsprotocolmethodasync
         hr = WebView2Thunks.dcf(pView, 36, "View.CallDevToolsProtocolMethod", _
-                                    StrPtr(methodName), StrPtr(paramsRaw), pVTableObj)
+                                    StrPtr(methodName), StrPtr(parametersAsJsonStr), pVTableObj)
     End If
 
-    '4. WebView2側がAddRef済みなので、こちらのローカル参照は捨てる
+    '6. WebView2側がAddRef済みなので、こちらのローカル参照は捨てる
     Set h = Nothing
 
-    '5. 結果コードを返却
+    '7. 結果コードを返却
     SendCommandCDP = hr
 End Function
 
@@ -493,7 +487,7 @@ Public Sub OnCdpMethodCompleted(ByVal callbackId As Long, ByVal ErrorCode As Lon
     End If
 
     '3. `CDPCore.cls`へ発信！
-    RaiseEvent CDPMessageReceived(synthesized)
+    RaiseEvent readWebView2CDP(synthesized)
 End Sub
 
 '***************************************************************************************************
@@ -532,7 +526,7 @@ Public Sub OnCdpEventReceived(ByVal EventName As String, ByVal pArgs As LongPtr)
     End If
 
     '4. `CDPCore.cls`へ発信！
-    RaiseEvent CDPMessageReceived(synthesized)
+    RaiseEvent readWebView2CDP(synthesized)
 End Sub
 
 '***************************************************************************************************

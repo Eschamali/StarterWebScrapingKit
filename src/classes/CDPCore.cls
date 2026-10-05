@@ -790,7 +790,7 @@ End Sub
 '            　そのまま流用しており、`vbNullChar`をメッセージ区切りとして検索する前提になっているため、
 '            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
 '***************************************************************************************************
-Private Sub viaWebView2_CDPMessageReceived(RawJson As String)
+Private Sub viaWebView2_readWebView2CDP(RawJson As String)
     Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
 
 
