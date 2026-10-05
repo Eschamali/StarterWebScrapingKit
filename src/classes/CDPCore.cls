@@ -810,9 +810,9 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strData    完成したCDP-Json文字列コマンド
 '***************************************************************************************************
-Private Sub writeWebView2CDP(strData As String)
+Private Sub writeWebView2CDP(commandID As Long, methodName As String, parametersAsJson As Dictionary, sessionID As String)
     'WebView2オブジェクト経由で送信処理を委ねる
-    LastPipeError.WriteFile = viaWebView2.SendCommandCDP(strData)
+    LastPipeError.WriteFile = viaWebView2.SendCommandCDP(commandID, methodName, parametersAsJson, sessionID)
 End Sub
 
 
@@ -823,45 +823,34 @@ End Sub
 '* 機能　　：ブラウザへ命令する前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行コマンドID
-'* 引数　　：dicMessage Chromium ブラウザに送るCDP-Jsonコマンド(Dictionary型)。最上位要素に、`method`、`params`があるようにしてください。
-'            SessionID  タブへの命令の場合は指定します
+'* 引数　　：methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：Runtime.Evaluate
+'            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
+'            SessionID          タブへの命令の場合は指定します。省略すると、起動ブラウザ自身をターゲットとして扱います。
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
 '***************************************************************************************************
-Public Function ReadyRunCDP(dicMessage As Dictionary, Optional sessionID As String) As Long
+Public Function ReadyRunCDP(methodName As String, parametersAsJson As Dictionary, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
     ReadyRunCDP = IssuanceCommandID
 
-    '2. `sessionId`check
+    '2. commandIDと`sessionId`の紐づけを行う
     If StrPtr(sessionID) Then
-        '2-1. `sessionId`付与
-        dicMessage.Add "sessionId", sessionID
-
-        '2-2. commandIDと`sessionId`の紐づけを行う
-        '※`sessionId`付きコマンド実行時にて、エラーが起こると、`sessionId`なしエラーとして返る理不尽仕様に対応するため
+        '・`sessionId`付きコマンド実行時にて、エラーが起こると、`sessionId`なしエラーとして返る理不尽仕様に対応するため
+        '・WebView2系統は、実行結果のレスポンスに、ID項目そのものが含まれない理不尽仕様に対応するため
         DictionarySessionID.Add ReadyRunCDP, sessionID
         printMsg Trace_, "commandID:" & ReadyRunCDP & " corresponds to SessionID:" & sessionID, FromProcedureName
     Else
         printMsg Trace_, "commandID:" & ReadyRunCDP & " does not have a SessionID.", FromProcedureName
     End If
 
-    '3.`id`を付与
-    dicMessage.Add "id", ReadyRunCDP
-
-    '4. 実際に実行
-    Dim strMessage As String
-'    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
-    strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
-    printMsg Debug_, "sendCDP - JsonCommand = " & strMessage, FromProcedureName
-
-    '5. 通信モードに応じてPipe/WebSocket/WebView2分岐
+    '3. 実行経路(Pipe/WebSocket/WebView2)に応じた組み立て、実行を行います
     Select Case False
-        Case viaWebSocket Is Nothing:  writeWebSocketCDP strMessage
-        Case viaWebView2 Is Nothing:    writeWebView2CDP strMessage
-        Case Else:                          writeProcCDP strMessage
+        Case viaWebSocket Is Nothing: writeWebSocketCDP CommandCDPJsonGeneration(ReadyRunCDP, methodName, parametersAsJson, sessionID)
+        Case viaWebView2 Is Nothing:   writeWebView2CDP ReadyRunCDP, methodName, parametersAsJson, sessionID
+        Case Else:                         writePipeCDP CommandCDPJsonGeneration(ReadyRunCDP, methodName, parametersAsJson, sessionID)
     End Select
 End Function
 
@@ -892,6 +881,31 @@ Private Function IssuanceCommandID() As Long
 
     '3. 返却
     IssuanceCommandID = LastCommandID
+End Function
+
+'***************************************************************************************************
+'* 機能　　：CDP-Json文字列コマンド生成を行います
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：id                 コマンドID
+'            methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：Runtime.Evaluate
+'            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
+'            SessionID          タブへの命令の場合は指定します
+'* 返り値　：id,params,sessionid を含んだフルセットCDP-Json文字列コマンド
+'***************************************************************************************************
+Private Function CommandCDPJsonGeneration(id As Long, methodName As String, parametersAsJson As Dictionary, sessionID As String) As String
+    Const FromProcedureName As String = ThisClassName & ".CommandCDPJsonGeneration"
+
+
+    '1. TOP層の組み立て
+    Dim TopParams As New Dictionary
+    TopParams.Add "id", id                                                              '結果紐づけ用の整理券番号を付与
+    TopParams.Add "method", methodName                                                  'コマンド名
+    If Not parametersAsJson Is Nothing Then TopParams.Add "params", parametersAsJson    '`nothing`の場合は、`params`項目を省略
+    If StrPtr(sessionID) Then TopParams.Add "sessionId", sessionID                      'コンテキスト(タブ)宛て命令があれば付与
+
+    '2. Json文字列生成
+    CommandCDPJsonGeneration = WebJsonConverter.serialize(TopParams)
+    printMsg Debug_, "sendCDP - JsonCommand = " & CommandCDPJsonGeneration, FromProcedureName
 End Function
 
 
