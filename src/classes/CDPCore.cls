@@ -597,7 +597,7 @@ End Sub
 '* 注意事項：・ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
 '            ・実際のエラーコードも特に確認しません
 '***************************************************************************************************
-Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As Long
+Private Function readPipeSTD(ByRef strData As String, ErrorMode As Boolean) As Long
     '使用するパイプ通信判定
     Dim UsehStdRd As LongPtr: UsehStdRd = IIf(ErrorMode, hStderrOutRd, hStdOutRd)
 
@@ -626,13 +626,13 @@ Private Function readProcSTD(ByRef strData As String, ErrorMode As Boolean) As L
             End If
 
             '取得サイズを返却
-            readProcSTD = lPeekData
+            readPipeSTD = lPeekData
         Else
-            readProcSTD = -2
+            readPipeSTD = -2
         End If
 
     Else
-        readProcSTD = -1
+        readPipeSTD = -1
     End If
 
 End Function
@@ -648,14 +648,14 @@ Private Sub viewStdoutAndStderr()
     Dim strRes As String, intRes As Long
 
     'Sometimes edge writes to stdout so we clear stdout too.
-    intRes = readProcSTD(strRes, False)
+    intRes = readPipeSTD(strRes, False)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
         printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
     End If
 
     'Sometimes edge writes to stderrout so we clear stderrout too.
-    intRes = readProcSTD(strRes, True)
+    intRes = readPipeSTD(strRes, True)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
         printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
@@ -675,7 +675,7 @@ End Sub
 '            ・`PeekNamedPipe`にて、受信データ量が0あるいは、エラー：引数に渡した`EndOfData`の内容を保持します
 '            ・`PeekNamedPipe`にて、受信データ量が1以上　　　　　　：終端null文字判定結果を`EndOfData`に更新します
 '***************************************************************************************************
-Private Function readProcCDP(ByRef EndOfData As Boolean, destruction As Boolean) As Long
+Private Function readPipeCDP(ByRef EndOfData As Boolean, destruction As Boolean) As Long
     Dim lPeekData As Long
     Dim lngRes As Long
 
@@ -703,7 +703,7 @@ Private Function readProcCDP(ByRef EndOfData As Boolean, destruction As Boolean)
             EndOfData = (Buffer(lPeekData - 1) = 0)
 
             '取得サイズを返却
-            readProcCDP = lPeekData
+            readPipeCDP = lPeekData
         Else
             'API関数:ReadFile が失敗した場合は、0 を返すため、エラーコードを記録
             LastPipeError.ReadFile = Err.LastDllError
@@ -716,7 +716,7 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：strData    完成したCDP-Json文字列コマンド
 '***************************************************************************************************
-Private Sub writeProcCDP(strData As String)
+Private Sub writePipeCDP(strData As String)
     Dim lngWritten As Long
     Dim ResultCode As Long
 
@@ -1114,7 +1114,7 @@ Private Sub TakePipe(StopPipeError As Boolean, destruction As Boolean)
         viewStdoutAndStderr
 
         '受信処理
-        intRes = readProcCDP(EOvbNullChar, destruction) '※内部で、`ADODB.Stream`へバイト配列が蓄積されます
+        intRes = readPipeCDP(EOvbNullChar, destruction) '※内部で、`ADODB.Stream`へバイト配列が蓄積されます
         printMsg Trace_, "ResSize = " & intRes, FromProcedureName
 
         '返り値チェック
