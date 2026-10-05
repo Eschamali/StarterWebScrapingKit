@@ -749,7 +749,7 @@ End Sub
 '* 機能説明：CDPCoreViaWebSocket-GetAsyncMessage を行うことで内部で`RaiseEvent`が起こり、ここのプロシージャが呼ばれます
 '* 注意事項：受信サイズ0あるいは、`TakeWebSocket`にて破棄モードで指定した場合は、呼ばれません
 '***************************************************************************************************
-Private Sub viaWebSocket_WebSocketReceive(res() As Byte, resSize As Long, EOS As Boolean)
+Private Sub viaWebSocket_readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
     Const FromProcedureName As String = ThisClassName & ".viaWebSocket_WebSocketReceive"
 
 
