@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 '   `CDPCoreViaWebSocket.cls`と同じ「`CDPCore.cls`にRaiseEventで繋ぎ込む」拡張パターンに則った、
 '   3つ目のtransportです。
 '
-'   移植/実装対象は、WebView2 SDKの以下3メソッドのみです(このプロジェクトはCDPフォーマットしか
+'   移植/実装対象は、WebView2 SDKの以下3メソッド+拡張機能系のみです(このプロジェクトはCDPフォーマットしか
 '   扱わないため、これ以外のWebView2機能[ナビゲーション制御・DOM操作等]は一切実装しません):
 '     ・CallDevToolsProtocolMethodAsync           → ICoreWebView2::CallDevToolsProtocolMethod
 '     ・CallDevToolsProtocolMethodForSessionAsync → ICoreWebView2_11::CallDevToolsProtocolMethodForSession
@@ -24,8 +24,8 @@ Attribute VB_Exposed = False
 '     1件ずつ届けてくるため、このClassは`RaiseEvent CDPMessageReceived(RawJson As String)`という
 '     文字列1件そのままの、より単純な形のイベントを発火します。
 '
-'   ★既知の制約(CDP-over-WebSocketとの違い)★
-'     ・CDP-over-WebSocketは「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
+'   ★既知の制約(`remote-debugging-pipe/port`との違い)★
+'     ・`remote-debugging`経由は「ドメインをenableすれば以後そのドメインの全イベントが自動で流れる」
 '       モデルですが、WebView2の`GetDevToolsProtocolEventReceiver`は「イベント名ごとに個別登録」
 '       が必要なモデルです。この違いを隠さず、`SubscribeCdpEvent`/`UnsubscribeCdpEvent`という
 '       明示的なAPIとして公開しています。一括購読はWebView2側に概念自体が無いため未対応。
@@ -43,6 +43,7 @@ Attribute VB_Exposed = False
 '       恐らく内部では`Page`単位(/json/list)としての実行となっているためと推測してます。また、この拡張機能は、
 '       初代WebView2にはなく、後付けによる`WebView2EnvOptions`での有効化も必要であるため、CDP経由での動作は今後も出来ないでしょう...
 '       これにより、WebView2でも拡張機能が動作するようにCDP系以外のインターフェースも大量に定義/用意することになりましたﾋﾟｴﾝ
+'     ・WebDriverBiDiモードは、利用できません。稼働に必要な`Target.exposeDevToolsProtocol`は、`CallDevToolsProtocolMethod(ForSessionAsync)`経由では、`Not allowed`エラーとなり機能しません。
 '
 '   ★既知の落とし穴(継承不可避、WebView2-For-Excel-VBAプロジェクトの知見+実機検証より)★
 '     ・VBEの`Stop`やブレイクポイントで「静止している」状態(=ネイティブ呼び出しが完了して
