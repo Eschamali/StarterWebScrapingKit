@@ -458,7 +458,7 @@ End Function
 '* 詳細説明：`InitInfo`の第三引数に応じて変わります
 '***************************************************************************************************
 Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(PipeMode, "--" & DebugModeSign & "-pipe", "--" & DebugModeSign & "-port=0")
+    GenerateArgRemoteDebugging = "--" & DebugModeSign & IIf(PipeMode, "-pipe", "-port=0")
 End Function
 
 '***************************************************************************************************
