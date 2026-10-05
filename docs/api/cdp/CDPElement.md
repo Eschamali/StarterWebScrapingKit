@@ -69,7 +69,7 @@ Property Get selected() As String
 Property Let selected(selectedOption As String)
 ```
 
-`<select>` の選択状態です。取得は先頭の `selectedOptions[0]`（該当なしなら空扱い）、代入は `selectedIndex`（0 始まりの**位置**）での切り替えです。option の `value` 属性で選びたい場合は [`setSelection`](#setselection) を使ってください。
+`<select>` の選択状態です。取得は先頭の選択中 option の表示テキスト（`selectedOptions[0].text`）、代入は `selectedIndex`（0 始まりの**位置**）での切り替えです。option の `value` 属性で選びたい場合は [`setSelection`](#setselection) を使ってください。
 
 ```vb
 Debug.Print t.getElementByQuery("select#country").selected
@@ -473,15 +473,36 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
 Public Function getElementsByXPath(strXPath As String) As Collection
 ```
 
-現在要素を contextNode にした XPath 検索です。先頭の `//` は無効構文として自動除去されます。
+現在要素を起点にした**相対検索**の XPath です。[`GetShadowRoot`](#getshadowroot--getshadowroots) で得た Shadow Root の中でも使えます。ページ全体（document）を起点に探したい場合は、[`CDPContext.getElementByXPath`](./CDPContext) を使ってください。
 
 | 引数 | 意味 |
 | --- | --- |
-| `strXPath` | XPath（相対パス想定） |
+| `strXPath` | XPath（現在要素からの相対パス） |
 
 ```vb
+' 通常の要素から
 Set el = host.getElementByXPath(".//button[contains(.,'送信')]")
+
+' Shadow Root の中から
+Dim root As CDPElement
+Set root = t.getElementByQuery("my-widget").GetShadowRoot
+root.getElementByXPath(".//button[@id='ok']").click
+
+' 複数取得
+Dim list As Collection
+Set list = root.getElementsByXPath(".//li")
 ```
+
+::: tip 検索の書き方
+- 先頭が `/` や `//` の場合は、先頭に `.` が自動で付与されます（`//div` → `.//div`＝配下の子孫すべて）。警告ログが出ます
+- `./○○`（直下）、`.//○○`（配下の子孫）のように、**先頭に `.` を付ける書き方を推奨**します
+- Shadow Root から実行する場合は、必ず `./○○` か `.//○○` のように先頭に `.` を付けてください。`.` 無しの相対指定（`div` 等）は、Shadow Root 内では意図通りに探せません
+- `getElementsByXPath` も同じ規則です
+:::
+
+::: warning Shadow Root 内の検索の制約
+XPath は Shadow Root そのものを起点にできないため、内部では Shadow Root の最初の子ノードを起点に評価しています。このため、**子要素が1つもない Shadow DOM** では XPath 検索ができません。その場合は CSS セレクタ（[`getElementByQuery`](#getelementbyquery--getelementsbyquery)）をご利用ください。
+:::
 
 ## Shadow / iframe
 
@@ -556,6 +577,36 @@ Property Get CurrentObjectId() As String
 ```
 
 内部で保持している CDP の `objectId` です。空なら検索未ヒットです。日常利用では通常不要です。
+
+### `CurrentNodeType`
+
+```vb
+Property Get CurrentNodeType() As NodeNodeType
+```
+
+保持中の要素の DOM [`nodeType`](https://developer.mozilla.org/ja/docs/Web/API/Node/nodeType) 値を返します。「いま持っているのは要素なのか、Shadow Root なのか」といった判別に使えます。
+
+| 値 | 意味 |
+| --- | --- |
+| `NodeELEMENT_NODE`（1） | `<p>` や `<div>` などの要素 |
+| `NodeATTRIBUTE_NODE`（2） | 属性 |
+| `NodeTEXT_NODE`（3） | テキスト |
+| `NodeCDATA_SECTION_NODE`（4） | `CDATASection` |
+| `NodeENTITY_REFERENCE_NODE`（5） | XML の実体参照 |
+| `NodeENTITY_NODE`（6） | XML の DTD 実体宣言 |
+| `NodePROCESSING_INSTRUCTION_NODE`（7） | XML の処理命令 |
+| `NodeCOMMENT_NODE`（8） | コメント |
+| `NodeDOCUMENT_NODE`（9） | `Document` |
+| `NodeDOCUMENT_TYPE_NODE`（10） | `<!DOCTYPE html>` |
+| `NodeDOCUMENT_FRAGMENT_NODE`（11） | `DocumentFragment`。[`GetShadowRoot`](#getshadowroot--getshadowroots) で得た Shadow Root はこれです |
+| `NodeNOTATION_NODE`（12） | XML の DTD 表記法宣言 |
+
+```vb
+Dim root As CDPElement
+Set root = t.getElementByQuery("my-widget").GetShadowRoot
+
+If root.CurrentNodeType = NodeDOCUMENT_FRAGMENT_NODE Then Debug.Print "Shadow Root です"
+```
 
 ### `jsEval`
 

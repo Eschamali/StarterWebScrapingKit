@@ -16,7 +16,7 @@ Pipe・WebSocket がどちらも「**外にいるブラウザプロセス**」�
 - `CallDevToolsProtocolMethodForSessionAsync` → `ICoreWebView2_11::CallDevToolsProtocolMethodForSession`
 - `GetDevToolsProtocolEventReceiver` → `ICoreWebView2::GetDevToolsProtocolEventReceiver`
 
-WebSocket 版は「バイト列の断片を都度 `RaiseEvent` で流す」設計でしたが、WebView2 は COM コールバック経由で「UTF-16 デコード済み・欠けのない完成 JSON 文字列」を1件ずつ届けてくれます。そのため `CDPCoreViaWebView2` は `RaiseEvent CDPMessageReceived(RawJson As String)` という、文字列1件そのままの、より単純な形のイベントを発火するだけで済みます。
+WebSocket 版は「バイト列の断片を都度 `RaiseEvent` で流す」設計でしたが、WebView2 は COM コールバック経由で「UTF-16 デコード済み・欠けのない完成 JSON 文字列」を1件ずつ届けてくれます。そのため `CDPCoreViaWebView2` は `RaiseEvent readWebView2CDP(RawJson As String)` という、文字列1件そのままの、より単純な形のイベントを発火するだけで済みます。
 
 ## CDPの外側にある機能（v3.1.0〜）
 

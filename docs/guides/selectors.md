@@ -48,11 +48,16 @@ Dim root As CDPElement
 Set root = host.GetShadowRoot
 root.getElementByQuery("button").click
 
+' Shadow Root の中は XPath でも探せます（先頭に `.` を付けた相対指定）
+root.getElementByXPath(".//button[@id='ok']").click
+
 ' 同一オリジンの iframe 要素から入る
 Dim frame As CDPElement
 Set frame = t.getElementByQuery("iframe#app").getIFrame
 frame.getElementByID("inner").click
 ```
+
+Shadow Root 内で XPath を使うときは、`./○○`（直下）や `.//○○`（配下の子孫）のように先頭に `.` を付けてください。子要素が1つもない Shadow DOM では XPath が使えないため、CSS セレクタで探します（詳細は [`CDPElement.getElementByXPath`](/api/cdp/CDPElement#getelementbyxpath--getelementsbyxpath)）。
 
 名前 / URL で iframe を探して `executionContextId` 経由で入る場合は、[`CDPContext.printChildFrames`](/api/cdp/CDPContext#printchildframes) → [`getIFrameContextID`](/api/cdp/CDPContext#getiframecontextid) → [`getIFrame`](/api/cdp/CDPContext#getiframe) です。
 
