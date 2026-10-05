@@ -411,6 +411,8 @@ End Sub
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：単一プロシージャで完結出来ない場面がきっとあるはずです。途中でセキュリティ認証による手作業が入ったりなど...
 '            そういった場面でも、デバックブラウザで起動済みへ再接続するDemoです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
     ' 起動
@@ -431,11 +433,20 @@ End Sub
 Sub demoReattachmentPart2()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
+
+        'WebSocketで起動した場合はその再接続処理を試みます
+        '設定モードに応じた分岐
+        If Not .isPipeRemote Then
+            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            BiDiWS.ReConnectCDP UserName
+        End If
+    End With
 
     '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
-    If Not Reattachment.reattach(UserName) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+    If Not Reattachment.reattach(UserName, , BiDiWS) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
@@ -459,11 +470,20 @@ End Sub
 Sub demoReattachmentPart2ForTab()
     '設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.CurrentUserName
+    With ShSetting01_StartBrowser
+        UserName = .CurrentUserName
+
+        'WebSocketで起動した場合はその再接続処理を試みます
+        '設定モードに応じた分岐
+        If Not .isPipeRemote Then
+            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            BiDiWS.ReConnectCDP UserName
+        End If
+    End With
 
     ' リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiContext
-    If Not Reattachment.reattach(UserName) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
+    If Not Reattachment.reattach(UserName, , BiDiWS) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
     '別ページに遷移
     Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
@@ -476,9 +496,9 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：ブラウザ単位としてWebSocket接続を行います
 '-------------------------------------------------------------------------------------------------
-'* 詳細説明：このDemoは主に、ローカルブラウザ以外での接続方法について学べます
+'* 詳細説明：このDemoは主に、既に起動中のデバックブラウザでの接続方法について学べます
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
-'            ・事前に、デバッグブラウザの起動を済ませる必要があります
+'            ・事前に、`port=9222`でデバッグブラウザの起動を済ませる必要があります
 '            ・WebDriverBiDiの場合は、ブラウザ単位として接続を済ませる必要があります。`AutoConnectPageCDP`では機能しません
 '***************************************************************************************************
 Sub AutoConnectBrowser()
@@ -488,18 +508,20 @@ Sub AutoConnectBrowser()
 
     '2. 指定のWebSocketForCDPへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
-    Dim WebSocketChromium As New WebDriverBiDiMode
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
+
+    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    Dim WebSocketChromium As New WebDriverBiDiMode
     WebSocketChromium.reattach UserName, , WebSocketCDP
 
-    '3. 未接続のタブに接続
+    '4. 新規タブに接続
     Dim c As WebDriverBiDiContext
-    Set c = WebSocketChromium.getTab(setMain:=True)
+    Set c = WebSocketChromium.newTab(setMain:=True)
 
-    '4. ページ遷移
+    '5. ページ遷移
     c.navigate "https://www.youtube.com/@islandfox6864"
 
-    '5. 終了
+    '6. 終了
     WebSocketChromium.quit
 End Sub
 
