@@ -199,6 +199,10 @@ Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boole
 ::: tip 応用
 - **任意パスの `DevToolsActivePort` を読む**: `UserName` に絶対パス形式を渡すと、そのパスの `DevToolsActivePort` ファイルを読み込んで接続できます
 - **接続確認ダイアログをスキップ**: 初回接続を済ませたあと、WebSocket を切断せずにプロシージャを終え、次回以降に同じユーザー名で `ReuseWinSockHandle:=True` を指定すると、接続確認ダイアログを出さずに再接続できます
+
+  ![ReuseWinSockHandle:=True で、接続確認ダイアログを出さずに再接続している様子](/viaWebSocket/wow.gif)
+
+  *▲ `Demo_CDP.AutoConnectDevToolsActivePort` を使い、`ReuseWinSockHandle:=True` で再接続している様子。接続確認ダイアログが出ることなく、つながります*
 :::
 
 ## 関連
