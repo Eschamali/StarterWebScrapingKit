@@ -52,7 +52,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const CDPVer                    As String = "3.1.0"
+Private Const ToolVer                    As String = "3.3.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -67,8 +67,16 @@ Private WithEvents PipeCore As CDPCore              'Must be initialized for CDP
 Attribute PipeCore.VB_VarHelpID = -1
 
 '操作中のブラウザ情報一式
+'※Browser.getVersion で得れる情報とほぼ同じ構造です
 Private Type StateBrowser
-    Type        As String   'Browser type: either 'chrome' or 'edge'
+    'オリジナル
+    JsVersion           As String   'JavaScriptV8エンジンのバージョン番号
+    Product             As String   'このChromiumの製品名とバージョン番号
+    ProtocolVersion     As String   'CDP自体のバージョン
+    Revision            As String   'このChromiumのコミットID
+    UserAgent           As String   'このChromiumのユーザーエージェント
+
+    '独自
     User        As String   'Browser user profile
     Ver         As String   'The current browser version
 End Type
@@ -805,15 +813,10 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Diction
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
-    '1. コマンド組み立て
-    Dim CDPcommand As New Dictionary
-    CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params   '`nothing`の場合は、`params`項目を省略
+    '1. コマンド情報をブラウザへ送信し、実行IDを取得
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(methodName, params) 'Send message to the browser instance
 
-    '2. ブラウザへ送信し、実行IDを取得
-    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand)  'Send message to the browser instance
-
-    '3. 送信APIエラーチェック
+    '2. 送信APIエラーチェック
     If PipeCore.LastErrorWriteFile Then
         printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError
 
@@ -821,7 +824,7 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Diction
         Exit Function
     End If
 
-    '4. ログ化
+    '3. ログ化
     printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
 
 End Function
@@ -1158,15 +1161,15 @@ Public Sub printParams()
     printMsg Debug_, currentLog.LogID & " Browser - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
-    printMsg Debug_, "Browser Type      | brType       | " & br.Type, FromProcedureName
-    printMsg Debug_, "Browser Ver       | brVer        | " & br.Ver, FromProcedureName
-    printMsg Debug_, "Core StdInWr      | hStdInWr     | " & PipeCore.ConnectionPipe_hStdInWr, FromProcedureName
-    printMsg Debug_, "Core StdOutRd     | hStdOutRd    | " & PipeCore.ConnectionPipe_hStdOutRd, FromProcedureName
-    printMsg Debug_, "Core hStderrOutRd | hStderrOutRd | " & PipeCore.ConnectionPipe_hStderrOutRd, FromProcedureName
-    printMsg Debug_, "Core CDPInWr      | hCDPInWr     | " & PipeCore.ConnectionPipe_hCDPInWr, FromProcedureName
-    printMsg Debug_, "Core CDPOutRd     | hCDPOutRd    | " & PipeCore.ConnectionPipe_hCDPOutRd, FromProcedureName
-    printMsg Debug_, "Core dwProcessId  | dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
-    printMsg Debug_, "CDP Version       | CDPVer       | " & CDPVer, FromProcedureName
+    printMsg Debug_, "Browser Product   | " & br.Product, FromProcedureName
+    printMsg Debug_, "Browser Ver       | " & br.Ver, FromProcedureName
+    printMsg Debug_, "Browser JsVersion | " & br.JsVersion, FromProcedureName
+    printMsg Debug_, "Browser CDPVer    | " & br.ProtocolVersion, FromProcedureName
+    printMsg Debug_, "Browser Revision  | " & br.Revision, FromProcedureName
+    printMsg Debug_, "Browser UserAgent | " & br.UserAgent, FromProcedureName
+    printMsg Debug_, "Browser UserData  | " & br.User, FromProcedureName
+    printMsg Debug_, "Core dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
+    printMsg Debug_, "Tool Version      | " & ToolVer, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
 End Sub
@@ -1175,8 +1178,21 @@ End Sub
 '* 機能　　：`Browser.getVersion`によるブラウザ情報を取得します
 '***************************************************************************************************
 Private Sub getBrowserInfo()
-    br.Type = ExecuteCDP("Browser.getVersion")("product")
-    br.Ver = Split(br.Type, "/")(1)
+    '1. バージョン番号を取得
+    Dim BrowserInfos As BiDiCDPJson: Set BrowserInfos = ExecuteCDP("Browser.getVersion")
+
+    '2. VBA用にキャッシュする
+    With br
+        'オリジナルのまま
+        .JsVersion = BrowserInfos.StringKey("jsVersion")
+        .Product = BrowserInfos.StringKey("product")
+        .ProtocolVersion = BrowserInfos.StringKey("protocolVersion")
+        .Revision = BrowserInfos.StringKey("revision")
+        .UserAgent = BrowserInfos.StringKey("userAgent")
+
+        '少し便利に
+        br.Ver = Split(.Product, "/")(1)    'そのChromium製品のバージョン番号
+    End With
 End Sub
 
 
@@ -1248,6 +1264,13 @@ End Property
 '***************************************************************************************************
 Property Get CurrentBrowserUser() As String
     CurrentBrowserUser = br.User
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClass内で起動してるブラウザの`userAgent`値を受け取ります
+'***************************************************************************************************
+Property Get CurrentBrowseruserAgent() As String
+    CurrentBrowseruserAgent = br.UserAgent
 End Property
 
 '***************************************************************************************************

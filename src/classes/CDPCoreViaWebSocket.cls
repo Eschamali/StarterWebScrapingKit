@@ -360,7 +360,6 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
 '* 引数　　：UserName           記録する識別名称
-'            BrowserType        ブラウザタイプ
 '            appUrl             `-app`に渡すURL
 '            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
@@ -369,7 +368,7 @@ End Function
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As BrowserList, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
 
 
@@ -377,10 +376,10 @@ Public Function ConnectCDPWithLocalBrowser(UserName As String, BrowserType As Br
     If deserialize(UserName) Then DisconnectCDP
 
     '1. ブラウザ起動前に、いくつかチェックを行います
-    Dim ReadyCDP As New CDPHost
+    Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, BrowserType, False
+        .InitInfo UserName, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -1238,11 +1237,10 @@ End Function
 '            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：・このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
-'            ・現時点では、Edge OR Chrome の安定版への接続用に限ります
+'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
 '***************************************************************************************************
 Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".ReConnectCDPWithLocalBrowser"
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
 
 
     '1. `UserName`から、Excelテーブルからハンドル情報を取得
@@ -1276,12 +1274,11 @@ Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
 
 
-    '1. `DevToolsActivePort`のファイルパスを特定
-    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, IIf(ShSetting01_StartBrowser.UseRangeID(4, FromProcedureName), BrowserList.RunChrome, BrowserList.RunEdge), False
+    '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
 
-    '2. 情報があるか？
+    '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
-    If IsEmpty(DevToolsActivePortInfo) Then printMsg ERROR_, "The DevToolsActivePort file is missing." & vbCrLf & "> " & checkDevToolsActivePort.getUserDataDirPath, FromProcedureName, doRaiseError:=True    'エラーで終了
 
     '3. 接続
     AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
@@ -1322,6 +1319,9 @@ End Property
 '            　参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
 Private Sub serialize(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
     '------------------ ソケット情報の記録 ------------------
     '※Pipe専用ハンドルは 0。ソケットとプロセス情報だけ実値を載せる
     Dim tmp As New Dictionary
@@ -1334,7 +1334,7 @@ Private Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     'Excelテーブルに、ハンドル情報を記録する
-    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCoreViaWebSocket.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName) = tmp
 End Sub
 
 '***************************************************************************************************
@@ -1389,8 +1389,8 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                   'ユニークID
-        currentLog.logPath = ShSetting01_StartBrowser.UseRangeID(9, FromProcedureName)          'ログフォルダパス
+        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
+        currentLog.logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)   'ログフォルダパス
     End With
 
     '蓄積用バイト配列バッファーの初期化
@@ -1405,7 +1405,7 @@ Private Sub Class_Initialize()
     End With
 
     '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
-    setShowWindow = ShSetting01_StartBrowser.UseRangeID(12, FromProcedureName)
+    setShowWindow = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()
