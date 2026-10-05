@@ -48,6 +48,22 @@ Public Enum keyboardCode    'Used for .sendKey operation in the browser class an
     keyBackspace = 8
 End Enum
 
+'このノードが何であるかを識別します。これは様々なノードの種類、例えば elements、text、comments を見分けます
+Public Enum NodeNodeType
+    NodeELEMENT_NODE = 1            '<p> や <div> などの Element(要素) ノードです。
+    NodeATTRIBUTE_NODE              'タグの属性（class="..." 等）※昔はノード扱いだった
+    NodeTEXT_NODE                   'Element や Attr の中に存在する Text です。
+    NodeCDATA_SECTION_NODE          '<!CDATA[[ … ]]> のような CDATASection です。
+    NodeENTITY_REFERENCE_NODE       'XMLの実体参照（&hoge; の定義など）
+    NodeENTITY_NODE                 'XMLのDTD実体宣言
+    NodePROCESSING_INSTRUCTION_NODE '<?xml-stylesheet … ?> のような XML 文書の ProcessingInstruction(処理命令) です。
+    NodeCOMMENT_NODE                '<!-- … --> のような Comment ノードです。
+    NodeDOCUMENT_NODE               'Document ノードです。
+    NodeDOCUMENT_TYPE_NODE          '<!DOCTYPE html> のような DocumentType ノードです。
+    NodeDOCUMENT_FRAGMENT_NODE      'DocumentFragment(断片) ノードです。いわゆる、Shadow DOM の根っこなどです。
+    NodeNOTATION_NODE               'XMLのDTD表記法宣言
+End Enum
+
 
 
 '***************************************************************************************************
@@ -175,6 +191,15 @@ End Sub
 '***************************************************************************************************
 Property Get CurrentObjectId() As String
     CurrentObjectId = CurrentElement.objectId
+End Property
+
+'***************************************************************************************************
+'* 機能　　：このClassで保持中の`ObjectId`の`nodeType`値を取得します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：このClassで保持中の`ObjectId`の`nodeType`値
+'***************************************************************************************************
+Property Get CurrentNodeType() As NodeNodeType
+    CurrentNodeType = jsEval("function(){ return this.nodeType; }")
 End Property
 
 
@@ -444,7 +469,7 @@ Property Get selected() As String
     If checkExist Then If Not isExist Then Exit Property
 
 
-    selected = jsEval("function(){ return this.selectedOptions[0] }")
+    selected = jsEval("function(){ return this.selectedOptions[0].text }")
 
 End Property
 
@@ -1197,12 +1222,23 @@ End Function
 ' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
 ' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
 ' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
+' eg.7 ".//button[@id='abc']": get first button descendant of the Shadow-root (`GetShadowRoot`で取得した`CDPElement`から実行)
 '---------------------------------------------------------------------------------------
+'* 注意事項：・この`CDPElement`での検索は、あくまでも「現在の要素を起点とした相対検索」です。TOP(document)からの検索は、`CDPContext.getElementByXPath`をご利用ください
+'            ・先頭が`/`や`//`の場合は、先頭に`.`を自動付与します（例：`//div` → `.//div`＝配下の子孫）
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'              `.`無しの相対指定（eg.6の`div`等）は、Shadow-root内では意図通りに探せません
+'            ・Shadow-root は XPath の起点にできないため、内部では最初の子ノードを起点に、先頭へ`.`を足して`..`(＝Shadow-root)として評価しています
+'            ・複数取得版の`getElementsByXPath`も、同じ規則で Shadow-root 内の検索に対応しています
+'            ・子要素が1つもない特殊なShadowDomには対応できません。その場合は従来通り、CSSルートで我慢してください
 '***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
     Const FromProcedureName         As String = ThisClassName & ".getElementByXPath"
-    Const ElementByXPathSearchJS    As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue }"
-
+    Const ElementByXPathSearchJS    As String = "function(xp){" & _
+                                                "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
+                                                "  var x = (this.nodeType === 11) ? '.' + xp : xp;" & _
+                                                "  return document.evaluate(x, c, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue" & _
+                                                "}"
 
     'When ifExist is employed, the function should only execute if the element exists
     If checkExist Then
@@ -1217,10 +1253,10 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-    '2. Check if strXPath has invalid // syntax
-    If Left(strXPath, 2) = "//" Then
-        printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
-        strXPath = Right(strXPath, Len(strXPath) - 2)
+    '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
+    If Left$(strXPath, 1) = "/" Then
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
@@ -1256,10 +1292,17 @@ End Function
 '             https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
 '* 注意事項：・index for accessing the collection members start at one (not zero).
 '            ・複数検索の場合、親情報を引き継がない関係上、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'            ・`getElementByXPath`と同じく、現在の要素を起点とした相対検索です。先頭が`/`や`//`の場合は、先頭に`.`を自動付与します
+'            ・`GetShadowRoot`で得た Shadow-root の`CDPElement`から実行する場合は、`./○○`(直下) や `.//○○`(配下の子孫) のように、先頭に`.`を付けてください
+'              `.`無しの相対指定は、Shadow-root内では意図通りに探せません。詳細は`getElementByXPath`の注意事項を参照してください
 '***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
     Const FromProcedureName As String = ThisClassName & ".getElementsByXPath"
-    Const ChildrenSearchJS  As String = "function(xp){ return document.evaluate(xp, this, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null) }"
+    Const ChildrenSearchJS  As String = "function(xp){" & _
+                                        "  var c = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? this.firstChild : this;" & _
+                                        "  var x = (this.nodeType === Node.DOCUMENT_FRAGMENT_NODE) ? '.' + xp : xp;" & _
+                                        "  return document.evaluate(x, c, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)" & _
+                                        "}"
 
 
     'When ifExist is employed, the function should only execute if the element exists
@@ -1269,10 +1312,10 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '1. Verify double slash syntax
     strXPath = Replace(strXPath, "\", "/")
 
-    '2.Check if strXPath has invalid // syntax
-    If Left(strXPath, 2) = "//" Then
-        printMsg WARN_, "Note: '//' has been removed from the next XPath call string """ & strXPath & """ as it is an invalid syntax for the contextNode", FromProcedureName
-        strXPath = Right(strXPath, Len(strXPath) - 2)
+    '2. 先頭が`/`の場合は、相対検索になるよう先頭に`.`を付与
+    If Left$(strXPath, 1) = "/" Then
+        printMsg WARN_, "Note: '.' has been prepended to the next XPath call string """ & strXPath & """ because `CDPElement` searches relative to the current element. Use `CDPContext` to search from the top of the document.", FromProcedureName
+        strXPath = "." & strXPath
     End If
 
     '3. `callFunctionOn`に渡す引数を準備
