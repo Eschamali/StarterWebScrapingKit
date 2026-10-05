@@ -33,8 +33,8 @@ t.navigate "URL"
 
 | 経路 | ひとこと | こんなときに |
 | --- | --- | --- |
-| 🥇 **Pipe** | **迷ったらこれ** | `--remote-debugging-pipe`によるパイプ通信。既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用でき、安定性・デバッグ容易性ともに最も実績のある主流の方式です |
-| 🥈 **Port**（WebSocket） | Android や、今目の前のブラウザ | `--remote-debugging-port`による通信。既に起動しているブラウザへの後付け接続に対応しています。※設定次第では別PCのブラウザ操作も可能です。ローカルブラウザの**起動から接続まで**もこの経路で完結できます |
+| 🥇 **Pipe** | **迷ったらこれ** | `--remote-debugging-pipe`によるパイプ通信。安定性・デバッグ容易性ともに最も実績のある主流の方式です |
+| 🥈 **Port**（WebSocket） | Android や、今目の前のブラウザ | `--remote-debugging-port`による通信。既に起動しているブラウザへの後付け接続に対応しています。既存のブラウザプロファイル（お気に入りやログイン状態）をそのまま流用可！<br>※設定次第では別PCのブラウザ操作も可能です。ローカルブラウザの**起動から接続まで**もこの経路で完結できます |
 | 🥉 **WebView2** | Port も Pipe も使えない環境に | デバッグポートもデバッグパイプも一切開かず、WebView2 SDKを直接叩いてCDPをやり取りします。**「UserForm完結」という美**——外部プロセスなしで、Excelのメモリ空間だけでブラウザを完全制御できます |
 
 いずれの経路でも、`CDPContext.navigate` や `CDPElement.getElementByQuery` など**まったく同じAPI**でそのまま操作できます。詳しい使い分けは後述のデモコード、または [公式ドキュメント](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) を参照してください。
