@@ -1232,15 +1232,10 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Diction
     Const FromProcedureName As String = ThisClassName & ".ExecuteCDPAsync"
 
 
-    '1. コマンド組み立て
-    Dim CDPcommand As New Dictionary
-    CDPcommand.Add "method", methodName
-    If Not params Is Nothing Then CDPcommand.Add "params", params       '`nothing`の場合は、`params`項目を省略
+    '1. コマンド情報をブラウザへ送信し、実行IDを取得
+    ExecuteCDPAsync = PipeCore.ReadyRunCDP(methodName, params, brTab.sessionID) 'Send message to the Context(tab) instance
 
-    '2. ブラウザへ送信し、実行IDを取得
-    ExecuteCDPAsync = PipeCore.ReadyRunCDP(CDPcommand, brTab.sessionID) 'Send message to the Context(tab) instance
-
-    '3. 送信APIエラーチェック
+    '2. 送信APIエラーチェック
     If PipeCore.LastErrorWriteFile Then
         printMsg ERROR_, "Error WriteFile in CDPCore.writeProcCDP. ErrorCode:" & PipeCore.LastErrorWriteFile & " - " & WinApiError.GetMessage(PipeCore.LastErrorWriteFile, "kernel32"), FromProcedureName, doRaiseError:=StopApiError
 
@@ -1248,7 +1243,7 @@ Public Function ExecuteCDPAsync(methodName As String, Optional params As Diction
         Exit Function
     End If
 
-    '4. ログ化
+    '3. ログ化
     printMsg Debug_, "Async ExecuteCDP: " & methodName & " - ID: " & ExecuteCDPAsync, FromProcedureName
 
 End Function

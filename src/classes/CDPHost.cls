@@ -381,6 +381,7 @@ End Function
 '* 機能　　：ユーザーデータフォルダ直下にある「DevToolsActivePort」ファイルを削除します
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：古いWebSocket情報を見ないようにする対策です
+'* 注意事項：Chromium起動前に実行してください
 '***************************************************************************************************
 Public Sub DeleteFileDevToolsActivePort()
     Dim DevToolsActivePortFilePath As String: DevToolsActivePortFilePath = getUserDataDirPath & "\" & WebSocketInfoFileName
@@ -394,7 +395,8 @@ End Sub
 '* 引数　　：MaxTickWait    待機Tick数(デフォルトは、10sです。)
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：指定Tickまで待機します
-'* 注意事項：必要に応じて、前述のプロシージャで削除を行います
+'* 注意事項：・必要に応じて、前述のプロシージャで削除を行います
+'            ・Chromium起動後に実行して下さい
 '***************************************************************************************************
 Public Function AutoWaitExistsFileDevToolsActivePort(Optional MaxTickWait As Long = 100) As Boolean
     Const FromProcedureName As String = ThisClassName & ".AutoWaitExistsFileDevToolsActivePort"
@@ -456,7 +458,7 @@ End Function
 '* 詳細説明：`InitInfo`の第三引数に応じて変わります
 '***************************************************************************************************
 Public Function GenerateArgRemoteDebugging() As String
-    GenerateArgRemoteDebugging = IIf(PipeMode, "--" & DebugModeSign & "-pipe", "--" & DebugModeSign & "-port=0")
+    GenerateArgRemoteDebugging = "--" & DebugModeSign & IIf(PipeMode, "-pipe", "-port=0")
 End Function
 
 '***************************************************************************************************
