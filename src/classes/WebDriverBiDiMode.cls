@@ -206,7 +206,7 @@ End Sub
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -234,12 +234,10 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     '4. mapperTab.js の仕様に沿った確認に従う
     If resultBiDi.ExistsKey("ready") Then
         printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
-        reattach = True
     Else
         printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
-        reattach = False
     End If
-End Function
+End Sub
 
 
 

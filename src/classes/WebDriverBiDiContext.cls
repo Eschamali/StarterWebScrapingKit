@@ -147,7 +147,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     Set m_BiDiMode = New WebDriverBiDiMode
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
-    If Not m_BiDiMode.reattach(userProfile, sessionCapabilitiesRequest, WebSocketMode) Then printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
+    m_BiDiMode.reattach userProfile, sessionCapabilitiesRequest, WebSocketMode
     Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
 
     '3. タブ情報を再セット
