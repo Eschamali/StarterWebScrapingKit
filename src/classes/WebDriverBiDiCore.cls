@@ -33,6 +33,9 @@ Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-C
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
 Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
+'直やり取りスイッチング
+Private DirectWebDiverBiDi  As Boolean
+
 
 
 '***************************************************************************************************
@@ -252,6 +255,9 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
+    '0. WebDriverBiDiダイレクトなら専用プロシージャへ
+    If Not WebSocketMode Is Nothing Then If WebSocketMode.DirectWebDriverBiDiMode Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi(WebSocketMode): Exit Function
+
     '1. CDPタブセッションに再接続
     Set WebDriverBiDi_mapperTab = New CDPContext
 
@@ -321,6 +327,19 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
         '4. 再始動したサインを返す
         ReBootBiDiCDPMapper = True
     End If
+End Function
+
+Private Function RunDirectWebDriverBiDi(WebSocketMode As CDPCoreViaWebSocket) As Boolean
+    '1. 必要なオブジェクトを設定
+    Set m_CDPCore = New CDPCore
+    Set m_CDPCore.WebSocketMode = WebSocketMode
+
+    '2. ダイレクトモードにする
+    DirectWebDiverBiDi = True
+
+    '3. ここでは仮で、`False`で返す
+    '※`WebDriverBiDiMode.reattach`の`session.Status`側で、改めて判定します
+    RunDirectWebDriverBiDi = False
 End Function
 
 
@@ -431,7 +450,7 @@ Public Function ReadyRunBiDi(methodName As String, parametersAsJson As Dictionar
     Dim strMessage As String
     strMessage = WebJsonConverter.serialize(TopParams)
     printMsg Debug_, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    RunCDP strMessage, StopApiError
+    If DirectWebDiverBiDi Then m_CDPCore.writeWebSocketBiDi strMessage Else RunCDP strMessage, StopApiError
 End Function
 
 '***************************************************************************************************
@@ -500,6 +519,13 @@ Private Function BiDiReceivedDataCheck(BiDiJsonString As String)
         End If
     End If
 End Function
+
+'***************************************************************************************************
+'* 機能　　：CDPCore.clsから発信された生受信文字列
+'***************************************************************************************************
+Private Sub m_CDPCore_DirectWebDriverBiDiRes(RawJson As String)
+    BiDiReceivedDataCheck RawJson
+End Sub
 
 
 

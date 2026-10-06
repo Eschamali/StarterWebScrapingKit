@@ -178,6 +178,9 @@ Public Event CDPBrowserID(id As Long, RawJson As String)                        
 Public Event CDPContextEvent(methodName As String, RawJson As String, sessionID As String)  'タブに対する非同期イベント
 Public Event CDPContextID(id As Long, RawJson As String, sessionID As String)               'タブに対するCDPコマンド結果
 
+'WebDriverBiDiの直やり取り用
+Public Event DirectWebDriverBiDiRes(RawJson As String)
+
 'コマンドIDリセットサイン
 Public Event ResetCommandID()
 
@@ -775,6 +778,17 @@ Private Sub writeWebSocketCDP(strData As String)
     LastPipeError.WriteFile = viaWebSocket.SendCommandCDP(strData)
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：Firefox等の、WebDriverBiDiネイティブ対応用の送信メソッド
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SendJson    完成したBiDi-Json文字列コマンド
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：国際標準ルール上、この場合は、WebSocketルートのみサポートします
+'***************************************************************************************************
+Public Sub writeWebSocketBiDi(SendJson As String)
+    writeWebSocketCDP SendJson
+End Sub
+
 
 
 '***************************************************************************************************
@@ -1316,8 +1330,9 @@ Public Sub TakeEvent()
     If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - CDP          : " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
     '2. 受信データを`RaiseEvent`するプロシージャへ委託
+    printMsg Trace_, "I will trigger one `RaiseEvent`.", FromProcedureName
+    If Not viaWebSocket Is Nothing Then If viaWebSocket.DirectWebDriverBiDiMode Then RaiseEvent DirectWebDriverBiDiRes(tmp): Exit Sub
     Call BrowserReceivedDataCheck(tmp)
-    printMsg Trace_, "I triggered one `RaiseEvent`.", FromProcedureName
 End Sub
 
 '***************************************************************************************************
