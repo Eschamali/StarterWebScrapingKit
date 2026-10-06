@@ -206,7 +206,7 @@ End Sub
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
@@ -214,11 +214,16 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
-    '2. 結果に応じて`session.new`を行う
+    '2. デバッグセッション有無判定
+    '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
+    Dim DebugSessionStatus As Boolean
+    DebugSessionStatus = sessionStatus.BoolKey("ready")
+
+    '3. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson
-    If requestSessionNew Then
+    If requestSessionNew Or DebugSessionStatus Then
         '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
         Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
@@ -226,20 +231,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
         '2-2. 接続先ブラウザ情報をログで表示
         ViewNewSession resultBiDi
     End If
-
-    '3. セッション一覧を取得して、既存のものがあるか確認する
-    ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Set resultBiDi = sessionStatus
-
-    '4. mapperTab.js の仕様に沿った確認に従う
-    If resultBiDi.ExistsKey("ready") Then
-        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
-        reattach = True
-    Else
-        printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
-        reattach = False
-    End If
-End Function
+End Sub
 
 
 
@@ -908,7 +900,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
         .webSocketUrl = Node_capabilities.StringKey("webSocketUrl")
 
         '独自
-        br.Ver = Split(.browserName, "/")(1)    'そのChromium製品のバージョン番号
+        If InStr(1, .browserName, "/") Then .Ver = Split(.browserName, "/")(1) Else .Ver = .browserVersion 'そのChromium製品のバージョン番号
     End With
 
     '2. 現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
@@ -972,6 +964,20 @@ End Function
 '***************************************************************************************************
 Private Function sessionStatus() As BiDiCDPJson
     Set sessionStatus = ExecuteBiDi("session.status")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：BiDiコマンド、`session.end`を実行し、WebSokctからも切断します
+'---------------------------------------------------------------------------------------------------
+'* 返値　　：`session.status`時の結果Dictionaryオブジェクト
+'---------------------------------------------------------------------------------------------------
+'* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-end
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：ブラウザを閉じずに、デバッグだけ終らせる後始末用にどうぞ
+'* 注意事項：WebSocket切断も同時に発生するためここは、エラー無視として働きます
+'***************************************************************************************************
+Public Function sessionEnd() As BiDiCDPJson
+    Set sessionEnd = ExecuteBiDi("session.end", , False)
 End Function
 
 '***************************************************************************************************
