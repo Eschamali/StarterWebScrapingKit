@@ -131,7 +131,7 @@ First.navigate "https://www.google.com/"
 Dim mode As New WebDriverBiDiMode
 Dim UserName As String
 UserName = ShSetting01_StartBrowser.CurrentUserName
-If Not mode.reattach(UserName) Then Exit Sub
+mode.reattach UserName   ' 失敗時は VBA エラーで停止
 
 Dim tab As WebDriverBiDiContext
 Set tab = mode.getTab(setMain:=True)

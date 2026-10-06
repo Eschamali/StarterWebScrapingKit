@@ -48,14 +48,14 @@ mode.StartBiDiMode "MyUser", sessionCapabilitiesRequest:=caps
 ### `reattach`
 
 ```vb
-Public Function reattach( _
+Public Sub reattach( _
     userProfile As String, _
     Optional sessionCapabilitiesRequest As Dictionary, _
     Optional WebSocketMode As CDPCoreViaWebSocket _
-) As Boolean
+)
 ```
 
-既存の BiDi 接続へ再接続を試みます。
+既存の BiDi 接続へ再接続します。
 
 | 引数 | 意味 |
 | --- | --- |
@@ -63,21 +63,22 @@ Public Function reattach( _
 | `sessionCapabilitiesRequest` | 新しい BiDi-CDP Mapper が起動されたときだけ `session.new` に適用 |
 | `WebSocketMode` | WebSocket で制御する場合、接続済みの `CDPCoreViaWebSocket` を指定 |
 
-**戻り値:** 再接続成功可否（`session.status` の ready 判定）。
+戻り値はありません。[`CDPBrowser.reattachPipe`](/api/cdp/CDPBrowser) 等と同じく、再接続に失敗した場合は **VBA エラーで停止**します（エラーで止めたくない場合は呼び出し側で `On Error` を使ってください）。
 
 ```vb
 ' Pipe 版
 Dim mode As New WebDriverBiDiMode
-If Not mode.reattach(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
+mode.reattach ShSetting01_StartBrowser.CurrentUserName
 
 ' WebSocket 版
 Dim ws As New CDPCoreViaWebSocket
 ' ... 接続済み ws を渡す ...
-If Not mode.reattach(UserName, , ws) Then Exit Sub
+mode.reattach UserName, , ws
 ```
 
 ::: tip 注意
-パイプが生きていない場合は、このメソッドから再開できません。Part1 からやり直してください。
+- パイプが生きていない場合は、このメソッドから再開できません。Part1 からやり直してください
+- BiDi-CDP Mapper が再始動された場合のほか、デバッグ中の BiDi セッションが無い（`session.status` の `ready` が `True`）場合にも、`session.new` を行います。このとき `sessionCapabilitiesRequest` が適用されます
 :::
 
 詳細は [再接続](/guides/reattach) / [WebSocket モード](/websocket/capabilities)。
@@ -93,6 +94,22 @@ Public Sub quit()
 ```vb
 mode.quit
 ```
+
+### `sessionEnd`
+
+```vb
+Public Function sessionEnd() As BiDiCDPJson
+```
+
+BiDi コマンド [`session.end`](https://w3c.github.io/webdriver-bidi/#command-session-end) を実行し、**ブラウザは閉じずに**、BiDi による制御（デバッグ）だけを終わらせます。ブラウザを開いたまま後始末をしたいときに使います。WebSocket 経由の場合は、WebSocket の切断も同時に起こります。
+
+```vb
+mode.sessionEnd   ' ブラウザは開いたまま、BiDi 制御だけ終了
+```
+
+::: tip 注意
+通信の切断が同時に起こるため、エラーは無視する動作になっています（`StopBiDiError:=False` 相当）。ブラウザごと終了したい場合は [`quit`](#quit) を使ってください。
+:::
 
 ## タブ
 

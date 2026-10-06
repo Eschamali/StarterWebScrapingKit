@@ -88,7 +88,7 @@ Dim ws As New CDPCoreViaWebSocket
 If Not ws.AutoConnectBrowserCDP(UserName) Then Exit Sub
 
 Dim bidi As New WebDriverBiDiMode
-If Not bidi.reattach(UserName, WebSocketMode:=ws) Then Exit Sub
+bidi.reattach UserName, WebSocketMode:=ws
 ```
 
 ::: tip 起動から接続までを `CDPCoreViaWebSocket` で行いたい場合
