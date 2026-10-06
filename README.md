@@ -39,8 +39,8 @@ There are three control routes. Pick the one that fits your situation.
 
 | Route | In a word | When to use it |
 | --- | --- | --- |
-| 🥇 **Pipe** | **When in doubt, use this** | Pipe communication via `--remote-debugging-pipe`. You can reuse existing browser profiles (favorites, login state, etc.) as-is. The most proven, stable, and easy-to-debug method. |
-| 🥈 **Port** (WebSocket) | Android, or the browser right in front of you | Communication via `--remote-debugging-port`. Supports attaching to an already-running browser. *Depending on your network setup, you can even control a browser on a different PC.* It can also **launch a local browser and connect to it** through this route. |
+| 🥇 **Pipe** | **When in doubt, use this** | Pipe communication via `--remote-debugging-pipe`. The most proven, stable, and easy-to-debug method. |
+| 🥈 **Port** (WebSocket) | Android, or the browser right in front of you | Communication via `--remote-debugging-port`. Supports attaching to an already-running browser. You can reuse existing browser profiles (favorites, login state, etc.) as-is!<br>*Depending on your network setup, you can even control a browser on a different PC.* It can also **launch a local browser and connect to it** through this route. |
 | 🥉 **WebView2** | For environments where neither a port nor a pipe is allowed | Opens no debug port and no named pipe at all — it talks CDP directly through the WebView2 SDK. The beauty of **"fully self-contained inside a UserForm"**: complete browser control from nothing but Excel's own memory space. |
 
 Whichever route you pick, you use **exactly the same API** — `CDPContext.navigate`, `CDPElement.getElementByQuery`, and so on. See the demo code below, or the [official documentation](https://eschamali.github.io/StarterWebScrapingKit/concepts/architecture) for details on choosing between them.
