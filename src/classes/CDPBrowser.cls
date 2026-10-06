@@ -52,7 +52,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer                    As String = "3.3.0"
+Private Const ToolVer                    As String = "3.3.1.1"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用

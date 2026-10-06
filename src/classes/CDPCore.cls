@@ -784,7 +784,7 @@ End Sub
 '            直接書き込みます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：WebView2はCOMコールバック経由で完成JSON文字列(欠けなし・フラグメントなし)を届けるため、
-'            `viaWebSocket_WebSocketReceive`のようなバイト列蓄積とストリーム変換は不要で、
+'            `viaWebSocket_readWebSocketCDP`のようなバイト列蓄積とストリーム変換は不要で、
 '            直接`responseCDP.strBuffer`へ書き込みます
 '* 注意事項：・メッセージの取り出し自体(`TakeCDPMessage`/`searchNull`)はPipe/WebSocket共通のロジックを
 '            　そのまま流用しており、`vbNullChar`をメッセージ区切りとして検索する前提になっているため、

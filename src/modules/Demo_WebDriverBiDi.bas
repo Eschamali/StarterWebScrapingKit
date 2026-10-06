@@ -446,7 +446,7 @@ Sub demoReattachmentPart2()
 
     '1. リアタッチとして起動
     Dim Reattachment As New WebDriverBiDiMode
-    If Not Reattachment.reattach(UserName, , BiDiWS) Then Debug.Print "Failed to reattach. `demoReattachmentPart1`を始動しましたか？": Exit Sub
+    Reattachment.reattach UserName, , BiDiWS
 
     '2. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
