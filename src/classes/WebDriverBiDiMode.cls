@@ -214,7 +214,7 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
     br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '2. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson

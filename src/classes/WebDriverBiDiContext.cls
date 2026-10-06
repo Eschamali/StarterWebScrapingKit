@@ -869,7 +869,7 @@ Property Set ThisWebDriverBiDiCore(Target As WebDriverBiDiCore)
     Set m_BiDiCore = Target
 
     '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.DirectControlCDP.ThisCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
 End Property
 
 '***************************************************************************************************

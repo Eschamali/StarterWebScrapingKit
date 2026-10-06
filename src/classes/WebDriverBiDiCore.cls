@@ -534,6 +534,13 @@ Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時の
 End Property
 
 '***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Friend Property Get LogSettings() As StateLog
+    LogSettings = m_CDPCore.LogSettings
+End Property
+
+'***************************************************************************************************
 '* 機能　　：基本ラッパー機能
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
