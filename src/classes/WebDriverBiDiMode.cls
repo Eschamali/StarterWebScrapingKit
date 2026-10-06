@@ -216,26 +216,20 @@ Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest A
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
-    '2. 結果に応じて`session.new`を行う
+    '2. デバッグセッション有無判定
+    '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
+    Dim DebugSessionStatus As Boolean
+    DebugSessionStatus = sessionStatus.BoolKey("ready")
+
+    '3. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson
-    If requestSessionNew Then
+    If requestSessionNew Or DebugSessionStatus Then
         '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
         Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
         '2-2. 接続先ブラウザ情報をログで表示
         ViewNewSession resultBiDi
-    End If
-
-    '3. セッション一覧を取得して、既存のものがあるか確認する
-    ' (BiDiは接続ごとにセッションIDがかわるわけではないが、安全のためセッション状態を確認)
-    Set resultBiDi = sessionStatus
-
-    '4. mapperTab.js の仕様に沿った確認に従う
-    If resultBiDi.ExistsKey("ready") Then
-        printMsg info_, "Successfully reattached to BiDi! Session status ready: " & resultBiDi.StringKey("message"), FromProcedureName
-    Else
-        printMsg ERROR_, "Failed to reattach to BiDi session.", FromProcedureName, doRaiseError:=True
     End If
 End Sub
 
