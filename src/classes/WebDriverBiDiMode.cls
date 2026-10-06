@@ -908,7 +908,7 @@ Private Sub ViewNewSession(ResultSessionNew As BiDiCDPJson)
         .webSocketUrl = Node_capabilities.StringKey("webSocketUrl")
 
         '独自
-        br.Ver = Split(.browserName, "/")(1)    'そのChromium製品のバージョン番号
+        If InStr(1, .browserName, "/") Then .Ver = Split(.browserName, "/")(1) Else .Ver = .browserVersion 'そのChromium製品のバージョン番号
     End With
 
     '2. 現時点では、`platformName`は空欄なので、せっかくなので、このアプリケーションの名称にしてみます
