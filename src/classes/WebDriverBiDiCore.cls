@@ -256,7 +256,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
 
 
     '0. WebDriverBiDiダイレクトなら専用プロシージャへ
-    If Not WebSocketMode Is Nothing Then If WebSocketMode.DirectWebDriverBiDiMode Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi(WebSocketMode): Exit Function
+    If Not WebSocketMode Is Nothing Then If WebSocketMode.DirectWebDriverBiDiMode Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi(userProfile, WebSocketMode): Exit Function
 
     '1. CDPタブセッションに再接続
     Set WebDriverBiDi_mapperTab = New CDPContext
@@ -329,7 +329,10 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     End If
 End Function
 
-Private Function RunDirectWebDriverBiDi(WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Private Function RunDirectWebDriverBiDi(UserName As String, WebSocketMode As CDPCoreViaWebSocket) As Boolean
+    Const FromProcedureName As String = ThisClassName & ".RunDirectWebDriverBiDi"
+
+
     '1. 必要なオブジェクトを設定
     Set m_CDPCore = New CDPCore
     Set m_CDPCore.WebSocketMode = WebSocketMode
@@ -337,7 +340,30 @@ Private Function RunDirectWebDriverBiDi(WebSocketMode As CDPCoreViaWebSocket) As
     '2. ダイレクトモードにする
     DirectWebDiverBiDi = True
 
-    '3. ここでは仮で、`False`で返す
+    '3. メインタブ記録用に、データ枠を用意
+    With ShSetting01_StartBrowser
+        '3-1. 既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
+        Dim BiDiMapperInfo As Dictionary
+        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+
+        '3-2. 記録準備
+        If BiDiMapperInfo Is Nothing Then
+            '新規なので、全て空で用意
+            Set BiDiMapperInfo = New Dictionary
+            BiDiMapperInfo.Add "sessionID", vbNullString
+            BiDiMapperInfo.Add "targetID", vbNullString
+            BiDiMapperInfo.Add "BiDi-context", vbNullString
+        Else
+            '取れた場合は既に`BiDi-context`Keyはあるので、CDP情報だけ空にしておく
+            BiDiMapperInfo("sessionID") = vbNullString
+            BiDiMapperInfo("targetID") = vbNullString
+        End If
+
+        '3-3. 実際に記録
+        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
+    End With
+
+    '4. ここでは仮で、`False`で返す
     '※`WebDriverBiDiMode.reattach`の`session.Status`側で、改めて判定します
     RunDirectWebDriverBiDi = False
 End Function
