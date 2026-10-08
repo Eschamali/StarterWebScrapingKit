@@ -55,17 +55,18 @@ Private currentLog              As StateLog     'ログ設定
 '            addArgs                    追加の起動引数
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
+Public Sub OpenBrowserAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
     '1. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
     Dim InitURL As String
     Set m_BiDiMode = New WebDriverBiDiMode
-    InitURL = m_BiDiMode.StartBiDiMode(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = m_BiDiMode.OpenBrowser(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
+    '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
+    Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. Complete initialization ------------------------------------------------------
     InitAttachToContext InitURL                     'Find and attach the newly open Session ID
@@ -131,24 +132,23 @@ End Sub
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のBiDi-contextタブ情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Function reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 新オブジェクトを用意
+    '1. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     Set m_BiDiMode = New WebDriverBiDiMode
+    m_BiDiMode.reattach reattachInfo, sessionCapabilitiesRequest
 
-    '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
-    m_BiDiMode.reattach userProfile, sessionCapabilitiesRequest, WebSocketMode
-    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
+    '2. 接続情報を継承
+    Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -803,17 +803,14 @@ Public Function UpgradeBiDiPlus() As CDPContext
     m_BiDiCore.DirectControlCDP.EnableDiscoverTargets = True    '`CDPContext.cls`としての制御なので、カウントしておく
     Set UpgradeBiDiPlus = New CDPContext
     With UpgradeBiDiPlus
-        '4. BiDiブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = m_BiDiCore.DirectControlCDP.ThisCDPCore
-
-        '5. BiDiブラウザ情報を渡す
+        '4. BiDiブラウザ情報を渡す
         Set .ThisCDPBrowser = m_BiDiCore.DirectControlCDP
 
-        '6. 先ほど発行したSessionIDを渡す
+        '5. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
     End With
 
-    '7. 成功ログ
+    '6. 成功ログ
     printMsg info_, "The upgrade to BiDi+ was successful. This enables operation via CDP commands.", FromProcedureName
 End Function
 
@@ -855,21 +852,11 @@ Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
     Set ThisWebDriverBiDiMode = m_BiDiMode
 End Property
 Property Set ThisWebDriverBiDiMode(Target As WebDriverBiDiMode)
+    '1. ブラウザ情報を適用
     Set m_BiDiMode = Target
-End Property
 
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ったり継承させます
-'***************************************************************************************************
-Property Get ThisWebDriverBiDiCore() As WebDriverBiDiCore
-    Set ThisWebDriverBiDiCore = m_BiDiCore
-End Property
-Property Set ThisWebDriverBiDiCore(Target As WebDriverBiDiCore)
-    '1. コア本体を継承
-    Set m_BiDiCore = Target
-
-    '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
+    '2. ついでに、制御コアも適用
+    Set m_BiDiCore = Target.ThisBiDiCore
 End Property
 
 '***************************************************************************************************

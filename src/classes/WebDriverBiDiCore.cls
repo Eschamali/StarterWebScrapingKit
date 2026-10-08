@@ -82,20 +82,17 @@ Private currentLog      As StateLog
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Function InitBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".start"
-
-
+Public Function OpenBrowserAndConnectBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    InitBiDi = m_CDPBrowser.start(UserName, appUrl, SplashScreenMode, addArgs)
+    OpenBrowserAndConnectBiDi = m_CDPBrowser.OpenBrowser(UserName, appUrl, SplashScreenMode, addArgs)
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.ThisCDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi UserName
+    newTabForBiDi
 
     '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
@@ -109,7 +106,7 @@ End Function
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
-Private Sub newTabForBiDi(UserName As String)
+Private Sub newTabForBiDi()
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
@@ -139,13 +136,10 @@ Private Sub newTabForBiDi(UserName As String)
     '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
-        '5-1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = m_CDPBrowser.ThisCDPCore
-
-        '5-2. このブラウザ情報を渡す
+        '5-1. このブラウザ情報を渡す
         Set .ThisCDPBrowser = m_CDPBrowser
 
-        '5-3. 先ほど得た`sessionId`を渡す
+        '5-2. 先ほど得た`sessionId`を渡す
         '内部で以下のフローが行われます
         '- `Target.getTargetInfo`で、ステータスを更新
         .CurrentSessionID = sessionID
@@ -155,7 +149,7 @@ Private Sub newTabForBiDi(UserName As String)
     With ShSetting01_StartBrowser
         '6-1. リアタッチを想定して、既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
         Dim BiDiMapperInfo As Dictionary
-        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+        Set BiDiMapperInfo = .TableBrowserContext(Me.CurrentUserName, FromProcedureName)
 
         '6-2. 記録準備
         If BiDiMapperInfo Is Nothing Then
@@ -171,7 +165,7 @@ Private Sub newTabForBiDi(UserName As String)
         End If
 
         '6-3. 実際に記録
-        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
+        Set .TableBrowserContext(Me.CurrentUserName, FromProcedureName) = BiDiMapperInfo
     End With
 
     '7. ログ化
@@ -238,8 +232,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelに記録してるタブ情報を基に、既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebSocketMode              WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト
 '* 返値    ：再始動したか論理値 `True` ：`BiDi-CDP Mapper`を再始動しました。`WebDriverBiDiMode.cls`側で、`session.new`する必要があります
 '                               `False`：既存の`BiDi-CDP Mapper`を流用できたので、`session.new`は不要です
 '---------------------------------------------------------------------------------------------------
@@ -248,27 +241,23 @@ End Sub
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
 '            ・`SessionID`は常に更新させます
 '***************************************************************************************************
-Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
-    '1. CDPタブセッションに再接続
-    Set WebDriverBiDi_mapperTab = New CDPContext
-
-    '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
-    Dim mapperTabConnection As Boolean
-    If WebSocketMode Is Nothing Then
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
-    Else
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, ConnectInfo:=WebSocketMode)
-    End If
-
-    '3. 各種オブジェクトを継承
-    Set m_CDPCore = WebDriverBiDi_mapperTab.ThisCDPCore
-    Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
+    '1. 接続情報を継承
+    Set m_CDPCore = reattachInfo.Get_CDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
-    '`TargetID`有無に応じた分岐
+    '2. Excelに記録されてる`TargetID`の生存確認
+    Dim mapperTabConnection As Boolean
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(reattachInfo)    '※`sessionId`は、常に更新させます
+
+    '3. 接続情報をブラウザClassにも適用
+    Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
+
+    '`BiDiMapper - TargetID`有無に応じた分岐
     If mapperTabConnection Then
         'Excelに記録されてる`TargetID`が生きてる = `Target.exposeDevToolsProtocol`が有効
         printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
@@ -313,7 +302,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
-        newTabForBiDi userProfile
+        newTabForBiDi
 
         '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
@@ -517,31 +506,37 @@ End Property
 
 
 '***************************************************************************************************
-'                               ■■■ プロパティ機能 ■■■
+'                             ■■■ 各種設定情報読み取り ■■■
 '***************************************************************************************************
-'* 機能　　：最後の○○系取得用プロパティ
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 最後のエラー情報
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
+'* 機能　　：`PeekNamedPipe`系、使用時のエラーコード
+'***************************************************************************************************
+Property Get LastErrorPeekNamedPipe() As Long
     LastErrorPeekNamedPipe = m_CDPCore.LastErrorPeekNamedPipe
 End Property
 
-Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
+'***************************************************************************************************
+'* 機能　　：`ReadFile`系、使用時のエラーコード
+'***************************************************************************************************
+Property Get LastErrorReadFile() As Long
     LastErrorReadFile = m_CDPCore.LastErrorReadFile
 End Property
 
-Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
+'***************************************************************************************************
+'* 機能　　：`WriteFile`系、使用時のエラーコード
+'***************************************************************************************************
+Property Get LastErrorWriteFile() As Long
     LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
 End Property
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] コアへのラッパー機能
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = m_CDPCore.LogSettings
-End Property
-
-'***************************************************************************************************
-'* 機能　　：基本ラッパー機能
+'* 機能　　：ログ書き込み
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
@@ -550,6 +545,9 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：ハンドルClose
+'***************************************************************************************************
 Public Sub CloseHandleBrowser()
     m_CDPCore.CloseHandleBrowser
 End Sub
@@ -574,6 +572,20 @@ End Property
 Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
     m_CDPCore.AnalyzeCDP StopApiError, destruction
 End Sub
+
+'***************************************************************************************************
+'* 機能　　：アクティブな接続情報の識別名称を取得
+'***************************************************************************************************
+Property Get CurrentUserName() As String
+    CurrentUserName = m_CDPCore.CurrentUserName
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Friend Property Get LogSettings() As StateLog
+    LogSettings = m_CDPCore.LogSettings
+End Property
 
 
 
