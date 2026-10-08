@@ -399,7 +399,7 @@ Sub BiDiPlusDemo()
            "見出しリンクのテキスト：" & 見出しテキスト, vbInformation, "BiDiPlusDemo 完了"
 
     '同一ブラウザをBiDi/CDPで共有しているため、CDP側から終了すればOK
-    BiDiPlusTab.ThisCDPBrowser.quit
+    BiDiPlusTab.ThisCDPBrowser.CloseBrowser
 End Sub
 
 
