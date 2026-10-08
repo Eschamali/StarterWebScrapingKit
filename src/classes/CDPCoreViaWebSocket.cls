@@ -188,8 +188,8 @@ End Type
 Private LastWinSockError   As ErrorCode
 
 '--- 各種クラスオブジェクト ---
-Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
-Private Utf8Converter           As New CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
+Private WebSocketReceiveStream  As Object                   'WebSocketバイトストリームを蓄積するオブジェクト
+Private Utf8Converter           As CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
 
 
 
@@ -1403,6 +1403,9 @@ Private Sub Class_Initialize()
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
     End With
+
+    'UTF8変換モードを設定
+    Set Utf8Converter = New CharacterCodeConversion
 
     '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
     setShowWindow = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
