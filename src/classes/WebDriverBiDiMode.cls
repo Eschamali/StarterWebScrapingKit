@@ -90,7 +90,7 @@ Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, 
 
     '2. WebDriverBiDi としてブラウザを起動させる
     StartBiDiMode = m_BiDiCore.InitBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
