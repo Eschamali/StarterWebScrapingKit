@@ -637,7 +637,7 @@ Sub RunTestAlertDemo()
 
         '10. 後始末
         .hide
-        .ThisCDPContext.ThisCDPBrowser.quit
+        .ThisCDPContext.ThisCDPBrowser.CloseBrowser
         Unload WebView2Form
     End With
 End Sub

@@ -96,7 +96,7 @@ Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     '7. WebView2モードとして設定
     ReattachOptions.Set_WebView2Mode(fWebView2) = SwitchUser
 
-    '8. 非同期イベント処理に備える
+    '8. このUserForm内用の、非同期イベント処理に備える
     Set fCDPEvent = ReattachOptions.Get_CDPCore
 
     '9. タブ接続まで行う
@@ -274,7 +274,7 @@ Private Sub UserForm_Initialize()
 End Sub
 
 Private Sub UserForm_Terminate()
-    fCDPContext.ThisCDPBrowser.quit
+    fCDPContext.ThisCDPBrowser.CloseBrowser
     Set fWebView2 = Nothing
     Set fCDPEvent = Nothing
     Set fCDPContext = Nothing
