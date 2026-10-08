@@ -235,8 +235,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelに記録してるタブ情報を基に、既存の`BiDi-CDP Mapper`に再接続します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebSocketMode              WebSocketでCDP制御する場合は、接続処理済みのClassオブジェクトを指定します
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト
 '* 返値    ：再始動したか論理値 `True` ：`BiDi-CDP Mapper`を再始動しました。`WebDriverBiDiMode.cls`側で、`session.new`する必要があります
 '                               `False`：既存の`BiDi-CDP Mapper`を流用できたので、`session.new`は不要です
 '---------------------------------------------------------------------------------------------------
@@ -245,27 +244,23 @@ End Sub
 '            ・ブラウザ自体が落ちてると、VBAエラーで止まります
 '            ・`SessionID`は常に更新させます
 '***************************************************************************************************
-Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
-    '1. CDPタブセッションに再接続
-    Set WebDriverBiDi_mapperTab = New CDPContext
-
-    '2. Excelに記録されてる`TargetID`の生存確認　※`sessionId`は更新させます
-    Dim mapperTabConnection As Boolean
-    If WebSocketMode Is Nothing Then
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachPipe(userProfile)
-    Else
-        mapperTabConnection = WebDriverBiDi_mapperTab.reattachWebSocket(userProfile, ConnectInfo:=WebSocketMode)
-    End If
-
-    '3. 各種オブジェクトを継承
-    Set m_CDPCore = WebDriverBiDi_mapperTab.ThisCDPCore
-    Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
+    '1. 接続情報を継承
+    Set m_CDPCore = reattachInfo.Get_CDPCore
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
-    '`TargetID`有無に応じた分岐
+    '2. Excelに記録されてる`TargetID`の生存確認
+    Dim mapperTabConnection As Boolean
+    Set WebDriverBiDi_mapperTab = New CDPContext
+    mapperTabConnection = WebDriverBiDi_mapperTab.reattach(reattachInfo)    '※`sessionId`は、常に更新させます
+
+    '3. 接続情報をブラウザClassにも適用
+    Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
+
+    '`BiDiMapper - TargetID`有無に応じた分岐
     If mapperTabConnection Then
         'Excelに記録されてる`TargetID`が生きてる = `Target.exposeDevToolsProtocol`が有効
         printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName

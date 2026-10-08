@@ -132,23 +132,19 @@ End Sub
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のBiDi-contextタブ情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Public Function reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 新オブジェクトを用意
+    '1. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     Set m_BiDiMode = New WebDriverBiDiMode
-
-    '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
-    m_BiDiMode.reattach userProfile, sessionCapabilitiesRequest, WebSocketMode
+    m_BiDiMode.reattach reattachInfo, sessionCapabilitiesRequest
 
     '2. 接続情報を継承
     Set m_BiDiCore = m_BiDiMode.ThisBiDiCore

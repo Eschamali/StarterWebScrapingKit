@@ -197,20 +197,19 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のBiDiMapperタブ,パイプハンドル情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
     '1. 「BiDi-CDP Mapper」への再接続処理
     Set m_BiDiCore = New WebDriverBiDiCore
-    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
+    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(reattachInfo)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '2. デバッグセッション有無判定
