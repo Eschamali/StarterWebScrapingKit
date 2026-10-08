@@ -564,6 +564,9 @@ End Function
 '            ・`CDPBrowser`経由での呼び出しを前提とします
 '***************************************************************************************************
 Public Sub CloseHandleBrowser()
+    Const FromProcedureName As String = ThisClassName & ".CloseHandleBrowser"
+
+
     '1. 通信経路に応じて、ハンドル情報を閉じる処理をする
     Select Case False
         Case viaWebSocket Is Nothing
@@ -581,6 +584,9 @@ Public Sub CloseHandleBrowser()
             CloseHandle hStderrOutRd
             CloseHandle hProcess
     End Select
+
+    '2. 記録したハンドル情報をテーブルから削除
+    ShSetting01_StartBrowser.DeleteBrowserHandle(FromProcedureName) = m_UserName
 End Sub
 
 
