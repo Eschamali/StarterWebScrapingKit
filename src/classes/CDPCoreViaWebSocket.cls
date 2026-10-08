@@ -368,7 +368,7 @@ End Function
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
 
 
@@ -432,14 +432,14 @@ Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String,
     If LenB(appUrl) Then
         If SplashScreenMode Then
             'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
-            ConnectCDPWithLocalBrowser = ReadyCDP.GetSplashHtmlText(appUrl)
+            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(appUrl)
         Else
             'スプラッシュ画面なしなので、`appUrl`そのまま
-            ConnectCDPWithLocalBrowser = appUrl
+            OpenBrowserAndConnectCDP = appUrl
         End If
     Else
         '未指定:--homepage "about:blank" なので、"about:blank"で返却
-        ConnectCDPWithLocalBrowser = EmptyPageName
+        OpenBrowserAndConnectCDP = EmptyPageName
     End If
 End Function
 
