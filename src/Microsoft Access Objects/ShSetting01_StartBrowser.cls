@@ -181,7 +181,7 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.StartAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
+        StartCDPModeContext.OpenBrowserAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
     End With
 End Function
 
@@ -207,7 +207,7 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.start SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
+        StartCDPMode.OpenBrowser SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
     End With
 End Function
 
@@ -236,7 +236,7 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.StartBiDiModeAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
+        StartBiDiModeContext.OpenBrowserAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
     End With
 End Function
 
@@ -261,7 +261,7 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.StartBiDiMode SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
+        StartBiDiMode.OpenBrowser SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
     End With
 End Function
 
