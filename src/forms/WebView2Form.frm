@@ -274,7 +274,7 @@ Private Sub UserForm_Initialize()
 End Sub
 
 Private Sub UserForm_Terminate()
-    fWebView2.DisconnectCDP
+    fCDPContext.ThisCDPBrowser.quit
     Set fWebView2 = Nothing
     Set fCDPEvent = Nothing
     Set fCDPContext = Nothing
