@@ -807,17 +807,14 @@ Public Function UpgradeBiDiPlus() As CDPContext
     m_BiDiCore.DirectControlCDP.EnableDiscoverTargets = True    '`CDPContext.cls`としての制御なので、カウントしておく
     Set UpgradeBiDiPlus = New CDPContext
     With UpgradeBiDiPlus
-        '4. BiDiブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = m_BiDiCore.DirectControlCDP.ThisCDPCore
-
-        '5. BiDiブラウザ情報を渡す
+        '4. BiDiブラウザ情報を渡す
         Set .ThisCDPBrowser = m_BiDiCore.DirectControlCDP
 
-        '6. 先ほど発行したSessionIDを渡す
+        '5. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
     End With
 
-    '7. 成功ログ
+    '6. 成功ログ
     printMsg info_, "The upgrade to BiDi+ was successful. This enables operation via CDP commands.", FromProcedureName
 End Function
 
