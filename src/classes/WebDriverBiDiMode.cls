@@ -691,25 +691,12 @@ Public Sub quit()
     ExecuteBiDi "browser.close", StopBiDiError:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
-    deleteCDPID                     'テーブルからも削除する
+    ShSetting01_StartBrowser.DeleteBrowserContext(FromProcedureName) = m_BiDiCore.CurrentUserName   'メインタブ情報を削除
+    m_BiDiCore.CloseHandleBrowser                                                                   '各種ハンドルも閉じる
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     CDPHelpers.Sleep 1
     printMsg info_, "The WebDriverBiDi has been terminated.", FromProcedureName
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
-'***************************************************************************************************
-Private Sub deleteCDPID()
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
-
-
-    With ShSetting01_StartBrowser
-        .DeleteBrowserHandle(FromProcedureName) = br.BiDiUserName   'パイプ通信Handle情報
-        .DeleteBrowserContext(FromProcedureName) = br.BiDiUserName  'ブラウザセッション情報
-    End With
 End Sub
 
 
