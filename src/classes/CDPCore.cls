@@ -238,11 +238,12 @@ Private DictionarySessionID As Dictionary
 'その他
 Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
 Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private m_UserName          As String                   'セッション情報を記録する際の識別名称
 
 
 
 '***************************************************************************************************
-'                             ■■■ ブラウザ起動関連処理 ■■■
+'                        ■■■ ローカルブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：パイプとして起動するためのcommandライン準備を行い、起動します
 '---------------------------------------------------------------------------------------------------
@@ -257,7 +258,8 @@ Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, Spla
 
 
     '0. 前回のPipe情報が取れちゃった場合は事前にCloseしておく
-    If deserialize(UserName) Then CloseHandleBrowser
+    m_UserName = UserName
+    If deserialize Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
@@ -297,7 +299,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, Spla
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
 
     '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
-    serialize UserName
+    serialize
 
     '5. 初期URLとして返却します
     If LenB(appUrl) Then
@@ -459,23 +461,15 @@ Private Function InitCDP(strExec As String) As Long
 
 End Function
 
-
-
-'***************************************************************************************************
-'                              ■■■ Pipe関連操作 ■■■
 '***************************************************************************************************
 '* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   記録する識別名称
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String)
-    '0. データ記録準備
-    Dim tmp As New Dictionary
-
+Private Sub serialize()
     '1. 必要なデータを`Dictionary`に詰める
+    Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", (hStdOutRd)
     tmp.Add "hStderrOutRd", (hStderrOutRd)
     tmp.Add "hStdInWr", (hStdInWr)
@@ -485,28 +479,88 @@ Private Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(m_UserName, "CDPCore.serialize") = tmp
 
 End Sub
 
+
+
 '***************************************************************************************************
-'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
+'                               ■■■ 通信経路設定系 ■■■
+'***************************************************************************************************
+'* 機能　　：Pipeモードでのメッセージ取得/解析としてリアタッチします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   テーブルから読み取る識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・Pipe版の場合は、Fast Path設計により、このClass自身がリアタッチとして機能します
+'            ・あくまでも、ハンドル情報が記録されてるかまで、担います
+'***************************************************************************************************
+Public Sub RemoteDebuggingPipeMode(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".RemoteDebuggingPipeMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. ハンドル情報を取得し、失敗したら、止める
+    If Not deserialize Then printMsg ERROR_, "Failed to read Pipe information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set RemoteDebuggingPortMode(UserName As String, ws As CDPCoreViaWebSocket)
+    Const FromProcedureName As String = ThisClassName & ".RemoteDebuggingPortMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. 接続情報を適用
+    Set viaWebSocket = ws
+
+    '3. 便宜上情報を取得し、失敗したら、止める
+    '※`CDPCoreViaWebSocket`側でテーブルが作成される想定なので、正しいフローで接続すれば、PASSされます
+    If Not deserialize Then printMsg ERROR_, "Failed to read WebSocket information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set CallDevToolsProtocolMethodForSessionMode(UserName As String, wv As CDPCoreViaWebView2)
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethodForSessionMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. 接続情報を適用
+    Set viaWebView2 = wv
+
+    '3. 便宜上情報を取得し、失敗したら、止める
+    '※`CDPCoreViaWebView2`側でテーブルが作成される想定なので、正しいフローで接続すれば、PASSされます
+    If Not deserialize Then printMsg ERROR_, "Failed to read WebView2 information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに記録されてるハンドル情報を読み込みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：設定の読み取りができたかの論理値
-'* 引数　　：UserName   読み取る識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：使用する通信経路によっては、この値を直接使用しない場合がありますが、行の存在確認として一律読むようにします
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Boolean
+Private Function deserialize() As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    '1. Excelテーブルから、`UserName`に紐づく接続ハンドル情報を読み込む
     Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(m_UserName, FromProcedureName)
 
-    '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
-    If PipeInfo Is Nothing Then printMsg WARN_, "Pipe information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
+    '2. 取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
+    If PipeInfo Is Nothing Then printMsg WARN_, "Browser handle information for '" & m_UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
 
-    'クラス内変数に適用
+    '3. クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
     hStderrOutRd = PipeInfo("hStderrOutRd")
     hStdInWr = PipeInfo("hStdInWr")
@@ -515,12 +569,16 @@ Public Function deserialize(UserName As String) As Boolean
     hProcess = PipeInfo("hProcess")
     dwProcessId = PipeInfo("dwProcessId")
 
-    '成功サインを返す
+    '4. 成功サインを返す
     deserialize = True
 End Function
 
+
+
 '***************************************************************************************************
-'* 機能　　：Pipe/WebSocketが生きてるか確認します
+'                               ■■■ ハンドル管理系 ■■■
+'***************************************************************************************************
+'* 機能　　：デバッグ経路が生きてるか確認します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：ハンドル生存可否
 '***************************************************************************************************
@@ -533,19 +591,22 @@ Public Function isAvailability() As Boolean
         Case viaWebSocket Is Nothing
             'WebSocket生存判定
             isAvailability = viaWebSocket.isAvailability
-    
+
             'ステータスを最新にしておく
+            '※内部でログも表示させます
             LastPipeError.PeekNamedPipe = viaWebSocket.IsErrorStylePeekNamedPipe
 
         Case viaWebView2 Is Nothing
             'WebView2生存判定
             isAvailability = viaWebView2.isAvailability
 
+            '※WebView2はコールバック構造の都合上、エラーコード反映はしません
+
         Case Else
             'Pipe生存判定
             Dim tmp As Long
             If PeekNamedPipe(hCDPOutRd, ByVal 0&, 0&, ByVal 0&, tmp, ByVal 0&) <> 0 Then isAvailability = True
-    
+
             'ステータスを最新にしておく
             LastPipeError.PeekNamedPipe = Err.LastDllError
             printMsg Debug_, WinApiError.GetMessage(LastPipeError.PeekNamedPipe, "kernel32"), FromProcedureName
@@ -556,10 +617,14 @@ End Function
 '***************************************************************************************************
 '* 機能　　：各種ハンドル情報をクリーニングします
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：事前に、`deserialize`をした状態にすること
+'* 注意事項：・事前に、`deserialize`をした状態にすること
+'            ・`CDPBrowser`経由での呼び出しを前提とします
 '***************************************************************************************************
 Public Sub CloseHandleBrowser()
-    'WebSocket/WebView2モードならそっち側のClose処理を行う
+    Const FromProcedureName As String = ThisClassName & ".CloseHandleBrowser"
+
+
+    '1. 通信経路に応じて、ハンドル情報を閉じる処理をする
     Select Case False
         Case viaWebSocket Is Nothing
             viaWebSocket.DisconnectCDP
@@ -576,6 +641,9 @@ Public Sub CloseHandleBrowser()
             CloseHandle hStderrOutRd
             CloseHandle hProcess
     End Select
+
+    '2. 記録したハンドル情報をテーブルから削除
+    ShSetting01_StartBrowser.DeleteBrowserHandle(FromProcedureName) = m_UserName
 End Sub
 
 
@@ -583,18 +651,22 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ Pipeの読み書き ■■■
 '***************************************************************************************************
-'* 機能　　：標準出力エラーと標準出力を読み取ります
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 一般的な匿名パイプ。標準エラー出力と標準出力
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：標準エラー出力と標準出力を読み取ります
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：基本は、読み取ったバイト数を返しますが、
 '               -1：データなし or `PeekNamedPipe`でエラー
 '               -2：`ReadFile`でエラー
 '
-'* 引数　　：strData            標準出力エラーあるいは、標準出力内容を格納したい変数。実質返り値です
-'            ErrorMode          `True`  標準出力エラーで読み取り
+'* 引数　　：strData            標準エラー出力あるいは、標準出力内容を格納したい変数。実質返り値です
+'            ErrorMode          `True`  標準エラー出力で読み取り
 '                               `False` 標準出力で読み取り
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：読み取りは非ブロッキングです。データがなくても、次に進めれます。
-'* 注意事項：・ロジック自体は、前述の`readProcCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
+'* 注意事項：・ロジック自体は、前述の`readPipeCDP`と一緒ですが、そこまで重要視しないため、簡略化してます
 '            ・実際のエラーコードも特に確認しません
 '***************************************************************************************************
 Private Function readPipeSTD(ByRef strData As String, ErrorMode As Boolean) As Long
@@ -651,17 +723,20 @@ Private Sub viewStdoutAndStderr()
     intRes = readPipeSTD(strRes, False)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
-        printMsg Debug_, "stdout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName     '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+        printMsg Debug_, "stdout    = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の区切り制御文字として置換
     End If
 
     'Sometimes edge writes to stderrout so we clear stderrout too.
     intRes = readPipeSTD(strRes, True)
     If intRes > 0 Then
         If InStr(1, strRes, vbCrLf) Then strRes = Replace(strRes, vbCrLf, DividerMark)  'Windows用の改行コードがあったら一旦、Linux用改行コードに置換
-        printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の制御文字として置換
+        printMsg ERROR_, "stderrout = " & Replace(strRes, DividerMark, Chr(30)), FromProcedureName  '改行区切りだと、ログが見ずらくなるので専用の区切り制御文字として置換
     End If
 End Sub
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] CDPやり取り専用匿名パイプ。CDPメッセージの読み込みに3番目のファイルディスクリプタ(fd)、メッセージの書き込みに4番目のfdを使用します。
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
 '* 機能　　：CDP-Jsonコマンド結果や、ブラウザからのイベント情報をストリート受信して蓄積させます
 '---------------------------------------------------------------------------------------------------
@@ -744,13 +819,13 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ WebSocketの読み書き ■■■
 '***************************************************************************************************
-'* 機能　　：WinHttpWebSocketReceive から得たデータを`--remote-debugging-pipe`処理ロジックで扱えるように蓄積します
+'* 機能　　：`GetAsyncMessage`から得たデータを`--remote-debugging-pipe`処理ロジックで扱えるように蓄積します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：CDPCoreViaWebSocket-GetAsyncMessage を行うことで内部で`RaiseEvent`が起こり、ここのプロシージャが呼ばれます
 '* 注意事項：受信サイズ0あるいは、`TakeWebSocket`にて破棄モードで指定した場合は、呼ばれません
 '***************************************************************************************************
 Private Sub viaWebSocket_readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".viaWebSocket_WebSocketReceive"
+    Const FromProcedureName As String = ThisClassName & ".viaWebSocket_readWebSocketCDP"
 
 
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
@@ -780,7 +855,7 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ WebView2の読み書き ■■■
 '***************************************************************************************************
-'* 機能　　：`CDPCoreViaWebView2 - SendCommandCDP`から得たデータを、Pipe/WebSocketと同じ蓄積先へ
+'* 機能　　：CDP系の完了コールバックから得たデータを、Pipe/WebSocketと同じ蓄積先へ
 '            直接書き込みます
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：WebView2はCOMコールバック経由で完成JSON文字列(欠けなし・フラグメントなし)を届けるため、
@@ -791,7 +866,7 @@ End Sub
 '            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
 '***************************************************************************************************
 Private Sub viaWebView2_readWebView2CDP(RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
+    Const FromProcedureName As String = ThisClassName & ".viaWebView2_readWebView2CDP"
 
 
     '1. バッファー拡張判定を行う
@@ -808,7 +883,14 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：WebView2経由で、ブラウザへ命令を行います
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：strData    完成したCDP-Json文字列コマンド
+'* 引数　　：commandID          コマンドID
+'            methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：Runtime.Evaluate
+'            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
+'            SessionID          タブへの命令の場合は指定します
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：`CallDevToolsProtocolMethod(ForSession)`は、「完成したCDP-Json文字列コマンド」ではなくて、
+'            引数のような個々のパラメーターとして受け付ける仕様であることからこのプロシージャも、
+'            それに合わせた引数を設けてます。
 '***************************************************************************************************
 Private Sub writeWebView2CDP(commandID As Long, methodName As String, parametersAsJson As Dictionary, sessionID As String)
     'WebView2オブジェクト経由で送信処理を委ねる
@@ -827,7 +909,7 @@ End Sub
 '            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
 '            SessionID          タブへの命令の場合は指定します。省略すると、起動ブラウザ自身をターゲットとして扱います。
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：`id`と`sessionId`の組み立てと紐づけ処理を行います
+'* 機能説明：`id`と`sessionId`の紐づけ処理を行います
 '***************************************************************************************************
 Public Function ReadyRunCDP(methodName As String, parametersAsJson As Dictionary, Optional sessionID As String) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunCDP"
@@ -890,7 +972,7 @@ End Function
 '            methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：Runtime.Evaluate
 '            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
 '            SessionID          タブへの命令の場合は指定します
-'* 返り値　：id,params,sessionid を含んだフルセットCDP-Json文字列コマンド
+'* 返り値　：id,methodName,params,sessionid を含んだフルセットCDP-Json文字列コマンド
 '***************************************************************************************************
 Private Function CommandCDPJsonGeneration(id As Long, methodName As String, parametersAsJson As Dictionary, sessionID As String) As String
     Const FromProcedureName As String = ThisClassName & ".CommandCDPJsonGeneration"
@@ -1209,6 +1291,9 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
             ElseIf viaWebSocket.LastBufferType = WS_CLOSE_MESSAGE Then
                 '切断要求が来た場合
                 printMsg ERROR_, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
+
+                'ついでに、ハンドル情報テーブルも削除
+                CloseHandleBrowser
                 Exit Sub
             Else
                 'パイプ内は空あるいは、WebSocketフレーム単位としてまだ届いていない
@@ -1418,33 +1503,52 @@ End Sub
 
 
 '***************************************************************************************************
-'                               ■■■ プロパティ機能 ■■■
+'                             ■■■ 各種設定情報読み取り ■■■
 '***************************************************************************************************
-'* 機能　　：起動情報系
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] ローカル起動時のいくつかのハンドル情報
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-Property Get Connection_hProcess() As LongPtr           '`--remote-debugging-pipe`で起動した際のhProcess
+'* 機能　　：：ローカル環境で、ブラウザ起動した際の、`hProcess`を取得します
+'***************************************************************************************************
+Property Get Connection_hProcess() As LongPtr           '
     Connection_hProcess = hProcess
 End Property
 
-Property Get Connection_dwProcessId() As LongPtr        '`--remote-debugging-pipe`で起動した際のProcessID
+'***************************************************************************************************
+'* 機能　　：ローカル環境で、ブラウザ起動した際の、`ProcessID`を取得します
+'***************************************************************************************************
+Property Get Connection_dwProcessId() As LongPtr
     Connection_dwProcessId = dwProcessId
 End Property
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 最後のエラー情報
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-'* 機能　　：最後の○○系取得用プロパティ
+'* 機能　　：`PeekNamedPipe`系、使用時のエラーコード
 '***************************************************************************************************
-Property Get LastErrorPeekNamedPipe() As Long           '`PeekNamedPipe`使用時のエラーコード
+Property Get LastErrorPeekNamedPipe() As Long
     LastErrorPeekNamedPipe = LastPipeError.PeekNamedPipe
 End Property
 
-Property Get LastErrorReadFile() As Long                '`ReadFile`使用時のエラーコード
+'***************************************************************************************************
+'* 機能　　：`ReadFile`系、使用時のエラーコード
+'***************************************************************************************************
+Property Get LastErrorReadFile() As Long
     LastErrorReadFile = LastPipeError.ReadFile
 End Property
 
-Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
+'***************************************************************************************************
+'* 機能　　：`WriteFile`系、使用時のエラーコード
+'***************************************************************************************************
+Property Get LastErrorWriteFile() As Long
     LastErrorWriteFile = LastPipeError.WriteFile
 End Property
 
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] その他
+'---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
 '* 機能　　：ログ設定値、取得用プロパティ
 '***************************************************************************************************
@@ -1460,17 +1564,10 @@ Property Get NewResCDP() As Boolean
 End Property
 
 '***************************************************************************************************
-'* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
+'* 機能　　：アクティブな接続情報の識別名称を取得
 '***************************************************************************************************
-Property Set WebSocketMode(ws As CDPCoreViaWebSocket)
-    Set viaWebSocket = ws
-End Property
-
-'***************************************************************************************************
-'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
-'***************************************************************************************************
-Property Set WebView2Mode(wv As CDPCoreViaWebView2)
-    Set viaWebView2 = wv
+Property Get CurrentUserName() As String
+    CurrentUserName = m_UserName
 End Property
 
 

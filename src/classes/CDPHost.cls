@@ -233,7 +233,7 @@ Public Sub setCrashStateNormal()
 ' Set Crashed state to Normal to prevent the "Restore Sessions?"
 ' popup from appearing every time the browser is started after
 ' being closed by browser.quit method.
-' Requires user data dir profile stored in private var br.User and
+' Requires user data dir profile stored in private var DebugUserName and
 ' the browser type stored in private variable br.Type.
 ' Update: 22/01/26 - Tweaked to work well with the new multi-instance
 '                    structure.
