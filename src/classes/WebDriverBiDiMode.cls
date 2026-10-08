@@ -56,7 +56,6 @@ Private Type StateBiDiBrowser
     webSocketUrl        As String
 
     '独自
-    BiDiUserName        As String   'Browser user profile
     Ver                 As String   'The current browser version
 End Type
 Private br As StateBiDiBrowser
@@ -87,7 +86,6 @@ Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, 
 
 
     '1. 初期化処理
-    br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
@@ -156,7 +154,7 @@ Public Property Let serializeMainTab(contextId As String)
     Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
 
 
-    ShSetting01_StartBrowser.UpdateBrowserContext(br.BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+    ShSetting01_StartBrowser.UpdateBrowserContext(m_BiDiCore.CurrentUserName, "BiDi-context", FromProcedureName) = contextId
 End Property
 Public Property Get serializeMainTab() As String
     Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
@@ -164,7 +162,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(br.BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(m_BiDiCore.CurrentUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
@@ -211,7 +209,6 @@ Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest A
 
 
     '1. 「BiDi-CDP Mapper」への再接続処理
-    br.BiDiUserName = userProfile
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings

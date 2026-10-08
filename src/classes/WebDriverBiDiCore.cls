@@ -95,7 +95,7 @@ Public Function InitBiDi(UserName As String, appUrl As String, SplashScreenMode 
     CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
-    newTabForBiDi UserName
+    newTabForBiDi
 
     '4. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
@@ -109,7 +109,7 @@ End Function
 '* 注意事項：・各パラメータは、`chromium-bidi\src\bidiServer\MapperCdpConnection.ts`に準拠してます
 '            ・普通の新しいタブOpenとは別の手法を用いるため、`CDPBrowser - newtab`とは別のプロシージャで用意します
 '***************************************************************************************************
-Private Sub newTabForBiDi(UserName As String)
+Private Sub newTabForBiDi()
     Const FromProcedureName As String = ThisClassName & ".newTabForBiDi"
 
 
@@ -155,7 +155,7 @@ Private Sub newTabForBiDi(UserName As String)
     With ShSetting01_StartBrowser
         '6-1. リアタッチを想定して、既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
         Dim BiDiMapperInfo As Dictionary
-        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+        Set BiDiMapperInfo = .TableBrowserContext(Me.CurrentUserName, FromProcedureName)
 
         '6-2. 記録準備
         If BiDiMapperInfo Is Nothing Then
@@ -171,7 +171,7 @@ Private Sub newTabForBiDi(UserName As String)
         End If
 
         '6-3. 実際に記録
-        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
+        Set .TableBrowserContext(Me.CurrentUserName, FromProcedureName) = BiDiMapperInfo
     End With
 
     '7. ログ化
@@ -313,7 +313,7 @@ Public Function ReBootBiDiCDPMapper(userProfile As String, Optional WebSocketMod
     Else
         '2. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
-        newTabForBiDi userProfile
+        newTabForBiDi
 
         '3. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
@@ -574,6 +574,16 @@ End Property
 Public Sub AnalyzeBiDi(Optional StopApiError As Boolean = True, Optional destruction As Boolean)
     m_CDPCore.AnalyzeCDP StopApiError, destruction
 End Sub
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] その他
+'---------------------------------------------------------------------------------------------------
+'***************************************************************************************************
+'* 機能　　：アクティブな接続情報の識別名称を取得
+'***************************************************************************************************
+Property Get CurrentUserName() As String
+    CurrentUserName = m_CDPCore.CurrentUserName
+End Property
 
 
 
