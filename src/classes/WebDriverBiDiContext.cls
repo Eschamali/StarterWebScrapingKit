@@ -41,7 +41,7 @@ Private InfoList As browsingContextInfo
 
 'その他
 Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後のエラー情報(Node情報方式)
-Private currentLog              As StateLog     'ログ設定
+Private m_LogID              As String     'ログ識別ID
 
 
 
@@ -66,7 +66,6 @@ Public Sub OpenBrowserAndConnectTab(userProfile As String, Optional appUrl As St
 
     '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
     Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. Complete initialization ------------------------------------------------------
     InitAttachToContext InitURL                     'Find and attach the newly open Session ID
@@ -148,7 +147,6 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional sessionCapabi
 
     '2. 接続情報を継承
     Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -838,7 +836,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_BiDiCore.LogSettings.logPath
 End Sub
 
 
@@ -879,7 +877,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BTID" & Format(Rnd * 1000, "000")
+    m_LogID = "BTID" & Format(Rnd * 1000, "000")
 End Sub
 
 Private Sub Class_Terminate()
