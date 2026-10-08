@@ -64,7 +64,7 @@ End Type
 Private BiDiDebug As StateDebug
 
 'ログ設定
-Private currentLog      As StateLog
+Private m_LogID      As String
 
 
 
@@ -89,7 +89,6 @@ Public Function OpenBrowserAndConnectBiDi(UserName As String, appUrl As String, 
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
     newTabForBiDi
@@ -247,7 +246,6 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
 
     '1. 接続情報を継承
     Set m_CDPCore = reattachInfo.Get_CDPCore
-    CDPHelpers.InheritLogSettings currentLog, m_CDPCore.LogSettings
 
     '2. Excelに記録されてる`TargetID`の生存確認
     Dim mapperTabConnection As Boolean
@@ -349,7 +347,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Case BiDiResMain
             '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
             bindingCalledPayload = CDPToBiDi.StringKey("payload")
-            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
+            If m_CDPCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
             BiDiReceivedDataCheck bindingCalledPayload
@@ -542,7 +540,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_CDPCore.LogSettings.logPath
 End Sub
 
 '***************************************************************************************************
@@ -766,7 +764,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BCID" & Format(Rnd * 1000, "000")
+    m_LogID = "BCID" & Format(Rnd * 1000, "000")
 
     'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
     With ShSetting01_StartBrowser

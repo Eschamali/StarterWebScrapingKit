@@ -41,7 +41,7 @@ Private m_Events    As Dictionary
 Private m_ErrorDetails  As Dictionary
 
 'ログ設定
-Private currentLog      As StateLog
+Private m_LogID      As String
 
 '操作中のブラウザ情報一式
 '※session.new で得れる情報とほぼ同じ構造です
@@ -90,7 +90,6 @@ Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Op
 
     '2. WebDriverBiDi としてブラウザを起動させる
     OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
@@ -210,7 +209,6 @@ Public Sub reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitie
     '1. 「BiDi-CDP Mapper」への再接続処理
     Set m_BiDiCore = New WebDriverBiDiCore
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(reattachInfo)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '2. デバッグセッション有無判定
     '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
@@ -444,7 +442,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If m_BiDiCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1050,7 +1048,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_BiDiCore.LogSettings.logPath
 End Sub
 
 
@@ -1088,7 +1086,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BDID" & Format(Rnd * 1000, "000")
+    m_LogID = "BDID" & Format(Rnd * 1000, "000")
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
