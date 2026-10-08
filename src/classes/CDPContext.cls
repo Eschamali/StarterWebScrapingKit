@@ -3114,6 +3114,13 @@ Property Get isTargetClosed() As Boolean
     isTargetClosed = ControlStatus.targetDestroyed
 End Property
 
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Friend Property Get LogSettings() As StateLog
+    LogSettings = currentLog
+End Property
+
 
 
 '***************************************************************************************************

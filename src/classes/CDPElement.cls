@@ -117,7 +117,7 @@ Private RunOption As callFunctionOnParameters
 Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
     Set main = ThisCDPContext
-    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.ThisCDPCore.LogSettings
+    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.LogSettings
 
     With CurrentElement
         '実行結果の型タイプ
