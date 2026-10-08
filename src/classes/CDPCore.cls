@@ -206,6 +206,7 @@ Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェク
 
 'ログ設定状況
 Private currentLog  As StateLog
+Private m_LogID As String
 
 'パイプ関連のエラー番号
 Private Type ErrorCode
@@ -1579,7 +1580,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 '***************************************************************************************************
@@ -1645,7 +1646,7 @@ Private Sub Class_Initialize()
         currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
 
         '2-3. Assign an objID for easy debug identification
-        currentLog.LogID = "COID" & Format(Rnd * 1000, "000")
+        m_LogID = "COID" & Format(Rnd * 1000, "000")
 
         '2-4. UTF8変換モードを設定
         Set Utf8Converter = New CharacterCodeConversion

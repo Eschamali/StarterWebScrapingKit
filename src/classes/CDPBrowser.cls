@@ -91,7 +91,7 @@ Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の
 Private timerOut                As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
-Private currentLog              As StateLog     'ログ設定
+Private m_LogID                 As String       'ログ識別ID
 
 
 
@@ -158,7 +158,6 @@ End Function
 Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
     '1. ログパラメーター準備
     Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '2. 起動モードに応じた分岐
     If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
@@ -247,7 +246,6 @@ Public Sub reattach(reattachInfo As ReattachOptions)
 
     '1. 接続情報を継承
     Set PipeCore = reattachInfo.Get_CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '2. handleが生きてるかを確認します
     If isLiveBrowser Then
@@ -684,7 +682,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1051,7 +1049,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, currentLog.LogID & " Browser - Information", FromProcedureName
+    printMsg Debug_, m_LogID & " Browser - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Browser Product   | " & br.Product, FromProcedureName
@@ -1186,7 +1184,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
 End Sub
 
 
@@ -1231,7 +1229,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BRID" & Format(Rnd * 1000, "000")
+    m_LogID = "BRID" & Format(Rnd * 1000, "000")
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
@@ -1254,6 +1252,5 @@ End Sub
 '***************************************************************************************************
 Property Set ThisCDPCore(t As CDPCore)
     Set PipeCore = t
-    CDPHelpers.InheritLogSettings currentLog, t.LogSettings
 End Property
 #End If

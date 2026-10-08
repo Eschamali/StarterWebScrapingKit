@@ -116,6 +116,7 @@ Private PipeMode        As Boolean
 
 'ログ設定
 Private currentLog      As StateLog
+Private m_LogID As String
 
 
 
@@ -722,7 +723,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -742,7 +743,7 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "CHID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        m_LogID = "CHID" & Format(Rnd * 1000, "000")                                                         'ユニークID
         .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName) 'ログフォルダパス
     End With
 End Sub

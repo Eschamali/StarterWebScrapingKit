@@ -131,6 +131,7 @@ Private currentebWebSocket As StateWebSocket
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
+Private m_LogID As String
 
 '最後のWebSocketから得た受信データ
 Private Content_WinHttpWebSocketReceive() As Byte
@@ -213,7 +214,7 @@ Public Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String,
     Dim logName As String, strFormattedMsg As String
 
     If isHeader Then strFormattedMsg = String(100, "-") & vbNewLine & strMsg & vbNewLine & String(100, "-") _
-    Else strFormattedMsg = " | " & currentLog.LogID & " | " & strMsg
+    Else strFormattedMsg = " | " & m_LogID & " | " & strMsg
 
    'Perform msg logging if needed
     If LenB(currentLog.logPath) Then
@@ -719,7 +720,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "WHID" & Format(Rnd * 1000, "000")
+    m_LogID = "WHID" & Format(Rnd * 1000, "000")
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
     '設定シートの各セルから設定値を取得し、クラス内変数に適用します
