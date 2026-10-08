@@ -186,6 +186,7 @@ Private m_subToken    As Dictionary
 
 ' ログ設定状況
 Private currentLog As StateLog
+Private m_LogID As String
 
 
 
@@ -1286,7 +1287,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebView2.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 '***************************************************************************************************
@@ -1324,7 +1325,7 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        .LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
+        m_LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
         .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
         .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
     End With
