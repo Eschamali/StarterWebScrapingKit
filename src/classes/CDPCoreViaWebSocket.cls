@@ -178,6 +178,7 @@ Private hProcess            As LongPtr          '上記 PID から `OpenProcess`
 
 '--- ログ設定状況 ---
 Private currentLog As StateLog
+Private m_LogID As String
 
 '--- Pipe版に合わせたエラー有無判定 ---
 Private Type ErrorCode
@@ -1015,7 +1016,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebSokect.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 
@@ -1388,7 +1389,7 @@ Private Sub Class_Initialize()
 
     'ログ設定
     With currentLog
-        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
+        m_LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
         currentLog.logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)   'ログフォルダパス
     End With
 
