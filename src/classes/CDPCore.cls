@@ -762,7 +762,7 @@ End Sub
 '* 注意事項：受信サイズ0あるいは、`TakeWebSocket`にて破棄モードで指定した場合は、呼ばれません
 '***************************************************************************************************
 Private Sub viaWebSocket_readWebSocketCDP(res() As Byte, resSize As Long, EOS As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".viaWebSocket_WebSocketReceive"
+    Const FromProcedureName As String = ThisClassName & ".viaWebSocket_readWebSocketCDP"
 
 
     'ストリームに流し込む ※バッファー拡張は、`ADODB.Stream`が担います
@@ -803,7 +803,7 @@ End Sub
 '            　必ず末尾に終端目印の`vbNullChar`を1文字付け足してから書き込むこと
 '***************************************************************************************************
 Private Sub viaWebView2_readWebView2CDP(RawJson As String)
-    Const FromProcedureName As String = ThisClassName & ".viaWebView2_CDPMessageReceived"
+    Const FromProcedureName As String = ThisClassName & ".viaWebView2_readWebView2CDP"
 
 
     '1. バッファー拡張判定を行う
