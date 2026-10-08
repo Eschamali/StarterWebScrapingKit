@@ -1254,14 +1254,10 @@ Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boole
 
         '2-2. ハンドル情報自体は取れたのでここで抜ける
         printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
-        Exit Sub
     Else
-        '2-1 .Excelテーブルから取れた場合は一応、切断しておく
-        If PreviousSocket Then DisconnectCDP
-    End If
-
-    '3. 接続試行
+        '2-1. `DevToolsActivePort`ファイルを拝見して、新規接続として続行
     If Not AutoConnectDevToolsActivePort(UserName) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+    End If
 End Sub
 
 '***************************************************************************************************
