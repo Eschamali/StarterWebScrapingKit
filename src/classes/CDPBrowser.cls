@@ -52,7 +52,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer                    As String = "3.3.1.1"
+Private Const ToolVer           As String = "3.4.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -242,115 +242,35 @@ End Property
 '***************************************************************************************************
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
-'* 機能　　：Excelテーブルにある既存のパイプハンドル情報を利用して、再接続を試みます
+'* 機能　　：事前に通信経路を設定した`ReattachOptions.cls`を渡して、制御を再開します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：パイプが生きてない場合は、VBAエラーで止まります
+'* 注意事項：・ハンドルが生きてない場合は、VBAエラーで止まります
+'            ・WebSocketモードの場合は、`destruction:=False`推奨です。ヘッダー情報にサイズ情報があるためです
 '***************************************************************************************************
-Public Sub reattachPipe(userProfile As String)
-    Const FromProcedureName As String = ThisClassName & ".reattachPipe"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 1を基に、Excelテーブルからハンドル情報を取得
-    '※載ってない物はエラーとする
-    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-    '4. 生存確認フェーズへ
-    reattach True
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：事前に接続済みの`WebSocket`オブジェクトを渡して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            ConnectInfo        CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：WebSocketオブジェクトが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
-    Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 引数を基に、WebSocketの接続情報を適用
-    '※オブジェクトなしの場合は、エラーとする
-    If ConnectInfo Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebSocketMode = ConnectInfo
-
-    '4. 辻褄合わせで、接続情報パラメーターを適用
-    '※WebSocketで接続を済ませれば記録されるはずなので
-    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-    '5. 生存確認フェーズへ
-    '※WebSocketは、ヘッダー情報にサイズ情報が載ってるため、念の為、`False`にしておく
-    reattach False
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：事前に構成済みの`WebView2`オブジェクトを渡して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebView2Mode       構成済みの`WebView2Mode`オブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：WebView2オブジェクトが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
-    Const FromProcedureName As String = ThisClassName & ".reattachWebView2"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 引数を基に、WEBView2オブジェクト情報を適用
-    '※オブジェクトなしの場合は、エラーとする
-    If WebView2Mode Is Nothing Then printMsg ERROR_, "WebView2 connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebView2Mode = WebView2Mode
-
-    '4. 生存確認フェーズへ
-    reattach True
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：ハンドルが生きれるか確認します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：生存論理値
-'* 引数　　：destruction    `True`で、データ破棄モードにします
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：ハンドルが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Private Sub reattach(destruction As Boolean)
+Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    If isLiveBrowser Then
-        '溜まってるデータを取り出しておく
-        TakeEvents destruction:=destruction
+    '1. 接続情報を継承
+    Set PipeCore = reattachInfo.Get_CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
-        'ステータス更新
+    '2. handleが生きてるかを確認します
+    If isLiveBrowser Then
+        '2-1. 溜まってるデータを取り出しておく
+        TakeEvents destruction:=reattachInfo.Set_Destruction
+
+        '2-2. ステータス更新
         getBrowserInfo
         printParams
     Else
-        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & br.User, FromProcedureName, doRaiseError:=True
+        printMsg ERROR_, "CDP communication failed with the remotely touched username: '" & Me.CurrentBrowserUser & "' .", FromProcedureName, doRaiseError:=True
     End If
 
+    '3. 設定が済んだので、破棄
+    Set reattachInfo = Nothing
 End Sub
 
 '***************************************************************************************************
