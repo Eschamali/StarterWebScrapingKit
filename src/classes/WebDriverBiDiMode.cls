@@ -265,10 +265,7 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
     Set newTab = New WebDriverBiDiContext
     With newTab
-        '3-1. このBiDiのイベントオブジェクトを渡す
-        Set .ThisWebDriverBiDiCore = m_BiDiCore
-
-        '4. このBiDi情報も渡す
+        '4. このBiDi情報を渡す
         Set .ThisWebDriverBiDiMode = Me
 
         '5. 先ほど得た`context`を渡す
@@ -327,16 +324,13 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
                 Set getTab = New WebDriverBiDiContext
                 With getTab
-                    '4. このこのBiDiのイベントオブジェクトを渡す
-                    Set .ThisWebDriverBiDiCore = m_BiDiCore
-
-                    '5. このBiDi情報を渡す
+                    '4. このBiDi情報を渡す
                     Set .ThisWebDriverBiDiMode = Me
 
-                    '6. 先ほど得た`context`を渡す
+                    '5. 先ほど得た`context`を渡す
                     .context = matchData("context")
 
-                    '7. メイン化する場合は、Excelに記録しておく
+                    '6. メイン化する場合は、Excelに記録しておく
                     If setMain Then serializeMainTab = matchData("context")
                 End With
 

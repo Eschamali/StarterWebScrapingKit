@@ -64,8 +64,9 @@ Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As 
     Set m_BiDiMode = New WebDriverBiDiMode
     InitURL = m_BiDiMode.StartBiDiMode(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
+    '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
+    Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. Complete initialization ------------------------------------------------------
     InitAttachToContext InitURL                     'Find and attach the newly open Session ID
@@ -148,7 +149,10 @@ Public Function reattach(userProfile As String, Optional sessionCapabilitiesRequ
 
     '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     m_BiDiMode.reattach userProfile, sessionCapabilitiesRequest, WebSocketMode
-    Set Me.ThisWebDriverBiDiCore = m_BiDiMode.ThisBiDiCore
+
+    '2. 接続情報を継承
+    Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
+    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab
@@ -855,21 +859,11 @@ Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
     Set ThisWebDriverBiDiMode = m_BiDiMode
 End Property
 Property Set ThisWebDriverBiDiMode(Target As WebDriverBiDiMode)
+    '1. ブラウザ情報を適用
     Set m_BiDiMode = Target
-End Property
 
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ったり継承させます
-'***************************************************************************************************
-Property Get ThisWebDriverBiDiCore() As WebDriverBiDiCore
-    Set ThisWebDriverBiDiCore = m_BiDiCore
-End Property
-Property Set ThisWebDriverBiDiCore(Target As WebDriverBiDiCore)
-    '1. コア本体を継承
-    Set m_BiDiCore = Target
-
-    '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
+    '2. ついでに、制御コアも適用
+    Set m_BiDiCore = Target.ThisBiDiCore
 End Property
 
 '***************************************************************************************************
