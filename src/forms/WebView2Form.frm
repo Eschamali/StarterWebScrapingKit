@@ -93,14 +93,17 @@ Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     SwitchVisible.value = True
     fWebView2.Visible = True
 
-    '7. タブ接続まで行う
-    Dim t As New CDPBrowser: t.reattachWebView2 SwitchUser, fWebView2
-    Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
+    '7. WebView2モードとして設定
+    ReattachOptions.Set_WebView2Mode(fWebView2) = SwitchUser
 
     '8. 非同期イベント処理に備える
-    Set fCDPEvent = t.ThisCDPCore
+    Set fCDPEvent = ReattachOptions.Get_CDPCore
 
-    '9. 成功signを返す
+    '9. タブ接続まで行う
+    Dim t As New CDPBrowser: t.reattach ReattachOptions
+    Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
+
+    '10. 成功signを返す
     StartCDPModeWebView2 = True
 End Function
 
