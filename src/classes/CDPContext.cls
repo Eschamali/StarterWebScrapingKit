@@ -318,14 +318,11 @@ End Function
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
-    Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
-
-
+Public Sub OpenBrowserAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
     '1. ブラウザ起動
     Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.OpenBrowser(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
     Set PipeCore = BrowserCore.ThisCDPCore

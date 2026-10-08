@@ -253,7 +253,7 @@ Private m_UserName          As String                   'セッション情報�
 '            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
 '            addArgs            追加引数
 '***************************************************************************************************
-Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
+Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
 
 
@@ -305,14 +305,14 @@ Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, Spla
     If LenB(appUrl) Then
         If SplashScreenMode Then
             'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
-            RunPipeModeBrowserCDP = ReadyCDP.GetSplashHtmlText(appUrl)
+            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(appUrl)
         Else
             'スプラッシュ画面なしなので、`appUrl`そのまま
-            RunPipeModeBrowserCDP = appUrl
+            OpenBrowserAndConnectCDP = appUrl
         End If
     Else
         '未指定:--homepage "about:blank" なので、"about:blank"で返却
-        RunPipeModeBrowserCDP = EmptyPageName
+        OpenBrowserAndConnectCDP = EmptyPageName
     End If
 End Function
 

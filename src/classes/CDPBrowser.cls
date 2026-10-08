@@ -155,7 +155,7 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
+Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
     Const FromProcedureName As String = ThisClassName & ".start"
 
 
@@ -171,7 +171,7 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
     If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        start = WebSocketCore.ConnectCDPWithLocalBrowser(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
 
         '3-2. WebSocketモードとして切り替え
         '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
@@ -179,7 +179,7 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
     Else
         '3-1. Pipeとして起動
         '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
-        start = PipeCore.RunPipeModeBrowserCDP(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
     End If
 
     '4. 起動中のブラウザ情報を変数に記録
@@ -946,13 +946,13 @@ End Function
 '***************************************************************************************************
 '                                       ■■■ 後始末系 ■■■
 '***************************************************************************************************
-Public Sub quit()
+Public Sub CloseBrowser()
 '-----------------------------------------------------------------------------------
 ' Closes the currently attached browser instance
 ' Original Name: closeBrowser
 ' Update: 24/10/2025: Daniel Polak - avoid immediate hard kills, reduce race conditions, and make shutdown behavior predictable and robust in non-responsive cases
 '-----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".quit"
+    Const FromProcedureName As String = ThisClassName & ".CloseBrowser"
 
 
     Dim sngT As Double
