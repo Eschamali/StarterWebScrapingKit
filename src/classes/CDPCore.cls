@@ -486,7 +486,64 @@ End Sub
 
 
 '***************************************************************************************************
-'* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
+'                               ■■■ 通信経路設定系 ■■■
+'***************************************************************************************************
+'* 機能　　：Pipeモードでのメッセージ取得/解析としてリアタッチします
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：UserName   テーブルから読み取る識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・Pipe版の場合は、Fast Path設計により、このClass自身がリアタッチとして機能します
+'            ・あくまでも、ハンドル情報が記録されてるかまで、担います
+'***************************************************************************************************
+Public Sub RemoteDebuggingPipeMode(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".RemoteDebuggingPipeMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. ハンドル情報を取得し、失敗したら、止める
+    If Not deserialize Then printMsg ERROR_, "Failed to read Pipe information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set RemoteDebuggingPortMode(UserName As String, ws As CDPCoreViaWebSocket)
+    Const FromProcedureName As String = ThisClassName & ".RemoteDebuggingPortMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. 接続情報を適用
+    Set viaWebSocket = ws
+
+    '3. 便宜上情報を取得し、失敗したら、止める
+    '※`CDPCoreViaWebSocket`側でテーブルが作成される想定なので、正しいフローで接続すれば、PASSされます
+    If Not deserialize Then printMsg ERROR_, "Failed to read WebSocket information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Property
+
+'***************************************************************************************************
+'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
+'***************************************************************************************************
+Property Set CallDevToolsProtocolMethodForSessionMode(UserName As String, wv As CDPCoreViaWebView2)
+    Const FromProcedureName As String = ThisClassName & ".CallDevToolsProtocolMethodForSessionMode"
+
+
+    '1. 識別名称を記録
+    m_UserName = UserName
+
+    '2. 接続情報を適用
+    Set viaWebView2 = wv
+
+    '3. 便宜上情報を取得し、失敗したら、止める
+    '※`CDPCoreViaWebView2`側でテーブルが作成される想定なので、正しいフローで接続すれば、PASSされます
+    If Not deserialize Then printMsg ERROR_, "Failed to read WebView2 information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
+End Property
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに記録されてるハンドル情報を読み込みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：設定の読み取りができたかの論理値
 '---------------------------------------------------------------------------------------------------
@@ -1504,20 +1561,6 @@ End Property
 '***************************************************************************************************
 Property Get NewResCDP() As Boolean
     NewResCDP = responseCDP.ExistsNewRes
-End Property
-
-'***************************************************************************************************
-'* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
-'***************************************************************************************************
-Property Set WebSocketMode(ws As CDPCoreViaWebSocket)
-    Set viaWebSocket = ws
-End Property
-
-'***************************************************************************************************
-'* 機能　　：WebView2モードでのメッセージ取得/解析に切り替えます
-'***************************************************************************************************
-Property Set WebView2Mode(wv As CDPCoreViaWebView2)
-    Set viaWebView2 = wv
 End Property
 
 '***************************************************************************************************

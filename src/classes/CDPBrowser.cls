@@ -173,11 +173,9 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
         start = WebSocketCore.ConnectCDPWithLocalBrowser(userProfile, appUrl, SplashScreenMode, addArgs)
 
-        '3-2. 辻褄合わせで、接続情報パラメーターを適用
-        PipeCore.deserialize (br.User)
-
-        '3-3. WebSocketモードとして切り替え
-        Set PipeCore.WebSocketMode = WebSocketCore
+        '3-2. WebSocketモードとして切り替え
+        '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
+        Set PipeCore.RemoteDebuggingPortMode(userProfile) = WebSocketCore
     Else
         '3-1. Pipeとして起動
         '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
