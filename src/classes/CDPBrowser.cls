@@ -467,16 +467,13 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
-        '1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = PipeCore
-
-        '2. このブラウザ情報を渡す
+        '1. このブラウザ情報を渡す
         Set .ThisCDPBrowser = Me
 
-        '3. 先ほど生成した`sessionId`を渡す
+        '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
 
-        '4. URLが指定されてる場合は読み込み状況を更新
+        '3. URLが指定されてる場合は読み込み状況を更新
         If LenB(Url) Then .PageReadyState (True)
     End With
 End Function
@@ -626,13 +623,10 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
     With getTab
-        '1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = PipeCore
-
-        '2. このブラウザ情報を渡す
+        '1. このブラウザ情報を渡す
         Set .ThisCDPBrowser = Me
 
-        '3. 先ほど生成した`sessionId`を渡す
+        '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
     End With
 End Function

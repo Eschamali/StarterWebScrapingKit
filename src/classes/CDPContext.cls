@@ -327,8 +327,9 @@ Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, 
     Set BrowserCore = New CDPBrowser
     InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
+    '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
+    Set PipeCore = BrowserCore.ThisCDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
     '3. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
@@ -2880,27 +2881,17 @@ End Sub
 '***************************************************************************************************
 '                              ■■■ 複製/継承用プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ったり継承させます
-'***************************************************************************************************
-Property Get ThisCDPCore() As CDPCore
-    Set ThisCDPCore = PipeCore
-End Property
-Property Set ThisCDPCore(Target As CDPCore)
-    '1. コア本体を継承
-    Set PipeCore = Target
-
-    '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
-End Property
-
-'***************************************************************************************************
 '* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ったり継承させます
 '***************************************************************************************************
 Property Get ThisCDPBrowser() As CDPBrowser
     Set ThisCDPBrowser = BrowserCore
 End Property
 Property Set ThisCDPBrowser(Target As CDPBrowser)
+    '1. ブラウザ情報を適用
     Set BrowserCore = Target
+
+    '2. ついでに、制御コアも適用
+    Set PipeCore = Target.ThisCDPCore
 End Property
 
 
