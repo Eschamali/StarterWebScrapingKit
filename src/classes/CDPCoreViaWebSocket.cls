@@ -682,8 +682,8 @@ End Sub
 '* 注意事項：・エラーコードは別途プロパティメソッドで取得してください
 '            ・このプロシージャは、内部でループ処理は行いません。呼び出し側にて、引数やGETプロパティから状況を判断して、ループ処理を継続するかのロジックで組んでます
 '            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
-'            　処理の途中でVBE停止させると、ハンドルの使いまわし時に上手く機能しない場合があります。
-'              その場合は、新規WebSocket接続からやり直すことをおすすめします。
+'            　`CDPCore.TakeWebSocket`処理の途中でVBE停止させると、ハンドルの使いまわし時に、上手く機能しなくなります。
+'              その場合は、新規WebSocket接続からやり直してください。
 '***************************************************************************************************
 Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
