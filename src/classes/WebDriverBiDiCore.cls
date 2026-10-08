@@ -82,13 +82,10 @@ Private currentLog      As StateLog
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Function InitBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".start"
-
-
+Public Function OpenBrowserAndConnectBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
     '1. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    InitBiDi = m_CDPBrowser.start(UserName, appUrl, SplashScreenMode, addArgs)
+    OpenBrowserAndConnectBiDi = m_CDPBrowser.OpenBrowser(UserName, appUrl, SplashScreenMode, addArgs)
 
     '2. WithEventsClassオブジェクトを受け取る
     Set m_CDPCore = m_CDPBrowser.ThisCDPCore

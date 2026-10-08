@@ -21,7 +21,7 @@ Sub BiDiによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 
@@ -92,7 +92,7 @@ Sub checkNetworkEvents()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.ThisWebDriverBiDiMode.quit
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -149,7 +149,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("error")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
         Exit Sub
 
     ElseIf resultBiDi.ExistsKey("extension") Then
@@ -160,7 +160,7 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & resultBiDi.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
         Exit Sub
     End If
 
@@ -179,7 +179,7 @@ Sub UseExtensions()
     End If
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.ThisWebDriverBiDiMode.quit
+    controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -279,7 +279,7 @@ Sub TestAlert()
 
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .ThisWebDriverBiDiMode.quit
+        .ThisWebDriverBiDiMode.CloseBrowser
     End With
 End Sub
 
@@ -335,7 +335,7 @@ Sub TestBiDiPlus_CDPTunnel()
     End If
 
     '終了
-    bidiPlus.ThisWebDriverBiDiMode.quit
+    bidiPlus.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -377,7 +377,7 @@ Sub BiDiPlusDemo()
     'BiDi+により、CDP制御できるように変換（下層のパイプ／ブラウザハンドルは共有したまま）
     Dim BiDiPlusTab As CDPContext
     Set BiDiPlusTab = BiDiTab.UpgradeBiDiPlus
-    If BiDiPlusTab Is Nothing Then MsgBox "BiDi+への変換に失敗しました。", vbCritical, "UpgradeBiDiPlus": BiDiTab.ThisWebDriverBiDiMode.quit: Exit Sub
+    If BiDiPlusTab Is Nothing Then MsgBox "BiDi+への変換に失敗しました。", vbCritical, "UpgradeBiDiPlus": BiDiTab.ThisWebDriverBiDiMode.CloseBrowser: Exit Sub
 
     '-------------------------------- ④CDP：BiDiには無い便利メソッドでトースト通知 --------------------------------
     BiDiPlusTab.notify "BiDi+ で、CDP独自の notify を使ってみました" & WorksheetFunction.Unichar(129418), 5
@@ -541,7 +541,7 @@ Sub AutoConnectBrowser()
     t.navigate "https://www.youtube.com/@islandfox6864"
 
     '7. 終了
-    WebSocketChromium.quit
+    WebSocketChromium.CloseBrowser
 End Sub
 
 

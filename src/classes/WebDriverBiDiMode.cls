@@ -81,7 +81,7 @@ Private CustomUAMode    As Boolean      'このツール独自のユーザーエ
 '            addArgs                    追加の起動引数
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
+Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary) As String
 
 
@@ -89,7 +89,7 @@ Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, 
     Set m_BiDiCore = New WebDriverBiDiCore
 
     '2. WebDriverBiDi としてブラウザを起動させる
-    StartBiDiMode = m_BiDiCore.InitBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
+    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
     CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
 
     '3. BiDi との新しいセッションを確立する
@@ -675,8 +675,8 @@ End Function
 '***************************************************************************************************
 '                                       ■■■ 後始末系 ■■■
 '***************************************************************************************************
-Public Sub quit()
-    Const FromProcedureName As String = ThisClassName & ".quit"
+Public Sub CloseBrowser()
+    Const FromProcedureName As String = ThisClassName & ".CloseBrowser"
 
 
     '1. 終了コマンドを送る

@@ -55,14 +55,14 @@ Private currentLog              As StateLog     'ログ設定
 '            addArgs                    追加の起動引数
 '            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '***************************************************************************************************
-Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
+Public Sub OpenBrowserAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
     Optional sessionCapabilitiesRequest As Dictionary)
 
 
     '1. WebDriverBiDi としてブラウザを起動させ、`Session`を確立
     Dim InitURL As String
     Set m_BiDiMode = New WebDriverBiDiMode
-    InitURL = m_BiDiMode.StartBiDiMode(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = m_BiDiMode.OpenBrowser(userProfile, appUrl, True, addArgs, sessionCapabilitiesRequest)  'レースコンディション対策としてスプラッシュ画面モードにしておく
 
     '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
     Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
