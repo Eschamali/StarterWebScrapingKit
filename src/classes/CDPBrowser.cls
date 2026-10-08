@@ -367,41 +367,6 @@ End Sub
 Public Function isLiveBrowser() As Boolean
     isLiveBrowser = PipeCore.isAvailability
 End Function
-
-
-
-'***************************************************************************************************
-'                           ■■■ 各種接続情報記録/削除設定 ■■■
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：sessionID_mainTab      メインタブでのSessionId
-'            targetID_mainTab       メインタブでのtargetId
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：
-' This method transcribes Chrome's Json message into a string.
-' The serialized string can then be used to automate an active
-' session with a known serial.
-' Updated: 03/05/23 - Replace sessionID with targetID since it is
-'                     constant and stable on every CDP session
-'          22/01/26 - Added specification to user profile name to
-'                     the cpid file name to allow targetting of
-'                     specific profile for reattachment.
-'***************************************************************************************************
-Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As String)
-    Const FromProcedureName As String = ThisClassName & ".serialize"
-
-
-    '1. 必要なデータを`Dictionary`に詰める
-    Dim BrowserInfo As New Dictionary
-    BrowserInfo.Add "BiDi-context", vbNullString  '`WebDriverBiDi`用に枠だけ確保
-    BrowserInfo.Add "sessionID", sessionID_mainTab
-    BrowserInfo.Add "targetID", targetID_mainTab
-
-    '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserContext(br.User, FromProcedureName) = BrowserInfo
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
 '***************************************************************************************************
@@ -630,6 +595,36 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
         .CurrentSessionID = sessionID_
     End With
 End Function
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sessionID_mainTab      メインタブでのSessionId
+'            targetID_mainTab       メインタブでのtargetId
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：
+' This method transcribes Chrome's Json message into a string.
+' The serialized string can then be used to automate an active
+' session with a known serial.
+' Updated: 03/05/23 - Replace sessionID with targetID since it is
+'                     constant and stable on every CDP session
+'          22/01/26 - Added specification to user profile name to
+'                     the cpid file name to allow targetting of
+'                     specific profile for reattachment.
+'***************************************************************************************************
+Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
+    '1. 必要なデータを`Dictionary`に詰める
+    Dim BrowserInfo As New Dictionary
+    BrowserInfo.Add "BiDi-context", vbNullString  '`WebDriverBiDi`用に枠だけ確保
+    BrowserInfo.Add "sessionID", sessionID_mainTab
+    BrowserInfo.Add "targetID", targetID_mainTab
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.TableBrowserContext(Me.CurrentBrowserUser, FromProcedureName) = BrowserInfo
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：`targetId`に対する`DevTools`ウィンドウを開きます
