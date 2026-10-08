@@ -367,18 +367,6 @@ End Sub
 Public Function isLiveBrowser() As Boolean
     isLiveBrowser = PipeCore.isAvailability
 End Function
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
-'***************************************************************************************************
-Private Sub deleteCDPID()
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
-
-
-    With ShSetting01_StartBrowser
-        .DeleteBrowserHandle(FromProcedureName) = br.User   'パイプ通信Handle情報
-        .DeleteBrowserContext(FromProcedureName) = br.User  'ブラウザセッション情報
-    End With
-End Sub
 
 
 
@@ -1081,16 +1069,14 @@ Public Sub quit()
     End If
 
     '4. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    PipeCore.CloseHandleBrowser '各種ハンドルを閉じる
-    deleteCDPID                 'テーブルからも削除する
+    ShSetting01_StartBrowser.DeleteBrowserContext(FromProcedureName) = Me.CurrentBrowserUser    'メインタブ情報を削除
+    DisconnectCDP                                                                               '各種ハンドルも閉じる
 
     '5. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     CDPHelpers.Sleep 1
     printMsg info_, "The browser has been terminated.", FromProcedureName
 
 End Sub
-
-
 
 '***************************************************************************************************
 '* 機能　　：`CDPCore.InitCDP`で起動したデバッグブラウザプロセスハンドルに対して、プロセス終了をかけます
@@ -1099,6 +1085,15 @@ End Sub
 '***************************************************************************************************
 Private Sub TerminateDebugBrowser()
     TerminateProcess PipeCore.Connection_hProcess, 0
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザは終了せずに、接続だけ切り離し、テーブル情報からも削除します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebSocketモード以外でこれを呼び出すと、二度と再接続できなくなりますのでご注意下さい
+'***************************************************************************************************
+Public Sub DisconnectCDP()
+    PipeCore.CloseHandleBrowser
 End Sub
 
 
