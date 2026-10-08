@@ -1363,6 +1363,7 @@ Private Function deserialize(UserName As String) As Boolean
     dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
+    m_IsConnected = True
     deserialize = True
 End Function
 
