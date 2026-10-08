@@ -238,6 +238,7 @@ Private DictionarySessionID As Dictionary
 'その他
 Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
 Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
+Private m_UserName          As String                   'セッション情報を記録する際の識別名称
 
 
 
@@ -257,7 +258,8 @@ Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, Spla
 
 
     '0. 前回のPipe情報が取れちゃった場合は事前にCloseしておく
-    If deserialize(UserName) Then CloseHandleBrowser
+    m_UserName = UserName
+    If deserialize Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
@@ -297,7 +299,7 @@ Public Function RunPipeModeBrowserCDP(UserName As String, appUrl As String, Spla
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
 
     '4. ブラウザセッションパイプ情報をExcelのテーブルに、記録します
-    serialize UserName
+    serialize
 
     '5. 初期URLとして返却します
     If LenB(appUrl) Then
@@ -466,16 +468,12 @@ End Function
 '***************************************************************************************************
 '* 機能　　：パイプハンドル情報をExcelのテーブルに記録します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName   記録する識別名称
-'---------------------------------------------------------------------------------------------------
 '* 注意事項：ここでの、Dictionary.Add の Item 引数は `(hoge)` と括弧必須。64bit Dictionary が LongPtr を
 '            参照渡しと誤解して 稀にクラッシュする不具合を回避するための強制値渡しです。
 '***************************************************************************************************
-Private Sub serialize(UserName As String)
-    '0. データ記録準備
-    Dim tmp As New Dictionary
-
+Private Sub serialize()
     '1. 必要なデータを`Dictionary`に詰める
+    Dim tmp As New Dictionary
     tmp.Add "hStdOutRd", (hStdOutRd)
     tmp.Add "hStderrOutRd", (hStderrOutRd)
     tmp.Add "hStdInWr", (hStdInWr)
@@ -485,7 +483,7 @@ Private Sub serialize(UserName As String)
     tmp.Add "dwProcessId", (dwProcessId)
 
     '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserHandle(UserName, "CDPCore.serialize") = tmp
+    Set ShSetting01_StartBrowser.TableBrowserHandle(m_UserName, "CDPCore.serialize") = tmp
 
 End Sub
 
@@ -493,20 +491,21 @@ End Sub
 '* 機能　　：Excelのテーブルに記録されてるパイプハンドル情報を読み込みます
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：設定の読み取りができたかの論理値
-'* 引数　　：UserName   読み取る識別名称
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：使用する通信経路によっては、この値を直接使用しない場合がありますが、行の存在確認として一律読むようにします
 '***************************************************************************************************
-Public Function deserialize(UserName As String) As Boolean
+Private Function deserialize() As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserialize"
 
 
-    'Excelテーブルから、`UserName`に紐づくパイプハンドル情報を読み込む
+    '1. Excelテーブルから、`UserName`に紐づく接続ハンドル情報を読み込む
     Dim PipeInfo As Dictionary
-    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(UserName, FromProcedureName)
+    Set PipeInfo = ShSetting01_StartBrowser.TableBrowserHandle(m_UserName, FromProcedureName)
 
-    '取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
-    If PipeInfo Is Nothing Then printMsg WARN_, "Pipe information for '" & UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
+    '2. 取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
+    If PipeInfo Is Nothing Then printMsg WARN_, "Browser handle information for '" & m_UserName & "' is not recorded in the table.", FromProcedureName: Exit Function
 
-    'クラス内変数に適用
+    '3. クラス内変数に適用
     hStdOutRd = PipeInfo("hStdOutRd")
     hStderrOutRd = PipeInfo("hStderrOutRd")
     hStdInWr = PipeInfo("hStdInWr")
@@ -515,7 +514,7 @@ Public Function deserialize(UserName As String) As Boolean
     hProcess = PipeInfo("hProcess")
     dwProcessId = PipeInfo("dwProcessId")
 
-    '成功サインを返す
+    '4. 成功サインを返す
     deserialize = True
 End Function
 
@@ -1471,6 +1470,13 @@ End Property
 '***************************************************************************************************
 Property Set WebView2Mode(wv As CDPCoreViaWebView2)
     Set viaWebView2 = wv
+End Property
+
+'***************************************************************************************************
+'* 機能　　：アクティブな接続情報の識別名称を取得
+'***************************************************************************************************
+Property Get CurrentUserName() As String
+    CurrentUserName = m_UserName
 End Property
 
 

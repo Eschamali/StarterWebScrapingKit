@@ -77,7 +77,6 @@ Private Type StateBrowser
     UserAgent           As String   'このChromiumのユーザーエージェント
 
     '独自
-    User        As String   'Browser user profile
     Ver         As String   'The current browser version
 End Type
 Private br As StateBrowser
@@ -169,11 +168,10 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
     timeStart = CDPHelpers.TimerCounter
 
     '3. 起動モードに応じた分岐
-    br.User = userProfile
     If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, appUrl, SplashScreenMode, addArgs)
+        start = WebSocketCore.ConnectCDPWithLocalBrowser(userProfile, appUrl, SplashScreenMode, addArgs)
 
         '3-2. 辻褄合わせで、接続情報パラメーターを適用
         PipeCore.deserialize (br.User)
@@ -182,8 +180,8 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
         Set PipeCore.WebSocketMode = WebSocketCore
     Else
         '3-1. Pipeとして起動
-        '※内部で、接続情報パラメーターが適用されます
-        start = PipeCore.RunPipeModeBrowserCDP(br.User, appUrl, SplashScreenMode, addArgs)
+        '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
+        start = PipeCore.RunPipeModeBrowserCDP(userProfile, appUrl, SplashScreenMode, addArgs)
     End If
 
     '4. 起動中のブラウザ情報を変数に記録
@@ -1151,7 +1149,7 @@ Public Sub printParams()
     printMsg Debug_, "Browser CDPVer    | " & br.ProtocolVersion, FromProcedureName
     printMsg Debug_, "Browser Revision  | " & br.Revision, FromProcedureName
     printMsg Debug_, "Browser UserAgent | " & br.UserAgent, FromProcedureName
-    printMsg Debug_, "Browser UserData  | " & br.User, FromProcedureName
+    printMsg Debug_, "Browser UserData  | " & Me.CurrentBrowserUser, FromProcedureName
     printMsg Debug_, "Core dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
     printMsg Debug_, "Tool Version      | " & ToolVer, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
@@ -1247,7 +1245,7 @@ End Property
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
 '***************************************************************************************************
 Property Get CurrentBrowserUser() As String
-    CurrentBrowserUser = br.User
+    CurrentBrowserUser = PipeCore.CurrentUserName
 End Property
 
 '***************************************************************************************************
