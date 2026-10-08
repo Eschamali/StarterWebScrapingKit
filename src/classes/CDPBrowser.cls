@@ -156,38 +156,30 @@ End Function
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
 Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".start"
-
-
     '1. ログパラメーター準備
     Set PipeCore = New CDPCore
     CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
-    '2. ローカルブラウザ起動完了までのタイマー測定準備
-    Dim timeStart As Double
-    timeStart = CDPHelpers.TimerCounter
-
-    '3. 起動モードに応じた分岐
+    '2. 起動モードに応じた分岐
     If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
-        '3-1. WebSocketとして起動
+        '2-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
         OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
 
-        '3-2. WebSocketモードとして切り替え
+        '2-2. WebSocketモードとして切り替え
         '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
         Set PipeCore.RemoteDebuggingPortMode(userProfile) = WebSocketCore
     Else
-        '3-1. Pipeとして起動
+        '2-1. Pipeとして起動
         '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
         OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
     End If
 
-    '4. 起動中のブラウザ情報を変数に記録
+    '3. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    '5. ブラウザステータス表示
+    '4. ブラウザステータス表示
     printParams
-    printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Function
 
 '***************************************************************************************************
