@@ -1234,6 +1234,9 @@ Private Sub TakeWebSocket(StopWebSocketError As Boolean, destruction As Boolean)
             ElseIf viaWebSocket.LastBufferType = WS_CLOSE_MESSAGE Then
                 '切断要求が来た場合
                 printMsg ERROR_, "Disconnected because a disconnection request was received from the Chromium browser.", FromProcedureName, doRaiseError:=StopWebSocketError
+
+                'ついでに、ハンドル情報テーブルも削除
+                CloseHandleBrowser
                 Exit Sub
             Else
                 'パイプ内は空あるいは、WebSocketフレーム単位としてまだ届いていない
