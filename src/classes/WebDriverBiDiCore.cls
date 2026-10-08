@@ -403,25 +403,33 @@ End Sub
 '* 機能　　：BiDi実行前の組み立てを行います
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：実行コマンドID
-'* 引数　　：strMessage     BiDi-Jsonコマンド。最上位要素に、`method`、`params`があるようにしてください。
-'            StopApiError   CDP側の`TakeEvents`によるAPIエラーを無視するかの設定
+'* 引数　　：methodName         フォーマットにおけるメソッドのフルネーム。{domain}.{method} 例：script.Evaluate
+'            parametersAsJson   対応するメソッドのパラメータを含むJSONフォーマットDictionary
+'            googChannel        フィールド`goog:channel`に付与する内容。ログとかにどうぞ
+'            StopApiError       CDP側の`TakeEvents`によるAPIエラーを無視するかの設定
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：`id`の組み立て処理を行います。
 '***************************************************************************************************
-Public Function ReadyRunBiDi(dicMessage As Dictionary, StopApiError As Boolean) As Long
+Public Function ReadyRunBiDi(methodName As String, parametersAsJson As Dictionary, Optional GoogChannel As String, Optional StopApiError As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".ReadyRunBiDi"
 
 
     '1. 現在のコマンドIDを発行  ※内部でカウントアップを行います
     ReadyRunBiDi = IssuanceCommandID
 
-    '2. `id`を付与
-    dicMessage.Add "id", ReadyRunBiDi
+    '2. `params`項目が未定義の場合、`{}`として認識できるように、新規生成しておく
+    If parametersAsJson Is Nothing Then Set parametersAsJson = New Dictionary
 
-    '3. 実際に実行
+    '3. TOP層の組み立て
+    Dim TopParams As New Dictionary
+    TopParams.Add "id", ReadyRunBiDi                                    '結果紐づけ用の整理券番号を付与
+    TopParams.Add "method", methodName                                  'コマンド名
+    TopParams.Add "params", parametersAsJson                            'コマンド引数的な
+    If LenB(GoogChannel) Then TopParams.Add "goog:channel", GoogChannel '何かしらの目印とかに
+
+    '4. Json文字列コマンドを生成して、CDP実行へ
     Dim strMessage As String
-'    strMessage = BiDiCDPJson.StringifyValue(dicMessage)     '理想はこっちにして、1つに完結したいﾋﾟｴﾝ
-    strMessage = WebJsonConverter.serialize(dicMessage)     'Dictionary→Json文字列化のみ`VBA-FastJSON`を使用。こっちのほうがパフォーマンスが良いため
+    strMessage = WebJsonConverter.serialize(TopParams)
     printMsg Debug_, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
     RunCDP strMessage, StopApiError
 End Function
@@ -523,6 +531,13 @@ End Property
 
 Property Get LastErrorWriteFile() As Long               '`WriteFile`使用時のエラーコード
     LastErrorWriteFile = m_CDPCore.LastErrorWriteFile
+End Property
+
+'***************************************************************************************************
+'* 機能　　：ログ設定値、取得用プロパティ
+'***************************************************************************************************
+Friend Property Get LogSettings() As StateLog
+    LogSettings = m_CDPCore.LogSettings
 End Property
 
 '***************************************************************************************************

@@ -34,8 +34,6 @@ Attribute VB_Name = "Test_BiDiAsyncBenchmark_WaitEvents"
 '===================================================================================================
 Option Explicit
 
-Private Const UseWebSocket As Boolean = False   ' False:Pipe / True:WebSocket
-
 Private Const RESULT_SECTION_LINE    As String = "=================================================="
 Private Const NUM_TABS               As Long = 30     ' 開くタブ数
 Private Const NUM_ROUNDS             As Long = 10      ' 繰り返すラウンド数
@@ -99,11 +97,27 @@ Public Sub Test_BiDiAsyncBenchmark_WaitEvents()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS & ", WebSocket=" & UseWebSocket
 
     ReDim tabs(1 To NUM_TABS)
-    If UseWebSocket Then
-        Set mode = ShSetting01_StartBrowser.StartBiDiMode(WebSocketMode:=True)
-    Else
-        Set mode = ShSetting01_StartBrowser.StartBiDiMode
-    End If
+
+    '-------------- 任意のポート用 ------------------
+'    '1. 設定セルから、ユーザ名を取得
+'    Dim UserName As String
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
+'
+'    '2. 指定のWebSocketForCDPへ接続
+'    Dim WebSocketCDP As New CDPCoreViaWebSocket
+'    Debug.Print WebSocketCDP.ConnectCDP(UserName, "/session", 49198)
+'    WebSocketCDP.DirectWebDriverBiDiMode = True
+'
+'    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+'    Set mode = New WebDriverBiDiMode
+'    mode.reattach UserName, , WebSocketCDP
+    '------------------------------------------------
+
+    '---------------- Chromium用 --------------------
+    Set mode = ShSetting01_StartBrowser.StartBiDiMode
+    '------------------------------------------------
+
+
     Set tabs(1) = mode.getTab(setMain:=True)
 
     benchStart = CDPHelpers.TimerCounter
@@ -269,7 +283,7 @@ Private Sub FinishBenchmark(mode As WebDriverBiDiMode, benchStart As Double, ByR
     PrintHeader "[BiDi/WaitEventsパターン] ベンチマーク結果"
     Debug.Print "  タブ数               : " & NUM_TABS
     Debug.Print "  ラウンド数            : " & NUM_ROUNDS
-    Debug.Print "  接続方式             : " & IIf(UseWebSocket, "WebSocket", "Pipe")
+    Debug.Print "  接続方式             : " & IIf(ShSetting01_StartBrowse.GetSettingCDP(SettingCDP.UseBrowserPreset, "FinishBenchmark"), "WebSocket", "Pipe")
     Debug.Print "  経過時間             : " & Format((CDPHelpers.TimerCounter - benchStart) / 1000, "0.0") & " 秒"
     For t = 1 To NUM_TABS
         Debug.Print "  Tab " & t & " タイムアウト回数    : " & tabStates(t).TimedOutRounds & " / " & NUM_ROUNDS & " ラウンド"

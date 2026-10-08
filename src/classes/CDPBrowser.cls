@@ -52,7 +52,7 @@ End Enum
 '                                   ■■■ 各種定数 ■■■
 '***************************************************************************************************
 'このツール固有情報
-Private Const ToolVer                    As String = "3.3.0"
+Private Const ToolVer           As String = "3.4.0"
 
 'その他
 Private Const ThisClassName     As String = "CDPBrowser"    'ログのトレース用
@@ -77,7 +77,6 @@ Private Type StateBrowser
     UserAgent           As String   'このChromiumのユーザーエージェント
 
     '独自
-    User        As String   'Browser user profile
     Ver         As String   'The current browser version
 End Type
 Private br As StateBrowser
@@ -169,21 +168,18 @@ Public Function start(userProfile As String, Optional appUrl As String, Optional
     timeStart = CDPHelpers.TimerCounter
 
     '3. 起動モードに応じた分岐
-    br.User = userProfile
     If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        start = WebSocketCore.ConnectCDPWithLocalBrowser(br.User, appUrl, SplashScreenMode, addArgs)
+        start = WebSocketCore.ConnectCDPWithLocalBrowser(userProfile, appUrl, SplashScreenMode, addArgs)
 
-        '3-2. 辻褄合わせで、接続情報パラメーターを適用
-        PipeCore.deserialize (br.User)
-
-        '3-3. WebSocketモードとして切り替え
-        Set PipeCore.WebSocketMode = WebSocketCore
+        '3-2. WebSocketモードとして切り替え
+        '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
+        Set PipeCore.RemoteDebuggingPortMode(userProfile) = WebSocketCore
     Else
         '3-1. Pipeとして起動
-        '※内部で、接続情報パラメーターが適用されます
-        start = PipeCore.RunPipeModeBrowserCDP(br.User, appUrl, SplashScreenMode, addArgs)
+        '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
+        start = PipeCore.RunPipeModeBrowserCDP(userProfile, appUrl, SplashScreenMode, addArgs)
     End If
 
     '4. 起動中のブラウザ情報を変数に記録
@@ -246,174 +242,47 @@ End Property
 '***************************************************************************************************
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
-'* 機能　　：Excelテーブルにある既存のパイプハンドル情報を利用して、再接続を試みます
+'* 機能　　：事前に通信経路を設定した`ReattachOptions.cls`を渡して、制御を再開します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：パイプが生きてない場合は、VBAエラーで止まります
+'* 注意事項：・ハンドルが生きてない場合は、VBAエラーで止まります
+'            ・WebSocketモードの場合は、`destruction:=False`推奨です。ヘッダー情報にサイズ情報があるためです
 '***************************************************************************************************
-Public Sub reattachPipe(userProfile As String)
-    Const FromProcedureName As String = ThisClassName & ".reattachPipe"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 1を基に、Excelテーブルからハンドル情報を取得
-    '※載ってない物はエラーとする
-    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no pipe handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-    '4. 生存確認フェーズへ
-    reattach True
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：事前に接続済みの`WebSocket`オブジェクトを渡して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            ConnectInfo        CDPへ接続済みの`CDPCoreViaWebSocket`オブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：WebSocketオブジェクトが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
-    Const FromProcedureName As String = ThisClassName & ".reattachWebSocket"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 引数を基に、WebSocketの接続情報を適用
-    '※オブジェクトなしの場合は、エラーとする
-    If ConnectInfo Is Nothing Then printMsg ERROR_, "WebSocket connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebSocketMode = ConnectInfo
-
-    '4. 辻褄合わせで、接続情報パラメーターを適用
-    '※WebSocketで接続を済ませれば記録されるはずなので
-    If Not PipeCore.deserialize(br.User) Then printMsg ERROR_, Chr(34) & br.User & """ cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-    '5. 生存確認フェーズへ
-    '※WebSocketは、ヘッダー情報にサイズ情報が載ってるため、念の為、`False`にしておく
-    reattach False
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：事前に構成済みの`WebView2`オブジェクトを渡して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile        再アタッチしたいユーザー名(user-data-dirに基づく)
-'            WebView2Mode       構成済みの`WebView2Mode`オブジェクト
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：WebView2オブジェクトが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
-    Const FromProcedureName As String = ThisClassName & ".reattachWebView2"
-
-
-    '1. 識別名称を設定
-    br.User = userProfile
-
-    '2. CDP制御するための初期化
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. 引数を基に、WEBView2オブジェクト情報を適用
-    '※オブジェクトなしの場合は、エラーとする
-    If WebView2Mode Is Nothing Then printMsg ERROR_, "WebView2 connection information is not configured.", FromProcedureName, doRaiseError:=True
-    Set PipeCore.WebView2Mode = WebView2Mode
-
-    '4. 生存確認フェーズへ
-    reattach True
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：ハンドルが生きれるか確認します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：生存論理値
-'* 引数　　：destruction    `True`で、データ破棄モードにします
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：ハンドルが機能してない場合は、VBAエラーで止まります
-'***************************************************************************************************
-Private Sub reattach(destruction As Boolean)
+Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    If isLiveBrowser Then
-        '溜まってるデータを取り出しておく
-        TakeEvents destruction:=destruction
+    '1. 接続情報を継承
+    Set PipeCore = reattachInfo.Get_CDPCore
+    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
 
-        'ステータス更新
+    '2. handleが生きてるかを確認します
+    If isLiveBrowser Then
+        '2-1. 溜まってるデータを取り出しておく
+        TakeEvents destruction:=reattachInfo.Set_Destruction
+
+        '2-2. ステータス更新
         getBrowserInfo
         printParams
     Else
-        printMsg ERROR_, "Failed to reattach to previous Pipe handle. user-data-dir=" & br.User, FromProcedureName, doRaiseError:=True
+        printMsg ERROR_, "CDP communication failed with the remotely touched username: '" & Me.CurrentBrowserUser & "' .", FromProcedureName, doRaiseError:=True
     End If
 
+    '3. 設定が済んだので、破棄
+    Set reattachInfo = Nothing
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：パイプハンドルの生存確認を行います
+'* 機能　　：ハンドルの生存確認を行います
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：パイプ生存論理値
+'* 返り値　：ハンドル生存論理値
 '---------------------------------------------------------------------------------------------------
-'* 機能説明：PeekNamedPipe/ioctlsocket のハンドルが生きてるかをチェックします
+'* 機能説明：通信経路のハンドルが生きてるかをチェックします
 '***************************************************************************************************
 Public Function isLiveBrowser() As Boolean
     isLiveBrowser = PipeCore.isAvailability
 End Function
-
-
-
-'***************************************************************************************************
-'                           ■■■ 各種接続情報記録/削除設定 ■■■
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：sessionID_mainTab      メインタブでのSessionId
-'            targetID_mainTab       メインタブでのtargetId
-'---------------------------------------------------------------------------------------------------
-'* 機能説明：
-' This method transcribes Chrome's Json message into a string.
-' The serialized string can then be used to automate an active
-' session with a known serial.
-' Updated: 03/05/23 - Replace sessionID with targetID since it is
-'                     constant and stable on every CDP session
-'          22/01/26 - Added specification to user profile name to
-'                     the cpid file name to allow targetting of
-'                     specific profile for reattachment.
-'***************************************************************************************************
-Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As String)
-    Const FromProcedureName As String = ThisClassName & ".serialize"
-
-
-    '1. 必要なデータを`Dictionary`に詰める
-    Dim BrowserInfo As New Dictionary
-    BrowserInfo.Add "BiDi-context", vbNullString  '`WebDriverBiDi`用に枠だけ確保
-    BrowserInfo.Add "sessionID", sessionID_mainTab
-    BrowserInfo.Add "targetID", targetID_mainTab
-
-    '2. Excelのテーブルへ記録する
-    Set ShSetting01_StartBrowser.TableBrowserContext(br.User, FromProcedureName) = BrowserInfo
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
-'***************************************************************************************************
-Private Sub deleteCDPID()
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
-
-
-    With ShSetting01_StartBrowser
-        .DeleteBrowserHandle(FromProcedureName) = br.User   'パイプ通信Handle情報
-        .DeleteBrowserContext(FromProcedureName) = br.User  'ブラウザセッション情報
-    End With
-End Sub
 
 
 
@@ -467,16 +336,13 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
-        '1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = PipeCore
-
-        '2. このブラウザ情報を渡す
+        '1. このブラウザ情報を渡す
         Set .ThisCDPBrowser = Me
 
-        '3. 先ほど生成した`sessionId`を渡す
+        '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
 
-        '4. URLが指定されてる場合は読み込み状況を更新
+        '3. URLが指定されてる場合は読み込み状況を更新
         If LenB(Url) Then .PageReadyState (True)
     End With
 End Function
@@ -626,16 +492,43 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
     With getTab
-        '1. このブラウザのパイプハンドル情報を渡す
-        Set .ThisCDPCore = PipeCore
-
-        '2. このブラウザ情報を渡す
+        '1. このブラウザ情報を渡す
         Set .ThisCDPBrowser = Me
 
-        '3. 先ほど生成した`sessionId`を渡す
+        '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
     End With
 End Function
+
+'***************************************************************************************************
+'* 機能　　：Excelのテーブルに、メインタブの接続情報を記録します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：sessionID_mainTab      メインタブでのSessionId
+'            targetID_mainTab       メインタブでのtargetId
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：
+' This method transcribes Chrome's Json message into a string.
+' The serialized string can then be used to automate an active
+' session with a known serial.
+' Updated: 03/05/23 - Replace sessionID with targetID since it is
+'                     constant and stable on every CDP session
+'          22/01/26 - Added specification to user profile name to
+'                     the cpid file name to allow targetting of
+'                     specific profile for reattachment.
+'***************************************************************************************************
+Public Sub serializeForMainTab(sessionID_mainTab As String, targetID_mainTab As String)
+    Const FromProcedureName As String = ThisClassName & ".serialize"
+
+
+    '1. 必要なデータを`Dictionary`に詰める
+    Dim BrowserInfo As New Dictionary
+    BrowserInfo.Add "BiDi-context", vbNullString  '`WebDriverBiDi`用に枠だけ確保
+    BrowserInfo.Add "sessionID", sessionID_mainTab
+    BrowserInfo.Add "targetID", targetID_mainTab
+
+    '2. Excelのテーブルへ記録する
+    Set ShSetting01_StartBrowser.TableBrowserContext(Me.CurrentBrowserUser, FromProcedureName) = BrowserInfo
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：`targetId`に対する`DevTools`ウィンドウを開きます
@@ -1092,8 +985,8 @@ Public Sub quit()
     End If
 
     '4. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    PipeCore.CloseHandleBrowser '各種ハンドルを閉じる
-    deleteCDPID                 'テーブルからも削除する
+    ShSetting01_StartBrowser.DeleteBrowserContext(FromProcedureName) = Me.CurrentBrowserUser    'メインタブ情報を削除
+    DisconnectCDP                                                                               '各種ハンドルも閉じる
 
     '5. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     CDPHelpers.Sleep 1
@@ -1101,15 +994,23 @@ Public Sub quit()
 
 End Sub
 
-
-
 '***************************************************************************************************
-'* 機能　　：`CDPCore.InitCDP`で起動したデバッグブラウザプロセスハンドルに対して、プロセス終了をかけます
+'* 機能　　：ローカルで起動したデバッグブラウザプロセスハンドルに対して、プロセス終了をかけます
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：CDPコマンド`Browser.close`を実行したのに、閉じれないアクシデント時に使用して下さい
+'* 注意事項：・CDPコマンド`Browser.close`を実行したのに、閉じれないアクシデント時に使用して下さい
+'            ・WebView2では使えません
 '***************************************************************************************************
 Private Sub TerminateDebugBrowser()
     TerminateProcess PipeCore.Connection_hProcess, 0
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：ブラウザは終了せずに、接続だけ切り離し、テーブル情報からも削除します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebSocketモード以外でこれを呼び出すと、二度と再接続できなくなりますのでご注意下さい
+'***************************************************************************************************
+Public Sub DisconnectCDP()
+    PipeCore.CloseHandleBrowser
 End Sub
 
 
@@ -1167,7 +1068,7 @@ Public Sub printParams()
     printMsg Debug_, "Browser CDPVer    | " & br.ProtocolVersion, FromProcedureName
     printMsg Debug_, "Browser Revision  | " & br.Revision, FromProcedureName
     printMsg Debug_, "Browser UserAgent | " & br.UserAgent, FromProcedureName
-    printMsg Debug_, "Browser UserData  | " & br.User, FromProcedureName
+    printMsg Debug_, "Browser UserData  | " & Me.CurrentBrowserUser, FromProcedureName
     printMsg Debug_, "Core dwProcessId  | " & PipeCore.Connection_dwProcessId, FromProcedureName
     printMsg Debug_, "Tool Version      | " & ToolVer, FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
@@ -1263,7 +1164,7 @@ End Property
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
 '***************************************************************************************************
 Property Get CurrentBrowserUser() As String
-    CurrentBrowserUser = br.User
+    CurrentBrowserUser = PipeCore.CurrentUserName
 End Property
 
 '***************************************************************************************************
