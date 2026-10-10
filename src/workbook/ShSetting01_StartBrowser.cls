@@ -118,9 +118,15 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
+        '引数から、簡易初期設定を行う
+        With BrowserCapabilities
+            .Set_UserDataDirName = SwitchUser
+            .Set_StartURL = StartURL
+        End With
+
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.OpenBrowserAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
+        StartCDPModeContext.OpenBrowserAndConnectTab BrowserCapabilities
     End With
 End Function
 
@@ -144,9 +150,15 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
+        '引数から、簡易初期設定を行う
+        With BrowserCapabilities
+            .Set_UserDataDirName = SwitchUser
+            .Set_StartURL = StartURL
+        End With
+
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.OpenBrowser SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
+        StartCDPMode.OpenBrowser BrowserCapabilities
     End With
 End Function
 
@@ -591,18 +603,4 @@ Property Get CurrentUserName() As String
 
 
     CurrentUserName = Me.GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
-End Property
-
-'***************************************************************************************************
-'* 機能　　：現在のCDP通信経路を確認します
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：`True`で`Pipe`モードです
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：WebView2判定は対象外です
-'***************************************************************************************************
-Property Get isPipeRemote() As Boolean
-    Const FromProcedureName As String = ThisClassName & ".isPipeRemote"
-
-
-    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName)
 End Property
