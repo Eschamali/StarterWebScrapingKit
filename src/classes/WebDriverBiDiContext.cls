@@ -840,20 +840,21 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製/継承用プロパティ ■■■
+'                              ■■■ 継承用プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiMode.cls`を受け取ったり継承させます
+'* 機能　　：このClass内で定義してる`WebDriverBiDiMode.cls`を受け取ります
 '***************************************************************************************************
 Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
     Set ThisWebDriverBiDiMode = m_BiDiMode
 End Property
-Property Set ThisWebDriverBiDiMode(Target As WebDriverBiDiMode)
-    '1. ブラウザ情報を適用
-    Set m_BiDiMode = Target
 
-    '2. ついでに、制御コアも適用
-    Set m_BiDiCore = Target.ThisBiDiCore
-End Property
+'***************************************************************************************************
+'* 機能　　：新しいタブ、既存タブを制御する際に受け継ぐ内部メソッドです
+'***************************************************************************************************
+Public Sub Init(br As WebDriverBiDiMode, Core As WebDriverBiDiCore)
+    Set m_BiDiMode = br
+    Set m_BiDiCore = Core
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：`browsingContext.getTree`等で得た`context`を適用させます

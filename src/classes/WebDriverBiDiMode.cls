@@ -267,8 +267,8 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
     Set newTab = New WebDriverBiDiContext
     With newTab
-        '4. このBiDi情報を渡す
-        Set .ThisWebDriverBiDiMode = Me
+        '4. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, m_BiDiCore
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes.StringKey("context")
@@ -326,8 +326,8 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
                 Set getTab = New WebDriverBiDiContext
                 With getTab
-                    '4. このBiDi情報を渡す
-                    Set .ThisWebDriverBiDiMode = Me
+                    '4. アクティブなプロトコルオブジェクトを渡す
+                    .Init Me, m_BiDiCore
 
                     '5. 先ほど得た`context`を渡す
                     .context = matchData("context")
