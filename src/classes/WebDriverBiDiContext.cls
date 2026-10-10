@@ -132,21 +132,19 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のBiDi-contextタブ情報を利用して、再接続を試みます
 '* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Function reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary) As Boolean
+Public Function reattach(reattachInfo As ReattachOptions) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = reattachInfo.ClsGet_WebDriverBiDiCore
 
-    '1. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
+    '2. 識別名称に紐づく「BiDi-CDP Mapper」への再接続処理
     Set m_BiDiMode = New WebDriverBiDiMode
-    m_BiDiMode.reattach reattachInfo, sessionCapabilitiesRequest
-
-    '2. 接続情報を継承
-    Set m_BiDiCore = m_BiDiMode.ThisBiDiCore
+    m_BiDiMode.reattach reattachInfo
 
     '3. タブ情報を再セット
     InfoList.context = m_BiDiMode.serializeMainTab

@@ -245,14 +245,18 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
 
 
     '1. 接続情報を継承
-    Set m_CDPCore = reattachInfo.Get_CDPCore
+    Set m_CDPCore = reattachInfo.ClsGet_CDPCore
 
-    '2. Excelに記録されてる`TargetID`の生存確認
+    '2. Mapper起動前に使う設定値を確保
+    BiDiDebug.ViewDebugTab = reattachInfo.Set_BiDiViewTab_BiDiCDPMapper
+    BiDiDebug.DiagnosticLog = reattachInfo.Set_BiDiViewDebugLogForBiDiCDPMapper
+
+    '3. Excelに記録されてる`TargetID`の生存確認
     Dim mapperTabConnection As Boolean
     Set WebDriverBiDi_mapperTab = New CDPContext
     mapperTabConnection = WebDriverBiDi_mapperTab.reattach(reattachInfo)    '※`sessionId`は、常に更新させます
 
-    '3. 接続情報をブラウザClassにも適用
+    '4. 接続情報をブラウザClassにも適用
     Set m_CDPBrowser = WebDriverBiDi_mapperTab.ThisCDPBrowser
 
     '`BiDiMapper - TargetID`有無に応じた分岐
@@ -260,52 +264,52 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
         'Excelに記録されてる`TargetID`が生きてる = `Target.exposeDevToolsProtocol`が有効
         printMsg info_, "`Target.exposeDevToolsProtocol` instance is already running. Reattaching to existing BiDi session...", FromProcedureName
 
-        '4. そのタブURLは、このクラスで用意した専用URLか？
+        '5. そのタブURLは、このクラスで用意した専用URLか？
         If StrComp(MapperURL, WebDriverBiDi_mapperTab.Url, vbTextCompare) = 0 Then
-            '5. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
+            '6. すでに当該タブで `BiDi-CDP Mapper`が起動済みかを確認する
             '→ typeof window.onBidiMessage === 'function' かどうかを調べる
             Dim isMapperRunning As Boolean
             isMapperRunning = WebDriverBiDi_mapperTab.jsEval("typeof window." & BiDiSend & " === 'function';")
 
             '`BiDi-CDP Mapper`の起動状況に応じた分岐
             If isMapperRunning Then
-                '6. `BiDi-CDP Mapper`は生きてるので、再バイディングを行う
+                '7. `BiDi-CDP Mapper`は生きてるので、再バイディングを行う
                 printMsg Debug_, "The `BiDi-CDP Mapper` instance is already running. Update the SessionID and reconnect to it.", FromProcedureName
                 Call BiDiResponseBiding
 
-                '7. 既存接続したサインで返す
+                '8. 既存接続したサインで返す
                 ReBootBiDiCDPMapper = False
             Else
-                '6. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
+                '7. お亡くなりなので、`BiDi-CDP Mapper`を再始動させます
                 printMsg Debug_, "`BiDi-CDP Mapper` instance not found. ReBooting `BiDi-CDP Mapper` into reattached tab...", FromProcedureName
                 StartBiDiCDPMapper
 
-                '7. 再始動したサインを返す
+                '8. 再始動したサインを返す
                 ReBootBiDiCDPMapper = True
             End If
 
         Else
-            '5. 別URL状態なので、空ページに遷移させる
+            '6. 別URL状態なので、空ページに遷移させる
             '※`Target.exposeDevToolsProtocol`が有効の状態でのネットサーフィンは、危険なのでこの措置をとる
             '　超端的に言うと、ネット上のvbsコードがIEで実行されちゃって大変なことになるあれ
             printMsg WARN_, "The URL is not suitable for `Target.exposeDevToolsProtocol`. You will be redirected to an empty page.", FromProcedureName
             WebDriverBiDi_mapperTab.Url = MapperURL
 
-            '6. `BiDi-CDP Mapper`を始動させる
+            '7. `BiDi-CDP Mapper`を始動させる
             StartBiDiCDPMapper
 
-            '7. 再始動したサインを返す
+            '8. 再始動したサインを返す
             ReBootBiDiCDPMapper = True
         End If
     Else
-        '2. 既知タブ自体が失ってるので、新規タブで準備し直す
+        '5. 既知タブ自体が失ってるので、新規タブで準備し直す
         printMsg WARN_, "Mapper instance not found. Injecting `BiDi-CDP Mapper` into reattached new tab...", FromProcedureName
         newTabForBiDi
 
-        '3. `BiDi-CDP Mapper`を始動させます
+        '6. `BiDi-CDP Mapper`を始動させます
         StartBiDiCDPMapper
 
-        '4. 再始動したサインを返す
+        '7. 再始動したサインを返す
         ReBootBiDiCDPMapper = True
     End If
 End Function
@@ -760,17 +764,8 @@ End Function
 '                               ■■■ 初期化処理 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "BCID" & Format(Rnd * 1000, "000")
-
-    'WebDriverBiDiのデバッグ設定を、ワークシートから適用します
-    With ShSetting01_StartBrowser
-        BiDiDebug.ViewDebugTab = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)           '`BiDi-CDP Mapper`のコンソールタブを表示するか？
-        BiDiDebug.DiagnosticLog = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)   'Mapper内部のデバッグログを記録するか？
-    End With
 End Sub
 
 

@@ -197,32 +197,37 @@ End Sub
 '* 機能　　：Excelテーブルにある既存のBiDiMapperタブ,パイプハンドル情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
 '* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Sub reattach(reattachInfo As ReattachOptions, Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 「BiDi-CDP Mapper」への再接続処理
-    Set m_BiDiCore = New WebDriverBiDiCore
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = reattachInfo.ClsGet_WebDriverBiDiCore
+
+    '2. Mapper再起動後に使う設定値を確保
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = reattachInfo.Set_BiDiSessionCapabilitiesRequest
+    CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
+
+    '3. Mapper再起動を行うか内部で、判定する
     Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(reattachInfo)
 
-    '2. デバッグセッション有無判定
+    '4. デバッグセッション有無判定
     '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
     Dim DebugSessionStatus As Boolean
     DebugSessionStatus = sessionStatus.BoolKey("ready")
 
-    '3. 結果に応じて`session.new`を行う
+    '5. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson
     If requestSessionNew Or DebugSessionStatus Then
-        '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
+        '5-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
         Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-        '2-2. 接続先ブラウザ情報をログで表示
+        '5-2. 接続先ブラウザ情報をログで表示
         ViewNewSession resultBiDi
     End If
 End Sub
