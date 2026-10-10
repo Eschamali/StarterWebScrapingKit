@@ -75,27 +75,24 @@ Private CustomUAMode    As Boolean      'このツール独自のユーザーエ
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：userProfile                起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
-'            appUrl                     起動引数：`--app`につけるURLを指定します
-'            SplashScreenMode           `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            addArgs                    追加の起動引数
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：caps   ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '***************************************************************************************************
-Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary) As String
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = caps.ClsGet_WebDriverBiDiCore
+    
+    '2. 起動後に使う設定値を確保
+    CustomUAMode = caps.Set_EnableUserAgentOverride
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = caps.Set_BiDiSessionCapabilitiesRequest
 
+    '3. WebDriverBiDi としてブラウザを起動させる
+    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(caps)
 
-    '1. 初期化処理
-    Set m_BiDiCore = New WebDriverBiDiCore
-
-    '2. WebDriverBiDi としてブラウザを起動させる
-    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
-
-    '3. BiDi との新しいセッションを確立する
+    '4. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '4. 接続先ブラウザ情報をログで表示
+    '5. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Function
 
@@ -1036,17 +1033,6 @@ End Property
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get ThisBiDiCore() As WebDriverBiDiCore
-    Set ThisBiDiCore = m_BiDiCore
-End Property
-
-
-
-'***************************************************************************************************
 '                           ■■■ CDPHelpers ラッパーメソッド ■■■
 '***************************************************************************************************
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean)
@@ -1087,9 +1073,6 @@ End Sub
 '                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "BDID" & Format(Rnd * 1000, "000")
 
@@ -1098,7 +1081,4 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandBiDi = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub

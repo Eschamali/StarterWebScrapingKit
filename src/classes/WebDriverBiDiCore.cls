@@ -74,26 +74,27 @@ Private m_LogID      As String
 '* 機能　　：「BiDi-CDP Mapper」を付けた状態で、ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：UserName           記録する識別名称
-'            appUrl             `-app`に渡すURL
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
-'            addArgs            追加引数
+'* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：・BiDiマッパーのスクリプトをExcelテーブルから読み込み、対象のコンテキストで実行可能にします。
 '            ・新規立ち上げ用に使い、セッション確立まで担います。
 '***************************************************************************************************
-Public Function OpenBrowserAndConnectBiDi(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    '1. 引数から設定を適用し、まずはCDP-browserとして起動
+Public Function OpenBrowserAndConnectBiDi(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_CDPCore = caps.ClsGet_CDPCore
+
+    '2. 起動後に使う設定値を確保
+    BiDiDebug.ViewDebugTab = caps.Set_BiDiViewTab_BiDiCDPMapper
+    BiDiDebug.DiagnosticLog = caps.Set_BiDiViewDebugLogForBiDiCDPMapper
+
+    '3. 引数から設定を適用し、まずはCDP-browserとして起動
     Set m_CDPBrowser = New CDPBrowser
-    OpenBrowserAndConnectBiDi = m_CDPBrowser.OpenBrowser(UserName, appUrl, SplashScreenMode, addArgs)
+    OpenBrowserAndConnectBiDi = m_CDPBrowser.OpenBrowser(caps)
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set m_CDPCore = m_CDPBrowser.ThisCDPCore
-
-    '3. `BiDi-CDP Mapper`用のタブを新規で、用意します
+    '4. `BiDi-CDP Mapper`用のタブを新規で、用意します
     newTabForBiDi
 
-    '4. `BiDi-CDP Mapper`を始動させます
+    '5. `BiDi-CDP Mapper`を始動させます
     StartBiDiCDPMapper
 End Function
 
