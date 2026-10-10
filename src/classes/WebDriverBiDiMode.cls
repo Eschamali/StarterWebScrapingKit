@@ -919,7 +919,7 @@ End Sub
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
 Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    '`session.new`の`Parameters`が省略されてる場合は、空規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
         params.Add "capabilities", New Dictionary
