@@ -300,9 +300,14 @@ End Sub
 '* 機能　　：クラス内変数の一部を初期化します
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = "Logger.Class_Initialize"
+
+
     'ログ系は色んな場面で使用する都合上、一律、ワークシートから反映といたします
     With ShSetting01_StartBrowser
-        doPrintDbgMsg = .GetSettingCDP(SettingCDP.DisplayImmediate, "Logger.Class_Initialize") 'イミディエイトに表示させるか？
-        LogThreshold = .GetSettingCDP(SettingCDP.LogLevel, "Logger.Class_Initialize")          'ログレベルの設定
+        doPrintDbgMsg = .GetSettingCDP(SettingCDP.DisplayImmediate, FromProcedureName)                  'イミディエイトに表示させるか？
+        LogThreshold = .GetSettingCDP(SettingCDP.LogLevel, FromProcedureName)                           'ログレベルの設定
+        CDPHelpers.currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)            'ログフォルダ出力パス。空欄でファイル化しない
+        CDPHelpers.currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName) 'ブラウザからのレスポンス内容を減らすか？
     End With
 End Sub

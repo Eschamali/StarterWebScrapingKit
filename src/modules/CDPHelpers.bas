@@ -75,8 +75,8 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency     As Currency '実行マシンでの周波数記録用
-Private LogControl      As Logger   'ログレベルの制御
+Private m_Frequency     As Currency     '実行マシンでの周波数記録用
+Private LogControl      As New Logger   'ログレベルの制御
 
 
 
@@ -226,30 +226,7 @@ End Sub
 '* 詳細説明：モジュール単位で宣言してるため、明示的なクリア処理をする必要があるときに使います
 '***************************************************************************************************
 Public Sub ClearLogger()
-    'クリア処理
     Set LogControl = Nothing
-    currentLog.logPath = vbNullString
-    currentLog.seeRawSendMsgDbg = False
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：初期ログ設定オブジェクトを反映します
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・大本のCoreClassから呼び出す想定です
-'            ・ログ系は色んな場面で使用する都合上、一律、ワークシートから反映といたします
-'***************************************************************************************************
-Public Sub InitLogger()
-    Const FromProcedureName As String = "CDPHelpers.InitLogger"
-
-
-    '1. 初期化し、オプションオブジェクトから設定値を反映
-    Set LogControl = New Logger
-
-    '2. 一律、ワークシートから適用
-    With ShSetting01_StartBrowser
-        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
-        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)
-    End With
 End Sub
 
 '***************************************************************************************************

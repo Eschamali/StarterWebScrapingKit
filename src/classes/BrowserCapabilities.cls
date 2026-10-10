@@ -215,7 +215,6 @@ Private Sub Class_Initialize()
 
     '2. 共通設定を適用
     CDPHelpers.InitQueryPerformanceFrequency    '実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、各種タイムアウト判定準備をする
-    CDPHelpers.InitLogger                       '初期ログ設定をbas側で記憶する
 End Sub
 
 Private Sub Class_Terminate()
