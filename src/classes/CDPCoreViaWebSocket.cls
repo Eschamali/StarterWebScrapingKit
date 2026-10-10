@@ -175,8 +175,7 @@ Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た�
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
 
-'--- ログ設定状況 ---
-Private currentLog As StateLog
+'ログ識別ID
 Private m_LogID As String
 
 '--- Pipe版に合わせたエラー有無判定 ---
@@ -356,7 +355,7 @@ Private Function SwapBytes16(value As Long) As Integer
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
+'* 機能　　：ローカルブラウザを新規で、WebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
 '* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト
@@ -364,6 +363,7 @@ End Function
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
 Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     Const FromProcedureName As String = ThisClassName & ".OpenBrowserAndConnectCDP"
@@ -1237,7 +1237,8 @@ End Function
 '* 引数　　：caps           `DevToolsActivePort`ファイルを探すための情報一式
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
+'* 注意事項：・あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
 Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Boolean
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
@@ -1365,23 +1366,13 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    ' WinSock 2.2 の初期化
+    'WinSock 2.2 の初期化
     Dim wsaDat As WSAData
     If WSAStartup(&H202, wsaDat) = 0 Then
         m_WSAInitialized = True
     Else
         Err.Raise vbObjectError + 1001, FromProcedureName, "WSAStartup の初期化に失敗しました。"
     End If
-
-    '各種ステータスを初期化
-    m_hSocket = -1
-    m_LastBufferType = WS_NOT_MESSAGE
-
-    'ログ設定
-    With currentLog
-        m_LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
-        currentLog.logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)   'ログフォルダパス
-    End With
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
@@ -1394,8 +1385,15 @@ Private Sub Class_Initialize()
         .SetEOS             ' 終端（EOS）としてマークする
     End With
 
+    'ログID設定
+    m_LogID = "WSID" & Format(Rnd * 1000, "000")
+
     'UTF8変換モードを設定
     Set Utf8Converter = New CharacterCodeConversion
+
+    '各種ステータスを初期化
+    m_hSocket = -1
+    m_LastBufferType = WS_NOT_MESSAGE
 End Sub
 
 Private Sub Class_Terminate()
@@ -1407,5 +1405,5 @@ Private Sub Class_Terminate()
 
     'ストリームをClose
     WebSocketReceiveStream.Close
-    Set WebSocketReceiveStream = Nothing
+    Set WebSocketReceiveStream = Nothing    ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub
