@@ -1261,23 +1261,26 @@ Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boole
 End Sub
 
 '***************************************************************************************************
-'* 機能　　：`DevToolsActivePort`関連の処理
+'* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称
+'* 引数　　：caps           `DevToolsActivePort`ファイルを探すための情報一式
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
+'* 注意事項：あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
 '***************************************************************************************************
-Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
-
-
+Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Boolean
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
-    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.Init caps, False
 
     '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
 
     '3. 接続
-    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
+    AutoConnectDevToolsActivePort = ConnectCDP(caps.Set_UserDataDirName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
+
+    '4. 設定が済んだので、破棄
+    Set caps = Nothing
 End Function
 
 '***************************************************************************************************
