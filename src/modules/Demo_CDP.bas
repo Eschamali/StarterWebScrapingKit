@@ -955,24 +955,34 @@ End Sub
 '* 機能　　：「DevToolsActivePort」ファイルモードで起動したブラウザに対するWebSocket接続を行います
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：「DevToolsActivePort」ファイルモードは、下記のいずれかで使用されます。それを利用したDemoとなります
-'            ・`remote-debugging-port=0`で起動したブラウザ
+'            ・`remote-debugging-port=0`で起動したブラウザ(demoReattachmentPart2ForBrowser/Tab も実はこれ)
 '            ・「edge://inspect/#remote-debugging」にて、リモートデバッグを許可する
 '
 '            [!NOTE]
 '            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`reuseMode`を`True`にして再度処理をすると、
 '            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
 '
-'* 注意事項：「edge://inspect/#remote-debugging」にて事前準備が必要です
+'* 注意事項：このDemoは、普段のブラウザを制御するDemoとしても兼ねてるため、「edge://inspect/#remote-debugging」にて事前準備が必要です
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
     '0. 事前設定
     Const UserNameBrowser   As String = "User Data"
-    Const reuseMode         As Boolean = False
+    Const reuseMode         As Boolean = False  '内部ハンドルを使いまわすか？
 
 
-    '1. 指定のWebSocketForCDPへ接続
+    '1. 分岐に応じたWebSocketへ接続
     Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP UserNameBrowser, reuseMode
+    If reuseMode Then
+        '1-1. 指定のユーザ名に記録済みのWinSockハンドルを取り出す
+        WebSocketCDP.ReConnectCDP UserNameBrowser
+    Else
+        '1-1. 探す目印となるUserNameを指定
+        '※ローカルブラウザ依存の「DevToolsActivePort」探索の都合により「BrowserCapabilities」を使用します
+        BrowserCapabilities.Set_UserDataDirName = UserNameBrowser
+
+        '1-2. 指定のユーザ名のWebSocketForDevToolsActivePortへ接続
+        WebSocketCDP.AutoConnectDevToolsActivePort BrowserCapabilities
+    End If
 
     '2. いくつか初期設定を設ける
     With ReattachOptions
@@ -995,6 +1005,7 @@ Sub AutoConnectDevToolsActivePort()
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
 
     '6. WebSocketから切断
+    '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
     t.ThisCDPBrowser.DisconnectCDP
 End Sub
 
