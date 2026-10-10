@@ -1981,12 +1981,9 @@ End Property
 '                              ■■■ 初期化/後始末 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    '1. ステータスリセット
+    '各種待機ステータスリセット
     m_core.env.state = Whs_Created
     m_core.ctrl.state = Whs_Created
-
-    '2. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
-    CDPHelpers.InitQueryPerformanceFrequency
 End Sub
 
 Private Sub Class_Terminate()

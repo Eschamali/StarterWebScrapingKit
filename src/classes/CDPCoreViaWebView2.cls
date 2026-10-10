@@ -184,8 +184,7 @@ Private m_deleteProfileOnDisconnect As Boolean
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
-' ログ設定状況
-Private currentLog As StateLog
+' ログ識別ID
 Private m_LogID As String
 
 
@@ -1318,19 +1317,12 @@ End Function
 '* 機能　　：クラス内変数の一部を初期化します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
+    'ログID設定
+    m_LogID = "WVID" & Format(Rnd * 1000, "000")
 
     'CDPイベント購読管理の初期化
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
-
-    'ログ設定
-    With currentLog
-        m_LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
-        .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
-        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
-    End With
 End Sub
 
 Private Sub Class_Terminate()
