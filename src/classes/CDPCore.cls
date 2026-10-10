@@ -312,7 +312,9 @@ Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     End If
 
     '6. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
 
 '***************************************************************************************************

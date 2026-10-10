@@ -265,7 +265,9 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
 
     '4. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set reattachInfo = Nothing
+    Set ReattachOptions = Nothing
 End Sub
 
 '***************************************************************************************************
