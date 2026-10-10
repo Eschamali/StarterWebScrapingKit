@@ -248,8 +248,7 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 'その他
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private currentLog      As StateLog 'ログ設定
-Private CustomUAMode    As Boolean  'このツール独自のユーザーエージェントを刻印するか？
+Private m_LogID         As String   'ログ識別ID
 
 
 
@@ -311,37 +310,36 @@ End Function
 '                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            appUrl         起動引数：`--app`　につけるURLを指定します
-'            addArgs        追加の起動引数
+'* 引数　　：caps    ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
-    Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
+Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = caps.ClsGet_CDPCore
+    
+    '2. ブラウザ起動前の一部設定の反映
+    caps.ClsSet_SplashScreenMode = True    'レースコンディション対策としてスプラッシュ画面モードにしておく
 
+    '3. 起動後に使う設定値を確保
+    Dim FirstURL As String: FirstURL = caps.Set_StartURL
 
-    '1. ブラウザ起動
+    '4. ブラウザ起動
     Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.OpenBrowser(caps)
 
-    '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
-    Set PipeCore = BrowserCore.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '3. Complete initialization ------------------------------------------------------
+    '5. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
     getSessionInfo                                                  'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
-    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-    If LenB(appUrl) Then navigate appUrl
+    '6. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(FirstURL) Then navigate FirstURL
     '-------------------------------------------------------------------------------------------------------------------------------------
 
-    '5. Finally print the session details for debugging ------------------------------
+    '7. Finally print the session details for debugging ------------------------------
     printParams
     '------------------------------------------------------------------------------
 
@@ -484,9 +482,8 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 接続情報を継承
-    Set PipeCore = reattachInfo.Get_CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = reattachInfo.ClsGet_CDPCore
 
     '2. 接続情報をブラウザClassにも適用
     Set BrowserCore = New CDPBrowser
@@ -718,7 +715,7 @@ step1:
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
         'CDP自体の結果ログ表示
-        If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+        If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
         Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
@@ -762,7 +759,7 @@ step2:
     Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
 
     '`RemoteObject`部分を文字ログ化
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If Not Node_ExceptionDetails Is Nothing Then
@@ -1168,7 +1165,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1830,7 +1827,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, m_LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Tab ID        | " & brTab.targetID, FromProcedureName
@@ -1872,7 +1869,7 @@ Public Sub getSessionInfo()
     pageEnable True
 
     'ユーザーエージェントに刻印する場合はそれを行う
-    If CustomUAMode Then AppendVbaUserAgent
+    If BrowserCore.UseCustomUAMode Then AppendVbaUserAgent
 
 End Sub
 
@@ -2828,20 +2825,21 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製/継承用プロパティ ■■■
+'                              ■■■ 継承用プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ったり継承させます
+'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ります
 '***************************************************************************************************
 Property Get ThisCDPBrowser() As CDPBrowser
     Set ThisCDPBrowser = BrowserCore
 End Property
-Property Set ThisCDPBrowser(Target As CDPBrowser)
-    '1. ブラウザ情報を適用
-    Set BrowserCore = Target
 
-    '2. ついでに、制御コアも適用
-    Set PipeCore = Target.ThisCDPCore
-End Property
+'***************************************************************************************************
+'* 機能　　：新しいタブ、既存タブを制御する際に受け継ぐ内部メソッドです
+'***************************************************************************************************
+Public Sub Init(br As CDPBrowser, Core As CDPCore)
+    Set BrowserCore = br
+    Set PipeCore = Core
+End Sub
 
 
 
@@ -2935,7 +2933,7 @@ Property Let CurrentSessionID(newSessionID As String)
     getSessionInfo
 
     'ログ化
-    printMsg info_, currentLog.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, m_LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -3058,7 +3056,7 @@ End Property
 '* 機能　　：ログ設定値、取得用プロパティ
 '***************************************************************************************************
 Friend Property Get LogSettings() As StateLog
-    LogSettings = currentLog
+    LogSettings = PipeCore.LogSettings
 End Property
 
 
@@ -3070,7 +3068,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
 End Sub
 
 
@@ -3115,7 +3113,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "TBID" & Format(Rnd * 1000, "000")
+    m_LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
@@ -3125,9 +3123,6 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
 
 '***************************************************************************************************
