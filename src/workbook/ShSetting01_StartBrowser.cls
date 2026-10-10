@@ -182,8 +182,14 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
 
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
+        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
+        Dim SimpleInitOptions As BrowserCapabilities
+        If StrPtr(SwitchUser) Then
+            Set SimpleInitOptions = New BrowserCapabilities
+        Else
+            Set SimpleInitOptions = BrowserCapabilities
+            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
+        End If
 
         '引数から、簡易初期設定を行う
         With BrowserCapabilities
@@ -194,7 +200,7 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
 
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.OpenBrowserAndConnectTab BrowserCapabilities
+        StartBiDiModeContext.OpenBrowserAndConnectTab SimpleInitOptions
     End With
 End Function
 
@@ -214,8 +220,14 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
 
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
+        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
+        Dim SimpleInitOptions As BrowserCapabilities
+        If StrPtr(SwitchUser) Then
+            Set SimpleInitOptions = New BrowserCapabilities
+        Else
+            Set SimpleInitOptions = BrowserCapabilities
+            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
+        End If
 
         '引数から、簡易初期設定を行う
         With BrowserCapabilities
@@ -226,7 +238,7 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
 
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.OpenBrowser BrowserCapabilities
+        StartBiDiMode.OpenBrowser SimpleInitOptions
     End With
 End Function
 
