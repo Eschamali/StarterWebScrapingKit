@@ -278,7 +278,9 @@ Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional Attac
     serialize caps.Set_UserDataDirName
 
     '7. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Sub
 
 '***************************************************************************************************
