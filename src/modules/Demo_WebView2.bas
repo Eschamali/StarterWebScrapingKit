@@ -22,8 +22,7 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
 
         '2. WebView2プロセスを起動
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
+        .StartCDPModeWebView2
 
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
@@ -70,11 +69,12 @@ Sub UseExtensionsViaWebView2API()
         .ThisWebView2.EnvironmentOptions.Set_AreBrowserExtensionsEnabled = True
 
         '2. WebView2を起動
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
+        Dim exinstall As CDPBrowser
+        Set exinstall = .StartCDPModeWebView2
 
         '3. ページ遷移
-        .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
+        '※WebView2の場合は、拡張機能管理ページがないので、適当なページに遷移します
+        .ThisCDPContext.navigate "https://www.youtube.com/@africanpenguin6535"
 
         '4. フォームを表示
         .show vbModeless
@@ -85,13 +85,13 @@ Sub UseExtensionsViaWebView2API()
             Dim CDPparams As Dictionary, ResultCDP As BiDiCDPJson
             Set CDPparams = New Dictionary
             CDPparams.Add "path", インストールパス
-            Set ResultCDP = .ThisCDPContext.ThisCDPBrowser.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
+            Set ResultCDP = exinstall.ExecuteCDP("Extensions.loadUnpacked", CDPparams, False)    '今回は、エラー無視で設定
 
-            If ResultCDP Is Nothing Then MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & .ThisCDPContext.ThisCDPBrowser.LastCDPJsonError("code"): Unload WebView2Form: Exit Sub
+            If ResultCDP Is Nothing Then MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & exinstall.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & exinstall.LastCDPJsonError("code"): Unload WebView2Form: Exit Sub
 
             InstallID = ResultCDP("id")
             MsgBox "拡張機能のインストールに成功しました。", vbInformation, "exID: " & InstallID
-        
+
         Else
             InstallID = .ThisWebView2.AddBrowserExtension(インストールパス)
             If LenB(InstallID) = 0 Then MsgBox "拡張機能のインストールに失敗しました", vbCritical, "WebView2": Unload WebView2Form: Exit Sub
@@ -128,10 +128,7 @@ End Sub
 '***************************************************************************************************
 Sub RunBgColorDemo()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         '背景色を目立つ色(不透明・赤)に設定 → SetDefaultBackgroundColorの検証用
         .ThisWebView2.SetDefaultBackgroundColor 255, 255, 0, 0   ' a,r,g,b
@@ -167,10 +164,7 @@ Sub RunVirtualHostMappingDemo()
 
     With WebView2Form
         '2. WebView2を起動
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         '3. ローカルフォルダを仮想ホスト名へマッピング(★接続後・該当URLへの遷移前に呼ぶこと★)
         If Not .ThisWebView2.SetVirtualHostNameToFolderMapping(hostname, FolderPath) Then
@@ -287,10 +281,7 @@ Sub RunEnvironmentOptionsDemo()
         End With
 
         '2. WebView2を起動(★スモークテスト★ ここで失敗しなければ、6項目とも受理されたことになる)
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました(EnvironmentOptionsのいずれかが原因の可能性)"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
         Debug.Print "EnvironmentOptions Demo: Environment作成に成功(6項目とも受理されました)"
 
         '3. Languageの検証(navigator.languageで読み取り可能)+ ScrollBarStyle目視用の長いページ
@@ -326,10 +317,7 @@ End Sub
 '***************************************************************************************************
 Sub RunSettingsFamilyDemo()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         '--- ScriptEnabled：ページ自身のインラインscriptが実行されるかどうかで検証 ---
         Dim scriptTestUrl As String
@@ -425,10 +413,7 @@ End Sub
 '***************************************************************************************************
 Sub RunControllerFamilyDemo()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         .ThisWebView2.RasterizationScale = 1.25
         .ThisWebView2.ShouldDetectMonitorScaleChanges = False
@@ -452,10 +437,7 @@ End Sub
 '***************************************************************************************************
 Sub RunProfileFamilyDemo()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         '--- PreferredColorScheme：prefers-color-schemeメディアクエリで読み取り確認 ---
         .ThisWebView2.PreferredColorScheme = ColorScheme_Dark
@@ -511,10 +493,7 @@ End Sub
 '***************************************************************************************************
 Sub RunViewExtrasDemo()
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
 
         '--- IsMuted(ICoreWebView2_8)：put→getの直接往復で確認 ---
         .ThisWebView2.IsMuted = True
@@ -564,10 +543,8 @@ End Sub
 Sub RunTestAlertDemo()
     With WebView2Form
         '1. WebView2を起動
-        If Not .StartCDPModeWebView2 Then
-            MsgBox "WebView2の起動に失敗しました"
-            Exit Sub
-        End If
+        .StartCDPModeWebView2
+
         '表示(目視確認用)
         .show False
 

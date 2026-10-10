@@ -221,12 +221,14 @@ End Property
 '* 機能　　：`WebView2`方式としてCDP制御できる準備を行います(Environment/Controller/Viewの生成)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'* 引数　　：caps       ブラウザ起動時のオプション設定オブジェクト
 '            AttachHwnd WebView2を貼り付けるハンドル ※省略時、Excel自身のハンドル(Application.Hwnd)を使用
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：既存の接続がある場合は、切断されます
+'* 注意事項：・既存の接続がある場合は、切断されます
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
+'            ・WebView2自体がない場合は、失敗します
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) As Boolean
+Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional AttachHwnd As LongPtr)
     Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
 
 
@@ -236,7 +238,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '2. ハンドル未指定の場合は、Officeアプリ自身の`HWnd`を直接使用する
     If AttachHwnd <= 0 Then AttachHwnd = GetApplicationHwnd
 
-    '3. 専用のホストオブジェクトを新規作成
+    '3. 専用のホストオブジェクトを新規作成し、起動へ移る
     Dim RunRes As Boolean
     Set m_Host = New WebView2Host
 
@@ -249,7 +251,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     With m_Host
         '3-2. 必要な情報を渡す
-        .InitInfo UserName, AttachHwnd
+        .Init caps, AttachHwnd
 
         '3-3. セッションを閉じる(保険用)
         .cleanUpSessions
@@ -267,18 +269,18 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         Set m_Host = Nothing
         printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
 
-        Exit Function
+        Exit Sub
     End If
 
     '5. 必須のイベント購読を行う
     InitSubscribeCdpEvent
 
     '6. 接続ポインター情報を記録
-    serialize UserName
+    serialize caps.Set_UserDataDirName
 
-    '7. 成功サインを返す
-    ConnectCDP = True
-End Function
+    '7. 設定が済んだので、破棄
+    Set caps = Nothing
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：接続を切断し、各種ハンドル/購読を解放します

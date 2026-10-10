@@ -61,53 +61,53 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 
 
 '***************************************************************************************************
-'                                   ■■■ 新規起動 ■■■
+'                                 ■■■ 簡易起動メソッド ■■■
 '***************************************************************************************************
 '* 機能　　：WebView2のサイズをFrame内ににピッタリはめ込む処理をします
 '---------------------------------------------------------------------------------------------------
-'* 返り値  ：成功可否論理値
+'* 返り値  ：クラスモジュール - CDPBrowser
 '* 引数    ：SwitchUser WebView2の利用ユーザー名
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・フォーム表示までは行いません。bas側で`.show`をしてください
 '            ・CDP/WebView2操作は、property経由でやるのが基本とします
 '            ・`EnvironmentOptions`系は、このプロシージャを呼び出す前に設定して下さい
 '***************************************************************************************************
-Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
-    '1. WebView2の追加起動引数準備
-    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = BrowserCapabilities.Set_AdditionalBrowserArguments
+Friend Function StartCDPModeWebView2(Optional SwitchUser As String) As CDPBrowser
+    '1. 第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる。※レースコンディション対策
+    Dim SimpleInitOptions As BrowserCapabilities
+    If StrPtr(SwitchUser) Then
+        Set SimpleInitOptions = New BrowserCapabilities
+    Else
+        Set BrowserCapabilities = Nothing                   '念のため、古い情報を破棄。※起動失敗時に備える
+        Set SimpleInitOptions = BrowserCapabilities
+        SwitchUser = SimpleInitOptions.Set_UserDataDirName  '省略時は、シート側を反映
+    End If
 
-    '2. `SwitchUser`引数が省略されてる場合は、ワークシートの設定を適用
-    If StrPtr(SwitchUser) = 0 Then SwitchUser = BrowserCapabilities.Set_UserDataDirName
+    '2. 引数から、簡易初期設定を行う
+    SimpleInitOptions.Set_UserDataDirName = SwitchUser
 
-    '3. 必要な設定は取れたので役目は、ここで終了
-    Set BrowserCapabilities = Nothing
+    '3. WebView2の追加起動引数準備
+    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = SimpleInitOptions.Set_AdditionalBrowserArguments
 
     '4. WebView2を起動
-    Dim isActive As Boolean
-    isActive = fWebView2.ConnectCDP(SwitchUser, myWebView2FrameHwnd)
+    fWebView2.OpenWebView2AndConnectCDP SimpleInitOptions, myWebView2FrameHwnd
 
-    '5. 起動失敗したら、抜ける
-    If Not isActive Then Set fWebView2 = Nothing: Exit Function
-
-    '6. サイズをセット
+    '5. サイズをセット
     AdjustEdgeSize
 
-    '7. 可視化
+    '6. 可視化
     SwitchVisible.value = True
     fWebView2.Visible = True
 
-    '8. WebView2モードとして設定
+    '7. WebView2モードとして設定
     ReattachOptions.Set_WebView2Mode(fWebView2) = SwitchUser
 
-    '9. このUserForm内用の、非同期イベント処理に備える
+    '8. このUserForm内用の、非同期イベント処理に備える
     Set fCDPEvent = ReattachOptions.ClsGet_CDPCore
 
-    '10. タブ接続まで行う
-    Dim t As New CDPBrowser: t.reattach ReattachOptions
-    Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
-
-    '11. 成功signを返す
-    StartCDPModeWebView2 = True
+    '9. タブ接続まで行い、UserForm内用の`CDPContext`オブジェクトに残す
+    Set StartCDPModeWebView2 = New CDPBrowser: StartCDPModeWebView2.reattach ReattachOptions
+    Set fCDPContext = StartCDPModeWebView2.getTab(setMain:=True, Url:=EmptyPageName)
 End Function
 
 
