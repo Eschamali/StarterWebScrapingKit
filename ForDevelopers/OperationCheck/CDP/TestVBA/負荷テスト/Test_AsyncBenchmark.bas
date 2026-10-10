@@ -83,14 +83,12 @@ Public Sub Test_AsyncBenchmark_RoundSync_Inline()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    Set chrome = New CDPBrowser
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set chrome = .StartCDPModeWebView2
             Set tabs(1) = .ThisCDPContext
-            Set chrome = tabs(1).ThisCDPBrowser
 
-            'イベント購読
+            '追加のイベント購読
             .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
 
             '1つ目のフォームを表示
@@ -200,12 +198,10 @@ Public Sub Test_AsyncBenchmark_RoundSync_ClassBased()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    Set chrome = New CDPBrowser
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set chrome = .StartCDPModeWebView2
             Set tabs(1) = .ThisCDPContext
-            Set chrome = tabs(1).ThisCDPBrowser
 
             'イベント購読
             .ThisWebView2.SubscribeCdpEvent "Network.requestWillBeSent"
@@ -401,7 +397,7 @@ Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef ta
     Debug.Print RESULT_SECTION_LINE
 
     If WebView2Mode Then WebView2Form.hide
-    chrome.quit
+    chrome.CloseBrowser
     If WebView2Mode Then Unload WebView2Form
 End Sub
 

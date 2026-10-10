@@ -16,7 +16,7 @@ Sub Webブラウザ操作でZIPテスト()
     Dim ZIPテスト As CDPContext
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗"
+            Set chrome = .StartCDPModeWebView2
             Set ZIPテスト = .ThisCDPContext
 
             '1つ目のフォームを表示
@@ -85,7 +85,7 @@ Sub Webブラウザ操作でZIPテスト()
     Set resCDP = ZIPテスト.jsEval(JsCode, awaitPromise:=True, returnByValue:=True)
 
     If WebView2Mode Then WebView2Form.hide
-    ZIPテスト.ThisCDPBrowser.quit
+    ZIPテスト.ThisCDPBrowser.CloseBrowser
     If WebView2Mode Then Unload WebView2Form
 
     '6．展開

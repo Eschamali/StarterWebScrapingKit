@@ -95,12 +95,10 @@ Public Sub Test_AsyncBenchmark_WaitEvents()
     Debug.Print "設定: タブ数=" & NUM_TABS & ", ラウンド数=" & NUM_ROUNDS
 
     ReDim tabs(1 To NUM_TABS)
-    Set chrome = New CDPBrowser
     If WebView2Mode Then
         With WebView2Form
-            If Not .StartCDPModeWebView2 Then Debug.Print "WebView2起動失敗": Exit Sub
+            Set chrome = .StartCDPModeWebView2
             Set tabs(1) = .ThisCDPContext
-            Set chrome = tabs(1).ThisCDPBrowser
 
             '1つ目のフォームを表示
             .show False
@@ -276,7 +274,7 @@ Private Sub FinishBenchmark(chrome As CDPBrowser, benchStart As Double, ByRef ta
     Debug.Print RESULT_SECTION_LINE
 
     If WebView2Mode Then WebView2Form.hide
-    chrome.quit
+    chrome.CloseBrowser
     If WebView2Mode Then Unload WebView2Form
 End Sub
 

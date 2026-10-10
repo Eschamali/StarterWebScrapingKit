@@ -26,9 +26,9 @@ Private ex_CDPContext               As CDPContext   '継承元のタブ
 
 '内部使用用
 Private Const ThisClassName         As String = "exCDP_PageLoadWatcher"
+Private m_LogID                     As String   'ログ識別ID
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
 Private EnableBrowserEvents         As Boolean      '非同期イベント処理を有効化するかのスイッチング
 Private CurrentSessionID            As String       '`CDPContext.cls`継承時のSesssionID
 
@@ -153,7 +153,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)
@@ -174,8 +174,7 @@ Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
     Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, ex_CDPCore.LogSettings
+    Set ex_CDPCore = Inheritance.ExEventCore
 
     'このタブのSessionIdを記録（他タブの非同期イベントを無視するため）
     CurrentSessionID = ex_CDPContext.CurrentSessionID
@@ -195,5 +194,5 @@ Private Sub Class_Initialize()
     'タブ非同期イベント処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "PLID" & Format(Rnd * 1000, "000")
+    m_LogID = "PLID" & Format(Rnd * 1000, "000")
 End Sub
