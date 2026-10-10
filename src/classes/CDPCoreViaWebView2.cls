@@ -228,7 +228,7 @@ End Property
 '            ・WebView2自体がない場合は、失敗します
 '***************************************************************************************************
 Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional AttachHwnd As LongPtr)
-    Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
+    Const FromProcedureName As String = ThisClassName & ".OpenWebView2AndConnectCDP"
 
 
     '1. 既にオブジェクトを持ってる場合は切断後、再開
