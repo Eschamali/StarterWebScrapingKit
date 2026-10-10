@@ -42,7 +42,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 
 
@@ -115,7 +115,7 @@ Sub checkNetworkEvents()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.ThisCDPBrowser.quit
+    Demo_NetworkEvent.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -163,7 +163,7 @@ Sub JapaneseElementTest()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_Japanese.ThisCDPBrowser.quit
+    Demo_Japanese.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -204,7 +204,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.CloseBrowser
         Exit Sub
 
     ElseIf ResultCDP.ExistsKey("id") Then
@@ -214,7 +214,7 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.CloseBrowser
     End If
 
 
@@ -234,7 +234,7 @@ Sub UseExtensions()
 
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.ThisCDPBrowser.quit
+    controlExtensions.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -323,7 +323,7 @@ Sub TestAlert()
         Dim Htmlの表示内容 As String: Htmlの表示内容 = .getElementByXPath("//*[@id='text']/p").innerText
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .ThisCDPBrowser.quit
+        .ThisCDPBrowser.CloseBrowser
     End With
 End Sub
 
@@ -383,7 +383,7 @@ Sub SimpleShadowRootTest()
         CDPHelpers.Sleep
 
         '8. ブラウザを正常に閉じる
-        .ThisCDPBrowser.quit
+        .ThisCDPBrowser.CloseBrowser
     End With
 End Sub
 
@@ -406,7 +406,7 @@ Sub iframeShadowRootTest()
 
         '4. 少し待って、閉じる
         CDPHelpers.Sleep 2
-        .quit
+        .CloseBrowser
     End With
 End Sub
 
@@ -480,7 +480,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -519,7 +519,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -954,7 +954,7 @@ Sub AutoConnectBrowser()
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
     '7. 終了
-    WebSocketChromium.quit
+    WebSocketChromium.CloseBrowser
 End Sub
 
 '***************************************************************************************************

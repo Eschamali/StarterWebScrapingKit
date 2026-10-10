@@ -86,7 +86,7 @@ Private ParentElement   As CDPElement       ' このClass内で相対検索し�
 Private checkExist      As Boolean      ' チェーンメソッドを利用した簡易存在チェック
 
 'ログ設定
-Private currentLog As StateLog
+Private m_LogID As String
 
 '各種便利なJavaScript実行オプション
 Private Type callFunctionOnParameters
@@ -117,7 +117,6 @@ Private RunOption As callFunctionOnParameters
 Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
     Set main = ThisCDPContext
-    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.LogSettings
 
     With CurrentElement
         '実行結果の型タイプ
@@ -135,7 +134,7 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    currentLog.LogID = "ELID" & Format(Rnd * 1000, "000")
+    m_LogID = "ELID" & Format(Rnd * 1000, "000")
 End Sub
 
 
@@ -1588,7 +1587,7 @@ Public Sub SetFileInputFiles(files As Collection)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
-    If currentLog.seeRawSendMsgDbg Then
+    If main.LogSettings.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
     Else
         printMsg info_, "Attachment complete.", FromProcedureName
@@ -1604,7 +1603,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, main.LogSettings.logPath
 End Sub
 
 
