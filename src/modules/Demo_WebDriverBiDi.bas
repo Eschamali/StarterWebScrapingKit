@@ -297,10 +297,10 @@ End Sub
 '              二重小包になる本コマンドではなく、後述の `BiDiPlusDemo`プロシージャを参考に組んでください
 '***************************************************************************************************
 Sub TestBiDiPlus_CDPTunnel()
-    Dim bidiPlus As WebDriverBiDiContext
+    Dim BiDiPlus As WebDriverBiDiContext
 
     ' ブラウザ起動
-    Set bidiPlus = ShSetting01_StartBrowser.StartBiDiModeContext
+    Set BiDiPlus = ShSetting01_StartBrowser.StartBiDiModeContext
 
     Dim paramsBiDi As Dictionary, resultBiDi As BiDiCDPJson
 
@@ -308,7 +308,7 @@ Sub TestBiDiPlus_CDPTunnel()
     ' 1. CDPのセッションIDを取得する (goog:cdp.getSession)
     '-----------------------------------------------------------------------
     Set paramsBiDi = New Dictionary
-    Set resultBiDi = bidiPlus.ExecuteBiDi("goog:cdp.getSession", paramsBiDi)
+    Set resultBiDi = BiDiPlus.ExecuteBiDi("goog:cdp.getSession", paramsBiDi)
 
     If Not resultBiDi Is Nothing Then
          MsgBox "現在のタブ(Context)に紐づく、裏側の『CDPセッションID』を取得しました！" & vbCrLf & vbCrLf & _
@@ -326,7 +326,7 @@ Sub TestBiDiPlus_CDPTunnel()
     paramsBiDi.Add "params", New Dictionary
     If cdpSessionId <> "" Then paramsBiDi.Add "session", cdpSessionId
 
-    Set resultBiDi = bidiPlus.ExecuteBiDi("goog:cdp.sendCommand", paramsBiDi)
+    Set resultBiDi = BiDiPlus.ExecuteBiDi("goog:cdp.sendCommand", paramsBiDi)
 
     If Not resultBiDi Is Nothing Then
         MsgBox "CDPコマンド(Browser.getVersion)をBiDi経由で実行できました！" & vbCrLf & vbCrLf & _
@@ -335,7 +335,7 @@ Sub TestBiDiPlus_CDPTunnel()
     End If
 
     '終了
-    bidiPlus.ThisWebDriverBiDiMode.CloseBrowser
+    BiDiPlus.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
