@@ -715,7 +715,7 @@ step1:
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
         'CDP自体の結果ログ表示
-        If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+        If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
         Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
@@ -759,7 +759,7 @@ step2:
     Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
 
     '`RemoteObject`部分を文字ログ化
-    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If Not Node_ExceptionDetails Is Nothing Then
@@ -1165,7 +1165,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -3052,13 +3052,6 @@ Property Get isTargetClosed() As Boolean
     isTargetClosed = ControlStatus.targetDestroyed
 End Property
 
-'***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = PipeCore.LogSettings
-End Property
-
 
 
 '***************************************************************************************************
@@ -3068,7 +3061,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -3109,9 +3102,6 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
     m_LogID = "TBID" & Format(Rnd * 1000, "000")
 

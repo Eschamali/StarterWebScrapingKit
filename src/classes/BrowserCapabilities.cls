@@ -195,8 +195,9 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = "BrowserCapabilities.Class_Initialize"
 
 
+    '1. 既定値を取得
     With ShSetting01_StartBrowser
-        '1. 初期ブラウザ起動に関する設定
+        '1-1. 初期ブラウザ起動に関する設定
         m_CustomChromiumPath = .GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)
         m_UserDataDirName = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
         m_AddArguments = .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName)
@@ -204,13 +205,17 @@ Private Sub Class_Initialize()
         m_UseWebSocket = .GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName)
         m_StartWindowMode = .GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
 
-        '2. chromium-BiDiの設定
+        '1-2. chromium-BiDiの設定
         m_ViewDebugLogForBiDiMapper = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)
         m_ViewTab_BiDiCDPMapper = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)
 
-        '3. その他
+        '1-3. その他
         m_EnableUserAgentOverride = .GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
     End With
+
+    '2. 共通設定を適用
+    CDPHelpers.InitQueryPerformanceFrequency    '実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、各種タイムアウト判定準備をする
+    CDPHelpers.InitLogger                       '初期ログ設定をbas側で記憶する
 End Sub
 
 Private Sub Class_Terminate()

@@ -164,18 +164,21 @@ Private Sub Class_Initialize()
     Const FromProcedureName As String = "ReattachOptions.Class_Initialize"
 
 
-    '規定で、古いデータは破棄させます
-    m_destruction = True
-
-    'リアタッチに影響のある設定値のみ、ワークシートから取るように列挙
+    '1. 既定値を取得
+    '※リアタッチに影響のある設定値のみ列挙
     With ShSetting01_StartBrowser
-        '1. chromium-BiDiの再設定
+        '1-1. chromium-BiDiの再設定
         m_ViewDebugLogForBiDiMapper = .GetSettingCDP(SettingCDP.ViewDebugLogForBiDiCDPMapper, FromProcedureName)
         m_ViewTab_BiDiCDPMapper = .GetSettingCDP(SettingCDP.ViewTab_BiDiCDPMapper, FromProcedureName)
 
-        '2. その他
+        '1-2. その他
         m_EnableUserAgentOverride = .GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
+        m_destruction = True    '古いデータは破棄させます
     End With
+
+    '2. 共通設定を再適用
+    CDPHelpers.InitQueryPerformanceFrequency    '実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、各種タイムアウト判定準備をする
+    CDPHelpers.InitLogger                       '初期ログ設定をbas側で記憶する
 End Sub
 
 

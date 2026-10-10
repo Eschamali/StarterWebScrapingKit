@@ -204,10 +204,6 @@ End Type
 Private responseCDP     As ResponseBufferCDP
 Private CDPPipeStream   As Object   'Pipeバイトストリームオブジェクト
 
-'ログ設定状況
-Private currentLog  As StateLog
-Private m_LogID As String
-
 'パイプ関連のエラー番号
 Private Type ErrorCode
     PeekNamedPipe   As Long
@@ -239,6 +235,7 @@ Private DictionarySessionID As Dictionary
 Private m_NullTerminator(0) As Byte                     'バイト配列で送るヌル文字用
 Private Utf8Converter       As CharacterCodeConversion  'UTF-8を使用した日本語通信を有効化するやつ
 Private m_UserName          As String                   'セッション情報を記録する際の識別名称
+Private m_LogID             As String                   'ログ識別ID
 
 
 
@@ -1552,13 +1549,6 @@ End Property
 ' [ SECTION ] その他
 '---------------------------------------------------------------------------------------------------
 '***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = currentLog
-End Property
-
-'***************************************************************************************************
 '* 機能　　：新規CDPレスポンスがあるかどうか？
 '***************************************************************************************************
 Property Get NewResCDP() As Boolean
@@ -1616,11 +1606,7 @@ End Sub
 '* 機能　　：各種設定を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
-    '------------------------- クラス内変数の一部を初期化 -------------------------
-    '1. 初期バッファー設定
+    '--------------------- 1. 初期バッファー設定 ---------------------
     '  文字列バッファーの初期化
     With responseCDP
         .length = InitialBuffer + dwAllocationGranularity   'メモリアロケーション粒度を考慮
@@ -1637,35 +1623,22 @@ Private Sub Class_Initialize()
         .Position = 0       ' カーソルだけ先頭に戻す
         .SetEOS             ' 終端（EOS）としてマークする
     End With
+    '-----------------------------------------------------------------
 
-    '2. 設定シートの各セルから設定値を取得し、クラス内変数に適用します
-    With ShSetting01_StartBrowser
-        '2-1. イミディエイトに関する設定を行う
-        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)    'ブラウザから受信した生のJSONメッセージもイミディエイトに表示させるか？
+    '2. ログID設定
+    m_LogID = "COID" & Format(Rnd * 1000, "000")
 
-        '2-2. ログファイル保存先。空ならファイル出力しない
-        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
+    '3. UTF8変換モードを設定
+    Set Utf8Converter = New CharacterCodeConversion
 
-        '2-3. Assign an objID for easy debug identification
-        m_LogID = "COID" & Format(Rnd * 1000, "000")
-
-        '2-4. UTF8変換モードを設定
-        Set Utf8Converter = New CharacterCodeConversion
-
-    End With
-
-    '3. コマンドIDに紐づくSessionIDの管理を初期化
+    '4. コマンドIDに紐づくSessionIDの管理を初期化
     Set DictionarySessionID = New Dictionary
-
-    '4. 実行マシンの「1秒間の振動数（周波数）」を取得して、bas側で記憶し、タイムアウト判定準備をする
-    CDPHelpers.InitQueryPerformanceFrequency
-    '------------------------------------------------------------------------------
 End Sub
 
 Private Sub Class_Terminate()
     'ストリームをClose
     CDPPipeStream.Close
-    Set CDPPipeStream = Nothing ' 役目を終えたので、Windowsにメモリを返してあげる
+    Set CDPPipeStream = Nothing '役目を終えたので、Windowsにメモリを返してあげる
 
     'ログ設定をクリア
     CDPHelpers.ClearLogger

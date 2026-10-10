@@ -131,9 +131,7 @@ Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, obj
 End Sub
 
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
+    'ログID設定
     m_LogID = "ELID" & Format(Rnd * 1000, "000")
 End Sub
 
@@ -1587,7 +1585,7 @@ Public Sub SetFileInputFiles(files As Collection)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '3. 別途ログ化
-    If main.LogSettings.seeRawSendMsgDbg Then
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(files), FromProcedureName
     Else
         printMsg info_, "Attachment complete.", FromProcedureName
@@ -1603,7 +1601,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, main.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 

@@ -33,12 +33,12 @@ Public Enum ReadyState      'Used for .wait method
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'ログ共通設定。`CDPCore` がホストし、各 Class は `CDPCore.LogSettings` 経由で参照する(コピーしない)。
-'`LogID` は各 Class が `Private m_LogID` として個別に持つ
-Public Type StateLog
+'ログ共通設定。
+Private Type StateLog
     seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
     logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
 End Type
+Public currentLog       As StateLog
 
 'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
 Public Enum WinState
@@ -75,8 +75,8 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency As Currency     '実行マシンでの周波数記録用
-Private LogControl  As New Logger   'ログレベルの制御
+Private m_Frequency     As Currency '実行マシンでの周波数記録用
+Private LogControl      As Logger   'ログレベルの制御
 
 
 
@@ -226,7 +226,30 @@ End Sub
 '* 詳細説明：モジュール単位で宣言してるため、明示的なクリア処理をする必要があるときに使います
 '***************************************************************************************************
 Public Sub ClearLogger()
+    'クリア処理
     Set LogControl = Nothing
+    currentLog.logPath = vbNullString
+    currentLog.seeRawSendMsgDbg = False
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：初期ログ設定オブジェクトを反映します
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：・大本のCoreClassから呼び出す想定です
+'            ・ログ系は色んな場面で使用する都合上、一律、ワークシートから反映といたします
+'***************************************************************************************************
+Public Sub InitLogger()
+    Const FromProcedureName As String = "CDPHelpers.InitLogger"
+
+
+    '1. 初期化し、オプションオブジェクトから設定値を反映
+    Set LogControl = New Logger
+
+    '2. 一律、ワークシートから適用
+    With ShSetting01_StartBrowser
+        currentLog.logPath = .GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)
+        currentLog.seeRawSendMsgDbg = .GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)
+    End With
 End Sub
 
 '***************************************************************************************************
