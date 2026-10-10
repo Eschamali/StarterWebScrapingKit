@@ -326,8 +326,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
-        '1. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = Me
+        '1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, PipeCore
 
         '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
@@ -482,8 +482,8 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
     With getTab
-        '1. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = Me
+        '1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, PipeCore
 
         '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
