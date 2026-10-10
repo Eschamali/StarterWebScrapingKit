@@ -1385,9 +1385,8 @@ Private Sub Class_Initialize()
         .SetEOS             ' 終端（EOS）としてマークする
     End With
 
-    '初期ログ設定を行う
+    'ログID設定
     m_LogID = "WSID" & Format(Rnd * 1000, "000")
-    CDPHelpers.InitLogger
 
     'UTF8変換モードを設定
     Set Utf8Converter = New CharacterCodeConversion
