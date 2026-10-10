@@ -298,12 +298,12 @@ Property Get getBrowserPath() As String
 
     '1. カスタムパスの指定があったらそっちを最優先
     If LenB(m_CustomChromiumPath) Then
-            'そのカスタムパスとして返却(ポータブル版ブラウザ等)
+        'そのカスタムパスとして返却(ポータブル版ブラウザ等)
         getBrowserPath = m_CustomChromiumPath
 
-            '以降の処理は不要なので、抜ける
+        '以降の処理は不要なので、抜ける
         Exit Property
-        End If
+    End If
 
     '2. ブラウザexe名を取得
     Dim BrowserExeName As String
