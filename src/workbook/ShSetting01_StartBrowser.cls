@@ -642,3 +642,17 @@ Property Get CurrentUserName() As String
 
     CurrentUserName = Me.GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 End Property
+
+'***************************************************************************************************
+'* 機能　　：現在のCDP通信経路を確認します
+'---------------------------------------------------------------------------------------------------
+'* 返り値　：`True`で`Pipe`モードです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：WebView2判定は対象外です
+'***************************************************************************************************
+Property Get isPipeRemote() As Boolean
+    Const FromProcedureName As String = ThisClassName & ".isPipeRemote"
+
+
+    isPipeRemote = Not Me.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName)
+End Property

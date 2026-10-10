@@ -802,10 +802,12 @@ End Function
 '* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
+    ' 起動
+    Dim First As CDPContext
+    Set First = ShSetting01_StartBrowser.StartCDPModeContext
 
-    Dim c As CDPContext
-    Set c = ShSetting01_StartBrowser.StartCDPModeContext
-    c.navigate "https://google.com"
+    'GoogleTopページへ遷移
+    First.navigate "https://google.com"
 
 '    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足して`demoReattachmentPart2ForTab`にてお試しください
 End Sub
@@ -818,26 +820,22 @@ End Sub
 '            ・通信経路に応じた記述分岐が必要です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてるハンドル情報から復旧を試みる
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '2. 制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
     '3. ブラウザオブジェクトに、接続情報を渡す
     Dim b As New CDPBrowser
@@ -859,26 +857,22 @@ End Sub
 '* 注意事項：Context(タブ)情報が失ってる場合は、このDemoではエラーとなります
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてる`TargetID`の生存確認
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
     '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
     '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
