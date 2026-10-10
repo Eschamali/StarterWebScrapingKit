@@ -352,7 +352,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         Case BiDiResMain
             '4-1. payload 部分を抽出 ※ライブラリ側で自動的にエスケープ解除してくれます
             bindingCalledPayload = CDPToBiDi.StringKey("payload")
-            If m_CDPCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - WebDriverBiDi: " & bindingCalledPayload, FromProcedureName
 
             '4-2. イベント発信用プロシージャへ遷移
             BiDiReceivedDataCheck bindingCalledPayload
@@ -548,7 +548,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_CDPCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 '***************************************************************************************************
@@ -584,13 +584,6 @@ End Sub
 '***************************************************************************************************
 Property Get CurrentUserName() As String
     CurrentUserName = m_CDPCore.CurrentUserName
-End Property
-
-'***************************************************************************************************
-'* 機能　　：ログ設定値、取得用プロパティ
-'***************************************************************************************************
-Friend Property Get LogSettings() As StateLog
-    LogSettings = m_CDPCore.LogSettings
 End Property
 
 
