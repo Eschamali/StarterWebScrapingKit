@@ -249,7 +249,6 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private m_LogID         As String   'ログ識別ID
-Private CustomUAMode    As Boolean  'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -311,33 +310,36 @@ End Function
 '                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            appUrl         起動引数：`--app`　につけるURLを指定します
-'            addArgs        追加の起動引数
+'* 引数　　：caps    ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub OpenBrowserAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
-    '1. ブラウザ起動
+Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = caps.ClsGet_CDPCore
+    
+    '2. ブラウザ起動前の一部設定の反映
+    caps.ClsSet_SplashScreenMode = True    'レースコンディション対策としてスプラッシュ画面モードにしておく
+
+    '3. 起動後に使う設定値を確保
+    Dim FirstURL As String: FirstURL = caps.Set_StartURL
+
+    '4. ブラウザ起動
     Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    InitURL = BrowserCore.OpenBrowser(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.OpenBrowser(caps)
 
-    '2. WithEventsClassオブジェクトを受け取り、ログ設定も継承
-    Set PipeCore = BrowserCore.ThisCDPCore
-
-    '3. Complete initialization ------------------------------------------------------
+    '5. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
     getSessionInfo                                                  'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
-    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-    If LenB(appUrl) Then navigate appUrl
+    '6. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(FirstURL) Then navigate FirstURL
     '-------------------------------------------------------------------------------------------------------------------------------------
 
-    '5. Finally print the session details for debugging ------------------------------
+    '7. Finally print the session details for debugging ------------------------------
     printParams
     '------------------------------------------------------------------------------
 
@@ -1867,7 +1869,7 @@ Public Sub getSessionInfo()
     pageEnable True
 
     'ユーザーエージェントに刻印する場合はそれを行う
-    If CustomUAMode Then AppendVbaUserAgent
+    If BrowserCore.UseCustomUAMode Then AppendVbaUserAgent
 
 End Sub
 

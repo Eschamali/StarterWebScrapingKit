@@ -92,6 +92,7 @@ Private timerOut                As Double       'Max timeout period in seconds, 
 Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
 Private m_LogID                 As String       'ログ識別ID
+Private CustomUAMode            As Boolean      'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -127,10 +128,7 @@ End Function
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：userProfile        起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
-'            appUrl             起動引数：`--app`につけるURLを指定します
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            addArgs            追加の起動引数
+'* 引数　　：caps    ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
 ' This function initiates a new browser instance.
@@ -155,23 +153,27 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Function OpenBrowser(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
-    '1. ログパラメーター準備
-    Set PipeCore = New CDPCore
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = caps.ClsGet_CDPCore
 
-    '2. 起動モードに応じた分岐
-    If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
-        '2-1. WebSocketとして起動
+    '2. 起動後に使う設定値を確保
+    Dim UserName   As String: UserName = caps.Set_UserDataDirName
+    CustomUAMode = caps.Set_EnableUserAgentOverride
+
+    '3. 起動モードに応じた分岐
+    If caps.Set_UseWebSocket Then
+        '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(caps)
 
-        '2-2. WebSocketモードとして切り替え
+        '3-2. WebSocketモードとして切り替え
         '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
-        Set PipeCore.RemoteDebuggingPortMode(userProfile) = WebSocketCore
+        Set PipeCore.RemoteDebuggingPortMode(UserName) = WebSocketCore
     Else
-        '2-1. Pipeとして起動
+        '3-1. Pipeとして起動
         '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
-        OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(caps)
     End If
 
     '3. 起動中のブラウザ情報を変数に記録
@@ -1141,17 +1143,6 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get ThisCDPCore() As CDPCore
-    Set ThisCDPCore = PipeCore
-End Property
-
-
-
-'***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
@@ -1250,17 +1241,3 @@ Private Sub Class_Initialize()
     Set ResultCommandCDP_Browser = New Dictionary
     '------------------------------------------------------------------------------
 End Sub
-
-
-
-#If DEBUG_MODE Then
-'***************************************************************************************************
-'                                 ■■■ Test Only Area ■■■
-'***************************************************************************************************
-' 単体テストをしやすくするための専用テストメソッド。
-' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
-'***************************************************************************************************
-Property Set ThisCDPCore(t As CDPCore)
-    Set PipeCore = t
-End Property
-#End If

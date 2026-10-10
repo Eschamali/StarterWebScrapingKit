@@ -230,7 +230,6 @@ Private hCDPInRd        As LongPtr
 Private hProcess        As LongPtr
 
 '起動ウィンドウ情報
-Private setShowWindow   As WinState
 Private dwProcessId     As LongPtr
 
 'コマンドIDとSessionIDの紐づけ管理
@@ -249,24 +248,23 @@ Private m_UserName          As String                   'セッション情報�
 '* 機能　　：パイプとして起動するためのcommandライン準備を行い、起動します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：UserName           記録する識別名称
-'            appUrl             `-app`に渡すURL
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
-'            addArgs            追加引数
+'* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
-Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".RunPipeModeBrowserCDP"
+Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
+    Const FromProcedureName As String = ThisClassName & ".OpenBrowserAndConnectCDP"
 
 
     '0. 前回のPipe情報が取れちゃった場合は事前にCloseしておく
-    m_UserName = UserName
+    m_UserName = caps.Set_UserDataDirName
     If deserialize Then CloseHandleBrowser
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, True
+        .Init caps, True
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -287,14 +285,14 @@ Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, S
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl, SplashScreenMode), _
-                                    addArgs))
+                                    .GenerateArgApp(caps.Set_StartURL, caps.ClsSet_SplashScreenMode), _
+                                    caps.Set_AdditionalBrowserArguments))
     End With
 
     '2. 実際に起動を行います
     Dim intRes As Long
     printMsg Debug_, "Starting pipe communication... → " & RunCommandLine, FromProcedureName
-    intRes = InitCDP(RunCommandLine)
+    intRes = InitCDP(RunCommandLine, caps.Set_StartWindowMode)
 
     '3. エラー時は、Stop
     If intRes <> 0 Then printMsg ERROR_, "Unable to initialize CDPCore. ErrorCode:" & intRes & " - " & WinApiError.GetMessage(intRes, "kernel32"), FromProcedureName, doRaiseError:=True Else printMsg info_, "CDPCore initialized successfully", FromProcedureName
@@ -303,18 +301,21 @@ Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, S
     serialize
 
     '5. 初期URLとして返却します
-    If LenB(appUrl) Then
-        If SplashScreenMode Then
+    If LenB(caps.Set_StartURL) Then
+        If caps.ClsSet_SplashScreenMode Then
             'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
-            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(appUrl)
+            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(caps.Set_StartURL)
         Else
             'スプラッシュ画面なしなので、`appUrl`そのまま
-            OpenBrowserAndConnectCDP = appUrl
+            OpenBrowserAndConnectCDP = caps.Set_StartURL
         End If
     Else
         '未指定:--homepage "about:blank" なので、"about:blank"で返却
         OpenBrowserAndConnectCDP = EmptyPageName
     End If
+
+    '6. 設定が済んだので、破棄
+    Set caps = Nothing
 End Function
 
 '***************************************************************************************************
@@ -323,7 +324,7 @@ End Function
 '* 返り値　：実行結果　※0で成功です
 '* 引数　　：strExec   exe名を含むコマンドライン
 '***************************************************************************************************
-Private Function InitCDP(strExec As String) As Long
+Private Function InitCDP(strExec As String, showWindowMode As WinState) As Long
     Dim proc As PROCESS_INFORMATION
     Dim start As STARTUPINFO
     Dim sa As SECURITY_ATTRIBUTES
@@ -430,7 +431,7 @@ Private Function InitCDP(strExec As String) As Long
         .hStdOutput = hStdOutWr
         .hStdInput = hStdInRd
         .hStdError = hStderrOutWr
-        .wShowWindow = setShowWindow
+        .wShowWindow = showWindowMode
         .cbReserved2 = LenB(pipes2)
         .lpReserved2 = VarPtr(pipes2)
     End With
@@ -1651,8 +1652,6 @@ Private Sub Class_Initialize()
         '2-4. UTF8変換モードを設定
         Set Utf8Converter = New CharacterCodeConversion
 
-        '2-5. 初期起動ウィンドウ状態を設定
-        setShowWindow = .GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
     End With
 
     '3. コマンドIDに紐づくSessionIDの管理を初期化
