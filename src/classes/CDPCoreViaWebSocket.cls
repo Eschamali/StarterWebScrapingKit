@@ -172,7 +172,6 @@ Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た�
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
 'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
-Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
 
@@ -360,27 +359,24 @@ End Function
 '* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：UserName           記録する識別名称
-'            appUrl             `-app`に渡すURL
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
-'            addArgs            追加引数
+'* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
 '***************************************************************************************************
-Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
+Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
+    Const FromProcedureName As String = ThisClassName & ".OpenBrowserAndConnectCDP"
 
 
     '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
-    If deserialize(UserName) Then DisconnectCDP
+    If deserialize(caps.Set_UserDataDirName) Then DisconnectCDP
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, False
+        .Init caps, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -404,12 +400,12 @@ Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, S
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl, SplashScreenMode), _
-                                    addArgs))
+                                    .GenerateArgApp(caps.Set_StartURL, caps.ClsSet_SplashScreenMode), _
+                                    caps.Set_AdditionalBrowserArguments))
 
         '2. 実際に起動を行います
         printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
-        dwProcessId = Shell(RunCommandLine, setShowWindow)
+        dwProcessId = Shell(RunCommandLine, caps.Set_StartWindowMode)
 
         '3. エラー時は、Stop
         If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
@@ -427,21 +423,24 @@ Public Function OpenBrowserAndConnectCDP(UserName As String, appUrl As String, S
 
     '7. 接続
     '※内部で、ブラウザセッションWinSock情報をExcelのテーブルに、記録します
-    If Not ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+    If Not ConnectCDP(caps.Set_UserDataDirName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
 
     '8. 初期URLとして返却します
-    If LenB(appUrl) Then
-        If SplashScreenMode Then
+    If LenB(caps.Set_StartURL) Then
+        If caps.ClsSet_SplashScreenMode Then
             'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
-            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(appUrl)
+            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(caps.Set_StartURL)
         Else
             'スプラッシュ画面なしなので、`appUrl`そのまま
-            OpenBrowserAndConnectCDP = appUrl
+            OpenBrowserAndConnectCDP = caps.Set_StartURL
         End If
     Else
         '未指定:--homepage "about:blank" なので、"about:blank"で返却
         OpenBrowserAndConnectCDP = EmptyPageName
     End If
+
+    '9. 設定が済んだので、破棄
+    Set caps = Nothing
 End Function
 
 
@@ -1406,9 +1405,6 @@ Private Sub Class_Initialize()
 
     'UTF8変換モードを設定
     Set Utf8Converter = New CharacterCodeConversion
-
-    '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
-    setShowWindow = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
 End Sub
 
 Private Sub Class_Terminate()
