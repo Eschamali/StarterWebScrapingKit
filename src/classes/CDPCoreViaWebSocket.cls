@@ -1231,33 +1231,21 @@ Private Function checkDebugWs(TabMode As Boolean, Host As String, port As Long) 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
+'* 機能　　：記録済みのWinSockハンドルを適用させて、WebSocket再接続儀式を飛ばします
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName               利用者識別名称
-'            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
+'* 引数    ：UserName   どのユーザーのWinSockハンドルを使用するか
 '---------------------------------------------------------------------------------------------------
-'* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
+'* 注意事項：このメソッドで接続する場合は、`ReattachOptionsSet_Destruction:=False`を推奨します
 '***************************************************************************************************
-Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
+Public Sub ReConnectCDP(UserName As String)
     Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
 
 
-    '1. `UserName`から、Excelテーブルからハンドル情報を取得
-    Dim PreviousSocket As Boolean
-    PreviousSocket = deserialize(UserName)
+    '1 .Excelテーブルから、取れてない場合はエラー停止
+    If Not deserialize(UserName) Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
 
-    '2. セッションキープに応じて分岐
-    If ReuseWinSockHandle Then
-        '2-1 .Excelテーブルから、取れてない場合はエラー停止
-        If Not PreviousSocket Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-        '2-2. ハンドル情報自体は取れたのでここで抜ける
+    '2. ハンドル情報自体は取れたので、正常終了ログを出す
         printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
-    Else
-        '2-1. `DevToolsActivePort`ファイルを拝見して、新規接続として続行
-    If Not AutoConnectDevToolsActivePort(UserName) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-    End If
 End Sub
 
 '***************************************************************************************************
