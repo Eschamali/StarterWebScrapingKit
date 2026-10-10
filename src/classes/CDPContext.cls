@@ -480,8 +480,8 @@ Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession 
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 接続情報を継承
-    Set PipeCore = reattachInfo.Get_CDPCore
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = reattachInfo.ClsGet_CDPCore
 
     '2. 接続情報をブラウザClassにも適用
     Set BrowserCore = New CDPBrowser
@@ -3121,9 +3121,6 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
 
 '***************************************************************************************************

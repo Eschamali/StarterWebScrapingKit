@@ -244,8 +244,8 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 接続情報を継承
-    Set PipeCore = reattachInfo.Get_CDPCore
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = reattachInfo.ClsGet_CDPCore
 
     '2. handleが生きてるかを確認します
     If isLiveBrowser Then
@@ -259,7 +259,10 @@ Public Sub reattach(reattachInfo As ReattachOptions)
         printMsg ERROR_, "CDP communication failed with the remotely touched username: '" & Me.CurrentBrowserUser & "' .", FromProcedureName, doRaiseError:=True
     End If
 
-    '3. 設定が済んだので、破棄
+    '3. 再設定が必要なパラメーターを適用
+    CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
+
+    '4. 設定が済んだので、破棄
     Set reattachInfo = Nothing
 End Sub
 
@@ -1158,10 +1161,17 @@ Property Get CurrentBrowserUser() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザの`userAgent`値を受け取ります
+'* 機能　　：このClass内で起動してるデフォルト値ブラウザの`userAgent`値を受け取ります
 '***************************************************************************************************
 Property Get CurrentBrowseruserAgent() As String
     CurrentBrowseruserAgent = br.UserAgent
+End Property
+
+'***************************************************************************************************
+'* 機能　　：カスタムユーザーエージェントを適用するか？
+'***************************************************************************************************
+Property Get UseCustomUAMode() As Boolean
+    UseCustomUAMode = CustomUAMode
 End Property
 
 '***************************************************************************************************
