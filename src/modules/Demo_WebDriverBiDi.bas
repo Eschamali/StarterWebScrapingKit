@@ -21,7 +21,7 @@ Sub BiDiによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 
@@ -92,7 +92,7 @@ Sub checkNetworkEvents()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.ThisWebDriverBiDiMode.quit
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -149,7 +149,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisWebDriverBiDiMode.LastBiDiJsonError("error")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
         Exit Sub
 
     ElseIf resultBiDi.ExistsKey("extension") Then
@@ -160,7 +160,7 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & resultBiDi.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisWebDriverBiDiMode.quit
+        controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
         Exit Sub
     End If
 
@@ -179,7 +179,7 @@ Sub UseExtensions()
     End If
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.ThisWebDriverBiDiMode.quit
+    controlExtensions.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -279,7 +279,7 @@ Sub TestAlert()
 
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .ThisWebDriverBiDiMode.quit
+        .ThisWebDriverBiDiMode.CloseBrowser
     End With
 End Sub
 
@@ -335,7 +335,7 @@ Sub TestBiDiPlus_CDPTunnel()
     End If
 
     '終了
-    bidiPlus.ThisWebDriverBiDiMode.quit
+    bidiPlus.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -377,7 +377,7 @@ Sub BiDiPlusDemo()
     'BiDi+により、CDP制御できるように変換（下層のパイプ／ブラウザハンドルは共有したまま）
     Dim BiDiPlusTab As CDPContext
     Set BiDiPlusTab = BiDiTab.UpgradeBiDiPlus
-    If BiDiPlusTab Is Nothing Then MsgBox "BiDi+への変換に失敗しました。", vbCritical, "UpgradeBiDiPlus": BiDiTab.ThisWebDriverBiDiMode.quit: Exit Sub
+    If BiDiPlusTab Is Nothing Then MsgBox "BiDi+への変換に失敗しました。", vbCritical, "UpgradeBiDiPlus": BiDiTab.ThisWebDriverBiDiMode.CloseBrowser: Exit Sub
 
     '-------------------------------- ④CDP：BiDiには無い便利メソッドでトースト通知 --------------------------------
     BiDiPlusTab.notify "BiDi+ で、CDP独自の notify を使ってみました" & WorksheetFunction.Unichar(129418), 5
@@ -386,7 +386,7 @@ Sub BiDiPlusDemo()
     Dim headline As CDPElement
     Set headline = BiDiPlusTab.getElementByQuery("#title > h1 > yt-formatted-string")
     Dim 見出しテキスト As String
-    
+
     Do
         見出しテキスト = headline.onExist.innerText
     Loop Until LenB(見出しテキスト)
@@ -399,7 +399,7 @@ Sub BiDiPlusDemo()
            "見出しリンクのテキスト：" & 見出しテキスト, vbInformation, "BiDiPlusDemo 完了"
 
     '同一ブラウザをBiDi/CDPで共有しているため、CDP側から終了すればOK
-    BiDiPlusTab.ThisCDPBrowser.quit
+    BiDiPlusTab.ThisCDPBrowser.CloseBrowser
 End Sub
 
 
@@ -430,36 +430,44 @@ End Sub
 '            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
 '            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
 '***************************************************************************************************
-Sub demoReattachmentPart2()
-    '設定セルから、ユーザ名を取得
-    Dim UserName As String
+Sub demoReattachmentPart2ForBrowser()
+    'セルから設定情報を取得
     With ShSetting01_StartBrowser
+        '1. 設定セルから、ユーザ名を取得
+        Dim UserName As String
         UserName = .CurrentUserName
 
-        'WebSocketで起動した場合はその再接続処理を試みます
+        '2. Excelに記録されてる`TargetID`の生存確認
         '設定モードに応じた分岐
-        If Not .isPipeRemote Then
-            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            BiDiWS.ReConnectCDP UserName
+        If .isPipeRemote Then
+            '2-1. Pipeモードで復帰する設定にする
+            ReattachOptions.Set_PipeMode = UserName
+        Else
+            '2-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
         End If
     End With
 
-    '1. リアタッチとして起動
-    Dim Reattachment As New WebDriverBiDiMode
-    Reattachment.reattach UserName, , BiDiWS
+    '3. ブラウザオブジェクトに、接続情報を渡す
+    Dim b As New WebDriverBiDiMode
+    b.reattach ReattachOptions
 
-    '2. 未接続のタブに接続
+    '4. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-    Dim ReattachmentTab As WebDriverBiDiContext
-    Set ReattachmentTab = Reattachment.getTab(setMain:=True)
-'    Set ReattachmentTab = Reattachment.newTab(setMain:=True)   '新しいタブ生成からでもOK
+    Dim t As WebDriverBiDiContext
+    Set t = b.getTab(setMain:=True)
+'    Set t = b.newTab(setMain:=True)   '新しいタブ生成からでもOK
 
-    '3. エラーチェック
+    '5. エラーチェック
     '※特に`getTab`の場合は、0個で返ることがあるのでそのチェックを行います
-    If ReattachmentTab Is Nothing Then MsgBox "`browsingContext.getTree`の実行に成功しましたが、有効なタブが見つかりませんでした。" & vbCrLf & "ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。", vbCritical, "WebDriver BiDi": Exit Sub
+    If t Is Nothing Then MsgBox "`browsingContext.getTree`の実行に成功しましたが、有効なタブが見つかりませんでした。" & vbCrLf & "ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。", vbCritical, "WebDriver BiDi": Exit Sub
 
-    '4．別ページに遷移して終了
-    ReattachmentTab.navigate "https://kemono-friends-20170110.jp/"
+    '6．別ページに遷移して終了
+    t.navigate "https://kemono-friends-20170110.jp/"
 End Sub
 
 '***************************************************************************************************
@@ -468,25 +476,33 @@ End Sub
 '* 注意事項：最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-    '設定セルから、ユーザ名を取得
-    Dim UserName As String
+    'セルから設定情報を取得
     With ShSetting01_StartBrowser
+        '1. 設定セルから、ユーザ名を取得
+        Dim UserName As String
         UserName = .CurrentUserName
 
-        'WebSocketで起動した場合はその再接続処理を試みます
+        '2. Excelに記録されてる`TargetID`の生存確認
         '設定モードに応じた分岐
-        If Not .isPipeRemote Then
-            Dim BiDiWS As CDPCoreViaWebSocket: Set BiDiWS = New CDPCoreViaWebSocket '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            BiDiWS.ReConnectCDP UserName
+        If .isPipeRemote Then
+            '2-1. Pipeモードで復帰する設定にする
+            ReattachOptions.Set_PipeMode = UserName
+        Else
+            '2-1. WebSocketで再接続
+            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+            CDPws.ReConnectCDP UserName
+
+            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
         End If
     End With
 
-    ' リアタッチとして起動
-    Dim Reattachment As New WebDriverBiDiContext
-    If Not Reattachment.reattach(UserName, , BiDiWS) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
+    '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
+    Dim t As New WebDriverBiDiContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
-    '別ページに遷移
-    Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
+    '4. 別ページに遷移
+    t.navigate "https://w3c.github.io/webdriver-bidi/"
 End Sub
 
 
@@ -510,19 +526,22 @@ Sub AutoConnectBrowser()
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+    '3. WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
+
+    '4. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
     Dim WebSocketChromium As New WebDriverBiDiMode
-    WebSocketChromium.reattach UserName, , WebSocketCDP
+    WebSocketChromium.reattach ReattachOptions
 
-    '4. 新規タブに接続
-    Dim c As WebDriverBiDiContext
-    Set c = WebSocketChromium.newTab(setMain:=True)
+    '5. 新規タブに接続
+    Dim t As WebDriverBiDiContext
+    Set t = WebSocketChromium.newTab(setMain:=True)
 
-    '5. ページ遷移
-    c.navigate "https://www.youtube.com/@islandfox6864"
+    '6. ページ遷移
+    t.navigate "https://www.youtube.com/@islandfox6864"
 
-    '6. 終了
-    WebSocketChromium.quit
+    '7. 終了
+    WebSocketChromium.CloseBrowser
 End Sub
 
 
@@ -540,14 +559,14 @@ Private Sub WebDriverBiDiUpdateViaLocalFile()
     With Application.FileDialog(3)  'msoFileDialogFilePicker
         ' 1-1. ダイアログのタイトルを設定
         .Title = "WebDriverBiDiのやりとりの基となる`mapperTab.js`相当を選択してください"
-        
+
         ' 1-2. フィルターをクリアし、*.jsファイルだけを選択できるように設定
         .Filters.Clear
         .Filters.Add "mapperTab File", "*.js"
-        
+
         ' 1-3. 複数選択を禁止（単一ファイルのみ）
         .AllowMultiSelect = False
-        
+
         ' 1-4. ダイアログを表示して、ファイルが選択されたら（-1が返ってきたら）パスを回収
         If .show = -1 Then UpdateFilePath = .SelectedItems(1) Else Exit Sub
     End With

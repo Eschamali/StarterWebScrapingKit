@@ -19,9 +19,16 @@ Option Explicit
 '***************************************************************************************************
 '                                 ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
-'各種設定
-Private m_CDPCore       As CDPCore  'どの通信経路でデバッグするか？(Pipe/WebSocket/WebView2)
-Private m_destruction   As Boolean  'ハンドル先のメモリにたまった古いデータをどうするか？
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 全てのプロトコルコア機能
+'---------------------------------------------------------------------------------------------------
+Private m_CDPCore               As CDPCore
+
+'---------------------------------------------------------------------------------------------------
+' [ SECTION ] 起動済みブラウザに接続する際の関連設定
+'---------------------------------------------------------------------------------------------------
+Private m_destruction               As Boolean  'ハンドル先のメモリにたまった古いデータをどうするか？
+Private m_EnableUserAgentOverride   As Boolean  'このツール独自のユーザーエージェントを刻印するか
 
 
 
@@ -82,21 +89,29 @@ Property Let Set_Destruction(Flag As Boolean)
     m_destruction = Flag
 End Property
 
+Property Let Set_EnableUserAgentOverride(Flag As Boolean)
+    m_EnableUserAgentOverride = Flag
+End Property
+
 
 
 '***************************************************************************************************
 '                               ■■■ 処理側が読み取るメソッド ■■■
 '***************************************************************************************************
-Property Get Get_CDPCore() As CDPCore
+Property Get ClsGet_CDPCore() As CDPCore
     '1. `Nothing`のままの場合は、エラーで止めます
     If m_CDPCore Is Nothing Then Err.Raise vbObjectError, Description:="No control paths have been configured for the rear touch."
 
     '2. 実際に返す
-    Set Get_CDPCore = m_CDPCore
+    Set ClsGet_CDPCore = m_CDPCore
 End Property
 
 Property Get Set_Destruction() As Boolean
     Set_Destruction = m_destruction
+End Property
+
+Property Get Set_EnableUserAgentOverride() As Boolean
+    Set_EnableUserAgentOverride = m_EnableUserAgentOverride
 End Property
 
 
@@ -105,8 +120,17 @@ End Property
 '                               ■■■ 初期値設定 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
+    Const FromProcedureName As String = "ReattachOptions.Class_Initialize"
+
+
     '規定で、古いデータは破棄させます
     m_destruction = True
+
+    'リアタッチに影響のある設定値のみ、ワークシートから取るように列挙
+    With ShSetting01_StartBrowser
+        '2. その他
+        m_EnableUserAgentOverride = .GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
+    End With
 End Sub
 
 

@@ -91,7 +91,8 @@ Private lastErrorDetailsCDP     As Dictionary  'CDP-Jsonコマンド実行時の
 Private timerOut                As Double       'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
 Private TargetInfos             As Collection   '非同期イベント`Target.targetCreated`で得た`Target.TargetInfo`情報。基本的に、`CDPContext.cls - attachToSession`専用
 Private DefinitionCDPContext    As Long         '確保中の`CDPContext.cls` ※適切なメソッドを呼び出した場合に限る
-Private currentLog              As StateLog     'ログ設定
+Private m_LogID                 As String       'ログ識別ID
+Private CustomUAMode            As Boolean      'このツール独自のユーザーエージェントを刻印するか？
 
 
 
@@ -127,10 +128,7 @@ End Function
 '* 機能　　：ブラウザに対する所定の起動引数をつけて起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：userProfile        起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
-'            appUrl             起動引数：`--app`につけるURLを指定します
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            addArgs            追加の起動引数
+'* 引数　　：caps    ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明
 ' This function initiates a new browser instance.
@@ -155,39 +153,34 @@ End Function
 '                                 - Tweaked the addProfile section and the cleanUpSessions to reflect the
 '                                   recent Chromium updates and the Edge policy discovery.
 '***************************************************************************************************
-Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".start"
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = caps.ClsGet_CDPCore
 
-
-    '1. ログパラメーター準備
-    Set PipeCore = New CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
-
-    '2. ローカルブラウザ起動完了までのタイマー測定準備
-    Dim timeStart As Double
-    timeStart = CDPHelpers.TimerCounter
+    '2. 起動後に使う設定値を確保
+    Dim UserName   As String: UserName = caps.Set_UserDataDirName
+    CustomUAMode = caps.Set_EnableUserAgentOverride
 
     '3. 起動モードに応じた分岐
-    If ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.UseWebSocket, FromProcedureName) Then
+    If caps.Set_UseWebSocket Then
         '3-1. WebSocketとして起動
         Dim WebSocketCore As CDPCoreViaWebSocket: Set WebSocketCore = New CDPCoreViaWebSocket
-        start = WebSocketCore.ConnectCDPWithLocalBrowser(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = WebSocketCore.OpenBrowserAndConnectCDP(caps)
 
         '3-2. WebSocketモードとして切り替え
         '※内部で、接続情報(WinSockハンドル等)パラメーターが適用/記録されます
-        Set PipeCore.RemoteDebuggingPortMode(userProfile) = WebSocketCore
+        Set PipeCore.RemoteDebuggingPortMode(UserName) = WebSocketCore
     Else
         '3-1. Pipeとして起動
         '※内部で、接続情報(Pipeハンドル等)パラメーターが適用/記録されます
-        start = PipeCore.RunPipeModeBrowserCDP(userProfile, appUrl, SplashScreenMode, addArgs)
+        OpenBrowser = PipeCore.OpenBrowserAndConnectCDP(caps)
     End If
 
-    '4. 起動中のブラウザ情報を変数に記録
+    '3. 起動中のブラウザ情報を変数に記録
     getBrowserInfo
 
-    '5. ブラウザステータス表示
+    '4. ブラウザステータス表示
     printParams
-    printMsg info_, "Browser initialization completed after " & (CDPHelpers.TimerCounter - timeStart) / 1000 & "s", FromProcedureName
 End Function
 
 '***************************************************************************************************
@@ -253,9 +246,8 @@ Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 接続情報を継承
-    Set PipeCore = reattachInfo.Get_CDPCore
-    CDPHelpers.InheritLogSettings currentLog, PipeCore.LogSettings
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = reattachInfo.ClsGet_CDPCore
 
     '2. handleが生きてるかを確認します
     If isLiveBrowser Then
@@ -269,7 +261,10 @@ Public Sub reattach(reattachInfo As ReattachOptions)
         printMsg ERROR_, "CDP communication failed with the remotely touched username: '" & Me.CurrentBrowserUser & "' .", FromProcedureName, doRaiseError:=True
     End If
 
-    '3. 設定が済んだので、破棄
+    '3. 再設定が必要なパラメーターを適用
+    CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
+
+    '4. 設定が済んだので、破棄
     Set reattachInfo = Nothing
 End Sub
 
@@ -336,8 +331,8 @@ Public Function newTab(Optional Url As String, Optional newWindow As Boolean, Op
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set newTab = New CDPContext
     With newTab
-        '1. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = Me
+        '1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, PipeCore
 
         '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
@@ -492,8 +487,8 @@ Public Function getTab(Optional tabName As String, Optional Url As String, Optio
     EnableDiscoverTargets = True    '`CDPContext.cls`を生成するので、カウントアップ
     Set getTab = New CDPContext
     With getTab
-        '1. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = Me
+        '1. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, PipeCore
 
         '2. 先ほど生成した`sessionId`を渡す
         .CurrentSessionID = sessionID_
@@ -692,7 +687,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If PipeCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -946,13 +941,13 @@ End Function
 '***************************************************************************************************
 '                                       ■■■ 後始末系 ■■■
 '***************************************************************************************************
-Public Sub quit()
+Public Sub CloseBrowser()
 '-----------------------------------------------------------------------------------
 ' Closes the currently attached browser instance
 ' Original Name: closeBrowser
 ' Update: 24/10/2025: Daniel Polak - avoid immediate hard kills, reduce race conditions, and make shutdown behavior predictable and robust in non-responsive cases
 '-----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".quit"
+    Const FromProcedureName As String = ThisClassName & ".CloseBrowser"
 
 
     Dim sngT As Double
@@ -1059,7 +1054,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, currentLog.LogID & " Browser - Information", FromProcedureName
+    printMsg Debug_, m_LogID & " Browser - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Browser Product   | " & br.Product, FromProcedureName
@@ -1148,17 +1143,6 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get ThisCDPCore() As CDPCore
-    Set ThisCDPCore = PipeCore
-End Property
-
-
-
-'***************************************************************************************************
 '                              ■■■ PUBLIC PROPERTIES ■■■
 '***************************************************************************************************
 '* 機能　　：このClass内で起動してるブラウザの`user-data-dir`値を受け取ります
@@ -1168,10 +1152,17 @@ Property Get CurrentBrowserUser() As String
 End Property
 
 '***************************************************************************************************
-'* 機能　　：このClass内で起動してるブラウザの`userAgent`値を受け取ります
+'* 機能　　：このClass内で起動してるデフォルト値ブラウザの`userAgent`値を受け取ります
 '***************************************************************************************************
 Property Get CurrentBrowseruserAgent() As String
     CurrentBrowseruserAgent = br.UserAgent
+End Property
+
+'***************************************************************************************************
+'* 機能　　：カスタムユーザーエージェントを適用するか？
+'***************************************************************************************************
+Property Get UseCustomUAMode() As Boolean
+    UseCustomUAMode = CustomUAMode
 End Property
 
 '***************************************************************************************************
@@ -1194,7 +1185,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, PipeCore.LogSettings.logPath
 End Sub
 
 
@@ -1239,7 +1230,7 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BRID" & Format(Rnd * 1000, "000")
+    m_LogID = "BRID" & Format(Rnd * 1000, "000")
 
 
     '------------------------- クラス内変数の一部を初期化 -------------------------
@@ -1250,18 +1241,3 @@ Private Sub Class_Initialize()
     Set ResultCommandCDP_Browser = New Dictionary
     '------------------------------------------------------------------------------
 End Sub
-
-
-
-#If DEBUG_MODE Then
-'***************************************************************************************************
-'                                 ■■■ Test Only Area ■■■
-'***************************************************************************************************
-' 単体テストをしやすくするための専用テストメソッド。
-' 事前に「条件付きコンパイル引数」にて、`DEBUG_MODE = 1`をすることで有効化される
-'***************************************************************************************************
-Property Set ThisCDPCore(t As CDPCore)
-    Set PipeCore = t
-    CDPHelpers.InheritLogSettings currentLog, t.LogSettings
-End Property
-#End If
