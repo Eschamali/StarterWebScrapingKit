@@ -356,7 +356,7 @@ Private Function SwapBytes16(value As Long) As Integer
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
+'* 機能　　：ローカルブラウザを新規で、WebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
 '* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト
@@ -364,6 +364,7 @@ End Function
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
 Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     Const FromProcedureName As String = ThisClassName & ".OpenBrowserAndConnectCDP"
@@ -1237,7 +1238,8 @@ End Function
 '* 引数　　：caps           `DevToolsActivePort`ファイルを探すための情報一式
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
+'* 注意事項：・あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
 Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Boolean
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
