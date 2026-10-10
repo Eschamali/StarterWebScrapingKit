@@ -192,20 +192,23 @@ Private WebView2UserDataDirPath As String
 '***************************************************************************************************
 '* 機能　　：このClassが機能する必要な情報を渡します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'* 引数　　：caps       ブラウザ起動時のオプション設定オブジェクト
 '            AttachHwnd WebView2を貼り付けるハンドル
 '***************************************************************************************************
-Public Sub InitInfo(UserName As String, AttachHwnd As LongPtr)
+Friend Sub Init(caps As BrowserCapabilities, AttachHwnd As LongPtr)
+    '必要な情報のみ、取り出す
+    Dim tmp As String: tmp = caps.Set_UserDataDirName
+
     'ユーザーデータパスを設定
-    If InStr(1, UserName, ":") = 2 Then
+    If InStr(1, tmp, ":") = 2 Then
         '絶対パス指定の場合は、そのまんま指定
-        WebView2UserDataDirPath = UserName
+        WebView2UserDataDirPath = tmp
     Else
         'Officeのルールに従うようなパスにしておく
-        WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & UserName
+        WebView2UserDataDirPath = Environ("LOCALAPPDATA") & "\Microsoft\Office\16.0\Wef\webview2\VBA\" & tmp
     End If
 
-    'WebView2を埋め込むhandle先を指定
+    '固有情報
     m_hostHwnd = AttachHwnd
 End Sub
 
