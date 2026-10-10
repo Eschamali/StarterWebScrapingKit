@@ -478,15 +478,15 @@ Sub demoReattachmentPart2ForTab()
 
     '制御経路に応じた分岐
     If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
         '2-1. WebSocketで再接続
         Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
         CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
         '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
         ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-    Else
-        '2-1. Pipeモードで復帰する設定にする
-        ReattachOptions.Set_PipeMode = UserName
     End If
 
     '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
