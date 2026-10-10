@@ -496,14 +496,17 @@ End Function
 
 
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
+'                              ■■■ BiDi+用継承property ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取り、WebDriverBiDiモードでありつつ、直接CDP制御できる仕組みを提供します
+'* 機能　　：このClass内で定義してる`CDPBrowser/CDPCore.cls`を受け取り、WebDriverBiDiモードでありつつ、直接CDP制御できる仕組みを提供します
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：利用する際は、「BiDi-CDP Mapper」タブ自体を操作しないように気を付ける必要がある上級者向けです
 '***************************************************************************************************
-Property Get DirectControlCDP() As CDPBrowser
-    Set DirectControlCDP = m_CDPBrowser
+Property Get BiDiPlusBrowser() As CDPBrowser
+    Set BiDiPlusBrowser = m_CDPBrowser
+End Property
+Property Get BiDiPlusCore() As CDPCore
+    Set BiDiPlusCore = m_CDPCore
 End Property
 
 

@@ -789,18 +789,18 @@ Public Function UpgradeBiDiPlus() As CDPContext
 
 
     '1. context に紐づく、新規`SessionId`の発行を試みる
-    Dim newSessionID As String: newSessionID = m_BiDiCore.DirectControlCDP.attachToTab(InfoList.context)
+    Dim newSessionID As String: newSessionID = m_BiDiCore.BiDiPlusBrowser.attachToTab(InfoList.context)
 
     '2. 発行失敗時はエラーで即抜け
-    If LenB(newSessionID) = 0 Then printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.DirectControlCDP.LastCDPJsonError("message"), FromProcedureName: Exit Function
+    If LenB(newSessionID) = 0 Then printMsg WARN_, "Failed to issue a SessionID for CDP from the WebDriver BiDi context. > " & m_BiDiCore.BiDiPlusBrowser.LastCDPJsonError("message"), FromProcedureName: Exit Function
 
     '3. 無事発行出来たら、変換手続き
     '------ CDPContext.clsとして返却する準備 ------
-    m_BiDiCore.DirectControlCDP.EnableDiscoverTargets = True    '`CDPContext.cls`としての制御なので、カウントしておく
+    m_BiDiCore.BiDiPlusBrowser.EnableDiscoverTargets = True    '`CDPContext.cls`としての制御なので、カウントしておく
     Set UpgradeBiDiPlus = New CDPContext
     With UpgradeBiDiPlus
-        '4. BiDiブラウザ情報を渡す
-        Set .ThisCDPBrowser = m_BiDiCore.DirectControlCDP
+        '4. アクティブなプロトコルオブジェクトを渡す
+        .Init m_BiDiCore.BiDiPlusBrowser, m_BiDiCore.BiDiPlusCore
 
         '5. 先ほど発行したSessionIDを渡す
         .CurrentSessionID = newSessionID
