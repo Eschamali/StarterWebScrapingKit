@@ -41,7 +41,7 @@ Private m_Events    As Dictionary
 Private m_ErrorDetails  As Dictionary
 
 'ログ設定
-Private currentLog      As StateLog
+Private m_LogID      As String
 
 '操作中のブラウザ情報一式
 '※session.new で得れる情報とほぼ同じ構造です
@@ -56,7 +56,6 @@ Private Type StateBiDiBrowser
     webSocketUrl        As String
 
     '独自
-    BiDiUserName        As String   'Browser user profile
     Ver                 As String   'The current browser version
 End Type
 Private br As StateBiDiBrowser
@@ -76,29 +75,24 @@ Private CustomUAMode    As Boolean      'このツール独自のユーザーエ
 '* 機能　　：ブラウザに対する所定の起動引数をつけて、WebDriverBiDiとして、起動させます
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：userProfile                起動引数：`--user-data-dir`につけるユーザーディレクトリ名を指定します
-'            appUrl                     起動引数：`--app`につけるURLを指定します
-'            SplashScreenMode           `True`で、`-app`に渡すURLがスプラッシュ画面としてかっこよくなります。`CDPContext.StartAndConnectTab`で呼び出すことを想定します
-'            addArgs                    追加の起動引数
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
+'* 引数　　：caps   ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '***************************************************************************************************
-Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary) As String
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = caps.ClsGet_WebDriverBiDiCore
+    
+    '2. 起動後に使う設定値を確保
+    CustomUAMode = caps.Set_EnableUserAgentOverride
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = caps.Set_BiDiSessionCapabilitiesRequest
 
+    '3. WebDriverBiDi としてブラウザを起動させる
+    OpenBrowser = m_BiDiCore.OpenBrowserAndConnectBiDi(caps)
 
-    '1. 初期化処理
-    br.BiDiUserName = userProfile
-    Set m_BiDiCore = New WebDriverBiDiCore
-
-    '2. WebDriverBiDi としてブラウザを起動させる
-    StartBiDiMode = m_BiDiCore.InitBiDi(userProfile, appUrl, SplashScreenMode, addArgs)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
-
-    '3. BiDi との新しいセッションを確立する
+    '4. BiDi との新しいセッションを確立する
     Dim resultBiDi As BiDiCDPJson
     Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-    '4. 接続先ブラウザ情報をログで表示
+    '5. 接続先ブラウザ情報をログで表示
     ViewNewSession resultBiDi
 End Function
 
@@ -156,7 +150,7 @@ Public Property Let serializeMainTab(contextId As String)
     Const FromProcedureName As String = ThisClassName & ".MainTab - Let"
 
 
-    ShSetting01_StartBrowser.UpdateBrowserContext(br.BiDiUserName, "BiDi-context", FromProcedureName) = contextId
+    ShSetting01_StartBrowser.UpdateBrowserContext(m_BiDiCore.CurrentUserName, "BiDi-context", FromProcedureName) = contextId
 End Property
 Public Property Get serializeMainTab() As String
     Const FromProcedureName As String = ThisClassName & ".MainTab - Get"
@@ -164,7 +158,7 @@ Public Property Get serializeMainTab() As String
 
     '1. Excelテーブルから、`UserName`に紐づくタブセッション情報を読み込む
     Dim tmp As Dictionary
-    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(br.BiDiUserName, FromProcedureName)
+    Set tmp = ShSetting01_StartBrowser.TableBrowserContext(m_BiDiCore.CurrentUserName, FromProcedureName)
 
     '2. 返却
     If Not tmp Is Nothing Then serializeMainTab = tmp("BiDi-context")
@@ -199,36 +193,38 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：Excelテーブルにある既存のBiDiMapperタブ,パイプハンドル情報を利用して、再接続を試みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile                再アタッチしたいユーザー名(user-data-dirに基づく)
-'            sessionCapabilitiesRequest `session.new`のParametersをセットします。予めDictionaryで組み立ててください
-'            WebSocketMode              WebSocketでBiDi制御する場合は、接続処理済みのClassオブジェクトを指定します
+'* 引数　　：reattachInfo               リアタッチ系のオプションオブジェクト
 '---------------------------------------------------------------------------------------------------
 '* 注意事項：・パイプが生きてない場合は、このメソッドから再開できません
 '            ・`sessionCapabilitiesRequest`は、新規に`BiDi-CDP Mapper`が起動された時のみ適用されます
 '***************************************************************************************************
-Public Sub reattach(userProfile As String, Optional sessionCapabilitiesRequest As Dictionary, Optional WebSocketMode As CDPCoreViaWebSocket)
+Public Sub reattach(reattachInfo As ReattachOptions)
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. 「BiDi-CDP Mapper」への再接続処理
-    br.BiDiUserName = userProfile
-    Set m_BiDiCore = New WebDriverBiDiCore
-    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(br.BiDiUserName, WebSocketMode)
-    CDPHelpers.InheritLogSettings currentLog, m_BiDiCore.LogSettings
+    '1. プロトコルコアオブジェクトを受けとる
+    Set m_BiDiCore = reattachInfo.ClsGet_WebDriverBiDiCore
 
-    '2. デバッグセッション有無判定
+    '2. Mapper再起動後に使う設定値を確保
+    Dim sessionCapabilitiesRequest As Dictionary: Set sessionCapabilitiesRequest = reattachInfo.Set_BiDiSessionCapabilitiesRequest
+    CustomUAMode = reattachInfo.Set_EnableUserAgentOverride
+
+    '3. Mapper再起動を行うか内部で、判定する
+    Dim requestSessionNew As Boolean: requestSessionNew = m_BiDiCore.ReBootBiDiCDPMapper(reattachInfo)
+
+    '4. デバッグセッション有無判定
     '※Chromiumの場合、現時点(v17.0.2)では、常に`False`ですが、行儀よく行います
     Dim DebugSessionStatus As Boolean
     DebugSessionStatus = sessionStatus.BoolKey("ready")
 
-    '3. 結果に応じて`session.new`を行う
+    '5. 結果に応じて`session.new`を行う
     Dim resultBiDi As BiDiCDPJson
     If requestSessionNew Or DebugSessionStatus Then
-        '2-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
+        '5-1. `BiDi-CDP Mapper`を再始動したので、再度`sessionNew`しておく
         printMsg Debug_, "A new instance of `BiDi-CDP Mapper` has been launched.", FromProcedureName
         Set resultBiDi = sessionNew(sessionCapabilitiesRequest)
 
-        '2-2. 接続先ブラウザ情報をログで表示
+        '5-2. 接続先ブラウザ情報をログで表示
         ViewNewSession resultBiDi
     End If
 End Sub
@@ -268,11 +264,8 @@ Public Function newTab(Optional newWindow As Boolean, Optional isBackground As B
     EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
     Set newTab = New WebDriverBiDiContext
     With newTab
-        '3-1. このBiDiのイベントオブジェクトを渡す
-        Set .ThisWebDriverBiDiCore = m_BiDiCore
-
-        '4. このBiDi情報も渡す
-        Set .ThisWebDriverBiDiMode = Me
+        '4. アクティブなプロトコルオブジェクトを渡す
+        .Init Me, m_BiDiCore
 
         '5. 先ほど得た`context`を渡す
         .context = bidiRes.StringKey("context")
@@ -330,16 +323,13 @@ Public Function getTab(Optional Url As String, Optional maxDepth As Long, Option
                 EnableDiscoverContexts = True   '`WebDriverBiDiContext.cls`を生成するので、カウントUP
                 Set getTab = New WebDriverBiDiContext
                 With getTab
-                    '4. このこのBiDiのイベントオブジェクトを渡す
-                    Set .ThisWebDriverBiDiCore = m_BiDiCore
+                    '4. アクティブなプロトコルオブジェクトを渡す
+                    .Init Me, m_BiDiCore
 
-                    '5. このBiDi情報を渡す
-                    Set .ThisWebDriverBiDiMode = Me
-
-                    '6. 先ほど得た`context`を渡す
+                    '5. 先ほど得た`context`を渡す
                     .context = matchData("context")
 
-                    '7. メイン化する場合は、Excelに記録しておく
+                    '6. メイン化する場合は、Excelに記録しておく
                     If setMain Then serializeMainTab = matchData("context")
                 End With
 
@@ -454,7 +444,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -685,8 +675,8 @@ End Function
 '***************************************************************************************************
 '                                       ■■■ 後始末系 ■■■
 '***************************************************************************************************
-Public Sub quit()
-    Const FromProcedureName As String = ThisClassName & ".quit"
+Public Sub CloseBrowser()
+    Const FromProcedureName As String = ThisClassName & ".CloseBrowser"
 
 
     '1. 終了コマンドを送る
@@ -694,25 +684,12 @@ Public Sub quit()
     ExecuteBiDi "browser.close", StopBiDiError:=False
 
     '2. パイプハンドル、ブラウザセッション情報を消去しに行きます
-    m_BiDiCore.CloseHandleBrowser   'パイプハンドルを閉じる
-    deleteCDPID                     'テーブルからも削除する
+    ShSetting01_StartBrowser.DeleteBrowserContext(FromProcedureName) = m_BiDiCore.CurrentUserName   'メインタブ情報を削除
+    m_BiDiCore.CloseHandleBrowser                                                                   '各種ハンドルも閉じる
 
     '3. it seems without waiting a bit the browser crashes and the next time it wants to recover from a crash
     CDPHelpers.Sleep 1
     printMsg info_, "The WebDriverBiDi has been terminated.", FromProcedureName
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザへの接続パイプとタブ情報を削除します
-'***************************************************************************************************
-Private Sub deleteCDPID()
-    Const FromProcedureName As String = ThisClassName & ".deleteCDPID"
-
-
-    With ShSetting01_StartBrowser
-        .DeleteBrowserHandle(FromProcedureName) = br.BiDiUserName   'パイプ通信Handle情報
-        .DeleteBrowserContext(FromProcedureName) = br.BiDiUserName  'ブラウザセッション情報
-    End With
 End Sub
 
 
@@ -942,7 +919,7 @@ End Sub
 '* URL     ：https://w3c.github.io/webdriver-bidi/#command-session-new
 '***************************************************************************************************
 Private Function sessionNew(Optional params As Dictionary) As BiDiCDPJson
-    '`session.new`の`Parameters`が省略されてる場合は、規定値を作成する
+    '`session.new`の`Parameters`が省略されてる場合は、空規定値を作成する
     If params Is Nothing Then
         Set params = New Dictionary
         params.Add "capabilities", New Dictionary
@@ -1053,15 +1030,13 @@ Property Let SetBiDiPlusChannel(ChannelStr As String)
     GoogChannel = ChannelStr
 End Property
 
-
-
 '***************************************************************************************************
-'                              ■■■ 複製用プロパティ ■■■
+'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：自作の拡張Class以外では、使うことはありません
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`WebDriverBiDiCore.cls`を受け取ります
-'***************************************************************************************************
-Property Get ThisBiDiCore() As WebDriverBiDiCore
-    Set ThisBiDiCore = m_BiDiCore
+Property Get ExEventCore() As WebDriverBiDiCore
+    Set ExEventCore = m_BiDiCore
 End Property
 
 
@@ -1073,7 +1048,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -1107,18 +1082,12 @@ End Sub
 '                         ■■■ このClassオブジェクト生成時のアクション ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BDID" & Format(Rnd * 1000, "000")
+    m_LogID = "BDID" & Format(Rnd * 1000, "000")
 
     'タイムアウト設定(デフォルトで、30s)
     timerOut = TIMEOUT_DEFAULT * 1000   'ミリ秒に補正
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandBiDi = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
