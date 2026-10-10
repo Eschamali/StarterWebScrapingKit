@@ -431,26 +431,22 @@ End Sub
 '            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてる`TargetID`の生存確認
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '2. 制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
     '3. ブラウザオブジェクトに、接続情報を渡す
     Dim b As New WebDriverBiDiMode
@@ -463,11 +459,11 @@ Sub demoReattachmentPart2ForBrowser()
 '    Set t = b.newTab(setMain:=True)   '新しいタブ生成からでもOK
 
     '5. エラーチェック
-    '※特に`getTab`の場合は、0個で返ることがあるのでそのチェックを行います
+    '※稀に`chromium-bidi`で、`getTab`をすると、0個で返ることがあるのでそのチェックを行います
     If t Is Nothing Then MsgBox "`browsingContext.getTree`の実行に成功しましたが、有効なタブが見つかりませんでした。" & vbCrLf & "ブラウザのタブを何個か開いてみて下さい。大抵は、2,3個程度追加で開けば、行けると思います。", vbCritical, "WebDriver BiDi": Exit Sub
 
     '6．別ページに遷移して終了
-    t.navigate "https://kemono-friends-20170110.jp/"
+    t.navigate "https://w3c.github.io/webdriver/"
 End Sub
 
 '***************************************************************************************************
@@ -476,32 +472,28 @@ End Sub
 '* 注意事項：最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-    'セルから設定情報を取得
-    With ShSetting01_StartBrowser
-        '1. 設定セルから、ユーザ名を取得
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '2. Excelに記録されてる`TargetID`の生存確認
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '2-1. Pipeモードで復帰する設定にする
-            ReattachOptions.Set_PipeMode = UserName
-        Else
-            '2-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
-            ReattachOptions.Set_WebSocketMode(CDPws) = UserName
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    Else
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    End If
 
     '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
     Dim t As New WebDriverBiDiContext
     If Not t.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
 
-    '4. 別ページに遷移
+    '4．再接続できたので、別ページに遷移して終了
     t.navigate "https://w3c.github.io/webdriver-bidi/"
 End Sub
 
@@ -510,7 +502,7 @@ End Sub
 '***************************************************************************************************
 '                       ■■■ 起動済みWebSocketブラウザ経由版Demo ■■■
 '***************************************************************************************************
-'* 機能　　：ブラウザ単位としてWebSocket接続を行います
+'* 機能　　：ブラウザ単位としてWebSocket接続を行い、BiDi制御を開始します
 '-------------------------------------------------------------------------------------------------
 '* 詳細説明：このDemoは主に、既に起動中のデバックブラウザでの接続方法について学べます
 '* 注意事項：・`WebSocket`という「後付け」の特性上、接続を確立後、`reattach`に渡す方式をとってます
@@ -522,7 +514,7 @@ Sub AutoConnectBrowser()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 指定のWebSocketForCDPへ接続
+    '2. 指定のWebSocketForCDP-browserへ接続
     Dim WebSocketCDP As New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
@@ -538,7 +530,7 @@ Sub AutoConnectBrowser()
     Set t = WebSocketChromium.newTab(setMain:=True)
 
     '6. ページ遷移
-    t.navigate "https://www.youtube.com/@islandfox6864"
+    t.navigate "https://www.youtube.com/@caracal4893"
 
     '7. 終了
     WebSocketChromium.CloseBrowser
