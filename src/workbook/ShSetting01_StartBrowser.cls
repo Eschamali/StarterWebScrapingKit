@@ -185,9 +185,16 @@ Friend Function StartBiDiModeContext(Optional StartURL As String, Optional Switc
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
+        '引数から、簡易初期設定を行う
+        With BrowserCapabilities
+            .Set_UserDataDirName = SwitchUser
+            .Set_StartURL = StartURL
+            Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
+        End With
+
         'ブラウザ起動
         Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.OpenBrowserAndConnectTab SwitchUser, StartURL, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
+        StartBiDiModeContext.OpenBrowserAndConnectTab BrowserCapabilities
     End With
 End Function
 
@@ -210,9 +217,16 @@ Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser A
         '第2引数が省略ならシート側の設定を適用
         If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
 
+        '引数から、簡易初期設定を行う
+        With BrowserCapabilities
+            .Set_UserDataDirName = SwitchUser
+            .Set_StartURL = StartURL
+            Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
+        End With
+
         'ブラウザ起動
         Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.OpenBrowser SwitchUser, StartURL, False, .GetSettingCDP(SettingCDP.AdditionalBrowserArguments, FromProcedureName), sessionCapabilitiesRequest
+        StartBiDiMode.OpenBrowser BrowserCapabilities
     End With
 End Function
 
