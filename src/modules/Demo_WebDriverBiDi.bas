@@ -536,6 +536,109 @@ Sub AutoConnectBrowser()
     WebSocketChromium.CloseBrowser
 End Sub
 
+'***************************************************************************************************
+'* 機能　　：「DevToolsActivePort」ファイルモードで起動したブラウザに対するWebSocket接続を行い、BiDi制御を開始します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：「DevToolsActivePort」ファイルモードは、下記のいずれかで使用されます。それを利用したDemoとなります
+'            ・`remote-debugging-port=0`で起動したブラウザ(demoReattachmentPart2ForBrowser/Tab も実はこれ)
+'            ・「edge://inspect/#remote-debugging」にて、リモートデバッグを許可する
+'
+'            [!NOTE]
+'            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`reuseMode`を`True`にして再度処理をすると、
+'            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
+'
+'* 注意事項：このDemoは、普段のブラウザを制御するDemoとしても兼ねてるため、「edge://inspect/#remote-debugging」にて事前準備が必要です
+'***************************************************************************************************
+Sub AutoConnectDevToolsActivePort()
+    '0. 事前設定
+    Const UserNameBrowser   As String = "User Data"
+    Const reuseMode         As Boolean = False  '内部ハンドルを使いまわすか？
+
+
+    '1. 分岐に応じたWebSocketへ接続
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
+    If reuseMode Then
+        '1-1. 指定のユーザ名に記録済みのWinSockハンドルを取り出す
+        WebSocketCDP.ReConnectCDP UserNameBrowser
+    Else
+        '1-1. 探す目印となるUserNameを指定
+        '※ローカルブラウザ依存の「DevToolsActivePort」探索の都合により「BrowserCapabilities」を使用します
+        BrowserCapabilities.Set_UserDataDirName = UserNameBrowser
+
+        '1-2. 指定のユーザ名のWebSocketForDevToolsActivePortへ接続
+        WebSocketCDP.AutoConnectDevToolsActivePort BrowserCapabilities
+    End If
+
+    '2. いくつか初期設定を設ける
+    With ReattachOptions
+        '2-1. WebSocketモードとして設定
+        ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
+
+        '2-2. WinSockハンドル使いまわしの場合は、WebSocketヘッダー情報の整合性を保つため、`False`にします
+        .Set_Destruction = Not reuseMode
+    End With
+
+    '3. 繋げたWebSocketオブジェクトを`reattach`メソッドに渡す
+    Dim WebSocketChromium As New WebDriverBiDiMode
+    WebSocketChromium.reattach ReattachOptions
+
+    '4. 新規タブに接続
+    Dim t As WebDriverBiDiContext
+    Set t = WebSocketChromium.newTab(setMain:=True)
+
+    '5. ページ遷移
+    t.navigate "https://www.youtube.com/@geoffroyscat4196"
+
+    '6. WebSocketから切断
+    '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
+    WebSocketCDP.DisconnectCDP
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：このExcelで起動中のWebView2を乗っ取って、新規タブからスクレイピング操作をBiDiとして、開始します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：・Excelの一部の操作はWebView2が動いてます。この仕様を利用して、デバッグポートを開けてそこから制御を行います
+'            ・ここからの制御の場合、「RemoteDebuggingAllowed」のポリシー規制をスルー出来るようです
+'
+'* 注意事項：・VBEからの起動では失敗します。ワークシート上にある図形に「マクロの登録」でこのプロシージャを登録して、その図形から起動しないと機能しません
+'            ・裏技チックのため、いつか使えなくなるかもしれません
+'            ・起動に失敗する場合は、該当のWebView2プロセスをKillして下さい
+'            ・既存タブではURL遷移に制限があるため、新しいタブを生成しそこからスクレイピングを始めれば今まで通りのスクレイピングが可能です
+'***************************************************************************************************
+Sub OpenExcelWebView2()
+    '1. デバッグ用のポートをOpen
+    Dim HelpWebView2 As CDPCoreViaWebSocket: Set HelpWebView2 = New CDPCoreViaWebSocket
+    HelpWebView2.EnsureWebView2DebugPort = 9222
+
+    '2. Helpを開いて、疑似的にWebView2を始動させる
+    CommandBars.ExecuteMso "Help"
+
+    '3. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
+
+    '4. 指定のWebSocketForCDPへ接続
+    Debug.Print HelpWebView2.AutoConnectBrowserCDP(UserName)
+
+    '5. WebSocketモードとして適用
+    ReattachOptions.Set_WebSocketMode(HelpWebView2) = UserName
+
+    '6. 再接続情報を`reattach`メソッドに渡す
+    Dim WebSocketChromium As New WebDriverBiDiMode
+    WebSocketChromium.reattach ReattachOptions
+
+    '7. 新しいタブに接続
+    Dim t As WebDriverBiDiContext
+    Set t = WebSocketChromium.newTab(setMain:=True)
+
+    '8. ページ遷移
+    t.navigate "https://www.youtube.com/@brownlong-earedbat7015"
+
+    '9. WebSocketから切断
+    HelpWebView2.DisconnectCDP
+    HelpWebView2.EnsureWebView2DebugPort = -1
+End Sub
+
 
 
 '***************************************************************************************************
