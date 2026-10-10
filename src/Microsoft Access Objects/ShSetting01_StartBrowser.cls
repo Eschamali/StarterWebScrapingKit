@@ -176,18 +176,24 @@ Friend Function StartCDPModeContext(Optional StartURL As String, Optional Switch
 
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
+        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
+        Dim SimpleInitOptions As BrowserCapabilities
+        If StrPtr(SwitchUser) Then
+            Set SimpleInitOptions = New BrowserCapabilities
+        Else
+            Set SimpleInitOptions = BrowserCapabilities
+            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
+        End If
 
         '引数から、簡易初期設定を行う
-        With BrowserCapabilities
+        With SimpleInitOptions
             .Set_UserDataDirName = SwitchUser
             .Set_StartURL = StartURL
         End With
 
         'ブラウザ起動
         Set StartCDPModeContext = New CDPContext
-        StartCDPModeContext.OpenBrowserAndConnectTab BrowserCapabilities
+        StartCDPModeContext.OpenBrowserAndConnectTab SimpleInitOptions
     End With
 End Function
 
@@ -208,8 +214,14 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
 
     '設定シートの各セルから設定値を取得し、適用
     With Me
-        '第2引数が省略ならシート側の設定を適用
-        If StrPtr(SwitchUser) = 0 Then SwitchUser = .GetSettingCDP(SettingCDP.UserDataDirName, FromProcedureName)
+        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
+        Dim SimpleInitOptions As BrowserCapabilities
+        If StrPtr(SwitchUser) Then
+            Set SimpleInitOptions = New BrowserCapabilities
+        Else
+            Set SimpleInitOptions = BrowserCapabilities
+            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
+        End If
 
         '引数から、簡易初期設定を行う
         With BrowserCapabilities
@@ -219,7 +231,7 @@ Friend Function StartCDPMode(Optional StartURL As String, Optional SwitchUser As
 
         'ブラウザ起動
         Set StartCDPMode = New CDPBrowser
-        StartCDPMode.OpenBrowser BrowserCapabilities
+        StartCDPMode.OpenBrowser SimpleInitOptions
     End With
 End Function
 
