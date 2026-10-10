@@ -572,7 +572,7 @@ Sub AutoConnectDevToolsActivePort()
     '2. いくつか初期設定を設ける
     With ReattachOptions
         '2-1. WebSocketモードとして設定
-        ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
+        .Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
 
         '2-2. WinSockハンドル使いまわしの場合は、WebSocketヘッダー情報の整合性を保つため、`False`にします
         .Set_Destruction = Not reuseMode
