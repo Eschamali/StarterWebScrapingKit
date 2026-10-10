@@ -440,7 +440,9 @@ Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
     End If
 
     '9. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
 
 
@@ -1251,7 +1253,9 @@ Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Bo
     AutoConnectDevToolsActivePort = ConnectCDP(caps.Set_UserDataDirName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
 
     '4. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
     Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
 
 '***************************************************************************************************
