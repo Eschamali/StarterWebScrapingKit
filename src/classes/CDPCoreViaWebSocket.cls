@@ -1231,24 +1231,6 @@ Private Function checkDebugWs(TabMode As Boolean, Host As String, port As Long) 
 End Function
 
 '***************************************************************************************************
-'* 機能　　：記録済みのWinSockハンドルを適用させて、WebSocket再接続儀式を飛ばします
-'---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName   どのユーザーのWinSockハンドルを使用するか
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：このメソッドで接続する場合は、`ReattachOptionsSet_Destruction:=False`を推奨します
-'***************************************************************************************************
-Public Sub ReConnectCDP(UserName As String)
-    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
-
-
-    '1 .Excelテーブルから、取れてない場合はエラー停止
-    If Not deserialize(UserName) Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-    '2. ハンドル情報自体は取れたので、正常終了ログを出す
-        printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
-End Sub
-
-'***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
@@ -1270,6 +1252,24 @@ Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Bo
     '4. 設定が済んだので、破棄
     Set caps = Nothing
 End Function
+
+'***************************************************************************************************
+'* 機能　　：記録済みのWinSockハンドルを適用させて、WebSocket再接続儀式を飛ばします
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   どのユーザーのWinSockハンドルを使用するか
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：このメソッドで接続する場合は、`ReattachOptionsSet_Destruction:=False`を推奨します
+'***************************************************************************************************
+Public Sub ReConnectCDP(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
+
+
+    '1 .Excelテーブルから、取れてない場合はエラー停止
+    If Not deserialize(UserName) Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+    '2. ハンドル情報自体は取れたので、正常終了ログを出す
+    printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
