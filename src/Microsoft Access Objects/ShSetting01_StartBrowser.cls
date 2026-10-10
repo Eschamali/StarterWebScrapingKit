@@ -240,31 +240,26 @@ End Function
 '* 詳細説明：VBEによるハードコーディングではなく、設定シートから読み込む方式により、ユーザー側からも手軽に設定変更ができます
 '***************************************************************************************************
 Friend Function StartBiDiModeContext(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiContext
-    Const FromProcedureName As String = ThisClassName & ".StartBiDiModeContext"
+    '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる。※レースコンディション対策
+    Dim SimpleInitOptions As BrowserCapabilities
+    If StrPtr(SwitchUser) Then
+        Set SimpleInitOptions = New BrowserCapabilities
+    Else
+        Set BrowserCapabilities = Nothing                   '念のため、古い情報を破棄。※起動失敗時に備える
+        Set SimpleInitOptions = BrowserCapabilities
+        SwitchUser = SimpleInitOptions.Set_UserDataDirName  '省略時は、シート側を反映
+    End If
 
-
-    '設定シートの各セルから設定値を取得し、適用
-    With Me
-        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
-        Dim SimpleInitOptions As BrowserCapabilities
-        If StrPtr(SwitchUser) Then
-            Set SimpleInitOptions = New BrowserCapabilities
-        Else
-            Set SimpleInitOptions = BrowserCapabilities
-            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
-        End If
-
-        '引数から、簡易初期設定を行う
-        With BrowserCapabilities
-            .Set_UserDataDirName = SwitchUser
-            .Set_StartURL = StartURL
-            Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
-        End With
-
-        'ブラウザ起動
-        Set StartBiDiModeContext = New WebDriverBiDiContext
-        StartBiDiModeContext.OpenBrowserAndConnectTab SimpleInitOptions
+    '引数から、簡易初期設定を行う
+    With SimpleInitOptions
+        .Set_UserDataDirName = SwitchUser
+        .Set_StartURL = StartURL
+        Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
     End With
+
+    'ブラウザ起動
+    Set StartBiDiModeContext = New WebDriverBiDiContext
+    StartBiDiModeContext.OpenBrowserAndConnectTab SimpleInitOptions
 End Function
 
 '***************************************************************************************************
@@ -278,31 +273,26 @@ End Function
 '             この処理後は基本的には、`.getTab` or `.newTab`で、直ぐに確立できると思います。
 '***************************************************************************************************
 Friend Function StartBiDiMode(Optional StartURL As String, Optional SwitchUser As String, Optional sessionCapabilitiesRequest As Dictionary) As WebDriverBiDiMode
-    Const FromProcedureName As String = ThisClassName & ".StartBiDiMode"
+    '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる。※レースコンディション対策
+    Dim SimpleInitOptions As BrowserCapabilities
+    If StrPtr(SwitchUser) Then
+        Set SimpleInitOptions = New BrowserCapabilities
+    Else
+        Set BrowserCapabilities = Nothing                   '念のため、古い情報を破棄。※起動失敗時に備える
+        Set SimpleInitOptions = BrowserCapabilities
+        SwitchUser = SimpleInitOptions.Set_UserDataDirName  '省略時は、シート側を反映
+    End If
 
-
-    '設定シートの各セルから設定値を取得し、適用
-    With Me
-        '第2引数が設定されてる場合、新しい設定オプションオブジェクトとして反映させる    '※レースコンディション対策
-        Dim SimpleInitOptions As BrowserCapabilities
-        If StrPtr(SwitchUser) Then
-            Set SimpleInitOptions = New BrowserCapabilities
-        Else
-            Set SimpleInitOptions = BrowserCapabilities
-            SwitchUser = .CurrentUserName   '省略時は、シート側を反映
-        End If
-
-        '引数から、簡易初期設定を行う
-        With BrowserCapabilities
-            .Set_UserDataDirName = SwitchUser
-            .Set_StartURL = StartURL
-            Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
-        End With
-
-        'ブラウザ起動
-        Set StartBiDiMode = New WebDriverBiDiMode
-        StartBiDiMode.OpenBrowser SimpleInitOptions
+    '引数から、簡易初期設定を行う
+    With SimpleInitOptions
+        .Set_UserDataDirName = SwitchUser
+        .Set_StartURL = StartURL
+        Set .Set_BiDiSessionCapabilitiesRequest = sessionCapabilitiesRequest
     End With
+
+    'ブラウザ起動
+    Set StartBiDiMode = New WebDriverBiDiMode
+    StartBiDiMode.OpenBrowser SimpleInitOptions
 End Function
 
 
