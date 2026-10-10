@@ -444,7 +444,7 @@ Public Function ExecuteBiDi(methodName As String, Optional params As Dictionary,
     End If
 
     '6. デバッグ用に、As Is 出力
-    If m_BiDiCore.LogSettings.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1039,7 +1039,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, m_BiDiCore.LogSettings.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
