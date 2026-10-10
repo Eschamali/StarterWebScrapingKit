@@ -74,36 +74,39 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '***************************************************************************************************
 Public Function StartCDPModeWebView2(Optional SwitchUser As String) As Boolean
     '1. WebView2の追加起動引数準備
-    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "WebView2Form.StartCDPModeWebView2")
+    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = BrowserCapabilities.Set_AdditionalBrowserArguments
 
     '2. `SwitchUser`引数が省略されてる場合は、ワークシートの設定を適用
-    If StrPtr(SwitchUser) = 0 Then SwitchUser = ShSetting01_StartBrowser.CurrentUserName
+    If StrPtr(SwitchUser) = 0 Then SwitchUser = BrowserCapabilities.Set_UserDataDirName
 
-    '3. WebView2を起動
+    '3. 必要な設定は取れたので役目は、ここで終了
+    Set BrowserCapabilities = Nothing
+
+    '4. WebView2を起動
     Dim isActive As Boolean
     isActive = fWebView2.ConnectCDP(SwitchUser, myWebView2FrameHwnd)
 
-    '4. 起動失敗したら、抜ける
+    '5. 起動失敗したら、抜ける
     If Not isActive Then Set fWebView2 = Nothing: Exit Function
 
-    '5. サイズをセット
+    '6. サイズをセット
     AdjustEdgeSize
 
-    '6. 可視化
+    '7. 可視化
     SwitchVisible.value = True
     fWebView2.Visible = True
 
-    '7. WebView2モードとして設定
+    '8. WebView2モードとして設定
     ReattachOptions.Set_WebView2Mode(fWebView2) = SwitchUser
 
-    '8. このUserForm内用の、非同期イベント処理に備える
-    Set fCDPEvent = ReattachOptions.Get_CDPCore
+    '9. このUserForm内用の、非同期イベント処理に備える
+    Set fCDPEvent = ReattachOptions.ClsGet_CDPCore
 
-    '9. タブ接続まで行う
+    '10. タブ接続まで行う
     Dim t As New CDPBrowser: t.reattach ReattachOptions
     Set fCDPContext = t.getTab(setMain:=True, Url:=EmptyPageName)
 
-    '10. 成功signを返す
+    '11. 成功signを返す
     StartCDPModeWebView2 = True
 End Function
 
