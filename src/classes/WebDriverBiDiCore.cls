@@ -136,8 +136,8 @@ Private Sub newTabForBiDi()
     '5. このクラス内で用意してる`WebDriverBiDi_mapperTab`にいくつか情報を渡す
     Set WebDriverBiDi_mapperTab = New CDPContext
     With WebDriverBiDi_mapperTab
-        '5-1. このブラウザ情報を渡す
-        Set .ThisCDPBrowser = m_CDPBrowser
+        '5-1. アクティブなプロトコルオブジェクトを渡す
+        .Init m_CDPBrowser, m_CDPCore
 
         '5-2. 先ほど得た`sessionId`を渡す
         '内部で以下のフローが行われます
