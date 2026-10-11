@@ -14,18 +14,21 @@ Sub Make_AI_Original_Penguin_Pizza()
     '-----WebSocketルートの場合は下記を追加----
 '    '設定セルから、ユーザ名を取得
 '    Dim UserName As String
-'    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Demo_CDP.OpenExcelWebView2")
+'    UserName = ShSetting01_StartBrowser.CurrentUserName
 '
 '    '指定のWebSocketForCDPへ接続
-'    Dim WebSocketCDP As New CDPCoreViaWebSocket
+'    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
 '    Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 '
-'    '繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-'    Dim b As New CDPContext
-'    If Not b.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+'    '繋げたWebSocketオブジェクトを、WebSocketモードとして設定
+'    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
+'
+'    '再接続情報を`reattach`メソッドに渡す
+'    Dim b As New CDPBrowser
+'    b.reattach ReattachOptions
 '
 '    '新しいタブに接続
-'    Set c = b.ThisCDPBrowser.newTab(setMain:=True, Url:="https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
+'    Set c = b.newTab(setMain:=True, Url:="https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/")
 '    c.wait
     '------------------
 
@@ -207,7 +210,7 @@ Sub Make_AI_Original_MysteryDoors()
     Debug.Print "3-3. Result-castLight: " & castLightResult.StringKey("output")
     Debug.Print "3-4. 廊下に戻る: " & p.ExecuteWebMCP("returnToHallway").StringKey("status")
 
-    c.ThisCDPBrowser.quit
+    c.ThisCDPBrowser.CloseBrowser
 End Sub
 
 Sub teb()

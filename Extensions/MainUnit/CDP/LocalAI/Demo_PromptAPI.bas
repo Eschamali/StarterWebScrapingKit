@@ -46,7 +46,7 @@ Sub PromptAPIの準備()
         '「https://learn.microsoft.com/ja-jp/microsoft-edge/web-platform/prompt-api」を参考に、有効化してください
         ReadyAI.printMsg WARN_, "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", FromProcedureName
         MsgBox "お使いの環境では、Prompt APIは、利用できません。バージョン自体が非対応か、専用のFLAGSがEnableになってません", vbCritical
-        ReadyAI.ThisCDPBrowser.quit
+        ReadyAI.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -59,7 +59,7 @@ Sub PromptAPIの準備()
     Select Case ModeAvailability
         Case "unavailable"
             MsgBox "お使いの環境で使えるAIモデルがありません。", vbCritical
-            ReadyAI.ThisCDPBrowser.quit
+            ReadyAI.ThisCDPBrowser.CloseBrowser
             Exit Sub
 
         Case "downloadable", "downloading"
@@ -68,7 +68,7 @@ Sub PromptAPIの準備()
             If Continue = vbYes Then
                 Debug.Print PromptAPI.ModelDownloadProgress
             Else
-                ReadyAI.ThisCDPBrowser.quit
+                ReadyAI.ThisCDPBrowser.CloseBrowser
                 Exit Sub
             End If
 
@@ -105,8 +105,9 @@ Sub PromptAPI即席チャット()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '1. 既存のTargetIDに接続できるか？
-    If Not RunAI.reattachPipe(UserName) Then
+    '1. 既存のTargetIDに接続できるか？(制御経路はPipeとして設定)
+    ReattachOptions.Set_PipeMode = UserName
+    If Not RunAI.reattach(ReattachOptions) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
@@ -137,12 +138,13 @@ Sub PromptAPI即席Streamingチャット()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '1. 既存のTargetIDに接続できるか？
-    If Not RunAI.reattachPipe(UserName) Then
+    '1. 既存のTargetIDに接続できるか？(制御経路はPipeとして設定)
+    ReattachOptions.Set_PipeMode = UserName
+    If Not RunAI.reattach(ReattachOptions) Then
         '既存のTargetIDじゃないと使えないので終わり
         MsgBox "PromptAPI が利用できるタブの検出に失敗しました。" & vbCrLf & "`PromptAPIの準備`プロシージャから、やり直して下さい。", vbCritical
 
-        RunAI.ThisCDPBrowser.quit
+        RunAI.ThisCDPBrowser.CloseBrowser
         Exit Sub
     Else
         Debug.Print "既存の`targetID`への再接続に成功。このタブで処理を再開できます。"

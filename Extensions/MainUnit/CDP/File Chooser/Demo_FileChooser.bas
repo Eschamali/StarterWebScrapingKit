@@ -110,7 +110,7 @@ Sub Demo_FileChooser_01_直接注入_単一と複数()
         MsgBox "MULTI FILE INJECTION に失敗しました。", vbCritical
     End If
 
-    browserTab.ThisCDPBrowser.quit
+    browserTab.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -171,7 +171,7 @@ Sub Demo_FileChooser_02_3種類の添付()
     Else
         Debug.Print "[Demo02] × ①失敗"
         MsgBox "①（単一ファイル）の横取り添付に失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -192,7 +192,7 @@ Sub Demo_FileChooser_02_3種類の添付()
     Else
         Debug.Print "[Demo02] × ②失敗 files.length=" & GetInputFileCount(multiInput)
         MsgBox "②（複数ファイル）の横取り添付に失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -217,7 +217,7 @@ Sub Demo_FileChooser_02_3種類の添付()
     Else
         Debug.Print "[Demo02] × ③失敗"
         MsgBox "③（動的生成input）の横取り添付に失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -225,7 +225,7 @@ Sub Demo_FileChooser_02_3種類の添付()
     Debug.Print "[Demo02] 3種類全ての添付が成功しました！"
     MsgBox "3種類（単一 / 複数 / 動的生成）全ての横取り添付が成功しました！", vbInformation
 
-    browserTab.ThisCDPBrowser.quit
+    browserTab.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -287,7 +287,7 @@ Sub Demo_FileChooser_03_キャンセル機能()
     fc.EnableEvents = False
     fc.ClearFilePaths
 
-    browserTab.ThisCDPBrowser.quit
+    browserTab.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -343,7 +343,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   × Page.fileChooserOpened を検知できませんでした"
         MsgBox "①：ダイアログイベントを検知できませんでした。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
     Debug.Print "[Demo04]   ○ 添付忘れを再現。UnprocessedCount=" & fc.UnprocessedCount & "（files.length=" & GetInputFileCount(singleInput) & "のはず）"
@@ -356,7 +356,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     Else
         Debug.Print "[Demo04] × ①失敗 files.length=" & GetInputFileCount(singleInput)
         MsgBox "①（単一ファイル）のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -371,7 +371,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   × Page.fileChooserOpened を検知できませんでした"
         MsgBox "②：ダイアログイベントを検知できませんでした。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
     Debug.Print "[Demo04]   ○ 添付忘れを再現。UnprocessedCount=" & fc.UnprocessedCount & "（files.length=" & GetInputFileCount(multiInput) & "のはず）"
@@ -385,7 +385,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     Else
         Debug.Print "[Demo04] × ②失敗 files.length=" & GetInputFileCount(multiInput)
         MsgBox "②（複数ファイル）のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -402,7 +402,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=1, TimeOutSecond:=10) Then
         Debug.Print "[Demo04]   × Page.fileChooserOpened を検知できませんでした"
         MsgBox "③：ダイアログイベントを検知できませんでした。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
     Debug.Print "[Demo04]   ○ 添付忘れを再現。UnprocessedCount=" & fc.UnprocessedCount
@@ -415,7 +415,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     Else
         Debug.Print "[Demo04] × ③失敗"
         MsgBox "③（動的生成input）のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -423,7 +423,7 @@ Sub Demo_FileChooser_04_添付忘れからのリトライ()
     Debug.Print "[Demo04] 3種類全ての添付忘れリトライが成功しました！"
     MsgBox "3種類（単一 / 複数 / 動的生成）全ての添付忘れリトライが成功しました！", vbInformation
 
-    browserTab.ThisCDPBrowser.quit
+    browserTab.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -494,7 +494,7 @@ Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
     If Not WaitUntilUnprocessed(browserTab, fc, expectedCount:=3, TimeOutSecond:=15) Then
         Debug.Print "[Demo05] × 3件貯まりませんでした。UnprocessedCount=" & fc.UnprocessedCount
         MsgBox "3連続クリックしても、保留が3件になりませんでした。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
     Debug.Print "[Demo05] ○ 3件とも保留に回りました！ UnprocessedCount=" & fc.UnprocessedCount _
@@ -511,7 +511,7 @@ Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
     Else
         Debug.Print "[Demo05] × 1件目リトライ失敗"
         MsgBox "1件目のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -523,7 +523,7 @@ Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
     Else
         Debug.Print "[Demo05] × 2件目リトライ失敗"
         MsgBox "2件目のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -534,7 +534,7 @@ Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
     Else
         Debug.Print "[Demo05] × 3件目リトライ失敗"
         MsgBox "3件目のリトライに失敗しました。", vbCritical
-        browserTab.ThisCDPBrowser.quit
+        browserTab.ThisCDPBrowser.CloseBrowser
         Exit Sub
     End If
 
@@ -549,7 +549,7 @@ Sub Demo_FileChooser_05_添付漏れ3連続からの一括リトライ()
     End If
 
     fc.EnableEvents = False
-    browserTab.ThisCDPBrowser.quit
+    browserTab.ThisCDPBrowser.CloseBrowser
 
 End Sub
 

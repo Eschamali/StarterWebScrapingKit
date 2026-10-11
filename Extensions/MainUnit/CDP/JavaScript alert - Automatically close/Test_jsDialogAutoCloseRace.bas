@@ -125,7 +125,7 @@ Iter_Next:
 
     PrintHeader "テスト完了: PASS=" & passCount & " / FAIL=" & failCount & " / 合計=" & (passCount + failCount)
     Set ext = Nothing
-    br.ThisCDPBrowser.quit
+    br.ThisCDPBrowser.CloseBrowser
 End Sub
 
 Private Function TryResultCDPForAsync(br As CDPContext, ByVal cmdId As Long, ByRef box As BiDiCDPJson, ByVal timeoutSec As Double) As Boolean

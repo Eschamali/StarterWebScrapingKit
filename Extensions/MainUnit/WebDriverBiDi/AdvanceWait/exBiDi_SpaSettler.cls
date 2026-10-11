@@ -28,7 +28,7 @@ Attribute ex_BiDiContext.VB_VarHelpID = -1
 Private Const ThisClassName     As String = "exBiDi_SpaSettler.cls" 'ログのトレース用
 
 'ステート管理
-Private currentLog             As StateLog  'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents     As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private m_context               As String   '`WebDriverBiDiContext`継承時の`Context`情報
 
@@ -255,7 +255,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".bidi.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 'BiDi実行に必要です
@@ -278,8 +278,7 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    Set ex_BiDiCore = Inheritance.ExEventCore
     
     'コンテキスト情報
     m_context = Inheritance.context
@@ -295,5 +294,5 @@ Private Sub Class_Initialize()
     '初期上限をセット
     CurrentDiscoveryLog.Limit = 5000
 
-    currentLog.LogID = "SPID" & Format(Rnd * 1000, "000")
+    m_LogID = "SPID" & Format(Rnd * 1000, "000")
 End Sub

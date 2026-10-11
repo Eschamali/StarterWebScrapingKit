@@ -41,7 +41,7 @@ Private ex_BiDiContext          As WebDriverBiDiContext
 Private Const ThisClassName     As String = "exBiDi_FileChooser"
 
 'ステート管理
-Private currentLog             As StateLog  'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents     As Boolean  'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CancelMode              As Boolean  '`input.fileDialogOpened`受信時、添付を行わずスキップするか
 Private m_context               As String   '`WebDriverBiDiContext`継承時の`Context`情報
@@ -345,7 +345,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".bidi.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -370,8 +370,7 @@ End Function
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '必要なオブジェクトを継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    Set ex_BiDiCore = Inheritance.ExEventCore
     m_context = Inheritance.context
 
     '既定でイベント監視を有効化（キャンセルモードはOFF）
@@ -385,5 +384,5 @@ Private Sub Class_Initialize()
     Set mFilePaths = New Collection
     Set UnprocessedFileDialogList = New Collection
 
-    currentLog.LogID = "BFID" & Format(Rnd * 1000, "000")
+    m_LogID = "BFID" & Format(Rnd * 1000, "000")
 End Sub
