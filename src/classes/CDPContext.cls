@@ -248,8 +248,7 @@ Private lastExceptionDetailsJS  As BiDiCDPJson 'JavaScript実行時の最後の�
 'その他
 Public KeepSession      As Boolean  'JavaScriptの実行内容(ObjectID)を別のプロシージャに跨ぐ等で、SessionIDを破棄しないようにするオプション
 Private timerOut        As Double   'Max timeout period in seconds, snapPage usually takes 15s so the timeout needs to be sufficient
-Private currentLog      As StateLog 'ログ設定
-Private CustomUAMode    As Boolean  'このツール独自のユーザーエージェントを刻印するか？
+Private m_LogID         As String   'ログ識別ID
 
 
 
@@ -311,36 +310,36 @@ End Function
 '                              ■■■ ブラウザ起動関連処理 ■■■
 '***************************************************************************************************
 '* 機能　　：ブラウザ起動と同時に、非同期イベント：`Target.targetCreated`を利用した初回タブ接続処理を行います
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：userProfile    起動引数：`--user-data-dir`　につけるユーザーディレクトリ名を指定します
-'            appUrl         起動引数：`--app`　につけるURLを指定します
-'            addArgs        追加の起動引数
+'* 引数　　：caps    ブラウザ起動時のオプション設定オブジェクト。ワンショットで、最終的に`Nothing`になります
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：ブラウザ起動と同時に、タブ接続まで自動で行います
 '***************************************************************************************************
-Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
-    Const FromProcedureName As String = ThisClassName & ".StartAndConnectTab"
+Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = caps.ClsGet_CDPCore
+    
+    '2. ブラウザ起動前の一部設定の反映
+    caps.ClsSet_SplashScreenMode = True    'レースコンディション対策としてスプラッシュ画面モードにしておく
 
+    '3. 起動後に使う設定値を確保
+    Dim FirstURL As String: FirstURL = caps.Set_StartURL
 
-    '1. ブラウザ起動
+    '4. ブラウザ起動
     Dim InitURL As String
     Set BrowserCore = New CDPBrowser
-    InitURL = BrowserCore.start(userProfile, appUrl, True, addArgs) 'レースコンディション対策としてスプラッシュ画面モードにしておく
+    InitURL = BrowserCore.OpenBrowser(caps)
 
-    '2. WithEventsClassオブジェクトを受け取る
-    Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
-
-    '3. Complete initialization ------------------------------------------------------
+    '5. Complete initialization ------------------------------------------------------
     InitAttachToSession InitURL                                     'Find and attach the newly open Session ID
     getSessionInfo                                                  'Store initial session info for printParams debugging
     BrowserCore.serializeForMainTab brTab.sessionID, brTab.targetID 'Excelのテーブルにメインセッションとして記録させる
     '------------------------------------------------------------------------------
 
-    '4. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
-    If LenB(appUrl) Then navigate appUrl
+    '6. Make sure the page is fully loaded for inAppMode ------------------------------------------------------------------------------------
+    If LenB(FirstURL) Then navigate FirstURL
     '-------------------------------------------------------------------------------------------------------------------------------------
 
-    '5. Finally print the session details for debugging ------------------------------
+    '7. Finally print the session details for debugging ------------------------------
     printParams
     '------------------------------------------------------------------------------
 
@@ -456,66 +455,12 @@ End Sub
 '***************************************************************************************************
 '                               ■■■ 再接続処理系 ■■■
 '***************************************************************************************************
-'* 機能　　：Excelテーブルにある既存のパイプハンドル、ブラウザセッション情報を利用して、再接続を試みます
+'* 機能　　：事前に通信経路を設定した`ReattachOptions.cls`を渡して、メインタブから制御を再開します
 '---------------------------------------------------------------------------------------------------
-'* 返り値　：既存タブへの接続成功可否論理値
-'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
-'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
-'***************************************************************************************************
-Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
-    '1. 新オブジェクトを用意
-    Set BrowserCore = New CDPBrowser
-
-    '2. 識別名称に紐づくパイプハンドル情報を再セット
-    BrowserCore.reattachPipe userProfile
-
-    '3. 既存のタブ(TargetID)への再接続を試みる
-    reattachPipe = reattach(reuseSession)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：WebSocket、ブラウザセッション情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：既存タブへの接続成功可否論理値
-'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
-'            ConnectInfo    接続済みのWebSocketオブジェクト
-'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
-'***************************************************************************************************
-Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
-    '1. 新オブジェクトを用意
-    Set BrowserCore = New CDPBrowser
-
-    '2. 識別名称に紐づくWebSocket情報を再セット
-    BrowserCore.reattachWebSocket userProfile, ConnectInfo
-
-    '3. 既存のタブ(TargetID)への再接続を試みる
-    reattachWebSocket = reattach(reuseSession)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：WebView2、ブラウザセッション情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：既存タブへの接続成功可否論理値
-'* 引数　　：userProfile    再アタッチしたいユーザー名(user-data-dirに基づく)
-'            ConnectInfo    接続済みのWebSocketオブジェクト
-'            reuseSession   `True`でExcelテーブルにあるメイン`SessionID`情報を流用します
-'***************************************************************************************************
-Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
-    '1. 新オブジェクトを用意
-    Set BrowserCore = New CDPBrowser
-
-    '2. WebView2情報を再セット
-    BrowserCore.reattachWebView2 userProfile, ConnectInfo
-
-    '3. 既存のタブ(TargetID)への再接続を試みる
-    reattachWebView2 = reattach(reuseSession)
-End Function
-
-'***************************************************************************************************
-'* 機能　　：Excelテーブルにある既存のタブ(TargetID)情報を利用して、再接続を試みます
-'---------------------------------------------------------------------------------------------------
-'* 返り値　：TargetIDの生存論理値
-'* 引数　　：reuseSession   Excelに記録してる`SessionID`を使いまわすか？
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト
+'
+'            reuseSession   `True` ：Excelに記録してる`SessionID`を使いまわす
+'                           `False`：Excelに記録してる`SessionID`を使いまわさず、新しいSessionIDを発行します
 '---------------------------------------------------------------------------------------------------
 '* 機能説明：Reattach to the target CPID file. This method enables the management of multiple
 '            CDP instances at once under different Chrome/Edge user profiles. The benefit of
@@ -523,7 +468,9 @@ End Function
 '            and thus enables the possibility of running multiple CDP automation operations
 '            on entirely different tasks simultaneously.
 '
-'* 注意事項：・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
+'* 注意事項：・ハンドルそのものが生きてない場合は、VBAエラーで止まります
+'            ・WebSocketモードの場合は、`destruction:=False`推奨です。ヘッダー情報にサイズ情報があるためです
+'            ・この処理はあくまで、Excelテーブルに記録されてる`targetID`への再接続まで担う処理です。
 '            　この`targetID`自体が既に閉じてしまってる場合、結果は`False`で返りますが、VBAエラーがない場合、パイプハンドルは生きてるので、下記のメソッドで手動で復旧可能です。
 '            　その際は、`setMain:=True`で、セッションを確立させてください。
 '            　・CDPBrowser.newTab
@@ -531,18 +478,33 @@ End Function
 '
 '            ・非同期イベント情報を購読中の場合(例：Network.webSocketFrameReceived)は、`reuseSession:=True`推奨です
 '***************************************************************************************************
-Private Function reattach(Optional reuseSession As Boolean) As Boolean
+Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession As Boolean) As Boolean
     Const FromProcedureName As String = ThisClassName & ".reattach"
 
 
-    '1. タブ情報を再セット
-    Set Me.ThisCDPCore = BrowserCore.ThisCDPCore
-    deserializeForTab reuseSession
+    '1. プロトコルコアオブジェクトを受けとる
+    Set PipeCore = reattachInfo.ClsGet_CDPCore
 
-    '2. `sessionId`が空欄の場合は、即抜け
-    If LenB(brTab.sessionID) = 0 Then reattach = False: printMsg WARN_, "Failed to reattach to previous CPID.", FromProcedureName: Exit Function
+    '2. 接続情報をブラウザClassにも適用
+    Set BrowserCore = New CDPBrowser
+    BrowserCore.reattach reattachInfo
 
-    '3. sessionId生存check
+    '3. 前回のタブ情報を取り出し、ない場合は即抜け
+    If Not deserializeForMainTab Then Exit Function
+    If LenB(brTab.targetID) = 0 Then printMsg WARN_, "There is no main tab information associated with the username '" & BrowserCore.CurrentBrowserUser & "' that was recently accessed.", FromProcedureName: Exit Function
+
+    '4. `SessionID`に関する判定
+    '※`SessionID`のみ、記録なしの場合も、更新を試みます
+    If Not reuseSession Or LenB(brTab.sessionID) = 0 Then
+        '4-1. 新しい`sessionId`を発行し、失敗時はエラーログを出して抜ける
+        Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
+        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Function
+
+        '4-2. 内部で、その古いSessionIDを破棄させ、新しいSessionIDを付与
+        Me.CurrentSessionID = newSessionID
+    End If
+
+    '5. sessionId生存check
     If refreshTargetInfo Is Nothing Then
         reattach = False
 
@@ -563,12 +525,11 @@ Private Function reattach(Optional reuseSession As Boolean) As Boolean
 End Function
 
 '***************************************************************************************************
-'* 機能　　：Excelのテーブルから、ブラウザのタブ情報を取得します
+'* 機能　　：Excelのテーブルに記録されてるメインタブ情報を読み込みます
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：reuseSession   `True` ：Excelに記録中のsessionIdを流用します
-'                           `False`：`targetID`を基に、sessionIdを更新し、Excelに記録中の古いsessionIdの破棄も行い、上書きします
+'* 返り値  ：設定の読み取りができたかの論理値
 '***************************************************************************************************
-Private Sub deserializeForTab(reuseSession As Boolean)
+Private Function deserializeForMainTab() As Boolean
     Const FromProcedureName As String = ThisClassName & ".deserializeForTab"
 
 
@@ -576,32 +537,18 @@ Private Sub deserializeForTab(reuseSession As Boolean)
     Dim objSerialize As Dictionary
     Set objSerialize = ShSetting01_StartBrowser.TableBrowserContext(BrowserCore.CurrentBrowserUser, FromProcedureName)
 
-    '2. そもそもない場合は即抜け
-    If objSerialize Is Nothing Then Exit Sub
+    '2. 取得に失敗した場合は、Excelのテーブルに記録されてないので抜ける
+    If objSerialize Is Nothing Then printMsg WARN_, "The main tab information associated with the recently accessed username:" & BrowserCore.CurrentBrowserUser & " is not found in the Excel table.", FromProcedureName: Exit Function
 
-    '3. タブのTargetID情報を適用しない場合は、即抜け
-    brTab.targetID = objSerialize.Item("targetID")
-    If LenB(brTab.targetID) = 0 Then printMsg ERROR_, "targetId is not specified.", FromProcedureName: Exit Sub
+    '3. クラス内変数に適用
+    With brTab
+        .sessionID = objSerialize("sessionID")
+        .targetID = objSerialize("targetID")
+    End With
 
-    '4. SessionIDの適用方法に応じた分岐を行う
-    If reuseSession And LenB(objSerialize.Item("sessionID")) Then
-        '既存のSessionIDを適用
-        '4-1. 古いSessionIDを適用
-        brTab.sessionID = objSerialize.Item("sessionID")
-        printMsg info_, "I applied the SessionID(" & brTab.sessionID & ") from the Excel table.", FromProcedureName
-    Else
-        '古いSessionIDを破棄してから、新しいSessionIDを付与
-        '4-1. 新しい`sessionId`を発行し、失敗時はエラーログを出して抜ける
-        Dim newSessionID As String: newSessionID = BrowserCore.attachToTab(brTab.targetID)
-        If LenB(newSessionID) = 0 Then printMsg ERROR_, "Failed to update sessionid with Targetid: " & brTab.targetID, FromProcedureName: Exit Sub
-
-        '4-2. 一旦、古いSessionIDを適用
-        brTab.sessionID = objSerialize.Item("sessionID")
-
-        '4-3. 内部で、その古いSessionIDを破棄させ、新しいSessionIDを付与
-        Me.CurrentSessionID = newSessionID
-    End If
-End Sub
+    '4. 成功サインを返す
+    deserializeForMainTab = True
+End Function
 
 
 
@@ -768,7 +715,7 @@ step1:
         If StrPtr(CDPresult) = 0 Then printMsg ERROR_, "Unable to contact the Browser instance!", FromProcedureName, doRaiseError:=True
 
         'CDP自体の結果ログ表示
-        If currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
+        If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Trace_, "jsEval - ResultCDP - JsonString = " & CDPresult, FromProcedureName
 
         'エラーチェック
         Dim Node_CDPresult As BiDiCDPJson: Set Node_CDPresult = BiDiCDPJson.Parse(CDPresult)
@@ -812,7 +759,7 @@ step2:
     Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
 
     '`RemoteObject`部分を文字ログ化
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
     If Not Node_ExceptionDetails Is Nothing Then
@@ -1218,7 +1165,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     End If
 
     '6. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteCDP `" & methodName & "` with result: " & ResultJsonStr, FromProcedureName
 
 End Function
 
@@ -1880,7 +1827,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, m_LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Tab ID        | " & brTab.targetID, FromProcedureName
@@ -1922,7 +1869,7 @@ Public Sub getSessionInfo()
     pageEnable True
 
     'ユーザーエージェントに刻印する場合はそれを行う
-    If CustomUAMode Then AppendVbaUserAgent
+    If BrowserCore.UseCustomUAMode Then AppendVbaUserAgent
 
 End Sub
 
@@ -2878,29 +2825,29 @@ End Sub
 
 
 '***************************************************************************************************
-'                              ■■■ 複製/継承用プロパティ ■■■
+'                              ■■■ 継承用プロパティ ■■■
 '***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPCore.cls`を受け取ったり継承させます
-'***************************************************************************************************
-Property Get ThisCDPCore() As CDPCore
-    Set ThisCDPCore = PipeCore
-End Property
-Property Set ThisCDPCore(Target As CDPCore)
-    '1. コア本体を継承
-    Set PipeCore = Target
-
-    '2. ログ設定もついでに継承
-    CDPHelpers.InheritLogSettings currentLog, Target.LogSettings
-End Property
-
-'***************************************************************************************************
-'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ったり継承させます
+'* 機能　　：このClass内で定義してる`CDPBrowser.cls`を受け取ります
 '***************************************************************************************************
 Property Get ThisCDPBrowser() As CDPBrowser
     Set ThisCDPBrowser = BrowserCore
 End Property
-Property Set ThisCDPBrowser(Target As CDPBrowser)
-    Set BrowserCore = Target
+
+'***************************************************************************************************
+'* 機能　　：新しいタブ、既存タブを制御する際に受け継ぐ内部メソッドです
+'***************************************************************************************************
+Public Sub Init(br As CDPBrowser, Core As CDPCore)
+    Set BrowserCore = br
+    Set PipeCore = Core
+End Sub
+
+'***************************************************************************************************
+'* 機能　　：自作の拡張Classにて、イベント(RaiseEvent)を受け取る際に使う上級者向けコアClassです
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：自作の拡張Class以外では、使うことはありません
+'***************************************************************************************************
+Property Get ExEventCore() As CDPCore
+    Set ExEventCore = PipeCore
 End Property
 
 
@@ -2995,7 +2942,7 @@ Property Let CurrentSessionID(newSessionID As String)
     getSessionInfo
 
     'ログ化
-    printMsg info_, currentLog.LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
+    printMsg info_, m_LogID & " updated Session ID to " & brTab.sessionID, FromProcedureName
 
 End Property
 
@@ -3123,7 +3070,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -3164,11 +3111,8 @@ Private Sub Class_Initialize()
 '          22/10/25 Daniel Polak - prevent compilation errors because depending on whether we are running in Excel, Word or Access only one of ThisWorkbook, ActiveDocument and CurrentProject is available
 '          22/01/26 Long Vh - removed the auto deserialization feature to running multiple instances of browser profiles.
 '----------------------------------------------------------------------------------
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
     'Assign an objID for easy debug identification
-    currentLog.LogID = "TBID" & Format(Rnd * 1000, "000")
+    m_LogID = "TBID" & Format(Rnd * 1000, "000")
 
     'public用イベントメソッドフィルターを有効化
     Set publicBrowserEvents.Filter = New Dictionary
@@ -3178,9 +3122,6 @@ Private Sub Class_Initialize()
 
     '`WithEvents`からのコマンド結果を蓄積させる初期化
     Set ResultCommandCDP_Context = New Dictionary
-
-    '独自のユーザーエージェントを付与するか
-    CustomUAMode = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.EnableUserAgentOverride, FromProcedureName)
 End Sub
 
 '***************************************************************************************************

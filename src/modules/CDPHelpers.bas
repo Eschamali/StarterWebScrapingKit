@@ -33,13 +33,12 @@ Public Enum ReadyState      'Used for .wait method
     isComplete      'equivalence of the browser's "complete"(Page.loadEventFired) state
 End Enum
 
-'各 Class のログ設定（`Private currentLog As StateLog`）。
-'`seeRawSendMsgDbg` / `logPath` は `CDPCore` がホストし、Start / reattach / 継承時に受け継ぐ。`LogID` は各 Class が `Class_Initialize` で採番する
-Public Type StateLog
+'ログ共通設定。
+Private Type StateLog
     seeRawSendMsgDbg    As Boolean  'Jsonパース処理しないと文字列として出せない場面 or バッファーから取り出したRawJson文字列場面も表示させるか？※基本はCore系のみ
     logPath             As String   'ログファイルの保存フォルダパス。`vbNullString`なら保存しない合図として併用OK
-    LogID               As String   '"○○○○" & Format(Rnd * 1000, "000")　(○は4文字)
 End Type
+Public currentLog       As StateLog
 
 'ウィンドウ表示設定値一式 https://learn.microsoft.com/ja-jp/windows/win32/api/winuser/nf-winuser-showwindow
 Public Enum WinState
@@ -76,8 +75,8 @@ Public Const EmptyPageName      As String = "about:blank"           '空のWeb�
 '***************************************************************************************************
 '                                   ■■■ 各種変数 ■■■
 '***************************************************************************************************
-Private m_Frequency As Currency     '実行マシンでの周波数記録用
-Private LogControl  As New Logger   'ログレベルの制御
+Private m_Frequency     As Currency     '実行マシンでの周波数記録用
+Private LogControl      As New Logger   'ログレベルの制御
 
 
 
@@ -159,16 +158,6 @@ End Sub
 
 '***************************************************************************************************
 '                                     ■■■ ログ系 ■■■
-'***************************************************************************************************
-'* 機能　　：`CDPCore` ホストのログ設定（生JSON表示 / 保存先）を受け継ぎます
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：`LogID` は各 Class 固有のため上書きしません
-'***************************************************************************************************
-Public Sub InheritLogSettings(ByRef dest As StateLog, Source As StateLog)
-    dest.seeRawSendMsgDbg = Source.seeRawSendMsgDbg
-    dest.logPath = Source.logPath
-End Sub
-
 '***************************************************************************************************
 '* 機能　　：Immediate Window と、任意のフォルダへのログファイル出力を行います
 '---------------------------------------------------------------------------------------------------
