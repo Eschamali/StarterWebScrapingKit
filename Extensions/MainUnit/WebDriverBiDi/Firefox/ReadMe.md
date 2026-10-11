@@ -7,6 +7,8 @@ Firefox に、**WebDriver BiDi プロトコルをそのまま WebSocket で送�
 > コア（`src/`）に少し書き足しが必要なため、メインの配布物には入っていません。\
 > 書き足し分は、このエクステンションと同じブランチ(ex-Firefox)で管理しています（[コア側の追記内容](#-コア側に追記したもの)）。
 
+![Excel VBAからFirefoxを制御している様子](../../../../doc/firefox.gif)
+
 ***
 
 ## 📁 ファイル構成
@@ -42,6 +44,28 @@ flowchart LR
 ```
 
 `WebDriverBiDiMode` / `WebDriverBiDiContext` の上側の使い方（`navigate` / `getTab` / `SubscribeBiDiEvent` / `TakeEvents` など）は、Chromium のときと同じです。
+
+***
+
+## 🦊 ブランチ秘話：Chromium 用のはずが、Firefox も動いた
+
+このツールは、元々は **Chromium（CDP）専用**でした。WebDriver BiDi も、Chromium が BiDi をネイティブで話せないために、翻訳機（`mapperTab.js`）を挟んで実現したものです。
+
+それなのに、Firefox を動かすために `src/` へ書き足した量は、**3ファイルで 81行追加・6行削除**。専用のクラスも、ありません。
+
+なぜ、そんなに少なくて済んだのか。振り返ると、別の目的で入れてきた設計が、いつの間にか下地になっていました。
+
+| 下地 | いつ | Firefox 対応で効いたところ |
+| --- | --- | --- |
+| **責務分離と `RaiseEvent`** | 2026年5月末〜6月 | 受信・解析・通知を `CDPCore` が担い、上位へはイベントで配る形に刷新しました。Firefox 版は、受信した生JSONを別のイベント（`DirectWebDriverBiDiRes`）で `WebDriverBiDiCore` へ渡すだけで済みました |
+| **`mapperTab.js` による BiDi 構築** | 2026年3月 | Chromium を BiDi 化するために、`WebDriverBiDiMode` / `WebDriverBiDiContext` は「BiDi で会話する側」として作ってありました。Firefox は、最初から BiDi を話せます。翻訳機を飛ばして、BiDi の JSON をそのまま WebSocket に流すだけで、上側のコードはそのまま使えました |
+| **オプションオブジェクト** | 2026年10月（v4.0.0） | 「BiDi 直結モード」のスイッチは、最初は専用の引数と `CDPCoreViaWebSocket` のフラグでした。v4.0.0 で `ReattachOptions` が入り、`Set_DirectWebDriverBiDi` の1プロパティに収まりました |
+
+最初の Firefox 制御（接続経路の確保とデモ）は、2026年10月6日。v4.0.0 の入口刷新（10月8〜10日）にも、スイッチを `ReattachOptions` へ移す形で、10月11日の対応で追従できました。
+
+> 「Chromium で積み上げた設計が、本物の WebDriver BiDi にも、そのまま通用した」
+
+ちょっとした答え合わせができたようで、個人的にはとても嬉しい出来事でした🦊
 
 ***
 
