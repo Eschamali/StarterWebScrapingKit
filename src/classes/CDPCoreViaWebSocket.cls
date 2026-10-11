@@ -146,7 +146,6 @@ Private Const D_host        As String = "127.0.0.1"
 
 'その他
 Private Const ThisClassName As String = "CDPCoreViaWebSocket"
-Public DirectWebDriverBiDiMode As Boolean
 
 
 

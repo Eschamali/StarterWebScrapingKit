@@ -194,6 +194,7 @@ Private WithEvents viaWebSocket As CDPCoreViaWebSocket      'WebSocket経由でC
 Attribute viaWebSocket.VB_VarHelpID = -1
 Private WithEvents viaWebView2  As CDPCoreViaWebView2       'WebView2経由でCDP制御したい場合のオブジェクト用
 Attribute viaWebView2.VB_VarHelpID = -1
+Private DirectWebDriverBiDiMode As Boolean                  'WebDriverBiDiプロトコルとして扱うかのスイッチング
 
 'バッファー管理
 Private Type ResponseBufferCDP
@@ -513,7 +514,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：WebSocketモードでのメッセージ取得/解析に切り替えます
 '***************************************************************************************************
-Property Set RemoteDebuggingPortMode(UserName As String, ws As CDPCoreViaWebSocket)
+Property Set RemoteDebuggingPortMode(UserName As String, Optional BiDiMode As Boolean, ws As CDPCoreViaWebSocket)
     Const FromProcedureName As String = ThisClassName & ".RemoteDebuggingPortMode"
 
 
@@ -523,7 +524,10 @@ Property Set RemoteDebuggingPortMode(UserName As String, ws As CDPCoreViaWebSock
     '2. 接続情報を適用
     Set viaWebSocket = ws
 
-    '3. 便宜上情報を取得し、失敗したら、止める
+    '3. WebDriverBiDiプロトコルとして扱うか？
+    DirectWebDriverBiDiMode = BiDiMode
+
+    '4. 便宜上情報を取得し、失敗したら、止める
     '※`CDPCoreViaWebSocket`側でテーブルが作成される想定なので、正しいフローで接続すれば、PASSされます
     If Not deserialize Then printMsg ERROR_, "Failed to read WebSocket information for '" & UserName & "'.", FromProcedureName, doRaiseError:=True
 End Property
@@ -1416,9 +1420,13 @@ Public Sub TakeEvent()
     If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "Result - CDP          : " & tmp, FromProcedureName  'Only enable if needs to see every raw JS message for debugging/development
 
     '2. 受信データを`RaiseEvent`するプロシージャへ委託
-    printMsg Trace_, "I will trigger one `RaiseEvent`.", FromProcedureName
-    If Not viaWebSocket Is Nothing Then If viaWebSocket.DirectWebDriverBiDiMode Then RaiseEvent DirectWebDriverBiDiRes(tmp): Exit Sub
-    Call BrowserReceivedDataCheck(tmp)
+    If DirectWebDriverBiDiMode Then
+        RaiseEvent DirectWebDriverBiDiRes(tmp)
+    Else
+        BrowserReceivedDataCheck (tmp)
+    End If
+
+    printMsg Trace_, "I triggered one `RaiseEvent`.", FromProcedureName
 End Sub
 
 '***************************************************************************************************

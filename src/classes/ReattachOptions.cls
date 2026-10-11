@@ -24,6 +24,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------------------
 Private m_CDPCore               As CDPCore
 Private m_WebDriverBiDiCore     As WebDriverBiDiCore
+Private m_WebDriverBiDiDirect   As Boolean
 
 '---------------------------------------------------------------------------------------------------
 ' [ SECTION ] 起動済みブラウザに接続する際の関連設定
@@ -70,7 +71,7 @@ End Property
 '***************************************************************************************************
 Property Let Set_WebSocketMode(ws As CDPCoreViaWebSocket, UserName As String)
     Set m_CDPCore = New CDPCore
-    Set m_CDPCore.RemoteDebuggingPortMode(UserName) = ws
+    Set m_CDPCore.RemoteDebuggingPortMode(UserName, m_WebDriverBiDiDirect) = ws
 End Property
 
 '***************************************************************************************************
@@ -116,6 +117,9 @@ Property Let Set_EnableUserAgentOverride(Flag As Boolean)
     m_EnableUserAgentOverride = Flag
 End Property
 
+Property Let Set_DirectWebDriverBiDi(Flag As Boolean)
+    m_WebDriverBiDiDirect = Flag
+End Property
 
 
 '***************************************************************************************************
@@ -155,6 +159,9 @@ Property Get Set_EnableUserAgentOverride() As Boolean
     Set_EnableUserAgentOverride = m_EnableUserAgentOverride
 End Property
 
+Property Get Set_DirectWebDriverBiDi() As Boolean
+    Set_DirectWebDriverBiDi = m_WebDriverBiDiDirect
+End Property
 
 
 '***************************************************************************************************

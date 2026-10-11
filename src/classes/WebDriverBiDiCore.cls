@@ -33,9 +33,6 @@ Private Const BiDiSend      As String = "onBidiMessage"                 '`BiDi-C
 Private Const MapperJSName  As String = "mapperTab.js"  'WebDriverBiDiのやり取りの核となるJavaScriptファイル名
 Private Const npmName       As String = "chromium-bidi" '公式リポジトリ名称`https://github.com/GoogleChromeLabs/chromium-bidi`
 
-'直やり取りスイッチング
-Private DirectWebDiverBiDi  As Boolean
-
 
 
 '***************************************************************************************************
@@ -58,6 +55,7 @@ Private WithEvents m_CDPCore    As CDPCore      'イベント受け取りオブ�
 Attribute m_CDPCore.VB_VarHelpID = -1
 Private m_CDPBrowser            As CDPBrowser   'ブラウザ操作用
 Private WebDriverBiDi_mapperTab As CDPContext   'BiDi-CDP Mapper 操作用タブ
+Private DirectWebDriverBiDiMode As Boolean      'WebDriverBiDiプロトコルとして扱うかのスイッチング
 
 '「BiDi-CDP Mapper」のデバッグ設定状況
 Private Type StateDebug
@@ -248,11 +246,10 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
     Const FromProcedureName As String = ThisClassName & ".ReBootBiDiCDPMapper"
 
 
-    '0. WebDriverBiDiダイレクトなら専用プロシージャへ
-    If Not WebSocketMode Is Nothing Then If WebSocketMode.DirectWebDriverBiDiMode Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi(userProfile, WebSocketMode): Exit Function
 
-    '1. CDPタブセッションに再接続
-    Set WebDriverBiDi_mapperTab = New CDPContext
+    '1. 接続情報を継承し、WebDriverBiDi直やり取りモードの場合はそっちに委託する
+    Set m_CDPCore = reattachInfo.ClsGet_CDPCore
+    If reattachInfo.Set_DirectWebDriverBiDi Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi: Exit Function
 
     '2. Mapper起動前に使う設定値を確保
     BiDiDebug.ViewDebugTab = reattachInfo.Set_BiDiViewTab_BiDiCDPMapper
@@ -321,24 +318,20 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
     End If
 End Function
 
-Private Function RunDirectWebDriverBiDi(UserName As String, WebSocketMode As CDPCoreViaWebSocket) As Boolean
+Private Function RunDirectWebDriverBiDi() As Boolean
     Const FromProcedureName As String = ThisClassName & ".RunDirectWebDriverBiDi"
 
 
-    '1. 必要なオブジェクトを設定
-    Set m_CDPCore = New CDPCore
-    Set m_CDPCore.WebSocketMode = WebSocketMode
+    '1. ダイレクトモードにする
+    DirectWebDriverBiDiMode = True
 
-    '2. ダイレクトモードにする
-    DirectWebDiverBiDi = True
-
-    '3. メインタブ記録用に、データ枠を用意
+    '2. メインタブ記録用に、データ枠を用意
     With ShSetting01_StartBrowser
-        '3-1. 既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
+        '2-1. 既存のメインBiDi-context情報を上書きしないように予め、MainBiDi-Context情報を取り出しておく
         Dim BiDiMapperInfo As Dictionary
-        Set BiDiMapperInfo = .TableBrowserContext(UserName, FromProcedureName)
+        Set BiDiMapperInfo = .TableBrowserContext(Me.CurrentUserName, FromProcedureName)
 
-        '3-2. 記録準備
+        '2-2. 記録準備
         If BiDiMapperInfo Is Nothing Then
             '新規なので、全て空で用意
             Set BiDiMapperInfo = New Dictionary
@@ -351,11 +344,11 @@ Private Function RunDirectWebDriverBiDi(UserName As String, WebSocketMode As CDP
             BiDiMapperInfo("targetID") = vbNullString
         End If
 
-        '3-3. 実際に記録
-        Set .TableBrowserContext(UserName, FromProcedureName) = BiDiMapperInfo
+        '2-3. 実際に記録
+        Set .TableBrowserContext(Me.CurrentUserName, FromProcedureName) = BiDiMapperInfo
     End With
 
-    '4. ここでは仮で、`False`で返す
+    '3. ここでは仮で、`False`で返す
     '※`WebDriverBiDiMode.reattach`の`session.Status`側で、改めて判定します
     RunDirectWebDriverBiDi = False
 End Function
@@ -468,7 +461,7 @@ Public Function ReadyRunBiDi(methodName As String, parametersAsJson As Dictionar
     Dim strMessage As String
     strMessage = WebJsonConverter.serialize(TopParams)
     printMsg Debug_, "sendBiDi - JsonCommand = " & strMessage, FromProcedureName
-    If DirectWebDiverBiDi Then m_CDPCore.writeWebSocketBiDi strMessage Else RunCDP strMessage, StopApiError
+    If DirectWebDriverBiDiMode Then m_CDPCore.writeWebSocketBiDi strMessage Else RunCDP strMessage, StopApiError
 End Function
 
 '***************************************************************************************************
