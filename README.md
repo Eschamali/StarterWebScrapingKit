@@ -86,7 +86,7 @@ Sub BeginningOfAdventureByCDP()
 
 
     ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -104,9 +104,28 @@ Sub BeginningOfAdventureByBiDi()
 
 
     ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 ```
+
+### Launching Directly Without the Helper
+
+You can also skip the `ShSetting01_StartBrowser` helper and launch directly by passing `BrowserCapabilities`, a class dedicated to holding the launch options. The default values are loaded from the worksheet, so you only need to override the items you want to change.
+
+```bas
+Sub LaunchDirectly()
+    ' Override only the items you want to change (optional). If you specify nothing, it launches with the settings sheet as-is
+    BrowserCapabilities.Set_StartURL = "https://example.com"
+
+    Dim t As CDPContext
+    Set t = New CDPContext
+    t.OpenBrowserAndConnectTab BrowserCapabilities
+
+    t.ThisCDPBrowser.CloseBrowser
+End Sub
+```
+
+For details, see [`BrowserCapabilities`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/BrowserCapabilities).
 
 ---
 
@@ -134,7 +153,7 @@ Sub LaunchNewBrowserInWebSocketMode()
     t.navigate "https://www.youtube.com/@islandfox6864"
 
     ' 3. Done
-    t.ThisCDPBrowser.quit
+    t.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -158,19 +177,22 @@ Sub AutoConnectTab()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     ' 2. Connect to the specified WebSocketForCDP-page
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    ' 3. Pass the connected WebSocket object to the `reattachWebSocket` method
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    ' 3. Set the connected WebSocket object as the WebSocket mode
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    ' 4. Navigate
+    ' 4. Pass the reattach information to the `reattach` method
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    ' 5. Navigate
     ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
     t.navigate "https://www.youtube.com/@islandfox6864"
 
-    ' 5. Disconnect from the WebSocket
-    WebSocketCDP.DisconnectCDP
+    ' 6. Disconnect from the WebSocket
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 ```
 
@@ -179,7 +201,9 @@ End Sub
 * **Building on this code**:
   You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
 * **About the connection types**:
-  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`ReConnectCDP`). See the `Demo_CDP` demos for usage examples of each.
+  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`AutoConnectDevToolsActivePort`). See the `Demo_CDP` demos for usage examples of each.
+* **About reattaching**:
+  The choice of control route (Pipe / Port / WebView2) is consolidated into `ReattachOptions`, a class dedicated to holding reattach options. For details, see [`ReattachOptions`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/ReattachOptions) and the [reattach guide](https://eschamali.github.io/StarterWebScrapingKit/guides/reattach).
 
 ### 🥉 WebView2
 
@@ -196,11 +220,12 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
 
         ' 2. Launch the WebView2 process
-        If Not .StartCDPModeWebView2 Then Debug.Print "Failed to initialize WebView2.": Exit Sub
+        .StartCDPModeWebView2
 
         ' 3. Apply pre-navigation settings (optional)
         .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
         .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
+        .ThisWebView2.StatusBarEnabled = False      ' Hide the status text shown at the bottom left
 
         ' 4. Navigate, as CDP
         ' SSO disabled: shows the Microsoft account introduction page

@@ -80,7 +80,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -98,9 +98,28 @@ Sub BiDiによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 ```
+
+### ヘルパーを使わずに、直接起動する場合
+
+`ShSetting01_StartBrowser` のヘルパーを経由せず、起動オプションの設定保持専用クラス `BrowserCapabilities` を渡して直接起動することもできます。設定の既定値はワークシートから読み込まれるので、変えたい項目だけ上書きすれば OK です。
+
+```bas
+Sub 直接起動する()
+    '変えたい項目だけ上書き(任意)。何も指定しなければ、設定シートの内容で起動します
+    BrowserCapabilities.Set_StartURL = "https://example.com"
+
+    Dim t As CDPContext
+    Set t = New CDPContext
+    t.OpenBrowserAndConnectTab BrowserCapabilities
+
+    t.ThisCDPBrowser.CloseBrowser
+End Sub
+```
+
+詳しくは [`BrowserCapabilities`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/BrowserCapabilities) を参照してください。
 
 ---
 
@@ -128,7 +147,7 @@ Sub WebSocketモードで新規にブラウザを起動する()
     t.navigate "https://www.youtube.com/@islandfox6864"
 
     '3. 終了
-    t.ThisCDPBrowser.quit
+    t.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -152,19 +171,22 @@ Sub AutoConnectTab()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. 指定のWebSocketForCDP-pageへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    '3. 繋げたWebSocketオブジェクトを、WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    '4. ページ遷移
+    '4. 再接続情報を`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '5. ページ遷移
     'ちなみにこのURLは、開発者の推しのYouTubeチャンネルに飛びます🤠
     t.navigate "https://www.youtube.com/@islandfox6864"
 
-    '5. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '6. WebSocketから切断
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 ```
 
@@ -173,7 +195,9 @@ End Sub
 * **このコードを基にして**：
   面倒なログイン認証はユーザーがブラウザ上で手動で終わらせておき、 **「Excelのボタンを押した瞬間から、ログイン済みの画面をVBAが引き継いで複雑なスクレイピングを爆速で開始する」** といった、実務上最高に便利で壊れにくいハイブリッド自動化システムを簡単に組み立てることができます。
 * **接続の種類について**：
-  特定のページ（`AutoConnectPageCDP`）、ブラウザそのもの（`AutoConnectBrowserCDP`）、今目の前のブラウザ（`ReConnectCDP`）　の３種類をご用意しております。この辺の使い方も `Demo_CDP` のデモにありますので参考に。
+  特定のページ（`AutoConnectPageCDP`）、ブラウザそのもの（`AutoConnectBrowserCDP`）、今目の前のブラウザ（`AutoConnectDevToolsActivePort`）　の３種類をご用意しております。この辺の使い方も `Demo_CDP` のデモにありますので参考に。
+* **再接続について**：
+  接続経路（Pipe / Port / WebView2）の指定は、再接続用のオプション設定クラス `ReattachOptions` に集約されています。詳しくは [`ReattachOptions`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/ReattachOptions) / [再接続ガイド](https://eschamali.github.io/StarterWebScrapingKit/guides/reattach) を参照してください。
 
 ### 🥉 WebView2
 
@@ -190,11 +214,12 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
 
         '2. WebView2プロセスを起動
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+        .StartCDPModeWebView2
 
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
         .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+        .ThisWebView2.StatusBarEnabled = False      '左下に出るステータステキストを表示しない
 
         '3. CDPとして、ページ遷移
         'シングルサインオンを無効：Microsoftアカウントの紹介
