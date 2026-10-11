@@ -239,12 +239,10 @@ While maintaining the project's philosophy of being **"self-contained in VBA"** 
 
 ## 🎁 Bonus Features
 
-Besides CDP control, the following two are also included.
+Besides CDP control, the following included.
 
 * **🚀 REST WebAPI (WinHTTP 5.1)**
   * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings. The standard module `Template_WebAPI` is provided as a template for building the basics.
-* **⚡ WebSocket Communication (General-purpose)**
-  * A challenge for real-time communication, separate from browser control. Equipped with minimal connection and send/receive functions using WinAPI. An evolving feature that pushes the boundaries of VBA. The demo is in the standard module `Demo_WebSocket`.
 
 ---
 
