@@ -42,7 +42,7 @@ Sub CDPによる冒険の始まり()
 
 
     'ブラウザを正常に閉じる
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 
 
@@ -115,7 +115,7 @@ Sub checkNetworkEvents()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.ThisCDPBrowser.quit
+    Demo_NetworkEvent.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -163,7 +163,7 @@ Sub JapaneseElementTest()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_Japanese.ThisCDPBrowser.quit
+    Demo_Japanese.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -204,7 +204,7 @@ Sub UseExtensions()
         MsgBox "拡張機能のインストールに失敗しました。" & vbCrLf & vbCrLf & "＜原因＞" & vbCrLf & controlExtensions.ThisCDPBrowser.LastCDPJsonError("message"), vbCritical, "ErrorCode:" & controlExtensions.ThisCDPBrowser.LastCDPJsonError("code")
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.CloseBrowser
         Exit Sub
 
     ElseIf ResultCDP.ExistsKey("id") Then
@@ -214,7 +214,7 @@ Sub UseExtensions()
         MsgBox "インストールIDの確認が取れませんでした。" & vbCrLf & vbCrLf & "<RawResult>" & vbCrLf & ResultCDP.Stringify, vbExclamation, "Not found id"
 
         'ブラウザを閉じる。demo終了
-        controlExtensions.ThisCDPBrowser.quit
+        controlExtensions.ThisCDPBrowser.CloseBrowser
     End If
 
 
@@ -234,7 +234,7 @@ Sub UseExtensions()
 
 
     'ブラウザを閉じる。demo終了
-    controlExtensions.ThisCDPBrowser.quit
+    controlExtensions.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '***************************************************************************************************
@@ -323,7 +323,7 @@ Sub TestAlert()
         Dim Htmlの表示内容 As String: Htmlの表示内容 = .getElementByXPath("//*[@id='text']/p").innerText
         Debug.Print "htmlの出力文字列：" & Htmlの表示内容
         Debug.Assert Htmlの表示内容 = 入力文字内容
-        .ThisCDPBrowser.quit
+        .ThisCDPBrowser.CloseBrowser
     End With
 End Sub
 
@@ -383,7 +383,7 @@ Sub SimpleShadowRootTest()
         CDPHelpers.Sleep
 
         '8. ブラウザを正常に閉じる
-        .ThisCDPBrowser.quit
+        .ThisCDPBrowser.CloseBrowser
     End With
 End Sub
 
@@ -406,7 +406,7 @@ Sub iframeShadowRootTest()
 
         '4. 少し待って、閉じる
         CDPHelpers.Sleep 2
-        .quit
+        .CloseBrowser
     End With
 End Sub
 
@@ -480,7 +480,7 @@ Sub runHidden()
    'Confirm result and display
     Dim userChoice
     userChoice = MsgBox("Automation completed. Current vote counts: " & voteCount & ". Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -519,7 +519,7 @@ Sub runHiddenForJapan()
     'Confirm result and display
     Dim userChoice As Long
     userChoice = MsgBox("Automation completed. Do you want to see the window?", vbYesNo)
-    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.quit
+    If userChoice = vbYes Then chrome.showWindowMode Else chrome.ThisCDPBrowser.CloseBrowser
 
 End Sub
 
@@ -802,10 +802,12 @@ End Function
 '* 注意事項：後続のDemoを試す際はこのプロシージャで実行した通信経路として続けること
 '***************************************************************************************************
 Sub demoReattachmentPart1()
+    ' 起動
+    Dim First As CDPContext
+    Set First = ShSetting01_StartBrowser.StartCDPModeContext
 
-    Dim c As CDPContext
-    Set c = ShSetting01_StartBrowser.StartCDPModeContext
-    c.navigate "https://google.com"
+    'GoogleTopページへ遷移
+    First.navigate "https://google.com"
 
 '    c.KeepSession = True    'もし、SessionIDを保持する場合はこれを最後に足して`demoReattachmentPart2ForTab`にてお試しください
 End Sub
@@ -818,36 +820,35 @@ End Sub
 '            ・通信経路に応じた記述分岐が必要です
 '***************************************************************************************************
 Sub demoReattachmentPart2ForBrowser()
-    Dim c As New CDPBrowser
-
-    '設定セルから、ユーザ名を取得
+    '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    With ShSetting01_StartBrowser
-        UserName = .CurrentUserName
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-        '1. Excelに記録されてるハンドル情報から復旧を試みる
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '1-1. Pipeモードで復帰
-            c.reattachPipe UserName
-        Else
-            '1-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+    '2. 制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-            '1-2. 接続したWebSocketオブジェクトを渡して復帰
-            c.reattachWebSocket UserName, CDPws
-        End If
-    End With
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
-    '2. 未接続のタブに接続
+    '3. ブラウザオブジェクトに、接続情報を渡す
+    Dim b As New CDPBrowser
+    b.reattach ReattachOptions
+
+    '4. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
-    Dim r As CDPContext
-    Set r = c.getTab(setMain:=True)
-'    Set r = c.newTab(setMain:=True) '新しいタブ生成からでもOK
+    Dim t As CDPContext
+    Set t = b.getTab(setMain:=True)
+'    Set t = b.newTab(setMain:=True) '新しいタブ生成からでもOK
 
-    '3．別ページに遷移して終了
-    r.navigate "https://kemono-friends.jp/"
+    '5．別ページに遷移して終了
+    t.navigate "https://kemono-friends.jp/"
 End Sub
 
 '***************************************************************************************************
@@ -856,32 +857,30 @@ End Sub
 '* 注意事項：Context(タブ)情報が失ってる場合は、このDemoではエラーとなります
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
-    Dim c As New CDPContext
+    '1. 設定セルから、ユーザ名を取得
+    Dim UserName As String
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '設定セルから、ユーザ名を取得
-    With ShSetting01_StartBrowser
-        Dim UserName As String
-        UserName = .CurrentUserName
+    '制御経路に応じた分岐
+    If ShSetting01_StartBrowser.isPipeRemote Then
+        '2-1. Pipeモードで復帰する設定にする
+        ReattachOptions.Set_PipeMode = UserName
+    Else
+        '2-1. WebSocketで再接続
+        Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
+        CDPws.AutoConnectDevToolsActivePort BrowserCapabilities                 '`BrowserCapabilities`の役目は、ここだけ
 
-        '1. Excelに記録されてる`TargetID`の生存確認
-        '設定モードに応じた分岐
-        If .isPipeRemote Then
-            '1-1. Pipeで再接続
-            '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-            If Not c.reattachPipe(UserName, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-        Else
-            '1-1. WebSocketで再接続
-            Dim CDPws As CDPCoreViaWebSocket: Set CDPws = New CDPCoreViaWebSocket   '※`As New`でやると`Nothing`判定で、`New`されるのでしないように
-            CDPws.ReConnectCDP UserName
+        '2-2. 接続したWebSocketオブジェクトを渡し、WebSocketモードで復帰する設定にする
+        ReattachOptions.Set_WebSocketMode(CDPws) = UserName
+    End If
 
-            '1-2. 接続したWebSocketオブジェクトを渡して復帰
-            '※第3引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
-            If Not c.reattachWebSocket(UserName, CDPws, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
-        End If
-    End With
+    '3. コンテキスト(タブ)オブジェクトに、接続情報を渡す
+    '※第2引数で、Excelに記録されてる`SessionId`の使いまわしの設定が可能です。事前に`KeepSession = True`と書く必要はあります。
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions, False) Then MsgBox "「" & UserName & "」に接続できませんでした。TargetID情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
 
-    '2．再接続できたので、別ページに遷移して終了
-    c.navigate "https://kemono-friends-20170110.jp/"
+    '4．再接続できたので、別ページに遷移して終了
+    t.navigate "https://kemono-friends-20170110.jp/"
 End Sub
 
 
@@ -901,18 +900,21 @@ Sub AutoConnectTab()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. 指定のWebSocketForCDP-pageへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    '3. WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    '4. ページ遷移
+    '4. 再接続情報を`reattach`メソッドに渡す
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。WebSocket情報がお亡くなりです。", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    '5. ページ遷移
     t.navigate "https://www.youtube.com/@islandfox6864"
 
-    '5. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '6. WebSocketから切断
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 
 '***************************************************************************************************
@@ -928,56 +930,83 @@ Sub AutoConnectBrowser()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. 指定のWebSocketForCDP-browserへ接続
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectBrowserCDP(UserName)
 
-    '3. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim WebSocketChromium As New CDPBrowser
-    WebSocketChromium.reattachWebSocket UserName, WebSocketCDP
+    '3. WebSocketモードとして設定
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    '4. 新規タブに接続
+    '4. 再接続情報を`reattach`メソッドに渡す
+    Dim WebSocketChromium As New CDPBrowser
+    WebSocketChromium.reattach ReattachOptions
+
+    '5. 新規タブに接続
     Dim t As CDPContext
     Set t = WebSocketChromium.newTab(setMain:=True)
 
-    '5. ページ遷移
+    '6. ページ遷移
     t.navigate "https://www.youtube.com/@direwolf8958/"
 
-    '6. 終了
-    WebSocketChromium.quit
+    '7. 終了
+    WebSocketChromium.CloseBrowser
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」ファイルモードで起動したブラウザに対するWebSocket接続を行います
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：「DevToolsActivePort」ファイルモードは、下記のいずれかで使用されます。それを利用したDemoとなります
-'            ・`remote-debugging-port=0`で起動したブラウザ
+'            ・`remote-debugging-port=0`で起動したブラウザ(demoReattachmentPart2ForBrowser/Tab も実はこれ)
 '            ・「edge://inspect/#remote-debugging」にて、リモートデバッグを許可する
 '
 '            [!NOTE]
-'            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`ReConnectCDP`の第2引数を`True`にして再度処理をすると、
+'            「WebSocketから切断」の処理を飛ばして、1回処理を通した後、`reuseMode`を`True`にして再度処理をすると、
 '            「リモートデバッグの接続を許可しますか？（Allow / Cancel）」ダイアログをPASSできます
 '
-'* 注意事項：「edge://inspect/#remote-debugging」にて事前準備が必要です
+'* 注意事項：このDemoは、普段のブラウザを制御するDemoとしても兼ねてるため、「edge://inspect/#remote-debugging」にて事前準備が必要です
 '***************************************************************************************************
 Sub AutoConnectDevToolsActivePort()
-    '1. 指定のWebSocketForCDPへ接続
-    Const UserNameBrowser As String = "User Data"
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
-    WebSocketCDP.ReConnectCDP UserNameBrowser
+    '0. 事前設定
+    Const UserNameBrowser   As String = "User Data"
+    Const reuseMode         As Boolean = False  '内部ハンドルを使いまわすか？
 
-    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
+
+    '1. 分岐に応じたWebSocketへ接続
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
+    If reuseMode Then
+        '1-1. 指定のユーザ名に記録済みのWinSockハンドルを取り出す
+        WebSocketCDP.ReConnectCDP UserNameBrowser
+    Else
+        '1-1. 探す目印となるUserNameを指定
+        '※ローカルブラウザ依存の「DevToolsActivePort」探索の都合により「BrowserCapabilities」を使用します
+        BrowserCapabilities.Set_UserDataDirName = UserNameBrowser
+
+        '1-2. 指定のユーザ名のWebSocketForDevToolsActivePortへ接続
+        WebSocketCDP.AutoConnectDevToolsActivePort BrowserCapabilities
+    End If
+
+    '2. いくつか初期設定を設ける
+    With ReattachOptions
+        '2-1. WebSocketモードとして設定
+        .Set_WebSocketMode(WebSocketCDP) = UserNameBrowser
+
+        '2-2. WinSockハンドル使いまわしの場合は、WebSocketヘッダー情報の整合性を保つため、`False`にします
+        .Set_Destruction = Not reuseMode
+    End With
+
+    '3. 再接続情報を`reattach`メソッドに渡す
     Dim b As New CDPBrowser
-    b.reattachWebSocket UserNameBrowser, WebSocketCDP
+    b.reattach ReattachOptions
 
-    '3. 新規タブに接続
+    '4. 新規タブに接続
     Dim t As CDPContext
     Set t = b.newTab(setMain:=True) '※既存タブからでもOK
 
-    '4. ページ遷移
+    '5. ページ遷移
     t.navigate "https://www.youtube.com/@large-spottedgenet4617/"
 
-    '5. WebSocketから切断
-    WebSocketCDP.DisconnectCDP
+    '6. WebSocketから切断
+    '※下記をコメントアウト後、処理を済ませ、`reuseMode:=True`にすると、このプロシージャを実行するたびに、新規タブが湧き出します
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 
 '***************************************************************************************************
@@ -993,7 +1022,7 @@ End Sub
 '***************************************************************************************************
 Sub OpenExcelWebView2()
     '1. デバッグ用のポートをOpen
-    Dim HelpWebView2 As New CDPCoreViaWebSocket
+    Dim HelpWebView2 As CDPCoreViaWebSocket: Set HelpWebView2 = New CDPCoreViaWebSocket
     HelpWebView2.EnsureWebView2DebugPort = 9222
 
     '2. Helpを開いて、疑似的にWebView2を始動させる
@@ -1006,18 +1035,21 @@ Sub OpenExcelWebView2()
     '4. 指定のWebSocketForCDPへ接続
     Debug.Print HelpWebView2.AutoConnectBrowserCDP(UserName)
 
-    '5. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim b As New CDPBrowser
-    b.reattachWebSocket UserName, HelpWebView2
+    '5. WebSocketモードとして適用
+    ReattachOptions.Set_WebSocketMode(HelpWebView2) = UserName
 
-    '6. 新しいタブに接続
+    '6. 再接続情報を`reattach`メソッドに渡す
+    Dim b As New CDPBrowser
+    b.reattach ReattachOptions
+
+    '7. 新しいタブに接続
     Dim t As CDPContext
     Set t = b.newTab(setMain:=True)
 
-    '7. ページ遷移
+    '8. ページ遷移
     t.navigate "https://www.youtube.com/@humboldtpenguin2619"
 
-    '8. WebSocketから切断
-    HelpWebView2.DisconnectCDP
+    '9. WebSocketから切断
+    b.DisconnectCDP
     HelpWebView2.EnsureWebView2DebugPort = -1
 End Sub

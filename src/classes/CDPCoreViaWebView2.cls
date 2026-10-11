@@ -184,8 +184,8 @@ Private m_deleteProfileOnDisconnect As Boolean
 Private m_subReceiver As Dictionary
 Private m_subToken    As Dictionary
 
-' ログ設定状況
-Private currentLog As StateLog
+' ログ識別ID
+Private m_LogID As String
 
 
 
@@ -220,13 +220,15 @@ End Property
 '* 機能　　：`WebView2`方式としてCDP制御できる準備を行います(Environment/Controller/Viewの生成)
 '---------------------------------------------------------------------------------------------------
 '* 返り値  ：接続成功可否
-'* 引数    ：UserName   WebView2のユーザーデータフォルダ名
+'* 引数　　：caps       ブラウザ起動時のオプション設定オブジェクト
 '            AttachHwnd WebView2を貼り付けるハンドル ※省略時、Excel自身のハンドル(Application.Hwnd)を使用
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：既存の接続がある場合は、切断されます
+'* 注意事項：・既存の接続がある場合は、切断されます
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
+'            ・WebView2自体がない場合は、失敗します
 '***************************************************************************************************
-Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".ConnectCDP"
+Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional AttachHwnd As LongPtr)
+    Const FromProcedureName As String = ThisClassName & ".OpenWebView2AndConnectCDP"
 
 
     '1. 既にオブジェクトを持ってる場合は切断後、再開
@@ -235,7 +237,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
     '2. ハンドル未指定の場合は、Officeアプリ自身の`HWnd`を直接使用する
     If AttachHwnd <= 0 Then AttachHwnd = GetApplicationHwnd
 
-    '3. 専用のホストオブジェクトを新規作成
+    '3. 専用のホストオブジェクトを新規作成し、起動へ移る
     Dim RunRes As Boolean
     Set m_Host = New WebView2Host
 
@@ -248,7 +250,7 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
 
     With m_Host
         '3-2. 必要な情報を渡す
-        .InitInfo UserName, AttachHwnd
+        .Init caps, AttachHwnd
 
         '3-3. セッションを閉じる(保険用)
         .cleanUpSessions
@@ -266,18 +268,20 @@ Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) A
         Set m_Host = Nothing
         printMsg ERROR_, "WebView2 initialization failed. ErrorCode: " & m_Host.LastError & " - " & m_Host.LastErrorMessage, FromProcedureName, doRaiseError:=True
 
-        Exit Function
+        Exit Sub
     End If
 
     '5. 必須のイベント購読を行う
     InitSubscribeCdpEvent
 
     '6. 接続ポインター情報を記録
-    serialize UserName
+    serialize caps.Set_UserDataDirName
 
-    '7. 成功サインを返す
-    ConnectCDP = True
-End Function
+    '7. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
+    Set caps = Nothing
+    Set BrowserCapabilities = Nothing
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：接続を切断し、各種ハンドル/購読を解放します
@@ -1286,7 +1290,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebView2.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 '***************************************************************************************************
@@ -1310,22 +1314,17 @@ End Function
 
 
 '***************************************************************************************************
-'                                   ■■■ 初期化/後始末 ■■■
+'                               ■■■ 初期化/後始末処理 ■■■
+'***************************************************************************************************
+'* 機能　　：クラス内変数の一部を初期化します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
+    'ログID設定
+    m_LogID = "WVID" & Format(Rnd * 1000, "000")
 
     'CDPイベント購読管理の初期化
     Set m_subReceiver = New Dictionary
     Set m_subToken = New Dictionary
-
-    'ログ設定
-    With currentLog
-        .LogID = "WVID" & Format(Rnd * 1000, "000")                                                         'ユニークID
-        .seeRawSendMsgDbg = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.ViewBrowserResponse, FromProcedureName)  '`OnCdpMethodCompleted`のRaw表示
-        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)             'ログフォルダパス
-    End With
 End Sub
 
 Private Sub Class_Terminate()

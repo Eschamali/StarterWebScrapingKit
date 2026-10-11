@@ -110,12 +110,13 @@ Private UseChrome     As Boolean
 '--------------------------------------------------
 
 '取得するブラウザ設定
-Private UserBrowserMode As BrowserList
-Private DebugUserName   As String
-Private PipeMode        As Boolean
+Private UserBrowserMode         As BrowserList
+Private m_CustomChromiumPath    As String  'カスタムブラウザのexeフルパス。空ならプリセットに従う
+Private DebugUserName           As String
+Private PipeMode                As Boolean
 
-'ログ設定
-Private currentLog      As StateLog
+'ログ識別ID
+Private m_LogID As String
 
 
 
@@ -171,12 +172,18 @@ End Function
 '***************************************************************************************************
 '* 機能　　：このClassが機能する必要な情報を渡します
 '---------------------------------------------------------------------------------------------------
-'* 引数　　：UserName       記録する識別名称
-'            UsePipe        Port経由で制御する場合は`False`
+'* 引数　　：caps       ブラウザ起動時のオプション設定オブジェクト
+'            UsePipe    Port経由で制御する場合は`False`
 '***************************************************************************************************
-Friend Sub InitInfo(UserName As String, UsePipe As Boolean)
-    '各種情報反映
-    DebugUserName = UserName
+Friend Sub Init(caps As BrowserCapabilities, UsePipe As Boolean)
+    '必要な情報のみ、取り出す
+    With caps
+        DebugUserName = .Set_UserDataDirName
+        m_CustomChromiumPath = .Set_CustomChromiumPath
+        UserBrowserMode = .Set_UseBrowserPreset
+    End With
+
+    '固有情報
     PipeMode = UsePipe
 End Sub
 
@@ -233,7 +240,7 @@ Public Sub setCrashStateNormal()
 ' Set Crashed state to Normal to prevent the "Restore Sessions?"
 ' popup from appearing every time the browser is started after
 ' being closed by browser.quit method.
-' Requires user data dir profile stored in private var br.User and
+' Requires user data dir profile stored in private var DebugUserName and
 ' the browser type stored in private variable br.Type.
 ' Update: 22/01/26 - Tweaked to work well with the new multi-instance
 '                    structure.
@@ -290,15 +297,13 @@ Property Get getBrowserPath() As String
 
 
     '1. カスタムパスの指定があったらそっちを最優先
-    With ShSetting01_StartBrowser
-        If LenB(.GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)) Then
-            'そのカスタムパスとして返却(ポータブル版ブラウザ等)
-            getBrowserPath = .GetSettingCDP(SettingCDP.CustomChromiumPath, FromProcedureName)
+    If LenB(m_CustomChromiumPath) Then
+        'そのカスタムパスとして返却(ポータブル版ブラウザ等)
+        getBrowserPath = m_CustomChromiumPath
 
-            '以降の処理は不要なので、抜ける
-            Exit Sub
-        End If
-    End With
+        '以降の処理は不要なので、抜ける
+        Exit Property
+    End If
 
     '2. ブラウザexe名を取得
     Dim BrowserExeName As String
@@ -316,7 +321,7 @@ Property Get getBrowserPath() As String
         Case RunChrome_Stable, RunEdge_Stable, RunChrome_Beta, RunEdge_Beta, RunChrome_Dev, RunEdge_Dev
             '4-1. まずは「x86」側で確認
             getBrowserPath = envX86 & subPath & "\Application\" & BrowserExeName
-            If LenB(Dir(getBrowserPath)) Then Exit Sub  '見つかったらそこで抜ける
+            If LenB(Dir(getBrowserPath)) Then Exit Property  '見つかったらそこで抜ける
 
             '4-2. 無印側で返却
             getBrowserPath = envProg & subPath & "\Application\" & BrowserExeName
@@ -722,7 +727,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath
 End Sub
 
 
@@ -731,18 +736,6 @@ End Sub
 '                                     ■■■ 初期化 ■■■
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
-
-
-    '設定セルから使用ブラウザを指定
-    With ShSetting01_StartBrowser
-        '※CDP－Json コマンドによる操作なので、Chromium系統であれば、Edge,Chrome 以外にもできるかと思いますが一旦はメジャーなやつのみで
-        UserBrowserMode = .GetSettingCDP(SettingCDP.UseBrowserPreset, FromProcedureName)
-    End With
-
-    'ログ設定
-    With currentLog
-        .LogID = "CHID" & Format(Rnd * 1000, "000")                                                         'ユニークID
-        .logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName) 'ログフォルダパス
-    End With
+    'ログID
+    m_LogID = "CHID" & Format(Rnd * 1000, "000")
 End Sub
