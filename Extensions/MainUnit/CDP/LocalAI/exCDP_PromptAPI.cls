@@ -36,7 +36,7 @@ Private Const BindingName02         As String = "pushAiStream"                  
 Private Const BindingName02_EOFcode As String = 30                              'promptStreaming 終端目印文字コード
 
 'ステート管理
-Private currentLog                 As StateLog   'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private ProgressValue               As Double       'AIモデルデータのDL進捗値
 Private StreamingEOF                As Boolean      'ストリーミング受信が終わったかのサイン
@@ -403,7 +403,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".cdp.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 '非同期イベント発火(RaiseEvent)に必要です
@@ -426,8 +426,7 @@ Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
     Set ex_CDPBrowser = Inheritance.ThisCDPBrowser
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
+    Set ex_CDPCore = Inheritance.ExEventCore
 
     'SessionIdを取得
     CurrentSessionID = ex_CDPContext.CurrentSessionID
@@ -442,5 +441,5 @@ Private Sub Class_Initialize()
 
     promptStreaming.strBuffer = String(2 ^ 16, vbNullChar)
 
-    currentLog.LogID = "AIID" & Format(Rnd * 1000, "000")
+    m_LogID = "AIID" & Format(Rnd * 1000, "000")
 End Sub

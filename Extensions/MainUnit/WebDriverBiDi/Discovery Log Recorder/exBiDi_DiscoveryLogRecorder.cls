@@ -37,7 +37,7 @@ Private ex_BiDiContext          As WebDriverBiDiContext
 Private Const ThisClassName     As String = "exBiDi_DiscoveryLogRecorder"  'ログのトレース用
 
 'ステート管理
-Private currentLog              As StateLog  'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private m_context                As String   '`WebDriverBiDiContext`継承時の`Context`情報
 
 '記録状態管理用
@@ -602,7 +602,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".bidi.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 '非同期イベント発火(RaiseEvent)に必要です
@@ -620,8 +620,7 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '必要なオブジェクトを継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    Set ex_BiDiCore = Inheritance.ExEventCore
 
     'コンテキスト情報
     m_context = Inheritance.context
@@ -633,5 +632,5 @@ End Sub
 Private Sub Class_Initialize()
     CurrentLogState.Limit = 5000
 
-    currentLog.LogID = "DLID" & Format(Rnd * 1000, "000")
+    m_LogID = "DLID" & Format(Rnd * 1000, "000")
 End Sub

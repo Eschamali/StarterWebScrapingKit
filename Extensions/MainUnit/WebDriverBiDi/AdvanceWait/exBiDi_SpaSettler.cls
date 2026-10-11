@@ -8,31 +8,31 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '***************************************************************************************************
-'                           SPAã®å¾…æ©Ÿã«ç‰¹åŒ–ã—ãŸã‚¢ã‚·ã‚¹ãƒˆã‚’æä¾›ã—ã¾ã™
-'ãƒ­ã‚¸ãƒƒã‚¯ã¯ã€ã€Œhttps://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA/tree/main/srcã€æº–æ‹ ã§ã™
+'                           SPA‚Ì‘Ò‹@‚É“Á‰»‚µ‚½ƒAƒVƒXƒg‚ğ’ñ‹Ÿ‚µ‚Ü‚·
+'ƒƒWƒbƒN‚ÍAuhttps://github.com/hanamichi77777/WebDriver-BiDi-for-SeleniumVBA/tree/main/srcv€‹’‚Å‚·
 '***************************************************************************************************
 Option Explicit
 
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…±é€šå®šç¾©å¤‰æ•°/å®šæ•° â– â– â– 
+'                               ¡¡¡ ‹¤’Ê’è‹`•Ï”/’è” ¡¡¡
 '***************************************************************************************************
-'å†…éƒ¨å‚ç…§ç”¨ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆ
+'“à•”QÆ—pƒIƒuƒWƒFƒNƒg
 Private WithEvents ex_BiDiCore  As WebDriverBiDiCore
 Attribute ex_BiDiCore.VB_VarHelpID = -1
 Private ex_BiDiContext          As WebDriverBiDiContext
 Attribute ex_BiDiContext.VB_VarHelpID = -1
 
-'å†…éƒ¨ä½¿ç”¨ç”¨
-Private Const ThisClassName     As String = "exBiDi_SpaSettler.cls" 'ãƒ­ã‚°ã®ãƒˆãƒ¬ãƒ¼ã‚¹ç”¨
+'“à•”g—p—p
+Private Const ThisClassName     As String = "exBiDi_SpaSettler.cls" 'ƒƒO‚ÌƒgƒŒ[ƒX—p
 
-'ã‚¹ãƒ†ãƒ¼ãƒˆç®¡ç†
-Private currentLog             As StateLog  'ãƒ­ã‚°è¨­å®š
-Private EnableBrowserEvents     As Boolean  'ã“ã®æ‹¡å¼µæ©Ÿèƒ½ã«ã‚ˆã‚‹ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’æœ‰åŠ¹åŒ–ã™ã‚‹ã‹ã—ãªã„ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°
-Private m_context               As String   '`WebDriverBiDiContext`ç¶™æ‰¿æ™‚ã®`Context`æƒ…å ±
+'ƒXƒe[ƒgŠÇ—
+Private m_LogID                    As String   'ƒƒO¯•ÊID
+Private EnableBrowserEvents     As Boolean  '‚±‚ÌŠg’£‹@”\‚É‚æ‚éƒuƒ‰ƒEƒU”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğ—LŒø‰»‚·‚é‚©‚µ‚È‚¢‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO
+Private m_context               As String   '`WebDriverBiDiContext`Œp³‚Ì`Context`î•ñ
 
-'å¾…æ©Ÿç³»ãƒ­ã‚°çŠ¶æ³ç®¡ç†ç”¨
+'‘Ò‹@ŒnƒƒOó‹µŠÇ——p
 Private Type DiscoveryLog
     isRecording       As Boolean
     recorderLogs        As Collection
@@ -47,11 +47,11 @@ Private CurrentDiscoveryLog As DiscoveryLog
 
 
 '***************************************************************************************************
-'                               â– â– â–  å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ â– â– â– 
+'                               ¡¡¡ ŒöŠJƒvƒƒpƒeƒB ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šéåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†ã‚’è¡Œã†ã‹ã®ã‚¹ã‚¤ãƒƒãƒãƒ³ã‚°ã§ã™
+'* ‹@”\@@F”ñ“¯ŠúƒCƒxƒ“ƒgˆ—‚ğs‚¤‚©‚ÌƒXƒCƒbƒ`ƒ“ƒO‚Å‚·
 '---------------------------------------------------------------------------------------------------
-'* è©³ç´°èª¬æ˜ï¼šã‚¹ã‚³ãƒ¼ãƒ—ç¯„å›²ã®èª¿æ•´ã«ã©ã†ãã€‚åç§°ã¯ã€ã€ŒApplication.EnableEventsã€ã‹ã‚‰å–ã‚Šã¾ã—ãŸ
+'* Ú×à–¾FƒXƒR[ƒv”ÍˆÍ‚Ì’²®‚É‚Ç‚¤‚¼B–¼Ì‚ÍAuApplication.EnableEventsv‚©‚çæ‚è‚Ü‚µ‚½
 '***************************************************************************************************
 Public Property Get EnableEvents() As Boolean
     EnableEvents = EnableBrowserEvents
@@ -64,18 +64,18 @@ End Property
 
 
 '***************************************************************************************************
-'                     â– â– â–  éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã®å‡¦ç† â– â– â– 
+'                     ¡¡¡ ”ñ“¯ŠúƒCƒxƒ“ƒg‚Ìˆ— ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šWebDirverBiDiã‹ã‚‰ã®éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆã‚’å‡¦ç†ã—ã¾ã™
+'* ‹@”\@@FWebDirverBiDi‚©‚ç‚Ì”ñ“¯ŠúƒCƒxƒ“ƒg‚ğˆ—‚µ‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼š`ex_BiDiContext.cls`ã‹ã‚‰å—ã‘å–ã£ãŸ`Context`ã ã‘å‡¦ç†ã‚’é€šã™å ´åˆã¯ãã®åˆ¤å®šå‡¦ç†ã‚’åˆ¥é€”ã€caseå†…ã«è¨˜è¿°ã—ã¦ä¸‹ã•ã„ã€‚
-'            CDPç‰ˆã¨é•ã£ã¦ã€ã‚¤ãƒ™ãƒ³ãƒˆå†…å®¹ã«ã‚ˆã£ã¦`Context`ã®è¨˜è¼‰æƒ…å ±ä½ç½®ãŒç•°ãªã‚‹ãŸã‚ã€ã‚¤ãƒ™ãƒ³ãƒˆmethodåã”ã¨ã®contextåˆ¤å®šã¨ã„ã†ãƒ•ãƒ­ãƒ¼ã«ãªã‚Šã¾ã™
+'* ’ˆÓ–€F`ex_BiDiContext.cls`‚©‚çó‚¯æ‚Á‚½`Context`‚¾‚¯ˆ—‚ğ’Ê‚·ê‡‚Í‚»‚Ì”»’èˆ—‚ğ•Ê“rAcase“à‚É‹Lq‚µ‚Ä‰º‚³‚¢B
+'            CDP”Å‚Æˆá‚Á‚ÄAƒCƒxƒ“ƒg“à—e‚É‚æ‚Á‚Ä`Context`‚Ì‹LÚî•ñˆÊ’u‚ªˆÙ‚È‚é‚½‚ßAƒCƒxƒ“ƒgmethod–¼‚²‚Æ‚Ìcontext”»’è‚Æ‚¢‚¤ƒtƒ[‚É‚È‚è‚Ü‚·
 '***************************************************************************************************
 Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As String)
     Const FromProcedureName As String = ThisClassName & ".ex_BiDiCore_detectionBiDiEvent"
 
 
-    '1. éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆå‡¦ç†è‡ªä½“ãŒç„¡åŠ¹çŠ¶æ…‹ãªã‚‰ã€å³æŠœã‘
+    '1. ”ñ“¯ŠúƒCƒxƒ“ƒgˆ—©‘Ì‚ª–³Œøó‘Ô‚È‚çA‘¦”²‚¯
     If EnableBrowserEvents Then
         printMsg Trace_, "Asynchronous event handling is enabled in this extended class.", FromProcedureName
     Else
@@ -83,10 +83,10 @@ Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, EventRawJson As
         Exit Sub
     End If
 
-    '2. å¾…æ©Ÿç³»ã«å¿…è¦ãªã‚¤ãƒ™ãƒ³ãƒˆã‚’`FormatAndStoreLog`ãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ã¸å§”è¨—
+    '2. ‘Ò‹@Œn‚É•K—v‚ÈƒCƒxƒ“ƒg‚ğ`FormatAndStoreLog`ƒvƒƒV[ƒWƒƒ‚ÖˆÏ‘õ
     Select Case methodName
         Case "network.beforeRequestSent", "network.responseCompleted", "network.fetchError", "browsingContext.load", "browsingContext.domContentLoaded"
-            '3. è¨˜éŒ²ãƒ¢ãƒ¼ãƒ‰ãªã‚‰å§”è¨—
+            '3. ‹L˜^ƒ‚[ƒh‚È‚çˆÏ‘õ
             If CurrentDiscoveryLog.isRecording Then FormatAndStoreLog methodName, EventRawJson
 
     End Select
@@ -95,21 +95,21 @@ End Sub
 
 
 '***************************************************************************************************
-'                               â– â– â–  èª¿æŸ»æ©Ÿèƒ½é–¢é€£ â– â– â– 
+'                               ¡¡¡ ’²¸‹@”\ŠÖ˜A ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒšãƒ¼ã‚¸èª­ã¿è¾¼ã¿å¾…æ©Ÿç³»ã«é–¢ã™ã‚‹ã‚¤ãƒ™ãƒ³ãƒˆã‚’è³¼èª­ã—ã€è¨˜éŒ²ãƒ¢ãƒ¼ãƒ‰ã«å…¥ã‚Šã¾ã™
+'* ‹@”\@@Fƒy[ƒW“Ç‚İ‚İ‘Ò‹@Œn‚ÉŠÖ‚·‚éƒCƒxƒ“ƒg‚ğw“Ç‚µA‹L˜^ƒ‚[ƒh‚É“ü‚è‚Ü‚·
 '---------------------------------------------------------------------------------------------------
-'* å¼•æ•°    ï¼šexcludeImagesAndCss    `True` :Imagesã¨Css ã‚’å«ã‚ãªã„
-'                                   `False`:Imagesã¨Css ã‚’å«ã‚ã‚‹
+'* ˆø”    FexcludeImagesAndCss    `True` :Images‚ÆCss ‚ğŠÜ‚ß‚È‚¢
+'                                   `False`:Images‚ÆCss ‚ğŠÜ‚ß‚é
 '***************************************************************************************************
 Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True)
     Const FromProcedureName As String = ThisClassName & ".StartDiscoveryLog"
 
 
-    '1. ã‚¨ãƒ©ãƒ¼æƒ…å ±ã‚’ã‚¯ãƒªã‚¢
+    '1. ƒGƒ‰[î•ñ‚ğƒNƒŠƒA
     ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.RemoveAll
 
-    '2. å¿…è¦ãªã‚¤ãƒ™ãƒ³ãƒˆã‚’è³¼èª­
+    '2. •K—v‚ÈƒCƒxƒ“ƒg‚ğw“Ç
     Dim TargetEvents As New Collection
     TargetEvents.Add "network.responseCompleted"
     TargetEvents.Add "network.fetchError"
@@ -118,10 +118,10 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True)
     TargetEvents.Add "browsingContext.domContentLoaded"
     Set ex_BiDiContext.ThisWebDriverBiDiMode.sessionSubscribe = TargetEvents
 
-    '3. ã‚¨ãƒ©ãƒ¼check
+    '3. ƒGƒ‰[check
     If ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError.Count Then printMsg ERROR_, "The execution of `session.subscribe` failed." & vbCrLf & "> " & ex_BiDiContext.ThisWebDriverBiDiMode.LastBiDiJsonError("message"), FromProcedureName, doRaiseError:=True
 
-    '4. å„ç¨®åˆæœŸåŒ–
+    '4. Šeí‰Šú‰»
     With CurrentDiscoveryLog
         Set .recorderLogs = New Collection
         Set .recSuppByKey = New Dictionary
@@ -134,39 +134,39 @@ Public Sub StartDiscoveryLog(Optional excludeImagesAndCss As Boolean = True)
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ­ã‚°ç”Ÿæˆã‚’è¡Œã„ã¾ã™
+'* ‹@”\@@FƒƒO¶¬‚ğs‚¢‚Ü‚·
 '***************************************************************************************************
 Private Sub FormatAndStoreLog(methodName As String, RawJson As String)
-    '1. çµŒéæ™‚é–“ã‚’å–å¾—
+    '1. Œo‰ßŠÔ‚ğæ“¾
     Dim relTime As String
     relTime = Format(CDPHelpers.TimerCounter - CurrentDiscoveryLog.recorderStartTime, "0.00") & "s"
 
-    '2. `params`ã®å–ã‚Šå‡ºã—
+    '2. `params`‚Ìæ‚èo‚µ
     Dim paramsNode As BiDiCDPJson
     Set paramsNode = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
-    '3. å„ã‚¤ãƒ™ãƒ³ãƒˆã”ã¨ã®è“„ç©å‡¦ç†
+    '3. ŠeƒCƒxƒ“ƒg‚²‚Æ‚Ì’~Ïˆ—
     Dim reqNode As BiDiCDPJson
     Dim LogLine As String
     Select Case methodName
         Case "network.beforeRequestSent"
-            '3-1. contextãŒä¸€è‡´ã—ãªã„ãªã‚‰å³æŠœã‘
+            '3-1. context‚ªˆê’v‚µ‚È‚¢‚È‚ç‘¦”²‚¯
             If paramsNode.StringKey("context") <> m_context Then Exit Sub
 
-            '3-2. `request`ãƒãƒ¼ãƒ‰éƒ¨åˆ†ã‚’å–ã‚Šå‡ºã™
+            '3-2. `request`ƒm[ƒh•”•ª‚ğæ‚èo‚·
             Set reqNode = paramsNode.NodeKey("request")
 
-            '3-3. å¿…è¦ãªãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ãƒ¼ã‚’å–ã‚Šå‡ºã™
+            '3-3. •K—v‚Èƒpƒ‰ƒ[ƒ^[‚ğæ‚èo‚·
             Dim reqId       As String:      reqId = reqNode.StringKey("request")
             Dim reqMethod   As String:  reqMethod = reqNode.StringKey("method")
             Dim reqUrl      As String:     reqUrl = reqNode.StringKey("url")
 
-            '3-4. ãƒ•ã‚£ãƒ«ã‚¿ãƒªãƒ³ã‚°ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯URLã®ãƒã‚§ãƒƒã‚¯ã«å…¥ã‚‹
+            '3-4. ƒtƒBƒ‹ƒ^ƒŠƒ“ƒOƒ‚[ƒh‚Ìê‡‚ÍURL‚Ìƒ`ƒFƒbƒN‚É“ü‚é
             If CurrentDiscoveryLog.excludeResources Then
                 If IsNoiseUrl(reqUrl) Then BumpSuppressed NormalizeEndpointKey(reqUrl): Exit Sub
             End If
 
-            '3-4. æ›¸ãè¾¼ã‚€ãƒ­ã‚°æ–‡å­—åˆ—ã‚’ç”Ÿæˆ
+            '3-4. ‘‚«‚ŞƒƒO•¶š—ñ‚ğ¶¬
             LogLine = "[" & relTime & "] [REQ] " & reqMethod & " | id=" & reqId & _
                       " | key=" & NormalizeEndpointKey(reqUrl) & _
                       " | idle=" & IIf(IsIdleIgnored(reqUrl), "skip", "track")
@@ -174,15 +174,15 @@ Private Sub FormatAndStoreLog(methodName As String, RawJson As String)
 
 
 
-            ' url / method â†’ "[rel] [REQ] ..."
+            ' url / method ¨ "[rel] [REQ] ..."
         Case "network.responseCompleted"
             ' status / mime / url
-            ' excludeResources ãªã‚‰ç”»åƒãƒ»CSS ã¯ BumpSuppressed ã—ã¦ Exit
-            ' â†’ "[rel] [RES] ..."
+            ' excludeResources ‚È‚ç‰æ‘œECSS ‚Í BumpSuppressed ‚µ‚Ä Exit
+            ' ¨ "[rel] [RES] ..."
         Case "network.fetchError"
-            ' â†’ "[rel] [ERR] ..."
+            ' ¨ "[rel] [ERR] ..."
         Case "browsingContext.load", "browsingContext.domContentLoaded"
-            ' â†’ "[rel] [NAV] ..."
+            ' ¨ "[rel] [NAV] ..."
     End Select
     PushTimelineLine line
 End Sub
@@ -199,36 +199,36 @@ Private Sub PushTimelineLine(s As String)
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šå¾…æ©Ÿç³»ã¨ç›´æ¥é–¢ä¿‚ãªã„URLã‹ã‚’checkã—ã¾ã™
+'* ‹@”\@@F‘Ò‹@Œn‚Æ’¼ÚŠÖŒW‚È‚¢URL‚©‚ğcheck‚µ‚Ü‚·
 '***************************************************************************************************
 Private Function IsNoiseUrl(Url As String) As Boolean
-    '1. å°æ–‡å­—ã«çµ±ä¸€ã—ã¦ãŠã
+    '1. ¬•¶š‚É“ˆê‚µ‚Ä‚¨‚­
     Dim lUrl As String: lUrl = LCase(Url)
 
-    '2. ã€å…ˆé ­ä¸€è‡´ã®ç‰¹æ®Šã‚¬ãƒ¼ãƒ‰ã€‘data: URI ã¯ä¸€ç¬ã§åˆ¤å®šã—ã¦å³æŠœã‘ï¼ˆè¶…å·¨å¤§ãƒ†ã‚­ã‚¹ãƒˆã¸ã®ç„¡é§„ãªInStrã‚’é˜²æ­¢ï¼‰
+    '2. yæ“ªˆê’v‚Ì“ÁêƒK[ƒhzdata: URI ‚Íˆêu‚Å”»’è‚µ‚Ä‘¦”²‚¯i’´‹‘åƒeƒLƒXƒg‚Ö‚Ì–³‘Ê‚ÈInStr‚ğ–h~j
     If Left$(Url, 5) = "data:" Then IsStaticAsset = True: Exit Function
 
-    '3.ã€å›ºå®šNGãƒªã‚¹ãƒˆã‚’ç”¨æ„ã€‘é…åˆ—ã®ç”Ÿæˆã¯æœ€åˆã®1å›ã®ã¿ï¼2å›ç›®ä»¥é™ã¯0ç§’ã§ä½¿ã„å›ã—ã¾ã™
+    '3.yŒÅ’èNGƒŠƒXƒg‚ğ—pˆÓz”z—ñ‚Ì¶¬‚ÍÅ‰‚Ì1‰ñ‚Ì‚İI2‰ñ–ÚˆÈ~‚Í0•b‚Åg‚¢‰ñ‚µ‚Ü‚·
     Static patterns
     If IsEmpty(patterns) Then
         patterns = Array("/_next/static/", "webworker.js", ".png", ".jpg", ".jpeg", _
                          ".gif", ".webp", ".svg", ".css", ".woff", ".woff2", ".ico")
     End If
 
-    '4. ã€éƒ¨åˆ†ä¸€è‡´ãƒã‚§ãƒƒã‚¯ã€‘1ã¤ã§ã‚‚åˆè‡´ã—ãŸã‚‰ãã®ç¬é–“ã«å³æŠœã‘
+    '4. y•”•ªˆê’vƒ`ƒFƒbƒNz1‚Â‚Å‚à‡’v‚µ‚½‚ç‚»‚ÌuŠÔ‚É‘¦”²‚¯
     Dim p
     For Each p In patterns
         If InStr(1, lUrl, p) Then
             IsStaticAsset = True
-            Exit Function   ' ãƒ’ãƒƒãƒˆã—ãŸç¬é–“ã«ãƒ«ãƒ¼ãƒ—ã‚’å³çµ‚äº†ã—ã¦é«˜é€ŸåŒ–ï¼
+            Exit Function   ' ƒqƒbƒg‚µ‚½uŠÔ‚Éƒ‹[ƒv‚ğ‘¦I—¹‚µ‚Ä‚‘¬‰»I
         End If
     Next
 
-    '5. ãƒ¦ãƒ¼ã‚¶ãƒ¼ç‹¬è‡ªã®ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼è¨­å®šå´ã§ã®ãƒã‚§ãƒƒã‚¯
+    '5. ƒ†[ƒU[“Æ©‚ÌƒtƒBƒ‹ƒ^[İ’è‘¤‚Å‚Ìƒ`ƒFƒbƒN
     If Not m_userIgnoreNetworkPatterns Is Nothing Then
         For Each p In m_userIgnoreNetworkPatterns
             If UrlMatchesPattern(1, lUrl, CStr(pattern)) Then
-                IsNoiseUrl = True   ' ãƒ’ãƒƒãƒˆã—ãŸç¬é–“ã«ãƒ«ãƒ¼ãƒ—ã‚’å³çµ‚äº†ã—ã¦é«˜é€ŸåŒ–ï¼
+                IsNoiseUrl = True   ' ƒqƒbƒg‚µ‚½uŠÔ‚Éƒ‹[ƒv‚ğ‘¦I—¹‚µ‚Ä‚‘¬‰»I
                 Exit Function
             End If
         Next
@@ -238,32 +238,32 @@ End Function
 
 
 '***************************************************************************************************
-'                           â– â– â–  `WebDriverBiDi`ç›´é€šãƒ¡ã‚½ãƒƒãƒ‰ â– â– â– 
+'                           ¡¡¡ `WebDriverBiDi`’¼’Êƒƒ\ƒbƒh ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šã„ã¡ã„ã¡ã€`â—‹â—‹.ExecuteBiDi`ã¨ã„ã£ãŸè¨˜è¿°ã‚’é˜²ãæªç½®ã¨ãªã‚Šã¾ã™ã€‚
+'* ‹@”\@@F‚¢‚¿‚¢‚¿A`››.ExecuteBiDi`‚Æ‚¢‚Á‚½‹Lq‚ğ–h‚®‘[’u‚Æ‚È‚è‚Ü‚·B
 '---------------------------------------------------------------------------------------------------
-'* æ³¨æ„äº‹é …ï¼šãƒ»å‰å¾Œã®å‡¦ç†ç­‰ã‚‚å‡ºæ¥ã¾ã™ãŒåŸºæœ¬ã¯ã€1è¡Œã ã‘ã«ç•™ã‚ã¦ãŠãã“ã¨ã‚’ãŠå‹§ã‚ã—ã¾ã™
-'            ãƒ»å„è©³ç´°ã¯ã€`WebDriverBiDi`ã®æ–¹ã‚’ã”è¦§ãã ã•ã„
+'* ’ˆÓ–€FE‘OŒã‚Ìˆ—“™‚ào—ˆ‚Ü‚·‚ªŠî–{‚ÍA1s‚¾‚¯‚É—¯‚ß‚Ä‚¨‚­‚±‚Æ‚ğ‚¨Š©‚ß‚µ‚Ü‚·
+'            EŠeÚ×‚ÍA`WebDriverBiDi`‚Ì•û‚ğ‚²——‚­‚¾‚³‚¢
 '***************************************************************************************************
-'è² è·ã‚’æŠ‘ãˆã‚‹ã¨ãã«ã©ã†ã
+'•‰‰×‚ğ—}‚¦‚é‚Æ‚«‚É‚Ç‚¤‚¼
 Private Sub sleep(Optional seconds As Double = 0.5)
     CDPHelpers.Sleep seconds
 End Sub
 
-'ãƒ­ã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºã™ã¨ãã«ã©ã†ã
+'ƒƒOƒƒbƒZ[ƒW‚ğo‚·‚Æ‚«‚É‚Ç‚¤‚¼
 Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String, Optional isHeader As Boolean = False, Optional doRaiseError As Boolean = False)
     Const LogFileExtension As String = ".bidi.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
-'BiDiå®Ÿè¡Œã«å¿…è¦ã§ã™
+'BiDiÀs‚É•K—v‚Å‚·
 Private Function ExecuteBiDi(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
     Set ExecuteBiDi = ex_BiDiContext.ExecuteBiDi(methodName, params, StopError)
 End Function
 
-'éåŒæœŸã‚¤ãƒ™ãƒ³ãƒˆç™ºç«(RaiseEvent)ã«å¿…è¦ã§ã™
+'”ñ“¯ŠúƒCƒxƒ“ƒg”­‰Î(RaiseEvent)‚É•K—v‚Å‚·
 Private Sub TakeEvents(Optional destruction As Boolean)
     ex_BiDiCore.TakeEvents , destruction
 End Sub
@@ -271,29 +271,28 @@ End Sub
 
 
 '***************************************************************************************************
-'                             â– â– â–  åˆæœŸè¨­å®šãƒ—ãƒ­ã‚·ãƒ¼ã‚¸ãƒ£ â– â– â– 
+'                             ¡¡¡ ‰Šúİ’èƒvƒƒV[ƒWƒƒ ¡¡¡
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šæƒ…å ±ç¶™æ‰¿ã‚’è¡Œã„ã¾ã™
+'* ‹@”\@@Fî•ñŒp³‚ğs‚¢‚Ü‚·
 '***************************************************************************************************
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
-    'ç¶™æ‰¿
+    'Œp³
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisWebDriverBiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    Set ex_BiDiCore = Inheritance.ExEventCore
     
-    'ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆæƒ…å ±
+    'ƒRƒ“ƒeƒLƒXƒgî•ñ
     m_context = Inheritance.context
 End Sub
 
 '***************************************************************************************************
-'* æ©Ÿèƒ½ã€€ã€€ï¼šãƒ¯ãƒ¼ã‚¯ã‚·ãƒ¼ãƒˆã‹ã‚‰ã€å¿…è¦ãªè¨­å®šå€¤ã‚’é©ç”¨ã—ã¾ã™
+'* ‹@”\@@Fƒ[ƒNƒV[ƒg‚©‚çA•K—v‚Èİ’è’l‚ğ“K—p‚µ‚Ü‚·
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    'ãƒ–ãƒ©ã‚¦ã‚¶éåŒæœŸå‡¦ç†ã‚’æœ‰åŠ¹åŒ–
+    'ƒuƒ‰ƒEƒU”ñ“¯Šúˆ—‚ğ—LŒø‰»
     EnableBrowserEvents = True
 
-    'åˆæœŸä¸Šé™ã‚’ã‚»ãƒƒãƒˆ
+    '‰ŠúãŒÀ‚ğƒZƒbƒg
     CurrentDiscoveryLog.Limit = 5000
 
-    currentLog.LogID = "SPID" & Format(Rnd * 1000, "000")
+    m_LogID = "SPID" & Format(Rnd * 1000, "000")
 End Sub

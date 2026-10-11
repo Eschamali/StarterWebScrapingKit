@@ -87,11 +87,18 @@ Private Const WS_MINIMIZEBOX    As Long = &H20000 '最小化ボタン
 '* 注意事項：追加の起動引数は、既存の「ブラウザ起動設定」シートの設定をそのまま流用します
 '***************************************************************************************************
 Private Function ConnectToMaze() As Boolean
-    '1. WebView2の追加起動引数を、既存の設定シートから準備
-    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.AdditionalBrowserArguments, "WebMCPMazeForm.ConnectToMaze")
+    '1. 起動オプションを、既存の設定シートの内容で準備(WebView2の追加起動引数も、ここから反映)
+    Set BrowserCapabilities = Nothing   '念のため、古い情報を破棄。※起動失敗時に備える
+    Dim UserName As String: UserName = BrowserCapabilities.Set_UserDataDirName
+    fWebView2.EnvironmentOptions.Set_AdditionalBrowserArguments = BrowserCapabilities.Set_AdditionalBrowserArguments
 
-    '2. WebView2を起動
-    If Not fWebView2.ConnectCDP(ShSetting01_StartBrowser.CurrentUserName, myEdgeFrameHwnd) Then Exit Function
+    '2. WebView2を起動 ※失敗すると、VBAエラーが発生するため、ここで受け止めて、失敗可否の返り値に変換します
+    On Error Resume Next
+    fWebView2.OpenWebView2AndConnectCDP BrowserCapabilities, myEdgeFrameHwnd
+    Dim StartErrDescription As String: StartErrDescription = Err.Description
+    Dim StartErrNumber As Long: StartErrNumber = Err.Number
+    On Error GoTo 0
+    If StartErrNumber <> 0 Then Debug.Print "WebView2の起動に失敗しました: " & StartErrDescription: Exit Function
 
     '3. サイズをセットし、表示
     AdjustEdgeSize
@@ -100,11 +107,12 @@ Private Function ConnectToMaze() As Boolean
     '4. タブに接続(★WebView2は起動直後、既に"about:blank"を開いているタブしか無いため、
     '   ここで実URLを渡すと`Target.getTargets`に一致するタブが無く`Nothing`が返ってしまう。
     '   一旦"about:blank"で取得し、遷移は後段の`navigate`で別途行う★)
-    Dim t As New CDPBrowser: t.reattachWebView2 ShSetting01_StartBrowser.CurrentUserName, fWebView2
+    ReattachOptions.Set_WebView2Mode(fWebView2) = UserName
+    Dim t As New CDPBrowser: t.reattach ReattachOptions
     Set fCDPContext = t.getTab(setMain:=True, Url:="about:blank")
 
     '5. 非同期イベント処理に備える(CDPCoreの参照保持も兼ねる)
-    Set fCDPEvent = t.ThisCDPCore
+    Set fCDPEvent = t.ExEventCore
 
     '6. WebView2は「ドメインをenableすれば以後全イベントが自動で流れる」CDP-over-WebSocketとは違い、
     '   イベント名ごとに個別の購読(`SubscribeCdpEvent`)が必要(`CDPCoreViaWebView2.cls`の仕様)。

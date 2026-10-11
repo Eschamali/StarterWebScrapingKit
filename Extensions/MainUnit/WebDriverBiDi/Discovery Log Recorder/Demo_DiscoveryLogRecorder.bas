@@ -72,6 +72,6 @@ Sub Demo_DiscoveryLogRecorder_手動操作の記録()
            WORKSPACE_PATH & SAMPLE_DIR & "\discovery_log.txt" & vbCrLf & vbCrLf & _
            "内容はイミディエイトウィンドウにも出力しています。", vbInformation, "記録完了"
 
-    browserTab.ThisWebDriverBiDiMode.quit
+    browserTab.ThisWebDriverBiDiMode.CloseBrowser
 
 End Sub

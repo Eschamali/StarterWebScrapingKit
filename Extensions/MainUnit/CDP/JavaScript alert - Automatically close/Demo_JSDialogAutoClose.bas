@@ -48,6 +48,6 @@ Sub TestAlertWithExpansion()
 
         ' --- 8. ブラウザを閉じる ---
         Set testEX = Nothing      '拡張機能をOFF
-        .ThisCDPBrowser.quit
+        .ThisCDPBrowser.CloseBrowser
     End With
 End Sub

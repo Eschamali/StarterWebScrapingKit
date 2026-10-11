@@ -19,6 +19,6 @@ Sub BiDiPlusによる冒険の始まり()
     
 
     'ブラウザを正常に閉じる
-    bidiPlus.ThisWebDriverBiDiContext.ThisWebDriverBiDiMode.quit
+    bidiPlus.ThisWebDriverBiDiContext.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 

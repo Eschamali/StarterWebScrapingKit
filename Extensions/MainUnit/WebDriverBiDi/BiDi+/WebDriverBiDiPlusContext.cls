@@ -53,7 +53,7 @@ Private Type CdpEventReceivedParameters
 End Type
 
 'その他
-Private currentLog              As StateLog     'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 
 
 
@@ -75,16 +75,13 @@ Public Sub UpgradeBiDiPlus(TargetContext As WebDriverBiDiContext)
 
     '1. オブジェクトを継承
     Set ex_BiDiContext = TargetContext
-    Set ex_BiDiCore = TargetContext.ThisWebDriverBiDiCore
+    Set ex_BiDiCore = TargetContext.ExEventCore
 
-    '2. ログ情報を継承
-    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
-
-    '3. BiDi+用の`SessionID`を取得
+    '2. BiDi+用の`SessionID`を取得
     BiDiPlusTab.sessionID = ExecuteBiDiPlusGetSession()
     If LenB(BiDiPlusTab.sessionID) = 0 Then printMsg ERROR_, "The upgrade to BiDi+ failed.", FromProcedureName, doRaiseError:=True
 
-    '4. 情報を更新
+    '3. 情報を更新
     getSessionInfo
     printParams
 End Sub
@@ -205,7 +202,7 @@ Public Function ExecuteCDP(methodName As String, Optional params As Dictionary, 
     Set ExecuteCDP = ExecuteBiDi(BiDiPlusSign & "sendCommand", MakeCDPparams(methodName, params, BrowserContext), StopBiDiError).NodeKey("result")
 
     '2. デバッグ用に、As Is 出力
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi+ `" & methodName & "` with result: " & ExecuteCDP.Stringify, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteBiDi+ `" & methodName & "` with result: " & ExecuteCDP.Stringify, FromProcedureName
 
 End Function
 
@@ -250,7 +247,7 @@ Private Sub ex_BiDiCore_detectionBiDiEvent(methodName As String, RawJson As Stri
     CurrentCDP.event = CDPparams.StringKey("event")
     Set CurrentCDP.params = CDPparams.NodeKey("params")
     CurrentCDP.session = CDPparams.StringKey("session")
-    If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "BiDi+ Event: " & CDPparams.Stringify, FromProcedureName
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "BiDi+ Event: " & CDPparams.Stringify, FromProcedureName
 
     '3. SessionIDの状況を確認
     With CurrentCDP
@@ -277,7 +274,7 @@ Public Sub printParams()
 
 
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
-    printMsg Debug_, currentLog.LogID & " Tab - Information", FromProcedureName
+    printMsg Debug_, m_LogID & " Tab - Information", FromProcedureName
     printMsg Debug_, "---------------------------------------------------", FromProcedureName
 
     printMsg Debug_, "Session ID        | sessionID    | " & BiDiPlusTab.sessionID, FromProcedureName
@@ -298,7 +295,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi+.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -333,5 +330,5 @@ Private Sub Class_Initialize()
 
 
     'Assign an objID for easy debug identification
-    currentLog.LogID = "BPID" & Format(Rnd * 1000, "000")
+    m_LogID = "BPID" & Format(Rnd * 1000, "000")
 End Sub

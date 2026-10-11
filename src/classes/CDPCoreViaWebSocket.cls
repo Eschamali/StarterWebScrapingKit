@@ -173,12 +173,11 @@ Private m_LastReceiveContentBINARY() As Byte    '最後のWebSocketから得た�
 Private m_LastBufferType    As WS_BUFFER_TYPE   '最後のWebSocketから得た受信データステータス
 
 'ローカルブラウザ起動情報　※`ConnectCDPWithLocalBrowser`から起動した場合のみ特別に使用
-Private setShowWindow       As WinState         'ローカルブラウザ起動時の初期ウィンドウ状態
 Private dwProcessId         As LongPtr          'ローカルブラウザ起動時のプロセスID（`Shell` の戻り値）
 Private hProcess            As LongPtr          '上記 PID から `OpenProcess` したハンドル
 
-'--- ログ設定状況 ---
-Private currentLog As StateLog
+'ログ識別ID
+Private m_LogID As String
 
 '--- Pipe版に合わせたエラー有無判定 ---
 Private Type ErrorCode
@@ -189,8 +188,8 @@ End Type
 Private LastWinSockError   As ErrorCode
 
 '--- 各種クラスオブジェクト ---
-Private WebSocketReceiveStream  As Object                       'WebSocketバイトストリームを蓄積するオブジェクト
-Private Utf8Converter           As New CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
+Private WebSocketReceiveStream  As Object                   'WebSocketバイトストリームを蓄積するオブジェクト
+Private Utf8Converter           As CharacterCodeConversion  'UTF-8バイト配列に変換するオブジェクト
 
 
 
@@ -357,30 +356,28 @@ Private Function SwapBytes16(value As Long) As Integer
 End Function
 
 '***************************************************************************************************
-'* 機能　　：ローカルブラウザを新規でWebSocketモードで起動し、接続まで準備します
+'* 機能　　：ローカルブラウザを新規で、WebSocketモードで起動し、接続まで準備します
 '---------------------------------------------------------------------------------------------------
 '* 返り値　：起動時の初期URL
-'* 引数　　：UserName           記録する識別名称
-'            appUrl             `-app`に渡すURL
-'            SplashScreenMode   `True`で、`-app`に渡すURLがスプラッシュ画面として変わり、レースコンディション対策になります
-'            addArgs            追加引数
+'* 引数　　：caps              ブラウザ起動時のオプション設定オブジェクト
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：VBAからWebSocketモードでブラウザを起動する時にどうぞ
 '* 注意事項：・このプロシージャでは、ブラウザ制御(`CDPBrowser`返却等)までは行いません。別途`reattach○○`プロシージャで、CDPかBiDiで制御を開始します
 '            ・Portが開かない等で接続がうまくいかない場合は、VBEエラーとなります
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
-Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String, SplashScreenMode As Boolean, addArgs As String) As String
-    Const FromProcedureName As String = ThisClassName & ".ConnectCDPWithLocalBrowser"
+Public Function OpenBrowserAndConnectCDP(caps As BrowserCapabilities) As String
+    Const FromProcedureName As String = ThisClassName & ".OpenBrowserAndConnectCDP"
 
 
     '0. 前回のWinSock情報が取れちゃった場合は事前にCloseしておく
-    If deserialize(UserName) Then DisconnectCDP
+    If deserialize(caps.Set_UserDataDirName) Then DisconnectCDP
 
     '1. ブラウザ起動前に、いくつかチェックを行います
     Dim ReadyCDP As CDPHost: Set ReadyCDP = New CDPHost
     With ReadyCDP
         '1-1. 起動情報を伝達し、委託準備
-        .InitInfo UserName, False
+        .Init caps, False
 
         '1-2. ポリシーチェック
         .CheckRemoteDebuggingBlockedByPolicy
@@ -404,12 +401,12 @@ Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String,
         RunCommandLine = Join(Array(.getBrowserPath, _
                                     .GenerateArgRemoteDebugging, _
                                     .GenerateArgUseUserData, _
-                                    .GenerateArgApp(appUrl, SplashScreenMode), _
-                                    addArgs))
+                                    .GenerateArgApp(caps.Set_StartURL, caps.ClsSet_SplashScreenMode), _
+                                    caps.Set_AdditionalBrowserArguments))
 
         '2. 実際に起動を行います
         printMsg Debug_, "Starting websocket browser run... → " & RunCommandLine, FromProcedureName
-        dwProcessId = Shell(RunCommandLine, setShowWindow)
+        dwProcessId = Shell(RunCommandLine, caps.Set_StartWindowMode)
 
         '3. エラー時は、Stop
         If dwProcessId = 0 Then printMsg ERROR_, "Unable to initialize WebSocket-Browser", FromProcedureName, doRaiseError:=True Else printMsg info_, "WebSocket-Browser initialized successfully", FromProcedureName
@@ -427,21 +424,26 @@ Public Function ConnectCDPWithLocalBrowser(UserName As String, appUrl As String,
 
     '7. 接続
     '※内部で、ブラウザセッションWinSock情報をExcelのテーブルに、記録します
-    If Not ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
+    If Not ConnectCDP(caps.Set_UserDataDirName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0))) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
 
     '8. 初期URLとして返却します
-    If LenB(appUrl) Then
-        If SplashScreenMode Then
+    If LenB(caps.Set_StartURL) Then
+        If caps.ClsSet_SplashScreenMode Then
             'スプラッシュ画面ありなので、スプラッシュ起動画面のhtml-dataスキーマとして返却
-            ConnectCDPWithLocalBrowser = ReadyCDP.GetSplashHtmlText(appUrl)
+            OpenBrowserAndConnectCDP = ReadyCDP.GetSplashHtmlText(caps.Set_StartURL)
         Else
             'スプラッシュ画面なしなので、`appUrl`そのまま
-            ConnectCDPWithLocalBrowser = appUrl
+            OpenBrowserAndConnectCDP = caps.Set_StartURL
         End If
     Else
         '未指定:--homepage "about:blank" なので、"about:blank"で返却
-        ConnectCDPWithLocalBrowser = EmptyPageName
+        OpenBrowserAndConnectCDP = EmptyPageName
     End If
+
+    '9. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
+    Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
 
 
@@ -683,8 +685,8 @@ End Sub
 '* 注意事項：・エラーコードは別途プロパティメソッドで取得してください
 '            ・このプロシージャは、内部でループ処理は行いません。呼び出し側にて、引数やGETプロパティから状況を判断して、ループ処理を継続するかのロジックで組んでます
 '            ・Pipe版と違って、「[タグ情報][ペイロード][タグ情報][ペイロード]...」というフレーム連鎖になってる都合上、
-'            　処理の途中でVBE停止させると、ハンドルの使いまわし時に上手く機能しない場合があります。
-'              その場合は、新規WebSocket接続からやり直すことをおすすめします。
+'            　`CDPCore.TakeWebSocket`処理の途中でVBE停止させると、ハンドルの使いまわし時に、上手く機能しなくなります。
+'              その場合は、新規WebSocket接続からやり直してください。
 '***************************************************************************************************
 Public Function GetAsyncMessage(ByRef EndOfData As Boolean, Optional destruction As Boolean) As Long
     Const FromProcedureName As String = ThisClassName & ".GetAsyncMessage"
@@ -1016,7 +1018,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".WebSokect.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath, vbObjectError + 1
 End Sub
 
 
@@ -1234,56 +1236,46 @@ End Function
 '***************************************************************************************************
 '* 機能　　：「DevToolsActivePort」というファイルにアクセスして、今目の前のブラウザに接続処理します
 '---------------------------------------------------------------------------------------------------
-'* 引数    ：UserName               利用者識別名称
-'            ReuseWinSockHandle     Excelに記録済みのWinSockハンドル情報を使いまわします
+'* 返り値  ：接続成功可否
+'* 引数　　：caps           `DevToolsActivePort`ファイルを探すための情報一式
 '---------------------------------------------------------------------------------------------------
 '* 詳細説明：https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja
-'* 注意事項：このメソッドで接続する場合は、`CDPBrowser.cls`の`reattach`メソッドに適用して使用して下さい
+'* 注意事項：・あくまでも、既にデバッグブラウザ起動済みとして動くフローにつき、ファイル存在チェックはしません
+'            ・`caps`は、必要な設定を取り出した直後に、`Nothing`にします(ワンショット)
 '***************************************************************************************************
-Public Sub ReConnectCDP(UserName As String, Optional ReuseWinSockHandle As Boolean)
-    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
-
-
-    '1. `UserName`から、Excelテーブルからハンドル情報を取得
-    Dim PreviousSocket As Boolean
-    PreviousSocket = deserialize(UserName)
-
-    '2. セッションキープに応じて分岐
-    If ReuseWinSockHandle Then
-        '2-1 .Excelテーブルから、取れてない場合はエラー停止
-        If Not PreviousSocket Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
-
-        '2-2. ハンドル情報自体は取れたのでここで抜ける
-        printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
-        Exit Sub
-    Else
-        '2-1 .Excelテーブルから取れた場合は一応、切断しておく
-        If PreviousSocket Then DisconnectCDP
-    End If
-
-    '3. 接続試行
-    If Not AutoConnectDevToolsActivePort(UserName) Then printMsg ERROR_, "Failed to establish a WebSocket connection to CDP.", FromProcedureName, doRaiseError:=True
-End Sub
-
-'***************************************************************************************************
-'* 機能　　：`DevToolsActivePort`関連の処理
-'---------------------------------------------------------------------------------------------------
-'* 返り値  ：接続成功可否
-'* 引数    ：UserName       利用者識別名称
-'***************************************************************************************************
-Private Function AutoConnectDevToolsActivePort(UserName As String) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".AutoConnectDevToolsActivePort"
-
-
+Public Function AutoConnectDevToolsActivePort(caps As BrowserCapabilities) As Boolean
     '1. `DevToolsActivePort`のファイルパスを特定するための初期設定
-    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.InitInfo UserName, False
+    Dim checkDevToolsActivePort As New CDPHost: checkDevToolsActivePort.Init caps, False
 
     '2. 情報を取得
     Dim DevToolsActivePortInfo: DevToolsActivePortInfo = checkDevToolsActivePort.AnalysisDevToolsActivePort
 
     '3. 接続
-    AutoConnectDevToolsActivePort = ConnectCDP(UserName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
+    AutoConnectDevToolsActivePort = ConnectCDP(caps.Set_UserDataDirName, CStr(DevToolsActivePortInfo(1)), CLng(DevToolsActivePortInfo(0)))
+
+    '4. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
+    Set caps = Nothing
+    Set BrowserCapabilities = Nothing
 End Function
+
+'***************************************************************************************************
+'* 機能　　：記録済みのWinSockハンドルを適用させて、WebSocket再接続儀式を飛ばします
+'---------------------------------------------------------------------------------------------------
+'* 引数    ：UserName   どのユーザーのWinSockハンドルを使用するか
+'---------------------------------------------------------------------------------------------------
+'* 注意事項：このメソッドで接続する場合は、`ReattachOptionsSet_Destruction:=False`を推奨します
+'***************************************************************************************************
+Public Sub ReConnectCDP(UserName As String)
+    Const FromProcedureName As String = ThisClassName & ".ReConnectCDP"
+
+
+    '1 .Excelテーブルから、取れてない場合はエラー停止
+    If Not deserialize(UserName) Then printMsg ERROR_, "[" & UserName & "] cannot reattach because there is no WinSock handle information in the Excel table.", FromProcedureName, doRaiseError:=True
+
+    '2. ハンドル情報自体は取れたので、正常終了ログを出す
+    printMsg info_, "I found the WinSock handle for [" & UserName & "] in the Excel table. I will try to control CDP with this.", FromProcedureName
+End Sub
 
 '***************************************************************************************************
 '* 機能　　：実行プロセス内のWebView2デバッグポートを開いて、WebSocket制御準備します。
@@ -1364,35 +1356,28 @@ Private Function deserialize(UserName As String) As Boolean
     dwProcessId = PipeInfo("dwProcessId")
 
     '成功サインを返す
+    m_IsConnected = True
     deserialize = True
 End Function
 
 
 
 '***************************************************************************************************
-'                         ■■■ クラスオブジェクトの初期化と破棄時の処理 ■■■
+'                               ■■■ 初期化/後始末処理 ■■■
+'***************************************************************************************************
+'* 機能　　：クラス内変数の一部を初期化します
 '***************************************************************************************************
 Private Sub Class_Initialize()
     Const FromProcedureName As String = ThisClassName & ".Class_Initialize"
 
 
-    ' WinSock 2.2 の初期化
+    'WinSock 2.2 の初期化
     Dim wsaDat As WSAData
     If WSAStartup(&H202, wsaDat) = 0 Then
         m_WSAInitialized = True
     Else
         Err.Raise vbObjectError + 1001, FromProcedureName, "WSAStartup の初期化に失敗しました。"
     End If
-
-    '各種ステータスを初期化
-    m_hSocket = -1
-    m_LastBufferType = WS_NOT_MESSAGE
-
-    'ログ設定
-    With currentLog
-        currentLog.LogID = "WSID" & Format(Rnd * 1000, "000")                                               'ユニークID
-        currentLog.logPath = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.LogFileFolderPath, FromProcedureName)   'ログフォルダパス
-    End With
 
     '蓄積用バイト配列バッファーの初期化
     ReDim binBuffer(InitialBuffer - 1) As Byte
@@ -1405,8 +1390,15 @@ Private Sub Class_Initialize()
         .SetEOS             ' 終端（EOS）としてマークする
     End With
 
-    '初期起動ウィンドウ状態を設定 ※`RunWebSocketModeBrowser`から起動した場合のみ
-    setShowWindow = ShSetting01_StartBrowser.GetSettingCDP(SettingCDP.StartWindowMode, FromProcedureName)
+    'ログID設定
+    m_LogID = "WSID" & Format(Rnd * 1000, "000")
+
+    'UTF8変換モードを設定
+    Set Utf8Converter = New CharacterCodeConversion
+
+    '各種ステータスを初期化
+    m_hSocket = -1
+    m_LastBufferType = WS_NOT_MESSAGE
 End Sub
 
 Private Sub Class_Terminate()
@@ -1418,5 +1410,5 @@ Private Sub Class_Terminate()
 
     'ストリームをClose
     WebSocketReceiveStream.Close
-    Set WebSocketReceiveStream = Nothing
+    Set WebSocketReceiveStream = Nothing    ' 役目を終えたので、Windowsにメモリを返してあげる
 End Sub

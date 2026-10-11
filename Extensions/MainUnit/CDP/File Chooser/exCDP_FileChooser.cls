@@ -30,7 +30,7 @@ Private ex_CDPContext               As CDPContext   '継承元のタブクラス
 Private Const ThisClassName         As String = "exCDP_FileChooser"
 
 '基本ステート管理
-Private currentLog                  As StateLog   'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張によるブラウザ非同期イベント処理スイッチ
 Private CurrentSessionID            As String       '継承時のSesssionID
 
@@ -189,7 +189,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
             Target_backendNodeId = FileChooserOpenedParams.NumberKey("backendNodeId")
 
             '5. デバック用に表示
-            If currentLog.seeRawSendMsgDbg Then
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 printMsg Debug_, String(100, "="), FromProcedureName
                 printMsg Debug_, "Page.fileChooserOpened information", FromProcedureName
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -315,7 +315,7 @@ Private Sub SetFileInputFiles(InputID As Long)
     ExecuteCDP "DOM.setFileInputFiles", params
 
     '2. 別途ログ化
-    If currentLog.seeRawSendMsgDbg Then
+    If CDPHelpers.currentLog.seeRawSendMsgDbg Then
         printMsg info_, "Attachment complete: " & WebJsonConverter.serialize(mFilePaths), FromProcedureName
         printMsg info_, "We will initialize the file list in preparation for the next upload.", FromProcedureName
     Else
@@ -338,7 +338,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".cdp.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -363,8 +363,7 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
+    Set ex_CDPCore = Inheritance.ExEventCore
 
     '渡した際のSessionIDをセット
     CurrentSessionID = Inheritance.CurrentSessionID
@@ -381,7 +380,7 @@ Private Sub Class_Initialize()
     Set mFilePaths = New Collection
     Set UnprocessedSetFileList = New Collection
 
-    currentLog.LogID = "FCID" & Format(Rnd * 1000, "000")
+    m_LogID = "FCID" & Format(Rnd * 1000, "000")
 End Sub
 
 

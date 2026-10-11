@@ -35,7 +35,7 @@ Private ex_CDPContext    As CDPContext
 Private Const ThisClassName         As String = "exCDP_PDFPrinter"   'ログのトレース用
 
 'ログ設定
-Private currentLog                 As StateLog
+Private m_LogID                    As String   'ログ識別ID
 
 
 
@@ -210,7 +210,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".cdp.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopError As Boolean = True) As BiDiCDPJson
@@ -227,12 +227,11 @@ End Function
 Friend Sub Init(Inheritance As CDPContext)
     '継承
     Set ex_CDPContext = Inheritance
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：初期設定値を適用します
 '***************************************************************************************************
 Private Sub Class_Initialize()
-    currentLog.LogID = "PDID" & Format(Rnd * 1000, "000")
+    m_LogID = "PDID" & Format(Rnd * 1000, "000")
 End Sub

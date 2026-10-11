@@ -26,7 +26,7 @@ Private WithEvents m_CDPCore As CDPCore 'イベント受け取り用
 Attribute m_CDPCore.VB_VarHelpID = -1
 
 'ステート管理
-Private currentLog          As StateLog      'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 Private CurrentSessionID    As String       '`CDPContext.cls`継承時のSesssionID
 Private toolsMap            As Dictionary   'コマンド名と`Object-WebMCP.Tool`との紐づけ。`toolName`が`Key`です
@@ -63,7 +63,7 @@ Private Sub m_CDPCore_CDPContextEvent(methodName As String, RawJson As String, s
         '`WebMCP`が実行されたログを記録します
         Case "WebMCP.toolInvoked"
             '3-1. Json文字化が入るため、非表示の場合は即抜けして、パフォーマンスを維持
-            If Not currentLog.seeRawSendMsgDbg Then Exit Sub
+            If Not CDPHelpers.currentLog.seeRawSendMsgDbg Then Exit Sub
 
             '3-2. 実行ログを表示させる準備
             Set tmp = BiDiCDPJson.Parse(RawJson).NodeKey("params")
@@ -150,8 +150,7 @@ Public Sub Init(ThisCDPContext As CDPContext)
     Set m_CDPContext = ThisCDPContext
 
     'イベント受け取り用オブジェクトも継承
-    Set m_CDPCore = ThisCDPContext.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, ThisCDPContext.ThisCDPCore.LogSettings
+    Set m_CDPCore = ThisCDPContext.ExEventCore
 
     'セッションIDを取得
     CurrentSessionID = m_CDPContext.CurrentSessionID
@@ -318,7 +317,7 @@ Public Function ExecuteWebMCP(ToolName As String, Optional input_ As Dictionary,
         '2-2. 取り出せたら、Node-Json形式にして返却後、抜ける
         If StrPtr(tmp) Then
             Set ExecuteWebMCP = BiDiCDPJson.Parse(tmp).NodeKey("params")
-            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteWebMCP `" & ToolName & "` with result: " & ExecuteWebMCP.Stringify, FromProcedureName
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "ExecuteWebMCP `" & ToolName & "` with result: " & ExecuteWebMCP.Stringify, FromProcedureName
             Exit Function
         End If
 
@@ -387,7 +386,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".cdp.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Function ExecuteCDP(methodName As String, Optional params As Dictionary, Optional StopCDPError As Boolean = True) As BiDiCDPJson
@@ -415,7 +414,7 @@ Private Sub Class_Initialize()
     Set toolsMap = New Dictionary
     Set toolRespondedMap = New Dictionary
 
-    currentLog.LogID = "WMID" & Format(Rnd * 1000, "000")
+    m_LogID = "WMID" & Format(Rnd * 1000, "000")
 End Sub
 
 Private Sub Class_Terminate()

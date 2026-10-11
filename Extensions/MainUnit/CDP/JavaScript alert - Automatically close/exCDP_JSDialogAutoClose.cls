@@ -31,7 +31,7 @@ Private ex_CDPContext               As CDPContext   '継承元のコンテキスト(タブ)
 Private Const ThisClassName         As String = "exCDP_JSDialogAutoClose"
 
 '基本ステート管理
-Private currentLog                 As StateLog   'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'VBA側のイベント処理を有効/無効化のスイッチング
 Private CurrentSessionID            As String       '継承時のSesssionID
 
@@ -128,7 +128,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Case "Page.javascriptDialogOpening"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
-            If currentLog.seeRawSendMsgDbg Then
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -153,7 +153,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
         Case "Page.javascriptDialogClosed"
             '4. デバッグログ用に、Jsonパース処理
             printMsg Trace_, "`" & methodName & "` was detected. Raw-Json : " & RawJson, FromProcedureName
-            If currentLog.seeRawSendMsgDbg Then
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then
                 Set DialogInfos = BiDiCDPJson.Parse(RawJson).NodeKey("params")
 
                 printMsg Debug_, String(100, "="), FromProcedureName
@@ -186,7 +186,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension As String = ".cdp.log"
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 
@@ -201,8 +201,7 @@ End Sub
 Friend Sub Init(Inheritance As CDPContext)
     '必要なCDPオブジェクトを継承
     Set ex_CDPContext = Inheritance
-    Set ex_CDPCore = Inheritance.ThisCDPCore
-    CDPHelpers.InheritLogSettings currentLog, Inheritance.ThisCDPCore.LogSettings
+    Set ex_CDPCore = Inheritance.ExEventCore
 
     'SessionIdを取得
     CurrentSessionID = ex_CDPContext.CurrentSessionID
@@ -218,7 +217,7 @@ Private Sub Class_Initialize()
     'ダイアログへのデフォルト値を設定
     JavaScriptDialogClose.Accept = True
 
-    currentLog.LogID = "JDID" & Format(Rnd * 1000, "000")
+    m_LogID = "JDID" & Format(Rnd * 1000, "000")
 End Sub
 
 
