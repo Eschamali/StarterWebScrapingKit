@@ -258,10 +258,15 @@ CDP (Chrome DevTools Protocol) 操作に加え、現在 W3C で世界標準と�
 
 ## 🎁 おまけ機能
 
-CDP制御のほかに、次も同梱しています。
+CDP制御のほかに、次のおまけがあります。
 
 * **🚀 REST WebAPI（WinHTTP 5.1）**
   * 高速・軽量なデータ収集の王道。参照設定のみで完結する堅牢な実装です。基礎を組むためのテンプレートとして、標準モジュール `Template_WebAPI` を用意しています。
+* **🦊 Firefox制御（WebDriver BiDi 直結）**
+  * 「いざとなれば、Firefoxもこのツールで制御できる」という切り札です。Firefox は WebDriver BiDi をネイティブで話せるため、コアへの約80行の追記だけで、BiDi の JSON を WebSocket でそのまま送って制御できます。
+  * コアへの追記が必要なため、メインの配布物には含めていません。デモと説明は、[ex-Firefox ブランチ](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox)で公開しています。
+
+![ExcelのVBAからFirefoxを制御している様子](doc/firefoxIntro.gif)
 
 ---
 

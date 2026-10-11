@@ -264,10 +264,15 @@ While maintaining the project's philosophy of being **"self-contained in VBA"** 
 
 ## 🎁 Bonus Features
 
-Besides CDP control, the following included.
+Besides CDP control, the following bonuses are available.
 
 * **🚀 REST WebAPI (WinHTTP 5.1)**
   * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings. The standard module `Template_WebAPI` is provided as a template for building the basics.
+* **🦊 Firefox Control (Direct WebDriver BiDi)**
+  * Our ace in the hole: "if it ever comes to that, this tool can control Firefox too." Firefox speaks WebDriver BiDi natively, so with only about 80 lines added to the core, you can send BiDi JSON straight over a WebSocket to control it.
+  * Because it requires additions to the core, it is not included in the main distribution. The demo and its explanation are published on the [ex-Firefox branch](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox).
+
+![Controlling Firefox from Excel VBA](doc/firefoxIntro.gif)
 
 ---
 
