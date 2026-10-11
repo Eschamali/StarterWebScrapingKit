@@ -10,64 +10,90 @@ description: タブ単位のナビ・ウィンドウ制御・jsEval・iframe・�
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 t.navigate "https://example.com"
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 親ブラウザは `ThisCDPBrowser`（[`CDPBrowser`](./CDPBrowser)）です。日常利用では設定シート経由の `StartCDPModeContext` を推奨します。
 
 ## 起動・再接続・終了
 
-### `StartAndConnectTab`
+### `OpenBrowserAndConnectTab`
 
 ブラウザ起動と同時に、初回タブ接続まで自動で行います。
 
 ```vb
-Public Sub StartAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String)
+Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
-| `appUrl` | `--app` に付ける URL |
-| `addArgs` | 追加の起動引数 |
+| `caps` | 起動時のオプションをまとめた [`BrowserCapabilities`](./BrowserCapabilities) |
 
-日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
-
-### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
-
-Excel テーブルにある既存のパイプ／WebSocket／WebView2 接続情報を利用して、再接続を試みます。`CDPBrowser` 側と異なり、いずれも `Function ... As Boolean` で、失敗時は例外を投げず `False` を返します。
+起動に必要な設定（ユーザーデータフォルダ名・ブラウザの種類・追加の起動引数・初期 URL・Pipe / Port の切り替えなど）は、すべて `caps` で渡します。既定値は設定シートから読み込まれるため、シートの内容のままでよければ次の2行で起動できます。
 
 ```vb
-Public Function reattachPipe(userProfile As String, Optional reuseSession As Boolean) As Boolean
-Public Function reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket, Optional reuseSession As Boolean) As Boolean
-Public Function reattachWebView2(userProfile As String, ConnectInfo As CDPCoreViaWebView2, Optional reuseSession As Boolean) As Boolean
+Dim t As CDPContext
+Set t = New CDPContext
+t.OpenBrowserAndConnectTab BrowserCapabilities
+```
+
+初期 URL などを変えたい場合は、事前に `BrowserCapabilities.Set_○○` で上書きしてください。
+
+```vb
+BrowserCapabilities.Set_StartURL = "https://example.com"
+
+Dim t As CDPContext
+Set t = New CDPContext
+t.OpenBrowserAndConnectTab BrowserCapabilities
+```
+
+日常利用では、設定シート経由の `StartCDPModeContext` で十分です（内部でこのメソッドを呼んでいます）。
+
+::: tip 起動スプラッシュ画面
+Context 経由の起動は、常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移します（`--app` 使用時のレースコンディション対策）。詳細は [ページ遷移](/guides/navigation) の「起動時のレースコンディション対策」を参照してください。
+:::
+
+### `reattach`
+
+Excel テーブルにある既存の接続情報を利用して、起動済みのブラウザのタブへ再接続します。通信経路（Pipe / Port / WebView2）は、[`ReattachOptions`](./ReattachOptions) で指定します。
+
+```vb
+Public Function reattach(reattachInfo As ReattachOptions, Optional reuseSession As Boolean) As Boolean
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく） |
-| `ConnectInfo` | WebSocket / WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` / `CDPCoreViaWebView2` を指定（v3.2.0で`WebSocketMode`/`WebView2Mode`から改称） |
+| `reattachInfo` | 再接続時のオプションをまとめた [`ReattachOptions`](./ReattachOptions)。制御経路の指定が必須 |
 | `reuseSession` | `True` で Excel に記録中の SessionID を流用。`False` なら `targetID` を基に SessionID を更新し、古い SessionID を破棄して上書き |
 
-**戻り値:** 既存タブへの接続成功可否。
+**戻り値:** 既存タブへの接続成功可否。`CDPBrowser` 側と異なり、失敗時は例外を投げず `False` を返します。
 
 ```vb
+Dim UserName As String
+UserName = ShSetting01_StartBrowser.CurrentUserName
+
 ' Pipe 版
+ReattachOptions.Set_PipeMode = UserName
+
 Dim t As New CDPContext
-If Not t.reattachPipe(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
+If Not t.reattach(ReattachOptions) Then Exit Sub
 
 ' SessionID を引き継ぐ（KeepSession 済みの場合）
-If Not t.reattachPipe(UserName, True) Then Exit Sub
+ReattachOptions.Set_PipeMode = UserName
+If Not t.reattach(ReattachOptions, True) Then Exit Sub
 
-' WebSocket 版（Page 接続）
-Dim ws As New CDPCoreViaWebSocket
+' Port（WebSocket）版（Page 接続）
+Dim ws As CDPCoreViaWebSocket
+Set ws = New CDPCoreViaWebSocket
 ws.AutoConnectPageCDP UserName
-If Not t.reattachWebSocket(UserName, ws) Then Exit Sub
+ReattachOptions.Set_WebSocketMode(ws) = UserName
+If Not t.reattach(ReattachOptions) Then Exit Sub
 ```
 
 ::: tip 注意
 - この処理は Excel テーブルに記録されている `targetID` への再接続までです。`targetID` 自体が既に閉じている場合は `False` になりますが、パイプが生きていれば親の [`newTab` / `getTab`](./CDPBrowser)（`setMain:=True`）で手動復旧できます
 - 非同期イベント購読中（例: `Network.webSocketFrameReceived`）は `reuseSession:=True` を推奨します
+- `ReattachOptions` は使い切りです。`reattach` を呼ぶたびに、制御経路を指定し直してください
 :::
 
 詳細は [再接続ガイド](/guides/reattach)（SessionID 引き継ぎ含む）/ [WebSocket モード](/websocket/capabilities) を参照。
@@ -78,7 +104,7 @@ If Not t.reattachWebSocket(UserName, ws) Then Exit Sub
 Public Sub closeTab()
 ```
 
-このタブを閉じます。ブラウザ全体を終了する [`CDPBrowser.quit`](./CDPBrowser#quit) とは別です。
+このタブを閉じます。ブラウザ全体を終了する [`CDPBrowser.CloseBrowser`](./CDPBrowser#closebrowser) とは別です。
 
 ::: tip 注意
 メインタブ（Excel テーブルに記録されたセッションタブ）は閉じられません。
@@ -596,7 +622,7 @@ t.snapPage Environ("UserProfile") & "\Downloads", "viewport.png"
 ' フルページ
 t.snapPage Environ("UserProfile") & "\Downloads", "full.png", True
 
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 ::: tip 注意
@@ -818,7 +844,7 @@ Property Get ThisCDPBrowser() As CDPBrowser
 
 `CDPContext` 上で、ブラウザ単位の制御もしたいときに使います。親の [`CDPBrowser`](./CDPBrowser) への参照です。
 
-タブ操作（`navigate` など）は Context 側、プロセス／タブ一覧／ブラウザ向け CDP（`quit` / `newTab` / `ExecuteCDP` など）はこちら経由、という使い分けになります。
+タブ操作（`navigate` など）は Context 側、プロセス／タブ一覧／ブラウザ向け CDP（`CloseBrowser` / `newTab` / `ExecuteCDP` など）はこちら経由、という使い分けになります。
 
 ```vb
 ' 別タブを開く
@@ -828,8 +854,16 @@ t.ThisCDPBrowser.newTab "https://example.com"
 t.ThisCDPBrowser.ExecuteCDP "Extensions.loadUnpacked", params
 
 ' ブラウザ終了
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
+
+### `ExEventCore`
+
+```vb
+Property Get ExEventCore() As CDPCore
+```
+
+自作の拡張クラスで、CDP の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`CDPCore`）への参照です。自作の拡張クラス以外では使いません。受け取り方の使い分けは [イベント購読](/guides/events) を参照してください。
 
 ## デバッグ
 

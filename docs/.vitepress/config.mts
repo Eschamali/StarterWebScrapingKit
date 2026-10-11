@@ -127,6 +127,13 @@ export default withMermaid(
           ]
         },
         {
+          text: 'API — オプションオブジェクト',
+          items: [
+            { text: 'BrowserCapabilities（起動）', link: '/api/cdp/BrowserCapabilities' },
+            { text: 'ReattachOptions（再接続）', link: '/api/cdp/ReattachOptions' }
+          ]
+        },
+        {
           text: 'API — WebDriver BiDi',
           items: [
             { text: 'WebDriverBiDiMode', link: '/api/bidi/WebDriverBiDiMode' },
@@ -161,7 +168,8 @@ export default withMermaid(
           items: [
             { text: 'このツールの誕生秘話', link: '/stories/birth-story' },
             { text: 'BiDi 登場秘話', link: '/stories/bidi-story' },
-            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' }
+            { text: 'WebView2 登場秘話', link: '/stories/webview2-story' },
+            { text: 'オプションオブジェクト 登場秘話', link: '/stories/option-object-story' }
           ]
         },
         {

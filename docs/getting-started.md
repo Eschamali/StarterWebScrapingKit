@@ -28,7 +28,7 @@ Access版は、VBAをデコンパイルした状態でリリースしていま�
 
 ## 2. ブラウザ起動設定シート
 
-ワークシート **ブラウザ起動設定ver3.X.X** で次を確認します。
+ワークシート **ブラウザ起動設定ver4.X.X** で次を確認します。
 
 |設定項目|説明|
 |---:|---:|
@@ -73,7 +73,7 @@ Sub CDPによる冒険の始まり()
     HelloWorld.notify "あなたは、けものがお好きですか？"
     Sleep 3
 
-    HelloWorld.ThisCDPBrowser.quit
+    HelloWorld.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -85,7 +85,7 @@ Sub BiDiによる冒険の始まり()
     HelloWorld.navigate "https://example.com"
     Sleep 3
 
-    HelloWorld.ThisWebDriverBiDiMode.quit
+    HelloWorld.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 ```
 
@@ -125,6 +125,28 @@ Set t = ShSetting01_StartBrowser.StartCDPModeContext
 
 詳細は [WebSocket モードでできること](/websocket/capabilities) を参照してください。
 
+#### ヘルパーを使わずに、直接起動する場合
+
+起動時のオプションは、[`BrowserCapabilities`](/api/cdp/BrowserCapabilities) という1つのオブジェクトに集約されています。各設定の既定値は、このワークシートから読み込まれます。シートの内容のままでよければ、たったこれだけで起動できます（ヘルパーも、内部ではこの形で起動しています）。
+
+```vb
+Dim t As CDPContext
+Set t = New CDPContext
+t.OpenBrowserAndConnectTab BrowserCapabilities
+```
+
+初期 URL など、変えたい設定だけを `Set_○○` で上書きします。
+
+```vb
+BrowserCapabilities.Set_StartURL = "https://example.com"
+
+Dim t As CDPContext
+Set t = New CDPContext
+t.OpenBrowserAndConnectTab BrowserCapabilities
+```
+
+BiDi の場合は、`WebDriverBiDiContext.OpenBrowserAndConnectTab` に同じオブジェクトを渡します。起動済みのブラウザへ再接続する場合は、[`ReattachOptions`](/api/cdp/ReattachOptions) を使います（[再接続](/guides/reattach)）。
+
 ::: tip UserForm へのブラウザ埋め込み
 「UserForm の中にブラウザ画面を表示したい」場合は、この4種類とは別に [UserForm への WebView2 埋め込み](/userform/intro) を参照してください。v3.0.0 で、 **WebView2** をネイティブに CDP 制御できるようになりました。
 :::
@@ -152,20 +174,20 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext( _
 
 - 省略時は `{ "capabilities": {} }` 相当の既定値で `session.new` します
 - `StartBiDiMode` / `StartBiDiModeContext` の両方で使えます
-- `reattach` でも渡せますが、**新規に BiDi-CDP Mapper が起動したときだけ** 適用されます
+- 再接続（`reattach`）では `ReattachOptions.Set_BiDiSessionCapabilitiesRequest` で渡せますが、**新規に BiDi-CDP Mapper が起動したときだけ** 適用されます
 
 詳細な Capabilities 一覧は [W3C WebDriver BiDi — session.new](https://w3c.github.io/webdriver-bidi/#command-session-new) を参照してください。
 
-## 4. 終了時は必ず quit
+## 4. 終了時は必ず CloseBrowser
 
 パイプ／マッパーを残さないよう、処理の最後でブラウザを閉じます。
 
 ```vb
 ' CDP
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 
 ' BiDi
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 ## 5. Copilotにこのツールの流儀を教える（`.Rules` シート、v3.1.1〜）

@@ -12,35 +12,35 @@ Set mode = ShSetting01_StartBrowser.StartBiDiMode
 Dim tab As WebDriverBiDiContext
 Set tab = mode.getTab(setMain:=True)
 tab.navigate "https://example.com"
-mode.quit
+mode.CloseBrowser
 ```
 
 タブからすぐ始めたい場合は設定シートの `StartBiDiModeContext` → [`WebDriverBiDiContext`](./WebDriverBiDiContext) が簡単です。
 
 ## 起動・再接続・終了
 
-### `StartBiDiMode`
+### `OpenBrowser`
 
 ```vb
-Public Function StartBiDiMode(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, _
-    Optional addArgs As String, Optional sessionCapabilitiesRequest As Dictionary) As String
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
 ```
 
-ブラウザを WebDriver BiDi として起動し、`session.new` まで行います。日常利用では設定シート経由を推奨します。戻り値は初期接続先の URL 文字列です。
+ブラウザを WebDriver BiDi として起動し、`session.new` まで行います。日常利用では設定シート経由を推奨します（内部でこのメソッドを呼んでいます）。戻り値は初期接続先の URL 文字列です。
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
-| `appUrl` | 起動時に開く URL（`--app` 相当） |
-| `SplashScreenMode` | `True` で実URLの前に起動スプラッシュ画面を挟む（`--app` 使用時のレースコンディション対策。詳細は [ページ遷移](/guides/navigation)） |
-| `addArgs` | 追加の起動引数 |
-| `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
+| `caps` | 起動時のオプションをまとめた [`BrowserCapabilities`](/api/cdp/BrowserCapabilities) |
+
+ユーザーデータフォルダ名・ブラウザの種類・追加の起動引数・初期 URL などは、すべて `caps` で渡します。`session.new` に渡す `sessionCapabilitiesRequest` は、`caps.Set_BiDiSessionCapabilitiesRequest` で設定します。
 
 ```vb
 Dim caps As New Dictionary
 ' ... capabilities を組み立て ...
-Dim mode As New WebDriverBiDiMode
-mode.StartBiDiMode "MyUser", sessionCapabilitiesRequest:=caps
+Set BrowserCapabilities.Set_BiDiSessionCapabilitiesRequest = caps
+
+Dim mode As WebDriverBiDiMode
+Set mode = New WebDriverBiDiMode
+mode.OpenBrowser BrowserCapabilities
 ```
 
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
@@ -48,51 +48,52 @@ mode.StartBiDiMode "MyUser", sessionCapabilitiesRequest:=caps
 ### `reattach`
 
 ```vb
-Public Sub reattach( _
-    userProfile As String, _
-    Optional sessionCapabilitiesRequest As Dictionary, _
-    Optional WebSocketMode As CDPCoreViaWebSocket _
-)
+Public Sub reattach(reattachInfo As ReattachOptions)
 ```
 
-既存の BiDi 接続へ再接続します。
+既存の BiDi 接続へ再接続します。通信経路（Pipe / Port）は、[`ReattachOptions`](/api/cdp/ReattachOptions) で指定します。
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく識別名称） |
-| `sessionCapabilitiesRequest` | 新しい BiDi-CDP Mapper が起動されたときだけ `session.new` に適用 |
-| `WebSocketMode` | WebSocket で制御する場合、接続済みの `CDPCoreViaWebSocket` を指定 |
+| `reattachInfo` | 再接続時のオプションをまとめた [`ReattachOptions`](/api/cdp/ReattachOptions)。制御経路の指定が必須。BiDi-CDP Mapper が再始動されたときに使う `Set_BiDiSessionCapabilitiesRequest` なども、ここで設定します |
 
-戻り値はありません。[`CDPBrowser.reattachPipe`](/api/cdp/CDPBrowser) 等と同じく、再接続に失敗した場合は **VBA エラーで停止**します（エラーで止めたくない場合は呼び出し側で `On Error` を使ってください）。
+戻り値はありません。[`CDPBrowser.reattach`](/api/cdp/CDPBrowser) と同じく、再接続に失敗した場合は **VBA エラーで停止**します（エラーで止めたくない場合は呼び出し側で `On Error` を使ってください）。
 
 ```vb
 ' Pipe 版
-Dim mode As New WebDriverBiDiMode
-mode.reattach ShSetting01_StartBrowser.CurrentUserName
+ReattachOptions.Set_PipeMode = ShSetting01_StartBrowser.CurrentUserName
 
-' WebSocket 版
-Dim ws As New CDPCoreViaWebSocket
-' ... 接続済み ws を渡す ...
-mode.reattach UserName, , ws
+Dim mode As New WebDriverBiDiMode
+mode.reattach ReattachOptions
+
+' Port（WebSocket）版
+Dim ws As CDPCoreViaWebSocket
+Set ws = New CDPCoreViaWebSocket
+' ... 接続済み ws を用意する ...
+ReattachOptions.Set_WebSocketMode(ws) = UserName
+
+Set mode = New WebDriverBiDiMode
+mode.reattach ReattachOptions
 ```
 
 ::: tip 注意
 - パイプが生きていない場合は、このメソッドから再開できません。Part1 からやり直してください
-- BiDi-CDP Mapper が再始動された場合のほか、デバッグ中の BiDi セッションが無い（`session.status` の `ready` が `True`）場合にも、`session.new` を行います。このとき `sessionCapabilitiesRequest` が適用されます
+- BiDi-CDP Mapper が再始動された場合のほか、デバッグ中の BiDi セッションが無い（`session.status` の `ready` が `True`）場合にも、`session.new` を行います。このとき `Set_BiDiSessionCapabilitiesRequest` が適用されます
+- `ReattachOptions` は使い切りです。`reattach` を呼ぶたびに、制御経路を指定し直してください
 :::
 
 詳細は [再接続](/guides/reattach) / [WebSocket モード](/websocket/capabilities)。
 
-### `quit`
+### `CloseBrowser`
 
 ```vb
-Public Sub quit()
+Public Sub CloseBrowser()
 ```
 
-`browser.close` を送り、パイプ／Excel テーブル上のセッション情報を解放します。
+`browser.close` を送ってブラウザを終了し、Excel テーブル上のメインタブ情報と接続ハンドルを解放します。
 
 ```vb
-mode.quit
+mode.CloseBrowser
 ```
 
 ### `sessionEnd`
@@ -108,7 +109,7 @@ mode.sessionEnd   ' ブラウザは開いたまま、BiDi 制御だけ終了
 ```
 
 ::: tip 注意
-通信の切断が同時に起こるため、エラーは無視する動作になっています（`StopBiDiError:=False` 相当）。ブラウザごと終了したい場合は [`quit`](#quit) を使ってください。
+通信の切断が同時に起こるため、エラーは無視する動作になっています（`StopBiDiError:=False` 相当）。ブラウザごと終了したい場合は [`CloseBrowser`](#closebrowser) を使ってください。
 :::
 
 ## タブ
@@ -482,13 +483,13 @@ Property Let EnableDiscoverContexts(Flag As Boolean)
 `navigationStarted` / `domContentLoaded` / `load` の購読も同時に行うようになりました（[`WaitEvents`](/api/bidi/WebDriverBiDiContext#waitevents) によるイベント駆動の読み込み待機のため）。
 :::
 
-### `InheritanceBiDiCore`
+### `ExEventCore`
 
 ```vb
-Property Get InheritanceBiDiCore() As WebDriverBiDiCore
+Property Get ExEventCore() As WebDriverBiDiCore
 ```
 
-内部の `WebDriverBiDiCore` への参照です。通常は [`WebDriverBiDiContext`](./WebDriverBiDiContext) 経由で十分です。
+自作の拡張クラスで、BiDi の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`WebDriverBiDiCore`）への参照です。自作の拡張クラス以外では使いません。
 
 ## 関連
 

@@ -18,7 +18,7 @@ t.navigate "https://kemono-friends.jp/"          ' 既定: 読み込み完了ま
 t.navigate "https://kemono-friends.jp/introduction/", WaitMode:=isComplete
 t.Wait                                    ' 現在ページの完了待ち（ポーリング版）
 
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 ```vb [BiDi]
@@ -27,7 +27,7 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 
 t.navigate "https://kemono-friends-20170110.jp/"
 
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 :::
@@ -45,11 +45,11 @@ Set t = ShSetting01_StartBrowser.StartBiDiModeContext("https://kemono-friends-20
 
 :::
 
-## 起動時のレースコンディション対策（v3.2.0〜）
+## 起動時のレースコンディション対策
 
-`--app="<URL>"` でブラウザを起動する場合、以前は起動直後にCDP/BiDiコマンドを送ると、ブラウザ側の準備が間に合わず稀に失敗することがありました（例: 起動直後の`Page.navigate`が最初の1回だけ失敗する）。
+`--app="<URL>"` でブラウザを起動してすぐにCDP/BiDiコマンドを送ると、ブラウザ側の準備が間に合わず、稀に失敗することがあります（例: 起動直後の`Page.navigate`が最初の1回だけ失敗する）。
 
-v3.2.0からは、**Context（タブ）単位で起動する場合**、実際のURLへ向かう前に一度「起動スプラッシュ画面」（`data:text/html,...`の自己完結HTML、ライト/ダーク自動対応のローディング表示）を経由するようになりました。ライブラリは確実にこのスプラッシュタブへ接続し、`Page.enable`/`Runtime.enable`を有効化してから、あらためて本来のURLへ`navigate`します。これにより「起動直後の最初のコマンドだけ失敗する」という問題が解消されています。
+そのため、**Context（タブ）単位で起動する場合**は、実際のURLへ向かう前に一度「起動スプラッシュ画面」（`data:text/html,...`の自己完結HTML、ライト/ダーク自動対応のローディング表示）を経由します。ライブラリは確実にこのスプラッシュタブへ接続し、`Page.enable`/`Runtime.enable`を有効化してから、あらためて本来のURLへ`navigate`します。これにより「起動直後の最初のコマンドだけ失敗する」という問題を避けています。
 
 ![起動直後に一瞬だけ表示される、ダークテーマ対応の起動スプラッシュ画面。「Starting CDP control from VBA...」というタイトルとスピナー、遷移先URLが表示されている](/img/起動スプラッシュ画面.png)
 
@@ -67,7 +67,7 @@ End Sub
 ```
 
 ::: tip Context単位のみで発生。ブラウザ単位は対象外
-このスプラッシュ画面が挟まるのは `StartCDPModeContext` / `StartBiDiModeContext`（およびそれらが内部で呼ぶ `CDPContext.StartAndConnectTab` / `WebDriverBiDiContext.StartBiDiModeAndConnectTab`）のみです。`StartCDPMode` / `StartBiDiMode`（`CDPBrowser` / `WebDriverBiDiMode` を返すブラウザ単位の起動）は、以前と同じく `--app` に直接URLを渡します。
+このスプラッシュ画面が挟まるのは `StartCDPModeContext` / `StartBiDiModeContext`（およびそれらが内部で呼ぶ `CDPContext.OpenBrowserAndConnectTab` / `WebDriverBiDiContext.OpenBrowserAndConnectTab`）のみです。`StartCDPMode` / `StartBiDiMode`（`CDPBrowser` / `WebDriverBiDiMode` を返すブラウザ単位の起動。内部では `OpenBrowser`）は、`--app` に直接URLを渡します。スプラッシュ画面を経由するかどうかを設定する項目はありません。
 :::
 
 ## `Wait` と `WaitEvents`（v3.2.0〜）

@@ -39,14 +39,14 @@ VBAで、ChromeやEdgeを動かすと思い浮かぶのが、`SeleniumVBA`や`Se
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 t.navigate "https://kemono-friends.jp/"
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 ```vb [BiDi]
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 t.navigate "https://kemono-friends-20170110.jp/"
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 :::
@@ -79,7 +79,7 @@ Loop
 Dim t As CDPContext
 Set t = ShSetting01_StartBrowser.StartCDPModeContext
 t.navigate "https://kemono-friends.jp/"
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 :::
@@ -88,7 +88,7 @@ t.ThisCDPBrowser.quit
 | --- | --- |
 | `CreateObject("InternetExplorer.Application")` + `Visible = True` | `StartCDPModeContext`（設定シートの内容でブラウザを起動） |
 | `Navigate` + `Busy` / `ReadyState` の待機ループ | `navigate`（既定でページの読み込み完了まで待機するため、ループ不要） |
-| `Quit` | `ThisCDPBrowser.quit` |
+| `Quit` | `ThisCDPBrowser.CloseBrowser` |
 
 ::: tip
 待機方法は `navigate` の `WaitMode` 引数で変えられます（待たずに進める非同期指定も可能）。詳細は [ページ遷移](/guides/navigation) を参照してください。

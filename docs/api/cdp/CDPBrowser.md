@@ -14,65 +14,90 @@ Set b = ShSetting01_StartBrowser.StartCDPMode
 Dim t As CDPContext
 Set t = b.getTab(setMain:=True)
 t.navigate "https://example.com"
-b.quit
+b.CloseBrowser
 ```
 
 ## 起動・再接続・終了
 
-### `start`
+### `OpenBrowser`
 
 ```vb
-Public Function start(userProfile As String, Optional appUrl As String, Optional SplashScreenMode As Boolean, Optional addArgs As String) As String
+Public Function OpenBrowser(caps As BrowserCapabilities) As String
 ```
 
-ブラウザを起動し、設定シートの `UseWebSocket` セルに応じて Pipe / WebSocket いずれかで接続します（既定は Pipe）。日常利用では設定シート経由（`StartCDPMode` 等）を推奨します。戻り値は初期接続先の URL 文字列です。
+ブラウザを起動し、Pipe / Port（WebSocket）いずれかで接続します。どちらで接続するかは、`caps` の `Set_UseWebSocket`（既定はワークシートの「WebSocketモード」。OFF なら Pipe）で決まります。戻り値は初期接続先の URL 文字列です。
 
-### `reattachPipe` / `reattachWebSocket` / `reattachWebView2`
-
-Excel テーブルにある既存の接続情報（パイプ／WebSocket／WebView2）を利用して、再接続を試みます。トランスポートごとに専用のメソッドが分かれています。
+| 引数 | 意味 |
+| --- | --- |
+| `caps` | 起動時のオプションをまとめた [`BrowserCapabilities`](./BrowserCapabilities) |
 
 ```vb
-Public Sub reattachPipe(userProfile As String)
-Public Sub reattachWebSocket(userProfile As String, Optional ConnectInfo As CDPCoreViaWebSocket)
-Public Sub reattachWebView2(userProfile As String, WebView2Mode As CDPCoreViaWebView2)
+Dim b As CDPBrowser
+Set b = New CDPBrowser
+b.OpenBrowser BrowserCapabilities
+```
+
+日常利用では設定シート経由（`StartCDPMode` 等）を推奨します（内部でこのメソッドを呼んでいます）。
+
+### `reattach`
+
+Excel テーブルにある既存の接続情報を利用して、起動済みのブラウザへ再接続します。通信経路（Pipe / Port / WebView2）は、[`ReattachOptions`](./ReattachOptions) で指定します。
+
+```vb
+Public Sub reattach(reattachInfo As ReattachOptions)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく識別名称） |
-| `ConnectInfo` | WebSocket で CDP 制御する場合、接続処理済みの `CDPCoreViaWebSocket` を指定 |
-| `WebView2Mode` | WebView2 で CDP 制御する場合、接続処理済みの `CDPCoreViaWebView2` を指定 |
-
-#### 基本的な使い方
-
-- `start` や設定シート経由で起動したときの識別名称を `userProfile` に渡します（例: `ShSetting01_StartBrowser.CurrentUserName`）
-- WebSocket / WebView2 モードで動かすときは、接続処理済みの Class オブジェクトを第 2 引数に渡します
+| `reattachInfo` | 再接続時のオプションをまとめた [`ReattachOptions`](./ReattachOptions)。制御経路の指定が必須 |
 
 ```vb
 ' Pipe 版
-Dim b As New CDPBrowser
-b.reattachPipe ShSetting01_StartBrowser.CurrentUserName
+ReattachOptions.Set_PipeMode = ShSetting01_StartBrowser.CurrentUserName
 
-' WebSocket 版
-Dim ws As New CDPCoreViaWebSocket
-ws.AutoConnectBrowserCDP UserName
 Dim b As New CDPBrowser
-b.reattachWebSocket UserName, ws
+b.reattach ReattachOptions
+
+' Port（WebSocket）版
+Dim ws As CDPCoreViaWebSocket
+Set ws = New CDPCoreViaWebSocket
+ws.AutoConnectBrowserCDP UserName
+
+ReattachOptions.Set_WebSocketMode(ws) = UserName
+
+Set b = New CDPBrowser
+b.reattach ReattachOptions
 ```
 
 ::: tip 注意
-`CDPBrowser` 側はいずれも戻り値なしの `Sub` です。パイプ（または WebSocket / WebView2 接続）が生きていない場合は、`Boolean` を返さず **VBA エラーで停止**します（`CDPContext` 側の同名メソッドは `Function ... As Boolean` で、失敗時は例外を投げずに `False` を返す点が異なります）。エラーで止めたくない場合は、呼び出し側で `On Error` を使ってください。生存していない場合、Part1 からやり直す必要がある点は共通です。
+戻り値なしの `Sub` です。パイプ（または WebSocket / WebView2 接続）が生きていない場合は、`Boolean` を返さず **VBA エラーで停止**します（`CDPContext.reattach` は `Function ... As Boolean` で、失敗時は例外を投げずに `False` を返す点が異なります）。エラーで止めたくない場合は、呼び出し側で `On Error` を使ってください。生存していない場合、Part1 からやり直す必要がある点は共通です。
 :::
 
 詳細は [再接続ガイド](/guides/reattach) / [WebSocket モード](/websocket/capabilities) を参照。
 
-### `quit`
+### `CloseBrowser`
 
 ```vb
-Public Sub quit()
+Public Sub CloseBrowser()
 ```
 
-ブラウザを終了しリソースを解放します。
+`Browser.close` を送ってブラウザを終了し、Excel テーブル上のメインタブ情報と接続ハンドルを解放します。一定時間（5 秒）たっても閉じない場合は、プロセスを強制終了します。
+
+```vb
+b.CloseBrowser
+```
+
+### `DisconnectCDP`
+
+```vb
+Public Sub DisconnectCDP()
+```
+
+**ブラウザは終了せずに**、接続だけを切り離し、Excel テーブルの接続情報も削除します。
+
+::: warning Port（WebSocket）以外では再接続できなくなります
+Pipe / WebView2 で `DisconnectCDP` を呼ぶと、そのブラウザへは二度と再接続できなくなります。ブラウザを開いたまま、あとで [`reattach`](#reattach) したい場合は、`DisconnectCDP` を呼ばずに処理を終えてください（Port の場合のみ、切断したあとでも再接続できます）。
+:::
 
 ### `isLiveBrowser`
 
@@ -331,6 +356,8 @@ b.TimeOutSecond = 60
 | `printTargetInfos` / `printParams` | デバッグ出力。`printParams` は、`Browser.getVersion` から得たブラウザ情報（製品名・バージョン・V8 / CDP バージョン・リビジョン・`User-Agent`）と、ユーザーデータ名・プロセスID・ツールのバージョンを表示します |
 | `CurrentBrowserUser`（Get） | 起動中ブラウザのユーザーデータ識別名称 |
 | `CurrentBrowseruserAgent`（Get） | 起動中ブラウザの`User-Agent`値（接続時に `Browser.getVersion` から取得してキャッシュしたもの） |
+| `UseCustomUAMode`（Get） | このツールのサインを `User-Agent` に追記する設定が有効か（起動時は `BrowserCapabilities.Set_EnableUserAgentOverride`、再接続時は `ReattachOptions.Set_EnableUserAgentOverride` で決まる） |
+| `ExEventCore`（Get） | 自作の拡張クラスで、CDP の非同期イベントを `WithEvents` で受け取るときに使う、上級者向けの通信コア（`CDPCore`）。自作の拡張クラス以外では使いません |
 | `sleep` | 秒待ち |
 | `TimerCounter` | 経過ミリ秒。`Timer` 関数の代わりに自前ループのタイムアウト判定へ。[タイムアウト設定方法について](/guides/timeout) |
 | `serializeForMainTab` | メインタブの session/target を記録 |
@@ -340,3 +367,4 @@ b.TimeOutSecond = 60
 - [マルチタブ](/guides/multi-tab)
 - [タイムアウト設定方法について](/guides/timeout)
 - [`CDPContext`](./CDPContext)
+- [`BrowserCapabilities`](./BrowserCapabilities) / [`ReattachOptions`](./ReattachOptions)

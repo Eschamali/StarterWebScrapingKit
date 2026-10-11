@@ -214,7 +214,7 @@ params.Add "session", sessionId
 Set result = t.ExecuteBiDi("goog:cdp.sendCommand", params)
 
 Debug.Print result.NodeKey("result").StringKey("userAgent")
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 デモ: `Demo_WebDriverBiDi.TestBiDiPlus_CDPTunnel`

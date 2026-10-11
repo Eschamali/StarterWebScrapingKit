@@ -32,12 +32,12 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  'シングルサインオンの切り替え
 
         '2. WebView2プロセスを起動
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。WebView2Loader.dllが見つからない、" & _
-                                                        "またはEnvironment/Controllerの生成に失敗した可能性があります。": Exit Sub
+        .StartCDPModeWebView2
 
         '3. 遷移前の事前設定を施す(任意)
         .ThisWebView2.DevToolsEnabled = False       'DevToolsウィンドウ起動禁止
         .ThisWebView2.ContextMenuEnabled = False    '右クリック禁止
+        .ThisWebView2.StatusBarEnabled = False      '左下に出るステータステキストを表示しない
 
         '3. CDPとして、ページ遷移
         'シングルサインオンを無効：Microsoftアカウントの紹介
@@ -53,9 +53,13 @@ End Sub
 
 同梱デモ: `Demo_WebView2.WebView2OnExcelUserForm`
 
-内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.ConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
+内部では、`WebView2Form.StartCDPModeWebView2` が `CDPCoreViaWebView2.OpenWebView2AndConnectCDP` を呼んでWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`ReattachOptions.Set_WebView2Mode` と `CDPBrowser.reattach` を通じて、Pipe版・Port版と**まったく同じCDPスタック**に接続します。埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
 このデモには、WebView2モードならではの基本操作が3つ詰め込まれています。
+
+::: tip 初期化に失敗したとき
+`WebView2Loader.dll` が見つからない、`Environment` / `Controller` の生成に失敗した、などの場合は、`StartCDPModeWebView2` は **VBA エラーで停止**します（`False` を返すのではありません）。エラーで止めたくない場合は、呼び出し側で `On Error` を使ってください。
+:::
 
 ::: tip 設定できるタイミングは2種類
 - **起動前**（`StartCDPModeWebView2`より前）：`EnvironmentOptions`経由の設定（例: `Set_AllowSingleSignOnUsingOSPrimaryAccount`）。Environment生成時にしか読まれないため、あとから変更しても反映されません
@@ -75,21 +79,29 @@ Accessのフォームは、デザイン時にFrameコントロールを静的に
 `CDPCoreViaWebView2` を直接使えば、自作のUserFormにも組み込めます。
 
 ```vb
-Public Function ConnectCDP(UserName As String, Optional AttachHwnd As LongPtr) As Boolean
+Public Sub OpenWebView2AndConnectCDP(caps As BrowserCapabilities, Optional AttachHwnd As LongPtr)
 ```
 
 | 引数 | 意味 |
 | --- | --- |
-| `UserName` | WebView2 のユーザーデータフォルダ名。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
+| `caps` | 起動時のオプションをまとめた [`BrowserCapabilities`](/api/cdp/BrowserCapabilities)。WebView2 のユーザーデータフォルダ名は `Set_UserDataDirName` で指定します。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
 | `AttachHwnd` | WebView2 を貼り付けるウィンドウハンドル。省略時は Excel/Access 自身のハンドル（`Application.Hwnd/hWndAccessApp`）を使用 |
+
+戻り値はありません。WebView2 自体が無いなど、初期化に失敗した場合は VBA エラーで停止します。
 
 ```vb
 ' Frame自体はhWndを公開していないため、`[_GethWnd]`（MSFormsの内部プロパティ）で取得します
-Dim wv2 As New CDPCoreViaWebView2
-If Not wv2.ConnectCDP("MyUser", Me.WebView2Frame.[_GethWnd]) Then Exit Sub
+BrowserCapabilities.Set_UserDataDirName = "MyUser"
+
+Dim wv2 As CDPCoreViaWebView2
+Set wv2 = New CDPCoreViaWebView2
+wv2.OpenWebView2AndConnectCDP BrowserCapabilities, Me.WebView2Frame.[_GethWnd]
+
+' WebView2 を制御経路として指定して、CDPBrowser として受け取る
+ReattachOptions.Set_WebView2Mode(wv2) = "MyUser"
 
 Dim b As New CDPBrowser
-b.reattachWebView2 "MyUser", wv2
+b.reattach ReattachOptions
 
 Dim t As CDPContext
 Set t = b.getTab(setMain:=True)
@@ -97,7 +109,7 @@ t.navigate "https://example.com"
 ```
 
 ::: tip 注意
-- 既存の接続がある場合は、`ConnectCDP` の再呼び出しで切断・再接続されます
+- 既存の接続がある場合は、`OpenWebView2AndConnectCDP` の再呼び出しで切断・再接続されます
 - `CDPBrowser.newTab`（`Target.createTarget`）自体はWebView2モードでも使えますが、WebView2は1インスタンス=1ページのため、新規タブはUserForm内には埋め込まれず**独立した新規ウィンドウ**として開きます。タブ（ウィンドウ）をまたいだCDPコマンドのやり取りは`CallDevToolsProtocolMethodForSession`が担うため、複数の`CDPContext`を並行操作すること自体は可能です（詳細は[設計思想について](/webview2/design)）
 :::
 
@@ -128,7 +140,7 @@ Pipe / WebSocket は「ドメインを`enable`すれば、そのドメインの�
 :::
 
 ::: tip v3.2.0での変更：接続時に必須イベントを自動購読
-`ConnectCDP`成功時、`Target.detachedFromTarget`等のタブ生存確認、`Runtime.executionContext*`、`Page.frameStartedLoading`/`domContentEventFired`/`loadEventFired`（[`WaitEvents`](/guides/navigation)による読み込み待機に必要）を、ライブラリが内部で自動購読するようになりました。`Page.javascriptDialogOpening`等、この一覧に無いイベントは、これまで通り`SubscribeCdpEvent`で自分で購読してください。`UnsubscribeAllCdpEvents`を呼ぶと、この自動購読分も含めて全て解除される点に注意してください（後述）。
+接続成功時、`Target.detachedFromTarget`等のタブ生存確認、`Runtime.executionContext*`、`Page.frameStartedLoading`/`domContentEventFired`/`loadEventFired`（[`WaitEvents`](/guides/navigation)による読み込み待機に必要）を、ライブラリが内部で自動購読するようになりました。`Page.javascriptDialogOpening`等、この一覧に無いイベントは、これまで通り`SubscribeCdpEvent`で自分で購読してください。`UnsubscribeAllCdpEvents`を呼ぶと、この自動購読分も含めて全て解除される点に注意してください（後述）。
 :::
 
 同梱デモ（v3.1.1〜）: `Demo_WebView2.RunTestAlertDemo` — `Demo_CDP.TestAlert`のWebView2移植版で、`alert` / 空`alert` / `prompt`の3種類のJavaScriptダイアログを実際に発生させ、`SubscribeCdpEvent "Page.javascriptDialogOpening"`で捕まえて自動応答する一連の流れを、`SubscribeCdpEvent`を呼ぶ場合と呼ばない場合を比較しながら確認できます。
@@ -161,7 +173,7 @@ With WebView2Form
     .ThisWebView2.EnvironmentOptions.Set_AreBrowserExtensionsEnabled = True
 
     '2. WebView2を起動
-    If Not .StartCDPModeWebView2 Then Exit Sub
+    .StartCDPModeWebView2
     .show vbModeless
 
     '3. インストール
@@ -183,7 +195,7 @@ End With
 同梱デモ: `Demo_WebView2.UseExtensionsViaWebView2API`
 
 ::: warning 必ず接続前に有効化する
-`AreBrowserExtensionsEnabled` は Environment 生成時にしか読まれない設定です。`ConnectCDP`（`StartCDPModeWebView2`）を呼んだ**あとに** `Set_AreBrowserExtensionsEnabled = True` にしても反映されません。次節の`EnvironmentOptions`と合わせて、**接続前に**設定してください。未設定のままインストールを試みると`ERROR_NOT_SUPPORTED`で失敗します。
+`AreBrowserExtensionsEnabled` は Environment 生成時にしか読まれない設定です。`OpenWebView2AndConnectCDP`（`StartCDPModeWebView2`）を呼んだ**あとに** `Set_AreBrowserExtensionsEnabled = True` にしても反映されません。次節の`EnvironmentOptions`と合わせて、**接続前に**設定してください。未設定のままインストールを試みると`ERROR_NOT_SUPPORTED`で失敗します。
 :::
 
 ## 起動前オプションの設定（`EnvironmentOptions`、v3.1.0〜）

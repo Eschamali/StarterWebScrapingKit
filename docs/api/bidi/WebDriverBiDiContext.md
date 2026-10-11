@@ -10,7 +10,7 @@ BiDi の browsing context（タブ／ページ）です。Playwright の **Page*
 Dim t As WebDriverBiDiContext
 Set t = ShSetting01_StartBrowser.StartBiDiModeContext
 t.navigate "https://example.com"
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 親は [`ThisWebDriverBiDiMode`](#thiswebdriverbidimode)（[`WebDriverBiDiMode`](./WebDriverBiDiMode)）です。日常利用では設定シート経由の `StartBiDiModeContext` を推奨します。
@@ -19,56 +19,56 @@ t.ThisWebDriverBiDiMode.quit
 
 ## 起動・再接続
 
-### `StartBiDiModeAndConnectTab`
+### `OpenBrowserAndConnectTab`
 
 ```vb
-Public Sub StartBiDiModeAndConnectTab(userProfile As String, Optional appUrl As String, Optional addArgs As String, _
-    Optional sessionCapabilitiesRequest As Dictionary)
+Public Sub OpenBrowserAndConnectTab(caps As BrowserCapabilities)
 ```
 
 ブラウザ起動・`session.new`・初回タブ（context）接続まで自動で行います。日常利用では設定シート経由で十分です。低レベルに起動したいときだけ直接呼んでください。
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | `--user-data-dir` 用のユーザーデータフォルダ名（必須・第1引数）。ドライブ付きの絶対パス（例: `C:\Data\MyProfile`）を渡すと、そのパスがユーザーデータの保存先になります |
-| `appUrl` | 起動時に開く URL |
-| `addArgs` | 追加の起動引数 |
-| `sessionCapabilitiesRequest` | `session.new` の params。事前に `Dictionary` で組み立てる |
+| `caps` | 起動時のオプションをまとめた [`BrowserCapabilities`](/api/cdp/BrowserCapabilities) |
+
+ユーザーデータフォルダ名・ブラウザの種類・追加の起動引数・初期 URL などは、すべて `caps` で渡します。`session.new` に渡す `sessionCapabilitiesRequest` は、`caps.Set_BiDiSessionCapabilitiesRequest` で設定します。
 
 ```vb
-Dim t As New WebDriverBiDiContext
-t.StartBiDiModeAndConnectTab "MyUser"
+BrowserCapabilities.Set_StartURL = "https://example.com"
+
+Dim t As WebDriverBiDiContext
+Set t = New WebDriverBiDiContext
+t.OpenBrowserAndConnectTab BrowserCapabilities
 ```
+
+Context 経由の起動は、常に「起動スプラッシュ画面」を経由してから実際の URL へ遷移します（`--app` 使用時のレースコンディション対策。詳細は [ページ遷移](/guides/navigation)）。
 
 `sessionCapabilitiesRequest` の詳細は [はじめに](/getting-started#sessioncapabilitiesrequest-とは)。
 
 ### `reattach`
 
 ```vb
-Public Function reattach( _
-    userProfile As String, _
-    Optional sessionCapabilitiesRequest As Dictionary, _
-    Optional WebSocketMode As CDPCoreViaWebSocket _
-) As Boolean
+Public Function reattach(reattachInfo As ReattachOptions) As Boolean
 ```
 
-Excel テーブルに記録されたメイン BiDi context へ再接続を試みます。
+Excel テーブルに記録されたメイン BiDi context へ再接続を試みます。通信経路（Pipe / Port）は、[`ReattachOptions`](/api/cdp/ReattachOptions) で指定します。
 
 | 引数 | 意味 |
 | --- | --- |
-| `userProfile` | 再アタッチしたいユーザー名（`user-data-dir` に基づく） |
-| `sessionCapabilitiesRequest` | 新しい BiDi-CDP Mapper が起動されたときだけ `session.new` に適用 |
-| `WebSocketMode` | WebSocket で BiDi 制御する場合、接続済みの `CDPCoreViaWebSocket` を指定 |
+| `reattachInfo` | 再接続時のオプションをまとめた [`ReattachOptions`](/api/cdp/ReattachOptions)。制御経路の指定が必須。新しい BiDi-CDP Mapper が起動されたときに使う `Set_BiDiSessionCapabilitiesRequest` なども、ここで設定します |
 
 **戻り値:** 既存 context への再接続成功可否。
 
 ```vb
+ReattachOptions.Set_PipeMode = ShSetting01_StartBrowser.CurrentUserName
+
 Dim t As New WebDriverBiDiContext
-If Not t.reattach(ShSetting01_StartBrowser.CurrentUserName) Then Exit Sub
+If Not t.reattach(ReattachOptions) Then Exit Sub
 ```
 
 ::: tip 注意
-パイプが生きていない場合は、このメソッドから再開できません。記録中の context が既に閉じている場合も `False` になります。
+- パイプが生きていない場合は、このメソッドから再開できません。記録中の context が既に閉じている場合は `False` になります
+- `ReattachOptions` は使い切りです。`reattach` を呼ぶたびに、制御経路を指定し直してください
 :::
 
 詳細は [再接続](/guides/reattach) / [WebSocket モード](/websocket/capabilities)。
@@ -351,21 +351,21 @@ Property Get ThisWebDriverBiDiMode() As WebDriverBiDiMode
 
 `WebDriverBiDiContext` 上で、セッション／ブラウザ単位の制御もしたいときに使います。親の [`WebDriverBiDiMode`](./WebDriverBiDiMode) への参照です。
 
-タブ操作（`navigate` / `jsEval` など）は Context 側、タブ一覧／終了／イベント購読（`quit` / `newTab` / `BiDiEvents` など）はこちら経由、という使い分けになります。
+タブ操作（`navigate` / `jsEval` など）は Context 側、タブ一覧／終了／イベント購読（`CloseBrowser` / `newTab` / `BiDiEvents` など）はこちら経由、という使い分けになります。
 
 ```vb
 t.ThisWebDriverBiDiMode.newTab
 t.ThisWebDriverBiDiMode.TimeOutSecond = 60
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
-### `InheritanceWebDriverBiDiCore`
+### `ExEventCore`
 
 ```vb
-Property Get InheritanceWebDriverBiDiCore() As WebDriverBiDiCore
+Property Get ExEventCore() As WebDriverBiDiCore
 ```
 
-内部の `WebDriverBiDiCore` への参照です。通常は Mode／Context の公開 API で十分です。
+自作の拡張クラスで、BiDi の非同期イベント（`RaiseEvent`）を `WithEvents` で受け取るときに使う、上級者向けの通信コア（`WebDriverBiDiCore`）への参照です。自作の拡張クラス以外では使いません。
 
 ## タイムアウト
 

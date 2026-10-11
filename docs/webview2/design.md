@@ -30,7 +30,7 @@ Public Function GetBrowserExtensionIds() As Collection                          
 Public Function RemoveBrowserExtension(extensionId As String) As Boolean
 ```
 
-この対応には、`ICoreWebView2Environment`を生成する時点の設定（`AreBrowserExtensionsEnabled`等）を差し込む必要がありました。ところが、この設定を渡す`ICoreWebView2EnvironmentOptions`自体もCOMインターフェースで、公式にはネイティブDLL経由でしかインスタンス化できません。そこで`WebView2EnvOptions.cls`が、**このインターフェースそのものをVBA側のvtable偽造で丸ごとエミュレーション**しています（`Set_AreBrowserExtensionsEnabled`等のプロパティで設定し、`CDPCoreViaWebView2.EnvironmentOptions`経由で`ConnectCDP`前にアクセスします）。詳しい使い方は[WebView2モードでできること](/webview2/capabilities)を参照してください。
+この対応には、`ICoreWebView2Environment`を生成する時点の設定（`AreBrowserExtensionsEnabled`等）を差し込む必要がありました。ところが、この設定を渡す`ICoreWebView2EnvironmentOptions`自体もCOMインターフェースで、公式にはネイティブDLL経由でしかインスタンス化できません。そこで`WebView2EnvOptions.cls`が、**このインターフェースそのものをVBA側のvtable偽造で丸ごとエミュレーション**しています（`Set_AreBrowserExtensionsEnabled`等のプロパティで設定し、`CDPCoreViaWebView2.EnvironmentOptions`経由で`OpenWebView2AndConnectCDP`前にアクセスします）。詳しい使い方は[WebView2モードでできること](/webview2/capabilities)を参照してください。
 
 ::: tip ついでに全部載せた
 `ICoreWebView2EnvironmentOptions`のvtableを一度組み上げてしまうと、他の関連インターフェース（`ICoreWebView2` / `ICoreWebView2Controller` / `ICoreWebView2Environment` / `ICoreWebView2Settings` / `ICoreWebView2Profile`）についても、コールバックが要らない**スカラー値のプロパティ**であれば追加コストがほぼ無いことがわかりました。そこで、CDPで完結しないWebView2固有の見た目・挙動設定（ズーム倍率、ダウンロード先フォルダ、DevTools有効/無効等）も、まとめてプロパティメソッドとして公開しています。ただし、①完了コールバックが要るもの、②イベント系、③さらに別インターフェースへ依存するネスト系、の3種類は「あくまでCDP制御主体のツール」という線引きのため対象外です。
@@ -54,7 +54,7 @@ CDP-over-Pipe / CDP-over-WebSocket は「ドメインを `enable` すれば、�
 :::
 
 ::: warning `UnsubscribeAllCdpEvents`を呼ぶと内部トラッキングも止まる（v3.2.0〜）
-`ConnectCDP`成功時、このツールは`Page.frameStartedLoading`等、`WaitEvents`や生存確認に必要なCDPイベントを内部で自動購読しています（[WaitEvents](/guides/navigation)を参照）。デバッグ目的で`UnsubscribeAllCdpEvents`を呼ぶと、これらの内部トラッキングも道連れで止まります。以後`WaitEvents`等が正しく機能しなくなるため、デバッグが終わったら再接続するか、必要なイベントを再購読してください。
+接続成功時、このツールは`Page.frameStartedLoading`等、`WaitEvents`や生存確認に必要なCDPイベントを内部で自動購読しています（[WaitEvents](/guides/navigation)を参照）。デバッグ目的で`UnsubscribeAllCdpEvents`を呼ぶと、これらの内部トラッキングも道連れで止まります。以後`WaitEvents`等が正しく機能しなくなるため、デバッグが終わったら再接続するか、必要なイベントを再購読してください。
 
 なお、`OnCdpMethodCompleted` / `OnCdpEventReceived` の中からCDPの同期待ちメソッド（`ExecuteCDP`等）を呼ぶと再入デッドロックになりますが、このツールはCOMスレッド側で受け取ったレスポンスをバッファに格納して即座に抜ける設計にしているため、利用者側でこれを意識する必要はありません。
 :::

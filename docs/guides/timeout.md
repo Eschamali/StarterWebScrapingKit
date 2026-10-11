@@ -46,7 +46,7 @@ t.TimeOutSecond = 60
 t.navigate "https://example.com/heavy"
 ' ... 通常どおり操作 ...
 
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 ブラウザ側にも同様に設定できます。

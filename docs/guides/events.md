@@ -40,7 +40,7 @@ t.navigate "https://example.com"
 ' 記録を止める: Set t.BrowserEvents = Nothing
 ' セーブデータを戻して再開も可能
 
-t.ThisCDPBrowser.quit
+t.ThisCDPBrowser.CloseBrowser
 ```
 
 フィルタ未設定時はキャプチャ対象が広くなります。本番では必要なイベントだけに絞ってください。
@@ -63,7 +63,7 @@ t.ThisWebDriverBiDiMode.TakeEvents
 
 ' t.ThisWebDriverBiDiMode.BiDiEvents を参照
 
-t.ThisWebDriverBiDiMode.quit
+t.ThisWebDriverBiDiMode.CloseBrowser
 ```
 
 ::: tip タブ（コンテキスト）単位での購読（v3.1.1.1〜）

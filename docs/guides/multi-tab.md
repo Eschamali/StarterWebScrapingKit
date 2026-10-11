@@ -37,7 +37,7 @@ tab1.navigate "https://google.com"
 tab2.navigate "https://example.com"
 tab3.navigate "https://bing.com"
 
-chrome.quit
+chrome.CloseBrowser
 ```
 
 `getTab` / `newTab` で操作対象をメインにするときは **`setMain:=True`** を付けます（reattach 後も同様）。
@@ -55,7 +55,7 @@ tab.navigate "https://example.com"
 ' 新規
 ' Set tab = mode.newTab(setMain:=True)
 
-mode.quit
+mode.CloseBrowser
 ```
 
 ## マルチプロファイル（別プロセス）

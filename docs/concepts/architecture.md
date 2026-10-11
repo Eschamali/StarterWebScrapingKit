@@ -9,6 +9,11 @@ description: ブラウザ → ページ（コンテキスト）→ 要素の三�
 ```mermaid
 flowchart TB
   setting[ShSetting01_StartBrowser]
+  caps[BrowserCapabilities]
+  reopt[ReattachOptions]
+  setting -->|内部で生成| caps
+  caps -->|OpenBrowserAndConnectTab / OpenBrowser| ctxCdp
+  reopt -->|reattach| brCdp
   setting -->|StartCDPModeContext| ctxCdp[CDPContext]
   setting -->|StartCDPMode| brCdp[CDPBrowser]
   setting -->|StartBiDiModeContext| ctxBidi[WebDriverBiDiContext]
@@ -20,8 +25,8 @@ flowchart TB
   brCdp --> coreCdp[CDPCore_pipe]
   modeBidi --> coreBidi[WebDriverBiDiCore]
   coreBidi --> coreCdp
-  brCdp -.->|reattachWebSocket| coreWs[CDPCoreViaWebSocket]
-  brCdp -.->|reattachWebView2| coreWv2[CDPCoreViaWebView2]
+  brCdp -.->|Port| coreWs[CDPCoreViaWebSocket]
+  brCdp -.->|WebView2| coreWv2[CDPCoreViaWebView2]
   coreCdp -.->|ローカル起動を委託| coreHost[CDPHost]
   coreWs -.->|ローカル起動を委託| coreHost
 ```
@@ -31,15 +36,17 @@ flowchart TB
 | クラス | 役割 |
 | --- | --- |
 | `CDPCore` | `--remote-debugging-pipe` ロジックで CDP 送受信 |
-| `CDPCoreViaWebSocket` | WebSocket(`--remote-debugging-port`)ロジックでの CDP 送受信（既存セッション、または `ConnectCDPWithLocalBrowser` による起動込み接続） |
+| `CDPCoreViaWebSocket` | WebSocket(`--remote-debugging-port`)ロジックでの CDP 送受信（既存セッション、または `OpenBrowserAndConnectCDP` による起動込み接続） |
 | `CDPCoreViaWebView2` | WebView2（`ICoreWebView2`）を直接叩く3つ目のtransport。COM/vtableと機械語サンク経由でCDPコマンドを送受信。拡張機能インストール等、CDPの外側にあるWebView2固有機能も一部プロパティ/メソッドとして公開（v3.0.0〜、v3.1.0で拡張機能対応） |
 | `CDPHost` | ローカルPC上のブラウザプロセスに関する機能（起動・ポリシーチェック・後始末など）を集約。WebView2は対象外（v3.0.0〜、[`CDPBrowser`/`CDPCore`から分離](/stories/birth-story)。v3.1.0で`CDPCoreHost`から改名） |
+| `BrowserCapabilities` | 起動時のオプションを1つにまとめた設定保持クラス（使い切り）。既定値はワークシートから読み込み、`Set_○○` で上書き（[API](/api/cdp/BrowserCapabilities)） |
+| `ReattachOptions` | 再接続時のオプションを1つにまとめた設定保持クラス（使い切り）。制御経路（Pipe / Port / WebView2）を指定（[API](/api/cdp/ReattachOptions)） |
 | `CDPBrowser` | プロセス起動・タブ一覧・ブラウザ単位の `ExecuteCDP` |
 | `CDPContext` | 1 タブ分のナビ・JS・要素検索・イベント |
 | `CDPElement` | クリック・入力・属性・Shadow DOM / iframe |
 | `BiDiCDPJson` | CDP / BiDi 応答の高速 JSON ビュー |
 
-`CDPBrowser` / `CDPContext` は、どのtransportで再接続するかに応じて `reattachPipe` / `reattachWebSocket` / `reattachWebView2` の3メソッドを使い分けます（詳細は [再接続 (reattach)](/guides/reattach)）。
+起動は `BrowserCapabilities`、再接続は `ReattachOptions` という、設定保持専用のオプションオブジェクトを起動系／再接続系メソッドに渡します。通信経路（Pipe / Port / WebView2）は、再接続では `ReattachOptions` の `Set_PipeMode` / `Set_WebSocketMode` / `Set_WebView2Mode` で指定します（詳細は [再接続 (reattach)](/guides/reattach)）。
 
 ## BiDi スタック
 
@@ -56,7 +63,7 @@ BiDi は内部的に CDP パイプ（または WebSocket）の上で動きます
 
 ## 設定シートの位置づけ
 
-`ShSetting01_StartBrowser` は「exe パス・プロファイル・起動引数等」を読み、上記スタックを組み立てる **エントリポイント** です。日常利用ではクラスを `New` せず、`Start○○ModeContext` を使うのが安全です。
+`ShSetting01_StartBrowser` は「exe パス・プロファイル・起動引数等」を読み、内部で `BrowserCapabilities` を生成して上記スタックを組み立てる **エントリポイント** です。日常利用ではクラスを `New` せず、`Start○○ModeContext` を使うのが安全です。
 
 ## 通信経路
 

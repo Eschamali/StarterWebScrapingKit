@@ -91,7 +91,7 @@ End Sub
 Sub WebView2OnExcelUserForm()
     '1. UserForm側のWebView2の初期化を済ませる
     With WebView2Form
-        If Not .StartCDPModeWebView2 Then Debug.Print "WebView2の初期化に失敗しました。": Exit Sub
+        .StartCDPModeWebView2
 
         '2. あとはいつも通りの CDPContext / CDPElement 操作
         .ThisCDPContext.navigate "https://github.com/Eschamali/StarterWebScrapingKit"
@@ -104,9 +104,9 @@ End Sub
 
 同梱デモ: `Demo_WebView2.WebView2OnExcelUserForm`
 
-内部では `CDPCoreViaWebView2.ConnectCDP` がWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`CDPBrowser.reattachWebView2` / `CDPContext.reattachWebView2` を通じて、Pipe版・WebSocket版と**まったく同じCDPスタック**に接続します。つまり、いったん埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
+内部では `CDPCoreViaWebView2.OpenWebView2AndConnectCDP` がWebView2の`Environment`/`Controller`/`ICoreWebView2`を生成し、`ReattachOptions.Set_WebView2Mode` と `CDPBrowser.reattach` を通じて、Pipe版・Port版と**まったく同じCDPスタック**に接続します。つまり、いったん埋め込んでしまえば、`getElementByQuery` や `jsEval` など、これまでのガイドで説明してきた操作がそのまま使えます。
 
-自前のUserFormに組み込む場合のAPI詳細（`ConnectCDP`の引数、イベント購読、リサイズ等）は [WebView2モードでできること](/webview2/capabilities) にまとめています。
+自前のUserFormに組み込む場合のAPI詳細（`OpenWebView2AndConnectCDP`の引数、イベント購読、リサイズ等）は [WebView2モードでできること](/webview2/capabilities) にまとめています。
 
 ::: warning リセットに注意（静止ブレークポイント自体は問題なし）
 全てのCOMコールバックは機械語サンクを経由します。同期メソッドの**呼び出し中そのもの**でブレークする、あるいは静止ブレイク中にCDPイベント／コマンド完了が届くと、クラッシュの可能性があります。そのいずれの状態でも、VBEで**リセット操作**をすると、ほぼ確実にExcelがクラッシュします。普通のVBAコード行で静止しているだけなら問題ありません。デバッグ時、リセットする前にはイミディエイトウィンドウから`UnsubscribeAllCdpEvents`で購読解除しておいてください（ただし、これは内部トラッキング用の自動購読分も解除するため、デバッグ後は再接続が必要です）。詳細な条件分けは[設計思想について](/webview2/design)を参照してください。
