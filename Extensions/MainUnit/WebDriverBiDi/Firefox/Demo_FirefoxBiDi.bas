@@ -27,15 +27,14 @@ Private Function ConnectFirefox(Optional ReusingWinSockHandle As Boolean) As CDP
 
     '2. 指定のWebSocketForBiDiへ接続
     Set ConnectFirefox = New CDPCoreViaWebSocket
-    ConnectFirefox.DirectWebDriverBiDiMode = True
 
     '3. 接続方法に応じて分岐
     If ReusingWinSockHandle Then
         '有効な、WinSockハンドルを使いまわす場合用
-        ConnectFirefox.ReConnectCDP UserName, True
+        ConnectFirefox.ReConnectCDP UserName
     Else
         '"%UserProfile%\AppData\Roaming\Mozilla\Firefox\Profiles\FirefoxDebug\WebDriverBiDiServer.json"から特定してください
-        Debug.Print ConnectFirefox.ConnectCDP(UserName, "/session", 57221)
+        Debug.Print ConnectFirefox.ConnectCDP(UserName, "/session", 56259)
     End If
 End Function
 
@@ -57,11 +56,15 @@ Sub checkNetworkEvents()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim WebSocketFirefox As New WebDriverBiDiMode
-    WebSocketFirefox.reattach UserName, , ConnectFirefox
+    '2. WebDriverBiDi直やり取りモードとして設定し、WebSocketオブジェクトをセット
+    ReattachOptions.Set_DirectWebDriverBiDi = True
+    ReattachOptions.Set_WebSocketMode(ConnectFirefox) = UserName
 
-    '3. 既存タブに接続
+    '3. 設定したオプションで`reattach`メソッドに渡す
+    Dim WebSocketFirefox As New WebDriverBiDiMode
+    WebSocketFirefox.reattach ReattachOptions
+
+    '4. 既存タブに接続
     Dim Demo_NetworkEvent As WebDriverBiDiContext
     Set Demo_NetworkEvent = WebSocketFirefox.getTab(setMain:=True)
 
@@ -115,7 +118,7 @@ Sub checkNetworkEvents()
 
 
     'ブラウザを閉じる。demo終了
-    Demo_NetworkEvent.ThisWebDriverBiDiMode.quit
+    Demo_NetworkEvent.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 
 
@@ -135,64 +138,77 @@ Sub demoReattachmentPart1()
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim WebSocketFirefox As New WebDriverBiDiMode
-    WebSocketFirefox.reattach UserName, , ConnectFirefox
+    '2. WebDriverBiDi直やり取りモードとして設定し、WebSocketオブジェクトをセット
+    ReattachOptions.Set_DirectWebDriverBiDi = True
+    ReattachOptions.Set_WebSocketMode(ConnectFirefox) = UserName
 
-    '3. 既存タブに接続
+    '3. 設定したオプションで`reattach`メソッドに渡す
+    Dim WebSocketFirefox As New WebDriverBiDiMode
+    WebSocketFirefox.reattach ReattachOptions
+
+    '4. 既存タブに接続
     Dim First As WebDriverBiDiContext
     Set First = WebSocketFirefox.getTab(setMain:=True)
 
-    '4. GoogleTopページへ遷移
+    '5. GoogleTopページへ遷移
     First.navigate "https://developer.mozilla.org/en-US/docs/Web/WebDriver/How_to/Create_BiDi_connection#launching_the_browser"
 
-    '5. セッションのみ切断
+    '6. セッションのみ切断
     WebSocketFirefox.sessionEnd
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：WebDriverBiDi制御用タブの接続まで担うリアタッチです
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：・あくまでも、WebDriverBiDi制御用のタブ接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
+'* 注意事項：・あくまでも、WebDriverBiDi制御用のブラウザ接続までです。その後のContext(タブ)接続は、手動で`getTab` OR `newTab`で出来ます
 '            ・ブラウザのパイプハンドルが生きてない場合は、エラーになります。`demoReattachmentPart1`からやり直しです
-'            ・WebDriverBiDi制御用タブが無くなっても、`WebDriverBiDiMode`からの`reattach`で、再始動が可能です
+'            ・ここでは、`session.end`しません。次のDemoにて、ハンドル使いまわしとして機能させます
 '***************************************************************************************************
 Sub demoReattachmentPart2()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. 繋げたWebSocketオブジェクトを`reattachWebSocket`メソッドに渡す
-    Dim WebSocketFirefox As New WebDriverBiDiMode
-    WebSocketFirefox.reattach UserName, , ConnectFirefox
+    '2. WebDriverBiDi直やり取りモードとして設定し、WebSocketオブジェクトをセット
+    ReattachOptions.Set_DirectWebDriverBiDi = True
+    ReattachOptions.Set_WebSocketMode(ConnectFirefox) = UserName
 
-    '3. 未接続のタブに接続
+    '3. 設定したオプションで`reattach`メソッドに渡す
+    Dim WebSocketFirefox As New WebDriverBiDiMode
+    WebSocketFirefox.reattach ReattachOptions
+
+    '4. 未接続のタブに接続
     '※この時、必ず`setMain:=True`とすること。必要に応じて検索条件(URLマッチ等)も設定して下さい
     Dim ReattachmentTab As WebDriverBiDiContext
     Set ReattachmentTab = WebSocketFirefox.getTab(setMain:=True)
 '    Set ReattachmentTab = WebSocketFirefox.newTab(setMain:=True)   '新しいタブ生成からでもOK
 
-    '4．別ページに遷移して終了
-    ReattachmentTab.navigate "https://kemono-friends-20170110.jp/"
+    '5．別ページに遷移して終了
+    ReattachmentTab.navigate "https://www.youtube.com/@Coyote_KemoV"
 End Sub
 
 '***************************************************************************************************
 '* 機能　　：最後にWebDriverBiDiで制御したタブの接続まで担うリアタッチです
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
+'* 注意事項：・最後にWebDriverBiDiで制御したタブが失ってる場合は失敗します
+'            ・ハンドル情報がない場合も失敗します
 '***************************************************************************************************
 Sub demoReattachmentPart2ForTab()
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
-    '2. リアタッチとして起動
-    Dim Reattachment As New WebDriverBiDiContext
-    If Not Reattachment.reattach(UserName, , ConnectFirefox(True)) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
+    '2. WebDriverBiDi直やり取りモードとして設定し、WebSocketオブジェクトをセット
+    ReattachOptions.Set_DirectWebDriverBiDi = True
+    ReattachOptions.Set_WebSocketMode(ConnectFirefox(True)) = UserName
 
-    '3. 別ページに遷移
+    '3. リアタッチとして起動
+    Dim Reattachment As New WebDriverBiDiContext
+    If Not Reattachment.reattach(ReattachOptions) Then MsgBox "「" & UserName & "」に接続できませんでした。`BiDi-context`情報がお亡くなりです。", vbCritical, "WebDriver BiDi": Exit Sub
+
+    '4. 別ページに遷移
     Reattachment.navigate "https://w3c.github.io/webdriver-bidi/"
 
-    '4. 後始末
+    '5. 後始末
     Reattachment.ThisWebDriverBiDiMode.sessionEnd
 End Sub
