@@ -53,7 +53,7 @@ Public Sub RunAll_CDPElement_Tests()
 
     br.jsEval "updateStatus('s-summary','PASS=" & passCount & " FAIL=" & failCount & " " & EOk() & "', true)", StopApiError:=True
 
-    br.ThisCDPBrowser.quit
+    br.ThisCDPBrowser.CloseBrowser
 End Sub
 
 '==============================================================================

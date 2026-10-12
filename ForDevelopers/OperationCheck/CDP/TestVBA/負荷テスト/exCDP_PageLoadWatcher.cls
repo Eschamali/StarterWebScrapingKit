@@ -85,7 +85,7 @@ Private Sub ex_CDPCore_CDPContextEvent(methodName As String, RawJson As String, 
     Select Case methodName
         Case "Page.loadEventFired"
             HasLoadedFlag = True
-            If currentLog.seeRawSendMsgDbg Then printMsg Debug_, "`" & methodName & "` was detected.", FromProcedureName
+            If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "`" & methodName & "` was detected.", FromProcedureName
 
         Case "Network.requestWillBeSent"
             NetworkEventCountValue = NetworkEventCountValue + 1
@@ -153,7 +153,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".cdp.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 Private Sub TakeEvents(Optional StopPipeError As Boolean = True, Optional destruction As Boolean)

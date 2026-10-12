@@ -19,10 +19,11 @@ Sub ForCDP(hoge As CDPCoreViaWebSocket)
 
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Test_RPAChallenge.ForCDP")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. まずは、既存のTargetIDに接続できるか？
-    If Not RPAChallenge.reattach(UserName, WebSocketMode:=hoge) Then
+    ReattachOptions.Set_WebSocketMode(hoge) = UserName
+    If Not RPAChallenge.reattach(ReattachOptions) Then
         '既存のTargetIDが消えちゃったので、別タブへの再接続フェーズへ
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブに再接続して、そこから処理を再開します。"
 
@@ -45,10 +46,11 @@ Sub ForBiDi(hoge As CDPCoreViaWebSocket)
 
     '1. 設定セルから、ユーザ名を取得
     Dim UserName As String
-    UserName = ShSetting01_StartBrowser.UseRangeID(2, "Test_RPAChallenge.ForCDP")
+    UserName = ShSetting01_StartBrowser.CurrentUserName
 
     '2. まずは、既存のContextIDに接続できるか？
-    If Not RPAChallenge.reattach(UserName, WebSocketMode:=hoge) Then
+    ReattachOptions.Set_WebSocketMode(hoge) = UserName
+    If Not RPAChallenge.reattach(ReattachOptions) Then
         '既存のTargetIDが消えちゃったので、別タブへの再接続フェーズへ
         Debug.Print "既存の`targetID`への再接続に失敗。新しいタブに再接続して、そこから処理を再開します。"
 
