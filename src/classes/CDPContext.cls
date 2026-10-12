@@ -907,8 +907,9 @@ Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As 
                     printMsg info_, "JS-Return type: object-null", FromProcedureName
 
                 Case Else
-                    '`returnByValue:=True`の場合は`null`以外全て、Json文字列として生成されます
-                    'よって、Node形式として返却します
+                    '`returnByValue:=True`の場合は`null`以外全て、Json文字列として生成されます。
+                    'つまり、`type:="Object"`ではあるが、`subtype`は空欄、でも値自体はあるということです。
+                    'よって、Node形式として返却します。
                     Set ReturnValue = RemoteObject.NodeKey("value")
                     printMsg info_, "JS-Return type: object(returnByValue:=True)", FromProcedureName
 
