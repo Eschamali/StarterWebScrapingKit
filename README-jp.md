@@ -45,7 +45,7 @@ t.navigate "URL"
 
 * **ゼロ・インストール。WebDriver不要。xlsmファイル1つでEdge/Chrome、そしてWebView2も思いのまま**
   * Selenium等で悩まされる「ブラウザとWebDriverのバージョン不一致エラー」は一切起こりません！
-  * Edge/Chromeは、安定版だけでなく **Beta / Dev / Canary** も、設定シートで選ぶだけで使い分けられます
+  * **いま開いているブラウザを、そのまま操作！** [スイッチを1つ許可](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session?hl=ja#step_1_set_up_remote_debugging_in_chrome)するだけで、いつものログイン済みブラウザにVBAからつながります
   * WebView2経路なら、そもそも外部ブラウザexeの起動自体が不要。**xlsmファイル1つ**で、外部ブラウザからExcel自身に埋め込んだWebView2まで、同じ感覚で操れます
 
 * **無限の拡張性で、あなた専用のツールに！**

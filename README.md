@@ -49,9 +49,9 @@ Whichever route you pick, you use **exactly the same API** — `CDPContext.navig
 
 ## 🔥【Strengths of This Tool】🔥
 
-* **Zero installs. No WebDriver. One xlsm file, and both Chromium and WebView2 are yours to command**
+* **Zero installs. No WebDriver. One xlsm file, and both Edge/Chrome and WebView2 are yours to command**
   * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
-  * Besides the stable channel, Edge/Chrome **Beta / Dev / Canary** can also be used simply by selecting them on the settings sheet
+  * **Control the browser that's open right now, as is!** Just [allow one switch](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session#step_1_set_up_remote_debugging_in_chrome) and VBA connects to your everyday, already-logged-in browser
   * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
 
 * **Infinite Extensibility: Your Own Custom Tool!**
