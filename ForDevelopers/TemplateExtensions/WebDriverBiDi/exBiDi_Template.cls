@@ -27,7 +27,7 @@ Attribute ex_BiDiContext.VB_VarHelpID = -1
 Private Const ThisClassName         As String = "exBiDi_Template.cls"             'ログのトレース用
 
 'ステート管理
-Private currentLog                 As StateLog     'ログ設定
+Private m_LogID                    As String   'ログ識別ID
 Private EnableBrowserEvents         As Boolean      'この拡張機能によるブラウザ非同期イベント処理を有効化するかしないかのスイッチング
 
 
@@ -128,7 +128,7 @@ Private Sub printMsg(LogLevel_ As LogLevelName, strMsg As String, From As String
     Const LogFileExtension         As String = ".bidi.log"  'ログファイル拡張子
 
 
-    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, currentLog.LogID, isHeader, doRaiseError, currentLog.logPath
+    CDPHelpers.printMsg LogLevel_, strMsg, From, LogFileExtension, m_LogID, isHeader, doRaiseError, CDPHelpers.currentLog.logPath
 End Sub
 
 'BiDi実行に必要です
@@ -151,8 +151,8 @@ End Sub
 Friend Sub Init(Inheritance As WebDriverBiDiContext)
     '継承
     Set ex_BiDiContext = Inheritance
-    Set ex_BiDiCore = Inheritance.ThisWebDriverBiDiCore
-    CDPHelpers.InheritLogSettings currentLog, ex_BiDiCore.DirectControlCDP.ThisCDPCore.LogSettings
+    'イベント受け取り用の`WebDriverBiDiCore`は、`ExEventCore`から取得します
+    Set ex_BiDiCore = Inheritance.ExEventCore
     
     'コンテキスト情報
     m_context = Inheritance.context
@@ -168,5 +168,5 @@ Private Sub Class_Initialize()
     'ブラウザ非同期処理を有効化
     EnableBrowserEvents = True
 
-    currentLog.LogID = "XBID" & Format(Rnd * 1000, "000")
+    m_LogID = "XBID" & Format(Rnd * 1000, "000")
 End Sub
