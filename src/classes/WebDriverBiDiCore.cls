@@ -249,7 +249,7 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
 
     '1. 接続情報を継承し、WebDriverBiDi直やり取りモードの場合はそっちに委託する
     Set m_CDPCore = reattachInfo.ClsGet_CDPCore
-    If reattachInfo.Set_DirectWebDriverBiDi Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi: Exit Function
+    If reattachInfo.Set_DirectWebDriverBiDi Then ReBootBiDiCDPMapper = RunDirectWebDriverBiDi(reattachInfo): Exit Function
 
     '2. Mapper起動前に使う設定値を確保
     BiDiDebug.ViewDebugTab = reattachInfo.Set_BiDiViewTab_BiDiCDPMapper
@@ -318,7 +318,14 @@ Public Function ReBootBiDiCDPMapper(reattachInfo As ReattachOptions) As Boolean
     End If
 End Function
 
-Private Function RunDirectWebDriverBiDi() As Boolean
+'***************************************************************************************************
+'* 機能　　：Firefox等の、ネイティブBiDiやり取りができるように準備します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：reattachInfo   リアタッチ系のオプションオブジェクト ※ここではワンショット破棄のみとして使います
+'---------------------------------------------------------------------------------------------------
+'* 機能説明：起動済みFirefoxへの、セッション準備まで担います
+'***************************************************************************************************
+Private Function RunDirectWebDriverBiDi(reattachInfo As ReattachOptions) As Boolean
     Const FromProcedureName As String = ThisClassName & ".RunDirectWebDriverBiDi"
 
 
@@ -348,7 +355,12 @@ Private Function RunDirectWebDriverBiDi() As Boolean
         Set .TableBrowserContext(Me.CurrentUserName, FromProcedureName) = BiDiMapperInfo
     End With
 
-    '3. ここでは仮で、`False`で返す
+    '3. 設定が済んだので、破棄
+    '※デフォルトインスタンスも破棄しないと、正常な参照カウントダウンができないので、合わせて行う
+    Set reattachInfo = Nothing
+    Set ReattachOptions = Nothing
+
+    '4. ここでは仮で、`False`で返す
     '※`WebDriverBiDiMode.reattach`の`session.Status`側で、改めて判定します
     RunDirectWebDriverBiDi = False
 End Function
