@@ -1423,7 +1423,7 @@ Public Sub TakeEvent()
     If DirectWebDriverBiDiMode Then
         RaiseEvent DirectWebDriverBiDiRes(tmp)
     Else
-        BrowserReceivedDataCheck (tmp)
+        Call BrowserReceivedDataCheck(tmp)
     End If
 
     printMsg Trace_, "I triggered one `RaiseEvent`.", FromProcedureName
