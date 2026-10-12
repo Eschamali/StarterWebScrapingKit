@@ -43,7 +43,7 @@ t.navigate "URL"
 
 ## 🔥【本ツールの強み】🔥
 
-* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでChromiumもWebView2も思いのまま**
+* **ゼロ・インストール。WebDriver不要。xlsmファイル1つでEdge/Chrome、そしてWebView2も思いのまま**
   * Selenium等で悩まされる「ブラウザとWebDriverのバージョン不一致エラー」は一切起こりません！
   * Edge/Chromeは、安定版だけでなく **Beta / Dev / Canary** も、設定シートで選ぶだけで使い分けられます
   * WebView2経路なら、そもそも外部ブラウザexeの起動自体が不要。**xlsmファイル1つ**で、外部ブラウザからExcel自身に埋め込んだWebView2まで、同じ感覚で操れます
