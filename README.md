@@ -49,9 +49,9 @@ Whichever route you pick, you use **exactly the same API** — `CDPContext.navig
 
 ## 🔥【Strengths of This Tool】🔥
 
-* **Zero installs. No WebDriver. One xlsm file, and both Chromium and WebView2 are yours to command**
+* **Zero installs. No WebDriver. One xlsm file, and both Edge/Chrome and WebView2 are yours to command**
   * You will never encounter the "Browser and WebDriver version mismatch error" that plagues Selenium users!
-  * Besides the stable channel, Edge/Chrome **Beta / Dev / Canary** can also be used simply by selecting them on the settings sheet
+  * **Control the browser that's open right now, as is!** Just [allow one switch](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session#step_1_set_up_remote_debugging_in_chrome) and VBA connects to your everyday, already-logged-in browser
   * With the WebView2 route, there's no external browser exe to launch at all. **A single xlsm file** lets you drive everything from external browsers to a WebView2 embedded right inside Excel itself, all with the same feel
 
 * **Infinite Extensibility: Your Own Custom Tool!**
@@ -86,7 +86,7 @@ Sub BeginningOfAdventureByCDP()
 
 
     ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisCDPBrowser.quit
+    HelloWorldAutomationBrowser.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -104,9 +104,28 @@ Sub BeginningOfAdventureByBiDi()
 
 
     ' Close the browser normally
-    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.quit
+    HelloWorldAutomationBrowser.ThisWebDriverBiDiMode.CloseBrowser
 End Sub
 ```
+
+### Launching Directly Without the Helper
+
+You can also skip the `ShSetting01_StartBrowser` helper and launch directly by passing `BrowserCapabilities`, a class dedicated to holding the launch options. The default values are loaded from the worksheet, so you only need to override the items you want to change.
+
+```bas
+Sub LaunchDirectly()
+    ' Override only the items you want to change (optional). If you specify nothing, it launches with the settings sheet as-is
+    BrowserCapabilities.Set_StartURL = "https://example.com"
+
+    Dim t As CDPContext
+    Set t = New CDPContext
+    t.OpenBrowserAndConnectTab BrowserCapabilities
+
+    t.ThisCDPBrowser.CloseBrowser
+End Sub
+```
+
+For details, see [`BrowserCapabilities`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/BrowserCapabilities).
 
 ---
 
@@ -134,7 +153,7 @@ Sub LaunchNewBrowserInWebSocketMode()
     t.navigate "https://www.youtube.com/@islandfox6864"
 
     ' 3. Done
-    t.ThisCDPBrowser.quit
+    t.ThisCDPBrowser.CloseBrowser
 End Sub
 ```
 
@@ -158,19 +177,22 @@ Sub AutoConnectTab()
     UserName = ShSetting01_StartBrowser.CurrentUserName
 
     ' 2. Connect to the specified WebSocketForCDP-page
-    Dim WebSocketCDP As New CDPCoreViaWebSocket
+    Dim WebSocketCDP As CDPCoreViaWebSocket: Set WebSocketCDP = New CDPCoreViaWebSocket
     Debug.Print WebSocketCDP.AutoConnectPageCDP(UserName)
 
-    ' 3. Pass the connected WebSocket object to the `reattachWebSocket` method
-    Dim t As New CDPContext
-    If Not t.reattachWebSocket(UserName, WebSocketCDP) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
+    ' 3. Set the connected WebSocket object as the WebSocket mode
+    ReattachOptions.Set_WebSocketMode(WebSocketCDP) = UserName
 
-    ' 4. Navigate
+    ' 4. Pass the reattach information to the `reattach` method
+    Dim t As New CDPContext
+    If Not t.reattach(ReattachOptions) Then MsgBox "Could not connect to '" & UserName & "'. The WebSocket information is no longer valid.", vbCritical, "Chrome DevTools Protocol": Exit Sub
+
+    ' 5. Navigate
     ' By the way, this URL takes you to the developer's favorite YouTube channel 🤠
     t.navigate "https://www.youtube.com/@islandfox6864"
 
-    ' 5. Disconnect from the WebSocket
-    WebSocketCDP.DisconnectCDP
+    ' 6. Disconnect from the WebSocket
+    t.ThisCDPBrowser.DisconnectCDP
 End Sub
 ```
 
@@ -179,7 +201,9 @@ End Sub
 * **Building on this code**:
   You can have users handle tedious login authentication manually in the browser beforehand. Then, **"the moment a button in Excel is clicked, VBA takes over the logged-in session and instantly starts complex scraping."** This allows you to easily build a highly useful and robust hybrid automation system.
 * **About the connection types**:
-  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`ReConnectCDP`). See the `Demo_CDP` demos for usage examples of each.
+  Three types are provided: a specific page (`AutoConnectPageCDP`), the browser itself (`AutoConnectBrowserCDP`), and the browser right in front of you (`AutoConnectDevToolsActivePort`). See the `Demo_CDP` demos for usage examples of each.
+* **About reattaching**:
+  The choice of control route (Pipe / Port / WebView2) is consolidated into `ReattachOptions`, a class dedicated to holding reattach options. For details, see [`ReattachOptions`](https://eschamali.github.io/StarterWebScrapingKit/api/cdp/ReattachOptions) and the [reattach guide](https://eschamali.github.io/StarterWebScrapingKit/guides/reattach).
 
 ### 🥉 WebView2
 
@@ -196,11 +220,12 @@ Sub WebView2OnExcelUserForm()
         .ThisWebView2.EnvironmentOptions.Set_AllowSingleSignOnUsingOSPrimaryAccount = False  ' Toggle single sign-on
 
         ' 2. Launch the WebView2 process
-        If Not .StartCDPModeWebView2 Then Debug.Print "Failed to initialize WebView2.": Exit Sub
+        .StartCDPModeWebView2
 
         ' 3. Apply pre-navigation settings (optional)
         .ThisWebView2.DevToolsEnabled = False       ' Disallow opening DevTools
         .ThisWebView2.ContextMenuEnabled = False    ' Disallow right-click menu
+        .ThisWebView2.StatusBarEnabled = False      ' Hide the status text shown at the bottom left
 
         ' 4. Navigate, as CDP
         ' SSO disabled: shows the Microsoft account introduction page
@@ -239,12 +264,15 @@ While maintaining the project's philosophy of being **"self-contained in VBA"** 
 
 ## 🎁 Bonus Features
 
-Besides CDP control, the following two are also included.
+Besides CDP control, the following bonuses are available.
 
 * **🚀 REST WebAPI (WinHTTP 5.1)**
   * The standard for high-speed, lightweight data collection. A robust implementation that works solely with reference settings. The standard module `Template_WebAPI` is provided as a template for building the basics.
-* **⚡ WebSocket Communication (General-purpose)**
-  * A challenge for real-time communication, separate from browser control. Equipped with minimal connection and send/receive functions using WinAPI. An evolving feature that pushes the boundaries of VBA. The demo is in the standard module `Demo_WebSocket`.
+* **🦊 Firefox Control (Direct WebDriver BiDi)**
+  * Our ace in the hole: "if it ever comes to that, this tool can control Firefox too." Firefox speaks WebDriver BiDi natively, so with only about 80 lines added to the core, you can send BiDi JSON straight over a WebSocket to control it.
+  * Because it requires additions to the core, it is not included in the main distribution. The demo and its explanation are published on the [ex-Firefox branch](https://github.com/Eschamali/StarterWebScrapingKit/tree/ex-Firefox/Extensions/MainUnit/WebDriverBiDi/Firefox).
+
+![Controlling Firefox from Excel VBA](doc/firefoxIntro.gif)
 
 ---
 
