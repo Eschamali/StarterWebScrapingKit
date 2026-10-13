@@ -23,6 +23,10 @@ hero:
       text: GitHub
       link: https://github.com/Eschamali/StarterWebScrapingKit
 
+promo:
+  src: /promo/ReiwaIE_60s.html
+  title: 令和のIE 60秒
+
 features:
   - title: インストール不要
     details: ドライバも管理者権限もアドインも要りません。Excel と Edge / Chrome だけで、マクロブックを開いてから最初の自動化が動くまでの最短ルートをご案内します。

@@ -8,6 +8,8 @@ description: v1.0.0 から v3.0.0 まで、64 個のタグに刻まれた 253 �
 〜v1.0.0 から v3.0.0 まで、64 個のタグに刻まれた 253 日の記録〜
 :::
 
+<PromoMovie src="/promo/ReiwaIE_History.html" title="令和のIE 開発秘話" />
+
 ## 開発したきっかけ
 
 かつて、Windows と Excel を愛する開発者の手元には、1本の魔法の杖がありました。
