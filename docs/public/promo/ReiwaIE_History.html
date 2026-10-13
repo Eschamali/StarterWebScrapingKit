@@ -283,6 +283,9 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #ctl input{flex:1;accent-color:#e0479e}
 #ctl .hint{opacity:.6}
 body.rec #ctl{opacity:0;pointer-events:none}
+/* スマホ・タブレット: 狭い画面では、キーボード操作の案内と WAV保存 を隠して、操作バーを収める */
+@media (pointer:coarse), (max-width:700px){#ctl .hint{display:none}}
+@media (max-width:700px){#ctl{gap:8px;padding:8px 10px}#ctl button{padding:6px 10px}#bWav{display:none}}
 #start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);cursor:pointer;font:900 40px var(--jp)}
 #start span{padding:20px 50px;border-radius:60px;background:var(--grad)}
 </style>
@@ -1323,6 +1326,14 @@ addEventListener('keydown', e => {
   if (e.key === 'r' || e.key === 'R') { $('#start')?.remove(); T = 0; play(true); }
   if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('rec');
   if (e.key === 'm' || e.key === 'M') mute();
+});
+// タッチ操作: タップで操作バー(UI)の表示/非表示を切り替える(YouTube風)。Hキーが使えない端末向け
+// ※タッチ端末は、最初は非表示。操作バー自体と、再生ボタン(#start)のタップは対象外
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('rec');
+addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch') return;
+  if (e.target.closest && e.target.closest('#ctl, #start')) return;
+  document.body.classList.toggle('rec');
 });
 function fit() {
   const s = Math.min(innerWidth / 1920, innerHeight / 1080);
