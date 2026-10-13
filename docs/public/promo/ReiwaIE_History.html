@@ -283,6 +283,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #ctl input{flex:1;accent-color:#e0479e}
 #ctl .hint{opacity:.6}
 body.rec #ctl{opacity:0;pointer-events:none}
+body.rec{cursor:none}
 /* スマホ・タブレット: 狭い画面では、キーボード操作の案内と WAV保存 を隠して、操作バーを収める */
 @media (pointer:coarse), (max-width:700px){#ctl .hint{display:none}}
 @media (max-width:700px){#ctl{gap:8px;padding:8px 10px}#ctl button{padding:6px 10px}#bWav{display:none}}
@@ -498,7 +499,7 @@ body.rec #ctl{opacity:0;pointer-events:none}
   <span id="tm">0.0 / 140.0</span>
   <input id="seek" type="range" min="0" max="140" step="0.05" value="0">
   <button id="bWav">🎵 WAV保存</button>
-  <span class="hint">Space: 再生/停止　R: 最初から　M: ミュート　H: UI非表示(録画用)</span>
+  <span class="hint">Space: 再生/停止　R: 最初から　M: ミュート</span>
 </div>
 <div id="start"><span>▶ 再生（約2分20秒）</span></div>
 
@@ -1322,30 +1323,35 @@ $('#seek').oninput = e => { seeking = true; T = +e.target.value; if (playing) au
 $('#seek').onchange = () => { seeking = false; };
 $('#start').onclick = () => { $('#start').remove(); T = 0; play(true); };
 addEventListener('keydown', e => {
+  showUI();
   if (e.code === 'Space') { e.preventDefault(); $('#start')?.remove(); play(); }
   if (e.key === 'r' || e.key === 'R') { $('#start')?.remove(); T = 0; play(true); }
-  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('rec');
   if (e.key === 'm' || e.key === 'M') mute();
 });
-// タッチ操作: タップで操作バー(UI)の表示/非表示を切り替える(YouTube風)。Hキーが使えない端末向け
-// ※タッチ端末は、最初は非表示。操作バー自体と、再生ボタン(#start)のタップでは、切り替えません
-// ※再生中は、最後の操作から数秒で自動的に非表示になります(一時停止中は出しっぱなし)
+// 操作バー(UI)の自動表示/非表示(YouTube風)
+//  ・再生中に、数秒間操作がなければ、操作バーとマウスカーソルを隠します
+//    (一時停止中・シークバー操作中・操作バー上にマウスがある間は、隠しません)
+//  ・マウスを動かす / キーを押す で復活します。タッチ端末は、画面タップで 表示⇔非表示 を切り替えます
 const AUTO_HIDE_MS = 3500;
-let touchUI = matchMedia('(pointer: coarse)').matches, uiTimer = 0;
-if (touchUI) document.body.classList.add('rec');
+let uiTimer = 0, overCtl = false;
 function armAutoHide() {
   clearTimeout(uiTimer);
-  if (!touchUI || document.body.classList.contains('rec')) return;
+  if (document.body.classList.contains('rec')) return;
   uiTimer = setTimeout(() => {
-    if (playing && !seeking) document.body.classList.add('rec'); else armAutoHide();
+    if (playing && !seeking && !overCtl) document.body.classList.add('rec'); else armAutoHide();
   }, AUTO_HIDE_MS);
 }
+function showUI() { document.body.classList.remove('rec'); armAutoHide(); }
+$('#ctl').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') overCtl = true; });
+$('#ctl').addEventListener('pointerleave', () => { overCtl = false; armAutoHide(); });
+addEventListener('pointermove', e => { if (e.pointerType !== 'touch') showUI(); });
 addEventListener('pointerup', e => {
   if (e.pointerType !== 'touch') return;
-  touchUI = true;
-  if (!(e.target.closest && e.target.closest('#ctl, #start'))) document.body.classList.toggle('rec');
-  armAutoHide();    // 操作バー上の操作でも、非表示までの時間を延長する
+  if (e.target.closest && e.target.closest('#ctl, #start')) { showUI(); return; }   // 操作バー上の操作は、表示を延長
+  if (document.body.classList.contains('rec')) showUI();
+  else { document.body.classList.add('rec'); clearTimeout(uiTimer); }
 });
+armAutoHide();
 function fit() {
   const s = Math.min(innerWidth / 1920, innerHeight / 1080);
   const st = $('#stage'); st.style.transform = `scale(${s})`;
