@@ -802,8 +802,11 @@ addEventListener('keydown', e => {
 //  ・再生中に、数秒間操作がなければ、操作バーとマウスカーソルを隠します
 //    (一時停止中・シークバー操作中・操作バー上にマウスがある間は、隠しません)
 //  ・マウスを動かす / キーを押す で復活します。タッチ端末は、画面タップで 表示⇔非表示 を切り替えます
+//  ・隠し機能: URL に `?rec` を付けると、操作バーを常に非表示にします(画面録画用)
 const AUTO_HIDE_MS = 3500;
+const REC_MODE = new URLSearchParams(location.search).has('rec');
 let uiTimer = 0, overCtl = false;
+if (REC_MODE) document.body.classList.add('rec');
 function armAutoHide() {
   clearTimeout(uiTimer);
   if (document.body.classList.contains('rec')) return;
@@ -811,12 +814,12 @@ function armAutoHide() {
     if (playing && !seeking && !overCtl) document.body.classList.add('rec'); else armAutoHide();
   }, AUTO_HIDE_MS);
 }
-function showUI() { document.body.classList.remove('rec'); armAutoHide(); }
+function showUI() { if (REC_MODE) return; document.body.classList.remove('rec'); armAutoHide(); }
 $('#ctl').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') overCtl = true; });
 $('#ctl').addEventListener('pointerleave', () => { overCtl = false; armAutoHide(); });
 addEventListener('pointermove', e => { if (e.pointerType !== 'touch') showUI(); });
 addEventListener('pointerup', e => {
-  if (e.pointerType !== 'touch') return;
+  if (REC_MODE || e.pointerType !== 'touch') return;
   if (e.target.closest && e.target.closest('#ctl, #start')) { showUI(); return; }   // 操作バー上の操作は、表示を延長
   if (document.body.classList.contains('rec')) showUI();
   else { document.body.classList.add('rec'); clearTimeout(uiTimer); }
