@@ -798,12 +798,23 @@ addEventListener('keydown', e => {
   if (e.key === 'm' || e.key === 'M') mute();
 });
 // タッチ操作: タップで操作バー(UI)の表示/非表示を切り替える(YouTube風)。Hキーが使えない端末向け
-// ※タッチ端末は、最初は非表示。操作バー自体と、再生ボタン(#start)のタップは対象外
-if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('rec');
+// ※タッチ端末は、最初は非表示。操作バー自体と、再生ボタン(#start)のタップでは、切り替えません
+// ※再生中は、最後の操作から数秒で自動的に非表示になります(一時停止中は出しっぱなし)
+const AUTO_HIDE_MS = 3500;
+let touchUI = matchMedia('(pointer: coarse)').matches, uiTimer = 0;
+if (touchUI) document.body.classList.add('rec');
+function armAutoHide() {
+  clearTimeout(uiTimer);
+  if (!touchUI || document.body.classList.contains('rec')) return;
+  uiTimer = setTimeout(() => {
+    if (playing && !seeking) document.body.classList.add('rec'); else armAutoHide();
+  }, AUTO_HIDE_MS);
+}
 addEventListener('pointerup', e => {
   if (e.pointerType !== 'touch') return;
-  if (e.target.closest && e.target.closest('#ctl, #start')) return;
-  document.body.classList.toggle('rec');
+  touchUI = true;
+  if (!(e.target.closest && e.target.closest('#ctl, #start'))) document.body.classList.toggle('rec');
+  armAutoHide();    // 操作バー上の操作でも、非表示までの時間を延長する
 });
 function fit() {
   const s = Math.min(innerWidth / 1920, innerHeight / 1080);
