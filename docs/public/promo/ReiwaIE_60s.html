@@ -171,6 +171,7 @@ body.rec{cursor:none}
 /* スマホ・タブレット: 狭い画面では、キーボード操作の案内と WAV保存 を隠して、操作バーを収める */
 @media (pointer:coarse), (max-width:700px){#ctl .hint{display:none}}
 @media (max-width:700px){#ctl{gap:8px;padding:8px 10px}#ctl button{padding:6px 10px}#bWav{display:none}}
+#vvCredit{position:absolute;right:48px;bottom:36px;font-size:26px;opacity:.7;letter-spacing:.05em}
 #start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);cursor:pointer;font:900 40px var(--jp)}
 #start span{padding:20px 50px;border-radius:60px;background:var(--grad)}
 </style>
@@ -289,6 +290,7 @@ body.rec{cursor:none}
     <div class="copy">IEの頃の失われた1行を、<span class="gradtext">この手に。</span></div>
     <div class="sub">Excel VBA × Chrome DevTools Protocol ／ WebDriver BiDi</div>
     <div class="url">github.com/Eschamali/StarterWebScrapingKit</div>
+    <div id="vvCredit"></div>
   </div>
 
 </div>
@@ -721,7 +723,7 @@ at(56.8, (c, o, w) => SE.chime(c, o, w, 84, .1));
 at(57.7, (c, o, w) => SE.chime(c, o, w, 96, .05));
 EV.sort((a, b) => a.t - b.t);
 
-let actx = null, master = null, bus = null, evIdx = 0, c0 = 0, t0 = 0, muted = false;
+let actx = null, master = null, bus = null, duck = null, vbus = null, voiceOut = null, evIdx = 0, c0 = 0, t0 = 0, muted = false;
 function ensureCtx() {
   if (!actx) {
     actx = new AudioContext();
@@ -730,28 +732,76 @@ function ensureCtx() {
   }
   if (actx.state === 'suspended') actx.resume();
 }
+// BGM・SE は duck → bus → master、ナレーションは vbus → master と、別系統で流します(ナレーション中だけ、BGM・SEを下げるため)
 function newBus() {
-  if (bus) { const b = bus; b.gain.setTargetAtTime(0, actx.currentTime, .02); setTimeout(() => b.disconnect(), 300); }
+  if (bus) {
+    const b = bus, v = vbus; b.gain.setTargetAtTime(0, actx.currentTime, .02); v.gain.setTargetAtTime(0, actx.currentTime, .02);
+    setTimeout(() => { b.disconnect(); v.disconnect(); }, 300);
+  }
   bus = actx.createGain(); bus.gain.value = muted ? 0 : 1; bus.connect(master);
+  duck = actx.createGain(); duck.connect(bus);
+  vbus = actx.createGain(); vbus.gain.value = muted ? 0 : 1; vbus.connect(master); voiceOut = vbus;
 }
 function audioStart() {
   ensureCtx(); newBus();
   t0 = T; c0 = actx.currentTime + .05;
   evIdx = EV.findIndex(e => e.t >= T); if (evIdx < 0) evIdx = EV.length;
+  voiceResume();
 }
 function audioStop() { if (actx) newBus(); }
 function pump() {
   while (evIdx < EV.length && EV[evIdx].t < T + .3) {
     const e = EV[evIdx++], w = c0 + (e.t - t0);
-    if (w >= actx.currentTime - .01) e.fn(actx, bus, Math.max(w, actx.currentTime));
+    if (w >= actx.currentTime - .01) e.fn(actx, duck, Math.max(w, actx.currentTime));
   }
 }
-// 動画編集用：BGM+SEを60秒のWAVとして書き出し
+/* ---------- ナレーション（任意） ----------
+   voice/narration_60s.json と、そこに書かれた voice/<id>.wav があれば、自動で重ねます。無ければ、従来どおりBGM+SEだけです
+   ※ wav は voice/generate.html (VOICEVOX) で作ります */
+const VOICE = { lines: [] };
+const DUCK = .4;    // ナレーション中の BGM・SE の音量
+function playVoice(c, o, w, v, off = 0) {
+  const s = c.createBufferSource(); s.buffer = v.buf;
+  const g = c.createGain(); g.gain.value = v.volume ?? 1;
+  s.connect(g); g.connect(voiceOut || o); s.start(w, off);
+  const d = v.buf.duration - off;
+  o.gain.setTargetAtTime(DUCK, w, .08); o.gain.setTargetAtTime(1, w + d, .3);
+}
+// シーク・再開の位置が、ナレーションの途中だった場合は、その続きから再生する
+function voiceResume() {
+  for (const v of VOICE.lines) if (v.at < T && T < v.at + v.buf.duration) playVoice(actx, duck, actx.currentTime + .05, v, T - v.at);
+}
+async function loadVoice() {
+  try {
+    const res = await fetch('voice/narration_60s.json', { cache: 'no-cache' });
+    if (!res.ok) return;
+    const man = await res.json();
+    const dec = new OfflineAudioContext(1, 1, 44100);
+    const lines = (await Promise.all((man.lines || []).map(async v => {
+      try {
+        const r = await fetch('voice/' + v.id + '.wav'); if (!r.ok) return null;
+        v.buf = await dec.decodeAudioData(await r.arrayBuffer()); return v;
+      } catch (e) { return null; }
+    }))).filter(Boolean);
+    if (!lines.length) return;
+    VOICE.lines = lines;
+    lines.forEach(v => at(v.at, (c, o, w) => playVoice(c, o, w, v)));
+    EV.sort((a, b) => a.t - b.t);
+    if (playing && actx) { evIdx = EV.findIndex(e => e.t >= T); if (evIdx < 0) evIdx = EV.length; }
+    $('#vvCredit').textContent = man.credit || '';
+  } catch (e) { /* 読み込めなければ、ナレーションなしで再生 */ }
+}
+loadVoice();
+
+// 動画編集用：BGM+SE(+ナレーション)を60秒のWAVとして書き出し
 async function exportWav() {
   const sr = 44100, oc = new OfflineAudioContext(2, sr * DUR, sr);
   const comp = oc.createDynamicsCompressor(); comp.connect(oc.destination);
   const g = oc.createGain(); g.gain.value = .8; g.connect(comp);
-  for (const e of EV) e.fn(oc, g, e.t);
+  const mus = oc.createGain(), vo = oc.createGain(); mus.connect(g); vo.connect(g);
+  const keep = voiceOut; voiceOut = vo;
+  for (const e of EV) e.fn(oc, mus, e.t);
+  voiceOut = keep;
   const buf = await oc.startRendering();
   const n = buf.length, dv = new DataView(new ArrayBuffer(44 + n * 4));
   const ws = (o, s) => [...s].forEach((ch, i) => dv.setUint8(o + i, ch.charCodeAt(0)));
@@ -763,7 +813,7 @@ async function exportWav() {
     dv.setInt16(o, cl(L[i], -1, 1) * 32767, true); dv.setInt16(o + 2, cl(R[i], -1, 1) * 32767, true);
   }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([dv], { type: 'audio/wav' })); a.download = 'ReiwaIE_60s_BGM.wav'; a.click();
+  a.href = URL.createObjectURL(new Blob([dv], { type: 'audio/wav' })); a.download = VOICE.lines.length ? 'ReiwaIE_60s_BGM_Voice.wav' : 'ReiwaIE_60s_BGM.wav'; a.click();
 }
 
 /* ---------- 再生制御（音声クロックを基準に映像を同期） ---------- */
@@ -783,7 +833,7 @@ function play(v) {
 }
 function mute() {
   muted = !muted; $('#bMute').textContent = muted ? '🔇' : '🔊';
-  if (bus) bus.gain.setTargetAtTime(muted ? 0 : 1, actx.currentTime, .02);
+  if (bus) { bus.gain.setTargetAtTime(muted ? 0 : 1, actx.currentTime, .02); vbus.gain.setTargetAtTime(muted ? 0 : 1, actx.currentTime, .02); }
 }
 $('#bPlay').onclick = () => play();
 $('#bRe').onclick = () => { T = 0; play(true); };
