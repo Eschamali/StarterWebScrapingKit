@@ -103,7 +103,7 @@ Private Declare PtrSafe Function IsWindow Lib "user32" (ByVal hWnd As LongPtr) A
 ' [ SECTION ] Page.TransitionType
 ' ブラウザに対して「どのような経緯・手段でこのURLへ遷移したか」を指定・判定します。
 ' アクセス解析やボット対策システム（Cloudflare等）が参照する通信指紋に影響を与えます。
-'---------------------------------------------------------------------------------------------------'
+'---------------------------------------------------------------------------------------------------
 Public Enum PageTransitionType
     pt_default              ' [既定]                Chrome標準におまかせ
 
