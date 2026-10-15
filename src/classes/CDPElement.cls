@@ -821,16 +821,16 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         Dim resultSearch As Variant
         If ParentElement Is Nothing Then
             '2-1. `CDPContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
-            resultSearch = main.jsEval(CurrentElement.SearchJS)
+            resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
             If Not Not CurrentElement.SearchArgs Then
                 '引数情報があるので、引数付きで実行
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
             Else
-                resultSearch = main.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
             End If
         End If
 
@@ -1046,7 +1046,7 @@ Public Function getChildren() As Collection
     '3. Get length via callFunctionOn
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
@@ -1061,7 +1061,7 @@ Public Function getChildren() As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1204,7 +1204,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '3. Get length and each item's objectId
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.length }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1219,7 +1219,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1368,7 +1368,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '6. Get snapshotLength and each item's objectId
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
-    length_ = main.jsEval("function(){ return this.snapshotLength }", collOid)
+    length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1383,7 +1383,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArgs(0) = itemArg
 
         '7-3. 引数付きで実行
-        itemResult = main.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
+        itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
 
         '7-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1742,6 +1742,6 @@ Private Sub Class_Terminate()
     If StrPtr(CurrentElement.objectId) Then
         Dim paramsCDP As New Dictionary
         paramsCDP.Add "objectId", CurrentElement.objectId
-        main.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
     End If
 End Sub
