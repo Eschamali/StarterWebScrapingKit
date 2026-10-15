@@ -401,9 +401,6 @@ Attribute value.VB_UserMemId = 0
 End Property
 
 Property Get rawValue() As Variant
-    '例外情報がある時は、即抜け
-    If m_isException Then Exit Property
-
     CDPHelpers.SetVar(rawValue) = m_ResultObject.Item("value")
 End Property
 
