@@ -327,7 +327,7 @@ End Sub
 '***************************************************************************************************
 '* 機能　　：BiDiとしての、JavaScript実行で返ったJsonDictionaryから、最適な結果値を取り出します
 '---------------------------------------------------------------------------------------------------
-'* 注意事項：返す優先順位は、`script.SharedId` > `script.Handle` > `value` として、`m_AutoValue`に格納します
+'* 注意事項：返す優先順位は、`script.Handle` > `value` として、`m_AutoValue`に格納します
 '***************************************************************************************************
 Private Sub AnalysisScriptRemoteValue()
     Const FromProcedureName As String = ThisClassName & ".AnalysisScriptRemoteValue"
