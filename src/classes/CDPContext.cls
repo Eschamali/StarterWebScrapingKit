@@ -2428,225 +2428,166 @@ End Function
 '***************************************************************************************************
 '                           ■■■ `CDPElement.cls`継承準備 ■■■
 '***************************************************************************************************
+'* 機能　　：ID属性値で要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Get an element class from the element ID, similar to the getElementByID of JS.
+'            The element class has useful properties and methods similar to the HTML element
+'            object in previous IE automation.
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementByID(strID As String) As CDPElement
-'----------------------------------------------------------------------------------
-' Get an element class from the element ID, similar to the getElementByID of JS.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation.
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. ID値で、検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.getElementById(""" & strID & """)"
-    resultSearch = jsEval(SearchJS)
-
-    '2. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '3. 結果を`CDPElement.cls`に格納
-    Set getElementByID = New CDPElement
-    getElementByID.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set getElementByID = SearchElement("document.getElementById(""" & strID & """)")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：XPathで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
+'            eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
+'            eg.2 "//input[@name='username']": tag "input" & attribute "name" to be 'username'
+'            eg.3 "//a[@a1='abc' and @a2='xyz']": tag "a" with attribute a1 = abc and a2 = xyz
+'            eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
+'            eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
+'            eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementByXPath(strXPath As String) As CDPElement
-'---------------------------------------------------------------------------------------
-' Get an element class from XPath. The element class is init in CDPElement module.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation.
-' XPath Syntax help: https://www.w3schools.com/xml/xpath_syntax.asp
-' Updated: 02/03/2023
-' Examples -----------------------------------------------------------------------------
-' eg.1 "//b[text()='T-BILL CURVE']": tag "b" with innertext to be 'T-BILL CURVE'
-' eg.2 "//input[@name='username']": tag "input" & attribute "name" to be 'username'
-' eg.3 "//a[@a1='abc' and @a2='xyz']": tag "a" with attribute a1 = abc and a2 = xyz
-' eg.4 "//div[@id='abc']/div": get first div child of the div with id = abc
-' eg.5 "//div[@id='abc'].//div": get first div descendant of the div with id = abc
-' eg.6 "div": get first div child from the prescribed contextNode (default = 'document')
-'---------------------------------------------------------------------------------------
-
-    '1. Verify double slash syntax
     'People normally get this wrong when using XPath
     If InStr(1, strXPath, "\") Then strXPath = Replace(strXPath, "\", "/")
 
-    '2. Xpath方式で検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
-    resultSearch = jsEval(SearchJS)
-
-    '3. 結果を判定。文字型なら、ObjectIDを確保
-    Dim objectId As String, JsResultVarType As VbVarType
-    JsResultVarType = VarType(resultSearch)
-    If JsResultVarType = vbString Then objectId = resultSearch
-
-    '4. 結果を`CDPElement.cls`に格納
-    Set getElementByXPath = New CDPElement
-    getElementByXPath.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set getElementByXPath = SearchElement("document.evaluate(""" & strXPath & """, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：XPathで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 詳細説明：For further info on the particular XPath syntax used for retrieving the elements, refer to Mozilla doc below:
+'            https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
 Public Function getElementsByXPath(strXPath As String) As Collection
-'----------------------------------------------------------------------------------
-' Get a collection of elements by XPath. For further info on the particular XPath
-' syntax used for retrieving the elements, refer to Mozilla doc below:
-' https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
-' Note that index for accessing the collection members start at one (not zero).
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. Verify double slash syntax
     'People normally get this wrong when using XPath
     strXPath = Replace(strXPath, "\", "/")
 
-    '2. 複数Xpath方式で検索実行
-    Dim SearchJS As String, resultsSearch As Variant
-    SearchJS = "document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)"
-    resultsSearch = jsEval(SearchJS)
-
-    '3. 結果を判定。文字型なら、ObjectIDを確保
-    Dim collOid As String
-    If VarType(resultsSearch) = vbString Then
-        collOid = resultsSearch
-    Else
-        'ない場合は、即抜け
-        Exit Function
-    End If
-
-    '4. Get snapshotLength via callFunctionOn
-    Set getElementsByXPath = New Collection
-    Dim length_ As Long, N As Long
-    length_ = jsEval("function(){ return this.snapshotLength }", objectId:=collOid)
-
-    '5. Get each item's objectId via callFunctionOn
-    Dim tElement As CDPElement
-    Dim itemArgs(0) As Dictionary, itemArg As Dictionary
-    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
-    For N = 0 To length_ - 1
-        '5-1. `callFunctionOn`に渡す引数を初期化
-        Set itemArg = New Dictionary
-
-        '5-2. `callFunctionOn`に渡す引数をセット
-        itemArg.Add "value", N
-        Set itemArgs(0) = itemArg
-
-        '5-3. 引数付きで実行
-        itemResult = jsEval("function(n){ return this.snapshotItem(n) }", objectId:=collOid, objectArguments:=itemArgs)
-
-        '5-4. 念のため、有効な`ObjectID`かチェック
-        itemResultVarType = VarType(itemResult)
-        If itemResultVarType = vbString Then
-            itemObjectID = itemResult
-
-            '5-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
-            Set tElement = New CDPElement
-            tElement.Init Me, itemResultVarType, itemObjectID
-            getElementsByXPath.Add tElement
-        End If
-    Next
-
+    Set getElementsByXPath = SearchElements("document.evaluate(""" & strXPath & """, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)", _
+                                            "function(){ return this.snapshotLength }", _
+                                            "function(n){ return this.snapshotItem(n) }")
 End Function
 
+'***************************************************************************************************
+'* 機能　　：QuerySelectorで要素を検索し、`CDPElement`として返却します
+'---------------------------------------------------------------------------------------------------
+'* 詳細説明：Refer to the below for some examples.
+'            https://www.w3schools.com/jsref/met_document_queryselector.asp
+'            https://stackoverflow.com/a/29937844
+'            https://www.w3.org/TR/selectors-3/#context
+'            eg.1 "#abc": get the first element with id attribute = abc
+'            eg.2 "tb.xyz": get the first element with tag tb and with class xyz
+'            eg.3 "a[name='abc']": get the first element with tag a and attribute name = abc
+'            eg.4 "div > p": get the first element with tag 'p' and has parent with tag 'div'
+'            eg.5 "[a1='abc'][a2='xyz']": get element with attribute a1 = abc and a2 = 123
+'            eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
+'                 of an element with attribute a1 = abc
+'            eg.7 "#processType [id*='select_option']": get child element with id text that
+'                 contains "select_option" and is a child of element with id "processType"
+'            eg.8 "#upload:not([disabled])": get the first element with id=upload and does not
+'                 have attribute 'disabled'.
+'            eg.9 "#upload:disabled": get the first element with id=upload and has attribute
+'                 'disabled'.
+'            eg.10 "#id1 tr:last-child [id*='invoiceno']": first get element with id text
+'                  'id1', then look for the last child with tag 'tr', then finally look within the
+'                  child's children for the first element with id containing 'invoiceno'.
+'* 更新履歴：08/11/2023
+'***************************************************************************************************
 Public Function getElementByQuery(strQuery As String) As CDPElement
-'----------------------------------------------------------------------------------
-' Get an element class by QuerySelector - similar to that of the same in JS.
-' The element class has useful properties and methods similar to the HTML element
-' object in previous IE automation. Refer to the below for some examples.
-' https://www.w3schools.com/jsref/met_document_queryselector.asp
-' https://stackoverflow.com/a/29937844
-' https://www.w3.org/TR/selectors-3/#context
-' Updated: 08/11/2023
-' Examples ------------------------------------------------------------------------
-' eg.1 "#abc": get the first element with id attribute = abc
-' eg.2 "tb.xyz": get the first element with tag tb and with class xyz
-' eg.3 "a[name='abc']": get the first element with tag a and attribute name = abc
-' eg.4 "div > p": get the first element with tag 'p' and has parent with tag 'div'
-' eg.5 "[a1='abc'][a2='xyz']": get element with attribute a1 = abc and a2 = 123
-' eg.6 "[a1='abc'] [a2='xyz']": get element with attribute a2 = xyz and is a child
-' of an element with attribute a1 = abc
-' eg.7 "#processType [id*='select_option']": get child element with id text that
-' contains "select_option" and is a child of element with id "processType"
-' eg.8 "#upload:not([disabled])": get the first element with id=upload and does not
-' have attribute 'disabled'.
-' eg.9 "#upload:disabled": get the first element with id=upload and has attribute
-' 'disabled'.
-' eg.10 "#id1 tr:last-child [id*='invoiceno']": first get element with id text
-' 'id1', then look for the last child with tag 'tr', then finally look within the
-' child's children for the first element with id containing 'invoiceno'.
-'----------------------------------------------------------------------------------
+    Set getElementByQuery = SearchElement("document.querySelector(""" & strQuery & """)")
+End Function
 
-    '1. querySelector方式で検索実行
-    Dim SearchJS As String, resultSearch As Variant
-    SearchJS = "document.querySelector(""" & strQuery & """)"
+'***************************************************************************************************
+'* 機能　　：QuerySelectorAllで要素を複数検索し、`CDPElement`のコレクションとして返却します
+'---------------------------------------------------------------------------------------------------
+'* 返り値  ：`CDPElement`が詰まったCollection。検索自体が失敗した場合は、`Nothing`
+'* 注意事項：・コレクションのIndexは、1始まりです
+'            ・複数検索の場合、返される`CDPElement.cls`でのポーリング関連のメソッドはご利用できません
+'* 更新履歴：02/03/2023
+'***************************************************************************************************
+Public Function getElementsByQuery(strQuery As String) As Collection
+    Set getElementsByQuery = SearchElements("document.querySelectorAll(""" & strQuery & """)", _
+                                            "function(){ return this.length }", _
+                                            "function(n){ return this.item(n) }")
+End Function
+
+'***************************************************************************************************
+'* 機能　　：単数検索の共通処理です。検索JavaScriptを実行し、結果を`CDPElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   検索JavaScript。`CDPElement.onExist`での再検索にも使われるため、引数なしで完結する式にしてください
+'* 詳細説明：要素がある場合は`objectId`(文字列)、ない場合は`Null`が返るため、`vbNull`として格納されます
+'***************************************************************************************************
+Private Function SearchElement(SearchJS As String) As CDPElement
+    '1. 検索実行
+    Dim resultSearch As Variant
     resultSearch = jsEval(SearchJS)
 
-    '2. 結果を判定。文字型なら、ObjectIDを確保
+    '2. 結果を判定。文字型なら、`objectId`を確保
     Dim objectId As String, JsResultVarType As VbVarType
     JsResultVarType = VarType(resultSearch)
     If JsResultVarType = vbString Then objectId = resultSearch
 
     '3. 結果を`CDPElement.cls`に格納
-    Set getElementByQuery = New CDPElement
-    getElementByQuery.Init Me, JsResultVarType, objectId, SearchJS
-
+    Set SearchElement = New CDPElement
+    SearchElement.InitCDP Me, JsResultVarType, objectId, SearchJS
 End Function
 
-Public Function getElementsByQuery(strQuery As String) As Collection
-'----------------------------------------------------------------------------------
-' Get a collection of elements by QuerySelectorAll. The syntax is as below:
-' https://developer.mozilla.org/en-US/docs/Web/API/XPathResult/iterateNext
-' Note that index for accessing the collection members start at one (not zero).
-' Updated: 02/03/2023
-'----------------------------------------------------------------------------------
-
-    '1. querySelectorAll方式で検索実行
-    Dim SearchJS As String, resultsSearch As Variant
-    SearchJS = "document.querySelectorAll(""" & strQuery & """)"
+'***************************************************************************************************
+'* 機能　　：複数検索の共通処理です。検索JavaScriptで得たコレクションを1個ずつ`CDPElement`に格納します
+'---------------------------------------------------------------------------------------------------
+'* 引数　　：SearchJS   コレクション(NodeList/XPathResult等)を返す検索JavaScript
+'            LengthJS   コレクションの要素数を返す`function(){ return this... }`
+'            ItemJS     n番目の要素を返す`function(n){ return this...(n) }`
+'***************************************************************************************************
+Private Function SearchElements(SearchJS As String, LengthJS As String, ItemJS As String) As Collection
+    '1. 検索実行
+    Dim resultsSearch As Variant
     resultsSearch = jsEval(SearchJS)
 
-    '2. 結果を判定。文字型なら、ObjectIDを確保
+    '2. 結果を判定。文字型なら、コレクションの`objectId`を確保。ない場合は、即抜け
     Dim collOid As String
-    If VarType(resultsSearch) = vbString Then
-        collOid = resultsSearch
-    Else
-        'ない場合は、即抜け
-        Exit Function
-    End If
+    If VarType(resultsSearch) = vbString Then collOid = resultsSearch Else Exit Function
 
-    '3. Get length via callFunctionOn
-    Set getElementsByQuery = New Collection
+    '3. 要素数を取得
+    Set SearchElements = New Collection
     Dim length_ As Long, N As Long
-    length_ = jsEval("function(){ return this.length }", objectId:=collOid)
+    length_ = jsEval(LengthJS, objectId:=collOid)
 
-    '4. Get each item's objectId via callFunctionOn
+    '4. 要素数分、ループで順次取得していく
     Dim tElement As CDPElement
     Dim itemArgs(0) As Dictionary, itemArg As Dictionary
-    Dim itemResult As Variant, itemObjectID As String, itemResultVarType As VbVarType
+    Dim itemResult As Variant, itemResultVarType As VbVarType
     For N = 0 To length_ - 1
-        '4-1. `callFunctionOn`に渡す引数を初期化
+        '4-1. `Runtime.callFunctionOn`に渡す引数(`CallArgument`形式)をセット
         Set itemArg = New Dictionary
-
-        '4-2. `callFunctionOn`に渡す引数をセット
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
-        '4-3. 引数付きで実行
-        itemResult = jsEval("function(n){ return this.item(n) }", objectId:=collOid, objectArguments:=itemArgs)
+        '4-2. 引数付きで実行
+        itemResult = jsEval(ItemJS, objectId:=collOid, objectArguments:=itemArgs)
 
-        '4-4. 念のため、有効な`ObjectID`かチェック
+        '4-3. 念のため、有効な`objectId`かチェックし、`CDPElement.cls`に格納
         itemResultVarType = VarType(itemResult)
         If itemResultVarType = vbString Then
-            itemObjectID = itemResult
-
-            '4-5. 結果を`CDPElement.cls`に格納し、コレクションに追加
             Set tElement = New CDPElement
-            tElement.Init Me, itemResultVarType, itemObjectID
-            getElementsByQuery.Add tElement
+            tElement.InitCDP Me, itemResultVarType, CStr(itemResult)
+            SearchElements.Add tElement
         End If
     Next
 
+    '5. 用済みとなったコレクションの`objectId`を非同期解放
+    Dim paramsRelease As New Dictionary
+    paramsRelease.Add "objectId", collOid
+    ExecuteCDPAsync "Runtime.releaseObject", paramsRelease, False
 End Function
 
 '***************************************************************************************************
@@ -2668,7 +2609,7 @@ Public Function getIFrame(ExecutionContextId As Long) As CDPElement
 
     '3. 結果を`CDPElement.cls`に格納
     Set getIFrame = New CDPElement
-    getIFrame.Init Me, JsResultVarType, objectId, SearchJS
+    getIFrame.InitCDP Me, JsResultVarType, objectId, SearchJS
 End Function
 
 

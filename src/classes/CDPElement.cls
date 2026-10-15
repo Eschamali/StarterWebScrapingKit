@@ -70,7 +70,7 @@ End Enum
 '                                   ■■■ 各種クラス変数 ■■■
 '***************************************************************************************************
 'コンテキスト(タブ)制御クラスオブジェクト
-Private main As CDPContext
+Private mainCDP     As CDPContext
 
 'JavaScript検索結果情報
 Private Type ElementInfos
@@ -114,9 +114,9 @@ Private RunOption As callFunctionOnParameters
 '            　・複数取得系(getElementsByXPath等)
 '              ・`GetShadowRoot`メソッドの使用
 '***************************************************************************************************
-Public Sub Init(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
+Public Sub InitCDP(ThisCDPContext As CDPContext, argResultVarType As VbVarType, objectid_ As String, Optional JavaScriptStr As String)
     'コンテキスト(タブ)情報を継承
-    Set main = ThisCDPContext
+    Set mainCDP = ThisCDPContext
 
     With CurrentElement
         '実行結果の型タイプ
@@ -1625,6 +1625,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
                        Optional awaitPromise As Boolean, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
+                       Optional returnByDetails As Boolean, _
                        Optional StopApiError As Boolean = True) As Variant
     Const FromProcedureName As String = ThisClassName & ".jsEval"
 
@@ -1633,13 +1634,14 @@ Public Function jsEval(JavaScriptStr As String, Optional objectArguments As Vari
     If StrPtr(CurrentElement.objectId) = 0 Then printMsg ERROR_, "This class does not have an ObjectID assigned.", FromProcedureName, doRaiseError:=True: Exit Function
 
     '2. 実行
-    SetVar(jsEval) = main.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
+    SetVar(jsEval) = mainCDP.jsEval(JavaScriptStr, CurrentElement.objectId, objectArguments, IFEXCEPTION, , _
                                     returnByValue, _
                                     awaitPromise, _
                                     RunOption.userGesture, _
                                     True, _
                                     serializationOptions, _
                                     generatePreview, _
+                                    returnByDetails, _
                                     RunOption.RunAsyncCDP, _
                                     RunOption.StopException, _
                                     StopApiError)
