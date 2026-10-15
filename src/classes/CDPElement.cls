@@ -841,17 +841,30 @@ Public Function onExist(Optional timeOutInSeconds As Double = 30, Optional raise
         '2. 親情報に応じて検索方法を分岐
         Dim resultSearch As Variant
         If ParentElement Is Nothing Then
-            '2-1. `CDPContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
-            resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
+            '2-1. `CDPContext.cls`/`WebDriverBiDiContext.cls`から検索した場合は、親情報なしなので、検索文を再実行
+            If mainCDP Is Nothing Then
+                resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, Ownership:=True)
+            Else
+                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS)
+            End If
         Else
             '2-1. 引数情報に応じて、分岐
             '※`IsMissing`を機能させるため
             '判定の使用については右記にて→https://www.limecode.jp/entry/utility/check-redim-dynamic-array
-            If Not Not CurrentElement.SearchArgs Then
-                '引数情報があるので、引数付きで実行
-                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+            If mainCDP Is Nothing Then
+                If Not Not CurrentElement.SearchArgs Then
+                    '引数情報があるので、引数付きで実行
+                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs, Ownership:=True)
+                Else
+                    resultSearch = mainBiDi.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, Ownership:=True)
+                End If
             Else
-                resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                If Not Not CurrentElement.SearchArgs Then
+                    '引数情報があるので、引数付きで実行
+                    resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId, CurrentElement.SearchArgs)
+                Else
+                    resultSearch = mainCDP.jsEval(CurrentElement.SearchJS, ParentElement.CurrentObjectId)
+                End If
             End If
         End If
 
@@ -1067,7 +1080,11 @@ Public Function getChildren() As Collection
     '3. Get length via callFunctionOn
     Set getChildren = New Collection
     Dim length_ As Long, N As Long
-    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
+    If mainCDP Is Nothing Then
+        length_ = mainBiDi.jsEval("function(){ return this.length }", collOid)
+    Else
+        length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
+    End If
 
     '4. Get each item's objectId via callFunctionOn
     Dim tElement As CDPElement
@@ -1083,7 +1100,11 @@ Public Function getChildren() As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        If mainCDP Is Nothing Then
+            itemResult = mainBiDi.jsEval("function(n){ return this.item(n) }", collOid, itemArgs, Ownership:=True)
+        Else
+            itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        End If
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1229,7 +1250,11 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '3. Get length and each item's objectId
     Set getElementsByQuery = New Collection
     Dim length_ As Long, N As Long
-    length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
+    If mainCDP Is Nothing Then
+        length_ = mainBiDi.jsEval("function(){ return this.length }", collOid)
+    Else
+        length_ = mainCDP.jsEval("function(){ return this.length }", collOid)
+    End If
 
     '4. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1245,7 +1270,11 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArgs(0) = itemArg
 
         '4-3. 引数付きで実行
-        itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        If mainCDP Is Nothing Then
+            itemResult = mainBiDi.jsEval("function(n){ return this.item(n) }", collOid, itemArgs, Ownership:=True)
+        Else
+            itemResult = mainCDP.jsEval("function(n){ return this.item(n) }", collOid, itemArgs)
+        End If
 
         '4-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1396,7 +1425,11 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '6. Get snapshotLength and each item's objectId
     Set getElementsByXPath = New Collection
     Dim length_ As Long, N As Long
-    length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
+    If mainCDP Is Nothing Then
+        length_ = mainBiDi.jsEval("function(){ return this.snapshotLength }", collOid)
+    Else
+        length_ = mainCDP.jsEval("function(){ return this.snapshotLength }", collOid)
+    End If
 
     '7. 前述の実行結果の数分、ループで順次取得していく
     Dim tElement As CDPElement
@@ -1412,7 +1445,11 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArgs(0) = itemArg
 
         '7-3. 引数付きで実行
-        itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
+        If mainCDP Is Nothing Then
+            itemResult = mainBiDi.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs, Ownership:=True)
+        Else
+            itemResult = mainCDP.jsEval("function(n){ return this.snapshotItem(n) }", collOid, itemArgs)
+        End If
 
         '7-4. 念のため、有効な`ObjectID`かチェック
         itemResultVarType = VarType(itemResult)
@@ -1776,9 +1813,20 @@ End Property
 Private Sub Class_Terminate()
     '不要になった objectId をリリースします(あれば)
     '※毎回の同期解放はパフォーマンスが落ちるのでここは、非同期解放
-    If StrPtr(CurrentElement.objectId) Then
-        Dim paramsCDP As New Dictionary
-        paramsCDP.Add "objectId", CurrentElement.objectId
-        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsCDP, False
+    If StrPtr(CurrentElement.objectId) = 0 Then Exit Sub
+
+    Dim paramsAPI As New Dictionary
+    If mainCDP Is Nothing Then
+        'BiDi：`script.disown`で`script.handle`を解放
+        '※`WebDriverBiDiContext.ExecuteBiDiAsync`は`context`を自動付与してしまうため、`WebDriverBiDiMode`側から直接送信
+        Dim scriptTarget As New Dictionary
+        scriptTarget.Add "context", mainBiDi.context
+        paramsAPI.Add "handles", Array(CurrentElement.objectId)
+        paramsAPI.Add "target", scriptTarget
+        mainBiDi.ThisWebDriverBiDiMode.ExecuteBiDiAsync "script.disown", paramsAPI, False
+    Else
+        'CDP：`Runtime.releaseObject`で`objectId`を解放
+        paramsAPI.Add "objectId", CurrentElement.objectId
+        mainCDP.ExecuteCDPAsync "Runtime.releaseObject", paramsAPI, False
     End If
 End Sub
