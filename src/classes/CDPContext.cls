@@ -590,6 +590,10 @@ End Function
 '
 '            generatePreview                `objectId`で返った中身をプレーンテキスト化して、プレビューします。予め、ログレベルを`DEBUG`以下にしてください。基本は、開発時のみ`True`にしてください。
 '
+'            returnByDetails                True ：専用のJavaScript実行結果関連情報Classオブジェトとして返却します。`Runtime.RemoteObject`内のパラメーターとして呼ぶ必要がありますが、より詳細なパラメータ情報に`Get`として、アクセスしやすくします
+'                                           False：基本は、`Runtime.RemoteObject - value`のみ返却し、優先順位に応じて最適な値を返します。VarType等である程度のJavaScript結果の型判定が可能です(既定)
+'                                           ※`RunAsyncCDP:=True`時は無視されます
+'
 '            RunAsyncCDP                    True ：結果を待たないCDPで実行します。実行時のIDが返却されます。主に、「この操作、`alert`関数が発動するな...」という場面で使用します。
 '                                           False：結果を待つCDPで実行します。基本はこれでOK(既定)
 '
@@ -626,6 +630,7 @@ Public Function jsEval(JavaScriptStr As String, Optional objectId As String, Opt
                        Optional allowUnsafeEvalBlockedByCSP As Boolean = True, _
                        Optional serializationOptions As Dictionary, _
                        Optional generatePreview As Boolean, _
+                       Optional returnByDetails As Boolean, _
                        Optional RunAsyncCDP As Boolean, _
                        Optional StopException As Boolean, _
                        Optional StopApiError As Boolean = True) As Variant
@@ -751,20 +756,15 @@ step1:
 
 step2:
 
-    'JavaScript実行結果部分の解析フェーズに移ります ----------------------------------------------------------------
-    '各種`Return Object`を取り出します
-    Dim Node_ReturnObject       As BiDiCDPJson: Set Node_ReturnObject = Node_CDPresult.NodeKey("result")
-
-    Dim Node_RemoteObject       As BiDiCDPJson: Set Node_RemoteObject = Node_ReturnObject.NodeKey("result")
-    Dim Node_ExceptionDetails   As BiDiCDPJson: If Node_ReturnObject.ExistsKey("exceptionDetails") Then Set Node_ExceptionDetails = Node_ReturnObject.NodeKey("exceptionDetails")  '`optional`なのでまずは、判定をかます
-
-    '`RemoteObject`部分を文字ログ化
-    If CDPHelpers.currentLog.seeRawSendMsgDbg Then printMsg Debug_, "jsEval - RemoteObject - JsonString = " & Node_RemoteObject.Stringify, FromProcedureName
+    'JavaScript実行結果部分の解析を委託 -------------------------------------------------------------------------------------------
+    Dim JsAnalysis As JsEvalResult
+    If returnByDetails Then Set JsAnalysis = New JsEvalResult Else Set JsAnalysis = JsEvalResult        '引数に応じて新規オブジェクトするか使い回すかをする
+    JsAnalysis.InitForReturnObject True, Node_CDPresult.NodeKey("result"), IFEXCEPTION, JavaScriptStr   '※`IFEXCEPTION`は`Variant`なので、省略情報も引き継げるので、IF分岐せず直接代入
 
     '例外（JS側のエラー）が発生していないかチェックし、あったら、ログを表示し、抜けます
-    If Not Node_ExceptionDetails Is Nothing Then
+    If JsAnalysis.isException Then
         '最後の詳細例外情報を記録
-        Set lastExceptionDetailsJS = Node_ExceptionDetails
+        Set lastExceptionDetailsJS = JsAnalysis.rawException
 
         '実行したJavaScriptコードの改行を消して、長すぎる場合はカットする（整形）
         strLogValue = LogFormat(JavaScriptStr, 100)
@@ -776,7 +776,12 @@ step2:
             printMsg ERROR_, "An exception occurred while executing JavaScript: " & strLogValue & vbCrLf & vbCrLf & "<exceptionDetails>" & vbCrLf & exceptionDetails, FromProcedureName, doRaiseError:=True
         Else
             '`StopException`が無効の場合は、簡易部分の例外内容を出す
-            printMsg WARN_, "ExceptionType: " & Node_RemoteObject.StringKey("className") & " , " & "ExceptionDescription: " & Node_RemoteObject.StringKey("description"), FromProcedureName
+            Dim ExceptionResultObject As JsEvalResult
+            Set ExceptionResultObject = JsAnalysis.ExceptionResultObject
+            printMsg WARN_, "ExceptionType: " & ExceptionResultObject.ClassName & " , " & "ExceptionDescription: " & ExceptionResultObject.Description, FromProcedureName
+
+            '詳細モードの場合は一律、専用オブジェクトとして返却し、抜けます
+            If returnByDetails Then Set jsEval = JsAnalysis: Exit Function
 
             '返り値判定
             If IsMissing(IFEXCEPTION) Then
@@ -795,11 +800,12 @@ step2:
     End If
 
    'If the return type has a specific type we can return the result -------------------------------------------
-    Dim tmp
-    If JSresultAnalysis(Node_RemoteObject, generatePreview, tmp) Then
-        Set jsEval = tmp
+    If returnByDetails Then
+        '詳細モードの場合は、先ほどの結果オブジェクトを渡して、抜ける
+        Set jsEval = JsAnalysis
+        Exit Function
     Else
-        Let jsEval = tmp
+        If JsAnalysis.ResultTypeForVBA = vbObject Then Set jsEval = JsAnalysis.value Else jsEval = JsAnalysis.value
     End If
    '-----------------------------------------------------------------------------------------------------------
 
@@ -807,6 +813,7 @@ step3:
 
     'Output to Immediate Window if enabled -------------------------------------------------------------------
     ' VarTypeを使って型ごとにログ用の文字列を作る
+    '※primitive values の場合は、結果値も付ける
     Select Case VarType(jsEval)
         Case vbDouble
             strLogValue = "[Double] " & jsEval
@@ -828,146 +835,6 @@ step3:
     printMsg Debug_, "Script executed: " & LogFormat(JavaScriptStr, 100) & " | Returned: " & strLogValue, FromProcedureName
    '---------------------------------------------------------------------------------------------------------
 
-End Function
-
-'***************************************************************************************************
-'* 機能　　：JavaScript実行で返ったJsonDictionaryから、結果値`value`だけを取り出すように試みます
-'---------------------------------------------------------------------------------------------------
-'* 引数　　：RemoteObject   `Runtime.RemoteObject`でのJson-Dictionaryを指定します。　https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-RemoteObject
-'            ObjectPreview  オブジェクトツリー構造の一部をテキスト化してプレビューします。デバッグ用途のみ
-'            ReturnValue    結果値。参照渡しによる実質返り値です。`primitive values` OR `Object` 両方が想定されます。
-'
-'* 返り値　：ReturnValueがObjectであるかの論理値。`ReturnValue`がObject型であるかを呼び出し側で正しく代入するために必要です。
-'---------------------------------------------------------------------------------------------------
-'* 注意事項：・返す優先順位は、`deepSerializedValue` > `objectId` > `value`です
-'            ・`description`等といった補助情報やエラー情報は返しません。
-'***************************************************************************************************
-Private Function JSresultAnalysis(RemoteObject As BiDiCDPJson, ObjectPreview As Boolean, ByRef ReturnValue As Variant) As Boolean
-    Const FromProcedureName As String = ThisClassName & ".JSresultAnalysis"
-    Const ErrorLandmark     As String = "error"
-
-
-    '------------------------ 1. 特定項目有無チェック ------------------------
-    '`deepSerializedValue`があったらそれを最優先に返します
-    If RemoteObject.ExistsKey("deepSerializedValue") Then
-        '見つかったので、`deepSerializedValue`を返して、ここで抜ける
-        Set ReturnValue = RemoteObject("deepSerializedValue")
-        printMsg info_, "JS-Return type: object-deepSerializedValue", FromProcedureName
-
-        'Objectで返したのでその目印もつけておく
-        JSresultAnalysis = True
-        Exit Function
-
-    '`objectId`があったら、こっちを返します
-    '※type=objectで、`returnByValue:=False`なら`null`以外、ここを通ります
-    ElseIf RemoteObject.ExistsKey("objectId") Then
-        '見つかったので、`objectId`を返す
-        ReturnValue = RemoteObject.StringKey("objectId")
-        printMsg info_, "JS-Return type: objectId", FromProcedureName
-
-        '返ったObjectID情報を列挙する
-        Dim objectSubtype As String: objectSubtype = RemoteObject.StringKey("subtype")
-        printMsg Debug_, String(100, "="), FromProcedureName
-        printMsg Debug_, "objectId information", FromProcedureName
-        printMsg Debug_, String(100, "-"), FromProcedureName
-        printMsg Debug_, "objectId          : " & ReturnValue, FromProcedureName
-        printMsg Debug_, "objectType        : " & RemoteObject.StringKey("type"), FromProcedureName
-        printMsg Debug_, "objectSubtype     : " & objectSubtype, FromProcedureName
-        printMsg Debug_, "objectClassName   : " & RemoteObject.StringKey("className"), FromProcedureName
-        printMsg Debug_, "objectDescription : " & RemoteObject.StringKey("description"), FromProcedureName
-        If ObjectPreview Then printMsg Debug_, "objectPreview     : " & RemoteObject.NodeKey("preview").Stringify, FromProcedureName
-        printMsg Debug_, String(100, "="), FromProcedureName
-
-        'エラー情報があればそのログを出しておく
-        '※「try { ... } catch(e) { return e }」といった書き方をしないとこのログは表示されない想定
-        If objectSubtype = ErrorLandmark Then printMsg WARN_, "This objectId(" & ReturnValue & ") contains an error. ErrorType: " & RemoteObject.StringKey("className") & " , " & "ErrorDescription: " & RemoteObject.StringKey("description"), FromProcedureName
-
-        Exit Function
-    End If
-
-
-    '------------------------ 2. primitive values OR JsonNodeの取得を試みる ------------------------
-    'primitive values の可能性があるので、それの取得を試みます
-    '以降は、`returnByValue:=True`でないと通りません
-    '例外として、`object-null`の場合は`returnByValue:=False`でもここを通って、null返却します
-
-    ' 格納型情報を取得
-    Dim ValueType       As String: ValueType = RemoteObject.StringKey("type")
-    Dim ExistsSubtype   As Boolean: ExistsSubtype = RemoteObject.ExistsKey("subtype")
-    Dim ValueSubtype    As String: If ExistsSubtype Then ValueSubtype = RemoteObject.StringKey("subtype")
-    printMsg Debug_, "Type info. type: " & ValueType & " , subtype: " & ValueSubtype, FromProcedureName
-
-    '型に応じた分岐処理
-    Select Case ValueType
-        Case "object"
-            ' object型の場合はsubtypeで更に細かく分岐
-            Select Case ValueSubtype
-                Case "null"
-                    ReturnValue = Null
-                    printMsg info_, "JS-Return type: object-null", FromProcedureName
-
-                Case Else
-                    '`returnByValue:=True`の場合は`null`以外全て、Json文字列として生成されます。
-                    'つまり、`type:="Object"`ではあるが、`subtype`は空欄、でも値自体はあるということです。
-                    'よって、Node形式として返却します。
-                    Set ReturnValue = RemoteObject.NodeKey("value")
-                    printMsg info_, "JS-Return type: object(returnByValue:=True)", FromProcedureName
-
-            End Select
-
-        Case "function"
-            ' 関数が返ってきた場合は、「{"type":"function","value":{}}」なので、`SET`
-            Set ReturnValue = RemoteObject.NodeKey("value")
-            printMsg info_, "JS-Return type: function", FromProcedureName
-
-        Case "undefined"
-            ' JSの undefined は VBAでは Empty が一番近い
-            ReturnValue = Empty
-            printMsg info_, "JS-Return type: undefined", FromProcedureName
-
-        Case "string"
-            ' 文字列として認識するように返す
-            ReturnValue = RemoteObject.StringKey("value")
-            printMsg info_, "JS-Return type: string", FromProcedureName
-
-        Case "number"
-            'VBAで扱える型か？
-            If RemoteObject.ExistsKey("unserializableValue") Then
-                'VBAで扱えない特殊な"number"の場合は、警告を出し、「#NUM!」で返します。
-                printMsg WARN_, "This `number` can't be processed in VBA. It returns `#NUM!` instead. Actual JS result: " & RemoteObject("unserializableValue") & " , description: " & RemoteObject("description"), FromProcedureName
-                ReturnValue = CVErr(xlErrNum)
-            Else
-                ' Double型として認識するように返す
-                ' ※JavaScriptは、整数専用等の型がないため
-                ReturnValue = CDbl(RemoteObject.NumberKey("value"))
-            End If
-
-            printMsg info_, "JS-Return type: number", FromProcedureName
-
-        Case "boolean"
-            ' boolean型として認識するように返す
-            ReturnValue = RemoteObject.BoolKey("value")
-            printMsg info_, "JS-Return type: boolean", FromProcedureName
-
-        Case "symbol"
-            '※`symbol`は、`returnByValue:=True`にすると、「Object couldn't be returned by value.」というCDPエラーで返るので通らないと思うが念のため。
-            ReturnValue = RemoteObject.Item("value")
-            printMsg info_, "JS-Return type: symbol", FromProcedureName
-
-        Case "bigint"
-            ' BigInt は JSON に変換できない巨大整数のため、unserializableValue の中にある値をそのまんま文字列として、返却します
-            ReturnValue = RemoteObject.StringKey("unserializableValue")
-            printMsg WARN_, "Unserializable BigInt detected. Returning as String: " & ReturnValue & " , description: " & RemoteObject("description"), FromProcedureName
-            printMsg info_, "JS-Return type: bigint", FromProcedureName
-
-        Case Else
-            'ドキュメント化されてない型があったら、安全のため。止めておく
-            printMsg ERROR_, "This data type cannot be handled in VBA. type: " & ValueType, FromProcedureName, doRaiseError:=True
-
-    End Select
-
-    'SETステートメントするかの判定を用意する
-    JSresultAnalysis = IsObject(ReturnValue)
 End Function
 
 '***************************************************************************************************
