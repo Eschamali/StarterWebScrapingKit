@@ -348,11 +348,11 @@ Sub SimpleShadowRootTest()
         Set .BrowserEvents = New Dictionary   'イベントキャプチャを有効化
 
         '5. ボタン押下後、JavaScriptアラートが発動するため非同期実行するように設定(先述にて、直で`.click`をしないのはこのため)
-        JavaScriptAlertButton.SetOptionRunAsyncCDP = True
+        JavaScriptAlertButton.SetOptionRunAsync = True
 
         '改めてクリック処理
         JavaScriptAlertButton.SimpleClick
-        JavaScriptAlertButton.SetOptionRunAsyncCDP = False  '元に戻しておく
+        JavaScriptAlertButton.SetOptionRunAsync = False  '元に戻しておく
 
         ' --- 6. 特定のイベント名が出るまでループ ---
         Const SearchEventName As String = "Page.javascriptDialogOpening"    'JavaScriptアラートが出るのでその検知
