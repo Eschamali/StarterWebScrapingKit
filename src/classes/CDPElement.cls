@@ -200,6 +200,7 @@ Public Sub ExposeDevTools(varName As String)
     ' 1. 関数に渡す引数の設定 (ユーザーが指定した変数名)
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", varName
     Set args(0) = arg
 
@@ -457,6 +458,7 @@ Property Let checked(boolChecked As Boolean)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "boolean"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", CBool(boolChecked)
     Set args(0) = arg
     jsEval "function(v){ this.checked = v }", args
@@ -488,6 +490,7 @@ Property Let selected(selectedOption As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", selectedOption
     Set args(0) = arg
     jsEval "function(v){ this.selectedIndex = v }", args
@@ -537,6 +540,7 @@ Public Function getAttribute(strAttributeName As String) As String
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strAttributeName
     Set args(0) = arg
     getAttribute = jsEval("function(name){ return this.getAttribute(name) || '' }", args)
@@ -553,8 +557,14 @@ Public Function setAttribute(strAttributeName As String, strValue As String)
 
 
     Dim args2(1) As Dictionary
-    Dim a1 As New Dictionary: a1.Add "value", strAttributeName:   Set args2(0) = a1
-    Dim a2 As New Dictionary: a2.Add "value", strValue:           Set args2(1) = a2
+    Dim a1 As New Dictionary, a2 As New Dictionary
+    If mainCDP Is Nothing Then
+        'BiDiは`script.LocalValue`形式のため型名が必要
+        a1.Add "type", "string"
+        a2.Add "type", "string"
+    End If
+    a1.Add "value", strAttributeName:   Set args2(0) = a1
+    a2.Add "value", strValue:           Set args2(1) = a2
     jsEval "function(name, val){ this.setAttribute(name, val) }", args2
 
 End Function
@@ -603,6 +613,7 @@ Property Let value(strTextVal As String)
     'objectArgumentsで安全に値を渡す（エスケープ不要）
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
 
@@ -646,6 +657,7 @@ Property Let innerText(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerText = v }", args
@@ -679,6 +691,7 @@ Property Let innerHTML(strTextVal As String)
 
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strTextVal
     Set args(0) = arg
     jsEval "function(v){ this.innerHTML = v }", args
@@ -725,6 +738,7 @@ Public Function fireEvent(strEventName As String) As Boolean
    'Fire the event; simulated=true is in case form is REACT 15.5 or lower
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strEventName
     Set args(0) = arg
     jsEval "function(ev){ this.dispatchEvent(new Event(ev, { bubbles: true, simulated: true })) }", args
@@ -1064,6 +1078,7 @@ Public Function getChildren() As Collection
         Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
+        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
@@ -1104,6 +1119,7 @@ Public Function getElementByID(strID As String) As CDPElement
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strID
     Set args(0) = arg
 
@@ -1153,6 +1169,7 @@ Public Function getElementByQuery(strQuery As String) As CDPElement
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1192,6 +1209,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
     '1. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strQuery
     Set args(0) = arg
 
@@ -1222,6 +1240,7 @@ Public Function getElementsByQuery(strQuery As String) As Collection
         Set itemArg = New Dictionary
 
         '4-2. `callFunctionOn`に渡す引数をセット
+        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
@@ -1297,6 +1316,7 @@ Public Function getElementByXPath(strXPath As String) As CDPElement
     '3. `callFunctionOn`に渡す引数を準備
     Dim args(0) As Dictionary
     Dim arg As New Dictionary
+    If mainCDP Is Nothing Then arg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     arg.Add "value", strXPath
     Set args(0) = arg
 
@@ -1356,6 +1376,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
     '3. `callFunctionOn`に渡す引数を準備
     Dim xpArgs(0) As Dictionary
     Dim xpArg As New Dictionary
+    If mainCDP Is Nothing Then xpArg.Add "type", "string"   'BiDiは`script.LocalValue`形式のため型名が必要
     xpArg.Add "value", strXPath
     Set xpArgs(0) = xpArg
 
@@ -1386,6 +1407,7 @@ Public Function getElementsByXPath(strXPath As String) As Collection
         Set itemArg = New Dictionary
 
         '7-2. `callFunctionOn`に渡す引数をセット
+        If mainCDP Is Nothing Then itemArg.Add "type", "number"   'BiDiは`script.LocalValue`形式のため型名が必要
         itemArg.Add "value", N
         Set itemArgs(0) = itemArg
 
