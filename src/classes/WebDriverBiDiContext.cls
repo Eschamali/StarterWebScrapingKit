@@ -374,7 +374,7 @@ Public Function jsEval(JavaScriptStr As String, Optional scriptHandle As String,
     Dim UseJsMethod As String
 
     ' 【パターン1】特定の要素を操作する場合
-    Dim RemoteReference As New Dictionary:
+    Dim RemoteReference As New Dictionary
     If StrPtr(scriptHandle) Then
         UseJsMethod = "script.callFunction"
 
